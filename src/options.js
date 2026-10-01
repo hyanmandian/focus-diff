@@ -1,6 +1,33 @@
 (() => {
+  const { t } = FocusDiff;
   const $ = (selector, root = document) => root.querySelector(selector);
-  const clone = (id) => $(`#${id}`).content.firstElementChild.cloneNode(true);
+
+  const richText = (message) =>
+    message
+      .split(/(<b>.*?<\/b>|<code>.*?<\/code>)/)
+      .filter(Boolean)
+      .map((part) => {
+        const [, tag, text] = part.match(/^<(b|code)>(.*)<\/\1>$/) ?? [];
+        if (!tag) return document.createTextNode(part);
+        const element = document.createElement(tag);
+        element.textContent = text;
+        return element;
+      });
+
+  const translate = (root) => {
+    root.querySelectorAll('[data-i18n]').forEach((element) => (element.textContent = t(element.dataset.i18n)));
+    root.querySelectorAll('[data-i18n-html]').forEach((element) => element.replaceChildren(...richText(t(element.dataset.i18nHtml))));
+    root.querySelectorAll('[data-i18n-placeholder]').forEach((element) => (element.placeholder = t(element.dataset.i18nPlaceholder)));
+    return root;
+  };
+
+  const clone = (id) => {
+    const element = $(`#${id}`).content.firstElementChild.cloneNode(true);
+    const holder = document.createElement('div');
+    holder.append(element);
+    translate(holder);
+    return element;
+  };
   let uid = 0;
   const nextId = (prefix) => `${prefix}-${++uid}`;
 
@@ -15,16 +42,16 @@
   };
   const setDirty = () => {
     dirty = true;
-    say('Unsaved changes', 'warn');
+    say(t('statusUnsaved'), 'warn');
   };
 
   const filterProblems = (filter) => {
     const problems = [];
-    if (!filter.name.trim()) problems.push('Give the button a name.');
+    if (!filter.name.trim()) problems.push(t('errorName'));
     const include = FocusDiff.compile(filter.include);
     const exclude = FocusDiff.compile(filter.exclude);
-    if (!include.ok) problems.push(`Include isn't a valid regex: ${include.error}.`);
-    if (!exclude.ok) problems.push(`Exclude isn't a valid regex: ${exclude.error}.`);
+    if (!include.ok) problems.push(t('errorRegex', t('columnInclude'), include.error));
+    if (!exclude.ok) problems.push(t('errorRegex', t('columnExclude'), exclude.error));
     return { problems, name: !filter.name.trim(), include: !include.ok, exclude: !exclude.ok };
   };
 
@@ -49,9 +76,9 @@
     };
 
     const label = (row, filter) => {
-      const name = filter.name.trim() || 'Untitled filter';
+      const name = filter.name.trim() || t('untitledFilter');
       $('.filter-fields', row).setAttribute('aria-label', name);
-      $('.remove-filter', row).setAttribute('aria-label', `Remove ${name}`);
+      $('.remove-filter', row).setAttribute('aria-label', t('removeNamed', name));
     };
 
     const addRow = (filter, focus) => {
@@ -59,7 +86,7 @@
       const errorId = nextId('filter-error');
       $('.error', row).id = errorId;
       const fields = { name: $('.f-name', row), include: $('.f-include', row), exclude: $('.f-exclude', row) };
-      const labels = { name: 'Button name', include: 'Include regex', exclude: 'Exclude regex' };
+      const labels = { name: t('columnName'), include: t('labelInclude'), exclude: t('labelExclude') };
       Object.entries(fields).forEach(([key, input]) => {
         input.value = filter[key];
         input.setAttribute('aria-label', labels[key]);
@@ -102,7 +129,7 @@
   };
 
   const repoProblem = (repo) =>
-    FocusDiff.REPO_PATTERN.test(repo.trim()) ? '' : 'Use owner/name, or owner/* for every repository of an owner.';
+    FocusDiff.REPO_PATTERN.test(repo.trim()) ? '' : t('errorRepo');
 
   const renderRepo = (entry, focus) => {
     const card = clone('repo-template');
@@ -116,7 +143,7 @@
     input.value = entry.repo;
 
     const remove = $('.remove-repo', card);
-    const syncLabel = () => remove.setAttribute('aria-label', `Remove ${entry.repo.trim() || 'this repository'}`);
+    const syncLabel = () => remove.setAttribute('aria-label', t('removeNamed', entry.repo.trim() || t('thisRepository')));
     const check = (force) => {
       const problem = entry.repo || force ? repoProblem(entry.repo) : '';
       error.textContent = problem;
@@ -149,7 +176,7 @@
   };
 
   const syncAddRepo = () => {
-    $('#add-repo').textContent = suggestedRepo ? `Add filters only for ${suggestedRepo}` : 'Add a repository';
+    $('#add-repo').textContent = suggestedRepo ? t('addRepoFor', suggestedRepo) : t('addRepo');
   };
 
   const updateTry = () => {
@@ -157,7 +184,7 @@
     const repo = $('#try-repo').value.trim();
     const result = $('#try-result');
     if (!path) {
-      result.textContent = 'Type a file path to check it.';
+      result.textContent = t('tryEmpty');
       result.dataset.tone = '';
       return;
     }
@@ -166,9 +193,7 @@
       .filter((filter) => filter.name.trim() && FocusDiff.toMatcher(filter)?.(path))
       .map((filter) => filter.name.trim());
     result.dataset.tone = shown.length ? 'ok' : '';
-    result.textContent = shown.length
-      ? `Shown by All and ${shown.join(', ')}.`
-      : 'Only All shows this file. No filter matches it.';
+    result.textContent = shown.length ? t('tryShown', t('filterAll'), shown.join(', ')) : t('tryOnlyAll', t('filterAll'));
   };
 
   const save = async () => {
@@ -180,21 +205,16 @@
 
     if (!filtersOk || !reposOk) {
       filters.forEach((filter, index) => rows[index] && showFilterProblems(rows[index], filter, { force: true }));
-      say(!filtersOk ? 'Some filters need fixing before you can save.' : 'Check the repository names before saving.', 'error');
+      say(t(filtersOk ? 'statusFixRepos' : 'statusFixFilters'), 'error');
       document.querySelector('[aria-invalid="true"]')?.focus();
       return;
     }
     try {
       await FocusDiff.save(config);
       dirty = false;
-      say('Saved. Open pull requests pick it up right away.', 'ok');
+      say(t('statusSaved'), 'ok');
     } catch (error) {
-      say(
-        /QUOTA/i.test(error.message)
-          ? 'Too many filters to sync. Remove a few and try again.'
-          : `Couldn't save: ${error.message}`,
-        'error',
-      );
+      say(/QUOTA/i.test(error.message) ? t('statusQuota') : t('statusSaveError', error.message), 'error');
     }
   };
 
@@ -227,14 +247,14 @@
   };
 
   const filterCount = (value) => value.global.length + value.repos.reduce((sum, entry) => sum + entry.filters.length, 0);
-  const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+  const counted = (count, one, many) => (count === 1 ? t(one) : t(many, count));
 
   $('#export').addEventListener('click', async () => {
     const json = JSON.stringify(FocusDiff.normalize(config), null, 2);
     try {
       await navigator.clipboard.writeText(json);
       $('#export-fallback').hidden = true;
-      notify(`Copied ${plural(filterCount(config), 'filter')} to the clipboard`);
+      notify(counted(filterCount(config), 'copiedOne', 'copiedMany'));
     } catch {
       const fallback = $('#export-json');
       fallback.value = json;
@@ -264,9 +284,7 @@
       imported = null;
     }
     if (!imported || FocusDiff.isEmpty(imported)) {
-      importError.textContent = imported
-        ? 'That text has no filters in it. Ask your teammate to copy their filters again.'
-        : "That text isn't a copied set of filters. Paste exactly what Copy my filters produced.";
+      importError.textContent = imported ? t('importEmpty') : t('importInvalid', t('copyButton'));
       importBox.setAttribute('aria-invalid', 'true');
       importBox.focus();
       return;
@@ -277,8 +295,7 @@
     importBox.value = '';
     $('#import').disabled = true;
     clearImportError();
-    const count = filterCount(imported);
-    notify(`Imported ${plural(count, 'filter')}. Review ${count === 1 ? 'it' : 'them'}, then save.`);
+    notify(counted(filterCount(imported), 'importedOne', 'importedMany'));
     $('#global-h').focus();
   });
 
@@ -292,6 +309,10 @@
   window.addEventListener('beforeunload', (event) => {
     if (dirty) event.preventDefault();
   });
+
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+  document.title = t('optionsTitle');
+  translate(document.body);
 
   FocusDiff.load().then((loaded) => {
     config = loaded;

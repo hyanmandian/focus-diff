@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Focus Diff",
+  "name": "__MSG_extensionName__",
   "version": "1.0.0",
-  "description": "Review what matters: filter GitHub pull request diffs with your own presets and see the real size of what you review.",
+  "default_locale": "en",
+  "description": "__MSG_extensionDescription__",
   "author": {
     "email": "contact@hyan.com.br"
   },
@@ -14,7 +15,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Focus Diff settings"
+    "default_title": "__MSG_actionTitle__"
   },
   "options_page": "options.html",
   "content_scripts": [
@@ -37,5 +38,25 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "minimum_chrome_version": "102"
+  "minimum_chrome_version": "102",
+  "commands": {
+    "next-filter": {
+      "suggested_key": {
+        "default": "Alt+Shift+Period"
+      },
+      "description": "__MSG_commandNext__"
+    },
+    "previous-filter": {
+      "suggested_key": {
+        "default": "Alt+Shift+Comma"
+      },
+      "description": "__MSG_commandPrevious__"
+    },
+    "show-all": {
+      "suggested_key": {
+        "default": "Alt+Shift+0"
+      },
+      "description": "__MSG_commandAll__"
+    }
+  }
 }

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Add bookshelf · Pull Request #1</title>
+    <style>
+      body { font: 14px system-ui; margin: 0; padding: 16px; }
+      .layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; }
+      [role="region"] { border: 1px solid #ccc; margin-bottom: 16px; min-height: 80px; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a role="tab" href="#">Conversation <span class="Counter">3</span></a>
+      <a role="tab" href="#" aria-current="page">Files changed <span class="Counter">6</span></a>
+    </nav>
+    <div class="summary"><span>+120</span><span>−30</span></div>
+    <div class="layout">
+      <ul role="tree" aria-label="File tree">
+        <li role="treeitem" aria-expanded="true"><div>web/src</div>
+          <ul role="group">
+            <li role="treeitem"><div>book-card.tsx</div></li>
+            <li role="treeitem"><div>book-card.test.tsx</div></li>
+            <li role="treeitem"><div>book-card.stories.tsx</div></li>
+          </ul>
+        </li>
+        <li role="treeitem" aria-expanded="true"><div>api</div>
+          <ul role="group">
+            <li role="treeitem" aria-expanded="true"><div>books</div>
+              <ul role="group"><li role="treeitem"><div>service.py</div></li></ul>
+            </li>
+            <li role="treeitem" aria-expanded="true"><div>tests</div>
+              <ul role="group"><li role="treeitem"><div>test_service.py</div></li></ul>
+            </li>
+          </ul>
+        </li>
+        <li role="treeitem" aria-expanded="true"><div>docs</div>
+          <ul role="group"><li role="treeitem"><div>books.md</div></li></ul>
+        </li>
+      </ul>
+      <div id="diff-comparison-viewer-container"></div>
+    </div>
+    <script>
+      const files = [
+        ['web/src/book-card.tsx', 40, 10, 'attribute'],
+        ['web/src/book-card.test.tsx', 30, 5],
+        ['web/src/book-card.stories.tsx', 10, 0],
+        ['api/books/service.py', 25, 10],
+        ['api/tests/test_service.py', 10, 5],
+        ['docs/books.md', 5, 0],
+      ];
+      const container = document.getElementById('diff-comparison-viewer-container');
+      files.forEach(([path, added, removed, source], index) => {
+        const wrapper = document.createElement('div');
+        const button = source === 'attribute' ? `<button data-file-path="${path}">Expand all lines</button>` : '';
+        wrapper.innerHTML = `
+          <div role="region" id="diff-${index}" aria-labelledby="heading-${index}">
+            <div data-diff-header-wrapper>
+              <h3 id="heading-${index}">‎${path}‎</h3>${button}
+              <span class="sr-only">Lines changed: ${added} additions &amp; ${removed} deletions</span>
+            </div>
+            <div role="region" id="diff-${index}-hunk" aria-label="Hunk"><pre>@@ -1 +1 @@</pre></div>
+          </div>`;
+        container.append(wrapper);
+      });
+    </script>
+  </body>
+</html>

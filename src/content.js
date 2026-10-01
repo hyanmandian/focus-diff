@@ -1,5 +1,5 @@
 (() => {
-  const { ALL, formatNumber: format } = FocusDiff;
+  const { ALL, formatNumber: format, t } = FocusDiff;
   const page = GitHubPage;
 
   let config = FocusDiff.normalize({});
@@ -29,15 +29,27 @@
       .map((filter) => ({ ...filter, matches: FocusDiff.toMatcher(filter) }))
       .filter((filter) => filter.name && filter.matches);
 
+  const optionsFor = (repo) => [{ id: ALL, name: t('filterAll') }, ...filtersFor(repo)];
+
+  const select = (id) => {
+    const repo = page.repository();
+    if (!repo) return;
+    activeByRepo = { ...activeByRepo, [repo]: id };
+    chrome.storage.local.set({ active: activeByRepo });
+    announceNext = true;
+    schedule();
+  };
+
+  const step = (offset) => {
+    const repo = page.repository();
+    if (!repo) return;
+    const ids = optionsFor(repo).map((option) => option.id);
+    const index = Math.max(0, ids.indexOf(activeByRepo[repo] ?? ALL));
+    select(ids[(index + offset + ids.length) % ids.length]);
+  };
+
   const panel = FocusDiffPanel.create({
-    onSelect: (id) => {
-      const repo = page.repository();
-      if (!repo) return;
-      activeByRepo = { ...activeByRepo, [repo]: id };
-      chrome.storage.local.set({ active: activeByRepo });
-      announceNext = true;
-      schedule();
-    },
+    onSelect: select,
     onSettings: () => chrome.runtime.sendMessage({ type: 'open-options', repo: page.repository() }),
   });
 
@@ -80,17 +92,28 @@
     overwrite(counters.deletions, `−${format(totals.deletions)}`);
   };
 
+  const pageObserver = new MutationObserver(() => schedule());
+  let observing = false;
+
+  const observePage = (active) => {
+    if (active === observing) return;
+    observing = active;
+    if (active) pageObserver.observe(document.documentElement, { childList: true, subtree: true });
+    else pageObserver.disconnect();
+  };
+
   const apply = () => {
     scheduled = false;
     const repo = page.repository();
+    observePage(Boolean(repo));
     panel.setVisible(Boolean(repo));
     if (!repo) return;
 
-    const filters = filtersFor(repo);
-    const current = filters.find((filter) => filter.id === activeByRepo[repo]);
+    const options = optionsFor(repo);
+    const current = options.find((option) => option.id !== ALL && option.id === activeByRepo[repo]);
     const matches = current?.matches ?? (() => true);
 
-    panel.renderOptions([{ id: ALL, name: 'All' }, ...filters], current?.id ?? ALL);
+    panel.renderOptions(options, current?.id ?? ALL);
     const totals = filterDiffs(matches);
     filterTree(matches, Boolean(current));
     updatePageCounters(totals, Boolean(current));
@@ -98,7 +121,7 @@
 
     if (announceNext) {
       announceNext = false;
-      panel.announce({ name: current?.name ?? 'All', ...totals });
+      panel.announce({ name: current?.name ?? t('filterAll'), ...totals });
     }
   };
 
@@ -108,6 +131,19 @@
     setTimeout(apply, 50);
   };
 
+  const watchNavigation = () => {
+    let href = location.href;
+    const check = () => {
+      if (location.href === href) return;
+      href = location.href;
+      schedule();
+    };
+    window.navigation?.addEventListener('navigatesuccess', check);
+    ['turbo:load', 'turbo:render'].forEach((type) => document.addEventListener(type, check));
+    ['popstate', 'pageshow'].forEach((type) => window.addEventListener(type, check));
+    new MutationObserver(check).observe(document.head, { childList: true, subtree: true, characterData: true });
+  };
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes.config) config = FocusDiff.normalize(changes.config.newValue);
     if (area === 'local' && changes.active) activeByRepo = changes.active.newValue ?? {};
@@ -115,12 +151,17 @@
     schedule();
   });
 
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== 'command') return;
+    if (message.command === 'next-filter') step(1);
+    if (message.command === 'previous-filter') step(-1);
+    if (message.command === 'show-all') select(ALL);
+  });
+
   Promise.all([FocusDiff.load(), chrome.storage.local.get('active')]).then(([loaded, { active }]) => {
     config = loaded;
     activeByRepo = active ?? {};
-    new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
-    ['turbo:load', 'turbo:render'].forEach((type) => document.addEventListener(type, schedule));
-    ['popstate', 'pageshow'].forEach((type) => window.addEventListener(type, schedule));
+    watchNavigation();
     schedule();
   });
 })();

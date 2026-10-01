@@ -1,4 +1,4 @@
-importScripts('shared.js');
+if (typeof FocusDiff === 'undefined') importScripts('shared.js');
 
 const openOptions = (repo) =>
   chrome.tabs.create({ url: chrome.runtime.getURL(`options.html${repo ? `#repo=${encodeURIComponent(repo)}` : ''}`) });
@@ -14,4 +14,10 @@ chrome.action.onClicked.addListener(() => openOptions());
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'open-options') openOptions(message.repo);
+});
+
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  const target = tab ?? (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+  if (!target?.id) return;
+  chrome.tabs.sendMessage(target.id, { type: 'command', command }).catch(() => {});
 });

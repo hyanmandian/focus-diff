@@ -70,7 +70,9 @@ var FocusDiff = (() => {
 
   const save = (config) => chrome.storage.sync.set({ config: normalize(config) });
 
-  const formatNumber = new Intl.NumberFormat('en-US').format;
+  const t = (key, ...substitutions) => chrome.i18n?.getMessage(key, substitutions.map(String)) || key;
+
+  const formatNumber = new Intl.NumberFormat(chrome.i18n?.getUILanguage?.() || 'en-US').format;
 
   const isEmpty = (config) => config.global.length === 0 && config.repos.length === 0;
 
@@ -88,5 +90,6 @@ var FocusDiff = (() => {
     save,
     isEmpty,
     formatNumber,
+    t,
   };
 })();

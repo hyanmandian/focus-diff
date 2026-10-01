@@ -77,12 +77,24 @@ var FocusDiffPanel = (() => {
     }
   `;
 
-  const SETTINGS_ICON = `
-    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"
-      fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-      <path d="M2 4h7M13 4h1M2 8h1M7 8h7M2 12h5M11 12h3"/>
-      <circle cx="11" cy="4" r="2"/><circle cx="5" cy="8" r="2"/><circle cx="9" cy="12" r="2"/>
-    </svg>`;
+  const SVG = 'http://www.w3.org/2000/svg';
+  const settingsIcon = () => {
+    const svg = document.createElementNS(SVG, 'svg');
+    const attributes = { viewBox: '0 0 16 16', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'aria-hidden': 'true', focusable: 'false' };
+    Object.entries(attributes).forEach(([name, value]) => svg.setAttribute(name, value));
+    const shapes = [
+      ['path', { d: 'M2 4h7M13 4h1M2 8h1M7 8h7M2 12h5M11 12h3' }],
+      ['circle', { cx: '11', cy: '4', r: '2' }],
+      ['circle', { cx: '5', cy: '8', r: '2' }],
+      ['circle', { cx: '9', cy: '12', r: '2' }],
+    ];
+    for (const [tag, shapeAttributes] of shapes) {
+      const shape = document.createElementNS(SVG, tag);
+      Object.entries(shapeAttributes).forEach(([name, value]) => shape.setAttribute(name, value));
+      svg.append(shape);
+    }
+    return svg;
+  };
 
   const ARROW_STEPS = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 
@@ -97,7 +109,7 @@ var FocusDiffPanel = (() => {
     return element;
   };
 
-  const format = FocusDiff.formatNumber;
+  const { formatNumber: format, t } = FocusDiff;
   const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const easeOutExpo = (t) => (t === 1 ? 1 : 1 - 2 ** (-10 * t));
 
@@ -142,9 +154,9 @@ var FocusDiffPanel = (() => {
     const root = host.attachShadow({ mode: 'open' });
 
     const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
-    const group = h('div', { className: 'filters', role: 'radiogroup', 'aria-label': 'Show files' }, indicator);
+    const group = h('div', { className: 'filters', role: 'radiogroup', 'aria-label': t('panelShowFiles') }, indicator);
     const visibleFiles = counter('visible', format);
-    const totalFiles = counter('total', (n) => `${format(n)} files`);
+    const totalFiles = counter('total', (n) => t('panelFiles', format(n)));
     const additions = counter('additions', (n) => `+${format(n)}`);
     const deletions = counter('deletions', (n) => `−${format(n)}`);
     const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
@@ -153,12 +165,12 @@ var FocusDiffPanel = (() => {
       { className: 'stats' },
       h('span', { className: 'files' }, visibleFiles.element, '/', totalFiles.element),
       additions.element,
-      h('span', { className: 'visually-hidden', textContent: ' lines added,' }),
+      h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesAdded')}` }),
       deletions.element,
-      h('span', { className: 'visually-hidden', textContent: ' lines removed' }),
+      h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesRemoved')}` }),
       pending,
     );
-    const settings = h('button', { type: 'button', className: 'settings', title: 'Focus Diff settings', onClick: () => onSettings() });
+    const settings = h('button', { type: 'button', className: 'settings', title: t('panelSettings'), onClick: () => onSettings() });
     const status = h('span', { className: 'visually-hidden', role: 'status' });
     root.append(h('style', { textContent: STYLES }), h('div', { className: 'panel' }, group, stats, settings, status));
     document.documentElement.append(host);
@@ -205,10 +217,10 @@ var FocusDiffPanel = (() => {
         const configured = options.length > 1;
         settings.classList.toggle('labelled', !configured);
         if (configured) {
-          settings.innerHTML = SETTINGS_ICON;
-          settings.setAttribute('aria-label', 'Focus Diff settings');
+          settings.replaceChildren(settingsIcon());
+          settings.setAttribute('aria-label', t('panelSettings'));
         } else {
-          settings.textContent = 'Set up filters';
+          settings.textContent = t('panelSetUp');
           settings.removeAttribute('aria-label');
         }
       }
@@ -227,13 +239,13 @@ var FocusDiffPanel = (() => {
       additions.set(totals.additions);
       deletions.set(totals.deletions);
       pending.classList.toggle('active', totals.pending > 0);
-      pending.title = totals.pending > 0 ? `${format(totals.pending)} files not loaded yet, so line counts are partial` : '';
+      pending.title = totals.pending > 0 ? t('panelNotLoaded', format(totals.pending)) : '';
       stats.title = pending.title;
     };
 
     const announce = ({ name, visible, total, additions: added, deletions: removed, pending: waiting }) => {
-      const loading = waiting > 0 ? ` ${format(waiting)} of them haven't loaded yet, so line counts are partial.` : '';
-      status.textContent = `${name}: ${format(visible)} of ${format(total)} files, ${format(added)} lines added, ${format(removed)} removed.${loading}`;
+      const summary = t('panelAnnounce', name, format(visible), format(total), format(added), format(removed));
+      status.textContent = waiting > 0 ? `${summary} ${t('panelAnnouncePartial', format(waiting))}` : summary;
     };
 
     const setVisible = (visible) => {

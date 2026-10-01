@@ -1,0 +1,236 @@
+{
+  "extensionName": {
+    "message": "Focus Diff"
+  },
+  "extensionDescription": {
+    "message": "Review what matters: filter GitHub pull request diffs with your own presets and see the real size of what you review."
+  },
+  "actionTitle": {
+    "message": "Focus Diff settings"
+  },
+  "commandNext": {
+    "message": "Next filter"
+  },
+  "commandPrevious": {
+    "message": "Previous filter"
+  },
+  "commandAll": {
+    "message": "Show all files"
+  },
+  "filterAll": {
+    "message": "All"
+  },
+  "panelShowFiles": {
+    "message": "Show files"
+  },
+  "panelFiles": {
+    "message": "$1 files"
+  },
+  "panelLinesAdded": {
+    "message": "lines added,"
+  },
+  "panelLinesRemoved": {
+    "message": "lines removed"
+  },
+  "panelSettings": {
+    "message": "Focus Diff settings"
+  },
+  "panelSetUp": {
+    "message": "Set up filters"
+  },
+  "panelNotLoaded": {
+    "message": "$1 files not loaded yet, so line counts are partial"
+  },
+  "panelAnnounce": {
+    "message": "$1: $2 of $3 files, $4 lines added, $5 removed."
+  },
+  "panelAnnouncePartial": {
+    "message": "$1 of them haven't loaded yet, so line counts are partial."
+  },
+  "optionsTitle": {
+    "message": "Focus Diff settings"
+  },
+  "skipToFilters": {
+    "message": "Skip to filters"
+  },
+  "optionsTagline": {
+    "message": "Review what matters. Each filter becomes a button on a pull request's changed-files page."
+  },
+  "helpSummary": {
+    "message": "How filters match files"
+  },
+  "helpBody": {
+    "message": "A file is shown when its path matches <b>Include</b> and doesn't match <b>Exclude</b>. Both are JavaScript regular expressions, tested against the full path (for example <code>src/components/Button.tsx</code>) and not case-sensitive. An empty Include matches every path."
+  },
+  "helpTypeScript": {
+    "message": "TypeScript files"
+  },
+  "helpTests": {
+    "message": "tests and stories, as an Exclude"
+  },
+  "helpFolder": {
+    "message": "everything under one folder"
+  },
+  "helpTestFolders": {
+    "message": "any <code>test/</code> or <code>tests/</code> folder"
+  },
+  "helpAll": {
+    "message": "<b>All</b> is always available and shows every file."
+  },
+  "globalHeading": {
+    "message": "Every repository"
+  },
+  "globalHint": {
+    "message": "Shown on any pull request."
+  },
+  "reposHeading": {
+    "message": "Specific repositories"
+  },
+  "reposHint": {
+    "message": "Optional. Added next to the filters above, only on the matching repository."
+  },
+  "addRepo": {
+    "message": "Add a repository"
+  },
+  "addRepoFor": {
+    "message": "Add filters only for $1"
+  },
+  "tryHeading": {
+    "message": "Try a path"
+  },
+  "tryHint": {
+    "message": "See which buttons would show a file, using what's on this page, saved or not."
+  },
+  "repositoryLabel": {
+    "message": "Repository"
+  },
+  "optional": {
+    "message": "optional"
+  },
+  "filePathLabel": {
+    "message": "File path"
+  },
+  "tryEmpty": {
+    "message": "Type a file path to check it."
+  },
+  "tryShown": {
+    "message": "Shown by $1 and $2."
+  },
+  "tryOnlyAll": {
+    "message": "Only $1 shows this file. No filter matches it."
+  },
+  "shareHeading": {
+    "message": "Share with your team"
+  },
+  "shareHint": {
+    "message": "Send your filters to a teammate, or bring in theirs."
+  },
+  "yourFilters": {
+    "message": "Your filters"
+  },
+  "copyHint": {
+    "message": "Copies every filter on this page, saved or not."
+  },
+  "copyButton": {
+    "message": "Copy my filters"
+  },
+  "copyFallbackHint": {
+    "message": "Copying isn't allowed here. Select the text and copy it yourself."
+  },
+  "importLabel": {
+    "message": "Import a teammate's filters"
+  },
+  "importHint": {
+    "message": "Paste what they copied. It replaces the filters on this page, and nothing changes until you save."
+  },
+  "importButton": {
+    "message": "Import filters"
+  },
+  "saveButton": {
+    "message": "Save"
+  },
+  "columnName": {
+    "message": "Button name"
+  },
+  "columnInclude": {
+    "message": "Include"
+  },
+  "columnExclude": {
+    "message": "Exclude"
+  },
+  "labelInclude": {
+    "message": "Include regex"
+  },
+  "labelExclude": {
+    "message": "Exclude regex"
+  },
+  "filtersEmpty": {
+    "message": "No filters yet. Add one and it shows up as a button on pull requests."
+  },
+  "addFilter": {
+    "message": "Add filter"
+  },
+  "removeRepo": {
+    "message": "Remove"
+  },
+  "repoPlaceholder": {
+    "message": "owner/name or owner/*"
+  },
+  "untitledFilter": {
+    "message": "Untitled filter"
+  },
+  "removeNamed": {
+    "message": "Remove $1"
+  },
+  "thisRepository": {
+    "message": "this repository"
+  },
+  "removeFilterLabel": {
+    "message": "Remove filter"
+  },
+  "errorName": {
+    "message": "Give the button a name."
+  },
+  "errorRegex": {
+    "message": "$1 isn't a valid regex: $2."
+  },
+  "errorRepo": {
+    "message": "Use owner/name, or owner/* for every repository of an owner."
+  },
+  "statusUnsaved": {
+    "message": "Unsaved changes"
+  },
+  "statusFixFilters": {
+    "message": "Some filters need fixing before you can save."
+  },
+  "statusFixRepos": {
+    "message": "Check the repository names before saving."
+  },
+  "statusSaved": {
+    "message": "Saved. Open pull requests pick it up right away."
+  },
+  "statusQuota": {
+    "message": "Too many filters to sync. Remove a few and try again."
+  },
+  "statusSaveError": {
+    "message": "Couldn't save: $1"
+  },
+  "copiedOne": {
+    "message": "Copied 1 filter to the clipboard"
+  },
+  "copiedMany": {
+    "message": "Copied $1 filters to the clipboard"
+  },
+  "importedOne": {
+    "message": "Imported 1 filter. Review it, then save."
+  },
+  "importedMany": {
+    "message": "Imported $1 filters. Review them, then save."
+  },
+  "importEmpty": {
+    "message": "That text has no filters in it. Ask your teammate to copy their filters again."
+  },
+  "importInvalid": {
+    "message": "That text isn't a copied set of filters. Paste exactly what $1 produced."
+  }
+}

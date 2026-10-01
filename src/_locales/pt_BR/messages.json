@@ -1,0 +1,236 @@
+{
+  "extensionName": {
+    "message": "Focus Diff"
+  },
+  "extensionDescription": {
+    "message": "Revise o que importa: filtre os diffs de pull requests do GitHub com seus próprios filtros e veja o tamanho real do que você revisa."
+  },
+  "actionTitle": {
+    "message": "Configurações do Focus Diff"
+  },
+  "commandNext": {
+    "message": "Próximo filtro"
+  },
+  "commandPrevious": {
+    "message": "Filtro anterior"
+  },
+  "commandAll": {
+    "message": "Mostrar todos os arquivos"
+  },
+  "filterAll": {
+    "message": "Todos"
+  },
+  "panelShowFiles": {
+    "message": "Mostrar arquivos"
+  },
+  "panelFiles": {
+    "message": "$1 arquivos"
+  },
+  "panelLinesAdded": {
+    "message": "linhas adicionadas,"
+  },
+  "panelLinesRemoved": {
+    "message": "linhas removidas"
+  },
+  "panelSettings": {
+    "message": "Configurações do Focus Diff"
+  },
+  "panelSetUp": {
+    "message": "Configurar filtros"
+  },
+  "panelNotLoaded": {
+    "message": "$1 arquivos ainda não carregaram, então a contagem de linhas é parcial"
+  },
+  "panelAnnounce": {
+    "message": "$1: $2 de $3 arquivos, $4 linhas adicionadas, $5 removidas."
+  },
+  "panelAnnouncePartial": {
+    "message": "$1 deles ainda não carregaram, então a contagem de linhas é parcial."
+  },
+  "optionsTitle": {
+    "message": "Configurações do Focus Diff"
+  },
+  "skipToFilters": {
+    "message": "Pular para os filtros"
+  },
+  "optionsTagline": {
+    "message": "Revise o que importa. Cada filtro vira um botão na página de arquivos alterados de um pull request."
+  },
+  "helpSummary": {
+    "message": "Como os filtros escolhem os arquivos"
+  },
+  "helpBody": {
+    "message": "Um arquivo aparece quando o caminho combina com <b>Incluir</b> e não combina com <b>Excluir</b>. Os dois são expressões regulares de JavaScript, testadas contra o caminho completo (por exemplo <code>src/components/Button.tsx</code>), sem diferenciar maiúsculas. Um Incluir vazio combina com qualquer caminho."
+  },
+  "helpTypeScript": {
+    "message": "arquivos TypeScript"
+  },
+  "helpTests": {
+    "message": "testes e stories, como Excluir"
+  },
+  "helpFolder": {
+    "message": "tudo dentro de uma pasta"
+  },
+  "helpTestFolders": {
+    "message": "qualquer pasta <code>test/</code> ou <code>tests/</code>"
+  },
+  "helpAll": {
+    "message": "<b>Todos</b> está sempre disponível e mostra todos os arquivos."
+  },
+  "globalHeading": {
+    "message": "Todos os repositórios"
+  },
+  "globalHint": {
+    "message": "Aparecem em qualquer pull request."
+  },
+  "reposHeading": {
+    "message": "Repositórios específicos"
+  },
+  "reposHint": {
+    "message": "Opcional. Aparecem junto com os filtros acima, só no repositório correspondente."
+  },
+  "addRepo": {
+    "message": "Adicionar repositório"
+  },
+  "addRepoFor": {
+    "message": "Adicionar filtros só para $1"
+  },
+  "tryHeading": {
+    "message": "Testar um caminho"
+  },
+  "tryHint": {
+    "message": "Veja quais botões mostrariam um arquivo, usando o que está nesta página, salvo ou não."
+  },
+  "repositoryLabel": {
+    "message": "Repositório"
+  },
+  "optional": {
+    "message": "opcional"
+  },
+  "filePathLabel": {
+    "message": "Caminho do arquivo"
+  },
+  "tryEmpty": {
+    "message": "Digite o caminho de um arquivo para testar."
+  },
+  "tryShown": {
+    "message": "Aparece em $1 e $2."
+  },
+  "tryOnlyAll": {
+    "message": "Só $1 mostra este arquivo. Nenhum filtro combina com ele."
+  },
+  "shareHeading": {
+    "message": "Compartilhar com o time"
+  },
+  "shareHint": {
+    "message": "Mande seus filtros para alguém do time ou traga os de outra pessoa."
+  },
+  "yourFilters": {
+    "message": "Seus filtros"
+  },
+  "copyHint": {
+    "message": "Copia todos os filtros desta página, salvos ou não."
+  },
+  "copyButton": {
+    "message": "Copiar meus filtros"
+  },
+  "copyFallbackHint": {
+    "message": "Copiar não é permitido aqui. Selecione o texto e copie você mesmo."
+  },
+  "importLabel": {
+    "message": "Importar filtros de outra pessoa"
+  },
+  "importHint": {
+    "message": "Cole o que a pessoa copiou. Isso substitui os filtros desta página, e nada muda até você salvar."
+  },
+  "importButton": {
+    "message": "Importar filtros"
+  },
+  "saveButton": {
+    "message": "Salvar"
+  },
+  "columnName": {
+    "message": "Nome do botão"
+  },
+  "columnInclude": {
+    "message": "Incluir"
+  },
+  "columnExclude": {
+    "message": "Excluir"
+  },
+  "labelInclude": {
+    "message": "Regex para incluir"
+  },
+  "labelExclude": {
+    "message": "Regex para excluir"
+  },
+  "filtersEmpty": {
+    "message": "Nenhum filtro ainda. Adicione um e ele vira um botão nos pull requests."
+  },
+  "addFilter": {
+    "message": "Adicionar filtro"
+  },
+  "removeRepo": {
+    "message": "Remover"
+  },
+  "repoPlaceholder": {
+    "message": "dono/nome ou dono/*"
+  },
+  "untitledFilter": {
+    "message": "Filtro sem nome"
+  },
+  "removeNamed": {
+    "message": "Remover $1"
+  },
+  "thisRepository": {
+    "message": "este repositório"
+  },
+  "removeFilterLabel": {
+    "message": "Remover filtro"
+  },
+  "errorName": {
+    "message": "Dê um nome ao botão."
+  },
+  "errorRegex": {
+    "message": "$1 não é um regex válido: $2."
+  },
+  "errorRepo": {
+    "message": "Use dono/nome, ou dono/* para todos os repositórios de um dono."
+  },
+  "statusUnsaved": {
+    "message": "Alterações não salvas"
+  },
+  "statusFixFilters": {
+    "message": "Alguns filtros precisam de ajuste antes de salvar."
+  },
+  "statusFixRepos": {
+    "message": "Confira os nomes dos repositórios antes de salvar."
+  },
+  "statusSaved": {
+    "message": "Salvo. Pull requests abertos já usam a mudança."
+  },
+  "statusQuota": {
+    "message": "Filtros demais para sincronizar. Remova alguns e tente de novo."
+  },
+  "statusSaveError": {
+    "message": "Não foi possível salvar: $1"
+  },
+  "copiedOne": {
+    "message": "1 filtro copiado"
+  },
+  "copiedMany": {
+    "message": "$1 filtros copiados"
+  },
+  "importedOne": {
+    "message": "1 filtro importado. Revise e salve."
+  },
+  "importedMany": {
+    "message": "$1 filtros importados. Revise e salve."
+  },
+  "importEmpty": {
+    "message": "Esse texto não tem filtros. Peça para a pessoa copiar os filtros de novo."
+  },
+  "importInvalid": {
+    "message": "Esse texto não é um conjunto de filtros copiado. Cole exatamente o que $1 gerou."
+  }
+}

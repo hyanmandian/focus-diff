@@ -385,5 +385,41 @@
   },
   "browseExamples": {
     "message": "Browse examples"
+  },
+  "panelBreakdown": {
+    "message": "Breakdown by filter"
+  },
+  "panelBreakdownHeading": {
+    "message": "Where the changes are"
+  },
+  "panelCombineHint": {
+    "message": "Shift-click to combine filters"
+  },
+  "timeUnderMinute": {
+    "message": "<1 min"
+  },
+  "timeMinutes": {
+    "message": "~$1 min"
+  },
+  "timeHours": {
+    "message": "~$1 h"
+  },
+  "timeHoursMinutes": {
+    "message": "~$1 h $2 min"
+  },
+  "timeHint": {
+    "message": "Estimated review time, at about $1 changed lines per hour"
+  },
+  "panelAnnounceTime": {
+    "message": "About $1 to review."
+  },
+  "panelTimeLabel": {
+    "message": "to review"
+  },
+  "breakdownFile": {
+    "message": "$1 file"
+  },
+  "breakdownFiles": {
+    "message": "$1 files"
   }
 }

@@ -65,6 +65,20 @@ var FocusDiff = (() => {
 
   const formatNumber = new Intl.NumberFormat(chrome.i18n?.getUILanguage?.() || 'en-US').format;
 
+  const LINES_PER_HOUR = 400;
+
+  const reviewMinutes = (lines) => (lines / LINES_PER_HOUR) * 60;
+
+  const formatDuration = (lines) => {
+    const minutes = reviewMinutes(lines);
+    if (minutes < 1) return t('timeUnderMinute');
+    if (minutes < 60) return t('timeMinutes', Math.round(minutes));
+    const rounded = Math.round(minutes / 5) * 5;
+    const hours = Math.floor(rounded / 60);
+    const rest = rounded % 60;
+    return rest ? t('timeHoursMinutes', hours, rest) : t('timeHours', hours);
+  };
+
   const isEmpty = (config) => config.global.length === 0 && config.repos.length === 0;
 
   return {
@@ -80,6 +94,8 @@ var FocusDiff = (() => {
     save,
     isEmpty,
     formatNumber,
+    formatDuration,
+    LINES_PER_HOUR,
     t,
   };
 })();

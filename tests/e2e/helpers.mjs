@@ -54,8 +54,8 @@ export const panelState = (page) =>
       .map((item) => item.textContent.trim());
     return {
       present: Boolean(host?.isConnected),
-      options: [...(root?.querySelectorAll('[role="radio"]') ?? [])].map((radio) => radio.textContent),
-      checked: root?.querySelector('[aria-checked="true"]')?.textContent,
+      options: [...(root?.querySelectorAll('.option') ?? [])].map((option) => option.textContent),
+      checked: [...(root?.querySelectorAll('.option[aria-pressed="true"]') ?? [])].map((option) => option.textContent).join(' + ') || undefined,
       focused: root?.activeElement?.textContent ?? null,
       stats: (() => {
         const copy = root?.querySelector('.stats')?.cloneNode(true);
@@ -72,8 +72,13 @@ export const panelState = (page) =>
     };
   });
 
-export const clickFilter = (page, name) =>
-  page.evaluate((label) => {
-    const root = [...document.documentElement.children].find((element) => element.shadowRoot).shadowRoot;
-    [...root.querySelectorAll('[role="radio"]')].find((radio) => radio.textContent === label).click();
-  }, name);
+export const clickFilter = (page, name, { shift = false } = {}) =>
+  page.evaluate(
+    (label, shiftKey) => {
+      const root = [...document.documentElement.children].find((element) => element.shadowRoot).shadowRoot;
+      const option = [...root.querySelectorAll('.option')].find((candidate) => candidate.textContent === label);
+      option.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey }));
+    },
+    name,
+    shift,
+  );

@@ -31,26 +31,38 @@
 
   const optionsFor = (repo) => [{ id: ALL, name: t('filterAll') }, ...filtersFor(repo)];
 
-  const select = (id) => {
+  const selectedIds = (repo) => [activeByRepo[repo] ?? []].flat().filter((id) => id !== ALL);
+
+  const choose = (ids) => {
     if (!extensionAlive()) return shutDown();
     const repo = page.repository();
     if (!repo) return;
-    activeByRepo = { ...activeByRepo, [repo]: id };
+    activeByRepo = { ...activeByRepo, [repo]: ids };
     chrome.storage.local.set({ active: activeByRepo });
     announceNext = true;
     schedule();
+  };
+
+  const select = (id) => choose(id === ALL ? [] : [id]);
+
+  const toggle = (id) => {
+    const repo = page.repository();
+    if (!repo || id === ALL) return select(ALL);
+    const current = selectedIds(repo);
+    choose(current.includes(id) ? current.filter((other) => other !== id) : [...current, id]);
   };
 
   const step = (offset) => {
     const repo = page.repository();
     if (!repo) return;
     const ids = optionsFor(repo).map((option) => option.id);
-    const index = Math.max(0, ids.indexOf(activeByRepo[repo] ?? ALL));
+    const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
     select(ids[(index + offset + ids.length) % ids.length]);
   };
 
   const panel = FocusDiffPanel.create({
     onSelect: select,
+    onToggle: toggle,
     onSettings: () => {
       const repo = page.repository();
       const configured = repo && filtersFor(repo).length > 0;
@@ -58,20 +70,22 @@
     },
   });
 
-  const filterDiffs = (matches) => {
-    const totals = { visible: 0, total: 0, additions: 0, deletions: 0, pending: 0 };
-    for (const diff of page.diffs()) {
-      totals.total++;
-      const keep = matches(diff.path);
-      show(diff.container, keep);
-      if (!keep) continue;
+  const everything = () => true;
+
+  const totalsFor = (diffs, matches) => {
+    const totals = { visible: 0, total: diffs.length, additions: 0, deletions: 0, pending: 0 };
+    for (const diff of diffs) {
+      if (!matches(diff.path)) continue;
       totals.visible++;
-      const stats = diff.stats();
-      if (!stats) totals.pending++;
-      totals.additions += stats?.additions ?? 0;
-      totals.deletions += stats?.deletions ?? 0;
+      if (!diff.stats) totals.pending++;
+      totals.additions += diff.stats?.additions ?? 0;
+      totals.deletions += diff.stats?.deletions ?? 0;
     }
     return totals;
+  };
+
+  const filterDiffs = (diffs, matches) => {
+    for (const diff of diffs) show(diff.container, matches(diff.path));
   };
 
   const filterTree = (matches, filtering) => {
@@ -123,18 +137,28 @@
     if (!repo) return;
 
     const options = optionsFor(repo);
-    const current = options.find((option) => option.id !== ALL && option.id === activeByRepo[repo]);
-    const matches = current?.matches ?? (() => true);
+    const ids = selectedIds(repo);
+    const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
+    const filtering = selected.length > 0;
+    const matches = filtering ? (path) => selected.some((option) => option.matches(path)) : everything;
+    const selection = filtering ? selected.map((option) => option.id) : [ALL];
 
-    panel.renderOptions(options, current?.id ?? ALL);
-    const totals = filterDiffs(matches);
-    filterTree(matches, Boolean(current));
-    updatePageCounters(totals, Boolean(current));
+    const diffs = page.diffs().map((diff) => ({ path: diff.path, container: diff.container, stats: diff.stats() }));
+    const totals = totalsFor(diffs, matches);
+    panel.renderOptions(options, selection);
+    filterDiffs(diffs, matches);
+    filterTree(matches, filtering);
+    updatePageCounters(totals, filtering);
     panel.renderStats(totals);
+    panel.renderBreakdown(
+      options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything) })),
+      selection,
+    );
 
     if (announceNext) {
       announceNext = false;
-      panel.announce({ name: current?.name ?? t('filterAll'), ...totals });
+      const name = filtering ? selected.map((option) => option.name).join(' + ') : t('filterAll');
+      panel.announce({ name, ...totals });
     }
   };
 

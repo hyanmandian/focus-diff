@@ -20,6 +20,9 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Your own filters.** Each filter is a button with an *Include* regex and an optional *Exclude* regex, tested against the full file path. **All** is always there.
 - **Everywhere or per repository.** Keep filters for every pull request, and add extra ones for `owner/name` or a whole `owner/*`.
 - **Real numbers.** Files changed and the line totals show only what the filter keeps, and update as GitHub loads more files.
+- **Combine filters.** Shift-click to look at several filters at once, like *Frontend + Docs*.
+- **See where the changes are.** The breakdown shows how much of the pull request falls under each filter before you start.
+- **Review time.** A rough estimate next to the line totals, at about 400 changed lines per hour.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
 - **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.
 - **Feels like GitHub.** Follows your GitHub theme, checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.

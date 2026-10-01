@@ -33,7 +33,8 @@ describe('panel on a pull request', () => {
     assert.equal(state.filesCounter, '1/8');
     assert.equal(state.additions, '+40');
     assert.equal(state.deletions, '−10');
-    assert.match(state.status, /Frontend: 1 of 8 files, 40 lines added, 10 removed\.$/);
+    assert.match(state.status, /Frontend: 1 of 8 files, 40 lines added, 10 removed\. About ~8 min to review\.$/);
+    assert.match(state.stats, /~8 min/);
 
     await clickFilter(page, 'Backend');
     await settle();
@@ -53,10 +54,63 @@ describe('panel on a pull request', () => {
     await page.close();
   });
 
+  it('combines filters with shift-click', async () => {
+    const page = await env.open(PR);
+    await settle();
+    await clickFilter(page, 'Frontend');
+    await clickFilter(page, 'Docs', { shift: true });
+    await settle();
+    let state = await panelState(page);
+    assert.equal(state.checked, 'Frontend + Docs');
+    assert.deepEqual(state.visiblePaths, ['web/src/book-card.tsx', 'docs/books.md']);
+    assert.equal(state.filesCounter, '2/8');
+    assert.match(state.status, /^Frontend \+ Docs: 2 of 8 files/);
+
+    await clickFilter(page, 'Frontend', { shift: true });
+    await settle();
+    state = await panelState(page);
+    assert.equal(state.checked, 'Docs');
+
+    await clickFilter(page, 'Docs', { shift: true });
+    await settle();
+    assert.equal((await panelState(page)).checked, 'All', 'removing the last filter goes back to All');
+    await page.close();
+  });
+
+  it('shows how the pull request splits across filters', async () => {
+    const page = await env.open(PR);
+    await settle();
+    const rows = await page.evaluate(async () => {
+      const root = [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot;
+      root.querySelector('[aria-controls="focus-diff-breakdown"]').click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return [...root.querySelectorAll('.row')].map((row) => ({
+        text: row.textContent.replace(/, /g, ' ').replace(/\s+/g, ' ').trim(),
+        pressed: row.getAttribute('aria-pressed'),
+      }));
+    });
+    assert.equal(rows.length, 4);
+    assert.match(rows[0].text, /^All 8 files \+120 −30/);
+    assert.equal(rows[0].pressed, 'true');
+    assert.match(rows[1].text, /^Frontend 1 file \+40 −10 ~8 min/);
+
+    await page.evaluate(() => {
+      const root = [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot;
+      [...root.querySelectorAll('.row')][1].click();
+    });
+    await settle();
+    assert.equal((await panelState(page)).checked, 'Frontend');
+    assert.deepEqual(await axe(page, 'html > div:last-child'), []);
+
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.breakdown').hidden), true);
+    await page.close();
+  });
+
   it('moves between filters with the keyboard', async () => {
     const page = await env.open(PR);
     await settle();
-    await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('[role="radio"]').focus());
+    await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.option').focus());
     await page.keyboard.press('ArrowRight');
     await settle();
     assert.equal((await panelState(page)).checked, 'Frontend');

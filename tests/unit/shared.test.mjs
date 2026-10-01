@@ -80,3 +80,20 @@ describe('normalize', () => {
     assert.deepEqual(JSON.parse(JSON.stringify(FocusDiff.normalize(undefined))), { global: [], repos: [] });
   });
 });
+
+describe('formatDuration', () => {
+  const messages = { timeUnderMinute: '<1 min', timeMinutes: '~$1 min', timeHours: '~$1 h', timeHoursMinutes: '~$1 h $2 min' };
+  const context = vm.createContext({
+    chrome: { i18n: { getMessage: (key, subs) => messages[key].replace(/\$(\d)/g, (_, n) => subs[n - 1]), getUILanguage: () => 'en-US' } },
+    Intl,
+  });
+  vm.runInContext(readFileSync(new URL('../../src/shared.js', import.meta.url), 'utf8'), context);
+  const { formatDuration } = context.FocusDiff;
+
+  it('rounds to minutes, then to five minute steps past an hour', () => {
+    assert.equal(formatDuration(0), '<1 min');
+    assert.equal(formatDuration(50), '~8 min');
+    assert.equal(formatDuration(400), '~1 h');
+    assert.equal(formatDuration(530), '~1 h 20 min');
+  });
+});

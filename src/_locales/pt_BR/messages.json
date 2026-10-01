@@ -385,5 +385,41 @@
   },
   "browseExamples": {
     "message": "Ver exemplos"
+  },
+  "panelBreakdown": {
+    "message": "Distribuição por filtro"
+  },
+  "panelBreakdownHeading": {
+    "message": "Onde estão as mudanças"
+  },
+  "panelCombineHint": {
+    "message": "Shift+clique para combinar filtros"
+  },
+  "timeUnderMinute": {
+    "message": "<1 min"
+  },
+  "timeMinutes": {
+    "message": "~$1 min"
+  },
+  "timeHours": {
+    "message": "~$1 h"
+  },
+  "timeHoursMinutes": {
+    "message": "~$1 h $2 min"
+  },
+  "timeHint": {
+    "message": "Tempo estimado de revisão, a cerca de $1 linhas alteradas por hora"
+  },
+  "panelAnnounceTime": {
+    "message": "Cerca de $1 para revisar."
+  },
+  "panelTimeLabel": {
+    "message": "para revisar"
+  },
+  "breakdownFile": {
+    "message": "$1 arquivo"
+  },
+  "breakdownFiles": {
+    "message": "$1 arquivos"
   }
 }

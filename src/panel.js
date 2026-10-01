@@ -43,7 +43,32 @@ var FocusDiffPanel = (() => {
     }
     button:hover { background: var(--fd-hover); }
     button:focus-visible { outline: 2px solid var(--fd-focus); outline-offset: 1px; }
-    [role="radio"][aria-checked="true"], [role="radio"][aria-checked="true"]:hover { background: transparent; color: var(--fd-selected-fg); }
+    .option[aria-pressed="true"], .option[aria-pressed="true"]:hover { background: transparent; color: var(--fd-selected-fg); }
+    .filters.combined .indicator { opacity: 0; }
+    .filters.combined .option[aria-pressed="true"] { background: var(--fd-selected-bg); }
+
+    .icon-button { display: inline-grid; place-items: center; min-width: var(--fd-target); padding: 0; color: var(--fd-muted); }
+    .icon-button[aria-expanded="true"] { background: var(--fd-hover); color: var(--fd-fg); }
+
+    .breakdown {
+      position: absolute; right: 0; bottom: calc(100% + 8px); width: max-content; min-width: 100%; max-width: min(560px, calc(100vw - 32px));
+      padding: 8px; border: 1px solid var(--fd-border); border-radius: 12px; background: var(--fd-bg); box-shadow: var(--fd-shadow);
+      color: var(--fd-fg); font: 500 13px/20px var(--fd-font);
+    }
+    .breakdown[hidden] { display: none; }
+    .breakdown h2 { margin: 4px 8px 8px; font: 600 12px/16px var(--fd-font); color: var(--fd-muted); }
+    .rows { display: grid; grid-template-columns: auto auto auto auto 72px; }
+    .row {
+      display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; column-gap: 16px;
+      text-align: right; white-space: nowrap;
+    }
+    .row > span:first-child { text-align: left; }
+    .row .metric { font: 500 12px/20px var(--fd-mono); color: var(--fd-muted); }
+    .row[aria-pressed="true"] { color: var(--fd-selected-bg); font-weight: 600; }
+    .row[aria-pressed="true"]:hover { background: var(--fd-hover); }
+    .bar { display: block; height: 6px; border-radius: 3px; background: currentColor; opacity: 0.35; }
+    .row[aria-pressed="true"] .bar { opacity: 0.8; }
+    .hint { margin: 8px 8px 2px; font-size: 12px; color: var(--fd-muted); }
 
     .stats {
       display: inline-flex; align-items: center; gap: 8px; padding: 0 4px 0 10px;
@@ -64,20 +89,23 @@ var FocusDiffPanel = (() => {
     }
     .pending.active { opacity: 1; }
 
-    .settings { display: inline-grid; place-items: center; min-width: var(--fd-target); padding: 0; color: var(--fd-muted); }
     .settings.labelled { padding: 0 12px; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
     @media (prefers-reduced-motion: no-preference) {
       .panel { transition: opacity 200ms ease-out, translate 280ms var(--fd-ease); }
       @starting-style { .panel { opacity: 0; translate: 0 8px; } }
+      .breakdown { transition: opacity 160ms ease-out, translate 220ms var(--fd-ease); }
+      @starting-style { .breakdown { opacity: 0; translate: 0 6px; } }
       .indicator.ready { transition: translate 260ms var(--fd-ease), width 260ms var(--fd-ease), height 260ms var(--fd-ease); }
       button { transition: background-color 120ms ease-out, color 160ms ease-out; }
     }
     @media (forced-colors: active) {
       .panel { border-color: CanvasText; }
       .indicator { background: Highlight; }
-      [role="radio"][aria-checked="true"] { color: HighlightText; }
+      .option[aria-pressed="true"] { color: HighlightText; }
+      .row[aria-pressed="true"] { outline: 2px solid Highlight; }
+      .filters.combined .option[aria-pressed="true"] { background: Highlight; }
     }
   `;
 
@@ -97,6 +125,16 @@ var FocusDiffPanel = (() => {
       Object.entries(shapeAttributes).forEach(([name, value]) => shape.setAttribute(name, value));
       svg.append(shape);
     }
+    return svg;
+  };
+
+  const breakdownIcon = () => {
+    const svg = document.createElementNS(SVG, 'svg');
+    const attributes = { viewBox: '0 0 16 16', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'aria-hidden': 'true', focusable: 'false' };
+    Object.entries(attributes).forEach(([name, value]) => svg.setAttribute(name, value));
+    const path = document.createElementNS(SVG, 'path');
+    path.setAttribute('d', 'M2 13.5h12M4 11V7M8 11V3M12 11V8');
+    svg.append(path);
     return svg;
   };
 
@@ -151,17 +189,18 @@ var FocusDiffPanel = (() => {
     return { element, set };
   };
 
-  const create = ({ onSelect, onSettings }) => {
+  const create = ({ onSelect, onToggle, onSettings }) => {
     const host = h('div');
     host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483000;display:none';
     const root = host.attachShadow({ mode: 'open' });
 
     const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
-    const group = h('div', { className: 'filters', role: 'radiogroup', 'aria-label': t('panelShowFiles') }, indicator);
+    const group = h('div', { className: 'filters', role: 'group', 'aria-label': t('panelShowFiles') }, indicator);
     const visibleFiles = counter('visible', format);
     const totalFiles = counter('total', format);
     const additions = counter('additions', (n) => `+${format(n)}`);
     const deletions = counter('deletions', (n) => `−${format(n)}`);
+    const time = counter('time', FocusDiff.formatDuration);
     const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
     const stats = h(
       'span',
@@ -171,69 +210,147 @@ var FocusDiffPanel = (() => {
       h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesAdded')}` }),
       deletions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesRemoved')}` }),
+      h('span', { className: 'time-wrap', title: t('timeHint', FocusDiff.LINES_PER_HOUR) }, time.element, h('span', { className: 'visually-hidden', textContent: ` ${t('panelTimeLabel')}` })),
       pending,
     );
-    const settings = h('button', { type: 'button', className: 'settings', title: t('panelSettings'), onClick: () => onSettings() });
+
+    const breakdownRows = h('div', { className: 'rows' });
+    const breakdown = h(
+      'div',
+      { className: 'breakdown', id: 'focus-diff-breakdown', hidden: true },
+      h('h2', { textContent: t('panelBreakdownHeading') }),
+      breakdownRows,
+      h('p', { className: 'hint', textContent: t('panelCombineHint') }),
+    );
+    const breakdownToggle = h('button', {
+      type: 'button',
+      className: 'icon-button',
+      title: t('panelBreakdown'),
+      'aria-label': t('panelBreakdown'),
+      'aria-expanded': 'false',
+      'aria-controls': 'focus-diff-breakdown',
+    }, breakdownIcon());
+    const settings = h('button', { type: 'button', className: 'settings icon-button', title: t('panelSettings'), onClick: () => onSettings() });
     const status = h('span', { className: 'visually-hidden', role: 'status' });
-    root.append(h('style', { textContent: STYLES }), h('div', { className: 'panel' }, group, stats, settings, status));
+    const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, settings, status);
+    root.append(h('style', { textContent: STYLES }), breakdown, panel);
     document.documentElement.append(host);
 
-    const radios = () => [...group.querySelectorAll('[role="radio"]')];
+    const options = () => [...group.querySelectorAll('.option')];
+    const pick = (id, event) => (event.shiftKey ? onToggle(id) : onSelect(id));
 
     const moveIndicator = () => {
-      const checked = group.querySelector('[aria-checked="true"]');
-      if (!checked || !checked.offsetWidth) return;
-      indicator.style.width = `${checked.offsetWidth}px`;
-      indicator.style.height = `${checked.offsetHeight}px`;
-      indicator.style.translate = `${checked.offsetLeft}px ${checked.offsetTop}px`;
+      const pressed = group.querySelectorAll('[aria-pressed="true"]');
+      group.classList.toggle('combined', pressed.length > 1);
+      const target = pressed[0];
+      if (pressed.length !== 1 || !target.offsetWidth) return;
+      indicator.style.width = `${target.offsetWidth}px`;
+      indicator.style.height = `${target.offsetHeight}px`;
+      indicator.style.translate = `${target.offsetLeft}px ${target.offsetTop}px`;
       if (!indicator.classList.contains('ready')) requestAnimationFrame(() => indicator.classList.add('ready'));
     };
     new ResizeObserver(moveIndicator).observe(group);
 
     group.addEventListener('keydown', (event) => {
-      const options = radios();
-      const index = options.indexOf(root.activeElement);
+      const list = options();
+      const index = list.indexOf(root.activeElement);
       if (index === -1) return;
       const target =
-        event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : index + (ARROW_STEPS[event.key] ?? NaN);
+        event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? NaN);
       if (Number.isNaN(target)) return;
       event.preventDefault();
-      const next = options[(target + options.length) % options.length];
+      const next = list[(target + list.length) % list.length];
+      list.forEach((option) => (option.tabIndex = option === next ? 0 : -1));
       next.focus();
-      next.click();
+      if (!event.shiftKey) onSelect(next.dataset.id);
+    });
+
+    let breakdownData = { rows: [], selected: [] };
+    let drawnKey = '';
+    const drawBreakdown = () => {
+      const key = JSON.stringify(breakdownData);
+      if (breakdown.hidden || key === drawnKey) return;
+      drawnKey = key;
+      const { rows, selected } = breakdownData;
+      const widest = Math.max(1, ...rows.map((row) => row.additions + row.deletions));
+      const keepFocus = root.activeElement?.dataset.row;
+      breakdownRows.replaceChildren(
+        ...rows.map((row) => {
+          const bar = h('span', { className: 'bar' });
+          bar.style.width = `${Math.max(4, ((row.additions + row.deletions) / widest) * 100)}%`;
+          const cells = [
+            h('span', { textContent: row.name }),
+            h('span', { className: 'metric', textContent: t(row.visible === 1 ? 'breakdownFile' : 'breakdownFiles', format(row.visible)) }),
+            h('span', { className: 'metric' }, h('span', { className: 'additions', textContent: `+${format(row.additions)}` }), ' ', h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` })),
+            h('span', { className: 'metric', textContent: FocusDiff.formatDuration(row.additions + row.deletions) }),
+          ];
+          return h(
+            'button',
+            { type: 'button', className: 'row', 'data-row': row.id, 'aria-pressed': String(selected.includes(row.id)), onClick: (event) => pick(row.id, event) },
+            ...cells.flatMap((cell) => [cell, h('span', { className: 'visually-hidden', textContent: ', ' })]).slice(0, -1),
+            h('span', { 'aria-hidden': 'true' }, bar),
+          );
+        }),
+      );
+      if (keepFocus) breakdownRows.querySelector(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
+    };
+
+    const setBreakdownOpen = (open) => {
+      breakdown.hidden = !open;
+      breakdownToggle.setAttribute('aria-expanded', String(open));
+      if (open) drawBreakdown();
+      else drawnKey = '';
+    };
+    breakdownToggle.addEventListener('click', () => setBreakdownOpen(breakdown.hidden));
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || breakdown.hidden) return;
+      const focusInside = breakdown.contains(root.activeElement);
+      setBreakdownOpen(false);
+      if (focusInside) breakdownToggle.focus();
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!breakdown.hidden && !event.composedPath().includes(host)) setBreakdownOpen(false);
     });
 
     let optionsKey = '';
-    const renderOptions = (options, active) => {
-      const key = JSON.stringify(options.map(({ id, name }) => [id, name]));
+    const renderOptions = (list, selected) => {
+      const key = JSON.stringify(list.map(({ id, name }) => [id, name]));
       if (key !== optionsKey) {
         optionsKey = key;
         const keepFocus = group.contains(root.activeElement);
-        radios().forEach((radio) => radio.remove());
+        options().forEach((option) => option.remove());
         group.append(
-          ...options.map(({ id, name }) =>
-            h('button', { type: 'button', role: 'radio', textContent: name, onClick: () => onSelect(id), 'data-id': id }),
+          ...list.map(({ id, name }) =>
+            h('button', { type: 'button', className: 'option', textContent: name, 'data-id': id, onClick: (event) => pick(id, event) }),
           ),
         );
-        if (keepFocus) requestAnimationFrame(() => group.querySelector('[aria-checked="true"]')?.focus());
+        if (keepFocus) requestAnimationFrame(() => group.querySelector('[aria-pressed="true"]')?.focus());
 
-        const configured = options.length > 1;
+        const configured = list.length > 1;
         settings.classList.toggle('labelled', !configured);
+        breakdownToggle.hidden = !configured;
         if (configured) {
           settings.replaceChildren(settingsIcon());
           settings.setAttribute('aria-label', t('panelSettings'));
         } else {
           settings.textContent = t('panelSetUp');
           settings.removeAttribute('aria-label');
+          setBreakdownOpen(false);
         }
       }
 
-      for (const radio of radios()) {
-        const checked = radio.dataset.id === active;
-        if (radio.getAttribute('aria-checked') !== String(checked)) radio.setAttribute('aria-checked', String(checked));
-        radio.tabIndex = checked ? 0 : -1;
+      const focused = root.activeElement?.classList.contains('option') ? root.activeElement : null;
+      for (const option of options()) {
+        const pressed = selected.includes(option.dataset.id);
+        if (option.getAttribute('aria-pressed') !== String(pressed)) option.setAttribute('aria-pressed', String(pressed));
+        option.tabIndex = (focused ? option === focused : option.dataset.id === selected[0]) ? 0 : -1;
       }
       moveIndicator();
+    };
+
+    const renderBreakdown = (rows, selected) => {
+      breakdownData = { rows, selected };
+      drawBreakdown();
     };
 
     const renderStats = (totals) => {
@@ -241,14 +358,19 @@ var FocusDiffPanel = (() => {
       totalFiles.set(totals.total);
       additions.set(totals.additions);
       deletions.set(totals.deletions);
+      time.set(totals.additions + totals.deletions);
       pending.classList.toggle('active', totals.pending > 0);
       pending.title = totals.pending > 0 ? t('panelNotLoaded', format(totals.pending)) : '';
       stats.title = pending.title;
     };
 
     const announce = ({ name, visible, total, additions: added, deletions: removed, pending: waiting }) => {
-      const summary = t('panelAnnounce', name, format(visible), format(total), format(added), format(removed));
-      status.textContent = waiting > 0 ? `${summary} ${t('panelAnnouncePartial', format(waiting))}` : summary;
+      const parts = [
+        t('panelAnnounce', name, format(visible), format(total), format(added), format(removed)),
+        t('panelAnnounceTime', FocusDiff.formatDuration(added + removed)),
+      ];
+      if (waiting > 0) parts.push(t('panelAnnouncePartial', format(waiting)));
+      status.textContent = parts.join(' ');
     };
 
     const setVisible = (visible) => {
@@ -257,15 +379,17 @@ var FocusDiffPanel = (() => {
       if (host.style.display === display) return;
       host.style.display = display;
       if (visible) requestAnimationFrame(moveIndicator);
+      else setBreakdownOpen(false);
     };
 
     const reset = () => {
       optionsKey = '';
+      drawnKey = '';
     };
 
     const remove = () => host.remove();
 
-    return { renderOptions, renderStats, announce, setVisible, reset, remove };
+    return { renderOptions, renderStats, renderBreakdown, announce, setVisible, reset, remove };
   };
 
   return { create };

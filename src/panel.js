@@ -17,6 +17,7 @@ var FocusDiffPanel = (() => {
       --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
       --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));
       --fd-shadow: var(--shadow-floating-large, 0 0 0 1px rgba(209, 217, 224, 0.5), 0 24px 48px rgba(37, 41, 46, 0.2));
+      --fd-mono: var(--fontStack-monospace, ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace);
       --fd-font: var(--fontStack-sansSerif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif);
       --fd-target: 32px;
       --fd-ease: ${EASE_OUT};
@@ -49,8 +50,9 @@ var FocusDiffPanel = (() => {
       border-left: 1px solid var(--fd-border); color: var(--fd-muted);
       font-variant-numeric: tabular-nums; white-space: nowrap;
     }
-    .files { display: inline-flex; }
-    .number { display: inline-grid; }
+    .files { display: inline-flex; align-items: baseline; }
+    .files-label { margin-left: 0.35em; }
+    .number { display: inline-grid; font: 500 12px/20px var(--fd-mono); letter-spacing: -0.01em; }
     .number > * { grid-area: 1 / 1; }
     .ghost { visibility: hidden; }
     .visible { justify-items: end; }
@@ -157,14 +159,14 @@ var FocusDiffPanel = (() => {
     const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
     const group = h('div', { className: 'filters', role: 'radiogroup', 'aria-label': t('panelShowFiles') }, indicator);
     const visibleFiles = counter('visible', format);
-    const totalFiles = counter('total', (n) => t('panelFiles', format(n)));
+    const totalFiles = counter('total', format);
     const additions = counter('additions', (n) => `+${format(n)}`);
     const deletions = counter('deletions', (n) => `−${format(n)}`);
     const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
     const stats = h(
       'span',
       { className: 'stats' },
-      h('span', { className: 'files' }, visibleFiles.element, '/', totalFiles.element),
+      h('span', { className: 'files' }, visibleFiles.element, h('span', { className: 'number', textContent: '/' }), totalFiles.element, h('span', { className: 'files-label', textContent: t('panelFilesLabel') })),
       additions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesAdded')}` }),
       deletions.element,

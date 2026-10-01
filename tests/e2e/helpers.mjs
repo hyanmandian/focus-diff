@@ -57,7 +57,11 @@ export const panelState = (page) =>
       options: [...(root?.querySelectorAll('[role="radio"]') ?? [])].map((radio) => radio.textContent),
       checked: root?.querySelector('[aria-checked="true"]')?.textContent,
       focused: root?.activeElement?.textContent ?? null,
-      stats: root?.querySelector('.stats')?.textContent.replace(/\s+/g, ' ').trim(),
+      stats: (() => {
+        const copy = root?.querySelector('.stats')?.cloneNode(true);
+        copy?.querySelectorAll('.ghost').forEach((ghost) => ghost.remove());
+        return copy?.textContent.replace(/\s+/g, ' ').trim();
+      })(),
       status: root?.querySelector('[role="status"]')?.textContent,
       filesCounter: document.querySelector('[aria-current="page"] .Counter').textContent,
       additions: document.querySelector('.summary span:first-child').textContent,

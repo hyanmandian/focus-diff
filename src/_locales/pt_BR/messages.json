@@ -232,5 +232,8 @@
   },
   "importInvalid": {
     "message": "Esse texto não é um conjunto de filtros copiado. Cole exatamente o que $1 gerou."
+  },
+  "panelFilesLabel": {
+    "message": "arquivos"
   }
 }

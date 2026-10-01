@@ -232,5 +232,8 @@
   },
   "importInvalid": {
     "message": "That text isn't a copied set of filters. Paste exactly what $1 produced."
+  },
+  "panelFilesLabel": {
+    "message": "files"
   }
 }

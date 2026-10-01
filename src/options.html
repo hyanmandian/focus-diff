@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Focus Diff settings</title>
+    <link rel="icon" href="icons/icon-32.png" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <a class="skip" href="#global-h">Skip to filters</a>
+    <main>
+      <header class="intro">
+        <img src="icons/icon-128.png" width="56" height="56" alt="" />
+        <div>
+          <h1>Focus Diff</h1>
+          <p>Review what matters. Each filter becomes a button on a pull request's changed-files page.</p>
+        </div>
+      </header>
+      <details class="help">
+        <summary>How filters match files</summary>
+        <div class="help-body">
+          <p>
+            A file is shown when its path matches <b>Include</b> and doesn't match <b>Exclude</b>. Both are JavaScript
+            regular expressions, tested against the full path (for example <code>src/components/Button.tsx</code>) and
+            not case-sensitive. An empty Include matches every path.
+          </p>
+          <dl>
+            <div><dt><code>\.(ts|tsx)$</code></dt><dd>TypeScript files</dd></div>
+            <div><dt><code>\.(test|spec|stories)\.</code></dt><dd>tests and stories, as an Exclude</dd></div>
+            <div><dt><code>^packages/api/</code></dt><dd>everything under one folder</dd></div>
+            <div><dt><code>(^|/)tests?/</code></dt><dd>any <code>test/</code> or <code>tests/</code> folder</dd></div>
+          </dl>
+          <p><b>All</b> is always available and shows every file.</p>
+        </div>
+      </details>
+      <section class="box" aria-labelledby="global-h">
+        <div class="box-head">
+          <h2 id="global-h" tabindex="-1">Every repository</h2>
+          <p class="hint">Shown on any pull request.</p>
+        </div>
+        <div class="box-body" id="global"></div>
+      </section>
+      <section class="repos" aria-labelledby="repos-h">
+        <div class="section-head">
+          <h2 id="repos-h">Specific repositories</h2>
+          <p class="hint">Optional. Added next to the filters above, only on the matching repository.</p>
+        </div>
+        <div id="repos"></div>
+        <button id="add-repo" type="button" class="btn">Add a repository</button>
+      </section>
+      <section class="box" aria-labelledby="try-h">
+        <div class="box-head">
+          <h2 id="try-h">Try a path</h2>
+          <p class="hint">See which buttons would show a file, using what's on this page, saved or not.</p>
+        </div>
+        <div class="box-body">
+          <div class="try">
+            <div class="field">
+              <label for="try-repo">Repository <span class="optional">optional</span></label>
+              <input id="try-repo" type="text" placeholder="owner/name" spellcheck="false" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="try-path">File path</label>
+              <input id="try-path" type="text" class="mono" placeholder="src/components/Button.test.tsx" spellcheck="false" autocomplete="off" />
+            </div>
+          </div>
+          <p id="try-result" class="try-result" aria-live="polite"></p>
+        </div>
+      </section>
+      <section class="box" aria-labelledby="share-h">
+        <div class="box-head">
+          <h2 id="share-h">Share with your team</h2>
+          <p class="hint">Send your filters to a teammate, or bring in theirs.</p>
+        </div>
+        <div class="box-body share">
+          <div class="share-copy">
+            <div>
+              <h3>Your filters</h3>
+              <p class="hint">Copies every filter on this page, saved or not.</p>
+            </div>
+            <button id="export" type="button" class="btn">Copy my filters</button>
+          </div>
+          <div class="field" id="export-fallback" hidden>
+            <label for="export-json">Your filters</label>
+            <p class="hint" id="export-json-hint">Copying isn't allowed here. Select the text and copy it yourself.</p>
+            <textarea id="export-json" class="mono" rows="6" readonly aria-describedby="export-json-hint"></textarea>
+          </div>
+          <div class="share-import">
+            <div class="field">
+              <label for="json">Import a teammate's filters</label>
+              <p class="hint" id="json-hint">Paste what they copied. It replaces the filters on this page, and nothing changes until you save.</p>
+              <textarea id="json" class="mono" spellcheck="false" rows="5" aria-describedby="json-hint json-error"></textarea>
+              <p class="error" id="json-error" aria-live="polite"></p>
+            </div>
+            <button id="import" type="button" class="btn" disabled>Import filters</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <footer class="savebar">
+      <span id="status" class="status" role="status"></span>
+      <button id="save" type="button" class="btn primary" aria-keyshortcuts="Meta+S Control+S">Save</button>
+    </footer>
+    <template id="filters-template">
+      <div class="filters">
+        <div class="filter-head" aria-hidden="true">
+          <span>Button name</span><span>Include</span><span>Exclude</span><span></span>
+        </div>
+        <ul class="filter-list" role="list"></ul>
+        <p class="empty hint">No filters yet. Add one and it shows up as a button next to All.</p>
+        <button type="button" class="btn add-filter">Add filter</button>
+      </div>
+    </template>
+    <template id="filter-template">
+      <li class="filter">
+        <div class="filter-fields" role="group">
+          <input class="f-name" type="text" placeholder="Frontend" autocomplete="off" />
+          <input class="f-include mono" type="text" placeholder="\.(ts|tsx)$" spellcheck="false" autocomplete="off" />
+          <input class="f-exclude mono" type="text" placeholder="\.test\." spellcheck="false" autocomplete="off" />
+          <button type="button" class="icon-btn remove-filter">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+          </button>
+        </div>
+        <p class="error" aria-live="polite"></p>
+      </li>
+    </template>
+    <template id="repo-template">
+      <article class="box repo">
+        <div class="box-head repo-head">
+          <div class="field">
+            <label class="repo-label">Repository</label>
+            <input class="repo-name" type="text" placeholder="owner/name or owner/*" spellcheck="false" autocomplete="off" />
+            <p class="error repo-error" aria-live="polite"></p>
+          </div>
+          <button type="button" class="btn danger remove-repo">Remove</button>
+        </div>
+        <div class="box-body"></div>
+      </article>
+    </template>
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

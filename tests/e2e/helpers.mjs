@@ -48,7 +48,7 @@ export const panelState = (page) =>
     const root = host?.shadowRoot;
     const visiblePaths = [...document.querySelectorAll('[role="region"][id^="diff-"]:not([id$="-hunk"])')]
       .filter((region) => region.offsetParent !== null)
-      .map((region) => region.querySelector('h3').textContent.replace(/‎/g, ''));
+      .map((region) => document.getElementById(region.getAttribute('aria-labelledby')).textContent.replace(/‎/g, ''));
     const treeFiles = [...document.querySelectorAll('[role="treeitem"]:not([aria-expanded])')]
       .filter((item) => item.offsetParent !== null)
       .map((item) => item.textContent.trim());

@@ -13,7 +13,7 @@
   <body>
     <nav>
       <a role="tab" href="#">Conversation <span class="Counter">3</span></a>
-      <a role="tab" href="#" aria-current="page">Files changed <span class="Counter">6</span></a>
+      <a role="tab" href="#" aria-current="page">Files changed <span class="Counter">8</span></a>
     </nav>
     <div class="summary"><span>+120</span><span>−30</span></div>
     <div class="layout">
@@ -28,7 +28,10 @@
         <li role="treeitem" aria-expanded="true"><div>api</div>
           <ul role="group">
             <li role="treeitem" aria-expanded="true"><div>books</div>
-              <ul role="group"><li role="treeitem"><div>service.py</div></li></ul>
+              <ul role="group"><li role="treeitem"><div>__init__.py</div></li><li role="treeitem"><div>service.py</div></li></ul>
+            </li>
+            <li role="treeitem" aria-expanded="true"><div>legacy</div>
+              <ul role="group"><li role="treeitem"><div>routes.py</div></li></ul>
             </li>
             <li role="treeitem" aria-expanded="true"><div>tests</div>
               <ul role="group"><li role="treeitem"><div>test_service.py</div></li></ul>
@@ -49,16 +52,25 @@
         ['api/books/service.py', 25, 10],
         ['api/tests/test_service.py', 10, 5],
         ['docs/books.md', 5, 0],
+        ['api/books/__init__.py', 0, 0, 'empty'],
+        ['api/legacy/routes.py', 0, 0, 'unrendered'],
       ];
       const container = document.getElementById('diff-comparison-viewer-container');
       files.forEach(([path, added, removed, source], index) => {
         const wrapper = document.createElement('div');
         const button = source === 'attribute' ? `<button data-file-path="${path}">Expand all lines</button>` : '';
+        if (source === 'unrendered') {
+          wrapper.innerHTML = `<div role="region" id="diff-${index}" aria-labelledby="heading-${index}"><span id="heading-${index}" hidden>${path}</span></div>`;
+          wrapper.dataset.unrendered = '';
+          container.append(wrapper);
+          return;
+        }
+        const stats = source === 'empty' ? '' : `<span class="sr-only">Lines changed: ${added} additions &amp; ${removed} deletions</span>`;
         wrapper.innerHTML = `
           <div role="region" id="diff-${index}" aria-labelledby="heading-${index}">
             <div data-diff-header-wrapper>
               <h3 id="heading-${index}">‎${path}‎</h3>${button}
-              <span class="sr-only">Lines changed: ${added} additions &amp; ${removed} deletions</span>
+              ${stats}
             </div>
             <div role="region" id="diff-${index}-hunk" aria-label="Hunk"><pre>@@ -1 +1 @@</pre></div>
           </div>`;

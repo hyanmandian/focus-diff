@@ -16,9 +16,9 @@ describe('panel on a pull request', () => {
     assert.equal(state.present, true);
     assert.deepEqual(state.options, ['All', 'Frontend', 'Backend', 'Docs']);
     assert.equal(state.checked, 'All');
-    assert.equal(state.visiblePaths.length, 6, 'nested hunk regions are not counted as files');
-    assert.match(state.stats, /6\/6 files/);
-    assert.equal(state.filesCounter, '6');
+    assert.equal(state.visiblePaths.length, 8, 'nested hunk regions are not counted as files');
+    assert.match(state.stats, /8\/8 files/);
+    assert.equal(state.filesCounter, '8');
     await page.close();
   });
 
@@ -30,21 +30,24 @@ describe('panel on a pull request', () => {
     let state = await panelState(page);
     assert.deepEqual(state.visiblePaths, ['web/src/book-card.tsx']);
     assert.deepEqual(state.treeFiles, ['book-card.tsx']);
-    assert.equal(state.filesCounter, '1/6');
+    assert.equal(state.filesCounter, '1/8');
     assert.equal(state.additions, '+40');
     assert.equal(state.deletions, '−10');
-    assert.match(state.status, /Frontend: 1 of 6 files, 40 lines added, 10 removed/);
+    assert.match(state.status, /Frontend: 1 of 8 files, 40 lines added, 10 removed\.$/);
 
     await clickFilter(page, 'Backend');
     await settle();
     state = await panelState(page);
-    assert.deepEqual(state.visiblePaths, ['api/books/service.py']);
-    assert.deepEqual(state.treeFiles, ['service.py']);
+    assert.deepEqual(state.visiblePaths, ['api/books/service.py', 'api/books/__init__.py', 'api/legacy/routes.py']);
+    assert.deepEqual(state.treeFiles, ['__init__.py', 'service.py', 'routes.py']);
+    assert.equal(state.filesCounter, '3/8');
+    assert.equal(state.additions, '+120', 'keeps GitHub totals while a file has not loaded');
+    assert.match(state.status, /haven't loaded yet/);
 
     await clickFilter(page, 'All');
     await settle();
     state = await panelState(page);
-    assert.equal(state.filesCounter, '6');
+    assert.equal(state.filesCounter, '8');
     assert.equal(state.additions, '+120');
     assert.equal(state.deletions, '−30');
     await page.close();
@@ -138,7 +141,7 @@ describe('panel on a pull request', () => {
     await settle();
     const state = await panelState(page);
     assert.equal(state.options[0], 'Todos');
-    assert.match(state.stats, /6\/6 arquivos/);
+    assert.match(state.stats, /8\/8 arquivos/);
     await page.close();
   });
 

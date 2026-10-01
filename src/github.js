@@ -41,20 +41,31 @@ var GitHubPage = (() => {
     return element;
   };
 
-  const statsCache = new WeakMap();
-  const statsOf = (diff) => {
-    if (statsCache.has(diff)) return statsCache.get(diff);
-    const header = diff.querySelector('[data-diff-header-wrapper], .file-header') ?? diff;
+  const labelledStats = (header) => {
     for (const element of header.querySelectorAll('.sr-only, [aria-label], [title]')) {
       const label = element.getAttribute('aria-label') || element.getAttribute('title') || element.textContent;
       const [, additions, deletions] = (label.length < 160 && label.match(FILE_STATS)) || [];
-      if (additions) {
-        const stats = { additions: toNumber(additions), deletions: toNumber(deletions) };
-        statsCache.set(diff, stats);
-        return stats;
-      }
+      if (additions) return { additions: toNumber(additions), deletions: toNumber(deletions) };
     }
     return null;
+  };
+
+  const visibleStats = (header) => {
+    const leaves = [...header.querySelectorAll('span, div')].filter((element) => !element.children.length).map(text);
+    const additions = leaves.find((value) => ADDITIONS.test(value));
+    const deletions = leaves.find((value) => DELETIONS.test(value));
+    return { additions: additions ? toNumber(additions.slice(1)) : 0, deletions: deletions ? toNumber(deletions.slice(1)) : 0 };
+  };
+
+  const statsByPath = new Map();
+  const statsOf = (diff, path) => {
+    const key = `${location.pathname}|${path}`;
+    if (statsByPath.has(key)) return statsByPath.get(key);
+    const header = diff.querySelector('[data-diff-header-wrapper], .file-header');
+    if (!header) return null;
+    const stats = labelledStats(header) ?? visibleStats(header);
+    statsByPath.set(key, stats);
+    return stats;
   };
 
   const pathCache = new WeakMap();
@@ -69,7 +80,7 @@ var GitHubPage = (() => {
       if (element.parentElement?.closest(DIFF)) continue;
       const path = cachedPathOf(element);
       if (!path || byPath.has(path)) continue;
-      byPath.set(path, { element, path, container: containerOf(element), stats: () => statsOf(element) });
+      byPath.set(path, { element, path, container: containerOf(element), stats: () => statsOf(element, path) });
     }
     return [...byPath.values()];
   };

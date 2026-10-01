@@ -9,7 +9,7 @@
   </p>
 </div>
 
-<img src="store/screenshots/pull-request.png" alt="A GitHub pull request with 406 changed files, narrowed by the Focus Diff panel to the 123 frontend files, with Files changed showing 123/406 and +1,305 lines">
+<img src="store/screenshots/readme.png" alt="A GitHub pull request with 406 changed files, narrowed by the Focus Diff panel to the 123 frontend files, with Files changed showing 123/406 and +1,305 lines">
 
 ## Why
 

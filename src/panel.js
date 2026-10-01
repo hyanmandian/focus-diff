@@ -50,8 +50,10 @@ var FocusDiffPanel = (() => {
       font-variant-numeric: tabular-nums; white-space: nowrap;
     }
     .files { display: inline-flex; }
-    .number { display: inline-block; }
-    .visible { text-align: right; }
+    .number { display: inline-grid; }
+    .number > * { grid-area: 1 / 1; }
+    .ghost { visibility: hidden; }
+    .visible { justify-items: end; }
     .additions { color: var(--fd-add); }
     .deletions { color: var(--fd-del); }
     .pending {
@@ -114,19 +116,18 @@ var FocusDiffPanel = (() => {
   const easeOutExpo = (t) => (t === 1 ? 1 : 1 - 2 ** (-10 * t));
 
   const counter = (className, render) => {
-    const element = h('span', { className: `number ${className}` });
+    const ghost = h('span', { className: 'ghost', 'aria-hidden': 'true' });
+    const output = h('span');
+    const element = h('span', { className: `number ${className}` }, ghost, output);
     let value = null;
     let frame = 0;
-    let widest = 0;
 
     const reserve = (text) => {
-      if (text.length <= widest) return;
-      widest = text.length;
-      element.style.minWidth = `${widest}ch`;
+      if (text.length > ghost.textContent.length) ghost.textContent = text;
     };
 
     const paint = (current) => {
-      element.textContent = render(current);
+      output.textContent = render(current);
     };
 
     const set = (next) => {

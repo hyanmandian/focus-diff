@@ -150,5 +150,17 @@ describe('panel on a pull request', () => {
     await page.close();
   });
 
+  it('removes itself when the extension is reloaded and the tab is not', async () => {
+    const page = await env.open(PR);
+    await settle();
+    await page.evaluate(() => {
+      delete window.chrome.runtime.id;
+      document.body.append(document.createElement('div'));
+    });
+    await settle();
+    assert.equal((await panelState(page)).present, false);
+    await page.close();
+  });
+
   it('throws no page errors', () => assert.deepEqual(env.errors, []));
 });

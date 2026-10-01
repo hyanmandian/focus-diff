@@ -30,7 +30,7 @@ const shim = (locale) => `
     window.__dispatch = (message) => messageListeners.forEach((listener) => listener(message));
     window.chrome = {
       storage: { sync: area('sync'), local: area('local'), onChanged: { addListener: (fn) => changeListeners.push(fn) } },
-      runtime: { sendMessage: async (message) => window.__sent.push(message), onMessage: { addListener: (fn) => messageListeners.push(fn) } },
+      runtime: { id: 'focus-diff-test', sendMessage: async (message) => window.__sent.push(message), onMessage: { addListener: (fn) => messageListeners.push(fn) } },
       i18n: {
         getUILanguage: () => '${locale.replace('_', '-')}',
         getMessage: (key, substitutions = []) =>

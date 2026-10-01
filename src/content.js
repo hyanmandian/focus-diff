@@ -32,6 +32,7 @@
   const optionsFor = (repo) => [{ id: ALL, name: t('filterAll') }, ...filtersFor(repo)];
 
   const select = (id) => {
+    if (!extensionAlive()) return shutDown();
     const repo = page.repository();
     if (!repo) return;
     activeByRepo = { ...activeByRepo, [repo]: id };
@@ -102,8 +103,16 @@
     else pageObserver.disconnect();
   };
 
+  const extensionAlive = () => Boolean(chrome.runtime?.id);
+
+  const shutDown = () => {
+    pageObserver.disconnect();
+    panel.remove();
+  };
+
   const apply = () => {
     scheduled = false;
+    if (!extensionAlive()) return shutDown();
     const repo = page.repository();
     observePage(Boolean(repo));
     panel.setVisible(Boolean(repo));

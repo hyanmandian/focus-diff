@@ -263,7 +263,9 @@ var FocusDiffPanel = (() => {
       optionsKey = '';
     };
 
-    return { renderOptions, renderStats, announce, setVisible, reset };
+    const remove = () => host.remove();
+
+    return { renderOptions, renderStats, announce, setVisible, reset, remove };
   };
 
   return { create };

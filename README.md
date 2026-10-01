@@ -31,4 +31,4 @@ Supporting another code host means adding a sibling to `github.js` with the same
 
 ## License
 
-[MIT](LICENSE) © Hyan Mandian · contact@hyan.com.br
+[MIT](LICENSE) © Hyan Mandian

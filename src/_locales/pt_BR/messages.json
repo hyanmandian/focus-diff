@@ -23,9 +23,6 @@
   "panelShowFiles": {
     "message": "Mostrar arquivos"
   },
-  "panelFiles": {
-    "message": "$1 arquivos"
-  },
   "panelLinesAdded": {
     "message": "linhas adicionadas,"
   },
@@ -164,9 +161,6 @@
   "labelExclude": {
     "message": "Regex para excluir"
   },
-  "filtersEmpty": {
-    "message": "Nenhum filtro ainda. Adicione um e ele vira um botão nos pull requests."
-  },
   "addFilter": {
     "message": "Adicionar filtro"
   },
@@ -184,9 +178,6 @@
   },
   "thisRepository": {
     "message": "este repositório"
-  },
-  "removeFilterLabel": {
-    "message": "Remover filtro"
   },
   "errorName": {
     "message": "Dê um nome ao botão."

@@ -17,9 +17,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
       - run: npm run lint
+      - run: npm run build
+      - name: Validate the Firefox build with Mozilla's add-on linter
+        run: npx --yes web-ext@8 lint --source-dir dist/firefox --self-hosted
       - run: npm test
       - uses: actions/upload-artifact@v4
         with:

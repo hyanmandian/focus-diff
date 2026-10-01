@@ -61,14 +61,15 @@ Store listings are on the way. Until then, load it from source:
 
 ## Development
 
+Focus Diff has no dependencies, not even for development. You need Node 22 and Chrome.
+
 ```sh
-npm install
-npm test        # unit tests and end-to-end tests in headless Chrome, with axe accessibility checks
-npm run lint    # syntax check, build and Firefox's add-on linter
+npm test        # unit tests and end-to-end tests in headless Chrome, with accessibility checks
+npm run lint    # syntax, unsafe APIs, manifest and translations
 npm run build   # zips for Chrome/Edge and Firefox in dist/
 ```
 
-The end-to-end tests run the real content scripts on a local copy of a pull request page, so they don't depend on github.com.
+The end-to-end tests drive Chrome through the DevTools protocol and run the real content scripts on a local copy of a pull request page, so they don't depend on github.com. Set `CHROME_PATH` if Chrome isn't in the usual place.
 
 ## License
 

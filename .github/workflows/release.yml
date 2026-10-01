@@ -18,8 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
 
       - name: Check the tag matches the manifest version
         run: |
@@ -30,6 +28,7 @@ jobs:
           fi
 
       - run: npm run lint
+      - run: npm run build
       - run: npm test
 
       - name: Create the GitHub release
@@ -58,5 +57,5 @@ jobs:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: >
-          npx web-ext sign --source-dir dist/firefox --channel listed
+          npx --yes web-ext@8 sign --source-dir dist/firefox --channel listed
           --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"

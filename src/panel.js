@@ -166,7 +166,7 @@ var FocusDiffPanel = (() => {
     const stats = h(
       'span',
       { className: 'stats' },
-      h('span', { className: 'files' }, visibleFiles.element, h('span', { className: 'number', textContent: '/' }), totalFiles.element, h('span', { className: 'files-label', textContent: t('panelFilesLabel') })),
+      h('span', { className: 'files' }, visibleFiles.element, h('span', { className: 'number', textContent: '/' }), totalFiles.element, h('span', { className: 'files-label', textContent: ` ${t('panelFilesLabel')}` })),
       additions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesAdded')}` }),
       deletions.element,

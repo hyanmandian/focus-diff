@@ -21,20 +21,6 @@ Review what matters. A browser extension for Chrome, Edge and Firefox that adds 
 
 On a Mac, `Alt` is `Option`. Change them at `chrome://extensions/shortcuts` (or `about:addons` → gear → *Manage Extension Shortcuts* in Firefox). Inside the panel, the arrow keys, `Home` and `End` also move between filters.
 
-## How it works
-
-| File | Role |
-|---|---|
-| `src/shared.js` | Filter model: config shape, regex matching, storage |
-| `src/github.js` | Reads GitHub's pull request page: diffs, file tree, counters |
-| `src/panel.js` | The floating filter bar, in a shadow root that follows GitHub's theme |
-| `src/content.js` | Connects the page, the panel and your saved filters |
-| `src/options.*` | Settings page |
-| `src/background.js` | Opens settings on install and from the toolbar button, forwards keyboard shortcuts |
-| `src/_locales/` | English and Brazilian Portuguese text |
-
-Supporting another code host means adding a sibling to `github.js` with the same functions.
-
 ## Install (unpacked, for testing)
 
 - **Chrome / Edge:** open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the `src` folder.
@@ -52,18 +38,6 @@ npm run build   # dist/focus-diff-<version>-chrome.zip (also for Edge) and -fire
 ```
 
 The end-to-end tests run the real content scripts on a local copy of a GitHub pull request page (`tests/e2e/fixtures`), so they don't depend on github.com.
-
-## Releasing
-
-1. Bump `version` in `src/manifest.json` and `package.json`.
-2. Push a matching tag: `git tag v1.0.1 && git push --tags`.
-
-The **Release** workflow tests and builds, attaches both zips to a GitHub release, and publishes to the stores when their secrets are set:
-
-- Chrome Web Store: `CHROME_EXTENSION_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN` ([how to get them](https://github.com/fregante/chrome-webstore-upload-keys)).
-- Firefox Add-ons: `AMO_JWT_ISSUER`, `AMO_JWT_SECRET` (from [addons.mozilla.org/developers/addon/api/key](https://addons.mozilla.org/developers/addon/api/key/)).
-
-The first upload to each store is done by hand, since the store needs the listing and privacy answers before the API can publish updates.
 
 ## License
 

@@ -3,6 +3,9 @@
   "name": "Focus Diff",
   "version": "1.0.0",
   "description": "Review what matters: filter GitHub pull request diffs with your own presets and see the real size of what you review.",
+  "author": {
+    "email": "contact@hyan.com.br"
+  },
   "homepage_url": "https://github.com/hyanmandian/focus-diff",
   "permissions": [
     "storage"

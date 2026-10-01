@@ -13,8 +13,8 @@ class ReviewService:
     def __init__(self, repository: ReviewRepository) -> None:
         self.repository = repository
 
-    def search(self, term: str) -> list[Review]:
-        return self.repository.list(term.strip())
+    def search(self, term: str, page: int = 1) -> list[Review]:
+        return self.repository.list(term.strip(), limit=50, offset=(page - 1) * 50)
 
     def get(self, item_id: UUID) -> Review:
         item = self.repository.get(item_id)
@@ -23,4 +23,7 @@ class ReviewService:
         return item
 
     def create(self, data: ReviewIn) -> Review:
-        return self.repository.add(Review(name=data.name.strip()))
+        name = " ".join(data.name.split())
+        if self.repository.exists(name):
+            raise ValueError(f"Review {name!r} already exists")
+        return self.repository.add(Review(name=name))

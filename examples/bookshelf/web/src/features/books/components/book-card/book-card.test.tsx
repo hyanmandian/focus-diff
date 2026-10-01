@@ -11,7 +11,7 @@ describe('BookCard', () => {
   it('calls onAction', async () => {
     const onAction = vi.fn();
     render(<BookCard onAction={onAction} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(onAction).toHaveBeenCalledOnce();
   });
 

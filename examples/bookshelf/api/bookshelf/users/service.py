@@ -13,8 +13,8 @@ class UserService:
     def __init__(self, repository: UserRepository) -> None:
         self.repository = repository
 
-    def search(self, term: str) -> list[User]:
-        return self.repository.list(term.strip())
+    def search(self, term: str, page: int = 1) -> list[User]:
+        return self.repository.list(term.strip(), limit=50, offset=(page - 1) * 50)
 
     def get(self, item_id: UUID) -> User:
         item = self.repository.get(item_id)
@@ -23,4 +23,7 @@ class UserService:
         return item
 
     def create(self, data: UserIn) -> User:
-        return self.repository.add(User(name=data.name.strip()))
+        name = " ".join(data.name.split())
+        if self.repository.exists(name):
+            raise ValueError(f"User {name!r} already exists")
+        return self.repository.add(User(name=name))

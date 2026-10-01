@@ -1,0 +1,5 @@
+.root { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-2); }
+.header { display: flex; align-items: center; justify-content: space-between; }
+.title { font: var(--text-title-sm); margin: 0; }
+.body { color: var(--fg-muted); }
+.action { justify-self: start; }

@@ -1,0 +1,11 @@
+services:
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgresql+psycopg://bookshelf:bookshelf@db/bookshelf
+    ports: ["8000:8000"]
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: bookshelf
+      POSTGRES_PASSWORD: bookshelf

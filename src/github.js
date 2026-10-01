@@ -57,10 +57,22 @@ var GitHubPage = (() => {
     return null;
   };
 
-  const diffs = () =>
-    [...document.querySelectorAll(DIFF)]
-      .map((element) => ({ element, path: pathOf(element), container: containerOf(element), stats: () => statsOf(element) }))
-      .filter((diff) => diff.path);
+  const pathCache = new WeakMap();
+  const cachedPathOf = (element) => {
+    if (!pathCache.has(element)) pathCache.set(element, pathOf(element));
+    return pathCache.get(element);
+  };
+
+  const diffs = () => {
+    const byPath = new Map();
+    for (const element of document.querySelectorAll(DIFF)) {
+      if (element.parentElement?.closest(DIFF)) continue;
+      const path = cachedPathOf(element);
+      if (!path || byPath.has(path)) continue;
+      byPath.set(path, { element, path, container: containerOf(element), stats: () => statsOf(element) });
+    }
+    return [...byPath.values()];
+  };
 
   const labelOf = (item) => (item.querySelector(':scope > div')?.textContent || item.getAttribute('aria-label') || '').trim();
 
@@ -93,21 +105,20 @@ var GitHubPage = (() => {
     const summary = document.getElementById('diffstat');
     if (summary) return [summary.querySelector('.color-fg-success'), summary.querySelector('.color-fg-danger')];
 
-    const deletionsNextTo = (element) => [...element.parentElement.children].find((sibling) => DELETIONS.test(text(sibling)));
+    const isLeaf = (element) => !element.children.length;
     const additions = [...document.querySelectorAll('span, div')].find(
-      (element) =>
-        !element.children.length &&
-        ADDITIONS.test(text(element)) &&
-        !element.closest(`${DIFF}, [role="tree"]`) &&
-        deletionsNextTo(element),
+      (element) => isLeaf(element) && ADDITIONS.test(text(element)) && !element.closest(`${DIFF}, [role="tree"]`),
     );
-    return additions ? [additions, deletionsNextTo(additions)] : [null, null];
+    if (!additions) return [null, null];
+    const near = additions.parentElement?.parentElement ?? additions.parentElement;
+    const deletions = [...near.querySelectorAll('span, div')].find((element) => isLeaf(element) && DELETIONS.test(text(element)));
+    return [additions, deletions ?? null];
   };
 
   let counters = { files: null, additions: null, deletions: null };
   let scannedAt = 0;
   const pageCounters = () => {
-    const connected = Object.values(counters).every((element) => element?.isConnected);
+    const connected = counters.files?.isConnected && counters.additions?.isConnected;
     if (connected || Date.now() - scannedAt < COUNTER_RESCAN_MS) return counters;
     scannedAt = Date.now();
     const [additions, deletions] = findLineCounters();

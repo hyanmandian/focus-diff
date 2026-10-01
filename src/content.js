@@ -42,8 +42,7 @@
   });
 
   const filterDiffs = (matches) => {
-    const totals = { visible: 0, total: 0, additions: 0, deletions: 0 };
-    let statsKnown = true;
+    const totals = { visible: 0, total: 0, additions: 0, deletions: 0, pending: 0 };
     for (const diff of page.diffs()) {
       totals.total++;
       const keep = matches(diff.path);
@@ -51,11 +50,10 @@
       if (!keep) continue;
       totals.visible++;
       const stats = diff.stats();
-      if (!stats) statsKnown = false;
+      if (!stats) totals.pending++;
       totals.additions += stats?.additions ?? 0;
       totals.deletions += stats?.deletions ?? 0;
     }
-    if (!statsKnown) totals.additions = totals.deletions = null;
     return totals;
   };
 
@@ -73,7 +71,11 @@
       return;
     }
     overwrite(counters.files, `${format(totals.visible)}/${format(totals.total)}`);
-    if (totals.additions === null) return;
+    if (totals.pending > 0) {
+      restore(counters.additions);
+      restore(counters.deletions);
+      return;
+    }
     overwrite(counters.additions, `+${format(totals.additions)}`);
     overwrite(counters.deletions, `−${format(totals.deletions)}`);
   };

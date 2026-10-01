@@ -38,6 +38,7 @@ var FocusDiffPanel = (() => {
       color: var(--fd-muted); font-variant-numeric: tabular-nums; white-space: nowrap;
     }
     .additions { color: var(--fd-add); }
+    .pending { font-style: italic; }
     .deletions { color: var(--fd-del); }
     .settings { display: inline-grid; place-items: center; min-width: var(--fd-target); padding: 0; color: var(--fd-muted); }
     .settings.labelled { padding: 0 12px; }
@@ -129,25 +130,26 @@ var FocusDiffPanel = (() => {
     };
 
     let statsKey = '';
-    const renderStats = ({ visible, total, additions, deletions }) => {
-      const key = [visible, total, additions, deletions].join('|');
+    const renderStats = ({ visible, total, additions, deletions, pending }) => {
+      const key = [visible, total, additions, deletions, pending].join('|');
       if (key === statsKey) return;
       statsKey = key;
       const figure = (className, value, label) =>
         h('span', { className }, value, h('span', { className: 'visually-hidden', textContent: ` ${label}` }));
 
       stats.replaceChildren(h('span', { textContent: `${format(visible)}/${format(total)} files` }));
-      if (additions !== null) {
-        stats.append(
-          figure('additions', `+${format(additions)}`, 'lines added'),
-          figure('deletions', `−${format(deletions)}`, 'lines removed'),
-        );
+      stats.append(
+        figure('additions', `+${format(additions)}`, 'lines added'),
+        figure('deletions', `−${format(deletions)}`, 'lines removed'),
+      );
+      if (pending > 0) {
+        stats.append(h('span', { className: 'pending', textContent: `${format(pending)} not loaded yet` }));
       }
     };
 
-    const announce = ({ name, visible, total, additions, deletions }) => {
-      const lines = additions === null ? '' : `, ${format(additions)} lines added, ${format(deletions)} removed`;
-      status.textContent = `${name}: ${format(visible)} of ${format(total)} files${lines}.`;
+    const announce = ({ name, visible, total, additions, deletions, pending }) => {
+      const loading = pending > 0 ? ` ${format(pending)} of them haven't loaded yet, so line counts are partial.` : '';
+      status.textContent = `${name}: ${format(visible)} of ${format(total)} files, ${format(additions)} lines added, ${format(deletions)} removed.${loading}`;
     };
 
     const setVisible = (visible) => {

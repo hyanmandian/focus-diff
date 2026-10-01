@@ -9,10 +9,7 @@
   </p>
 </div>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="store/screenshots/pull-request-dark.png">
-  <img src="store/screenshots/pull-request-light.png" alt="A GitHub pull request with 406 changed files, narrowed by the Focus Diff panel to the 123 frontend files, with Files changed showing 123/406 and +1,305 lines">
-</picture>
+<img src="store/screenshots/pull-request.png" alt="A GitHub pull request with 406 changed files, narrowed by the Focus Diff panel to the 123 frontend files, with Files changed showing 123/406 and +1,305 lines">
 
 ## Why
 

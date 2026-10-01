@@ -25,15 +25,19 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Feels like GitHub.** Follows your GitHub theme, checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.
 - **Private.** No tracking and no network requests. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
 
-## Example filters
+## Getting started
 
-These come preinstalled, and you can change them anytime in the settings.
+Focus Diff starts empty, so your filters fit the way you review. Right after installing, a welcome page explains how it works and offers examples you can add with one click:
 
-| Filter | Include | Exclude |
-|---|---|---|
-| Frontend | `\.(ts\|tsx\|js\|jsx)$` | `\.(test\|spec\|stories)\.` |
-| Backend | `\.py$` | `(^\|/)tests/` |
-| Docs | `\.mdx?$` | |
+- **Split frontend and backend**, without tests and stories in the way.
+- **Focus on one part of the codebase**, like the folder your team owns.
+- **Read the code before the tests**, or only the tests.
+- **Skip generated files**: lockfiles, snapshots, minified files and build output.
+- **Check infrastructure changes**: CI, Docker, Terraform, Kubernetes and YAML.
+- **Watch database changes**: migrations, SQL and schemas.
+- **Review docs and copy**.
+
+They're regular filters, so you can rename or tweak them later. The welcome page is always one click away from the settings.
 
 ## Keyboard shortcuts
 

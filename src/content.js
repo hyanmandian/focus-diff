@@ -51,7 +51,11 @@
 
   const panel = FocusDiffPanel.create({
     onSelect: select,
-    onSettings: () => chrome.runtime.sendMessage({ type: 'open-options', repo: page.repository() }),
+    onSettings: () => {
+      const repo = page.repository();
+      const configured = repo && filtersFor(repo).length > 0;
+      chrome.runtime.sendMessage(configured ? { type: 'open-options', repo } : { type: 'open-welcome' });
+    },
   });
 
   const filterDiffs = (matches) => {

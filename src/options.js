@@ -2,24 +2,7 @@
   const { t } = FocusDiff;
   const $ = (selector, root = document) => root.querySelector(selector);
 
-  const richText = (message) =>
-    message
-      .split(/(<b>.*?<\/b>|<code>.*?<\/code>)/)
-      .filter(Boolean)
-      .map((part) => {
-        const [, tag, text] = part.match(/^<(b|code)>(.*)<\/\1>$/) ?? [];
-        if (!tag) return document.createTextNode(part);
-        const element = document.createElement(tag);
-        element.textContent = text;
-        return element;
-      });
-
-  const translate = (root) => {
-    root.querySelectorAll('[data-i18n]').forEach((element) => (element.textContent = t(element.dataset.i18n)));
-    root.querySelectorAll('[data-i18n-html]').forEach((element) => element.replaceChildren(...richText(t(element.dataset.i18nHtml))));
-    root.querySelectorAll('[data-i18n-placeholder]').forEach((element) => (element.placeholder = t(element.dataset.i18nPlaceholder)));
-    return root;
-  };
+  const { translate, translateDocument, toaster } = FocusDiffPage;
 
   const clone = (id) => {
     const element = $(`#${id}`).content.firstElementChild.cloneNode(true);
@@ -237,14 +220,7 @@
 
   ['#try-path', '#try-repo'].forEach((selector) => $(selector).addEventListener('input', updateTry));
 
-  const toast = $('#toast');
-  let toastTimer;
-  const notify = (message) => {
-    clearTimeout(toastTimer);
-    toast.textContent = message;
-    toast.classList.add('visible');
-    toastTimer = setTimeout(() => toast.classList.remove('visible'), 2800);
-  };
+  const notify = toaster($('#toast'));
 
   const filterCount = (value) => value.global.length + value.repos.reduce((sum, entry) => sum + entry.filters.length, 0);
   const counted = (count, one, many) => (count === 1 ? t(one) : t(many, count));
@@ -310,9 +286,7 @@
     if (dirty) event.preventDefault();
   });
 
-  document.documentElement.lang = chrome.i18n.getUILanguage();
-  document.title = t('optionsTitle');
-  translate(document.body);
+  translateDocument('optionsTitle');
 
   FocusDiff.load().then((loaded) => {
     config = loaded;

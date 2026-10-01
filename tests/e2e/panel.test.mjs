@@ -125,6 +125,17 @@ describe('panel on a pull request', () => {
     await page.close();
   });
 
+  it('sends people without filters to the examples', async () => {
+    const page = await env.open(PR);
+    await page.evaluate(() => chrome.storage.sync.set({ config: { global: [], repos: [] } }));
+    await settle();
+    const state = await panelState(page);
+    assert.deepEqual(state.options, ['All']);
+    await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.settings').click());
+    assert.deepEqual(await page.evaluate(() => window.__sent), [{ type: 'open-welcome' }]);
+    await page.close();
+  });
+
   it('has no accessibility violations in light and dark themes', async () => {
     for (const scheme of ['light', 'dark']) {
       const page = await env.open(PR, { scheme });

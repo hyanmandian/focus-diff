@@ -1,19 +1,17 @@
-if (typeof FocusDiff === 'undefined') importScripts('shared.js');
-
 const openOptions = (repo) =>
   chrome.tabs.create({ url: chrome.runtime.getURL(`options.html${repo ? `#repo=${encodeURIComponent(repo)}` : ''}`) });
 
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
-  if (reason !== 'install') return;
-  const config = await FocusDiff.load();
-  if (FocusDiff.isEmpty(config)) await FocusDiff.save(FocusDiff.EXAMPLE_CONFIG);
-  openOptions();
+const openWelcome = () => chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === 'install') openWelcome();
 });
 
 chrome.action.onClicked.addListener(() => openOptions());
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'open-options') openOptions(message.repo);
+  if (message?.type === 'open-welcome') openWelcome();
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {

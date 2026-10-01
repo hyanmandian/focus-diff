@@ -235,5 +235,155 @@
   },
   "panelFilesLabel": {
     "message": "arquivos"
+  },
+  "welcomeTitle": {
+    "message": "Boas-vindas ao Focus Diff"
+  },
+  "welcomeLead": {
+    "message": "Pull requests grandes misturam o código que você precisa ler com testes, arquivos gerados e coisas que são de outros times. O Focus Diff adiciona uma barra no GitHub que mostra só os arquivos que você escolher, com a contagem real do que falta revisar."
+  },
+  "howHeading": {
+    "message": "Como funciona"
+  },
+  "howStep1Title": {
+    "message": "Crie filtros"
+  },
+  "howStep1Body": {
+    "message": "Cada filtro vira um botão. Um arquivo aparece quando o caminho dele combina com o padrão Incluir do filtro e não combina com o padrão Excluir."
+  },
+  "howStep2Title": {
+    "message": "Abra um pull request"
+  },
+  "howStep2Body": {
+    "message": "Na aba Files changed, a barra aparece no canto inferior direito, com Todos e os seus filtros."
+  },
+  "howStep3Title": {
+    "message": "Escolha um filtro"
+  },
+  "howStep3Body": {
+    "message": "Só os arquivos que combinam ficam. A árvore de arquivos, o Files changed e o total de +/− mudam junto. Todos traz tudo de volta."
+  },
+  "previewLabel": {
+    "message": "Exemplo da barra em um pull request"
+  },
+  "recipesHeading": {
+    "message": "Comece com um exemplo"
+  },
+  "recipesHint": {
+    "message": "Adicione os que combinam com o seu jeito de revisar. São filtros comuns, então dá para renomear ou ajustar depois nas configurações."
+  },
+  "recipeAdd": {
+    "message": "Adicionar"
+  },
+  "recipeAdded": {
+    "message": "Adicionado"
+  },
+  "recipeAddLabel": {
+    "message": "Adicionar $1"
+  },
+  "recipeRemoveLabel": {
+    "message": "Remover $1"
+  },
+  "recipeAddedNotice": {
+    "message": "$1 adicionado. Abra um pull request para testar."
+  },
+  "recipeRemovedNotice": {
+    "message": "$1 removido."
+  },
+  "recipeInclude": {
+    "message": "Incluir"
+  },
+  "recipeExclude": {
+    "message": "Excluir"
+  },
+  "recipeEverything": {
+    "message": "todos os arquivos"
+  },
+  "recipeStackTitle": {
+    "message": "Separar frontend e backend"
+  },
+  "recipeStackDescription": {
+    "message": "Revise a interface e a API em etapas separadas, sem testes e stories no meio."
+  },
+  "recipeStackFrontend": {
+    "message": "Frontend"
+  },
+  "recipeStackBackend": {
+    "message": "Backend"
+  },
+  "recipeAreaTitle": {
+    "message": "Focar em uma parte do código"
+  },
+  "recipeAreaDescription": {
+    "message": "Só a pasta que o seu time cuida. Troque payments pelo seu caminho e, se ele só existir em um repositório, adicione só nele."
+  },
+  "recipeAreaName": {
+    "message": "Pagamentos"
+  },
+  "recipeTestsTitle": {
+    "message": "Ler o código antes dos testes"
+  },
+  "recipeTestsDescription": {
+    "message": "Dois botões: um esconde testes, stories e mocks, o outro mostra só os testes."
+  },
+  "recipeTestsCode": {
+    "message": "Código"
+  },
+  "recipeTestsOnly": {
+    "message": "Testes"
+  },
+  "recipeGeneratedTitle": {
+    "message": "Pular arquivos gerados"
+  },
+  "recipeGeneratedDescription": {
+    "message": "Esconde lockfiles, snapshots, arquivos minificados e saída de build, que ninguém lê linha por linha."
+  },
+  "recipeGeneratedName": {
+    "message": "Sem gerados"
+  },
+  "recipeInfraTitle": {
+    "message": "Conferir mudanças de infraestrutura"
+  },
+  "recipeInfraDescription": {
+    "message": "Workflows de CI, Docker, Terraform, Kubernetes e configs YAML, para quem cuida da plataforma."
+  },
+  "recipeInfraName": {
+    "message": "Infra"
+  },
+  "recipeDatabaseTitle": {
+    "message": "Ficar de olho no banco de dados"
+  },
+  "recipeDatabaseDescription": {
+    "message": "Migrations, SQL e arquivos de schema, que merecem uma olhada com calma antes do merge."
+  },
+  "recipeDatabaseName": {
+    "message": "Banco de dados"
+  },
+  "recipeDocsTitle": {
+    "message": "Revisar docs e textos"
+  },
+  "recipeDocsDescription": {
+    "message": "Markdown, arquivos de texto e tudo dentro de docs/, para quem escreve ou revisa produto."
+  },
+  "recipeDocsName": {
+    "message": "Docs"
+  },
+  "welcomeNextHeading": {
+    "message": "Próximos passos"
+  },
+  "welcomeOpenSettings": {
+    "message": "Abrir configurações"
+  },
+  "welcomeShortcuts": {
+    "message": "Troque de filtro sem o mouse: $1 próximo, $2 anterior, $3 todos os arquivos."
+  },
+  "welcomeLink": {
+    "message": "Exemplos e como funciona"
+  },
+  "filtersEmptyWithExamples": {
+    "message": "Nenhum filtro ainda. Adicione um ou comece com um exemplo."
+  },
+  "browseExamples": {
+    "message": "Ver exemplos"
   }
 }

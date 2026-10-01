@@ -1,15 +1,6 @@
 var FocusDiff = (() => {
   const ALL = 'all';
 
-  const EXAMPLE_CONFIG = {
-    global: [
-      { id: 'frontend', name: 'Frontend', include: '\\.(ts|tsx|js|jsx)$', exclude: '\\.(test|spec|stories)\\.' },
-      { id: 'backend', name: 'Backend', include: '\\.py$', exclude: '(^|/)tests/' },
-      { id: 'docs', name: 'Docs', include: '\\.mdx?$', exclude: '' },
-    ],
-    repos: [],
-  };
-
   const newId = () => Math.random().toString(36).slice(2, 10);
 
   const compile = (source) => {
@@ -78,7 +69,6 @@ var FocusDiff = (() => {
 
   return {
     ALL,
-    EXAMPLE_CONFIG,
     REPO_PATTERN,
     newId,
     compile,

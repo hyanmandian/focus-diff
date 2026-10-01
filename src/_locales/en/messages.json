@@ -235,5 +235,155 @@
   },
   "panelFilesLabel": {
     "message": "files"
+  },
+  "welcomeTitle": {
+    "message": "Welcome to Focus Diff"
+  },
+  "welcomeLead": {
+    "message": "Big pull requests mix the code you need to read with tests, generated files and things other people own. Focus Diff adds a bar to GitHub that shows only the files you pick, with the real count of what is left to review."
+  },
+  "howHeading": {
+    "message": "How it works"
+  },
+  "howStep1Title": {
+    "message": "Create filters"
+  },
+  "howStep1Body": {
+    "message": "Each filter becomes a button. A file shows up when its path matches the filter's Include pattern and doesn't match its Exclude pattern."
+  },
+  "howStep2Title": {
+    "message": "Open a pull request"
+  },
+  "howStep2Body": {
+    "message": "On the Files changed tab, the bar shows up in the bottom-right corner, with All plus your filters."
+  },
+  "howStep3Title": {
+    "message": "Pick a filter"
+  },
+  "howStep3Body": {
+    "message": "Only the matching files stay. The file tree, Files changed and the +/− totals update to match. All brings everything back."
+  },
+  "previewLabel": {
+    "message": "Example of the bar on a pull request"
+  },
+  "recipesHeading": {
+    "message": "Start from an example"
+  },
+  "recipesHint": {
+    "message": "Add the ones that fit how you review. They're regular filters, so you can rename or tweak them later in settings."
+  },
+  "recipeAdd": {
+    "message": "Add"
+  },
+  "recipeAdded": {
+    "message": "Added"
+  },
+  "recipeAddLabel": {
+    "message": "Add $1"
+  },
+  "recipeRemoveLabel": {
+    "message": "Remove $1"
+  },
+  "recipeAddedNotice": {
+    "message": "Added $1. Open a pull request to try it."
+  },
+  "recipeRemovedNotice": {
+    "message": "Removed $1."
+  },
+  "recipeInclude": {
+    "message": "Include"
+  },
+  "recipeExclude": {
+    "message": "Exclude"
+  },
+  "recipeEverything": {
+    "message": "every file"
+  },
+  "recipeStackTitle": {
+    "message": "Split frontend and backend"
+  },
+  "recipeStackDescription": {
+    "message": "Review the UI and the API in separate passes, without tests and stories in the way."
+  },
+  "recipeStackFrontend": {
+    "message": "Frontend"
+  },
+  "recipeStackBackend": {
+    "message": "Backend"
+  },
+  "recipeAreaTitle": {
+    "message": "Focus on one part of the codebase"
+  },
+  "recipeAreaDescription": {
+    "message": "Only the folder your team owns. Swap payments for your own path, and add it to a single repository if it only exists there."
+  },
+  "recipeAreaName": {
+    "message": "Payments"
+  },
+  "recipeTestsTitle": {
+    "message": "Read the code before the tests"
+  },
+  "recipeTestsDescription": {
+    "message": "Two buttons: one hides tests, stories and mocks, the other shows only the tests."
+  },
+  "recipeTestsCode": {
+    "message": "Code"
+  },
+  "recipeTestsOnly": {
+    "message": "Tests"
+  },
+  "recipeGeneratedTitle": {
+    "message": "Skip generated files"
+  },
+  "recipeGeneratedDescription": {
+    "message": "Hide lockfiles, snapshots, minified files and build output that nobody reads line by line."
+  },
+  "recipeGeneratedName": {
+    "message": "No generated"
+  },
+  "recipeInfraTitle": {
+    "message": "Check infrastructure changes"
+  },
+  "recipeInfraDescription": {
+    "message": "CI workflows, Docker, Terraform, Kubernetes and YAML config, for the reviewer who owns the platform."
+  },
+  "recipeInfraName": {
+    "message": "Infra"
+  },
+  "recipeDatabaseTitle": {
+    "message": "Watch database changes"
+  },
+  "recipeDatabaseDescription": {
+    "message": "Migrations, SQL and schema files, which deserve a careful look before merging."
+  },
+  "recipeDatabaseName": {
+    "message": "Database"
+  },
+  "recipeDocsTitle": {
+    "message": "Review docs and copy"
+  },
+  "recipeDocsDescription": {
+    "message": "Markdown, text files and anything under docs/, for writers and product reviewers."
+  },
+  "recipeDocsName": {
+    "message": "Docs"
+  },
+  "welcomeNextHeading": {
+    "message": "Next"
+  },
+  "welcomeOpenSettings": {
+    "message": "Open settings"
+  },
+  "welcomeShortcuts": {
+    "message": "Switch filters without the mouse: $1 next, $2 previous, $3 all files."
+  },
+  "welcomeLink": {
+    "message": "Examples and how it works"
+  },
+  "filtersEmptyWithExamples": {
+    "message": "No filters yet. Add one, or start from an example."
+  },
+  "browseExamples": {
+    "message": "Browse examples"
   }
 }

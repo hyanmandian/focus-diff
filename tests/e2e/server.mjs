@@ -30,6 +30,7 @@ const shim = (locale) => `
     window.__dispatch = (message) => messageListeners.forEach((listener) => listener(message));
     window.chrome = {
       storage: { sync: area('sync'), local: area('local'), onChanged: { addListener: (fn) => changeListeners.push(fn) } },
+      commands: { getAll: async () => [] },
       runtime: { id: 'focus-diff-test', sendMessage: async (message) => window.__sent.push(message), onMessage: { addListener: (fn) => messageListeners.push(fn) } },
       i18n: {
         getUILanguage: () => '${locale.replace('_', '-')}',
@@ -65,8 +66,8 @@ export const startServer = () =>
           .join('');
         return send(page.replace('</body>', `${scripts}</body>`));
       }
-      if (url.pathname === '/ext/options.html') {
-        const page = readFileSync(join(source, 'options.html'), 'utf8');
+      if (/^\/ext\/[\w-]+\.html$/.test(url.pathname)) {
+        const page = readFileSync(join(source, url.pathname.slice(5)), 'utf8');
         return send(page.replace('<script src="shared.js">', `<script src="/test/shim.js?locale=${locale}"></script><script src="shared.js">`));
       }
       if (url.pathname.startsWith('/ext/')) {

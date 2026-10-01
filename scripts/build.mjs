@@ -12,7 +12,7 @@ const targets = {
   firefox: ({ background, minimum_chrome_version, options_page, author, ...base }) => ({
     ...base,
     author: 'Hyan Mandian',
-    background: { scripts: ['shared.js', 'background.js'] },
+    background: { scripts: ['background.js'] },
     options_ui: { page: options_page, open_in_tab: true },
     browser_specific_settings: {
       gecko: {

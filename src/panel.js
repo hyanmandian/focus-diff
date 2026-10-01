@@ -151,6 +151,7 @@ var FocusDiffPanel = (() => {
     };
 
     const setVisible = (visible) => {
+      if (visible && !host.isConnected) document.documentElement.append(host);
       host.style.display = visible ? 'block' : 'none';
     };
 

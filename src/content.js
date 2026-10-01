@@ -116,7 +116,9 @@
   Promise.all([FocusDiff.load(), chrome.storage.local.get('active')]).then(([loaded, { active }]) => {
     config = loaded;
     activeByRepo = active ?? {};
-    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+    ['turbo:load', 'turbo:render'].forEach((type) => document.addEventListener(type, schedule));
+    ['popstate', 'pageshow'].forEach((type) => window.addEventListener(type, schedule));
     schedule();
   });
 })();

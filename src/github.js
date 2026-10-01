@@ -16,11 +16,20 @@ var GitHubPage = (() => {
     return owner ? `${owner}/${name}` : null;
   };
 
+  const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿]/g;
+
+  const cleanPath = (value = '') => {
+    const parts = value.replace(INVISIBLE, '').trim().split(/\s+→\s+/);
+    return parts[parts.length - 1].trim();
+  };
+
   const pathOf = (diff) =>
-    diff.querySelector('[data-file-path]')?.dataset.filePath ||
-    diff.dataset.tagsearchPath ||
-    document.getElementById(diff.getAttribute('aria-labelledby'))?.textContent.trim() ||
-    '';
+    cleanPath(
+      diff.querySelector('[data-file-path]')?.dataset.filePath ||
+        diff.dataset.tagsearchPath ||
+        document.getElementById(diff.getAttribute('aria-labelledby'))?.textContent ||
+        diff.querySelector('h3, [class*="file-name"], a[href^="#diff-"]')?.textContent,
+    );
 
   const containerOf = (diff) => {
     let element = diff;

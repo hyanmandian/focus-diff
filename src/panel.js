@@ -1,4 +1,7 @@
 var FocusDiffPanel = (() => {
+  const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)';
+  const COUNT_MS = 360;
+
   const STYLES = `
     :host {
       all: initial;
@@ -11,10 +14,12 @@ var FocusDiffPanel = (() => {
       --fd-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #ffffff));
       --fd-add: var(--fgColor-success, var(--color-success-fg, #1a7f37));
       --fd-del: var(--fgColor-danger, var(--color-danger-fg, #d1242f));
+      --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
       --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));
       --fd-shadow: var(--shadow-floating-large, 0 0 0 1px rgba(209, 217, 224, 0.5), 0 24px 48px rgba(37, 41, 46, 0.2));
       --fd-font: var(--fontStack-sansSerif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif);
       --fd-target: 32px;
+      --fd-ease: ${EASE_OUT};
     }
     @media (pointer: coarse) { :host { --fd-target: 44px; } }
 
@@ -25,28 +30,50 @@ var FocusDiffPanel = (() => {
       background: var(--fd-bg); box-shadow: var(--fd-shadow);
       color: var(--fd-fg); font: 500 13px/20px var(--fd-font);
     }
-    .filters { display: flex; flex-wrap: wrap; gap: 2px; }
+
+    .filters { position: relative; display: flex; flex-wrap: wrap; gap: 2px; isolation: isolate; }
+    .indicator {
+      position: absolute; top: 0; left: 0; z-index: -1; border-radius: 8px;
+      background: var(--fd-selected-bg); pointer-events: none;
+    }
     button {
       min-height: var(--fd-target); padding: 0 12px; border: 0; border-radius: 8px;
       background: transparent; color: var(--fd-fg); font: inherit; cursor: pointer;
     }
     button:hover { background: var(--fd-hover); }
     button:focus-visible { outline: 2px solid var(--fd-focus); outline-offset: 1px; }
-    [aria-checked="true"], [aria-checked="true"]:hover { background: var(--fd-selected-bg); color: var(--fd-selected-fg); font-weight: 600; }
+    [role="radio"][aria-checked="true"], [role="radio"][aria-checked="true"]:hover { background: transparent; color: var(--fd-selected-fg); }
+
     .stats {
-      display: inline-flex; gap: 8px; padding: 0 4px 0 10px; border-left: 1px solid var(--fd-border);
-      color: var(--fd-muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 8px; padding: 0 4px 0 10px;
+      border-left: 1px solid var(--fd-border); color: var(--fd-muted);
+      font-variant-numeric: tabular-nums; white-space: nowrap;
     }
+    .files { display: inline-flex; }
+    .number { display: inline-block; }
+    .visible { text-align: right; }
     .additions { color: var(--fd-add); }
-    .pending { font-style: italic; }
     .deletions { color: var(--fd-del); }
+    .pending {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--fd-attention);
+      opacity: 0; transition: opacity 200ms ease-out;
+    }
+    .pending.active { opacity: 1; }
+
     .settings { display: inline-grid; place-items: center; min-width: var(--fd-target); padding: 0; color: var(--fd-muted); }
     .settings.labelled { padding: 0 12px; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-    @media (prefers-reduced-motion: no-preference) { button { transition: background-color 120ms ease-out; } }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .panel { transition: opacity 200ms ease-out, translate 280ms var(--fd-ease); }
+      @starting-style { .panel { opacity: 0; translate: 0 8px; } }
+      .indicator.ready { transition: translate 260ms var(--fd-ease), width 260ms var(--fd-ease), height 260ms var(--fd-ease); }
+      button { transition: background-color 120ms ease-out, color 160ms ease-out; }
+    }
     @media (forced-colors: active) {
       .panel { border-color: CanvasText; }
-      [aria-checked="true"] { outline: 2px solid Highlight; }
+      .indicator { background: Highlight; }
+      [role="radio"][aria-checked="true"] { color: HighlightText; }
     }
   `;
 
@@ -71,94 +98,154 @@ var FocusDiffPanel = (() => {
   };
 
   const format = FocusDiff.formatNumber;
+  const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const easeOutExpo = (t) => (t === 1 ? 1 : 1 - 2 ** (-10 * t));
+
+  const counter = (className, render) => {
+    const element = h('span', { className: `number ${className}` });
+    let value = null;
+    let frame = 0;
+    let widest = 0;
+
+    const reserve = (text) => {
+      if (text.length <= widest) return;
+      widest = text.length;
+      element.style.minWidth = `${widest}ch`;
+    };
+
+    const paint = (current) => {
+      element.textContent = render(current);
+    };
+
+    const set = (next) => {
+      if (next === value) return;
+      cancelAnimationFrame(frame);
+      const from = value;
+      value = next;
+      reserve(render(Math.max(from ?? 0, next)));
+      if (from === null || prefersReducedMotion()) return paint(next);
+      const start = performance.now();
+      const step = (now) => {
+        const progress = Math.min(1, (now - start) / COUNT_MS);
+        paint(Math.round(from + (next - from) * easeOutExpo(progress)));
+        if (progress < 1) frame = requestAnimationFrame(step);
+      };
+      frame = requestAnimationFrame(step);
+    };
+
+    return { element, set };
+  };
 
   const create = ({ onSelect, onSettings }) => {
     const host = h('div');
     host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483000;display:none';
     const root = host.attachShadow({ mode: 'open' });
 
-    const group = h('div', { className: 'filters', role: 'radiogroup', 'aria-label': 'Show files' });
-    const stats = h('span', { className: 'stats' });
+    const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
+    const group = h('div', { className: 'filters', role: 'radiogroup', 'aria-label': 'Show files' }, indicator);
+    const visibleFiles = counter('visible', format);
+    const totalFiles = counter('total', (n) => `${format(n)} files`);
+    const additions = counter('additions', (n) => `+${format(n)}`);
+    const deletions = counter('deletions', (n) => `−${format(n)}`);
+    const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
+    const stats = h(
+      'span',
+      { className: 'stats' },
+      h('span', { className: 'files' }, visibleFiles.element, '/', totalFiles.element),
+      additions.element,
+      h('span', { className: 'visually-hidden', textContent: ' lines added,' }),
+      deletions.element,
+      h('span', { className: 'visually-hidden', textContent: ' lines removed' }),
+      pending,
+    );
     const settings = h('button', { type: 'button', className: 'settings', title: 'Focus Diff settings', onClick: () => onSettings() });
     const status = h('span', { className: 'visually-hidden', role: 'status' });
     root.append(h('style', { textContent: STYLES }), h('div', { className: 'panel' }, group, stats, settings, status));
     document.documentElement.append(host);
 
+    const radios = () => [...group.querySelectorAll('[role="radio"]')];
+
+    const moveIndicator = () => {
+      const checked = group.querySelector('[aria-checked="true"]');
+      if (!checked || !checked.offsetWidth) return;
+      indicator.style.width = `${checked.offsetWidth}px`;
+      indicator.style.height = `${checked.offsetHeight}px`;
+      indicator.style.translate = `${checked.offsetLeft}px ${checked.offsetTop}px`;
+      if (!indicator.classList.contains('ready')) requestAnimationFrame(() => indicator.classList.add('ready'));
+    };
+    new ResizeObserver(moveIndicator).observe(group);
+
     group.addEventListener('keydown', (event) => {
-      const radios = [...group.children];
-      const index = radios.indexOf(root.activeElement);
+      const options = radios();
+      const index = options.indexOf(root.activeElement);
       if (index === -1) return;
       const target =
-        event.key === 'Home' ? 0 : event.key === 'End' ? radios.length - 1 : index + (ARROW_STEPS[event.key] ?? NaN);
+        event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : index + (ARROW_STEPS[event.key] ?? NaN);
       if (Number.isNaN(target)) return;
       event.preventDefault();
-      const next = radios[(target + radios.length) % radios.length];
+      const next = options[(target + options.length) % options.length];
       next.focus();
       next.click();
     });
 
-    let renderedKey = '';
+    let optionsKey = '';
     const renderOptions = (options, active) => {
-      const key = JSON.stringify([options.map(({ id, name }) => [id, name]), active]);
-      if (key === renderedKey) return;
-      renderedKey = key;
-      const keepFocus = group.contains(root.activeElement);
+      const key = JSON.stringify(options.map(({ id, name }) => [id, name]));
+      if (key !== optionsKey) {
+        optionsKey = key;
+        const keepFocus = group.contains(root.activeElement);
+        radios().forEach((radio) => radio.remove());
+        group.append(
+          ...options.map(({ id, name }) =>
+            h('button', { type: 'button', role: 'radio', textContent: name, onClick: () => onSelect(id), 'data-id': id }),
+          ),
+        );
+        if (keepFocus) requestAnimationFrame(() => group.querySelector('[aria-checked="true"]')?.focus());
 
-      group.replaceChildren(
-        ...options.map(({ id, name }) =>
-          h('button', {
-            type: 'button',
-            role: 'radio',
-            'aria-checked': String(id === active),
-            tabIndex: id === active ? 0 : -1,
-            textContent: name,
-            onClick: () => onSelect(id),
-          }),
-        ),
-      );
-      if (keepFocus) group.querySelector('[aria-checked="true"]').focus();
-
-      const configured = options.length > 1;
-      settings.classList.toggle('labelled', !configured);
-      if (configured) {
-        settings.innerHTML = SETTINGS_ICON;
-        settings.setAttribute('aria-label', 'Focus Diff settings');
-      } else {
-        settings.textContent = 'Set up filters';
-        settings.removeAttribute('aria-label');
+        const configured = options.length > 1;
+        settings.classList.toggle('labelled', !configured);
+        if (configured) {
+          settings.innerHTML = SETTINGS_ICON;
+          settings.setAttribute('aria-label', 'Focus Diff settings');
+        } else {
+          settings.textContent = 'Set up filters';
+          settings.removeAttribute('aria-label');
+        }
       }
+
+      for (const radio of radios()) {
+        const checked = radio.dataset.id === active;
+        if (radio.getAttribute('aria-checked') !== String(checked)) radio.setAttribute('aria-checked', String(checked));
+        radio.tabIndex = checked ? 0 : -1;
+      }
+      moveIndicator();
     };
 
-    let statsKey = '';
-    const renderStats = ({ visible, total, additions, deletions, pending }) => {
-      const key = [visible, total, additions, deletions, pending].join('|');
-      if (key === statsKey) return;
-      statsKey = key;
-      const figure = (className, value, label) =>
-        h('span', { className }, value, h('span', { className: 'visually-hidden', textContent: ` ${label}` }));
-
-      stats.replaceChildren(h('span', { textContent: `${format(visible)}/${format(total)} files` }));
-      stats.append(
-        figure('additions', `+${format(additions)}`, 'lines added'),
-        figure('deletions', `−${format(deletions)}`, 'lines removed'),
-      );
-      if (pending > 0) {
-        stats.append(h('span', { className: 'pending', textContent: `${format(pending)} not loaded yet` }));
-      }
+    const renderStats = (totals) => {
+      visibleFiles.set(totals.visible);
+      totalFiles.set(totals.total);
+      additions.set(totals.additions);
+      deletions.set(totals.deletions);
+      pending.classList.toggle('active', totals.pending > 0);
+      pending.title = totals.pending > 0 ? `${format(totals.pending)} files not loaded yet, so line counts are partial` : '';
+      stats.title = pending.title;
     };
 
-    const announce = ({ name, visible, total, additions, deletions, pending }) => {
-      const loading = pending > 0 ? ` ${format(pending)} of them haven't loaded yet, so line counts are partial.` : '';
-      status.textContent = `${name}: ${format(visible)} of ${format(total)} files, ${format(additions)} lines added, ${format(deletions)} removed.${loading}`;
+    const announce = ({ name, visible, total, additions: added, deletions: removed, pending: waiting }) => {
+      const loading = waiting > 0 ? ` ${format(waiting)} of them haven't loaded yet, so line counts are partial.` : '';
+      status.textContent = `${name}: ${format(visible)} of ${format(total)} files, ${format(added)} lines added, ${format(removed)} removed.${loading}`;
     };
 
     const setVisible = (visible) => {
       if (visible && !host.isConnected) document.documentElement.append(host);
-      host.style.display = visible ? 'block' : 'none';
+      const display = visible ? 'block' : 'none';
+      if (host.style.display === display) return;
+      host.style.display = display;
+      if (visible) requestAnimationFrame(moveIndicator);
     };
 
     const reset = () => {
-      renderedKey = '';
+      optionsKey = '';
     };
 
     return { renderOptions, renderStats, announce, setVisible, reset };

@@ -50,12 +50,14 @@ test.describe('newer, virtualized diff view', () => {
   test('reaches conversations in files GitHub has not rendered', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     const next = pr.panel.getByRole('button', { name: 'Next conversation' });
-    await expect(pr.panel.locator('.comments')).toHaveAccessibleName('4 conversations');
+    await expect(pr.panel.locator('.comments')).toHaveAccessibleName('Conversations, 4 conversations');
+    await pr.panel.locator('.comments').click();
     await next.click();
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
     await next.click();
     await next.click();
     await expect(pr.status).toHaveText('Conversation 3 of 4, in api/books/service.py.');
+    await expect(pr.panel.locator('.conversation')).toContainText('service.pyUnresolvedapi/books · Line 40');
     const marker = pr.page.locator('[class*="CommentIndicator"][data-line="R40"]');
     await expect(marker).toBeInViewport();
     await expect(marker).toHaveCSS('outline-style', 'solid');

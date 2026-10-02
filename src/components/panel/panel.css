@@ -126,7 +126,7 @@ button:focus-visible {
   color: var(--fd-fg);
 }
 
-.breakdown {
+.popover {
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
@@ -141,7 +141,7 @@ button:focus-visible {
   font: 400 14px/20px var(--fd-font);
   font-variant-numeric: tabular-nums;
 }
-.breakdown[hidden] {
+.popover[hidden] {
   display: none;
 }
 .columns .column-time {
@@ -349,35 +349,147 @@ button:focus-visible {
 .comments {
   display: inline-flex;
   align-items: center;
-  margin-left: 4px;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 0 8px 0 10px;
 }
 .comments[hidden] {
   display: none;
 }
-.comment-next {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  font-weight: 500;
+.comments[aria-expanded='true'] {
+  background: var(--fd-hover);
 }
 .comments-icon {
   display: inline-grid;
   color: var(--fd-muted);
 }
-.comment-previous {
+.comments[aria-expanded='true'] .comments-icon {
+  color: var(--fd-fg);
+}
+
+.conversations {
+  display: grid;
+  gap: 12px;
+  width: 296px;
+  padding: 12px;
+  font-size: 13px;
+}
+/* Inset to line up with the card's text: the first dot's mark with its left edge, the position with its right. */
+.conversation-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 13px 0 5px;
+}
+.rail {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+}
+.rail-file {
+  display: inline-flex;
+}
+/* Every dot is a 24px target; the visible mark is a pill clipped down to a circle, so the open one grows without layout. */
+.dot {
   display: inline-grid;
   place-items: center;
   width: 24px;
+  min-height: 24px;
   padding: 0;
-  color: var(--fd-muted);
+  border-radius: 6px;
 }
-.comment-previous[hidden] {
+.dot::before {
+  content: '';
+  width: 20px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fd-muted);
+  clip-path: inset(0 6px round 999px);
+}
+.dot.resolved::before {
+  background: radial-gradient(circle, transparent 2.5px, var(--fd-muted) 3px);
+}
+.dot[aria-current='true']::before {
+  background: var(--fd-selected-bg);
+  clip-path: inset(0 0 round 999px);
+}
+.conversation {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--fd-border-muted);
+  border-radius: 8px;
+}
+.conversation-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.conversation-title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-status {
+  flex: none;
+  margin-left: auto;
+  padding: 0 8px;
+  border-radius: 999px;
+  font: 600 11px/18px var(--fd-font);
+}
+.conversation-status[hidden] {
   display: none;
 }
-.comment-previous:not([hidden]) + .comment-next {
-  padding-left: 4px;
+.conversation-status.unresolved {
+  background: color-mix(in srgb, var(--fd-attention) 14%, transparent);
+  color: var(--fd-attention);
+}
+.conversation-status.resolved {
+  background: color-mix(in srgb, var(--fd-add) 14%, transparent);
+  color: var(--fd-add);
+}
+.conversation-meta {
+  overflow: hidden;
+  color: var(--fd-muted);
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--fd-border);
+  border-radius: 8px;
+}
+.conversation-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 7px 0 0 7px;
+  font-weight: 500;
+}
+.conversation-step + .conversation-step {
+  border-radius: 0 7px 7px 0;
+  box-shadow: inset 1px 0 0 var(--fd-border);
+}
+.conversation-step:focus-visible {
+  outline-offset: -2px;
+}
+.conversation-step svg {
+  color: var(--fd-muted);
+}
+.conversation-position {
+  color: var(--fd-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 24px;
+  white-space: nowrap;
 }
 .number {
   display: inline-grid;
@@ -423,12 +535,12 @@ button:focus-visible {
 .panel {
   transition: opacity 200ms ease-out;
 }
-.breakdown {
+.popover {
   transition: opacity 160ms ease-out;
 }
 @starting-style {
   .panel,
-  .breakdown {
+  .popover {
     opacity: 0;
   }
 }
@@ -448,18 +560,23 @@ button {
       translate: 0 8px;
     }
   }
-  .breakdown {
+  .popover {
     transition:
       opacity 160ms ease-out,
       translate 220ms var(--fd-ease);
   }
   @starting-style {
-    .breakdown {
+    .popover {
       translate: 0 6px;
     }
   }
   .indicator.ready {
     transition: clip-path 260ms var(--fd-ease);
+  }
+  .dot::before {
+    transition:
+      clip-path 240ms var(--fd-ease),
+      background-color 160ms ease-out;
   }
 }
 @media (forced-colors: active) {
@@ -479,6 +596,16 @@ button {
     border: 1px solid CanvasText;
   }
   .filters.combined .option[aria-pressed='true'] {
+    background: Highlight;
+  }
+  .dot::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .dot.resolved::before {
+    background: radial-gradient(circle, transparent 2.5px, CanvasText 3px);
+  }
+  .dot[aria-current='true']::before {
     background: Highlight;
   }
 }

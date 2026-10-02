@@ -158,22 +158,32 @@ test.describe('panel on a pull request', () => {
         return centred && (thread as HTMLElement).style.outline.includes('solid');
       }, text);
 
-    await expect(comments).toHaveAccessibleName('4 conversations');
+    await expect(comments).toHaveAccessibleName('Conversations, 4 conversations');
+    await comments.click();
+    const popover = pr.panel.getByRole('dialog', { name: 'Conversations' });
+    await expect(popover).toContainText('3 unresolved · 3 files');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
     await expect.poll(() => centred('missing cover')).toBe(true);
-    await expect(comments).toHaveAccessibleName('Conversation 1 of 4');
+    await expect(comments).toHaveAccessibleName('Conversations, Conversation 1 of 4');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     await expect.poll(() => centred('Typo')).toBe(true);
     await previous.click();
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
+    await expect(popover).toBeVisible();
+    await pr.panel.getByRole('button', { name: /^Conversation 4 of 4, / }).click();
+    await expect(pr.status).toHaveText(/^Conversation 4 of 4, in /);
+    await expect(popover).toContainText('4 / 4');
+    await pr.page.keyboard.press('Escape');
+    await expect(popover).toBeHidden();
+    await expect(comments).toBeFocused();
 
     await pr.pick('Backend');
-    await expect(comments).toHaveAccessibleName('2 conversations');
+    await expect(comments).toHaveAccessibleName('Conversations, 2 conversations');
     await pr.pick('Frontend');
     await pr.pick('Docs', { combine: true });
-    await expect(comments).toHaveAccessibleName('2 conversations');
+    await expect(comments).toHaveAccessibleName('Conversations, 2 conversations');
     await pr.pick('All');
   });
 

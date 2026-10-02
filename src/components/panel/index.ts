@@ -25,11 +25,18 @@ export interface PanelOption {
   count?: number;
 }
 
+export interface Conversation {
+  path: string;
+  /** Line in the new version of the file, when GitHub's data has it. */
+  line: number | null;
+  resolved: boolean;
+}
+
 export interface Navigation {
   /** Shown files not yet marked as viewed. */
   unviewed: number;
-  /** Conversations in the shown files, and which one the reader last jumped to (0 before the first jump). */
-  comments: { current: number; total: number };
+  /** Conversations in the shown files, and which one the reader last jumped to (1-based, 0 before the first jump). */
+  comments: { current: number; list: Conversation[] };
 }
 
 export interface BreakdownRow extends PanelOption, Totals {}
@@ -39,6 +46,7 @@ export interface PanelActions {
   onSettings: () => void;
   onNextUnviewed: () => void;
   onComment: (step: 1 | -1) => void;
+  onConversation: (index: number) => void;
 }
 
 export interface Panel {
@@ -74,7 +82,7 @@ const infoIcon = () =>
     14,
   );
 const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
-const chevron = (direction: 'up' | 'down') => icon(direction === 'up' ? 'M4.5 10 8 6.5 11.5 10' : 'M4.5 6 8 9.5 11.5 6');
+const chevron = (direction: 'left' | 'right') => icon(direction === 'left' ? 'M10 4.5 6.5 8 10 11.5' : 'M6 4.5 9.5 8 6 11.5');
 
 interface PanelMount {
   root: ShadowRoot;
@@ -85,7 +93,7 @@ interface PanelMount {
 
 export const createPanel = (
   { root, container, host, signal }: PanelMount,
-  { onToggle, onSettings, onNextUnviewed, onComment }: PanelActions,
+  { onToggle, onSettings, onNextUnviewed, onComment, onConversation }: PanelActions,
 ): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
@@ -130,27 +138,49 @@ export const createPanel = (
     h('span', { className: 'option-count', 'aria-hidden': 'true' }),
   );
   // One button walks forward through the conversations; going back only appears once there's somewhere to go back to.
-  const commentPosition = h('span', { className: 'option-count', 'aria-hidden': 'true' });
-  const previousComment = h(
+  const commentsCount = h('span', { className: 'option-count', 'aria-hidden': 'true' });
+  const comments = h(
     'button',
-    {
-      type: 'button',
-      className: 'comment-previous',
-      hidden: true,
-      'aria-label': i18n.t('panelPreviousComment'),
-      title: i18n.t('panelPreviousComment'),
-      onClick: () => onComment(-1),
-    },
-    chevron('up'),
-  );
-  const nextComment = h(
-    'button',
-    { type: 'button', className: 'comment-next', title: i18n.t('panelNextComment'), onClick: () => onComment(1) },
+    { type: 'button', className: 'comments', 'aria-expanded': 'false', 'aria-controls': 'focus-diff-conversations' },
     h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
-    commentPosition,
+    commentsCount,
   );
-  const comments = h('span', { className: 'comments', role: 'group', 'aria-label': i18n.t('panelComments') }, previousComment, nextComment);
-  const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments);
+  const rail = h('div', { className: 'rail', role: 'group', 'aria-label': i18n.t('panelComments') });
+  const cardTitle = h('span', { className: 'conversation-title' });
+  const cardStatus = h('span', { className: 'conversation-status' });
+  const cardMeta = h('span', { className: 'conversation-meta' });
+  const card = h('div', { className: 'conversation' }, h('span', { className: 'conversation-heading' }, cardTitle, cardStatus), cardMeta);
+  const conversationPosition = h('span', { className: 'conversation-position', 'aria-hidden': 'true' });
+  const conversations = h(
+    'div',
+    {
+      className: 'conversations popover',
+      id: 'focus-diff-conversations',
+      role: 'dialog',
+      'aria-label': i18n.t('panelComments'),
+      hidden: true,
+    },
+    h('div', { className: 'conversation-header' }, rail, conversationPosition),
+    card,
+    h(
+      'div',
+      { className: 'conversation-steps' },
+      h(
+        'button',
+        { type: 'button', className: 'conversation-step', 'aria-label': i18n.t('panelPreviousComment'), onClick: () => onComment(-1) },
+        chevron('left'),
+        i18n.t('panelPrevious'),
+      ),
+      h(
+        'button',
+        { type: 'button', className: 'conversation-step', 'aria-label': i18n.t('panelNextComment'), onClick: () => onComment(1) },
+        i18n.t('panelNext'),
+        chevron('right'),
+      ),
+    ),
+  );
+  // Like the breakdown, the conversations popover follows its toggle and is positioned against the host.
+  const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments, conversations);
 
   const breakdownRows = h('div', { className: 'rows' });
   const timeInfo = h('div', {
@@ -212,9 +242,11 @@ export const createPanel = (
   const resizeObserver = new ResizeObserver(() => {
     moveIndicator();
     centreOver(breakdown, breakdownToggle, host);
+    centreOver(conversations, comments, host);
   });
   resizeObserver.observe(group);
   resizeObserver.observe(breakdown);
+  resizeObserver.observe(conversations);
   signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   group.addEventListener('keydown', (event) => {
@@ -333,18 +365,126 @@ export const createPanel = (
     breakdown.hidden = !open;
     breakdownToggle.setAttribute('aria-expanded', String(open));
     if (open) {
+      setConversationsOpen(false);
       drawBreakdown();
       centreOver(breakdown, breakdownToggle, host);
     } else drawnKey = '';
   };
   breakdownToggle.addEventListener('click', () => setBreakdownOpen(breakdown.hidden));
+
+  let conversationSource: Navigation['comments'] = { current: 0, list: [] };
+  let railKey = '';
+  let shownCurrent = -1;
+  const dots = () => [...rail.querySelectorAll<HTMLButtonElement>('.dot')];
+  const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+  const folder = (path: string) => path.slice(0, Math.max(path.lastIndexOf('/'), 0));
+  const lineText = (conversation: Conversation) => (conversation.line ? i18n.t('panelLine', [format(conversation.line)]) : '');
+  const statusText = (conversation: Conversation) => i18n.t(conversation.resolved ? 'panelResolved' : 'panelUnresolved');
+
+  /** One dot per conversation, grouped by file; the open conversation stretches into a bar. */
+  const drawRail = (list: Conversation[]) => {
+    const key = JSON.stringify(list);
+    if (key === railKey) return;
+    railKey = key;
+    const keepFocus = rail.contains(focused());
+    const files: HTMLElement[] = [];
+    list.forEach((conversation, index) => {
+      if (conversation.path !== list[index - 1]?.path) files.push(h('span', { className: 'rail-file' }));
+      const label = [
+        i18n.t('panelCommentPosition', [format(index + 1), format(list.length)]),
+        conversation.path,
+        lineText(conversation),
+        statusText(conversation),
+      ];
+      files.at(-1)?.append(
+        h('button', {
+          type: 'button',
+          className: conversation.resolved ? 'dot resolved' : 'dot',
+          'aria-label': label.filter(Boolean).join(', '),
+          onClick: () => onConversation(index),
+        }),
+      );
+    });
+    rail.replaceChildren(...files);
+    if (keepFocus) dots()[0]?.focus();
+  };
+
+  const drawConversations = () => {
+    if (conversations.hidden) return;
+    const { current, list } = conversationSource;
+    drawRail(list);
+    dots().forEach((dot, index) => {
+      const active = index === current - 1;
+      if (active) dot.setAttribute('aria-current', 'true');
+      else dot.removeAttribute('aria-current');
+      dot.tabIndex = index === Math.max(current - 1, 0) ? 0 : -1;
+    });
+
+    const target = list[current - 1];
+    if (target) {
+      cardTitle.textContent = fileName(target.path);
+      cardTitle.title = target.path;
+      cardMeta.textContent = [folder(target.path), lineText(target)].filter(Boolean).join(' · ');
+      cardStatus.textContent = statusText(target);
+      cardStatus.className = `conversation-status ${target.resolved ? 'resolved' : 'unresolved'}`;
+      cardStatus.hidden = false;
+    } else {
+      const unresolved = list.filter((conversation) => !conversation.resolved).length;
+      const files = new Set(list.map((conversation) => conversation.path)).size;
+      cardTitle.textContent = i18n.t('panelCommentCount', list.length, [format(list.length)]);
+      cardTitle.title = '';
+      cardMeta.textContent = `${i18n.t('panelUnresolvedCount', [format(unresolved)])} · ${i18n.t('fileCount', files, [format(files)])}`;
+      cardStatus.hidden = true;
+    }
+    conversationPosition.textContent = current ? `${format(current)} / ${format(list.length)}` : '';
+    if (shownCurrent !== -1 && shownCurrent !== current) {
+      const moving = matchMedia('(prefers-reduced-motion: no-preference)').matches;
+      card.animate(moving ? { opacity: [0, 1], translate: ['0 4px', '0 0'] } : { opacity: [0, 1] }, { duration: 180, easing: 'ease-out' });
+    }
+    shownCurrent = current;
+  };
+
+  /** Stays open while the reader steps through conversations; only its toggle or Escape closes it. */
+  const setConversationsOpen = (open: boolean) => {
+    if (conversations.hidden === !open) return;
+    conversations.hidden = !open;
+    comments.setAttribute('aria-expanded', String(open));
+    if (open) {
+      setBreakdownOpen(false);
+      drawConversations();
+      centreOver(conversations, comments, host);
+    } else shownCurrent = -1;
+  };
+  comments.addEventListener('click', () => setConversationsOpen(conversations.hidden));
+
+  rail.addEventListener('keydown', (event) => {
+    const list = dots();
+    const index = list.indexOf(focused() as HTMLButtonElement);
+    if (index === -1) return;
+    const target = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
+    if (Number.isNaN(target)) return;
+    event.preventDefault();
+    const next = list[(target + list.length) % list.length];
+    if (!next) return;
+    list.forEach((dot) => (dot.tabIndex = dot === next ? 0 : -1));
+    next.focus();
+  });
+
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || breakdown.hidden) return;
-      const focusInside = breakdown.contains(focused());
-      setBreakdownOpen(false);
-      if (focusInside) breakdownToggle.focus();
+      if (event.key !== 'Escape') return;
+      if (!breakdown.hidden) {
+        const focusInside = breakdown.contains(focused());
+        setBreakdownOpen(false);
+        if (focusInside) breakdownToggle.focus();
+        return;
+      }
+      // Escape elsewhere on the page belongs to GitHub, like cancelling a reply.
+      if (!conversations.hidden && focused()) {
+        setConversationsOpen(false);
+        comments.focus();
+      }
     },
     { signal },
   );
@@ -439,21 +579,23 @@ export const createPanel = (
     pendingText.textContent = pending.title ? ` ${pending.title}` : '';
   };
 
-  const renderNavigation = ({ unviewed, comments: { current, total } }: Navigation) => {
+  const renderNavigation = ({ unviewed, comments: conversationState }: Navigation) => {
     const unviewedLabel = unviewed ? i18n.t('panelNextUnviewed', [format(unviewed)]) : i18n.t('panelAllViewed');
     nextUnviewed.setAttribute('aria-label', unviewedLabel);
     nextUnviewed.title = unviewedLabel;
     nextUnviewed.disabled = unviewed === 0;
     const count = nextUnviewed.querySelector('.option-count');
     if (count) count.textContent = unviewed ? format(unviewed) : '';
+    const total = conversationState.list.length;
     comments.hidden = total === 0;
-    previousComment.hidden = current === 0;
-    commentPosition.textContent = current ? `${format(current)}/${format(total)}` : format(total);
-    const where = current
-      ? i18n.t('panelCommentPosition', [format(current), format(total)])
+    if (!total) setConversationsOpen(false);
+    commentsCount.textContent = format(total);
+    const where = conversationState.current
+      ? i18n.t('panelCommentPosition', [format(conversationState.current), format(total)])
       : i18n.t('panelCommentCount', total, [format(total)]);
-    comments.setAttribute('aria-label', where);
-    nextComment.setAttribute('aria-label', `${i18n.t('panelNextComment')}, ${where}`);
+    comments.setAttribute('aria-label', `${i18n.t('panelComments')}, ${where}`);
+    conversationSource = conversationState;
+    drawConversations();
   };
 
   const announce = ({
@@ -478,7 +620,10 @@ export const createPanel = (
     if (host.style.display === display) return;
     host.style.display = display;
     if (visible) requestAnimationFrame(moveIndicator);
-    else setBreakdownOpen(false);
+    else {
+      setBreakdownOpen(false);
+      setConversationsOpen(false);
+    }
   };
 
   const reset = () => {

@@ -1,5 +1,5 @@
 import { i18n } from '#i18n';
-import type { Panel } from '@/components/panel';
+import type { Conversation, Panel } from '@/components/panel';
 import * as page from '@/utils/github';
 import type { FileInfo } from './files';
 
@@ -56,16 +56,32 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
   /** Conversations known from GitHub's data, in file order then line order. */
   const knownThreads = (shown: FileInfo[]) => shown.flatMap((file) => file.threads.map((thread) => ({ file, thread })));
 
-  const conversationCount = (shown: FileInfo[], complete: boolean): number =>
-    complete ? knownThreads(shown).length : page.threads(shown.flatMap((file) => (file.diff ? [file.diff.element] : []))).length;
+  const renderedThreads = (shown: FileInfo[]) => page.threads(shown.flatMap((file) => (file.diff ? [file.diff.element] : [])));
 
-  /** Newer view: step through the threads GitHub listed, opening each file and centring the thread's marker. */
-  const stepKnown = async (shown: FileInfo[], step: 1 | -1) => {
+  const conversations = (shown: FileInfo[], complete: boolean): Conversation[] =>
+    complete
+      ? knownThreads(shown).map(({ file, thread }) => ({
+          path: file.path,
+          line: Number(thread.line.slice(1)) || null,
+          resolved: thread.resolved,
+        }))
+      : renderedThreads(shown).map((thread) => ({
+          path: shown.find((file) => file.diff?.element.contains(thread.element))?.path ?? '',
+          line: null,
+          resolved: thread.resolved,
+        }));
+
+  const announce = (total: number, path: string) => {
+    panel.announceText(i18n.t('panelJumpedToComment', [String(commentIndex), String(total), path]));
+    schedule();
+  };
+
+  /** Newer view: open the thread's file and centre its marker. */
+  const goToKnown = async (shown: FileInfo[], index: number) => {
     const threads = knownThreads(shown);
-    if (!threads.length) return;
-    commentIndex = commentIndex === 0 ? (step > 0 ? 1 : threads.length) : ((commentIndex - 1 + step + threads.length) % threads.length) + 1;
-    const target = threads[commentIndex - 1];
+    const target = threads[index];
     if (!target) return;
+    commentIndex = index + 1;
     const element = await goToFile(target.file);
     const lines = [...new Set(target.file.threads.map((thread) => thread.line))];
     const marker = element
@@ -75,14 +91,32 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
       page.scrollToCenter(marker);
       page.flash(marker);
     }
-    panel.announceText(i18n.t('panelJumpedToComment', [String(commentIndex), String(threads.length), target.file.path]));
-    schedule();
+    announce(threads.length, target.file.path);
   };
 
-  /** Classic view: step to the next conversation below the middle of the screen, or the previous one above it. */
-  const stepRendered = (shown: FileInfo[], step: 1 | -1) => {
-    const conversations = page.threads(shown.flatMap((file) => (file.diff ? [file.diff.element] : [])));
-    if (!conversations.length) return;
+  /** Classic view: every conversation is already on the page. */
+  const goToRendered = (shown: FileInfo[], index: number) => {
+    const threads = renderedThreads(shown);
+    const target = threads[index];
+    if (!target) return;
+    commentIndex = index + 1;
+    page.scrollToCenter(target.element);
+    page.flash(target.element);
+    announce(threads.length, shown.find((file) => file.diff?.element.contains(target.element))?.path ?? '');
+  };
+
+  const goTo = (shown: FileInfo[], complete: boolean, index: number) => (complete ? goToKnown(shown, index) : goToRendered(shown, index));
+
+  /** Before the first jump, starts from the top (or the end); in the classic view, from the middle of the screen. */
+  const step = (shown: FileInfo[], complete: boolean, direction: 1 | -1) => {
+    if (complete) {
+      const total = knownThreads(shown).length;
+      if (!total) return;
+      const index = commentIndex === 0 ? (direction > 0 ? 0 : total - 1) : (commentIndex - 1 + direction + total) % total;
+      return goToKnown(shown, index);
+    }
+    const threads = renderedThreads(shown);
+    if (!threads.length) return;
     const middle = innerHeight / 2;
     const centre = (thread: page.Thread) => {
       const box = thread.element.getBoundingClientRect();
@@ -90,30 +124,23 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     };
     const index =
       commentIndex === 0 && scrollY < 10
-        ? step > 0
+        ? direction > 0
           ? 0
-          : conversations.length - 1
-        : step > 0
-          ? conversations.findIndex((thread) => centre(thread) > middle + 1)
-          : conversations.findLastIndex((thread) => centre(thread) < middle - 1);
-    const position = index === -1 ? (step > 0 ? 0 : conversations.length - 1) : index;
-    const target = conversations[position];
-    if (!target) return;
-    commentIndex = position + 1;
-    page.scrollToCenter(target.element);
-    page.flash(target.element);
-    const file = shown.find((item) => item.diff?.element.contains(target.element))?.path ?? '';
-    panel.announceText(i18n.t('panelJumpedToComment', [String(commentIndex), String(conversations.length), file]));
-    schedule();
+          : threads.length - 1
+        : direction > 0
+          ? threads.findIndex((thread) => centre(thread) > middle + 1)
+          : threads.findLastIndex((thread) => centre(thread) < middle - 1);
+    return goToRendered(shown, index === -1 ? (direction > 0 ? 0 : threads.length - 1) : index);
   };
 
   return {
     nextUnviewed,
-    comment: (shown: FileInfo[], complete: boolean, step: 1 | -1) => (complete ? stepKnown(shown, step) : stepRendered(shown, step)),
+    comment: step,
+    goTo,
     position: (shown: FileInfo[], complete: boolean) => {
-      const total = conversationCount(shown, complete);
-      if (commentIndex > total) commentIndex = 0;
-      return { current: commentIndex, total };
+      const list = conversations(shown, complete);
+      if (commentIndex > list.length) commentIndex = 0;
+      return { current: commentIndex, list };
     },
     reset: () => {
       commentIndex = 0;

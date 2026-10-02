@@ -39,6 +39,26 @@
 .filters.combined .option[aria-pressed='true'] {
   background: var(--fd-selected-bg);
 }
+/* Neighbours that are both on read as one pill: the corners between them go square, the gap fills in, and a hairline
+   divides them. Each keeps its own width. */
+.filters.combined .option[aria-pressed='true']:has(+ .option[aria-pressed='true']) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  box-shadow: 2px 0 0 var(--fd-selected-bg);
+}
+.filters.combined .option[aria-pressed='true'] + .option[aria-pressed='true'] {
+  position: relative;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+.filters.combined .option[aria-pressed='true'] + .option[aria-pressed='true']::before {
+  content: '';
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: -1.5px;
+  width: 1px;
+  background: color-mix(in srgb, var(--fd-selected-fg) 45%, transparent);
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .indicator.ready {

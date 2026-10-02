@@ -1,4 +1,4 @@
-export interface RecipeFilter {
+interface RecipeFilter {
   name: string;
   include: string;
   exclude: string;

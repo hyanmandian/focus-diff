@@ -52,12 +52,12 @@ test.describe('newer, virtualized diff view', () => {
     const next = pr.panel.getByRole('button', { name: 'Next conversation' });
     await expect(pr.panel.locator('.comments')).toHaveAccessibleName('Conversations, 4 conversations');
     await pr.panel.locator('.comments').click();
-    await next.click();
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
     await next.click();
+    await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 3 of 4, in api/books/service.py.');
-    await expect(pr.panel.locator('.conversation')).toContainText('service.pyUnresolvedapi/books · Line 40');
+    await expect(pr.panel.getByRole('dialog', { name: 'Conversations' })).toContainText('service.py:40Waiting on you · 3/4');
     const marker = pr.page.locator('[class*="CommentIndicator"][data-line="R40"]');
     await expect(marker).toBeInViewport();
     expect(await marker.evaluate((element) => element.getAnimations().some((animation) => animation.id === 'focus-diff-flash'))).toBe(true);

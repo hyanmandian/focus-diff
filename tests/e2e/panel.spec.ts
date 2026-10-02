@@ -159,22 +159,28 @@ test.describe('panel on a pull request', () => {
       }, text);
 
     await expect(comments).toHaveAccessibleName('Conversations, 4 conversations');
+    // Opening lands on the first conversation.
     await comments.click();
     const popover = pr.panel.getByRole('dialog', { name: 'Conversations' });
-    await expect(popover).toContainText('3 unresolved · 3 files');
-    await next.click();
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
     await expect.poll(() => centred('missing cover')).toBe(true);
+    await expect(popover).toContainText('book-card.tsx:12');
+    await expect(popover).toContainText('Waiting on you · 1/4');
     await expect(comments).toHaveAccessibleName('Conversations, Conversation 1 of 4');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     await expect.poll(() => centred('Typo')).toBe(true);
+    await expect(popover).toContainText('Resolved · 2/4');
+    await next.click();
+    await expect(popover).toContainText('service.py:40');
+    await expect(popover).toContainText('Answered · 3/4');
+    await next.click();
+    // A reaction to the last comment counts as an answer.
+    await expect(popover).toContainText('Answered · 4/4');
     await previous.click();
-    await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
+    await previous.click();
+    await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     await expect(popover).toBeVisible();
-    await pr.panel.getByRole('button', { name: /^Conversation 4 of 4, / }).click();
-    await expect(pr.status).toHaveText(/^Conversation 4 of 4, in /);
-    await expect(pr.panel.getByRole('button', { name: /^Conversation 4 of 4, / })).toHaveAttribute('aria-current', 'true');
     await pr.page.keyboard.press('Escape');
     await expect(popover).toBeHidden();
     await expect(comments).toBeFocused();

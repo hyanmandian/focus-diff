@@ -169,10 +169,7 @@
   "panelJumpedToComment": "Conversa $1 de $2, em $3.",
   "panelTimeInfo": "Como o tempo de revisão é estimado",
   "panelNextUnviewedLabel": "Próximo não visto",
-  "panelPrevious": "Anterior",
-  "panelNext": "Próxima",
-  "panelLine": "Linha $1",
-  "panelResolved": "Resolvida",
-  "panelUnresolved": "Em aberto",
-  "panelUnresolvedCount": "$1 em aberto"
+  "panelStateWaiting": "Aguardando você",
+  "panelStateAnswered": "Respondida",
+  "panelStateResolved": "Resolvida"
 }

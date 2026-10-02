@@ -23,7 +23,6 @@ export default defineContentScript({
             onSettings: () => controller?.openSettings(),
             onNextUnviewed: () => controller?.nextUnviewed(),
             onComment: (step) => controller?.comment(step),
-            onConversation: (index) => controller?.goToComment(index),
           },
         ),
     });

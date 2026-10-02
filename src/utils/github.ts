@@ -244,23 +244,45 @@ export const commentIndicators = (diff: Element): HTMLElement[] =>
     (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
   );
 
-/** Review conversations: classic `review-thread-collapsible` threads, plus likely markers from the newer diff view. */
-const THREAD =
-  '.js-resolvable-timeline-thread-container, .review-thread-component, [data-testid*="review-thread" i], [class*="ReviewThread"]';
+/** Review conversations in the classic view; the class is a fallback for the custom element. */
+const THREAD = 'review-thread-collapsible, .js-resolvable-timeline-thread-container';
+
+/** Waiting on the reader, answered by them (they wrote or reacted to the last comment), or resolved. */
+export type ThreadState = 'waiting' | 'answered' | 'resolved';
 
 export interface Thread {
   element: HTMLElement;
-  resolved: boolean;
+  state: ThreadState;
+  line: number | null;
 }
 
+const viewer = (): string | null => document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content || null;
+
+const threadState = (thread: HTMLElement, login: string | null): ThreadState => {
+  if (thread.dataset.resolved === 'true') return 'resolved';
+  // Each comment is wrapped in an element with its id, like `r3727922886`.
+  const last = [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].findLast((element) => /^r\d+$/.test(element.id));
+  if (!login || !last) return 'waiting';
+  const author = [...last.querySelectorAll('a[data-hovercard-type="user"]')].find((link) => link.textContent?.trim());
+  const reacted = last.querySelector('button[data-reaction-content][aria-pressed="true"]') !== null;
+  return author?.textContent?.trim() === login || reacted ? 'answered' : 'waiting';
+};
+
+/** The new-version line a classic thread hangs under: the last line number on the row above it. */
+const threadLine = (thread: HTMLElement): number | null => {
+  const numbers = thread.closest('tr')?.previousElementSibling?.querySelectorAll('[data-line-number]');
+  return Number(numbers?.[numbers.length - 1]?.getAttribute('data-line-number')) || null;
+};
+
 /** Conversations inside the given diffs, in page order. */
-export const threads = (containers: HTMLElement[]): Thread[] =>
-  containers
-    .flatMap((container) => [...container.querySelectorAll<HTMLElement>(THREAD)])
-    .filter(
-      (element, index, list) => !list.some((other, otherIndex) => otherIndex !== index && other.contains(element) && other !== element),
-    )
-    .map((element) => ({ element, resolved: element.dataset.resolved === 'true' }));
+export const threads = (containers: HTMLElement[]): Thread[] => {
+  const login = viewer();
+  return [...new Set(containers.flatMap((container) => [...container.querySelectorAll<HTMLElement>(THREAD)]))].map((element) => ({
+    element,
+    state: threadState(element, login),
+    line: threadLine(element),
+  }));
+};
 
 const STICKY_OFFSET_PX = 80;
 const FLASH_MS = 2000;

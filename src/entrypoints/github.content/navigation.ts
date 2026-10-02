@@ -63,12 +63,12 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
       ? knownThreads(shown).map(({ file, thread }) => ({
           path: file.path,
           line: Number(thread.line.slice(1)) || null,
-          resolved: thread.resolved,
+          state: thread.resolved ? 'resolved' : 'waiting',
         }))
       : renderedThreads(shown).map((thread) => ({
           path: shown.find((file) => file.diff?.element.contains(thread.element))?.path ?? '',
-          line: null,
-          resolved: thread.resolved,
+          line: thread.line,
+          state: thread.state,
         }));
 
   const announce = (total: number, path: string) => {
@@ -105,8 +105,6 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     announce(threads.length, shown.find((file) => file.diff?.element.contains(target.element))?.path ?? '');
   };
 
-  const goTo = (shown: FileInfo[], complete: boolean, index: number) => (complete ? goToKnown(shown, index) : goToRendered(shown, index));
-
   /** Before the first jump, starts from the top (or the end); in the classic view, from the middle of the screen. */
   const step = (shown: FileInfo[], complete: boolean, direction: 1 | -1) => {
     if (complete) {
@@ -136,7 +134,6 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
   return {
     nextUnviewed,
     comment: step,
-    goTo,
     position: (shown: FileInfo[], complete: boolean) => {
       const list = conversations(shown, complete);
       if (commentIndex > list.length) commentIndex = 0;

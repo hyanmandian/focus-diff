@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="user-login" content="reviewer" />
     <title>Add bookshelf · Pull Request #1</title>
     <style>
       body {
@@ -99,15 +100,31 @@
       const container = document.getElementById('diff-comparison-viewer-container');
       // Review conversations, marked up the way GitHub's classic diff view renders them.
       const conversations = {
-        'web/src/book-card.tsx': [{ resolved: false, text: 'Should the card handle a missing cover?' }],
-        'api/books/service.py': [
-          { resolved: true, text: 'Typo in the docstring.' },
-          { resolved: false, text: 'This query runs once per book.' },
+        'web/src/book-card.tsx': [
+          { line: 12, resolved: false, comments: [{ author: 'alice', text: 'Should the card handle a missing cover?' }] },
         ],
-        'docs/books.md': [{ resolved: false, text: 'Link the API reference here.' }],
+        'api/books/service.py': [
+          { line: 3, resolved: true, comments: [{ author: 'alice', text: 'Typo in the docstring.' }] },
+          {
+            line: 40,
+            resolved: false,
+            comments: [
+              { author: 'alice', text: 'This query runs once per book.' },
+              { author: 'reviewer', text: 'Batched it.' },
+            ],
+          },
+        ],
+        'docs/books.md': [
+          { line: 7, resolved: false, comments: [{ author: 'alice', text: 'Link the API reference here.', reacted: true }] },
+        ],
       };
-      const thread = ({ resolved, text }) =>
-        `<review-thread-collapsible class="review-thread-component js-comment-container js-resolvable-timeline-thread-container" data-resolved="${resolved}"><p>${text}</p></review-thread-collapsible>`;
+      let commentId = 100;
+      const comment = ({ author, text, reacted }) =>
+        `<div id="r${commentId++}"><strong><a data-hovercard-type="user" href="/${author}">${author}</a></strong><p>${text}</p>${
+          reacted ? '<button type="button" data-reaction-content="+1" aria-pressed="true">👍 1</button>' : ''
+        }</div>`;
+      const thread = ({ line, resolved, comments }) =>
+        `<table><tr><td data-line-number="${line}"></td><td data-line-number="${line}"></td></tr><tr><td><review-thread-collapsible class="review-thread-component js-comment-container js-resolvable-timeline-thread-container" data-resolved="${resolved}">${comments.map(comment).join('')}</review-thread-collapsible></td></tr></table>`;
       files.forEach(([path, added, removed, source], index) => {
         const wrapper = document.createElement('div');
         const button = source === 'attribute' ? `<button data-file-path="${path}">Expand all lines</button>` : '';

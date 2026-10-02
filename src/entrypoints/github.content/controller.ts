@@ -117,7 +117,6 @@ export interface Controller {
   openSettings: () => void;
   nextUnviewed: () => void;
   comment: (step: 1 | -1) => void;
-  goToComment: (index: number) => void;
 }
 
 export const startController = async (ctx: ContentScriptContext, panel: Panel): Promise<Controller> => {
@@ -181,7 +180,6 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const navigation = createNavigation(panel, () => schedule());
   const nextUnviewed = () => void navigation.nextUnviewed(shown);
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
-  const goToComment = (index: number) => void navigation.goTo(shown, files.complete, index);
 
   const apply = () => {
     pending = null;
@@ -302,5 +300,5 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
 
   schedule();
-  return { select, toggle, openSettings, nextUnviewed, comment, goToComment };
+  return { select, toggle, openSettings, nextUnviewed, comment };
 };

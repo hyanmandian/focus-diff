@@ -367,98 +367,53 @@ button:focus-visible {
 }
 
 .conversations {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 4px;
-  width: 312px;
-  padding: 10px 8px;
+  width: 288px;
+  padding: 6px;
   font-size: 13px;
-}
-.conversation-step {
-  color: var(--fd-muted);
-}
-.conversation-step:hover {
-  color: var(--fd-fg);
 }
 .conversation {
   display: grid;
-  gap: 8px;
+  flex: 1;
   min-width: 0;
-  text-align: center;
+  padding: 0 4px;
 }
-.conversation-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.conversation-line {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.conversation-title,
-.conversation-meta {
+.conversation-file,
+.conversation-state {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.conversation-title {
+.conversation-file {
   font-weight: 600;
 }
-.conversation-meta {
+.conversation-line {
+  color: var(--fd-muted);
+  font-weight: 400;
+}
+.conversation-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--fd-muted);
   font-size: 12px;
   line-height: 18px;
 }
-.conversation-status {
-  flex: none;
-  padding: 0 8px;
-  border-radius: 999px;
-  font: 600 11px/18px var(--fd-font);
-}
-.conversation-status[hidden] {
-  display: none;
-}
-.conversation-status.unresolved {
-  background: color-mix(in srgb, var(--fd-attention) 14%, transparent);
-  color: var(--fd-attention);
-}
-.conversation-status.resolved {
-  background: color-mix(in srgb, var(--fd-add) 14%, transparent);
-  color: var(--fd-add);
-}
-.rail {
-  display: flex;
-  gap: 4px;
-  min-width: 0;
-}
-/* Each segment is a 24px-tall target; the bar inside it is the visible part. */
-.segment {
-  display: grid;
-  flex: 1 1 0;
-  align-items: center;
-  min-width: 2px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 4px;
-}
-.segment::before {
+.conversation-state::before {
   content: '';
-  height: 4px;
-  border-radius: 2px;
-  background: var(--fd-track);
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fd-attention);
 }
-.segment:hover {
-  background: transparent;
+.conversation-state[data-state='answered']::before {
+  background: var(--fd-accent);
 }
-.segment:hover::before {
-  background: var(--fd-muted);
-}
-.segment[aria-current='true']::before {
-  background: var(--fd-selected-bg);
+.conversation-state[data-state='resolved']::before {
+  background: var(--fd-add);
 }
 .number {
   display: inline-grid;
@@ -513,8 +468,7 @@ button:focus-visible {
     opacity: 0;
   }
 }
-button,
-.segment::before {
+button {
   transition:
     background-color 120ms ease-out,
     color 160ms ease-out;
@@ -563,12 +517,9 @@ button,
   .filters.combined .option[aria-pressed='true'] {
     background: Highlight;
   }
-  .segment::before {
+  .conversation-state::before {
     forced-color-adjust: none;
-    background: GrayText;
-  }
-  .segment[aria-current='true']::before {
-    background: Highlight;
+    background: CanvasText;
   }
 }
 

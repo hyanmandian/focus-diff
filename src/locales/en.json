@@ -169,10 +169,7 @@
   "panelJumpedToComment": "Conversation $1 of $2, in $3.",
   "panelTimeInfo": "How review time is estimated",
   "panelNextUnviewedLabel": "Next unviewed",
-  "panelPrevious": "Previous",
-  "panelNext": "Next",
-  "panelLine": "Line $1",
-  "panelResolved": "Resolved",
-  "panelUnresolved": "Unresolved",
-  "panelUnresolvedCount": "$1 unresolved"
+  "panelStateWaiting": "Waiting on you",
+  "panelStateAnswered": "Answered",
+  "panelStateResolved": "Resolved"
 }

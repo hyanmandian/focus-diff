@@ -2,6 +2,7 @@ import { i18n } from '#i18n';
 import { counter } from '@/components/panel/counter';
 import { centreOver, pointAt } from '@/components/panel/popover';
 import { h, icon } from '@/utils/dom';
+import type { ThreadState } from '@/utils/github';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
 
@@ -27,9 +28,9 @@ export interface PanelOption {
 
 export interface Conversation {
   path: string;
-  /** Line in the new version of the file, when GitHub's data has it. */
+  /** Line in the new version of the file, when known. */
   line: number | null;
-  resolved: boolean;
+  state: ThreadState;
 }
 
 export interface Navigation {
@@ -46,7 +47,6 @@ export interface PanelActions {
   onSettings: () => void;
   onNextUnviewed: () => void;
   onComment: (step: 1 | -1) => void;
-  onConversation: (index: number) => void;
 }
 
 export interface Panel {
@@ -93,7 +93,7 @@ interface PanelMount {
 
 export const createPanel = (
   { root, container, host, signal }: PanelMount,
-  { onToggle, onSettings, onNextUnviewed, onComment, onConversation }: PanelActions,
+  { onToggle, onSettings, onNextUnviewed, onComment }: PanelActions,
 ): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
@@ -145,29 +145,20 @@ export const createPanel = (
     h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
     commentsCount,
   );
-  const rail = h('div', { className: 'rail', role: 'group', 'aria-label': i18n.t('panelComments') });
-  const cardTitle = h('span', { className: 'conversation-title' });
-  const cardStatus = h('span', { className: 'conversation-status' });
-  const cardMeta = h('span', { className: 'conversation-meta' });
-  const cardText = h(
-    'div',
-    { className: 'conversation-text' },
-    h('span', { className: 'conversation-line' }, cardTitle, cardStatus),
-    cardMeta,
-  );
+  const conversationFile = h('span', { className: 'conversation-file' });
+  const conversationState = h('span', { className: 'conversation-state' });
   const step = (direction: 1 | -1) =>
     h(
       'button',
       {
         type: 'button',
-        className: 'icon-button conversation-step',
+        className: 'icon-button',
         'aria-label': i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment'),
         title: i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment'),
         onClick: () => onComment(direction),
       },
       chevron(direction > 0 ? 'right' : 'left'),
     );
-  // A carousel: the conversation in the middle, the arrows either side, the progress under it.
   const conversations = h(
     'div',
     {
@@ -178,7 +169,7 @@ export const createPanel = (
       hidden: true,
     },
     step(-1),
-    h('div', { className: 'conversation' }, cardText, rail),
+    h('div', { className: 'conversation' }, conversationFile, conversationState),
     step(1),
   );
   // Like the breakdown, the conversations popover follows its toggle and is positioned against the host.
@@ -375,77 +366,22 @@ export const createPanel = (
   breakdownToggle.addEventListener('click', () => setBreakdownOpen(breakdown.hidden));
 
   let conversationSource: Navigation['comments'] = { current: 0, list: [] };
-  let railKey = '';
-  let shownCurrent = -1;
-  const segments = () => [...rail.querySelectorAll<HTMLButtonElement>('.segment')];
-  const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
-  const folder = (path: string) => path.slice(0, Math.max(path.lastIndexOf('/'), 0));
-  const lineText = (conversation: Conversation) => (conversation.line ? i18n.t('panelLine', [format(conversation.line)]) : '');
-  const statusText = (conversation: Conversation) => i18n.t(conversation.resolved ? 'panelResolved' : 'panelUnresolved');
+  const STATE_LABEL = { waiting: 'panelStateWaiting', answered: 'panelStateAnswered', resolved: 'panelStateResolved' } as const;
 
-  /** A progress bar with one segment per conversation; the open one is highlighted. */
-  const drawRail = (list: Conversation[]) => {
-    const key = JSON.stringify(list);
-    if (key === railKey) return;
-    railKey = key;
-    const keepFocus = rail.contains(focused());
-    rail.replaceChildren(
-      ...list.map((conversation, index) =>
-        h('button', {
-          type: 'button',
-          className: 'segment',
-          'aria-label': [
-            i18n.t('panelCommentPosition', [format(index + 1), format(list.length)]),
-            conversation.path,
-            lineText(conversation),
-            statusText(conversation),
-          ]
-            .filter(Boolean)
-            .join(', '),
-          onClick: () => onConversation(index),
-        }),
-      ),
-    );
-    if (keepFocus) segments()[0]?.focus();
-  };
-
+  /** The conversation the reader is on: where it is and whether it needs them. */
   const drawConversations = () => {
     if (conversations.hidden) return;
     const { current, list } = conversationSource;
-    drawRail(list);
-    segments().forEach((segment, index) => {
-      if (index === current - 1) segment.setAttribute('aria-current', 'true');
-      else segment.removeAttribute('aria-current');
-      segment.tabIndex = index === Math.max(current - 1, 0) ? 0 : -1;
-    });
-
     const target = list[current - 1];
-    if (target) {
-      cardTitle.textContent = fileName(target.path);
-      cardTitle.title = target.path;
-      cardMeta.textContent = [folder(target.path), lineText(target)].filter(Boolean).join(' · ');
-      cardStatus.textContent = statusText(target);
-      cardStatus.className = `conversation-status ${target.resolved ? 'resolved' : 'unresolved'}`;
-      cardStatus.hidden = false;
-    } else {
-      const unresolved = list.filter((conversation) => !conversation.resolved).length;
-      const files = new Set(list.map((conversation) => conversation.path)).size;
-      cardTitle.textContent = i18n.t('panelCommentCount', list.length, [format(list.length)]);
-      cardTitle.title = '';
-      cardMeta.textContent = `${i18n.t('panelUnresolvedCount', [format(unresolved)])} · ${i18n.t('fileCount', files, [format(files)])}`;
-      cardStatus.hidden = true;
-    }
-    if (shownCurrent > 0 && current > 0 && shownCurrent !== current) {
-      // Slides in from the side it came from, wrapping from the last conversation to the first and back.
-      const wrapped = Math.abs(current - shownCurrent) === list.length - 1 && list.length > 2;
-      const forward = current > shownCurrent !== wrapped;
-      const moving = matchMedia('(prefers-reduced-motion: no-preference)').matches;
-      cardText.animate(moving ? { opacity: [0, 1], translate: [`${forward ? 12 : -12}px 0`, '0 0'] } : { opacity: [0, 1] }, {
-        duration: 200,
-        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-      });
-    }
-    shownCurrent = current;
+    if (!target) return;
+    const name = target.path.slice(target.path.lastIndexOf('/') + 1);
+    conversationFile.replaceChildren(
+      name,
+      target.line ? h('span', { className: 'conversation-line', textContent: `:${format(target.line)}` }) : '',
+    );
+    conversationFile.title = target.path;
+    conversationState.dataset.state = target.state;
+    conversationState.textContent = `${i18n.t(STATE_LABEL[target.state])} · ${format(current)}/${format(list.length)}`;
   };
 
   /** Stays open while the reader steps through conversations; only its toggle or Escape closes it. */
@@ -455,24 +391,13 @@ export const createPanel = (
     comments.setAttribute('aria-expanded', String(open));
     if (open) {
       setBreakdownOpen(false);
+      // Opening lands on a conversation straight away, so the popover always has one to show.
+      if (conversationSource.current === 0) onComment(1);
       drawConversations();
       centreOver(conversations, comments, host);
-    } else shownCurrent = -1;
+    }
   };
   comments.addEventListener('click', () => setConversationsOpen(conversations.hidden));
-
-  rail.addEventListener('keydown', (event) => {
-    const list = segments();
-    const index = list.indexOf(focused() as HTMLButtonElement);
-    if (index === -1) return;
-    const target = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
-    if (Number.isNaN(target)) return;
-    event.preventDefault();
-    const next = list[(target + list.length) % list.length];
-    if (!next) return;
-    list.forEach((segment) => (segment.tabIndex = segment === next ? 0 : -1));
-    next.focus();
-  });
 
   document.addEventListener(
     'keydown',

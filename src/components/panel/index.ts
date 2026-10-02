@@ -126,9 +126,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     group.classList.toggle('combined', pressed.length > 1);
     const target = pressed[0];
     if (pressed.length !== 1 || !target?.offsetWidth) return;
-    indicator.style.width = `${target.offsetWidth}px`;
-    indicator.style.height = `${target.offsetHeight}px`;
-    indicator.style.translate = `${target.offsetLeft}px ${target.offsetTop}px`;
+    const right = group.clientWidth - target.offsetLeft - target.offsetWidth;
+    const bottom = group.clientHeight - target.offsetTop - target.offsetHeight;
+    indicator.style.clipPath = `inset(${target.offsetTop}px ${right}px ${bottom}px ${target.offsetLeft}px round 8px)`;
     if (!indicator.classList.contains('ready')) requestAnimationFrame(() => indicator.classList.add('ready'));
   };
   const resizeObserver = new ResizeObserver(() => {

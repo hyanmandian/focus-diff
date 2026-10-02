@@ -52,10 +52,9 @@
 }
 .indicator {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   z-index: -1;
-  border-radius: 8px;
+  clip-path: inset(0 100% 100% 0 round 8px);
   background: var(--fd-selected-bg);
   pointer-events: none;
 }
@@ -251,10 +250,7 @@ button:focus-visible {
     }
   }
   .indicator.ready {
-    transition:
-      translate 260ms var(--fd-ease),
-      width 260ms var(--fd-ease),
-      height 260ms var(--fd-ease);
+    transition: clip-path 260ms var(--fd-ease);
   }
   button {
     transition:

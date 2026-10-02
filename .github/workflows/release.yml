@@ -1,14 +1,31 @@
 name: Release
 
+# Every merge to main updates a release pull request with the next version and its changelog, worked out from the
+# conventional pull request titles. Merging that pull request tags the release, attaches the builds and publishes them.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
-  release:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,15 +34,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-
-      - name: Check the tag matches the package version
-        run: |
-          version=$(node -p "require('./package.json').version")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $version"
-            exit 1
-          fi
-
       - run: npm run check
       - run: npm test
       - run: npx playwright install --with-deps chromium
@@ -33,10 +41,10 @@ jobs:
       - run: npm run lint:firefox
       - run: npm run zip && npm run zip:firefox
 
-      - name: Create the GitHub release
+      - name: Attach the builds to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" .output/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release upload "${{ needs.release-please.outputs.tag }}" .output/*.zip --clobber
 
       - name: Publish to the stores
         env:

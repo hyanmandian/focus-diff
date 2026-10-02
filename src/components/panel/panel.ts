@@ -32,7 +32,8 @@ export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
   /** `all` is the totals with every file shown, the most the numbers can be. */
   renderStats: (totals: Totals, all?: Totals) => void;
-  renderConversations: (conversations: Conversations) => void;
+  /** `most` is the pull request's conversations in all. */
+  renderConversations: (conversations: Conversations, most?: number) => void;
   renderNextFile: (next: NextFile) => void;
   /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
@@ -187,8 +188,8 @@ export const createPanel = (
       nextFile.render(next);
       tooltip.refresh();
     },
-    renderConversations: (list) => {
-      conversations.render(list);
+    renderConversations: (list, most) => {
+      conversations.render(list, most);
       tooltip.refresh();
     },
     renderBreakdown: breakdown.render,

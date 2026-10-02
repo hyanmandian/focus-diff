@@ -4,6 +4,7 @@ import { doneIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatClock, formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
+import { createScoreboard } from '@/components/scoreboard/scoreboard';
 import { counter } from './counter';
 
 export interface Totals {
@@ -26,8 +27,11 @@ export const isDone = (totals: Totals): boolean => totals.visible > 0 && totals.
 export const createStats = () => {
   const visibleFiles = counter('visible', format);
   const totalFiles = counter('total', format);
-  const additions = counter('additions', (n) => `+${format(n)}`);
-  const deletions = counter('deletions', (n) => `−${format(n)}`);
+  // The lines changed are on a scoreboard; the text beside each is what screen readers hear.
+  const additions = createScoreboard('additions');
+  const deletions = createScoreboard('deletions');
+  const additionsText = h('span', { className: 'visually-hidden' });
+  const deletionsText = h('span', { className: 'visually-hidden' });
   const time = counter('time', (seconds) => (seconds === 0 ? '–' : formatClock(seconds / 60)));
   // The clock is for the eye; screen readers hear the estimate in words.
   time.element.setAttribute('aria-hidden', 'true');
@@ -47,14 +51,7 @@ export const createStats = () => {
       h('span', { className: 'files-label', textContent: ` ${i18n.t('panelFilesLabel')}` }),
       pendingText,
     ),
-    h(
-      'span',
-      { className: 'lines' },
-      additions.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesAdded')}` }),
-      deletions.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
-    ),
+    h('span', { className: 'lines' }, additions.element, additionsText, deletions.element, deletionsText),
     h(
       'span',
       { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) },
@@ -76,8 +73,6 @@ export const createStats = () => {
     if (key === slotsFor) return;
     slotsFor = key;
     cells(visibleFiles.element, format(all.total));
-    cells(additions.element, `+${format(all.additions)}`);
-    cells(deletions.element, `−${format(all.deletions)}`);
     cells(time.element, formatClock(all.minutes));
   };
 
@@ -86,8 +81,12 @@ export const createStats = () => {
     sizeSlots(all);
     visibleFiles.set(totals.visible);
     totalFiles.set(totals.total);
-    additions.set(totals.additions);
-    deletions.set(totals.deletions);
+    const added = `+${format(totals.additions)}`;
+    const removed = `−${format(totals.deletions)}`;
+    additions.set(added, `+${format(all.additions)}`.length);
+    deletions.set(removed, `−${format(all.deletions)}`.length);
+    additionsText.textContent = `${added} ${i18n.t('panelLinesAdded')}`;
+    deletionsText.textContent = ` ${removed} ${i18n.t('panelLinesRemoved')}`;
     time.set(Math.round(totals.minutesLeft * 60));
     // Every shown file is marked as viewed: the time left gives way to a badge.
     element.toggleAttribute('data-done', isDone(totals));

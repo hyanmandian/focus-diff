@@ -1,0 +1,28 @@
+.scoreboard {
+  display: inline-flex;
+  gap: 1px;
+  perspective: 120px;
+}
+.cell {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 1.5ch;
+  height: 18px;
+  border-radius: 3px;
+  /* A faint tint of the number's own colour; light enough to keep GitHub's green and red at 4.5:1. */
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font: 600 12px/1 var(--fd-mono);
+}
+.cell.separator {
+  width: 0.75ch;
+  background: none;
+}
+@media (forced-colors: active) {
+  .cell {
+    border: 1px solid CanvasText;
+  }
+  .cell.separator {
+    border: 0;
+  }
+}

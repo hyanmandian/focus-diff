@@ -170,6 +170,8 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
       if (commentIndex > list.length) commentIndex = 0;
       return { current: commentIndex, list };
     },
+    /** How many conversations a set of files has, for sizing the count. */
+    count: (list: FileInfo[], complete: boolean) => conversations(list, complete).length,
     /** A new selection: back to before the first jump, and any jump still waiting on GitHub gives way. */
     reset: () => {
       commentIndex = 0;

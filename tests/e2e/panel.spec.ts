@@ -141,6 +141,10 @@ test.describe('panel on a pull request', () => {
     await expect.poll(() => centred('missing cover')).toBe(true);
     await expect(popover).toContainText('book-card.tsx:12');
     await expect(popover).toContainText('Waiting on you1/4');
+    // The card stays within the panel, even with its button near the panel's edge.
+    const [card, bar] = await Promise.all([popover.boundingBox(), pr.panel.locator('.panel').boundingBox()]);
+    expect(card!.x).toBeGreaterThanOrEqual(bar!.x);
+    expect(card!.x + card!.width).toBeLessThanOrEqual(bar!.x + bar!.width);
     await expect(comments).toHaveAccessibleName('Conversations, Conversation 1 of 4');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');

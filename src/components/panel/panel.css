@@ -31,6 +31,15 @@
   }
 }
 
+/* The bar and its popovers are the same raised surface. */
+.panel,
+.popover {
+  border: 1px solid var(--fd-border);
+  border-radius: 12px;
+  background: var(--fd-bg);
+  box-shadow: var(--fd-shadow);
+  color: var(--fd-fg);
+}
 .panel {
   display: flex;
   flex-wrap: wrap;
@@ -38,11 +47,6 @@
   gap: 8px;
   max-width: min(1040px, calc(100vw - 32px));
   padding: 6px;
-  border: 1px solid var(--fd-border);
-  border-radius: 12px;
-  background: var(--fd-bg);
-  box-shadow: var(--fd-shadow);
-  color: var(--fd-fg);
   font: 500 13px/20px var(--fd-font);
 }
 button {
@@ -105,11 +109,6 @@ a:focus-visible {
   box-sizing: border-box;
   width: max-content;
   max-width: min(560px, calc(100vw - 32px));
-  border: 1px solid var(--fd-border);
-  border-radius: 12px;
-  background: var(--fd-bg);
-  box-shadow: var(--fd-shadow);
-  color: var(--fd-fg);
   font: 400 14px/20px var(--fd-font);
   font-variant-numeric: tabular-nums;
 }

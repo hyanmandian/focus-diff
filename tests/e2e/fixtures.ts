@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
-import { chromium, test as base, type BrowserContext, type Page, type Worker } from '@playwright/test';
+import { chromium, test as base, type BrowserContext, type Locator, type Page, type Worker } from '@playwright/test';
 import type { Config } from '../../src/utils/filters';
 
 const extensionPath = path.resolve('.output/chrome-mv3');
@@ -102,4 +102,19 @@ export const accessibilityViolations = async (page: Page, include?: string) => {
   if (include) builder.include(include);
   const { violations } = await builder.analyze();
   return violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
+};
+
+/** Extension pages are checked in both themes, wide and at phone width. */
+export const PAGE_VIEWS = [
+  ['light', 1280],
+  ['dark', 390],
+] as const;
+
+/** A page in a theme and width has no accessibility violations and doesn't scroll sideways, once `ready` is there. */
+export const expectSoundPage = async (page: Page, [colorScheme, width]: (typeof PAGE_VIEWS)[number], ready: Locator) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.emulateMedia({ colorScheme });
+  await expect(ready).not.toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(await accessibilityViolations(page)).toEqual([]);
 };

@@ -19,16 +19,18 @@
     "lint": "oxlint",
     "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",
     "fmt": "oxfmt",
-    "check": "tsc --noEmit && oxlint && oxfmt --check",
+    "check": "tsc --noEmit && oxlint && oxfmt --check && jscpd",
     "test": "vitest run",
     "e2e": "wxt build && playwright test",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "duplicates": "jscpd"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@wxt-dev/i18n": "^0.2.7",
     "happy-dom": "^20.14.5",
+    "jscpd": "^5.4.0",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "typescript": "^5.9.3",

@@ -1,5 +1,5 @@
 import type { Worker } from '@playwright/test';
-import { accessibilityViolations, CAN_SWITCH_LANGUAGE, expect, test } from './fixtures';
+import { CAN_SWITCH_LANGUAGE, expect, expectSoundPage, PAGE_VIEWS, test } from './fixtures';
 
 const storedNames = (background: Worker) =>
   background.evaluate(async () =>
@@ -38,19 +38,11 @@ test.describe('welcome page', () => {
     await expect.poll(() => storedNames(background)).toEqual(['Docs']);
   });
 
-  for (const [colorScheme, width] of [
-    ['light', 1280],
-    ['dark', 390],
-  ] as const) {
-    test(`has no accessibility violations and no horizontal scroll (${colorScheme}, ${width}px)`, async ({ openExtensionPage }) => {
+  for (const view of PAGE_VIEWS)
+    test(`has no accessibility violations and no horizontal scroll (${view.join(', ')}px)`, async ({ openExtensionPage }) => {
       const page = await openExtensionPage('welcome.html');
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme });
-      await expect(page.locator('.recipe')).toHaveCount(7);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-      expect(await accessibilityViolations(page)).toEqual([]);
+      await expectSoundPage(page, view, page.locator('.recipe'));
     });
-  }
 
   test.afterEach(({ pageErrors }) => {
     expect(pageErrors).toEqual([]);

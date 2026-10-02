@@ -1,4 +1,4 @@
-import { accessibilityViolations, CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, test } from './fixtures';
+import { CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, expectSoundPage, PAGE_VIEWS, test } from './fixtures';
 
 test.describe('settings page', () => {
   test.beforeEach(async ({ seed }) => seed(DEFAULT_CONFIG));
@@ -71,19 +71,11 @@ test.describe('settings page', () => {
     await expect(page.locator('#toast')).toHaveText('Imported 1 filter. Review it, then save.');
   });
 
-  for (const [colorScheme, width] of [
-    ['light', 1280],
-    ['dark', 390],
-  ] as const) {
-    test(`has no accessibility violations and no horizontal scroll (${colorScheme}, ${width}px)`, async ({ openExtensionPage }) => {
+  for (const view of PAGE_VIEWS)
+    test(`has no accessibility violations and no horizontal scroll (${view.join(', ')}px)`, async ({ openExtensionPage }) => {
       const page = await openExtensionPage('options.html#repo=octo/web');
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme });
-      await expect(page.locator('#global .f-name')).toHaveCount(3);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-      expect(await accessibilityViolations(page)).toEqual([]);
+      await expectSoundPage(page, view, page.locator('#global .f-name'));
     });
-  }
 
   test.afterEach(({ pageErrors }) => {
     expect(pageErrors).toEqual([]);

@@ -143,6 +143,21 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['All']);
   });
 
+  test('leaves out remembered filters with nothing here, down to All', async ({ openPullRequest, seed, background }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await seed({ ...DEFAULT_CONFIG, global: [...DEFAULT_CONFIG.global, { id: 'rust', name: 'Rust', include: '\\.rs$', exclude: '' }] });
+    const remember = (ids: string[]) => background.evaluate((value) => chrome.storage.local.set({ active: { 'octo/web': value } }), ids);
+    await remember(['rust', 'docs']);
+    await expect(pr.pressed).toHaveText(['Docs']);
+    await remember(['rust']);
+    await expect(pr.pressed).toHaveText(['All']);
+    // What was remembered stays, for pull requests where Rust has files.
+    expect(await background.evaluate(async () => (await chrome.storage.local.get('active')).active)).toEqual({ 'octo/web': ['rust'] });
+    // Picking from here starts from what's shown.
+    await pr.pick('Docs');
+    await expect(pr.pressed).toHaveText(['Docs']);
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);

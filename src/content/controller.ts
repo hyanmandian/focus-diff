@@ -141,7 +141,19 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   const optionsFor = (repo: string): Option[] => [{ id: ALL, name: i18n.t('filterAll') }, ...filters(repo)];
 
-  const selectedIds = (repo: string) => (selections[repo] ?? []).filter((id) => id !== ALL);
+  let files: Files = { list: [], complete: false };
+
+  /**
+   * The reader's saved filters for a repository, less those with no files in this pull request; with none left, All.
+   * The saved choice stays as it is, so another pull request in the repository still gets the full set.
+   */
+  const selectedIds = (repo: string) => {
+    const matchers = new Map(filters(repo).map((filter) => [filter.id, filter.matches]));
+    return (selections[repo] ?? []).filter((id) => {
+      const matches = matchers.get(id);
+      return Boolean(matches) && files.list.some((file) => matches?.(file.path));
+    });
+  };
 
   const choose = (ids: string[]) => {
     const repo = page.repository();
@@ -183,7 +195,6 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   let selectionKey = '';
   /** The selection last seen with files left to review: finishing it is what earns the confetti. */
   let unfinishedKey = '';
-  let files: Files = { list: [], complete: false };
   let shown: FileInfo[] = [];
   const navigation = createNavigation(panel, () => schedule());
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
@@ -200,6 +211,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       return;
     }
 
+    files = collectFiles();
     const options = optionsFor(repo);
     const ids = selectedIds(repo);
     const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
@@ -207,7 +219,6 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
     const selection = filtering ? selected.map((option) => option.id) : [ALL];
 
-    files = collectFiles();
     const reported = page.reportedFileCount();
     const totals = totalsFor(files, matches, reported);
     panel.renderOptions(

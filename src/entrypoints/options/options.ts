@@ -1,4 +1,6 @@
-import '@/assets/page.css';
+import '@/assets/global.css';
+import '@/components/button.css';
+import './options.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import {
@@ -14,7 +16,8 @@ import {
   type Filter,
   type RepoFilters,
 } from '@/utils/filters';
-import { $, reveal, toaster, translate, translateDocument } from '@/utils/page';
+import { toaster } from '@/components/toast/toast';
+import { $, reveal, translate, translateDocument } from '@/utils/page';
 import { configItem, loadConfig, saveConfig } from '@/utils/storage';
 
 type Field = 'name' | 'include' | 'exclude';

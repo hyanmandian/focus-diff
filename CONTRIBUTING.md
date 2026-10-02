@@ -24,6 +24,7 @@ src/
   content/          the content script's logic: reading the page, filtering it, moving between conversations
   components/       the UI: functions that build elements and return how to update them. A component with
                     its own CSS gets a folder; panel/ lays the others out in a shadow root
+  assets/           global.css: the extension pages' colours, reset and type
   utils/            filters, storage, the GitHub page adapter, formatting
   locales/          English and Brazilian Portuguese messages
 tests/

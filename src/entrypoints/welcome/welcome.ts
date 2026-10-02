@@ -1,10 +1,12 @@
-import '@/assets/page.css';
+import '@/assets/global.css';
+import '@/components/button.css';
 import './welcome.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters';
 import { message } from '@/utils/i18n';
-import { $, reveal, toaster, translateDocument } from '@/utils/page';
+import { toaster } from '@/components/toast/toast';
+import { $, reveal, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
 import { configItem, loadConfig, saveConfig } from '@/utils/storage';
 

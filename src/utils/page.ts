@@ -38,19 +38,7 @@ export const translateDocument = (title: string): void => {
   translate(document.body);
 };
 
-/** Shows a page once its first render is complete; see `.pending` in page.css. */
+/** Shows a page once its first render is complete; see `.pending` in global.css. */
 export const reveal = (): void => {
   document.documentElement.classList.remove('pending');
-};
-
-const TOAST_MS = 2800;
-
-export const toaster = (toast: HTMLElement) => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return (text: string) => {
-    clearTimeout(timer);
-    toast.textContent = text;
-    toast.classList.add('visible');
-    timer = setTimeout(() => toast.classList.remove('visible'), TOAST_MS);
-  };
 };

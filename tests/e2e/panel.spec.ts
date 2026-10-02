@@ -19,7 +19,7 @@ test.describe('panel on a pull request', () => {
     await expect(pr.filesCounter()).toHaveText('1/8');
     await expect(pr.lineCounters().additions).toHaveText('+40');
     await expect(pr.lineCounters().deletions).toHaveText('−10');
-    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~7 min to review.');
+    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~7 min left to review.');
     await expect.poll(() => pr.statsText()).toMatch(/~7 min/);
 
     await pr.pick('Backend');
@@ -63,8 +63,12 @@ test.describe('panel on a pull request', () => {
       'the arrow points at the button',
     ).toBeLessThan(2);
     await expect(pr.breakdownRows.first()).toHaveAttribute('aria-pressed', 'true');
-    await expect(pr.breakdownRows.first()).toHaveAccessibleName('All: 8 files, 120 lines added, 30 removed, ~23 min to review');
-    await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 40 lines added, 10 removed, ~7 min to review');
+    await expect(pr.breakdownRows.first()).toHaveAccessibleName(
+      'All: 8 files, 0 viewed, 120 lines added, 30 removed. ~23 min left to review',
+    );
+    await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName(
+      'Frontend: 1 file, 0 viewed, 40 lines added, 10 removed. ~7 min left to review',
+    );
     await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~7 min');
     await expect(pr.breakdownRows.first().locator('.diffstat .add')).toHaveCount(4);
     await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
@@ -75,6 +79,26 @@ test.describe('panel on a pull request', () => {
 
     await pr.page.keyboard.press('Escape');
     await expect(pr.panel.locator('.breakdown')).toBeHidden();
+  });
+
+  test("tracks review progress from GitHub's Viewed toggles", async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const viewedToggle = (path: string) =>
+      pr.page.locator('[data-diff-header-wrapper]', { hasText: path }).getByRole('button', { name: 'Viewed' });
+
+    await pr.pick('Frontend');
+    await expect.poll(() => pr.statsText()).toMatch(/~7 min left to review$/);
+    await viewedToggle('web/src/book-card.tsx').click();
+    await expect.poll(() => pr.statsText()).toMatch(/1\/8 files· 1 viewed.*Done$/);
+    await expect(pr.status).toContainText('Frontend: 1 of 8 files');
+
+    await pr.breakdownToggle.click();
+    await expect(pr.breakdownRows.nth(1).locator('.row-viewed')).toHaveText('1/1');
+    await expect(pr.breakdownRows.nth(1).locator('.row-viewed')).toHaveClass(/complete/);
+    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('Done');
+    await expect(pr.breakdownRows.first().locator('.row-viewed')).toHaveText('1/8');
+    await expect(pr.breakdownRows.first().locator('.row-time')).toHaveText('~16 min');
+    await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 1 viewed, 40 lines added, 10 removed. Done');
   });
 
   test('moves between filters with the keyboard', async ({ openPullRequest }) => {

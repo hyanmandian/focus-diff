@@ -103,11 +103,17 @@
           <div role="region" id="diff-${index}" aria-labelledby="heading-${index}">
             <div data-diff-header-wrapper>
               <h3 id="heading-${index}">‎${path}‎</h3>${button}
+              <button type="button" class="viewed" aria-pressed="false">Viewed</button>
               ${stats}
             </div>
             <div role="region" id="diff-${index}-hunk" aria-label="Hunk"><pre>@@ -1 +1 @@</pre></div>
           </div>`;
         container.append(wrapper);
+      });
+      // GitHub's Viewed toggle, as signed-in reviewers see it.
+      document.addEventListener('click', (event) => {
+        const toggle = event.target.closest('button.viewed');
+        if (toggle) toggle.setAttribute('aria-pressed', String(toggle.getAttribute('aria-pressed') !== 'true'));
       });
     </script>
   </body>

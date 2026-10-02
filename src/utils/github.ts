@@ -209,3 +209,19 @@ export const reportedFileCount = (): number => {
   const text = pageCounters().files?.textContent ?? '';
   return Number(text.replace(/[^\d]/g, '')) || 0;
 };
+
+const VIEWED =
+  'input.js-reviewed-checkbox, [data-diff-header-wrapper] button[aria-pressed], [data-diff-header-wrapper] input[type="checkbox"]';
+const VIEWED_LABEL = /viewed/i;
+
+/** Whether the reviewer marked a file as viewed on GitHub. Files whose header isn't rendered count as not viewed. */
+export const viewed = (diff: Pick<Diff, 'element'>): boolean => {
+  for (const control of diff.element.querySelectorAll<HTMLElement>(VIEWED)) {
+    const label = control.matches('.js-reviewed-checkbox')
+      ? 'viewed'
+      : `${control.getAttribute('aria-label') ?? ''} ${control.closest('label')?.textContent ?? ''} ${control.textContent ?? ''}`;
+    if (!VIEWED_LABEL.test(label)) continue;
+    return control instanceof HTMLInputElement ? control.checked : control.getAttribute('aria-pressed') === 'true';
+  }
+  return false;
+};

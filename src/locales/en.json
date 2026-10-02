@@ -129,8 +129,8 @@
   "timeHours": "~$1 h",
   "timeHoursMinutes": "~$1 h $2 min",
   "timeHint": "Review time assumes about $1 changed lines an hour. Removed lines count a quarter, each file adds half a minute, and generated or lock files only add that half minute.",
-  "panelAnnounceTime": "About $1 to review.",
-  "panelTimeLabel": "to review",
+  "panelAnnounceTime": "About $1 left to review.",
+  "panelTimeLabel": "left to review",
   "copied": {
     "1": "Copied 1 filter to the clipboard",
     "n": "Copied $1 filters to the clipboard"
@@ -146,7 +146,12 @@
   "panelColumnFilter": "Filter",
   "panelColumnFiles": "Files",
   "panelColumnLines": "Lines",
-  "panelColumnTime": "Review time",
-  "panelBreakdownRow": "$1: $2, $3 lines added, $4 removed, $5 to review",
-  "statusChangedElsewhere": "Filters changed in another window. Save to keep your edits, or reload to see the new filters."
+  "panelColumnTime": "Time left",
+  "panelBreakdownRow": "$1: $2, $3 viewed, $4 lines added, $5 removed. $6",
+  "statusChangedElsewhere": "Filters changed in another window. Save to keep your edits, or reload to see the new filters.",
+  "panelViewed": "· $1 viewed",
+  "panelColumnViewed": "Viewed",
+  "timeDone": "Done",
+  "panelAnnounceViewed": "$1 of $2 viewed.",
+  "timeLeft": "$1 left to review"
 }

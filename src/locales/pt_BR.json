@@ -129,8 +129,8 @@
   "timeHours": "~$1 h",
   "timeHoursMinutes": "~$1 h $2 min",
   "timeHint": "O tempo de revisão considera cerca de $1 linhas alteradas por hora. Linhas removidas contam um quarto, cada arquivo soma meio minuto, e arquivos gerados ou de lock somam só esse meio minuto.",
-  "panelAnnounceTime": "Cerca de $1 para revisar.",
-  "panelTimeLabel": "para revisar",
+  "panelAnnounceTime": "Cerca de $1 para terminar a revisão.",
+  "panelTimeLabel": "para terminar",
   "copied": {
     "1": "1 filtro copiado",
     "n": "$1 filtros copiados"
@@ -146,7 +146,12 @@
   "panelColumnFilter": "Filtro",
   "panelColumnFiles": "Arquivos",
   "panelColumnLines": "Linhas",
-  "panelColumnTime": "Revisão",
-  "panelBreakdownRow": "$1: $2, $3 linhas adicionadas, $4 removidas, $5 de revisão",
-  "statusChangedElsewhere": "Os filtros mudaram em outra janela. Salve para manter suas edições ou recarregue para ver os novos filtros."
+  "panelColumnTime": "Falta",
+  "panelBreakdownRow": "$1: $2, $3 vistos, $4 linhas adicionadas, $5 removidas. $6",
+  "statusChangedElsewhere": "Os filtros mudaram em outra janela. Salve para manter suas edições ou recarregue para ver os novos filtros.",
+  "panelViewed": "· $1 vistos",
+  "panelColumnViewed": "Vistos",
+  "timeDone": "Pronto",
+  "panelAnnounceViewed": "$1 de $2 vistos.",
+  "timeLeft": "Faltam $1 de revisão"
 }

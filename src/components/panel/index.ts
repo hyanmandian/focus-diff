@@ -13,6 +13,9 @@ export interface Totals {
   pending: number;
   /** Estimated review time, see utils/review-time.ts. */
   minutes: number;
+  /** Files marked as viewed on GitHub, and the estimate for the rest. */
+  viewed: number;
+  minutesLeft: number;
 }
 
 export interface PanelOption {
@@ -66,7 +69,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const totalFiles = counter('total', format);
   const additions = counter('additions', (n) => `+${format(n)}`);
   const deletions = counter('deletions', (n) => `−${format(n)}`);
-  const time = counter('time', (seconds) => formatDuration(seconds / 60));
+  const time = counter('time', (seconds) => (seconds === 0 ? i18n.t('timeDone') : formatDuration(seconds / 60)));
+  const viewedCount = h('span', { className: 'viewed-count', hidden: true });
+  const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
   const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
   const pendingText = h('span', { className: 'visually-hidden' });
   const stats = h(
@@ -80,16 +85,12 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
       totalFiles.element,
       h('span', { className: 'files-label', textContent: ` ${i18n.t('panelFilesLabel')}` }),
     ),
+    viewedCount,
     additions.element,
     h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesAdded')}` }),
     deletions.element,
     h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
-    h(
-      'span',
-      { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) },
-      time.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` }),
-    ),
+    h('span', { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) }, time.element, timeLabel),
     pending,
     pendingText,
   );
@@ -189,12 +190,14 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
       h('span'),
       h('span', { textContent: i18n.t('panelColumnFilter') }),
       h('span', { textContent: i18n.t('panelColumnFiles') }),
+      h('span', { textContent: i18n.t('panelColumnViewed') }),
       h('span', { textContent: i18n.t('panelColumnLines') }),
       h('span', { textContent: i18n.t('panelColumnTime') }),
     );
 
   const breakdownRow = (row: BreakdownRow, selected: boolean) => {
-    const time = formatDuration(row.minutes);
+    const time = row.minutesLeft === 0 ? i18n.t('timeDone') : formatDuration(row.minutesLeft);
+    const complete = row.visible > 0 && row.viewed === row.visible;
     return h(
       'button',
       {
@@ -205,15 +208,17 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
         'aria-label': i18n.t('panelBreakdownRow', [
           row.name,
           i18n.t('fileCount', row.visible, [format(row.visible)]),
+          format(row.viewed),
           format(row.additions),
           format(row.deletions),
-          time,
+          row.minutesLeft === 0 ? i18n.t('timeDone') : i18n.t('timeLeft', [time]),
         ]),
         onClick: (event: MouseEvent) => pick(row.id, event),
       },
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: row.name }),
       h('span', { className: 'row-files', textContent: format(row.visible) }),
+      h('span', { className: `row-viewed${complete ? ' complete' : ''}`, textContent: `${format(row.viewed)}/${format(row.visible)}` }),
       h(
         'span',
         { className: 'row-lines' },
@@ -316,7 +321,10 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     totalFiles.set(totals.total);
     additions.set(totals.additions);
     deletions.set(totals.deletions);
-    time.set(Math.round(totals.minutes * 60));
+    time.set(Math.round(totals.minutesLeft * 60));
+    timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
+    viewedCount.hidden = totals.viewed === 0;
+    viewedCount.textContent = totals.viewed ? i18n.t('panelViewed', [format(totals.viewed)]) : '';
     pending.classList.toggle('active', totals.pending > 0);
     pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', [format(totals.pending)]) : '';
     stats.title = pending.title;

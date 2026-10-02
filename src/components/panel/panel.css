@@ -126,7 +126,7 @@ button:focus-visible {
 }
 .rows {
   display: grid;
-  grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);
+  grid-template-columns: 16px minmax(96px, max-content) repeat(4, max-content);
   column-gap: 16px;
   max-height: min(52vh, 420px);
   padding: 0 8px;
@@ -202,7 +202,21 @@ button:focus-visible {
 .row-time {
   font-weight: 600;
 }
+.row-viewed {
+  color: var(--fd-muted);
+}
+.row-viewed.complete {
+  color: var(--fd-add);
+  font-weight: 600;
+}
+.viewed-count {
+  margin-left: -4px;
+  color: var(--fd-muted);
+}
 .hint {
+  /* Wraps to the table's width instead of widening the popover. */
+  width: 0;
+  min-width: calc(100% - 32px);
   margin: 0;
   padding: 8px 16px 12px;
   border-top: 1px solid var(--fd-border-muted);

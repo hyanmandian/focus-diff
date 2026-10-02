@@ -19,6 +19,7 @@ interface LoadedDiff {
   path: string;
   container: HTMLElement;
   stats: FileStats | null;
+  viewed: boolean;
 }
 
 /** GitHub keeps rendering while a pull request loads; page changes wait for idle time, at most this long. */
@@ -63,18 +64,24 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
 
 const totalsFor = (diffs: LoadedDiff[], matches: Matcher, reported: number): Totals => {
   const total = Math.max(diffs.length, reported);
-  const totals = { visible: 0, total, additions: 0, deletions: 0, pending: 0, minutes: 0 };
+  const totals = { visible: 0, total, additions: 0, deletions: 0, pending: 0, minutes: 0, viewed: 0, minutesLeft: 0 };
   for (const diff of diffs) {
     if (!matches(diff.path)) continue;
     totals.visible++;
     if (!diff.stats) totals.pending++;
     totals.additions += diff.stats?.additions ?? 0;
     totals.deletions += diff.stats?.deletions ?? 0;
-    totals.minutes += reviewMinutes(diff.path, diff.stats);
+    const minutes = reviewMinutes(diff.path, diff.stats);
+    totals.minutes += minutes;
+    if (diff.viewed) totals.viewed++;
+    else totals.minutesLeft += minutes;
   }
   if (matches === everything) {
-    totals.pending += total - diffs.length;
+    const unrendered = total - diffs.length;
+    totals.pending += unrendered;
     totals.visible = total;
+    totals.minutes += unrendered * reviewMinutes('', null);
+    totals.minutesLeft += unrendered * reviewMinutes('', null);
   }
   return totals;
 };
@@ -206,7 +213,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
     const selection = filtering ? selected.map((option) => option.id) : [ALL];
 
-    const diffs: LoadedDiff[] = page.diffs().map((diff) => ({ path: diff.path, container: diff.container, stats: diff.stats() }));
+    const diffs: LoadedDiff[] = page
+      .diffs()
+      .map((diff) => ({ path: diff.path, container: diff.container, stats: diff.stats(), viewed: page.viewed(diff) }));
     const reported = page.reportedFileCount();
     const totals = totalsFor(diffs, matches, reported);
     panel.renderOptions(options, selection);
@@ -242,14 +251,21 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   /** New diffs get filtered on the next frame so they never flash in; any other change waits for idle time. */
   const pageObserver = new MutationObserver((records) => {
-    const addsDiff = records.some((record) => [...record.addedNodes].some(page.containsDiff));
-    schedule(addsDiff ? 'frame' : 'idle');
+    const urgent = records.some((record) => record.type === 'attributes' || [...record.addedNodes].some(page.containsDiff));
+    schedule(urgent ? 'frame' : 'idle');
   });
   let observing = false;
   const observe = (active: boolean) => {
     if (active === observing) return;
     observing = active;
-    if (active) pageObserver.observe(document.documentElement, { childList: true, subtree: true });
+    // Viewed toggles flip aria-pressed in the new diff view; the classic one only fires `change` (below).
+    if (active)
+      pageObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-pressed'],
+      });
     else pageObserver.disconnect();
   };
 
@@ -272,6 +288,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
 
   ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
+  ctx.addEventListener(document, 'change', () => schedule(), { capture: true });
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
     if (pageChanged) restorePage();

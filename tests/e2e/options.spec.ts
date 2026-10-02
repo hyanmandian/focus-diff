@@ -18,6 +18,14 @@ test.describe('settings page', () => {
     await expect(page).toHaveTitle('Focus Diff settings');
   });
 
+  test('shows the version and where to find the project', async ({ openExtensionPage }) => {
+    const page = await openExtensionPage('options.html');
+    await expect(page.locator('#version')).toHaveText(/^Focus Diff \d+\.\d+\.\d+, open source under the MIT license$/);
+    const links = page.getByRole('navigation', { name: 'Focus Diff project' }).getByRole('link');
+    await expect(links).toHaveText(['Source code', 'Release notes', 'Report a bug', 'Suggest an idea', 'Privacy']);
+    await expect(links.nth(2)).toHaveAttribute('href', /\/issues\/new\?template=bug_report\.yml$/);
+  });
+
   test('blocks saving an invalid regex and focuses it', async ({ openExtensionPage }) => {
     const page = await openExtensionPage('options.html');
     await page.locator('#global .filter').first().locator('.f-exclude').fill('(');

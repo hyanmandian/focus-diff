@@ -1,5 +1,6 @@
 import '@/assets/page.css';
 import { i18n } from '#i18n';
+import { browser } from 'wxt/browser';
 import {
   compile,
   filtersFor,
@@ -322,6 +323,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 
 translateDocument(i18n.t('optionsTitle'));
+$('#version').textContent = i18n.t('optionsVersion', [browser.runtime.getManifest().version]);
 
 void loadConfig().then((loaded) => {
   config = loaded;

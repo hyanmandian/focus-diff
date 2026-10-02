@@ -473,6 +473,31 @@ h3 {
   font-weight: 600;
 }
 
+.project {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+.project ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.project a {
+  color: var(--focus);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 .share {
   gap: 20px;
 }

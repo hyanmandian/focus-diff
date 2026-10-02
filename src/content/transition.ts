@@ -11,6 +11,9 @@ const EXIT_MS = 240;
 const STAGGER_MS = 45;
 const MAX_STAGGER = 8;
 
+/** Bumped by each change, so the end of an earlier one doesn't undo a later one that's running. */
+let generation = 0;
+
 /**
  * Only while one of our filter changes runs. Each file on screen is its own layer: one that stays glides from where it
  * was to where it lands, while files that leave or arrive are animated below. The rest of the page switches at once,
@@ -71,23 +74,27 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
     document.head.append(style);
   }
 
+  // A change that starts while another runs skips it; names carry the generation, so neither touches the other's.
+  const mine = ++generation;
   const names = new Map<string, string>();
-  const nameOf = (key: string) => names.get(key) ?? names.set(key, `focus-diff-file-${names.size}`).get(key)!;
-  const named = new Set<HTMLElement>();
+  const nameOf = (key: string) => names.get(key) ?? names.set(key, `focus-diff-${mine}-${names.size}`).get(key)!;
+  const named = new Map<HTMLElement, string>();
   const name = (list: { key: string; element: HTMLElement }[]) =>
     list.map(({ key, element }) => {
       element.style.setProperty('view-transition-name', nameOf(key));
       element.style.setProperty('view-transition-class', FILE_CLASS);
-      named.add(element);
+      named.set(element, nameOf(key));
       return nameOf(key);
     });
   const unname = () => {
-    for (const element of named) {
+    for (const [element, value] of named) {
+      if (element.style.getPropertyValue('view-transition-name') !== value) continue;
       element.style.removeProperty('view-transition-name');
       element.style.removeProperty('view-transition-class');
     }
     named.clear();
   };
+  const animations: Animation[] = [];
 
   const root = document.documentElement;
   root.setAttribute(ACTIVE, '');
@@ -104,28 +111,34 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
     const leaving = before.filter((key) => !after.includes(key));
     const arriving = after.filter((key) => !before.includes(key));
     for (const key of leaving)
-      root.animate(
-        { opacity: [1, 0], transform: ['none', 'scale(0.96)'], filter: ['none', 'blur(3px)'] },
-        { duration: EXIT_MS, easing: 'ease-in', fill: 'both', pseudoElement: `::view-transition-old(${key})` },
+      animations.push(
+        root.animate(
+          { opacity: [1, 0], transform: ['none', 'scale(0.96)'], filter: ['none', 'blur(3px)'] },
+          { duration: EXIT_MS, easing: 'ease-in', fill: 'both', pseudoElement: `::view-transition-old(${key})` },
+        ),
       );
     arriving.forEach((key, index) =>
-      root.animate(
-        { opacity: [0, 1], transform: ['translateY(28px) scale(0.98)', 'none'] },
-        {
-          duration: ENTER_MS,
-          delay: EXIT_MS / 2 + Math.min(index, MAX_STAGGER) * STAGGER_MS,
-          easing: EASE_OUT,
-          fill: 'both',
-          pseudoElement: `::view-transition-new(${key})`,
-        },
+      animations.push(
+        root.animate(
+          { opacity: [0, 1], transform: ['translateY(28px) scale(0.98)', 'none'] },
+          {
+            duration: ENTER_MS,
+            delay: EXIT_MS / 2 + Math.min(index, MAX_STAGGER) * STAGGER_MS,
+            easing: EASE_OUT,
+            fill: 'both',
+            pseudoElement: `::view-transition-new(${key})`,
+          },
+        ),
       ),
     );
     await transition.finished;
   } catch {
     // Skipped, say by another transition starting; the update has still run.
   } finally {
+    // Filled animations would otherwise linger on the page, holding these pseudo-elements.
+    for (const animation of animations) animation.cancel();
     unname();
-    root.removeAttribute(ACTIVE);
+    if (mine === generation) root.removeAttribute(ACTIVE);
   }
 };
 

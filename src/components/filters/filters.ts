@@ -9,6 +9,8 @@ export interface PanelOption {
   name: string;
   /** Files this option shows. */
   count?: number;
+  /** Files GitHub hasn't loaded yet might add to the count, so none isn't final. */
+  loading?: boolean;
 }
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -91,7 +93,7 @@ export const createFilters = ({ focused }: PanelContext, onToggle: (id: string) 
       const pressed = selected.includes(option.dataset.id ?? '');
       if (option.getAttribute('aria-pressed') !== String(pressed)) option.setAttribute('aria-pressed', String(pressed));
       // A filter with nothing to show can't be picked, and says why; one already on can still be turned off.
-      const disabled = count === 0 && !pressed;
+      const disabled = count === 0 && !pressed && !item?.loading;
       option.setAttribute('aria-disabled', String(disabled));
       // The reason shows as a tooltip and is read out as the chip's description.
       const reason = disabled && item ? i18n.t('panelFilterEmpty', [item.name]) : '';

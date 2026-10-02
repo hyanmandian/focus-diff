@@ -193,6 +193,55 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['Docs']);
   });
 
+  test('survives picking filters while one is still animating', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
+    await pr.pick('Docs');
+    await pr.page.waitForTimeout(150);
+    await pr.pick('Backend');
+    await pr.page.evaluate(() =>
+      requestAnimationFrame(() => document.querySelector('focus-diff-panel')?.shadowRoot?.querySelector<HTMLElement>('.option')?.click()),
+    );
+    await expect(pr.pressed).toHaveText(['All']);
+    // Once it settles, nothing of any transition is left on GitHub's page.
+    await expect
+      .poll(() =>
+        pr.page.evaluate(() => ({
+          active: document.documentElement.hasAttribute('data-focus-diff-filtering'),
+          named: document.body.querySelectorAll('[style*="view-transition-name"]').length,
+          animations: document.documentElement.getAnimations().length,
+        })),
+      )
+      .toEqual({ active: false, named: 0, animations: 0 });
+    // And a later pick doesn't jump back to the first file on its own.
+    await pr.page.evaluate(() => scrollTo(0, 600));
+    await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
+    await pr.page.waitForTimeout(600);
+    expect(await pr.page.evaluate(() => scrollY)).toBeGreaterThan(500);
+  });
+
+  test('lets a jump still waiting on GitHub go when the filter changes', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.pick('Backend');
+    await pr.panel.locator('.comments').click();
+    // Opening lands on the resolved thread, which GitHub is still loading; the reader moves on, and the late jump neither lands nor speaks.
+    await pr.pick('All');
+    await expect(pr.status).toHaveText(/^All: /);
+    await pr.page.waitForTimeout(800);
+    await expect(pr.status).toHaveText(/^All: /);
+    await expect(pr.panel.locator('.comments')).toHaveAccessibleName('Conversations, 4 conversations');
+  });
+
+  test('keeps filters with no loaded files open while GitHub is still loading files', async ({ openPullRequest, seed }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await seed({ ...DEFAULT_CONFIG, global: [...DEFAULT_CONFIG.global, { id: 'ruby', name: 'Ruby', include: '\\.rb$', exclude: '' }] });
+    await expect(pr.option('Ruby')).toHaveAttribute('aria-disabled', 'true');
+    // GitHub reports more files than it has drawn so far.
+    await pr.page.evaluate(() => (document.querySelector('[aria-current="page"] .Counter')!.textContent = '12'));
+    await pr.pick('Docs');
+    await expect(pr.option('Ruby')).toHaveAttribute('aria-disabled', 'false');
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);

@@ -85,7 +85,8 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     // A complete row already reads as done through its green Viewed count, so its time stays empty.
     const time = data.minutesLeft === 0 ? '' : formatDuration(data.minutesLeft);
     const complete = data.visible > 0 && data.viewed === data.visible;
-    const disabled = data.visible === 0 && !selected;
+    // Files still loading might match, so an empty row only turns off once they're in.
+    const disabled = data.visible === 0 && data.pending === 0 && !selected;
     return h(
       'button',
       {

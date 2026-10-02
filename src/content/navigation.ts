@@ -170,8 +170,10 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
       if (commentIndex > list.length) commentIndex = 0;
       return { current: commentIndex, list };
     },
+    /** A new selection: back to before the first jump, and any jump still waiting on GitHub gives way. */
     reset: () => {
       commentIndex = 0;
+      jump++;
     },
   };
 };

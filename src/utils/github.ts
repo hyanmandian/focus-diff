@@ -344,8 +344,13 @@ const FLASH_MS = 2000;
 
 const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'auto');
 
+/** Lets go of the element held by the last jump, so two never pull the page different ways. */
+let releaseHold = () => {};
+
 /** Scrolls an element to the top of the page, below GitHub's sticky headers. */
 export const scrollToTop = (element: Element, behavior: ScrollBehavior = scrollBehavior()): void => {
+  // Going somewhere else lets go of a conversation held in the middle of the screen.
+  releaseHold();
   const top = element.getBoundingClientRect().top + scrollY - stickyBarBottom();
   scrollTo({ top, behavior });
 };
@@ -354,14 +359,14 @@ const HOLD_MS = 5000;
 const SETTLED_MS = 600;
 const DRIFT_PX = 24;
 const READER_INPUT = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
-/** Lets go of the element held by the last jump, so two never pull the page different ways. */
-let releaseHold = () => {};
 
 /**
  * Scrolls an element to the middle of the screen and keeps it there while GitHub is still loading the diffs above it,
  * which would otherwise push it out of view. It lets go once the page settles, or as soon as the reader scrolls.
  */
 export const scrollToCenter = (element: Element): void => {
+  // Hidden, say by a filter picked since the jump began: there's nowhere to go.
+  if (!element.getClientRects().length) return;
   // Where the page has to be, within how far it can scroll.
   const targetOf = () => {
     const box = element.getBoundingClientRect();

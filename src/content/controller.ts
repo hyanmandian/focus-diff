@@ -152,9 +152,14 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const matchers = new Map(filters(repo).map((filter) => [filter.id, filter.matches]));
     return (selections[repo] ?? []).filter((id) => {
       const matches = matchers.get(id);
-      return Boolean(matches) && files.list.some((file) => matches?.(file.path));
+      return Boolean(matches) && hasFiles(matches);
     });
   };
+
+  /** Files GitHub hasn't loaded yet could still match any filter, so a filter's count is only final once they're in. */
+  const loading = () => !files.complete && page.reportedFileCount() > files.list.length;
+  /** Whether a filter has, or may yet have, files in this pull request. */
+  const hasFiles = (matches?: Matcher) => !matches || loading() || files.list.some((file) => matches(file.path));
 
   const choose = (ids: string[]) => {
     const repo = page.repository();
@@ -180,7 +185,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (!repo) return;
     // Filters with nothing in this pull request are skipped.
     const ids = optionsFor(repo)
-      .filter((option) => !option.matches || files.list.some((file) => option.matches?.(file.path)))
+      .filter((option) => hasFiles(option.matches))
       .map((option) => option.id);
     const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
     const next = ids[(index + offset + ids.length) % ids.length];
@@ -227,6 +232,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       options.map((option) => ({
         ...option,
         count: option.matches ? files.list.filter((file) => option.matches?.(file.path)).length : totals.total,
+        loading: loading(),
       })),
       selection,
     );
@@ -287,6 +293,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       const behavior = canTransition() ? 'instant' : undefined;
       void withTransition(() => {
         apply();
+        // Picked again while this change was being prepared: that pick gets its own turn.
+        if (chosen) schedule();
         const next = shown.find((file) => !file.viewed);
         if (next?.diff?.element.isConnected) page.scrollToTop(next.diff.container, behavior);
         else pending = next;

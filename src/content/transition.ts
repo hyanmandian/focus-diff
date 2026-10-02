@@ -28,6 +28,7 @@ html[${ACTIVE}]::view-transition-old(${PANEL}) { display: none; }
 html[${ACTIVE}]::view-transition-group(${PANEL}),
 html[${ACTIVE}]::view-transition-new(${PANEL}) { animation: none; }
 html[${ACTIVE}]::view-transition-new(${PANEL}) { mix-blend-mode: normal; }
+html[${ACTIVE}]::view-transition-group(${PANEL}) { z-index: 1; }
 html[${ACTIVE}]::view-transition-image-pair(${PANEL}) { isolation: auto; }
 `;
 

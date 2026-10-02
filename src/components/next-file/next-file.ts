@@ -7,7 +7,7 @@ import { formatNumber as format } from '@/utils/format';
 /** What's left to review: files in the shown filters, or else the next filter in the bar that still has some. */
 export interface NextFile {
   left: number;
-  then?: { name: string; left: number };
+  nextFilter?: { name: string; left: number };
 }
 
 /**
@@ -26,15 +26,15 @@ export const createNextFile = (onNext: () => void) => {
     nextFileIcon(),
   );
 
-  const render = ({ left, then }: NextFile) => {
+  const render = ({ left, nextFilter }: NextFile) => {
     const label = left
       ? i18n.t('panelNextFile', left, [format(left)])
-      : then
-        ? i18n.t('panelNextFilter', then.left, [then.name, format(then.left)])
+      : nextFilter
+        ? i18n.t('panelNextFilter', nextFilter.left, [nextFilter.name, format(nextFilter.left)])
         : i18n.t('panelAllReviewed');
     element.setAttribute('aria-label', label);
     element.dataset.tip = label;
-    element.setAttribute('aria-disabled', String(!left && !then));
+    element.setAttribute('aria-disabled', String(!left && !nextFilter));
   };
 
   return { element, render };

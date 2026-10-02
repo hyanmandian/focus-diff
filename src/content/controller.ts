@@ -293,7 +293,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     }
     panel.renderConversations(navigation.position(shown, files.complete));
     const left = totals.visible - totals.viewed;
-    panel.renderNextFile({ left, then: filtering && !left ? nextFilterWithWork(repo) : undefined });
+    panel.renderNextFile({ left, nextFilter: filtering && !left ? nextFilterWithWork(repo) : undefined });
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
     panel.renderStats(totals);

@@ -130,7 +130,7 @@ export const createPanel = (
     h('span', { className: 'option-count', 'aria-hidden': 'true' }),
   );
   // One button walks forward through the conversations; going back only appears once there's somewhere to go back to.
-  const commentPosition = h('span', { className: 'nav-count', 'aria-hidden': 'true' });
+  const commentPosition = h('span', { className: 'option-count', 'aria-hidden': 'true' });
   const previousComment = h(
     'button',
     {

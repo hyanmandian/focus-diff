@@ -148,7 +148,8 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
       reposition();
     } else drawnKey = '';
   };
-  toggle.addEventListener('click', () => setOpen(popover.hidden));
+  const isOpen = () => !popover.hidden;
+  toggle.addEventListener('click', () => setOpen(!isOpen()));
 
   /** Rows are only computed while it's open. */
   const render = (list: () => BreakdownRow[], selected: string[]) => {
@@ -156,5 +157,5 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     draw();
   };
 
-  return { toggle, popover, render, setOpen, reposition, isOpen: () => !popover.hidden };
+  return { toggle, popover, render, setOpen, reposition, isOpen };
 };

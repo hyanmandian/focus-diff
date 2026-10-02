@@ -129,8 +129,9 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
       reposition();
     }
   };
+  const isOpen = () => !popover.hidden;
   toggle.addEventListener('click', () => {
-    if (source.list.length) setOpen(popover.hidden);
+    if (source.list.length) setOpen(!isOpen());
   });
 
   const render = (conversations: Conversations) => {
@@ -151,5 +152,5 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     draw();
   };
 
-  return { element, popover, render, setOpen, reposition, isOpen: () => !popover.hidden };
+  return { element, popover, render, setOpen, reposition, isOpen };
 };

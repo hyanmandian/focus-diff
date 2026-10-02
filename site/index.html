@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Focus Diff · Review only the code that matters</title>
+    <meta
+      name="description"
+      content="A browser extension that filters GitHub pull request diffs to the files you care about, shows how big the review really is, and walks you through every conversation."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0f14" />
+    <meta property="og:title" content="Focus Diff" />
+    <meta property="og:description" content="Review only the code that matters. A free, open source extension for GitHub pull requests." />
+    <meta property="og:image" content="https://hyanmandian.github.io/focus-diff/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.png" />
+    <link rel="preload" as="image" href="poster.jpg" />
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --surface: rgba(240, 246, 252, 0.06);
+        --border: rgba(240, 246, 252, 0.14);
+        --fg: #f0f6fc;
+        --muted: #9198a1;
+        --green: #3fb950;
+        --focus: #4493f8;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(1100px 600px at 50% -10%, #142030 0%, var(--bg) 65%) no-repeat,
+          var(--bg);
+        color: var(--fg);
+        font:
+          400 17px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          'Noto Sans',
+          Helvetica,
+          Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        display: grid;
+        justify-items: center;
+        gap: 40px;
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 72px 16px 56px;
+        text-align: center;
+      }
+      .intro {
+        display: grid;
+        justify-items: center;
+        gap: 18px;
+      }
+      .logo {
+        width: 96px;
+        height: 96px;
+        border-radius: 22px;
+        box-shadow: 0 24px 64px rgba(63, 185, 80, 0.22);
+      }
+      h1 {
+        margin: 6px 0 0;
+        font-size: clamp(40px, 7vw, 64px);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1.05;
+      }
+      .lede {
+        max-width: 620px;
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(18px, 2.4vw, 21px);
+        text-wrap: balance;
+      }
+      .lede strong {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .links a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 18px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--fg);
+        font-weight: 600;
+        text-decoration: none;
+        transition:
+          background-color 150ms ease-out,
+          border-color 150ms ease-out;
+      }
+      .links a:hover {
+        background: rgba(240, 246, 252, 0.12);
+        border-color: rgba(240, 246, 252, 0.28);
+      }
+      .links a.primary {
+        background: var(--fg);
+        border-color: var(--fg);
+        color: var(--bg);
+      }
+      .links a.primary:hover {
+        background: #d5dde6;
+      }
+      .links a:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 3px;
+      }
+      @media (max-width: 560px) {
+        .links {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          width: 100%;
+        }
+        .links a {
+          justify-content: center;
+          padding: 0 12px;
+          font-size: 15px;
+        }
+      }
+      .soon {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .primary .soon {
+        color: #59636e;
+      }
+      .video {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #000 url(poster.jpg) center / cover;
+        box-shadow: 0 40px 120px rgba(0, 0, 0, 0.55);
+      }
+      video {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px 18px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      footer a {
+        color: inherit;
+        text-underline-offset: 3px;
+      }
+      footer a:hover {
+        color: var(--fg);
+      }
+      footer a:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="intro">
+        <img class="logo" src="icon.webp" alt="" width="96" height="96" fetchpriority="high" />
+        <h1>Focus Diff</h1>
+        <p class="lede">
+          A browser extension for GitHub pull requests. <strong>Filter the diff to the files you care about</strong>, see how much is left
+          to review, and step through every conversation without hunting for it.
+        </p>
+      </header>
+
+      <!-- Store links are placeholders until the listings are live. -->
+      <ul class="links" aria-label="Get Focus Diff">
+        <li>
+          <a class="primary" href="https://chromewebstore.google.com/">Add to Chrome <span class="soon">Soon</span></a>
+        </li>
+        <li>
+          <a href="https://addons.mozilla.org/">Add to Firefox <span class="soon">Soon</span></a>
+        </li>
+        <li>
+          <a href="https://apps.apple.com/">Add to Safari <span class="soon">Soon</span></a>
+        </li>
+        <li><a href="https://github.com/hyanmandian/focus-diff">View on GitHub</a></li>
+      </ul>
+
+      <div class="video">
+        <video
+          src="focus-diff.mp4"
+          poster="poster.jpg"
+          width="1280"
+          height="720"
+          autoplay
+          muted
+          loop
+          playsinline
+          controls
+          preload="metadata"
+          aria-label="Focus Diff in 30 seconds: filtering a pull request, the review breakdown, and stepping through conversations"
+        ></video>
+      </div>
+
+      <footer>
+        <span>Free and open source, under the MIT license.</span>
+        <span>No tracking.</span>
+        <a href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md">Privacy</a>
+      </footer>
+    </main>
+  </body>
+</html>

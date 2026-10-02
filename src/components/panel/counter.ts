@@ -10,17 +10,12 @@ export interface Counter {
   set: (value: number) => void;
 }
 
-/** A number that counts towards new values and reserves the width of the longest one, so the panel never shifts. */
+/** A number that counts towards new values. The stats block around it reserves width, so the panel never shifts. */
 export const counter = (className: string, render: (value: number) => string): Counter => {
-  const ghost = h('span', { className: 'ghost', 'aria-hidden': 'true' });
   const output = h('span');
-  const element = h('span', { className: `number ${className}` }, ghost, output);
+  const element = h('span', { className: `number ${className}` }, output);
   let value: number | null = null;
   let frame = 0;
-
-  const reserve = (text: string) => {
-    if (text.length > (ghost.textContent ?? '').length) ghost.textContent = text;
-  };
 
   const paint = (current: number) => {
     output.textContent = render(current);
@@ -31,7 +26,6 @@ export const counter = (className: string, render: (value: number) => string): C
     cancelAnimationFrame(frame);
     const from = value;
     value = next;
-    reserve(render(Math.max(from ?? 0, next)));
     if (from === null || prefersReducedMotion()) return paint(next);
     const start = performance.now();
     const step = (now: number) => {

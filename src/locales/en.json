@@ -149,9 +149,24 @@
   "panelColumnTime": "Time left",
   "panelBreakdownRow": "$1: $2, $3 viewed, $4 lines added, $5 removed. $6",
   "statusChangedElsewhere": "Filters changed in another window. Save to keep your edits, or reload to see the new filters.",
-  "panelViewed": "· $1 viewed",
   "panelColumnViewed": "Viewed",
   "timeDone": "Done",
   "panelAnnounceViewed": "$1 of $2 viewed.",
-  "timeLeft": "$1 left to review"
+  "timeLeft": "$1 left to review",
+  "panelNextUnviewed": "Go to the next unviewed file ($1 left)",
+  "panelAllViewed": "Every shown file is viewed",
+  "panelComments": "Conversations",
+  "panelPreviousComment": "Previous conversation",
+  "panelNextComment": "Next conversation",
+  "panelCommentPosition": "Conversation $1 of $2",
+  "panelCommentCount": {
+    "1": "1 conversation",
+    "n": "$1 conversations"
+  },
+  "commandNextUnviewed": "Go to the next unviewed file",
+  "commandNextComment": "Go to the next conversation",
+  "commandPreviousComment": "Go to the previous conversation",
+  "panelNoMoreUnviewed": "Every shown file is viewed.",
+  "panelJumpedToFile": "$1, $2 unviewed left.",
+  "panelJumpedToComment": "Conversation $1 of $2, in $3."
 }

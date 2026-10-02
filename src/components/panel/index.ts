@@ -21,6 +21,15 @@ export interface Totals {
 export interface PanelOption {
   id: string;
   name: string;
+  /** Files this option shows. */
+  count?: number;
+}
+
+export interface Navigation {
+  /** Shown files not yet marked as viewed. */
+  unviewed: number;
+  /** Conversations in the shown files, and which one the reader last jumped to (0 before the first jump). */
+  comments: { current: number; total: number };
 }
 
 export interface BreakdownRow extends PanelOption, Totals {}
@@ -29,14 +38,19 @@ export interface PanelActions {
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onSettings: () => void;
+  onNextUnviewed: () => void;
+  onComment: (step: 1 | -1) => void;
 }
 
 export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
   renderStats: (totals: Totals) => void;
+  renderNavigation: (navigation: Navigation) => void;
   /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
   announce: (summary: Totals & { name: string }) => void;
+  /** Reads out a short message, like where a jump landed. */
+  announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
   reset: () => void;
 }
@@ -52,6 +66,9 @@ const settingsIcon = () =>
   ]);
 
 const breakdownIcon = () => icon('M2 13.5h12M4 11V7M8 11V3M12 11V8');
+const nextFileIcon = () => icon('M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10');
+const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
+const chevron = (direction: 'up' | 'down') => icon(direction === 'up' ? 'M4.5 10 8 6.5 11.5 10' : 'M4.5 6 8 9.5 11.5 6');
 
 interface PanelMount {
   root: ShadowRoot;
@@ -60,7 +77,10 @@ interface PanelMount {
   signal: AbortSignal;
 }
 
-export const createPanel = ({ root, container, host, signal }: PanelMount, { onSelect, onToggle, onSettings }: PanelActions): Panel => {
+export const createPanel = (
+  { root, container, host, signal }: PanelMount,
+  { onSelect, onToggle, onSettings, onNextUnviewed, onComment }: PanelActions,
+): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
   const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
@@ -70,7 +90,6 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const additions = counter('additions', (n) => `+${format(n)}`);
   const deletions = counter('deletions', (n) => `−${format(n)}`);
   const time = counter('time', (seconds) => (seconds === 0 ? i18n.t('timeDone') : formatDuration(seconds / 60)));
-  const viewedCount = h('span', { className: 'viewed-count', hidden: true });
   const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
   const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
   const pendingText = h('span', { className: 'visually-hidden' });
@@ -84,16 +103,58 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
       h('span', { className: 'number', textContent: '/' }),
       totalFiles.element,
       h('span', { className: 'files-label', textContent: ` ${i18n.t('panelFilesLabel')}` }),
+      pending,
+      pendingText,
     ),
-    viewedCount,
-    additions.element,
-    h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesAdded')}` }),
-    deletions.element,
-    h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
+    h(
+      'span',
+      { className: 'lines' },
+      additions.element,
+      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesAdded')}` }),
+      deletions.element,
+      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
+    ),
     h('span', { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) }, time.element, timeLabel),
-    pending,
-    pendingText,
   );
+
+  const nextUnviewed = h(
+    'button',
+    { type: 'button', className: 'icon-button next-unviewed', onClick: () => onNextUnviewed() },
+    nextFileIcon(),
+    h('span', { className: 'nav-count', 'aria-hidden': 'true' }),
+  );
+  const commentPosition = h('span', { className: 'nav-count', 'aria-hidden': 'true' });
+  const previousComment = h(
+    'button',
+    {
+      type: 'button',
+      className: 'icon-button',
+      'aria-label': i18n.t('panelPreviousComment'),
+      title: i18n.t('panelPreviousComment'),
+      onClick: () => onComment(-1),
+    },
+    chevron('up'),
+  );
+  const nextComment = h(
+    'button',
+    {
+      type: 'button',
+      className: 'icon-button',
+      'aria-label': i18n.t('panelNextComment'),
+      title: i18n.t('panelNextComment'),
+      onClick: () => onComment(1),
+    },
+    chevron('down'),
+  );
+  const comments = h(
+    'span',
+    { className: 'comments', role: 'group', 'aria-label': i18n.t('panelComments') },
+    h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
+    commentPosition,
+    previousComment,
+    nextComment,
+  );
+  const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments);
 
   const breakdownRows = h('div', { className: 'rows' });
   const breakdown = h(
@@ -129,7 +190,7 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   });
   const status = h('span', { className: 'visually-hidden', role: 'status' });
   // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
-  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, breakdown, settings, status);
+  const panel = h('div', { className: 'panel' }, group, stats, navigation, breakdownToggle, breakdown, settings, status);
   container.append(panel);
 
   const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
@@ -278,13 +339,13 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
       options().forEach((option) => option.remove());
       group.append(
         ...list.map(({ id, name }) =>
-          h('button', {
-            type: 'button',
-            className: 'option',
-            textContent: name,
-            'data-id': id,
-            onClick: (event: MouseEvent) => pick(id, event),
-          }),
+          h(
+            'button',
+            { type: 'button', className: 'option', 'data-id': id, onClick: (event: MouseEvent) => pick(id, event) },
+            h('span', { className: 'option-name', textContent: name }),
+            h('span', { className: 'option-count', 'aria-hidden': 'true' }),
+            h('span', { className: 'visually-hidden option-count-label' }),
+          ),
         ),
       );
       if (keepFocus) requestAnimationFrame(() => group.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus());
@@ -304,6 +365,15 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
 
     const current = focused()?.classList.contains('option') ? focused() : null;
     for (const option of options()) {
+      const count = list.find((item) => item.id === option.dataset.id)?.count;
+      const countElement = option.querySelector('.option-count');
+      const countLabel = option.querySelector('.option-count-label');
+      if (countElement && countLabel && count !== undefined) {
+        const text = format(count);
+        if (countElement.textContent !== text) countElement.textContent = text;
+        countLabel.textContent = ` ${i18n.t('fileCount', count, [text])}`;
+        option.classList.toggle('empty', count === 0);
+      }
       const pressed = selected.includes(option.dataset.id ?? '');
       if (option.getAttribute('aria-pressed') !== String(pressed)) option.setAttribute('aria-pressed', String(pressed));
       option.tabIndex = (current ? option === current : option.dataset.id === selected[0]) ? 0 : -1;
@@ -316,6 +386,20 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     drawBreakdown();
   };
 
+  /** The stats block only grows: shorter numbers leave room at its end instead of shifting the buttons after it. */
+  let reservedWidth = 0;
+  const reserveStatsWidth = () => {
+    // WXT injects the stylesheet asynchronously; before it lands, hidden labels are inline and inflate the width.
+    if (host.style.display === 'none' || getComputedStyle(pendingText).position !== 'absolute') return;
+    const width = Math.ceil(stats.getBoundingClientRect().width);
+    if (width <= reservedWidth) return;
+    reservedWidth = width;
+    stats.style.minWidth = `${width}px`;
+  };
+  const resizeStats = new ResizeObserver(reserveStatsWidth);
+  resizeStats.observe(stats);
+  signal.addEventListener('abort', () => resizeStats.disconnect());
+
   const renderStats = (totals: Totals) => {
     visibleFiles.set(totals.visible);
     totalFiles.set(totals.total);
@@ -323,12 +407,25 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     deletions.set(totals.deletions);
     time.set(Math.round(totals.minutesLeft * 60));
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
-    viewedCount.hidden = totals.viewed === 0;
-    viewedCount.textContent = totals.viewed ? i18n.t('panelViewed', [format(totals.viewed)]) : '';
     pending.classList.toggle('active', totals.pending > 0);
     pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', [format(totals.pending)]) : '';
     stats.title = pending.title;
     pendingText.textContent = pending.title ? ` ${pending.title}` : '';
+  };
+
+  const renderNavigation = ({ unviewed, comments: { current, total } }: Navigation) => {
+    const unviewedLabel = unviewed ? i18n.t('panelNextUnviewed', [format(unviewed)]) : i18n.t('panelAllViewed');
+    nextUnviewed.setAttribute('aria-label', unviewedLabel);
+    nextUnviewed.title = unviewedLabel;
+    nextUnviewed.disabled = unviewed === 0;
+    const count = nextUnviewed.querySelector('.nav-count');
+    if (count) count.textContent = unviewed ? format(unviewed) : '';
+    comments.hidden = total === 0;
+    commentPosition.textContent = current ? `${format(current)}/${format(total)}` : format(total);
+    comments.setAttribute(
+      'aria-label',
+      current ? i18n.t('panelCommentPosition', [format(current), format(total)]) : i18n.t('panelCommentCount', total, [format(total)]),
+    );
   };
 
   const announce = ({
@@ -362,5 +459,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   };
 
   setVisible(false);
-  return { renderOptions, renderStats, renderBreakdown, announce, setVisible, reset };
+  const announceText = (text: string) => {
+    status.textContent = text;
+  };
+
+  return { renderOptions, renderStats, renderNavigation, renderBreakdown, announce, announceText, setVisible, reset };
 };

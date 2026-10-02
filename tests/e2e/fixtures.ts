@@ -6,8 +6,11 @@ import type { Config } from '../../src/utils/filters';
 
 const extensionPath = path.resolve('.output/chrome-mv3');
 const pullRequestHtml = readFileSync(path.resolve('tests/e2e/fixtures/pull-request.html'), 'utf8');
+const virtualizedHtml = readFileSync(path.resolve('tests/e2e/fixtures/pull-request-virtualized.html'), 'utf8');
 
 export const PULL_REQUEST = 'https://github.com/octo/web/pull/1/changes';
+/** GitHub's newer, virtualized diff view with its embedded data. */
+export const VIRTUALIZED_PULL_REQUEST = 'https://github.com/octo/web/pull/2/changes';
 
 export const DEFAULT_CONFIG: Config = {
   global: [
@@ -41,7 +44,7 @@ export const test = base.extend<Fixtures>({
       env: { ...process.env, LANGUAGE: language.replace('-', '_') },
     });
     await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+\/(changes|files)$/, (route) =>
-      route.fulfill({ contentType: 'text/html', body: pullRequestHtml }),
+      route.fulfill({ contentType: 'text/html', body: route.request().url().includes('/pull/2/') ? virtualizedHtml : pullRequestHtml }),
     );
     await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+$/, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<title>Conversation</title>' }),
@@ -76,7 +79,7 @@ export const test = base.extend<Fixtures>({
       page.on('pageerror', (error) => pageErrors.push(error.message));
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(url);
-      await page.locator('focus-diff-panel .panel').waitFor({ state: url === PULL_REQUEST ? 'visible' : 'attached' });
+      await page.locator('focus-diff-panel .panel').waitFor({ state: url.endsWith('/changes') ? 'visible' : 'attached' });
       return page;
     });
   },

@@ -149,9 +149,24 @@
   "panelColumnTime": "Falta",
   "panelBreakdownRow": "$1: $2, $3 vistos, $4 linhas adicionadas, $5 removidas. $6",
   "statusChangedElsewhere": "Os filtros mudaram em outra janela. Salve para manter suas edições ou recarregue para ver os novos filtros.",
-  "panelViewed": "· $1 vistos",
   "panelColumnViewed": "Vistos",
   "timeDone": "Pronto",
   "panelAnnounceViewed": "$1 de $2 vistos.",
-  "timeLeft": "Faltam $1 de revisão"
+  "timeLeft": "Faltam $1 de revisão",
+  "panelNextUnviewed": "Ir para o próximo arquivo não visto (faltam $1)",
+  "panelAllViewed": "Todos os arquivos mostrados foram vistos",
+  "panelComments": "Conversas",
+  "panelPreviousComment": "Conversa anterior",
+  "panelNextComment": "Próxima conversa",
+  "panelCommentPosition": "Conversa $1 de $2",
+  "panelCommentCount": {
+    "1": "1 conversa",
+    "n": "$1 conversas"
+  },
+  "commandNextUnviewed": "Ir para o próximo arquivo não visto",
+  "commandNextComment": "Ir para a próxima conversa",
+  "commandPreviousComment": "Ir para a conversa anterior",
+  "panelNoMoreUnviewed": "Todos os arquivos mostrados foram vistos.",
+  "panelJumpedToFile": "$1, faltam $2 não vistos.",
+  "panelJumpedToComment": "Conversa $1 de $2, em $3."
 }

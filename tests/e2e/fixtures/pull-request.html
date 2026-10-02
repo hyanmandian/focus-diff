@@ -89,6 +89,17 @@
         ['api/legacy/routes.py', 0, 0, 'unrendered'],
       ];
       const container = document.getElementById('diff-comparison-viewer-container');
+      // Review conversations, marked up the way GitHub's classic diff view renders them.
+      const conversations = {
+        'web/src/book-card.tsx': [{ resolved: false, text: 'Should the card handle a missing cover?' }],
+        'api/books/service.py': [
+          { resolved: true, text: 'Typo in the docstring.' },
+          { resolved: false, text: 'This query runs once per book.' },
+        ],
+        'docs/books.md': [{ resolved: false, text: 'Link the API reference here.' }],
+      };
+      const thread = ({ resolved, text }) =>
+        `<review-thread-collapsible class="review-thread-component js-comment-container js-resolvable-timeline-thread-container" data-resolved="${resolved}"><p>${text}</p></review-thread-collapsible>`;
       files.forEach(([path, added, removed, source], index) => {
         const wrapper = document.createElement('div');
         const button = source === 'attribute' ? `<button data-file-path="${path}">Expand all lines</button>` : '';
@@ -106,7 +117,7 @@
               <button type="button" class="viewed" aria-pressed="false">Viewed</button>
               ${stats}
             </div>
-            <div role="region" id="diff-${index}-hunk" aria-label="Hunk"><pre>@@ -1 +1 @@</pre></div>
+            <div role="region" id="diff-${index}-hunk" aria-label="Hunk" style="min-height: 320px"><pre>@@ -1 +1 @@</pre>${(conversations[path] ?? []).map(thread).join('')}</div>
           </div>`;
         container.append(wrapper);
       });

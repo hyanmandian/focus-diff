@@ -4,10 +4,10 @@ import { browser } from 'wxt/browser';
 import type { Panel, Totals } from '@/components/panel';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
 import * as page from '@/utils/github';
-import type { FileStats } from '@/utils/github';
-import { reviewMinutes } from '@/utils/review-time';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, type Selections } from '@/utils/storage';
+import { collectFiles, everything, totalsFor, type FileInfo, type Files } from './files';
+import { createNavigation } from './navigation';
 
 interface Option {
   id: string;
@@ -15,20 +15,23 @@ interface Option {
   matches?: Matcher;
 }
 
-interface LoadedDiff {
-  path: string;
-  container: HTMLElement;
-  stats: FileStats | null;
-  viewed: boolean;
-}
-
 /** GitHub keeps rendering while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
-const everything: Matcher = () => true;
+const DIMMED_OPACITY = '0.35';
 
 const show = (element: HTMLElement, visible: boolean) => {
   const display = visible ? '' : 'none';
   if (element.style.display !== display) element.style.display = display;
+};
+
+/**
+ * Filters a rendered diff. In the newer, virtualized list every file keeps an absolute position, so hiding one would
+ * leave a gap the size of the file; there, files outside the filter are dimmed instead.
+ */
+const present = (element: HTMLElement, visible: boolean, virtualized: boolean) => {
+  show(element, visible || virtualized);
+  const opacity = visible || !virtualized ? '' : DIMMED_OPACITY;
+  if (element.style.opacity !== opacity) element.style.opacity = opacity;
 };
 
 const COUNTER_COPY = 'data-focus-diff-counter';
@@ -62,32 +65,8 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
   show(original, false);
 };
 
-const totalsFor = (diffs: LoadedDiff[], matches: Matcher, reported: number): Totals => {
-  const total = Math.max(diffs.length, reported);
-  const totals = { visible: 0, total, additions: 0, deletions: 0, pending: 0, minutes: 0, viewed: 0, minutesLeft: 0 };
-  for (const diff of diffs) {
-    if (!matches(diff.path)) continue;
-    totals.visible++;
-    if (!diff.stats) totals.pending++;
-    totals.additions += diff.stats?.additions ?? 0;
-    totals.deletions += diff.stats?.deletions ?? 0;
-    const minutes = reviewMinutes(diff.path, diff.stats);
-    totals.minutes += minutes;
-    if (diff.viewed) totals.viewed++;
-    else totals.minutesLeft += minutes;
-  }
-  if (matches === everything) {
-    const unrendered = total - diffs.length;
-    totals.pending += unrendered;
-    totals.visible = total;
-    totals.minutes += unrendered * reviewMinutes('', null);
-    totals.minutesLeft += unrendered * reviewMinutes('', null);
-  }
-  return totals;
-};
-
-const filterTree = (matches: Matcher, filtering: boolean, visiblePaths: string[]) => {
-  const files = page.treeFiles();
+const filterTree = (matches: Matcher, filtering: boolean, visiblePaths: string[], pathByDigest: Map<string, string>) => {
+  const files = page.treeFiles().map((file) => ({ ...file, path: pathByDigest.get(file.digest) ?? file.path }));
   for (const file of files) show(file.element, matches(file.path));
   const shown = [...visiblePaths, ...files.filter((file) => file.element.style.display !== 'none').map((file) => file.path)];
   for (const folder of page.treeFolders()) {
@@ -113,7 +92,7 @@ const updatePageCounters = (totals: Totals, filtering: boolean) => {
 
 /** Puts the page back the way GitHub drew it. */
 const restorePage = () => {
-  for (const diff of page.diffs()) show(diff.container, true);
+  for (const diff of page.diffs()) present(diff.container, true, false);
   for (const item of page.treeFiles()) show(item.element, true);
   for (const folder of page.treeFolders()) show(folder.element, true);
   Object.values(page.pageCounters()).forEach((counter) => mirror(counter, null));
@@ -136,6 +115,8 @@ export interface Controller {
   select: (id: string) => void;
   toggle: (id: string) => void;
   openSettings: () => void;
+  nextUnviewed: () => void;
+  comment: (step: 1 | -1) => void;
 }
 
 export const startController = async (ctx: ContentScriptContext, panel: Panel): Promise<Controller> => {
@@ -193,6 +174,12 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   };
 
   let pageChanged = false;
+  let selectionKey = '';
+  let files: Files = { list: [], complete: false };
+  let shown: FileInfo[] = [];
+  const navigation = createNavigation(panel, () => schedule());
+  const nextUnviewed = () => void navigation.nextUnviewed(shown);
+  const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
 
   const apply = () => {
     pending = null;
@@ -213,24 +200,35 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
     const selection = filtering ? selected.map((option) => option.id) : [ALL];
 
-    const diffs: LoadedDiff[] = page
-      .diffs()
-      .map((diff) => ({ path: diff.path, container: diff.container, stats: diff.stats(), viewed: page.viewed(diff) }));
+    files = collectFiles();
     const reported = page.reportedFileCount();
-    const totals = totalsFor(diffs, matches, reported);
-    panel.renderOptions(options, selection);
-    const shown: string[] = [];
-    for (const diff of diffs) {
-      const visible = matches(diff.path);
-      show(diff.container, visible);
-      if (visible) shown.push(diff.path);
+    const totals = totalsFor(files, matches, reported);
+    panel.renderOptions(
+      options.map((option) => ({
+        ...option,
+        count: option.matches ? files.list.filter((file) => option.matches?.(file.path)).length : totals.total,
+      })),
+      selection,
+    );
+    const virtualized = page.isVirtualized();
+    shown = files.list.filter((file) => matches(file.path));
+    for (const file of files.list) if (file.diff) present(file.diff.container, matches(file.path), virtualized);
+    filterTree(
+      matches,
+      filtering,
+      shown.map((file) => file.path),
+      new Map(files.list.filter((file) => file.digest).map((file) => [file.digest, file.path])),
+    );
+    if (selectionKey !== selection.join()) {
+      selectionKey = selection.join();
+      navigation.reset();
     }
-    filterTree(matches, filtering, shown);
+    panel.renderNavigation({ unviewed: shown.filter((file) => !file.viewed).length, comments: navigation.position(shown, files.complete) });
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
     panel.renderStats(totals);
     panel.renderBreakdown(
-      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything, reported) })),
+      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported) })),
       selection,
     );
 
@@ -274,6 +272,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (message.command === 'next-filter') step(1);
     if (message.command === 'previous-filter') step(-1);
     if (message.command === 'show-all') select(ALL);
+    if (message.command === 'next-unviewed') nextUnviewed();
+    if (message.command === 'next-comment') comment(1);
+    if (message.command === 'previous-comment') comment(-1);
   };
   browser.runtime.onMessage.addListener(onMessage);
 
@@ -299,5 +300,5 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
 
   schedule();
-  return { select, toggle, openSettings };
+  return { select, toggle, openSettings, nextUnviewed, comment };
 };

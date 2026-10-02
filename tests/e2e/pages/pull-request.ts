@@ -13,8 +13,8 @@ export class PullRequestPage {
 
   constructor(readonly page: Page) {
     this.panel = page.locator('focus-diff-panel');
-    this.options = this.panel.locator('.option');
-    this.pressed = this.panel.locator('.option[aria-pressed="true"]');
+    this.options = this.panel.locator('.option .option-name');
+    this.pressed = this.panel.locator('.option[aria-pressed="true"] .option-name');
     this.stats = this.panel.locator('.stats');
     this.status = this.panel.locator('[role="status"]');
     this.settings = this.panel.locator('.settings');
@@ -23,7 +23,7 @@ export class PullRequestPage {
   }
 
   option(name: string) {
-    return this.panel.locator('.option', { hasText: new RegExp(`^${name}$`) });
+    return this.panel.locator(`.option:has(.option-name:text-is("${name}"))`);
   }
 
   async pick(name: string, { combine = false } = {}) {

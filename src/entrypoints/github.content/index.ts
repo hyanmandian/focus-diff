@@ -22,6 +22,8 @@ export default defineContentScript({
             onSelect: (id) => controller?.select(id),
             onToggle: (id) => controller?.toggle(id),
             onSettings: () => controller?.openSettings(),
+            onNextUnviewed: () => controller?.nextUnviewed(),
+            onComment: (step) => controller?.comment(step),
           },
         ),
     });

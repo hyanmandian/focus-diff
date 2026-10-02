@@ -89,7 +89,7 @@ test.describe('panel on a pull request', () => {
     await pr.pick('Frontend');
     await expect.poll(() => pr.statsText()).toMatch(/~7 min left to review$/);
     await viewedToggle('web/src/book-card.tsx').click();
-    await expect.poll(() => pr.statsText()).toMatch(/1\/8 files· 1 viewed.*Done$/);
+    await expect.poll(() => pr.statsText()).toMatch(/1\/8 files.*Done$/);
     await expect(pr.status).toContainText('Frontend: 1 of 8 files');
 
     await pr.breakdownToggle.click();
@@ -99,6 +99,73 @@ test.describe('panel on a pull request', () => {
     await expect(pr.breakdownRows.first().locator('.row-viewed')).toHaveText('1/8');
     await expect(pr.breakdownRows.first().locator('.row-time')).toHaveText('~16 min');
     await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 1 viewed, 40 lines added, 10 removed. Done');
+  });
+
+  test('shows how many files each filter holds', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await expect(pr.panel.locator('.option-count')).toHaveText(['8', '1', '3', '1']);
+    await expect(pr.option('Backend')).toHaveAccessibleName('Backend 3 files');
+  });
+
+  test('jumps to the next unviewed file in the filter', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const next = pr.panel.locator('.next-unviewed');
+    await pr.pick('Backend');
+    await expect(next).toHaveAccessibleName('Go to the next unviewed file (3 left)');
+    await next.click();
+    await expect(pr.status).toHaveText('api/books/service.py, 3 unviewed left.');
+    await expect
+      .poll(() => pr.page.evaluate(() => Math.round(document.getElementById('diff-3')!.getBoundingClientRect().top)))
+      .toBeLessThan(120);
+
+    await pr.page
+      .locator('[data-diff-header-wrapper]', { hasText: 'api/books/service.py' })
+      .getByRole('button', { name: 'Viewed' })
+      .click();
+    await expect(next).toHaveAccessibleName('Go to the next unviewed file (2 left)');
+    await next.click();
+    await expect(pr.status).toHaveText('api/books/__init__.py, 2 unviewed left.');
+
+    await pr.pick('Docs');
+    await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
+    await expect(next).toBeDisabled();
+    await expect(next).toHaveAccessibleName('Every shown file is viewed');
+  });
+
+  test('steps through the conversations in the shown files', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const comments = pr.panel.locator('.comments');
+    const next = pr.panel.getByRole('button', { name: 'Next conversation' });
+    const previous = pr.panel.getByRole('button', { name: 'Previous conversation' });
+    const centred = (text: string) =>
+      pr.page.evaluate((needle) => {
+        const thread = [...document.querySelectorAll('.js-resolvable-timeline-thread-container')].find((element) =>
+          element.textContent?.includes(needle),
+        )!;
+        const box = thread.getBoundingClientRect();
+        // Near the top of the page there's nothing to scroll; on screen is as centred as it gets.
+        const centred =
+          scrollY === 0 ? box.top >= 0 && box.bottom <= innerHeight : Math.abs(box.top + box.height / 2 - innerHeight / 2) < 80;
+        return centred && (thread as HTMLElement).style.outline.includes('solid');
+      }, text);
+
+    await expect(comments).toHaveAccessibleName('4 conversations');
+    await next.click();
+    await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
+    await expect.poll(() => centred('missing cover')).toBe(true);
+    await expect(comments).toHaveAccessibleName('Conversation 1 of 4');
+    await next.click();
+    await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
+    await expect.poll(() => centred('Typo')).toBe(true);
+    await previous.click();
+    await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
+
+    await pr.pick('Backend');
+    await expect(comments).toHaveAccessibleName('2 conversations');
+    await pr.pick('Frontend');
+    await pr.pick('Docs', { combine: true });
+    await expect(comments).toHaveAccessibleName('2 conversations');
+    await pr.pick('All');
   });
 
   test('moves between filters with the keyboard', async ({ openPullRequest }) => {

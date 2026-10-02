@@ -104,7 +104,7 @@ test.describe('panel on a pull request', () => {
     await pr.breakdownToggle.click();
     await expect(pr.breakdownRows.nth(1).locator('.row-viewed')).toHaveText('1/1');
     await expect(pr.breakdownRows.nth(1).locator('.row-viewed')).toHaveClass(/complete/);
-    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('Done');
+    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('');
     await expect(pr.breakdownRows.first().locator('.row-viewed')).toHaveText('1/8');
     await expect(pr.breakdownRows.first().locator('.row-time')).toHaveText('~16 min');
     await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 1 viewed, 40 lines added, 10 removed. Done');

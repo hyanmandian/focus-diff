@@ -194,7 +194,7 @@ button:focus-visible {
 }
 .rows {
   display: grid;
-  grid-template-columns: 16px minmax(96px, max-content) repeat(4, max-content);
+  grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);
   column-gap: 16px;
   max-height: min(52vh, 420px);
   padding: 8px;

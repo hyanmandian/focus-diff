@@ -289,14 +289,14 @@ export const createPanel = (
       { className: 'columns' },
       h('span'),
       h('span', { textContent: i18n.t('panelColumnFilter') }),
-      h('span', { textContent: i18n.t('panelColumnFiles') }),
       h('span', { textContent: i18n.t('panelColumnViewed') }),
       h('span', { textContent: i18n.t('panelColumnLines') }),
       h('span', { className: 'column-time' }, i18n.t('panelColumnTime'), timeInfoButton()),
     );
 
   const breakdownRow = (row: BreakdownRow, selected: boolean) => {
-    const time = row.minutesLeft === 0 ? i18n.t('timeDone') : formatDuration(row.minutesLeft);
+    // A complete row already reads as done through its green Viewed count, so its time stays empty.
+    const time = row.minutesLeft === 0 ? '' : formatDuration(row.minutesLeft);
     const complete = row.visible > 0 && row.viewed === row.visible;
     return h(
       'button',
@@ -317,7 +317,6 @@ export const createPanel = (
       },
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: row.name }),
-      h('span', { className: 'row-files', textContent: format(row.visible) }),
       h('span', { className: `row-viewed${complete ? ' complete' : ''}`, textContent: `${format(row.viewed)}/${format(row.visible)}` }),
       h(
         'span',

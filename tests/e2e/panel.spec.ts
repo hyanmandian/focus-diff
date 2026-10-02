@@ -144,7 +144,9 @@ test.describe('panel on a pull request', () => {
     await expect(comments).toHaveAccessibleName('Conversations, Conversation 1 of 4');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
+    // The resolved thread was collapsed; it opens so it can be read.
     await expect.poll(() => centred('Typo')).toBe(true);
+    await expect(pr.page.getByText('Typo in the docstring.')).toBeVisible();
     await expect(popover).toContainText('Resolved2/4');
     await next.click();
     await expect(popover).toContainText('service.py:40');

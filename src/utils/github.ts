@@ -257,10 +257,13 @@ export interface Thread {
 
 const viewer = (): string | null => document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content || null;
 
+/** A thread's comments, each wrapped in an element with its id, like `r3727922886`. */
+export const threadComments = (thread: HTMLElement): HTMLElement[] =>
+  [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].filter((element) => /^r\d+$/.test(element.id));
+
 const threadState = (thread: HTMLElement, login: string | null): ThreadState => {
   if (thread.dataset.resolved === 'true') return 'resolved';
-  // Each comment is wrapped in an element with its id, like `r3727922886`.
-  const last = [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].findLast((element) => /^r\d+$/.test(element.id));
+  const last = threadComments(thread).at(-1);
   if (!login || !last) return 'waiting';
   const author = [...last.querySelectorAll('a[data-hovercard-type="user"]')].find((link) => link.textContent?.trim());
   const reacted = last.querySelector('button[data-reaction-content][aria-pressed="true"]') !== null;
@@ -271,6 +274,12 @@ const threadState = (thread: HTMLElement, login: string | null): ThreadState => 
 const threadLine = (thread: HTMLElement): number | null => {
   const numbers = thread.closest('tr')?.previousElementSibling?.querySelectorAll('[data-line-number]');
   return Number(numbers?.[numbers.length - 1]?.getAttribute('data-line-number')) || null;
+};
+
+/** The control that expands a collapsed classic thread, like a resolved one, or `null` when it's already open. */
+export const collapsedThreadToggle = (thread: HTMLElement): HTMLButtonElement | null => {
+  const toggle = thread.querySelector<HTMLButtonElement>('button[aria-expanded="false"][data-target$=".button"]');
+  return toggle?.closest(THREAD) === thread ? toggle : null;
 };
 
 /** Conversations inside a diff, in page order. */

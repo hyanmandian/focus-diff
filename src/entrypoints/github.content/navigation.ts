@@ -4,6 +4,7 @@ import * as page from '@/utils/github';
 import type { FileInfo } from './files';
 
 const RENDER_TIMEOUT_MS = 2000;
+const EXPAND_TIMEOUT_MS = 1500;
 
 const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
   new Promise((resolve) => {
@@ -73,13 +74,20 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     announce(threads.length, target.file.path);
   };
 
-  /** Classic view: every conversation is already on the page. */
-  const goToRendered = (shown: FileInfo[], index: number) => {
+  /** Classic view: every conversation is already on the page; collapsed ones are opened so they can be read. */
+  const goToRendered = async (shown: FileInfo[], index: number) => {
     const threads = renderedThreads(shown);
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
-    page.scrollToCenter(target.thread.element);
+    const { element } = target.thread;
+    const toggle = page.collapsedThreadToggle(element);
+    if (toggle) {
+      toggle.click();
+      // GitHub loads a resolved thread's comments on demand; centre it once they're in.
+      await waitFor(() => (page.threadComments(element).length ? element : null), EXPAND_TIMEOUT_MS);
+    }
+    page.scrollToCenter(element);
     page.flash(target.thread.element);
     announce(threads.length, target.file.path);
   };

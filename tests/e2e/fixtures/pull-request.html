@@ -123,8 +123,22 @@
         `<div id="r${commentId++}"><strong><a data-hovercard-type="user" href="/${author}">${author}</a></strong><p>${text}</p>${
           reacted ? '<button type="button" data-reaction-content="+1" aria-pressed="true">👍 1</button>' : ''
         }</div>`;
+      // Resolved threads start collapsed and load their comments when opened, like GitHub's.
       const thread = ({ line, resolved, comments }) =>
-        `<table><tr><td data-line-number="${line}"></td><td data-line-number="${line}"></td></tr><tr><td><review-thread-collapsible class="review-thread-component js-comment-container js-resolvable-timeline-thread-container" data-resolved="${resolved}">${comments.map(comment).join('')}</review-thread-collapsible></td></tr></table>`;
+        `<table><tr><td data-line-number="${line}"></td><td data-line-number="${line}"></td></tr><tr><td><review-thread-collapsible class="review-thread-component js-comment-container js-resolvable-timeline-thread-container" data-resolved="${resolved}">${
+          resolved
+            ? `<div><button type="button" data-target="review-thread-collapsible.button" aria-expanded="false">Comment thread</button> Marked as resolved</div><div data-body hidden><include-fragment data-comments="${encodeURIComponent(comments.map(comment).join(''))}"></include-fragment></div>`
+            : comments.map(comment).join('')
+        }</review-thread-collapsible></td></tr></table>`;
+      document.addEventListener('click', (event) => {
+        const toggle = event.target.closest('button[data-target="review-thread-collapsible.button"]');
+        if (!toggle) return;
+        const body = toggle.closest('review-thread-collapsible').querySelector('[data-body]');
+        toggle.setAttribute('aria-expanded', 'true');
+        body.hidden = false;
+        const fragment = body.querySelector('include-fragment');
+        if (fragment) setTimeout(() => (fragment.outerHTML = decodeURIComponent(fragment.dataset.comments)), 200);
+      });
       files.forEach(([path, added, removed, source], index) => {
         const wrapper = document.createElement('div');
         const button = source === 'attribute' ? `<button data-file-path="${path}">Expand all lines</button>` : '';

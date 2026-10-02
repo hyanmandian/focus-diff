@@ -349,7 +349,7 @@ button:focus-visible {
   column-gap: 10px;
   width: max-content;
   min-width: 260px;
-  max-width: min(380px, calc(100vw - 32px));
+  max-width: min(440px, calc(100vw - 32px));
   padding: 8px 8px 8px 14px;
   font-size: 13px;
 }

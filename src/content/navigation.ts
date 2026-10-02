@@ -2,7 +2,7 @@ import { i18n } from '#i18n';
 import type { Conversation } from '@/components/conversations/conversations';
 import type { Panel } from '@/components/panel/panel';
 import * as page from '@/utils/github';
-import type { FileInfo } from './files';
+import type { FileInfo } from '@/content/files';
 
 const RENDER_TIMEOUT_MS = 2000;
 const EXPAND_TIMEOUT_MS = 1500;

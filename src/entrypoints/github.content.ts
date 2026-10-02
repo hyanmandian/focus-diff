@@ -1,6 +1,6 @@
 import { createShadowRootUi, defineContentScript } from '#imports';
 import { createPanel } from '@/components/panel/panel';
-import { startController, type Controller } from './controller';
+import { startController, type Controller } from '@/content/controller';
 
 export default defineContentScript({
   matches: ['https://github.com/*'],

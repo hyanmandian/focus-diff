@@ -1,5 +1,5 @@
 import '@/assets/page.css';
-import './style.css';
+import './welcome.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters';

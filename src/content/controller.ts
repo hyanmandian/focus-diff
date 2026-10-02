@@ -7,8 +7,8 @@ import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from
 import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
-import { collectFiles, everything, totalsFor, type FileInfo, type Files } from './files';
-import { createNavigation } from './navigation';
+import { collectFiles, everything, totalsFor, type FileInfo, type Files } from '@/content/files';
+import { createNavigation } from '@/content/navigation';
 
 interface Option {
   id: string;

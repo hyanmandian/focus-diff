@@ -20,7 +20,8 @@ npm run zip         # store zips in .output/ (zip:firefox also packs the sources
 
 ```text
 src/
-  entrypoints/      background, the GitHub content script, options and welcome pages
+  entrypoints/      what the browser loads: background, the GitHub content script, options and welcome pages
+  content/          the content script's logic: reading the page, filtering it, moving between conversations
   components/       the UI: functions that build elements and return how to update them. A component with
                     its own CSS gets a folder; panel/ lays the others out in a shadow root
   utils/            filters, storage, the GitHub page adapter, formatting

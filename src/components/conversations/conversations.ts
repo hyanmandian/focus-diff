@@ -50,7 +50,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     const label = i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment');
     return h(
       'button',
-      { type: 'button', className: 'icon-button step', 'aria-label': label, title: label, onClick: () => onStep(direction) },
+      { type: 'button', className: 'icon-button step', 'aria-label': label, 'data-tip': label, onClick: () => onStep(direction) },
       chevronIcon(direction > 0 ? 'right' : 'left'),
     );
   };
@@ -79,7 +79,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
           type: 'button',
           className: 'icon-button go-to',
           'aria-label': i18n.t('panelGoToComment'),
-          title: i18n.t('panelGoToComment'),
+          'data-tip': i18n.t('panelGoToComment'),
           onClick: () => onStep(1),
         },
         targetIcon(),
@@ -103,7 +103,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
       h('span', { className: 'conversation-name', textContent: name }),
       target.line ? h('span', { className: 'conversation-line', textContent: `:${format(target.line)}` }) : '',
     );
-    file.title = target.path;
+    file.dataset.tip = target.path;
     if (popover.dataset.state !== target.state) {
       popover.dataset.state = target.state;
       icon.replaceChildren(threadStateIcons[target.state]());
@@ -137,7 +137,8 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     const total = conversations.list.length;
     // Without conversations it stays in place, disabled, so the bar keeps its shape; it stays focusable to explain why.
     toggle.setAttribute('aria-disabled', String(total === 0));
-    toggle.title = total === 0 ? i18n.t('panelNoComments') : '';
+    // The tooltip names the button, or says why it's disabled.
+    toggle.dataset.tip = total === 0 ? i18n.t('panelNoComments') : i18n.t('panelComments');
     if (!total) setOpen(false);
     count.textContent = total ? format(total) : '';
     const where = !total

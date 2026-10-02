@@ -119,6 +119,24 @@ test.describe('panel on a pull request', () => {
     await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 1 viewed, 40 lines added, 10 removed. Done');
   });
 
+  test('disables filters with nothing to review here, and says why', async ({ openPullRequest, seed }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await seed({ ...DEFAULT_CONFIG, global: [...DEFAULT_CONFIG.global, { id: 'rust', name: 'Rust', include: '\\.rs$', exclude: '' }] });
+    const rust = pr.option('Rust');
+    await expect(rust).toHaveAttribute('aria-disabled', 'true');
+    await rust.hover();
+    await expect(pr.panel.locator('.tip')).toHaveText('No files in this pull request match Rust');
+    await expect(rust).toHaveAccessibleDescription('No files in this pull request match Rust');
+    await rust.click({ force: true });
+    await expect(pr.pressed).toHaveText(['All']);
+    await expect(pr.option('Docs')).toHaveAttribute('aria-disabled', 'false');
+    await pr.breakdownToggle.click();
+    const row = pr.breakdownRows.filter({ hasText: 'Rust' });
+    await expect(row).toHaveAttribute('aria-disabled', 'true');
+    await row.click({ force: true });
+    await expect(pr.pressed).toHaveText(['All']);
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);
@@ -190,11 +208,31 @@ test.describe('panel on a pull request', () => {
     const comments = pr.panel.locator('.comments');
     await expect(comments).toHaveAttribute('aria-disabled', 'true');
     await expect(comments).toHaveAccessibleName('Conversations, No conversations in these files yet');
-    await expect(comments).toHaveAttribute('title', 'No conversations in these files yet');
+    // The disabled reason takes the place of the button's name in its tooltip.
+    await comments.hover();
+    await expect(pr.panel.locator('.tip')).toHaveText('No conversations in these files yet');
     await comments.click({ force: true });
     await expect(pr.panel.getByRole('dialog', { name: 'Conversations' })).toBeHidden();
     await pr.pick('All');
     await expect(comments).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  test('names its icon buttons in a tooltip on hover and keyboard focus', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const tip = pr.panel.locator('.tip');
+    await pr.breakdownToggle.hover();
+    await expect(tip).toHaveText('Breakdown by filter');
+    await pr.settings.hover();
+    await expect(tip).toHaveText('Focus Diff settings');
+    await pr.panel.locator('.comments').hover();
+    await expect(tip).toHaveText('Conversations');
+    await pr.page.mouse.move(0, 0);
+    await expect(tip).toBeHidden();
+    await pr.settings.focus();
+    await pr.page.keyboard.press('Shift+Tab');
+    await expect(tip).toBeVisible();
+    await pr.page.keyboard.press('Escape');
+    await expect(tip).toBeHidden();
   });
 
   test('offers a single button for a single conversation', async ({ openPullRequest }) => {
@@ -225,8 +263,11 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['All']);
   });
 
-  test('follows the keyboard shortcuts', async ({ openPullRequest, background }) => {
+  test('follows the keyboard shortcuts', async ({ openPullRequest, background, seed }) => {
     const pr = new PullRequestPage(await openPullRequest());
+    // A filter with nothing here is stepped over.
+    await seed({ ...DEFAULT_CONFIG, global: [...DEFAULT_CONFIG.global, { id: 'rust', name: 'Rust', include: '\\.rs$', exclude: '' }] });
+    await expect(pr.option('Rust')).toBeVisible();
     const send = (command: string) =>
       background.evaluate(async (name) => {
         const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });

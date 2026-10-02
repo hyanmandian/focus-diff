@@ -40,16 +40,19 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
 
   /**
    * Newer view: conversations from GitHub's data, in file order then line order, kept current with the ones open on the
-   * page: a new conversation joins them, and a reply of the reader's marks one as answered.
+   * page: a new conversation joins them, a deleted one leaves, and a reply of the reader's marks one as answered.
    */
   const knownThreads = (shown: FileInfo[]) =>
     shown.flatMap((file) => {
-      const open = file.diff ? page.openThreads(file.diff.element) : [];
-      if (!open.length) return file.threads.map((thread) => ({ file, thread }));
+      const diff = file.diff?.element;
+      const open = diff ? page.openThreads(diff) : [];
+      const openIds = new Set(open.map((thread) => thread.id));
+      const kept = diff ? file.threads.filter((thread) => openIds.has(thread.id) || !page.threadRemoved(diff, thread.line)) : file.threads;
+      if (!open.length) return kept.map((thread) => ({ file, thread }));
       const answered = new Set(open.filter((thread) => thread.state === 'answered').map((thread) => thread.id));
       const known = new Set(file.threads.map((thread) => thread.id));
       return [
-        ...file.threads.map((thread) =>
+        ...kept.map((thread) =>
           thread.state === 'waiting' && answered.has(thread.id) ? { ...thread, state: 'answered' as const } : thread,
         ),
         ...open.filter((thread) => !known.has(thread.id)),

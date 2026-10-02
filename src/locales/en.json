@@ -9,6 +9,7 @@
   "panelShowFiles": "Show files",
   "panelLinesAdded": "lines added,",
   "panelLinesRemoved": "lines removed",
+  "panelFilterEmpty": "No files in this pull request match $1",
   "panelSettings": "Focus Diff settings",
   "panelUpdate": "New in $1",
   "panelUpdateDismiss": "Dismiss what's new",

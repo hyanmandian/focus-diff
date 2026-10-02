@@ -147,3 +147,7 @@
     border: 1px solid CanvasText;
   }
 }
+.row[aria-disabled='true']:hover::before,
+.row[aria-disabled='true']:hover + .row::before {
+  border-color: var(--fd-border-muted);
+}

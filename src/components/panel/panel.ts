@@ -8,6 +8,7 @@ import { createBreakdown, type BreakdownRow } from '@/components/breakdown/break
 import { createConversations, type Conversations } from '@/components/conversations/conversations';
 import { createFilters, type PanelOption } from '@/components/filters/filters';
 import { createStats, type Totals } from '@/components/stats/stats';
+import { createTooltip } from '@/components/tooltip/tooltip';
 import { createUpdateNotice } from '@/components/update-notice/update-notice';
 
 /** What every part of the panel shares: where it's mounted, when it's torn down, and what has focus inside it. */
@@ -61,7 +62,6 @@ export const createPanel = (
   const settings = h('button', {
     type: 'button',
     className: 'settings icon-button',
-    title: i18n.t('panelSettings'),
     onClick: () => onSettings(),
   });
   const filters = createFilters(context, onToggle);
@@ -85,6 +85,7 @@ export const createPanel = (
       status,
     ),
   );
+  const tooltip = createTooltip(context, container);
 
   const resizeObserver = new ResizeObserver(() => {
     filters.moveIndicator();
@@ -120,9 +121,11 @@ export const createPanel = (
     if (configured) {
       settings.replaceChildren(settingsIcon());
       settings.setAttribute('aria-label', i18n.t('panelSettings'));
+      settings.dataset.tip = i18n.t('panelSettings');
     } else {
       settings.textContent = i18n.t('panelSetUp');
       settings.removeAttribute('aria-label');
+      delete settings.dataset.tip;
       breakdown.setOpen(false);
     }
   };
@@ -142,6 +145,7 @@ export const createPanel = (
     host.style.display = display;
     if (visible) requestAnimationFrame(filters.moveIndicator);
     else {
+      tooltip.hide();
       breakdown.setOpen(false);
       conversations.setOpen(false);
     }
@@ -151,7 +155,10 @@ export const createPanel = (
   return {
     renderOptions,
     renderStats: stats.render,
-    renderConversations: conversations.render,
+    renderConversations: (list) => {
+      conversations.render(list);
+      tooltip.refresh();
+    },
     renderBreakdown: breakdown.render,
     announce,
     announceText: (text) => (status.textContent = text),

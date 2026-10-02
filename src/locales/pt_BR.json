@@ -9,6 +9,7 @@
   "panelShowFiles": "Mostrar arquivos",
   "panelLinesAdded": "linhas adicionadas,",
   "panelLinesRemoved": "linhas removidas",
+  "panelFilterEmpty": "Nenhum arquivo deste pull request entra em $1",
   "panelSettings": "Configurações do Focus Diff",
   "panelUpdate": "Novidades da $1",
   "panelUpdateDismiss": "Dispensar novidades",

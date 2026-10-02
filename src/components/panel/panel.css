@@ -58,6 +58,14 @@ button {
 button:hover {
   background: var(--fd-hover);
 }
+/* Disabled controls stay focusable so their tooltip can say why; they fade back and stop reacting. */
+button[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button[aria-disabled='true']:hover {
+  background: none;
+}
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--fd-focus);

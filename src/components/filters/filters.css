@@ -27,6 +27,7 @@
 .option.empty:not([aria-pressed='true']) {
   color: var(--fd-muted);
 }
+
 .option[aria-pressed='true'],
 .option[aria-pressed='true']:hover {
   background: transparent;

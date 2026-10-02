@@ -53,7 +53,7 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     {
       type: 'button',
       className: 'icon-button breakdown-toggle',
-      title: i18n.t('panelBreakdown'),
+      'data-tip': i18n.t('panelBreakdown'),
       'aria-label': i18n.t('panelBreakdown'),
       'aria-expanded': 'false',
       'aria-controls': 'focus-diff-breakdown',
@@ -106,6 +106,7 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     // A complete row already reads as done through its green Viewed count, so its time stays empty.
     const time = data.minutesLeft === 0 ? '' : formatDuration(data.minutesLeft);
     const complete = data.visible > 0 && data.viewed === data.visible;
+    const disabled = data.visible === 0 && !selected;
     return h(
       'button',
       {
@@ -113,6 +114,11 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
         className: 'row',
         'data-row': data.id,
         'aria-pressed': String(selected),
+        'aria-disabled': String(disabled),
+        ...(disabled && {
+          'data-tip': i18n.t('panelFilterEmpty', [data.name]),
+          'aria-description': i18n.t('panelFilterEmpty', [data.name]),
+        }),
         'aria-label': i18n.t('panelBreakdownRow', [
           data.name,
           i18n.t('fileCount', data.visible, [format(data.visible)]),
@@ -121,7 +127,7 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
           format(data.deletions),
           data.minutesLeft === 0 ? i18n.t('timeDone') : i18n.t('timeLeft', [time]),
         ]),
-        onClick: () => onToggle(data.id),
+        onClick: () => disabled || onToggle(data.id),
       },
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: data.name }),

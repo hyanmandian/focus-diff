@@ -25,7 +25,7 @@ export const createUpdateNotice = ({ focused }: PanelContext, { onSeen, fallback
         type: 'button',
         className: 'icon-button update-dismiss',
         'aria-label': i18n.t('panelUpdateDismiss'),
-        title: i18n.t('panelUpdateDismiss'),
+        'data-tip': i18n.t('panelUpdateDismiss'),
         onClick: () => onSeen(),
       },
       closeIcon(),

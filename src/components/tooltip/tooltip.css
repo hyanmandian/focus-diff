@@ -1,0 +1,31 @@
+.tip {
+  position: fixed;
+  z-index: 1;
+  max-width: 260px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--fd-fg);
+  color: var(--fd-bg);
+  font: 500 12px/18px var(--fd-font);
+  pointer-events: none;
+  white-space: normal;
+}
+.tip[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tip {
+    animation: tip-in 120ms ease-out;
+  }
+}
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    translate: 0 2px;
+  }
+}
+@media (forced-colors: active) {
+  .tip {
+    border: 1px solid CanvasText;
+  }
+}

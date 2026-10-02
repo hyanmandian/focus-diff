@@ -164,7 +164,10 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const step = (offset: number) => {
     const repo = page.repository();
     if (!repo) return;
-    const ids = optionsFor(repo).map((option) => option.id);
+    // Filters with nothing in this pull request are skipped.
+    const ids = optionsFor(repo)
+      .filter((option) => !option.matches || files.list.some((file) => option.matches?.(file.path)))
+      .map((option) => option.id);
     const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
     const next = ids[(index + offset + ids.length) % ids.length];
     if (next) select(next);

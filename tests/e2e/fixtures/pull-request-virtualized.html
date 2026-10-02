@@ -136,7 +136,9 @@
         const indicators = Object.keys(markers)
           .map(
             (line) =>
-              `<div class="CommentIndicator-module__commentIndicator_x1" data-line="${line}" style="margin-top: 120px">1 comment on ${line}</div>`,
+              `<table style="margin-top: 120px"><tr><td data-line-number="${line.slice(1)}" data-diff-side="${line.startsWith('L') ? 'left' : 'right'}">
+                <div class="CommentIndicator-module__commentIndicator_x1" data-line="${line}">1 comment on ${line}</div>
+              </td></tr></table>`,
           )
           .join('');
         row.innerHTML = `

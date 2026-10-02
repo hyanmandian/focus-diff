@@ -293,6 +293,17 @@ export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
   });
 };
 
+/**
+ * Newer view: whether a conversation from GitHub's data is gone from the page, like after its comment was deleted: its
+ * line is drawn, without a marker. A line that isn't drawn, say in a collapsed file, tells nothing, so it counts as there.
+ */
+export const threadRemoved = (diff: HTMLElement, line: string): boolean => {
+  const side = line.startsWith('L') ? 'left' : 'right';
+  const cell = diff.querySelector(`[data-line-number="${CSS.escape(line.slice(1))}"][data-diff-side="${side}"]`);
+  const row = cell?.closest('tr');
+  return Boolean(row && !row.querySelector('[class*="CommentIndicator-module__commentIn"], [data-marker-id]'));
+};
+
 /** A conversation open in the newer view, found by its thread id. */
 export const threadById = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-marker-id="${CSS.escape(id)}"]`);
 

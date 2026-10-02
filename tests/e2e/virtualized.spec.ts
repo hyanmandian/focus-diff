@@ -82,6 +82,15 @@ test.describe('newer, virtualized diff view', () => {
     await expect(pr.page.locator('[class*="CommentIndicator"][data-line="R1"]')).toBeInViewport();
   });
 
+  test('drops a conversation deleted after the page loaded', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
+    const comments = pr.panel.locator('.comments');
+    await expect(comments).toHaveAccessibleName('Conversations, 4 conversations');
+    // Deleting its only comment takes the marker off the line; GitHub's embedded data still lists it.
+    await pr.page.locator('[class*="CommentIndicator"][data-line="R12"]').evaluate((marker) => marker.remove());
+    await expect(comments).toHaveAccessibleName('Conversations, 3 conversations');
+  });
+
   test('picks up a conversation started after the page loaded', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     const comments = pr.panel.locator('.comments');

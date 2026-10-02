@@ -1,0 +1,23 @@
+name: Idea
+description: Suggest something that would make reviewing easier.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's slowing your review down?
+      description: The situation and the problem, before any solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: How you picture it working.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today?
+      description: Workarounds, other tools, or ideas you've ruled out.

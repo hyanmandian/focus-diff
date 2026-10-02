@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in Focus Diff doesn't work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time. Please leave out anything private, like code from a private repository.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a pull request's Files changed tab
+        2. Pick the "Frontend" filter
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: pull-request
+    attributes:
+      label: Pull request link
+      description: A public pull request where it happens, if there is one.
+      placeholder: https://github.com/owner/repo/pull/123
+  - type: dropdown
+    id: view
+    attributes:
+      label: GitHub diff view
+      description: GitHub has two. The newer one shows a "Changes" tab with a file tree on the left.
+      options:
+        - Classic (Files changed)
+        - Newer (Changes)
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Edge
+        - Brave
+        - Arc
+        - Another Chromium browser
+        - Firefox
+        - Safari
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Focus Diff version
+      description: It's at the bottom of the Focus Diff settings page.
+      placeholder: '1.0.0'
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Errors from the browser console help too.
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you send it
+      options:
+        - label: I searched the existing issues and this isn't one of them.
+          required: true

@@ -265,11 +265,13 @@ export const createPanel = (
       { type: 'button', className: 'info', 'aria-label': i18n.t('panelTimeInfo'), 'aria-describedby': 'focus-diff-time-info' },
       infoIcon(),
     );
+    // Sits above the icon, its arrow pointing down at it, like the breakdown does over its button.
     const open = () => {
       const box = button.getBoundingClientRect();
       const popover = breakdown.getBoundingClientRect();
-      timeInfo.style.top = `${Math.round(box.bottom - popover.top + 6)}px`;
+      timeInfo.style.bottom = `${Math.round(popover.bottom - box.top + 10)}px`;
       timeInfo.hidden = false;
+      pointAt(timeInfo, button);
     };
     const close = () => {
       timeInfo.hidden = true;

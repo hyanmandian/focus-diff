@@ -180,6 +180,18 @@ button:focus-visible {
 .tooltip[hidden] {
   display: none;
 }
+.tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: var(--fd-arrow-x, calc(100% - 24px));
+  width: 10px;
+  height: 10px;
+  translate: -50% 0;
+  rotate: 45deg;
+  border-bottom-right-radius: 2px;
+  background: inherit;
+}
 .rows {
   display: grid;
   grid-template-columns: 16px minmax(96px, max-content) repeat(4, max-content);

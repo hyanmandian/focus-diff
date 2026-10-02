@@ -93,7 +93,7 @@
   "recipesHeading": "Comece com um exemplo",
   "recipesHint": "Adicione os que combinam com o seu jeito de revisar. São filtros comuns, então dá para renomear ou ajustar depois nas configurações.",
   "recipeAdd": "Adicionar",
-  "recipeAdded": "Adicionado",
+  "recipeRemove": "Remover",
   "recipeAddLabel": "Adicionar $1",
   "recipeRemoveLabel": "Remover $1",
   "recipeAddedNotice": "$1 adicionado. Abra um pull request para testar.",
@@ -171,7 +171,6 @@
   "panelGoToComment": "Ir para a conversa",
   "panelNextComment": "Próxima conversa",
   "panelNoComments": "Nenhuma conversa nestes arquivos ainda",
-  "panelCommentPosition": "Conversa $1 de $2",
   "panelCommentCount": {
     "1": "1 conversa",
     "n": "$1 conversas"

@@ -419,12 +419,14 @@ const ring = (alpha: number, glow: number) =>
  */
 export const flash = (element: HTMLElement): void => {
   for (const animation of element.getAnimations()) if (animation.id === FLASH_ID) animation.cancel();
+  // With reduced motion the ring doesn't grow; it shows, holds and fades.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const animation = element.animate(
     [
-      { boxShadow: ring(0, 0), offset: 0 },
-      { boxShadow: ring(100, 8), offset: 0.12 },
+      { boxShadow: ring(0, still ? 6 : 0), offset: 0 },
+      { boxShadow: ring(100, still ? 6 : 8), offset: 0.12 },
       { boxShadow: ring(100, 6), offset: 0.7 },
-      { boxShadow: ring(0, 0), offset: 1 },
+      { boxShadow: ring(0, still ? 6 : 0), offset: 1 },
     ],
     { duration: FLASH_MS, easing: 'ease-out' },
   );

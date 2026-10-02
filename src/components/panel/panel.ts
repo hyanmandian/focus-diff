@@ -87,12 +87,29 @@ export const createPanel = (
   );
   const tooltip = createTooltip(context, container);
 
+  /**
+   * Keyboard focus on GitHub's page scrolls clear of the bar: the page gets bottom scroll padding as tall as the bar
+   * while it shows. Only set when it changes, since it touches GitHub's root element.
+   */
+  let padding = '';
+  const panelElement = container.querySelector<HTMLElement>('.panel');
+  const reserveScrollRoom = () => {
+    const next = host.style.display === 'none' || !panelElement ? '' : `${panelElement.offsetHeight + 32}px`;
+    if (next === padding) return;
+    padding = next;
+    if (next) document.documentElement.style.setProperty('scroll-padding-bottom', next);
+    else document.documentElement.style.removeProperty('scroll-padding-bottom');
+  };
+  signal.addEventListener('abort', () => document.documentElement.style.removeProperty('scroll-padding-bottom'));
+
   const resizeObserver = new ResizeObserver(() => {
+    reserveScrollRoom();
     filters.moveIndicator();
     breakdown.reposition();
     conversations.reposition();
   });
   for (const element of [filters.element, breakdown.popover, conversations.popover]) resizeObserver.observe(element);
+  if (panelElement) resizeObserver.observe(panelElement);
   signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   document.addEventListener(
@@ -136,7 +153,8 @@ export const createPanel = (
   const announce = ({ name, visible, total, additions, deletions, pending, minutes }: Totals & { name: string }) => {
     const parts = [
       i18n.t('panelAnnounce', [name, format(visible), format(total), format(additions), format(deletions)]),
-      i18n.t('panelAnnounceTime', [formatDuration(minutes)]),
+      // The estimate's ~ would be read out as "tilde"; the sentence already says "about".
+      i18n.t('panelAnnounceTime', [formatDuration(minutes).replace(/^~/, '')]),
     ];
     if (pending > 0) parts.push(i18n.t('panelAnnouncePartial', pending, [format(pending)]));
     status.textContent = parts.join(' ');
@@ -146,6 +164,7 @@ export const createPanel = (
     const display = visible ? '' : 'none';
     if (host.style.display === display) return;
     host.style.display = display;
+    reserveScrollRoom();
     if (visible) requestAnimationFrame(filters.moveIndicator);
     else {
       tooltip.hide();

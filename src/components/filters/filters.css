@@ -74,10 +74,30 @@
   .indicator {
     background: Highlight;
   }
-  .option[aria-pressed='true'] {
+  .option[aria-pressed='true'],
+  .option[aria-pressed='true'] .option-count {
     color: HighlightText;
+  }
+  .option[aria-pressed='true'] .option-count {
+    background: transparent;
+    outline: 1px solid HighlightText;
   }
   .filters.combined .option[aria-pressed='true'] {
     background: Highlight;
+  }
+}
+@media (max-width: 480px), (max-height: 420px) {
+  .filters {
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  /* The sliding highlight can't follow a scrolled row, so pressed chips fill in instead. */
+  .indicator {
+    display: none;
+  }
+  .filters .option[aria-pressed='true'] {
+    background: var(--fd-selected-bg);
   }
 }

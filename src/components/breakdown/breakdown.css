@@ -114,6 +114,11 @@
   .row[aria-pressed='true'] {
     outline: 2px solid Highlight;
   }
+  /* Focus has to stand out from the pressed outline. */
+  .row:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
   .diffstat span {
     border: 1px solid CanvasText;
   }
@@ -121,4 +126,13 @@
 .row[aria-disabled='true']:hover::before,
 .row[aria-disabled='true']:hover + .row::before {
   border-color: var(--fd-border-muted);
+}
+@media (pointer: coarse) {
+  .info {
+    width: 44px;
+    min-height: 44px;
+  }
+  .row {
+    min-height: 44px;
+  }
 }

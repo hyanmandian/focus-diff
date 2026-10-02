@@ -104,7 +104,7 @@ const renderFilters = (filters: Filter[]) => {
         showFilterProblems(row, filter);
         if (key === 'name') label(row, filter);
         setDirty();
-        updateTry();
+        updateTryWhileTyping();
       });
     }
     $('.remove-filter', row).addEventListener('click', () => {
@@ -165,7 +165,7 @@ const renderRepo = (entry: RepoFilters, focus: boolean) => {
     syncLabel();
     if (input.hasAttribute('aria-invalid')) check(false);
     setDirty();
-    updateTry();
+    updateTryWhileTyping();
   });
   input.addEventListener('blur', () => check(false));
   remove.addEventListener('click', () => {
@@ -201,6 +201,14 @@ const updateTry = () => {
   result.textContent = shown.length
     ? i18n.t('tryShown', [i18n.t('filterAll'), shown.join(', ')])
     : i18n.t('tryOnlyAll', [i18n.t('filterAll')]);
+};
+
+/** The result is read out as it changes, so while typing it waits for a pause instead of speaking every keystroke. */
+const TYPING_PAUSE_MS = 400;
+let typing = 0;
+const updateTryWhileTyping = () => {
+  clearTimeout(typing);
+  typing = window.setTimeout(updateTry, TYPING_PAUSE_MS);
 };
 
 const save = async () => {
@@ -249,7 +257,7 @@ $('#add-repo').addEventListener('click', () => {
   setDirty();
 });
 
-['#try-path', '#try-repo'].forEach((selector) => $(selector).addEventListener('input', updateTry));
+['#try-path', '#try-repo'].forEach((selector) => $(selector).addEventListener('input', updateTryWhileTyping));
 
 const notify = toaster($('#toast'));
 const filterCount = (value: Config) => value.global.length + value.repos.reduce((sum, entry) => sum + entry.filters.length, 0);

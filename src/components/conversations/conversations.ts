@@ -109,7 +109,14 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
       icon.replaceChildren(threadStateIcons[target.state]());
     }
     state.textContent = i18n.t(STATE_LABEL[target.state]);
-    popover.toggleAttribute('data-single', list.length === 1);
+    const single = list.length === 1;
+    if (single !== popover.hasAttribute('data-single')) {
+      // The step arrows and Go to swap places; focus moves to whichever is left, instead of falling to the page.
+      const had = focused();
+      popover.toggleAttribute('data-single', single);
+      if (had && popover.contains(had) && had.matches('.step, .go-to'))
+        popover.querySelector<HTMLElement>(single ? '.go-to' : '.step:last-child')?.focus();
+    }
     position.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
   };
 
@@ -142,11 +149,8 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     toggle.dataset.tip = total === 0 ? i18n.t('panelNoComments') : i18n.t('panelComments');
     if (!total) setOpen(false);
     count.textContent = total ? format(total) : '';
-    const where = !total
-      ? i18n.t('panelNoComments')
-      : conversations.current
-        ? i18n.t('panelCommentPosition', [format(conversations.current), format(total)])
-        : i18n.t('panelCommentCount', total, [format(total)]);
+    // The name stays put while it has focus; where a jump lands is said by the status message instead.
+    const where = total ? i18n.t('panelCommentCount', total, [format(total)]) : i18n.t('panelNoComments');
     toggle.setAttribute('aria-label', `${i18n.t('panelComments')}, ${where}`);
     source = conversations;
     draw();

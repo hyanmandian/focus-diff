@@ -93,7 +93,19 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
   within.addEventListener(
     'pointerdown',
     (event) => {
-      if (!tip.contains(event.target as Node)) hide();
+      const target = targetOf(event);
+      if (!tip.contains(event.target as Node) && !(target && 'tipInstant' in target.dataset)) hide();
+    },
+    { signal },
+  );
+  // An (i) works as a toggletip too: clicking or tapping it shows or hides its tooltip, for touch and switch users.
+  within.addEventListener(
+    'click',
+    (event) => {
+      const target = targetOf(event);
+      if (!target || !('tipInstant' in target.dataset)) return;
+      if (current === target && !tip.hidden) hide();
+      else open(target, 0);
     },
     { signal },
   );

@@ -112,6 +112,11 @@ a:focus-visible {
   font: 400 14px/20px var(--fd-font);
   font-variant-numeric: tabular-nums;
 }
+/* Always on screen above the bar, however short the window, scrolling inside if they must. */
+.popover {
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+}
 .popover[hidden] {
   display: none;
 }
@@ -199,5 +204,16 @@ button {
 @media (forced-colors: active) {
   .popover::after {
     border-color: CanvasText;
+  }
+}
+
+/* On very small screens, like at 400% zoom, the bar keeps to one row: the numbers live on in the breakdown, and the
+   chips scroll sideways. */
+@media (max-width: 480px), (max-height: 420px) {
+  .panel {
+    flex-wrap: nowrap;
+  }
+  .panel .stats {
+    display: none;
   }
 }

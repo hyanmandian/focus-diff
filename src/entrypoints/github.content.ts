@@ -2,6 +2,7 @@ import { createShadowRootUi, defineContentScript } from '#imports';
 import { createPanel } from '@/components/panel/panel';
 import { startController, type Controller } from '@/content/controller';
 import { keepOutOfTransitions } from '@/content/transition';
+import { uiLanguage } from '@/utils/i18n';
 
 export default defineContentScript({
   matches: ['https://github.com/*'],
@@ -17,6 +18,8 @@ export default defineContentScript({
       inheritStyles: true,
       onMount: (container, root, host) => {
         keepOutOfTransitions(host);
+        // Read out in the extension's language, not the page's.
+        host.lang = uiLanguage();
         return createPanel(
           { root, container, host, signal: ctx.signal },
           {

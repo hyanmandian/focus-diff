@@ -53,7 +53,9 @@
   height: 22px;
   padding: 0 9px 0 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--fd-add) 12%, transparent);
+  /* Light enough for GitHub's green text to keep 4.5:1 on it. */
+  background: color-mix(in srgb, var(--fd-add) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fd-add) 35%, transparent);
   color: var(--fd-add);
   font-weight: 600;
 }

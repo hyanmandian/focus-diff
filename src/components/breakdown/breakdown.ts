@@ -133,8 +133,11 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     if (key === drawnKey) return;
     drawnKey = key;
     const keepFocus = focused()?.dataset.row;
+    const onInfo = focused()?.classList.contains('info');
     rows.replaceChildren(columns(), ...list.map((data) => row(data, selected.includes(data.id))));
+    // Redrawn controls take focus back, so it doesn't fall to the page.
     if (keepFocus) rows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
+    else if (onInfo) rows.querySelector<HTMLElement>('.info')?.focus();
   };
 
   const reposition = () => centreOver(popover, toggle, host);

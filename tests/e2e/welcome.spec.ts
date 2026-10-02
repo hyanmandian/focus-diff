@@ -26,7 +26,7 @@ test.describe('welcome page', () => {
     const toggle = (recipe: string) => page.locator(`[data-recipe="${recipe}"] .recipe-toggle`);
 
     await toggle('stack').click();
-    await expect(toggle('stack')).toHaveAttribute('aria-pressed', 'true');
+    await expect(toggle('stack')).toHaveAccessibleName('Remove Frontend, Backend');
     await expect(toggle('stack')).toBeFocused();
     await expect(page.locator('#toast')).toContainText('Added Frontend, Backend');
     expect(await storedNames(background)).toEqual(['Frontend', 'Backend']);

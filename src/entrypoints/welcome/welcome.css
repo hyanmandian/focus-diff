@@ -231,7 +231,7 @@ section > h2 {
 .recipe-toggle {
   min-width: 96px;
 }
-.recipe-toggle[aria-pressed='true'] {
+[data-added] .recipe-toggle {
   background: var(--surface-muted);
   color: var(--ok);
   border-color: var(--ok);

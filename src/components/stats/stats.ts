@@ -55,7 +55,7 @@ export const createStats = ({ host, signal }: PanelContext) => {
       deletions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
     ),
-    h('span', { className: 'time-wrap', title: i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeLabel, done),
+    h('span', { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeLabel, done),
   );
 
   /**
@@ -92,9 +92,11 @@ export const createStats = ({ host, signal }: PanelContext) => {
     element.toggleAttribute('data-done', isDone(totals));
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
     pending.classList.toggle('active', totals.pending > 0);
-    pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
-    element.title = pending.title;
-    pendingText.textContent = pending.title ? ` ${pending.title}` : '';
+    // The dot's meaning is in the panel's tooltip, and read out with the numbers.
+    const notLoaded = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
+    if (notLoaded) element.dataset.tip = notLoaded;
+    else delete element.dataset.tip;
+    pendingText.textContent = notLoaded ? ` ${notLoaded}` : '';
   };
 
   return { element, render, done };

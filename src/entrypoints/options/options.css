@@ -223,6 +223,11 @@ input[aria-invalid='true'] {
   font-weight: 600;
 }
 
+/* Focused controls scroll clear of the save bar. */
+html {
+  scroll-padding-bottom: 80px;
+}
+
 .savebar {
   position: fixed;
   inset: auto 0 0 0;

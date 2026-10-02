@@ -21,7 +21,7 @@ const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, Arrow
  */
 export const createFilters = ({ focused }: PanelContext, onToggle: (id: string) => void) => {
   const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
-  const element = h('div', { className: 'filters', role: 'group', 'aria-label': i18n.t('panelShowFiles') }, indicator);
+  const element = h('div', { className: 'filters', role: 'toolbar', 'aria-label': i18n.t('panelShowFiles') }, indicator);
   const options = () => [...element.querySelectorAll<HTMLButtonElement>('.option')];
 
   const moveIndicator = () => {

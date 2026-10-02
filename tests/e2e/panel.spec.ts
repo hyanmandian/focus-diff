@@ -19,7 +19,7 @@ test.describe('panel on a pull request', () => {
     await expect(pr.filesCounter()).toHaveText('1/8');
     await expect(pr.lineCounters().additions).toHaveText('+40');
     await expect(pr.lineCounters().deletions).toHaveText('−10');
-    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~3 min left to review.');
+    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About 3 min left to review.');
     await expect.poll(() => pr.statsText()).toMatch(/~3 min/);
 
     await pr.pick('Backend');
@@ -242,6 +242,36 @@ test.describe('panel on a pull request', () => {
     await expect(pr.option('Ruby')).toHaveAttribute('aria-disabled', 'false');
   });
 
+  test('speaks its own language and keeps focus on the page clear of the bar', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    expect(await pr.page.locator('focus-diff-panel').getAttribute('lang')).toMatch(/^en/);
+    const padding = await pr.page.evaluate(() => Number.parseFloat(document.documentElement.style.scrollPaddingBottom));
+    const height = (await pr.panel.locator('.panel').boundingBox())!.height;
+    expect(padding).toBeGreaterThan(height);
+  });
+
+  test('opens the review time hint on click, for touch', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.breakdownToggle.click();
+    const info = pr.panel.getByRole('button', { name: 'How review time is estimated' });
+    await info.click();
+    await expect(pr.panel.locator('.tip')).toBeVisible();
+    await info.click();
+    await expect(pr.panel.locator('.tip')).toBeHidden();
+  });
+
+  test('stays on one row and on screen at 400% zoom', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.setViewportSize({ width: 320, height: 256 });
+    await expect(pr.stats).toBeHidden();
+    expect((await pr.panel.locator('.panel').boundingBox())!.height).toBeLessThan(64);
+    await pr.breakdownToggle.click();
+    const popover = (await pr.panel.locator('.breakdown').boundingBox())!;
+    expect(popover.y).toBeGreaterThanOrEqual(0);
+    await pr.pick('Docs');
+    await expect(pr.pressed).toHaveText(['Docs']);
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);
@@ -277,7 +307,7 @@ test.describe('panel on a pull request', () => {
     const [card, bar] = await Promise.all([popover.boundingBox(), pr.panel.locator('.panel').boundingBox()]);
     expect(card!.x).toBeGreaterThanOrEqual(bar!.x - 0.5);
     expect(card!.x + card!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 0.5);
-    await expect(comments).toHaveAccessibleName('Conversations, Conversation 1 of 4');
+    await expect(comments).toHaveAccessibleName('Conversations, 4 conversations');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     // The resolved thread was collapsed; it opens so it can be read.

@@ -31,7 +31,8 @@ const toggle = async (recipe: Recipe) => {
     return;
   }
   config = next;
-  render();
+  const item = document.querySelector<HTMLElement>(`[data-recipe="${recipe.id}"]`);
+  if (item) showState(item, recipe);
   notify(adding ? i18n.t('recipeAddedNotice', [names(recipe)]) : i18n.t('recipeRemovedNotice', [names(recipe)]));
 };
 
@@ -67,14 +68,22 @@ const renderRecipe = (recipe: Recipe) => {
     group.append(name, patterns);
     list.append(group);
   }
-  const button = $<HTMLButtonElement>('.recipe-toggle', item);
-  const added = isAdded(recipe);
-  button.textContent = added ? i18n.t('recipeAdded') : i18n.t('recipeAdd');
-  button.setAttribute('aria-pressed', String(added));
-  button.setAttribute('aria-label', added ? i18n.t('recipeRemoveLabel', [names(recipe)]) : i18n.t('recipeAddLabel', [names(recipe)]));
-  button.addEventListener('click', () => void toggle(recipe));
+  $<HTMLButtonElement>('.recipe-toggle', item).addEventListener('click', () => void toggle(recipe));
+  showState(item, recipe);
   return item;
 };
+
+/**
+ * The button names what it does, Add or Remove, and its full name starts with those words. It's updated in place, so
+ * focus stays on it and it isn't read out again.
+ */
+function showState(item: HTMLElement, recipe: Recipe) {
+  const added = isAdded(recipe);
+  const button = $<HTMLButtonElement>('.recipe-toggle', item);
+  button.textContent = added ? i18n.t('recipeRemove') : i18n.t('recipeAdd');
+  button.setAttribute('aria-label', added ? i18n.t('recipeRemoveLabel', [names(recipe)]) : i18n.t('recipeAddLabel', [names(recipe)]));
+  item.toggleAttribute('data-added', added);
+}
 
 const render = () => {
   const focusedId = (document.activeElement?.closest('.recipe') as HTMLElement | null)?.dataset.recipe;

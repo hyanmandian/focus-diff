@@ -1,0 +1,64 @@
+diff --git a/web/src/book-card.tsx b/web/src/book-card.tsx
+--- a/web/src/book-card.tsx
++++ b/web/src/book-card.tsx
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/web/src/book-card.test.tsx b/web/src/book-card.test.tsx
+--- a/web/src/book-card.test.tsx
++++ b/web/src/book-card.test.tsx
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/web/src/book-card.stories.tsx b/web/src/book-card.stories.tsx
+--- a/web/src/book-card.stories.tsx
++++ b/web/src/book-card.stories.tsx
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/api/books/service.py b/api/books/service.py
+--- a/api/books/service.py
++++ b/api/books/service.py
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/api/tests/test_service.py b/api/tests/test_service.py
+--- a/api/tests/test_service.py
++++ b/api/tests/test_service.py
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/docs/books.md b/docs/books.md
+--- a/docs/books.md
++++ b/docs/books.md
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/api/books/__init__.py b/api/books/__init__.py
+--- a/api/books/__init__.py
++++ b/api/books/__init__.py
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line
+diff --git a/api/legacy/routes.py b/api/legacy/routes.py
+--- a/api/legacy/routes.py
++++ b/api/legacy/routes.py
+@@ -1,2 +1,3 @@
+ context line
+-old line
++new line
++another new line

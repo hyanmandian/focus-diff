@@ -4,12 +4,17 @@ export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/i18n/module'],
   manifestVersion: 3,
-  manifest: ({ browser }) => ({
+  manifest: ({ browser, mode }) => ({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     default_locale: 'en',
     homepage_url: 'https://github.com/hyanmandian/focus-diff',
     permissions: ['storage'],
+    optional_host_permissions: ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*'],
+    // End-to-end builds start with the access a reviewer grants when setting up guided review.
+    ...(mode === 'e2e' && {
+      host_permissions: ['https://github.com/*', 'https://patch-diff.githubusercontent.com/*', 'https://api.anthropic.com/*'],
+    }),
     action: { default_title: '__MSG_actionTitle__' },
     minimum_chrome_version: '102',
     commands: {

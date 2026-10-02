@@ -1,5 +1,6 @@
 import { i18n } from '#i18n';
 import { counter } from '@/components/panel/counter';
+import { createGuidePanel, type GuideActions, type GuideView } from '@/components/panel/guide';
 import { pointAt } from '@/components/panel/popover';
 import { h, icon } from '@/utils/dom';
 import { formatDuration, formatNumber as format, LINES_PER_HOUR } from '@/utils/format';
@@ -23,6 +24,7 @@ export interface PanelActions {
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onSettings: () => void;
+  guide: GuideActions;
 }
 
 export interface Panel {
@@ -30,6 +32,8 @@ export interface Panel {
   renderStats: (totals: Totals) => void;
   /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
+  /** Switches the bar to the guided review, or back to filters with `null`. */
+  renderGuide: (view: GuideView | null) => void;
   announce: (summary: Totals & { name: string }) => void;
   setVisible: (visible: boolean) => void;
   reset: () => void;
@@ -54,7 +58,10 @@ interface PanelMount {
   signal: AbortSignal;
 }
 
-export const createPanel = ({ root, container, host, signal }: PanelMount, { onSelect, onToggle, onSettings }: PanelActions): Panel => {
+export const createPanel = (
+  { root, container, host, signal }: PanelMount,
+  { onSelect, onToggle, onSettings, guide: guideActions }: PanelActions,
+): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
   const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
@@ -116,8 +123,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     onClick: () => onSettings(),
   });
   const status = h('span', { className: 'visually-hidden', role: 'status' });
-  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, settings, status);
-  container.append(breakdown, panel);
+  const guide = createGuidePanel(root, guideActions);
+  const panel = h('div', { className: 'panel' }, group, guide.bar, stats, breakdownToggle, guide.start, settings, status);
+  container.append(breakdown, guide.card, panel);
 
   const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
   const pick = (id: string, event: MouseEvent | KeyboardEvent) => (event.shiftKey ? onToggle(id) : onSelect(id));
@@ -135,9 +143,12 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const resizeObserver = new ResizeObserver(() => {
     moveIndicator();
     pointAt(breakdown, breakdownToggle);
+    pointAt(guide.card, guide.title);
   });
   resizeObserver.observe(group);
   resizeObserver.observe(breakdown);
+  resizeObserver.observe(guide.card);
+  resizeObserver.observe(guide.bar);
   signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   group.addEventListener('keydown', (event) => {
@@ -237,10 +248,15 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || breakdown.hidden) return;
-      const focusInside = breakdown.contains(focused());
-      setBreakdownOpen(false);
-      if (focusInside) breakdownToggle.focus();
+      if (event.key !== 'Escape') return;
+      if (!breakdown.hidden) {
+        const focusInside = breakdown.contains(focused());
+        setBreakdownOpen(false);
+        if (focusInside) breakdownToggle.focus();
+        return;
+      }
+      const focusInside = guide.card.contains(focused());
+      if (guide.closeCard() && focusInside) guide.title.focus();
     },
     { signal },
   );
@@ -327,11 +343,19 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     else setBreakdownOpen(false);
   };
 
+  const renderGuide = (view: GuideView | null) => {
+    if (!view && !panel.classList.contains('guiding')) return;
+    panel.classList.toggle('guiding', Boolean(view));
+    if (view) setBreakdownOpen(false);
+    guide.render(view);
+    if (!view) requestAnimationFrame(moveIndicator);
+  };
+
   const reset = () => {
     optionsKey = '';
     drawnKey = '';
   };
 
   setVisible(false);
-  return { renderOptions, renderStats, renderBreakdown, announce, setVisible, reset };
+  return { renderOptions, renderStats, renderBreakdown, renderGuide, announce, setVisible, reset };
 };

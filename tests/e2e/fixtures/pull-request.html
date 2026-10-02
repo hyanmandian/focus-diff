@@ -105,7 +105,12 @@
               <h3 id="heading-${index}">‎${path}‎</h3>${button}
               ${stats}
             </div>
-            <div role="region" id="diff-${index}-hunk" aria-label="Hunk"><pre>@@ -1 +1 @@</pre></div>
+            <div role="region" id="diff-${index}-hunk" aria-label="Hunk">
+              <table><tbody>
+                <tr><td id="diff-${index}R2" data-line-number="2"></td><td>line two</td></tr>
+                <tr><td id="diff-${index}R3" data-line-number="3"></td><td>line three</td></tr>
+              </tbody></table>
+            </div>
           </div>`;
         container.append(wrapper);
       });

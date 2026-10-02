@@ -15,6 +15,7 @@ import {
 } from '@/utils/filters';
 import { $, toaster, translate, translateDocument } from '@/utils/page';
 import { loadConfig, saveConfig } from '@/utils/storage';
+import { setupAISettings } from './ai';
 
 type Field = 'name' | 'include' | 'exclude';
 type Tone = '' | 'ok' | 'warn' | 'error';
@@ -311,10 +312,15 @@ window.addEventListener('beforeunload', (event) => {
 
 translateDocument(i18n.t('optionsTitle'));
 
-void loadConfig().then((loaded) => {
+void Promise.all([loadConfig(), setupAISettings()]).then(([loaded]) => {
   config = loaded;
   render();
-  const repo = new URLSearchParams(location.hash.slice(1)).get('repo');
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (params.has('ai')) {
+    $('#ai-h').scrollIntoView({ block: 'start' });
+    $('#ai-h').focus({ preventScroll: true });
+  }
+  const repo = params.get('repo');
   if (repo) {
     $<HTMLInputElement>('#try-repo').value = repo;
     if (!config.repos.some((entry) => repoMatches(entry.repo, repo))) suggestedRepo = repo;

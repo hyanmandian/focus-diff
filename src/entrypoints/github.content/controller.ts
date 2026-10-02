@@ -2,12 +2,14 @@ import { i18n } from '#i18n';
 import type { ContentScriptContext } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Panel, Totals } from '@/components/panel';
+import type { GuideActions } from '@/components/panel/guide';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
 import { formatNumber as format } from '@/utils/format';
 import * as page from '@/utils/github';
 import type { FileStats } from '@/utils/github';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, type Selections } from '@/utils/storage';
+import { createGuideController } from './guide-controller';
 
 interface Option {
   id: string;
@@ -15,7 +17,8 @@ interface Option {
   matches?: Matcher;
 }
 
-interface LoadedDiff {
+export interface LoadedDiff {
+  element: Element;
   path: string;
   container: HTMLElement;
   stats: FileStats | null;
@@ -81,6 +84,7 @@ export interface Controller {
   select: (id: string) => void;
   toggle: (id: string) => void;
   openSettings: () => void;
+  guide: GuideActions;
 }
 
 export const startController = async (ctx: ContentScriptContext, panel: Panel): Promise<Controller> => {
@@ -118,7 +122,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   const step = (offset: number) => {
     const repo = page.repository();
-    if (!repo) return;
+    if (!repo || guide.step(offset)) return;
     const ids = optionsFor(repo).map((option) => option.id);
     const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
     const next = ids[(index + offset + ids.length) % ids.length];
@@ -131,6 +135,15 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     void browser.runtime.sendMessage(message);
   };
 
+  const showFiles = (diffs: LoadedDiff[], matches: Matcher, filtering: boolean): Totals => {
+    const totals = totalsFor(diffs, matches);
+    for (const diff of diffs) show(diff.container, matches(diff.path));
+    filterTree(matches, filtering);
+    updatePageCounters(totals, filtering);
+    panel.renderStats(totals);
+    return totals;
+  };
+
   const apply = () => {
     pending = null;
     if (ctx.isInvalid) return;
@@ -139,6 +152,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     panel.setVisible(Boolean(repo));
     if (!repo) return;
 
+    const diffs: LoadedDiff[] = page.diffs().map((diff) => ({ ...diff, stats: diff.stats() }));
+    if (guide.apply(diffs)) return;
+
     const options = optionsFor(repo);
     const ids = selectedIds(repo);
     const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
@@ -146,13 +162,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
     const selection = filtering ? selected.map((option) => option.id) : [ALL];
 
-    const diffs: LoadedDiff[] = page.diffs().map((diff) => ({ path: diff.path, container: diff.container, stats: diff.stats() }));
-    const totals = totalsFor(diffs, matches);
     panel.renderOptions(options, selection);
-    for (const diff of diffs) show(diff.container, matches(diff.path));
-    filterTree(matches, filtering);
-    updatePageCounters(totals, filtering);
-    panel.renderStats(totals);
+    const totals = showFiles(diffs, matches, filtering);
     panel.renderBreakdown(
       () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything) })),
       selection,
@@ -173,6 +184,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     else ctx.requestIdleCallback(apply, { timeout: IDLE_TIMEOUT_MS });
   };
 
+  const guide = await createGuideController({ ctx, panel, schedule: () => schedule(), showFiles: (...args) => showFiles(...args) });
+
   const pageObserver = new MutationObserver(() => schedule('idle'));
   let observing = false;
   const observe = (active: boolean) => {
@@ -186,7 +199,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (message?.type !== 'command') return;
     if (message.command === 'next-filter') step(1);
     if (message.command === 'previous-filter') step(-1);
-    if (message.command === 'show-all') select(ALL);
+    if (message.command === 'show-all' && !guide.showOverview()) select(ALL);
   };
   browser.runtime.onMessage.addListener(onMessage);
 
@@ -210,5 +223,5 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
 
   schedule();
-  return { select, toggle, openSettings };
+  return { select, toggle, openSettings, guide: guide.actions };
 };

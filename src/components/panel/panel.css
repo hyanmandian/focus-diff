@@ -17,6 +17,7 @@
   --fd-accent: var(--fgColor-accent, var(--color-accent-fg, #0969da));
   --fd-track: var(--bgColor-neutral-muted, var(--color-neutral-muted, rgba(129, 139, 152, 0.2)));
   --fd-border-muted: var(--borderColor-muted, var(--color-border-muted, rgba(209, 217, 224, 0.7)));
+  --fd-attention-bg: var(--bgColor-attention-muted, var(--color-attention-subtle, #fff8c5));
   --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));
   --fd-shadow: var(--shadow-floating-large, 0 0 0 1px rgba(209, 217, 224, 0.5), 0 24px 48px rgba(37, 41, 46, 0.2));
   --fd-mono: var(--fontStack-monospace, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);

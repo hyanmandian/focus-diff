@@ -25,7 +25,8 @@
       {
         "allow": ["**/*.css"]
       }
-    ]
+    ],
+    "unicorn/require-post-message-target-origin": "off"
   },
   "overrides": [
     {

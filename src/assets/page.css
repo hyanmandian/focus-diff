@@ -244,7 +244,8 @@ label,
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   min-height: var(--target);
   padding: 5px 10px;
@@ -268,7 +269,8 @@ textarea::placeholder {
   opacity: 0.8;
 }
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -1px;
   border-color: transparent;
@@ -529,4 +531,38 @@ h3 {
   .toast {
     border: 1px solid CanvasText;
   }
+}
+
+.ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.ai-grid [hidden] {
+  display: none;
+}
+@media (max-width: 640px) {
+  .ai-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.inline {
+  display: flex;
+  gap: 8px;
+}
+.inline input {
+  flex: 1;
+}
+.ai-privacy {
+  margin: 12px 0 0;
+}
+.ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.ai-actions .status {
+  margin: 0;
 }

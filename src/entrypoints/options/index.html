@@ -58,6 +58,56 @@
         <div id="repos"></div>
         <button id="add-repo" type="button" class="btn" data-i18n="addRepo"></button>
       </section>
+      <section class="box" aria-labelledby="ai-h">
+        <div class="box-head">
+          <h2 id="ai-h" tabindex="-1" data-i18n="aiHeading"></h2>
+          <p class="hint" data-i18n="aiHint"></p>
+        </div>
+        <div class="box-body">
+          <div class="ai-grid">
+            <div class="field">
+              <label for="ai-provider" data-i18n="aiProvider"></label>
+              <select id="ai-provider"></select>
+            </div>
+            <div class="field" id="ai-url-field">
+              <label for="ai-url" data-i18n="aiBaseUrl"></label>
+              <input id="ai-url" type="url" class="mono" spellcheck="false" autocomplete="off" aria-describedby="ai-url-hint" />
+              <p class="hint" id="ai-url-hint" data-i18n="aiBaseUrlHint"></p>
+            </div>
+            <div class="field">
+              <label for="ai-key"
+                ><span data-i18n="aiKey"></span> <span class="optional" id="ai-key-optional" data-i18n="optional"></span
+              ></label>
+              <input id="ai-key" type="password" class="mono" spellcheck="false" autocomplete="off" aria-describedby="ai-key-hint" />
+              <p class="hint" id="ai-key-hint" data-i18n="aiKeyHint"></p>
+            </div>
+            <div class="field">
+              <label for="ai-model" data-i18n="aiModel"></label>
+              <div class="inline">
+                <input
+                  id="ai-model"
+                  type="text"
+                  class="mono"
+                  list="ai-models"
+                  spellcheck="false"
+                  autocomplete="off"
+                  aria-describedby="ai-model-hint"
+                />
+                <button id="ai-load-models" type="button" class="btn" data-i18n="aiLoadModels"></button>
+              </div>
+              <datalist id="ai-models"></datalist>
+              <p class="hint" id="ai-model-hint" data-i18n="aiModelHint"></p>
+            </div>
+          </div>
+          <p class="hint ai-privacy" data-i18n="aiPrivacy"></p>
+          <div class="ai-actions">
+            <button id="ai-save" type="button" class="btn primary" data-i18n="aiSave"></button>
+            <button id="ai-remove" type="button" class="btn danger" data-i18n="aiRemove" hidden></button>
+            <button id="ai-forget" type="button" class="btn" hidden></button>
+            <p id="ai-status" class="status" role="status"></p>
+          </div>
+        </div>
+      </section>
       <section class="box" aria-labelledby="try-h">
         <div class="box-head">
           <h2 id="try-h" data-i18n="tryHeading"></h2>

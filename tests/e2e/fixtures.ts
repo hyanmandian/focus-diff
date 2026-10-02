@@ -4,7 +4,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { chromium, test as base, type BrowserContext, type Page, type Worker } from '@playwright/test';
 import type { Config } from '../../src/utils/filters';
 
-const extensionPath = path.resolve('.output/chrome-mv3');
+/** Built with `wxt build --mode e2e`, which grants the hosts a reviewer allows when setting up guided review. */
+const extensionPath = path.resolve('.output/chrome-mv3-e2e');
 const pullRequestHtml = readFileSync(path.resolve('tests/e2e/fixtures/pull-request.html'), 'utf8');
 
 export const PULL_REQUEST = 'https://github.com/octo/web/pull/1/changes';

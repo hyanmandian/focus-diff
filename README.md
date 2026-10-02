@@ -23,10 +23,11 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Combine filters.** Shift-click to look at several filters at once, like _Frontend + Docs_.
 - **See where the changes are.** The breakdown shows how much of the pull request falls under each filter before you start.
 - **Review time.** A rough estimate next to the line totals, at about 400 changed lines per hour.
+- **Guided review, with your own AI key.** Turns a big pull request into chapters: the core of the change first, then its consequences, then tests, docs and glue. Each chapter explains why the code exists, points at lines worth a closer look and shows only its files. Works with Anthropic, OpenAI, Gemini, OpenRouter, a local Ollama, or anything that speaks the OpenAI API. Off until you set it up, and it asks before sending anything.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
 - **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.
 - **Feels like GitHub.** Follows your GitHub theme, checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.
-- **Private.** No tracking and no network requests. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
+- **Private.** No tracking and no servers. Filters stay in your browser profile, and guided review only talks to the provider you choose, when you ask. See the [privacy policy](PRIVACY.md).
 
 ## Getting started
 
@@ -61,14 +62,14 @@ Store listings are on the way. Until then, build it from source with `npm instal
 
 ## Development
 
-Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runtime dependencies.
+Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runtime dependencies. Guided review calls the providers with plain `fetch`.
 
 ```sh
 npm install         # also generates WXT's types
 npm run dev         # Chrome with the extension loaded and hot reload (dev:firefox for Firefox)
 npm run check       # types, Oxlint and Oxfmt
 npm test            # unit tests with Vitest
-npm run e2e         # builds, then runs Playwright against the real extension, with axe accessibility checks
+npm run e2e         # builds in e2e mode, then runs Playwright against the real extension, with axe accessibility checks
 npm run fmt         # format everything
 npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)
 ```
@@ -84,7 +85,7 @@ tests/
   e2e/              Playwright, on a local copy of a pull request page
 ```
 
-The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
+The end-to-end tests serve a saved pull request page in place of github.com, and intercept the diff download and the AI provider from the extension's service worker, so they don't depend on the network or on a real key. The `e2e` build mode starts with the host access a reviewer grants when setting up guided review.
 
 ## License
 

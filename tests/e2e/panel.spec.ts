@@ -171,7 +171,7 @@ test.describe('panel on a pull request', () => {
     await expect.poll(() => top('api/tests/test_service.py')).toBeLessThan(120);
   });
 
-  test('cross-fades the page into a new filter, leaving the panel out', async ({ openPullRequest }) => {
+  test('opens the page onto a new filter, leaving the panel out', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
     expect(await pr.page.locator('focus-diff-panel').evaluate((host) => getComputedStyle(host).viewTransitionName)).toBe(

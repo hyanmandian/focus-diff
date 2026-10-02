@@ -17,6 +17,7 @@ export interface TreeFile {
 
 export interface TreeFolder {
   element: HTMLElement;
+  path: string;
   files: HTMLElement[];
 }
 
@@ -35,6 +36,7 @@ const ADDITIONS = /^\+[\d,]+$/;
 const DELETIONS = /^[−-][\d,]+$/;
 const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿]/g;
 const COUNTER_RESCAN_MS = 2000;
+const COUNTER_GIVE_UP_MS = 20000;
 
 const toNumber = (value: string) => Number(value.replace(/,/g, ''));
 const textOf = (element: Element) => (element.textContent ?? '').trim();
@@ -88,23 +90,35 @@ const visibleStats = (header: Element): FileStats => {
   return { additions: additions ? toNumber(additions.slice(1)) : 0, deletions: deletions ? toNumber(deletions.slice(1)) : 0 };
 };
 
+/** Stats survive GitHub unmounting a diff while scrolling. Only labelled stats are kept, and only for the current pull request. */
 const statsByPath = new Map<string, FileStats>();
+let statsPathname = '';
 const statsOf = (diff: Element, path: string): FileStats | null => {
-  const key = `${location.pathname}|${path}`;
-  const cached = statsByPath.get(key);
+  if (statsPathname !== location.pathname) {
+    statsByPath.clear();
+    statsPathname = location.pathname;
+  }
+  const cached = statsByPath.get(path);
   if (cached) return cached;
   const header = diff.querySelector('[data-diff-header-wrapper], .file-header');
   if (!header) return null;
-  const stats = labelledStats(header) ?? visibleStats(header);
-  statsByPath.set(key, stats);
-  return stats;
+  const labelled = labelledStats(header);
+  if (labelled) statsByPath.set(path, labelled);
+  return labelled ?? visibleStats(header);
 };
 
-const pathCache = new WeakMap<Element, string>();
+/** Paths are cached per element, but only once known, and only while the element keeps its id (GitHub reuses nodes). */
+const pathCache = new WeakMap<Element, { id: string; path: string }>();
 const cachedPathOf = (element: HTMLElement) => {
-  if (!pathCache.has(element)) pathCache.set(element, pathOf(element));
-  return pathCache.get(element) ?? '';
+  const cached = pathCache.get(element);
+  if (cached && cached.id === element.id) return cached.path;
+  const path = pathOf(element);
+  if (path) pathCache.set(element, { id: element.id, path });
+  return path;
 };
+
+/** Whether a node GitHub just added is, or contains, a file diff. */
+export const containsDiff = (node: Node): boolean => node instanceof Element && (node.matches(DIFF) || node.querySelector(DIFF) !== null);
 
 export const diffs = (): Diff[] => {
   const byPath = new Map<string, Diff>();
@@ -119,13 +133,19 @@ export const diffs = (): Diff[] => {
 
 const labelOf = (item: Element) => (item.querySelector(':scope > div')?.textContent || item.getAttribute('aria-label') || '').trim();
 
-const treePathOf = (item: Element) => {
-  const label = labelOf(item);
-  const parts = [label.match(/[^\s/]+\.[A-Za-z0-9]+/)?.[0] ?? label];
-  for (let folder = item.parentElement?.closest(TREE_ITEM); folder; folder = folder.parentElement?.closest(TREE_ITEM)) {
+const folderPathOf = (item: Element | null | undefined): string => {
+  const parts: string[] = [];
+  for (let folder = item; folder; folder = folder.parentElement?.closest(TREE_ITEM)) {
     parts.unshift(labelOf(folder).split(/\s/)[0] ?? '');
   }
   return parts.join('/');
+};
+
+const treePathOf = (item: Element) => {
+  const label = labelOf(item);
+  const name = label.match(/[^\s/]+\.[A-Za-z0-9]+/)?.[0] ?? label;
+  const folder = folderPathOf(item.parentElement?.closest(TREE_ITEM));
+  return folder ? `${folder}/${name}` : name;
 };
 
 export const treeFiles = (): TreeFile[] =>
@@ -137,6 +157,7 @@ export const treeFiles = (): TreeFile[] =>
 export const treeFolders = (): TreeFolder[] =>
   [...document.querySelectorAll<HTMLElement>(`${TREE_ITEM}[aria-expanded]`)].map((element) => ({
     element,
+    path: folderPathOf(element),
     files: [...element.querySelectorAll<HTMLElement>(`${TREE_ITEM}:not([aria-expanded])`)],
   }));
 
@@ -164,12 +185,27 @@ const findLineCounters = (): [HTMLElement | null, HTMLElement | null] => {
 
 let counters: PageCounters = { files: null, additions: null, deletions: null };
 let scannedAt = 0;
+let firstScanAt = 0;
+let scannedPathname = '';
 
+/** GitHub's own counters. The full-page search runs at most every couple of seconds, and gives up on a page after a while. */
 export const pageCounters = (): PageCounters => {
-  const connected = counters.files?.isConnected && counters.additions?.isConnected;
-  if (connected || Date.now() - scannedAt < COUNTER_RESCAN_MS) return counters;
-  scannedAt = Date.now();
+  if (counters.files?.isConnected && counters.additions?.isConnected) return counters;
+  const now = Date.now();
+  if (scannedPathname !== location.pathname) {
+    scannedPathname = location.pathname;
+    firstScanAt = now;
+  } else if (now - scannedAt < COUNTER_RESCAN_MS || now - firstScanAt > COUNTER_GIVE_UP_MS) {
+    return counters;
+  }
+  scannedAt = now;
   const [additions, deletions] = findLineCounters();
   counters = { files: findFilesCounter(), additions, deletions };
   return counters;
+};
+
+/** The number of changed files GitHub reports, which counts files it hasn't rendered yet. */
+export const reportedFileCount = (): number => {
+  const text = pageCounters().files?.textContent ?? '';
+  return Number(text.replace(/[^\d]/g, '')) || 0;
 };

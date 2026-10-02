@@ -38,6 +38,11 @@ export const translateDocument = (title: string): void => {
   translate(document.body);
 };
 
+/** Shows a page once its first render is complete; see `.pending` in page.css. */
+export const reveal = (): void => {
+  document.documentElement.classList.remove('pending');
+};
+
 const TOAST_MS = 2800;
 
 export const toaster = (toast: HTMLElement) => {

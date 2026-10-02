@@ -19,8 +19,8 @@ test.describe('panel on a pull request', () => {
     await expect(pr.filesCounter()).toHaveText('1/8');
     await expect(pr.lineCounters().additions).toHaveText('+40');
     await expect(pr.lineCounters().deletions).toHaveText('−10');
-    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~8 min to review.');
-    await expect.poll(() => pr.statsText()).toMatch(/~8 min/);
+    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~7 min to review.');
+    await expect.poll(() => pr.statsText()).toMatch(/~7 min/);
 
     await pr.pick('Backend');
     await expect.poll(() => pr.visiblePaths()).toEqual(['api/books/service.py', 'api/books/__init__.py', 'api/legacy/routes.py']);
@@ -64,8 +64,8 @@ test.describe('panel on a pull request', () => {
     ).toBeLessThan(2);
     await expect(pr.breakdownRows.first()).toHaveAttribute('aria-pressed', 'true');
     await expect(pr.breakdownRows.first()).toHaveAccessibleName('All: 8 files, 120 lines added, 30 removed, ~23 min to review');
-    await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 40 lines added, 10 removed, ~8 min to review');
-    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~8 min');
+    await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 40 lines added, 10 removed, ~7 min to review');
+    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~7 min');
     await expect(pr.breakdownRows.first().locator('.diffstat .add')).toHaveCount(4);
     await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
 
@@ -167,6 +167,52 @@ test.describe('panel on a pull request', () => {
     await background.evaluate(() => chrome.runtime.reload()).catch(() => {});
     await pr.page.evaluate(() => document.body.append(document.createElement('div')));
     await expect(pr.panel).toHaveCount(0);
+  });
+
+  test('puts every file back when the extension is reloaded mid-filter', async ({ openPullRequest, background }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.pick('Frontend');
+    await expect.poll(() => pr.visiblePaths()).toEqual(['web/src/book-card.tsx']);
+    await background.evaluate(() => chrome.runtime.reload()).catch(() => {});
+    await pr.page.evaluate(() => document.body.append(document.createElement('div')));
+    await expect(pr.panel).toHaveCount(0);
+    await expect.poll(() => pr.visiblePaths()).toHaveLength(8);
+    await expect(pr.filesCounter()).toHaveText('8');
+  });
+
+  test('leaves GitHub its own counters to update', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.pick('Frontend');
+    await expect(pr.filesCounter()).toHaveText('1/8');
+    await pr.page.evaluate(() => (document.querySelector('[aria-current="page"] .Counter')!.textContent = '9'));
+    await pr.pick('All');
+    await expect(pr.filesCounter()).toHaveText('9');
+  });
+
+  test('counts files GitHub has not rendered yet', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.evaluate(() => (document.querySelector('[aria-current="page"] .Counter')!.textContent = '12'));
+    await pr.pick('Frontend');
+    await expect(pr.filesCounter()).toHaveText('1/12');
+    await pr.pick('All');
+    await expect.poll(() => pr.statsText()).toMatch(/12\/12 files/);
+    await expect(pr.panel.locator('.pending')).toHaveClass(/active/);
+  });
+
+  test('hides collapsed folders that hold no matching files', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.evaluate(() => {
+      const docs = [...document.querySelectorAll('[role="treeitem"][aria-expanded]')].find(
+        (item) => item.firstElementChild?.textContent === 'docs',
+      )!;
+      docs.setAttribute('aria-expanded', 'false');
+      docs.querySelector('[role="group"]')!.remove();
+    });
+    const docsFolder = pr.page.locator('[role="treeitem"][aria-expanded="false"]');
+    await pr.pick('Frontend');
+    await expect(docsFolder).toBeHidden();
+    await pr.pick('Docs');
+    await expect(docsFolder).toBeVisible();
   });
 
   test.afterEach(({ pageErrors }) => {

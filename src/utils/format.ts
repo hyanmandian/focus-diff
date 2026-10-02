@@ -1,8 +1,6 @@
 import { i18n } from '#i18n';
 import { uiLanguage } from '@/utils/i18n';
 
-export const LINES_PER_HOUR = 400;
-
 let numberFormat: Intl.NumberFormat | null = null;
 
 export const formatNumber = (value: number): string => {
@@ -10,8 +8,8 @@ export const formatNumber = (value: number): string => {
   return numberFormat.format(value);
 };
 
-export const formatDuration = (lines: number): string => {
-  const minutes = (lines / LINES_PER_HOUR) * 60;
+/** Formats an estimate in minutes: under a minute, whole minutes, then five-minute steps past an hour. */
+export const formatDuration = (minutes: number): string => {
   if (minutes < 1) return i18n.t('timeUnderMinute');
   if (minutes < 60) return i18n.t('timeMinutes', [Math.round(minutes)]);
   const rounded = Math.round(minutes / 5) * 5;

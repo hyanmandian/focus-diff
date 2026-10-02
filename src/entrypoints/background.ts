@@ -2,8 +2,14 @@ import { defineBackground } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Command, Message } from '@/utils/messages';
 
-const openOptions = (repo?: string | null) =>
-  browser.tabs.create({ url: browser.runtime.getURL(`/options.html${repo ? `#repo=${encodeURIComponent(repo)}` : ''}`) });
+/** Reuses an open settings tab instead of piling up copies that could overwrite each other. */
+const openOptions = async (repo?: string | null) => {
+  const url = browser.runtime.getURL(`/options.html${repo ? `#repo=${encodeURIComponent(repo)}` : ''}`);
+  const [open] = await browser.tabs.query({ url: browser.runtime.getURL('/options.html*') });
+  if (!open?.id) return browser.tabs.create({ url });
+  await browser.windows.update(open.windowId, { focused: true });
+  return browser.tabs.update(open.id, { active: true, ...(repo && { url }) });
+};
 
 const openWelcome = () => browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });
 

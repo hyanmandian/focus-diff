@@ -1,3 +1,8 @@
+/* Pages stay hidden until translated and rendered, so nothing shifts while they fill in. */
+.pending {
+  visibility: hidden;
+}
+
 :root {
   --bg: #f6f8fa;
   --surface: #ffffff;

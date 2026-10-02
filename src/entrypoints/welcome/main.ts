@@ -4,7 +4,7 @@ import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters';
 import { message } from '@/utils/i18n';
-import { $, toaster, translateDocument } from '@/utils/page';
+import { $, reveal, toaster, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
 import { configItem, loadConfig, saveConfig } from '@/utils/storage';
 
@@ -21,8 +21,14 @@ const toggle = async (recipe: Recipe) => {
   const global = adding
     ? [...config.global, ...recipe.filters.map((filter, index) => ({ ...filter, id: ids[index] ?? '', name: message(filter.name) }))]
     : config.global.filter((filter) => !ids.includes(filter.id));
-  config = normalize({ ...config, global });
-  await saveConfig(config);
+  const next = normalize({ ...config, global });
+  try {
+    await saveConfig(next);
+  } catch (error) {
+    notify(/QUOTA/i.test((error as Error).message) ? i18n.t('statusQuota') : i18n.t('statusSaveError', [(error as Error).message]));
+    return;
+  }
+  config = next;
   render();
   notify(adding ? i18n.t('recipeAddedNotice', [names(recipe)]) : i18n.t('recipeRemovedNotice', [names(recipe)]));
 };
@@ -106,9 +112,9 @@ configItem.watch((value) => {
 });
 
 translateDocument(i18n.t('welcomeTitle'));
-void renderShortcuts();
-void loadConfig().then((loaded) => {
+void Promise.all([loadConfig(), renderShortcuts()]).then(([loaded]) => {
   config = loaded;
   render();
+  reveal();
   if (location.hash === '#recipes-h') $('#recipes-h').focus();
 });

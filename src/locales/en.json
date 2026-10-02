@@ -1,6 +1,6 @@
 {
   "extensionName": "Focus Diff",
-  "extensionDescription": "Review what matters: filter GitHub pull request diffs with your own presets and see the real size of what you review.",
+  "extensionDescription": "Filter GitHub pull request diffs with your own filters and see how much is left to review.",
   "actionTitle": "Focus Diff settings",
   "commandNext": "Next filter",
   "commandPrevious": "Previous filter",
@@ -16,7 +16,7 @@
   "panelAnnouncePartial": "$1 of them haven't loaded yet, so line counts are partial.",
   "optionsTitle": "Focus Diff settings",
   "skipToFilters": "Skip to filters",
-  "optionsTagline": "Review what matters. Each filter becomes a button on a pull request's changed-files page.",
+  "optionsTagline": "Each filter becomes a button on the Files changed tab of a pull request.",
   "helpSummary": "How filters match files",
   "helpBody": "A file is shown when its path matches <b>Include</b> and doesn't match <b>Exclude</b>. Both are JavaScript regular expressions, tested against the full path (for example <code>src/components/Button.tsx</code>) and not case-sensitive. An empty Include matches every path.",
   "helpTypeScript": "TypeScript files",
@@ -65,7 +65,7 @@
   "statusUnsaved": "Unsaved changes",
   "statusFixFilters": "Some filters need fixing before you can save.",
   "statusFixRepos": "Check the repository names before saving.",
-  "statusSaved": "Saved. Open pull requests pick it up right away.",
+  "statusSaved": "Saved. Open pull requests update right away.",
   "statusQuota": "Too many filters to sync. Remove a few and try again.",
   "statusSaveError": "Couldn't save: $1",
   "importEmpty": "That text has no filters in it. Ask your teammate to copy their filters again.",
@@ -105,7 +105,7 @@
   "recipeTestsOnly": "Tests",
   "recipeGeneratedTitle": "Skip generated files",
   "recipeGeneratedDescription": "Hide lockfiles, snapshots, minified files and build output that nobody reads line by line.",
-  "recipeGeneratedName": "No generated",
+  "recipeGeneratedName": "Hand-written",
   "recipeInfraTitle": "Check infrastructure changes",
   "recipeInfraDescription": "CI workflows, Docker, Terraform, Kubernetes and YAML config, for the reviewer who owns the platform.",
   "recipeInfraName": "Infra",
@@ -128,7 +128,7 @@
   "timeMinutes": "~$1 min",
   "timeHours": "~$1 h",
   "timeHoursMinutes": "~$1 h $2 min",
-  "timeHint": "Estimated review time, at about $1 changed lines per hour",
+  "timeHint": "Review time assumes about $1 changed lines an hour. Removed lines count a quarter, each file adds half a minute, and generated or lock files only add that half minute.",
   "panelAnnounceTime": "About $1 to review.",
   "panelTimeLabel": "to review",
   "copied": {
@@ -147,5 +147,6 @@
   "panelColumnFiles": "Files",
   "panelColumnLines": "Lines",
   "panelColumnTime": "Review time",
-  "panelBreakdownRow": "$1: $2, $3 lines added, $4 removed, $5 to review"
+  "panelBreakdownRow": "$1: $2, $3 lines added, $4 removed, $5 to review",
+  "statusChangedElsewhere": "Filters changed in another window. Save to keep your edits, or reload to see the new filters."
 }

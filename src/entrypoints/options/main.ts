@@ -13,8 +13,8 @@ import {
   type Filter,
   type RepoFilters,
 } from '@/utils/filters';
-import { $, toaster, translate, translateDocument } from '@/utils/page';
-import { loadConfig, saveConfig } from '@/utils/storage';
+import { $, reveal, toaster, translate, translateDocument } from '@/utils/page';
+import { configItem, loadConfig, saveConfig } from '@/utils/storage';
 
 type Field = 'name' | 'include' | 'exclude';
 type Tone = '' | 'ok' | 'warn' | 'error';
@@ -35,6 +35,7 @@ const nextId = (prefix: string) => `${prefix}-${++uid}`;
 
 let config: Config = normalize({});
 let dirty = false;
+let saving = false;
 let suggestedRepo = '';
 
 const status = $('#status');
@@ -214,12 +215,15 @@ const save = async () => {
     return;
   }
   try {
+    saving = true;
     await saveConfig(config);
     dirty = false;
     say(i18n.t('statusSaved'), 'ok');
   } catch (error) {
     const reason = (error as Error).message;
     say(/QUOTA/i.test(reason) ? i18n.t('statusQuota') : i18n.t('statusSaveError', [reason]), 'error');
+  } finally {
+    saving = false;
   }
 };
 
@@ -305,6 +309,14 @@ const render = () => {
   updateTry();
 };
 
+// Another tab, the welcome page or another device changed the filters: follow along unless there are unsaved edits here.
+configItem.watch((value) => {
+  if (saving) return;
+  if (dirty) return say(i18n.t('statusChangedElsewhere'), 'warn');
+  config = normalize(value);
+  render();
+});
+
 window.addEventListener('beforeunload', (event) => {
   if (dirty) event.preventDefault();
 });
@@ -314,6 +326,7 @@ translateDocument(i18n.t('optionsTitle'));
 void loadConfig().then((loaded) => {
   config = loaded;
   render();
+  reveal();
   const repo = new URLSearchParams(location.hash.slice(1)).get('repo');
   if (repo) {
     $<HTMLInputElement>('#try-repo').value = repo;

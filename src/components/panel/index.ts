@@ -2,7 +2,8 @@ import { i18n } from '#i18n';
 import { counter } from '@/components/panel/counter';
 import { pointAt } from '@/components/panel/popover';
 import { h, icon } from '@/utils/dom';
-import { formatDuration, formatNumber as format, LINES_PER_HOUR } from '@/utils/format';
+import { formatDuration, formatNumber as format } from '@/utils/format';
+import { LINES_PER_HOUR } from '@/utils/review-time';
 
 export interface Totals {
   visible: number;
@@ -10,6 +11,8 @@ export interface Totals {
   additions: number;
   deletions: number;
   pending: number;
+  /** Estimated review time, see utils/review-time.ts. */
+  minutes: number;
 }
 
 export interface PanelOption {
@@ -63,8 +66,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const totalFiles = counter('total', format);
   const additions = counter('additions', (n) => `+${format(n)}`);
   const deletions = counter('deletions', (n) => `−${format(n)}`);
-  const time = counter('time', formatDuration);
+  const time = counter('time', (seconds) => formatDuration(seconds / 60));
   const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
+  const pendingText = h('span', { className: 'visually-hidden' });
   const stats = h(
     'span',
     { className: 'stats' },
@@ -87,12 +91,19 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
       h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` }),
     ),
     pending,
+    pendingText,
   );
 
   const breakdownRows = h('div', { className: 'rows' });
   const breakdown = h(
     'div',
-    { className: 'breakdown popover', id: 'focus-diff-breakdown', hidden: true, 'aria-labelledby': 'focus-diff-breakdown-heading' },
+    {
+      className: 'breakdown popover',
+      id: 'focus-diff-breakdown',
+      role: 'dialog',
+      hidden: true,
+      'aria-labelledby': 'focus-diff-breakdown-heading',
+    },
     h('h2', { id: 'focus-diff-breakdown-heading', textContent: i18n.t('panelBreakdownHeading') }),
     breakdownRows,
     h('p', { className: 'hint' }, i18n.t('panelCombineHint'), h('br'), i18n.t('timeHint', [LINES_PER_HOUR])),
@@ -116,8 +127,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     onClick: () => onSettings(),
   });
   const status = h('span', { className: 'visually-hidden', role: 'status' });
-  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, settings, status);
-  container.append(breakdown, panel);
+  // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
+  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, breakdown, settings, status);
+  container.append(panel);
 
   const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
   const pick = (id: string, event: MouseEvent | KeyboardEvent) => (event.shiftKey ? onToggle(id) : onSelect(id));
@@ -182,7 +194,7 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     );
 
   const breakdownRow = (row: BreakdownRow, selected: boolean) => {
-    const time = formatDuration(row.additions + row.deletions);
+    const time = formatDuration(row.minutes);
     return h(
       'button',
       {
@@ -304,16 +316,25 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     totalFiles.set(totals.total);
     additions.set(totals.additions);
     deletions.set(totals.deletions);
-    time.set(totals.additions + totals.deletions);
+    time.set(Math.round(totals.minutes * 60));
     pending.classList.toggle('active', totals.pending > 0);
     pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', [format(totals.pending)]) : '';
     stats.title = pending.title;
+    pendingText.textContent = pending.title ? ` ${pending.title}` : '';
   };
 
-  const announce = ({ name, visible, total, additions: added, deletions: removed, pending: waiting }: Totals & { name: string }) => {
+  const announce = ({
+    name,
+    visible,
+    total,
+    additions: added,
+    deletions: removed,
+    pending: waiting,
+    minutes,
+  }: Totals & { name: string }) => {
     const parts = [
       i18n.t('panelAnnounce', [name, format(visible), format(total), format(added), format(removed)]),
-      i18n.t('panelAnnounceTime', [formatDuration(added + removed)]),
+      i18n.t('panelAnnounceTime', [formatDuration(minutes)]),
     ];
     if (waiting > 0) parts.push(i18n.t('panelAnnouncePartial', [format(waiting)]));
     status.textContent = parts.join(' ');

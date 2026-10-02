@@ -55,10 +55,11 @@ export class PullRequestPage {
   }
 
   filesCounter() {
-    return this.page.locator('[aria-current="page"] .Counter');
+    return this.page.locator('[aria-current="page"] .Counter').locator('visible=true');
   }
 
   lineCounters() {
-    return { additions: this.page.locator('.summary span').first(), deletions: this.page.locator('.summary span').last() };
+    const shown = this.page.locator('.summary span').locator('visible=true');
+    return { additions: shown.first(), deletions: shown.last() };
   }
 }

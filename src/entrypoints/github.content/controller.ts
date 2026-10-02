@@ -3,9 +3,9 @@ import type { ContentScriptContext } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Panel, Totals } from '@/components/panel';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
-import { formatNumber as format } from '@/utils/format';
 import * as page from '@/utils/github';
 import type { FileStats } from '@/utils/github';
+import { reviewMinutes } from '@/utils/review-time';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, type Selections } from '@/utils/storage';
 
@@ -30,51 +30,99 @@ const show = (element: HTMLElement, visible: boolean) => {
   if (element.style.display !== display) element.style.display = display;
 };
 
-const overwrite = (element: HTMLElement | null, value: string) => {
-  if (!element) return;
-  element.dataset.focusDiffOriginal ??= element.textContent ?? '';
-  if (element.textContent !== value) element.textContent = value;
+const COUNTER_COPY = 'data-focus-diff-counter';
+
+/** GitHub's counters use English number formatting whatever the browser language. */
+const githubNumber = new Intl.NumberFormat('en-US').format;
+
+/**
+ * Shows `value` in place of one of GitHub's counters through a copy beside it, so GitHub keeps updating its own node.
+ * `null` removes the copy and shows the original again.
+ */
+const mirror = (original: HTMLElement | null, value: string | null) => {
+  if (!original) return;
+  let copy =
+    original.nextElementSibling instanceof HTMLElement && original.nextElementSibling.hasAttribute(COUNTER_COPY)
+      ? original.nextElementSibling
+      : null;
+  if (value === null) {
+    copy?.remove();
+    show(original, true);
+    return;
+  }
+  if (!copy) {
+    copy = original.cloneNode(false) as HTMLElement;
+    copy.removeAttribute('id');
+    copy.removeAttribute('title');
+    copy.setAttribute(COUNTER_COPY, '');
+    original.after(copy);
+  }
+  if (copy.textContent !== value) copy.textContent = value;
+  show(original, false);
 };
 
-const restore = (element: HTMLElement | null) => {
-  if (!element || element.dataset.focusDiffOriginal === undefined) return;
-  if (element.textContent !== element.dataset.focusDiffOriginal) element.textContent = element.dataset.focusDiffOriginal;
-  delete element.dataset.focusDiffOriginal;
-};
-
-const totalsFor = (diffs: LoadedDiff[], matches: Matcher): Totals => {
-  const totals = { visible: 0, total: diffs.length, additions: 0, deletions: 0, pending: 0 };
+const totalsFor = (diffs: LoadedDiff[], matches: Matcher, reported: number): Totals => {
+  const total = Math.max(diffs.length, reported);
+  const totals = { visible: 0, total, additions: 0, deletions: 0, pending: 0, minutes: 0 };
   for (const diff of diffs) {
     if (!matches(diff.path)) continue;
     totals.visible++;
     if (!diff.stats) totals.pending++;
     totals.additions += diff.stats?.additions ?? 0;
     totals.deletions += diff.stats?.deletions ?? 0;
+    totals.minutes += reviewMinutes(diff.path, diff.stats);
+  }
+  if (matches === everything) {
+    totals.pending += total - diffs.length;
+    totals.visible = total;
   }
   return totals;
 };
 
-const filterTree = (matches: Matcher, filtering: boolean) => {
-  for (const file of page.treeFiles()) show(file.element, matches(file.path));
+const filterTree = (matches: Matcher, filtering: boolean, visiblePaths: string[]) => {
+  const files = page.treeFiles();
+  for (const file of files) show(file.element, matches(file.path));
+  const shown = [...visiblePaths, ...files.filter((file) => file.element.style.display !== 'none').map((file) => file.path)];
   for (const folder of page.treeFolders()) {
-    show(folder.element, !filtering || folder.files.length === 0 || folder.files.some((file) => file.style.display !== 'none'));
+    const prefix = `${folder.path}/`;
+    show(
+      folder.element,
+      !filtering || shown.some((path) => path.startsWith(prefix)) || folder.files.some((file) => file.style.display !== 'none'),
+    );
   }
 };
 
 const updatePageCounters = (totals: Totals, filtering: boolean) => {
   const counters = page.pageCounters();
   if (!filtering) {
-    Object.values(counters).forEach(restore);
+    Object.values(counters).forEach((counter) => mirror(counter, null));
     return;
   }
-  overwrite(counters.files, `${format(totals.visible)}/${format(totals.total)}`);
-  if (totals.pending > 0) {
-    restore(counters.additions);
-    restore(counters.deletions);
-    return;
-  }
-  overwrite(counters.additions, `+${format(totals.additions)}`);
-  overwrite(counters.deletions, `−${format(totals.deletions)}`);
+  mirror(counters.files, `${githubNumber(totals.visible)}/${githubNumber(totals.total)}`);
+  const complete = totals.pending === 0;
+  mirror(counters.additions, complete ? `+${githubNumber(totals.additions)}` : null);
+  mirror(counters.deletions, complete ? `−${githubNumber(totals.deletions)}` : null);
+};
+
+/** Puts the page back the way GitHub drew it. */
+const restorePage = () => {
+  for (const diff of page.diffs()) show(diff.container, true);
+  for (const item of page.treeFiles()) show(item.element, true);
+  for (const folder of page.treeFolders()) show(folder.element, true);
+  Object.values(page.pageCounters()).forEach((counter) => mirror(counter, null));
+};
+
+/** Compiled filters, kept until the configuration changes. Each matcher remembers its answer per path. */
+const memoize = (matches: Matcher): Matcher => {
+  const answers = new Map<string, boolean>();
+  return (path) => {
+    let answer = answers.get(path);
+    if (answer === undefined) {
+      answer = matches(path);
+      answers.set(path, answer);
+    }
+    return answer;
+  };
 };
 
 export interface Controller {
@@ -89,10 +137,16 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   let pending: 'frame' | 'idle' | null = null;
   let announceNext = false;
 
-  const filters = (repo: string) =>
-    filtersFor(config, repo)
-      .map((filter) => ({ ...filter, matches: toMatcher(filter) ?? undefined }))
-      .filter((filter) => filter.name && filter.matches);
+  let compiled: { config: Config; repo: string; filters: Option[] } | null = null;
+  const filters = (repo: string): Option[] => {
+    if (compiled?.config === config && compiled.repo === repo) return compiled.filters;
+    const list = filtersFor(config, repo).flatMap((filter) => {
+      const matcher = toMatcher(filter);
+      return filter.name && matcher ? [{ id: filter.id, name: filter.name, matches: memoize(matcher) }] : [];
+    });
+    compiled = { config, repo, filters: list };
+    return list;
+  };
 
   const optionsFor = (repo: string): Option[] => [{ id: ALL, name: i18n.t('filterAll') }, ...filters(repo)];
 
@@ -131,13 +185,19 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     void browser.runtime.sendMessage(message);
   };
 
+  let pageChanged = false;
+
   const apply = () => {
     pending = null;
     if (ctx.isInvalid) return;
     const repo = page.repository();
     observe(Boolean(repo));
     panel.setVisible(Boolean(repo));
-    if (!repo) return;
+    if (!repo) {
+      if (pageChanged) restorePage();
+      pageChanged = false;
+      return;
+    }
 
     const options = optionsFor(repo);
     const ids = selectedIds(repo);
@@ -147,14 +207,21 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const selection = filtering ? selected.map((option) => option.id) : [ALL];
 
     const diffs: LoadedDiff[] = page.diffs().map((diff) => ({ path: diff.path, container: diff.container, stats: diff.stats() }));
-    const totals = totalsFor(diffs, matches);
+    const reported = page.reportedFileCount();
+    const totals = totalsFor(diffs, matches, reported);
     panel.renderOptions(options, selection);
-    for (const diff of diffs) show(diff.container, matches(diff.path));
-    filterTree(matches, filtering);
+    const shown: string[] = [];
+    for (const diff of diffs) {
+      const visible = matches(diff.path);
+      show(diff.container, visible);
+      if (visible) shown.push(diff.path);
+    }
+    filterTree(matches, filtering, shown);
     updatePageCounters(totals, filtering);
+    pageChanged = filtering;
     panel.renderStats(totals);
     panel.renderBreakdown(
-      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything) })),
+      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything, reported) })),
       selection,
     );
 
@@ -173,7 +240,11 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     else ctx.requestIdleCallback(apply, { timeout: IDLE_TIMEOUT_MS });
   };
 
-  const pageObserver = new MutationObserver(() => schedule('idle'));
+  /** New diffs get filtered on the next frame so they never flash in; any other change waits for idle time. */
+  const pageObserver = new MutationObserver((records) => {
+    const addsDiff = records.some((record) => [...record.addedNodes].some(page.containsDiff));
+    schedule(addsDiff ? 'frame' : 'idle');
+  });
   let observing = false;
   const observe = (active: boolean) => {
     if (active === observing) return;
@@ -203,6 +274,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
+    if (pageChanged) restorePage();
     if (!browser.runtime?.id) return;
     browser.runtime.onMessage.removeListener(onMessage);
     unwatchConfig();

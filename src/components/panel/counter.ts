@@ -1,6 +1,6 @@
 import { h } from '@/utils/dom';
 
-const COUNT_MS = 360;
+const COUNT_MS = 300;
 
 const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const easeOutExpo = (progress: number) => (progress === 1 ? 1 : 1 - 2 ** (-10 * progress));

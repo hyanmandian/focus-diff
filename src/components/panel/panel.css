@@ -272,6 +272,24 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+/* Fades and colour changes carry state, so they stay with reduced motion; movement does not. */
+.panel {
+  transition: opacity 200ms ease-out;
+}
+.breakdown {
+  transition: opacity 160ms ease-out;
+}
+@starting-style {
+  .panel,
+  .breakdown {
+    opacity: 0;
+  }
+}
+button {
+  transition:
+    background-color 120ms ease-out,
+    color 160ms ease-out;
+}
 @media (prefers-reduced-motion: no-preference) {
   .panel {
     transition:
@@ -280,7 +298,6 @@ button:focus-visible {
   }
   @starting-style {
     .panel {
-      opacity: 0;
       translate: 0 8px;
     }
   }
@@ -291,17 +308,11 @@ button:focus-visible {
   }
   @starting-style {
     .breakdown {
-      opacity: 0;
       translate: 0 6px;
     }
   }
   .indicator.ready {
     transition: clip-path 260ms var(--fd-ease);
-  }
-  button {
-    transition:
-      background-color 120ms ease-out,
-      color 160ms ease-out;
   }
 }
 @media (forced-colors: active) {

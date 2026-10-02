@@ -1,7 +1,7 @@
 <div align="center">
   <img src="store/logo/focus-diff-1024.png" width="112" alt="">
   <h1>Focus Diff</h1>
-  <p><strong>Review what matters.</strong><br>Filter GitHub pull request diffs down to the files you actually need to review.</p>
+  <p><strong>Review what matters.</strong><br>Filter GitHub pull request diffs down to the files you need to review.</p>
   <p>
     <a href="https://github.com/hyanmandian/focus-diff/actions/workflows/ci.yml"><img src="https://github.com/hyanmandian/focus-diff/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>

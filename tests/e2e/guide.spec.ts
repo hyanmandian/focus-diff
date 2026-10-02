@@ -125,7 +125,9 @@ test.describe('guided review', () => {
     const guide = new GuidePanel(page);
 
     await expect(guide.heading).toHaveText('Review guide');
-    await expect(guide.chapterItem('Book service')).toContainText('Core change');
+    await expect(guide.chapterItem('Book service')).toHaveAccessibleName(
+      'Chapter 1: Book service, Core change. 2 files, 25 lines added, 10 removed, ~5 min to review',
+    );
     expect(await pr.visiblePaths()).toHaveLength(8);
 
     await guide.primary.click();

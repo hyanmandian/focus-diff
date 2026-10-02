@@ -176,14 +176,6 @@
   color: var(--fd-muted);
   overflow-wrap: anywhere;
 }
-.chapter-item .title {
-  font-weight: 600;
-}
-.chapter-item .number {
-  font: 500 12px/20px var(--fd-mono);
-  color: var(--fd-muted);
-  margin-right: 6px;
-}
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -241,4 +233,45 @@
   .primary {
     border: 1px solid ButtonText;
   }
+}
+
+.guide-card .summary {
+  margin-bottom: 16px;
+}
+.chapters {
+  grid-template-columns: 16px minmax(0, 1fr) repeat(3, max-content);
+  max-height: none;
+  margin: 0 -8px;
+}
+.chapter-row .row-name {
+  font-weight: 600;
+}
+.chapter-row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.row-status {
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fd-muted);
+}
+.chapter-row.reviewed .row-status {
+  color: var(--fd-add);
+}
+.row-title {
+  display: grid;
+  min-width: 0;
+}
+.row-kind {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--fd-muted);
+}
+.row-kind.core {
+  color: var(--fd-accent);
+}
+.row-kind.consequence {
+  color: var(--fd-attention);
 }

@@ -27,7 +27,7 @@ export class GuidePanel {
   }
 
   chapterItem(title: string) {
-    return this.card.locator('.chapter-item', { hasText: title });
+    return this.card.locator('.chapter-row', { hasText: title });
   }
 
   note(text: string) {

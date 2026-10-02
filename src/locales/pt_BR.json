@@ -234,5 +234,7 @@
   "aiErrorNetwork": "Não foi possível falar com o provedor.",
   "aiErrorRate": "O provedor está limitando as requisições. Tente de novo daqui a pouco.",
   "aiErrorServer": "O provedor teve um problema. Tente de novo daqui a pouco.",
-  "aiErrorRequest": "O provedor recusou a requisição: $1"
+  "aiErrorRequest": "O provedor recusou a requisição: $1",
+  "guideColumnChapter": "Capítulo",
+  "guideChapterRow": "Capítulo $1: $2, $3. $4, $5 linhas adicionadas, $6 removidas, $7 de revisão"
 }

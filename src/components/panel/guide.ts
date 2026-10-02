@@ -1,7 +1,8 @@
 import { i18n } from '#i18n';
 import { pointAt } from '@/components/panel/popover';
+import { checkIcon, columns, lines } from '@/components/panel/table';
 import { h, icon } from '@/utils/dom';
-import { formatNumber as format } from '@/utils/format';
+import { formatDuration, formatNumber as format } from '@/utils/format';
 import type { FileStats } from '@/utils/github';
 import type { ChapterKind, Guide, GuideNote } from '@/utils/guide';
 import type { GuidePhase, GuideResponse } from '@/utils/messages';
@@ -180,45 +181,72 @@ export const createGuidePanel = (root: ShadowRoot, on: GuideActions): GuidePanel
         )
       : null;
 
+  const chapterTotals = (files: string[], view: ReadyView) =>
+    files.reduce(
+      (sum, path) => ({
+        additions: sum.additions + (view.fileStats[path]?.additions ?? 0),
+        deletions: sum.deletions + (view.fileStats[path]?.deletions ?? 0),
+      }),
+      { additions: 0, deletions: 0 },
+    );
+
+  const chapterRow = (chapter: Guide['chapters'][number], index: number, view: ReadyView) => {
+    const number = index + 1;
+    const reviewed = view.reviewed.includes(number);
+    const { additions, deletions } = chapterTotals(chapter.files, view);
+    const time = formatDuration(additions + deletions);
+    const files = i18n.t('fileCount', chapter.files.length, [format(chapter.files.length)]);
+    const label = i18n.t('guideChapterRow', [
+      number,
+      chapter.title,
+      kindLabel(chapter.kind),
+      files,
+      format(additions),
+      format(deletions),
+      time,
+    ]);
+    return h(
+      'button',
+      {
+        type: 'button',
+        className: `row chapter-row${reviewed ? ' reviewed' : ''}`,
+        'data-focus': `chapter:${number}`,
+        'aria-label': reviewed ? `${label}, ${i18n.t('guideReviewed')}` : label,
+        onClick: () => on.chapter(number),
+      },
+      h('span', { className: 'row-status' }, reviewed ? checkIcon() : String(number)),
+      h(
+        'span',
+        { className: 'row-title' },
+        h('span', { className: 'row-name', textContent: chapter.title }),
+        h('span', { className: `row-kind ${chapter.kind}`, textContent: kindLabel(chapter.kind) }),
+      ),
+      h('span', { className: 'row-files', textContent: format(chapter.files.length) }),
+      lines(additions, deletions, format),
+      h('span', { className: 'row-time', textContent: time }),
+    );
+  };
+
   const overview = (view: ReadyView) => {
     const { guide } = view;
-    const items = guide.chapters.map((chapter, index) =>
-      h(
-        'li',
-        {},
-        h(
-          'button',
-          { type: 'button', className: 'item chapter-item', 'data-focus': `chapter:${index + 1}`, onClick: () => on.chapter(index + 1) },
-          h(
-            'span',
-            {},
-            h('span', { className: 'number', textContent: `${index + 1}.` }),
-            ' ',
-            h('span', { className: 'title', textContent: chapter.title }),
-            h('span', { className: `kind ${chapter.kind} small`, textContent: ` · ${kindLabel(chapter.kind)}` }),
-          ),
-          separator(),
-          h(
-            'span',
-            { className: 'meta' },
-            i18n.t('fileCount', chapter.files.length, [format(chapter.files.length)]),
-            ...(view.reviewed.includes(index + 1)
-              ? [svg('check', 14), h('span', { className: 'visually-hidden', textContent: i18n.t('guideReviewed') })]
-              : []),
-          ),
-        ),
-      ),
-    );
     const meta = [i18n.t('guideWrittenBy', [view.model])];
     if (view.omitted) meta.push(i18n.t('guideOmitted', [format(view.omitted)]));
+    const labels = [i18n.t('guideColumnChapter'), i18n.t('panelColumnFiles'), i18n.t('panelColumnLines'), i18n.t('panelColumnTime')];
     return [
       staleBanner(view),
       heading(i18n.t('guideHeading')),
-      guide.summary ? h('p', { textContent: guide.summary }) : null,
-      h('h3', { textContent: i18n.t('guideChapters') }),
-      h('ol', {}, ...items),
-      actions(button(i18n.t('guideBegin'), () => on.chapter(1), 'primary', { 'data-focus': 'begin' })),
-      h('p', { className: 'muted small meta-line', textContent: meta.join(' · ') }),
+      guide.summary ? h('p', { className: 'summary', textContent: guide.summary }) : null,
+      h(
+        'div',
+        { className: 'rows chapters' },
+        columns(labels),
+        ...guide.chapters.map((chapter, index) => chapterRow(chapter, index, view)),
+      ),
+      actions(
+        h('span', { className: 'muted small', textContent: meta.join(' · ') }),
+        h('span', { className: 'spacer' }),
+        button(i18n.t('guideBegin'), () => on.chapter(1), 'primary', { 'data-focus': 'begin' }),
+      ),
     ];
   };
 
@@ -317,7 +345,7 @@ export const createGuidePanel = (root: ShadowRoot, on: GuideActions): GuidePanel
       const total = view.guide.chapters.length;
       previous.disabled = view.chapter === 0;
       next.disabled = view.chapter === total;
-      titleStep.textContent = view.chapter === 0 ? i18n.t('guideOverview') : `${view.chapter}/${total}`;
+      titleStep.textContent = view.chapter === 0 ? '' : `${view.chapter}/${total}`;
       titleText.textContent = view.chapter === 0 ? i18n.t('guideHeading') : (view.guide.chapters[view.chapter - 1]?.title ?? '');
       dots.replaceChildren(
         ...view.guide.chapters.map((_, index) =>

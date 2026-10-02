@@ -234,5 +234,7 @@
   "aiErrorNetwork": "Couldn't reach the provider.",
   "aiErrorRate": "The provider is limiting requests. Try again in a moment.",
   "aiErrorServer": "The provider had a problem. Try again in a moment.",
-  "aiErrorRequest": "The provider rejected the request: $1"
+  "aiErrorRequest": "The provider rejected the request: $1",
+  "guideColumnChapter": "Chapter",
+  "guideChapterRow": "Chapter $1: $2, $3. $4, $5 lines added, $6 removed, $7 to review"
 }

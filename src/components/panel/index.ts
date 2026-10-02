@@ -2,6 +2,7 @@ import { i18n } from '#i18n';
 import { counter } from '@/components/panel/counter';
 import { createGuidePanel, type GuideActions, type GuideView } from '@/components/panel/guide';
 import { pointAt } from '@/components/panel/popover';
+import { checkIcon, columns, lines } from '@/components/panel/table';
 import { h, icon } from '@/utils/dom';
 import { formatDuration, formatNumber as format, LINES_PER_HOUR } from '@/utils/format';
 
@@ -167,31 +168,6 @@ export const createPanel = (
 
   let breakdownSource: { rows: () => BreakdownRow[]; selected: string[] } = { rows: () => [], selected: [] };
   let drawnKey = '';
-  const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
-
-  /** GitHub's five-square diffstat: the share of added and removed lines. */
-  const diffstat = (additions: number, deletions: number) => {
-    const total = additions + deletions;
-    const added = total ? Math.round((additions / total) * 5) : 0;
-    const removed = total ? Math.min(5 - added, Math.round((deletions / total) * 5)) : 0;
-    return h(
-      'span',
-      { className: 'diffstat', 'aria-hidden': 'true' },
-      ...Array.from({ length: 5 }, (_, index) => h('span', { className: index < added ? 'add' : index < added + removed ? 'del' : '' })),
-    );
-  };
-
-  const columns = () =>
-    h(
-      'div',
-      { className: 'columns', 'aria-hidden': 'true' },
-      h('span'),
-      h('span', { textContent: i18n.t('panelColumnFilter') }),
-      h('span', { textContent: i18n.t('panelColumnFiles') }),
-      h('span', { textContent: i18n.t('panelColumnLines') }),
-      h('span', { textContent: i18n.t('panelColumnTime') }),
-    );
-
   const breakdownRow = (row: BreakdownRow, selected: boolean) => {
     const time = formatDuration(row.additions + row.deletions);
     return h(
@@ -213,13 +189,7 @@ export const createPanel = (
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: row.name }),
       h('span', { className: 'row-files', textContent: format(row.visible) }),
-      h(
-        'span',
-        { className: 'row-lines' },
-        h('span', { className: 'additions', textContent: `+${format(row.additions)}` }),
-        h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` }),
-        diffstat(row.additions, row.deletions),
-      ),
+      lines(row.additions, row.deletions, format),
       h('span', { className: 'row-time', textContent: time }),
     );
   };
@@ -232,7 +202,8 @@ export const createPanel = (
     if (key === drawnKey) return;
     drawnKey = key;
     const keepFocus = focused()?.dataset.row;
-    breakdownRows.replaceChildren(columns(), ...rows.map((row) => breakdownRow(row, selected.includes(row.id))));
+    const labels = [i18n.t('panelColumnFilter'), i18n.t('panelColumnFiles'), i18n.t('panelColumnLines'), i18n.t('panelColumnTime')];
+    breakdownRows.replaceChildren(columns(labels), ...rows.map((row) => breakdownRow(row, selected.includes(row.id))));
     if (keepFocus) breakdownRows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
   };
 

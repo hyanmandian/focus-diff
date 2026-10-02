@@ -2,7 +2,7 @@ import './stats.css';
 import { i18n } from '#i18n';
 import { doneIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatDuration, formatNumber as format } from '@/utils/format';
+import { formatClock, formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
 import { counter } from './counter';
 
@@ -28,7 +28,10 @@ export const createStats = () => {
   const totalFiles = counter('total', format);
   const additions = counter('additions', (n) => `+${format(n)}`);
   const deletions = counter('deletions', (n) => `−${format(n)}`);
-  const time = counter('time', (seconds) => (seconds === 0 ? '–' : formatDuration(seconds / 60)));
+  const time = counter('time', (seconds) => (seconds === 0 ? '–' : formatClock(seconds / 60)));
+  // The clock is for the eye; screen readers hear the estimate in words.
+  time.element.setAttribute('aria-hidden', 'true');
+  const timeWords = h('span', { className: 'visually-hidden' });
   const done = h('span', { className: 'done' }, doneIcon(), i18n.t('timeDone'));
   const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
   const pendingText = h('span', { className: 'visually-hidden' });
@@ -52,33 +55,23 @@ export const createStats = () => {
       deletions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
     ),
-    h('span', { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeLabel, done),
+    h('span', { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeWords, timeLabel, done),
   );
 
   /**
-   * Each number keeps a slot as wide as it is with every file shown, the most it can be in this pull request. Fewer
-   * files shown leave a little room inside each slot rather than a gap at the end, and the bar keeps its width.
+   * The numbers are monospaced, and each keeps as many character cells as it has with every file shown, the most it can
+   * have in this pull request. They count and change inside their cells, so nothing beside them moves.
    */
-  const ruler = h('span', { className: 'number ruler', 'aria-hidden': 'true' });
-  element.append(ruler);
-  const widthOf = (text: string) => {
-    ruler.textContent = text;
-    return Math.ceil(ruler.getBoundingClientRect().width);
-  };
   let slotsFor = '';
   const sizeSlots = (all: Totals) => {
+    const cells = (element: HTMLElement, widest: string) => (element.style.minWidth = `${widest.length}ch`);
     const key = `${all.total} ${all.additions} ${all.deletions} ${Math.round(all.minutes)}`;
-    // Measuring needs the stylesheet, which WXT injects a moment after the panel is created.
-    if (key === slotsFor || getComputedStyle(ruler).position !== 'absolute') return;
-    const files = widthOf(format(all.total));
-    // Hidden, nothing can be measured yet.
-    if (!files) return;
+    if (key === slotsFor) return;
     slotsFor = key;
-    visibleFiles.element.style.minWidth = `${files}px`;
-    additions.element.style.minWidth = `${widthOf(`+${format(all.additions)}`)}px`;
-    deletions.element.style.minWidth = `${widthOf(`−${format(all.deletions)}`)}px`;
-    time.element.style.minWidth = `${widthOf(formatDuration(all.minutes))}px`;
-    ruler.textContent = '';
+    cells(visibleFiles.element, format(all.total));
+    cells(additions.element, `+${format(all.additions)}`);
+    cells(deletions.element, `−${format(all.deletions)}`);
+    cells(time.element, formatClock(all.minutes));
   };
 
   /** `all` is the same with every file shown, which sizes the slots. */
@@ -91,6 +84,7 @@ export const createStats = () => {
     time.set(Math.round(totals.minutesLeft * 60));
     // Every shown file is marked as viewed: the time left gives way to a badge.
     element.toggleAttribute('data-done', isDone(totals));
+    timeWords.textContent = totals.minutesLeft === 0 ? '' : formatDuration(totals.minutesLeft);
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
     // Files not loaded yet are told in the numbers' tooltip, and read out with them.
     const notLoaded = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';

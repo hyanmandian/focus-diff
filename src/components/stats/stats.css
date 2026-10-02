@@ -27,11 +27,8 @@
 }
 .stats .number {
   justify-items: end;
-}
-/* Measures numbers for their slots, unseen. */
-.ruler {
-  position: absolute;
-  visibility: hidden;
+  font-family: var(--fd-mono);
+  font-size: 12px;
 }
 .stats[data-done] .time,
 .stats:not([data-done]) .done {

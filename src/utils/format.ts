@@ -17,3 +17,9 @@ export const formatDuration = (minutes: number): string => {
   const rest = rounded % 60;
   return rest ? i18n.t('timeHoursMinutes', [hours, rest]) : i18n.t('timeHours', [hours]);
 };
+
+/** The same estimate as a clock, h:mm, for the panel's fixed-width digits. Anything under a minute shows as 0:01. */
+export const formatClock = (minutes: number): string => {
+  const rounded = minutes < 60 ? Math.max(1, Math.round(minutes)) : Math.round(minutes / 5) * 5;
+  return `${Math.floor(rounded / 60)}:${String(rounded % 60).padStart(2, '0')}`;
+};

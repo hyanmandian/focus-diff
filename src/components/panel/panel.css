@@ -319,20 +319,6 @@ button:focus-visible {
   padding-left: 8px;
   border-left: 1px solid var(--fd-border);
 }
-.next-unviewed {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px 0 10px;
-  font-weight: 500;
-}
-.next-unviewed:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.next-unviewed:disabled:hover {
-  background: transparent;
-}
 .option-count:empty {
   display: none;
 }

@@ -155,8 +155,6 @@
   "panelColumnViewed": "Viewed",
   "timeDone": "Done",
   "timeLeft": "$1 left to review",
-  "panelNextUnviewed": "Next unviewed, $1 left",
-  "panelAllViewed": "Next unviewed, every shown file is viewed",
   "panelComments": "Conversations",
   "panelPreviousComment": "Previous conversation",
   "panelNextComment": "Next conversation",
@@ -165,14 +163,10 @@
     "1": "1 conversation",
     "n": "$1 conversations"
   },
-  "commandNextUnviewed": "Go to the next unviewed file",
   "commandNextComment": "Go to the next conversation",
   "commandPreviousComment": "Go to the previous conversation",
-  "panelNoMoreUnviewed": "Every shown file is viewed.",
-  "panelJumpedToFile": "$1, $2 unviewed left.",
   "panelJumpedToComment": "Conversation $1 of $2, in $3.",
   "panelTimeInfo": "How review time is estimated",
-  "panelNextUnviewedLabel": "Next unviewed",
   "panelStateWaiting": "Waiting on you",
   "panelStateAnswered": "Answered",
   "panelStateResolved": "Resolved"

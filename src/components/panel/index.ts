@@ -34,8 +34,6 @@ export interface Conversation {
 }
 
 export interface Navigation {
-  /** Shown files not yet marked as viewed. */
-  unviewed: number;
   /** Conversations in the shown files, and which one the reader last jumped to (1-based, 0 before the first jump). */
   comments: { current: number; list: Conversation[] };
 }
@@ -45,7 +43,6 @@ export interface BreakdownRow extends PanelOption, Totals {}
 export interface PanelActions {
   onToggle: (id: string) => void;
   onSettings: () => void;
-  onNextUnviewed: () => void;
   onComment: (step: 1 | -1) => void;
 }
 
@@ -90,10 +87,7 @@ interface PanelMount {
   signal: AbortSignal;
 }
 
-export const createPanel = (
-  { root, container, host, signal }: PanelMount,
-  { onToggle, onSettings, onNextUnviewed, onComment }: PanelActions,
-): Panel => {
+export const createPanel = ({ root, container, host, signal }: PanelMount, { onToggle, onSettings, onComment }: PanelActions): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
   const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
@@ -130,12 +124,6 @@ export const createPanel = (
     h('span', { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) }, time.element, timeLabel),
   );
 
-  const nextUnviewed = h(
-    'button',
-    { type: 'button', className: 'next-unviewed', onClick: () => onNextUnviewed() },
-    h('span', { className: 'next-unviewed-label', textContent: i18n.t('panelNextUnviewedLabel') }),
-    h('span', { className: 'option-count', 'aria-hidden': 'true' }),
-  );
   // One button walks forward through the conversations; going back only appears once there's somewhere to go back to.
   const commentsCount = h('span', { className: 'option-count', 'aria-hidden': 'true' });
   const comments = h(
@@ -176,7 +164,7 @@ export const createPanel = (
     h('span', { className: 'conversation-steps' }, step(-1), step(1)),
   );
   // Like the breakdown, the conversations popover follows its toggle and is positioned against the host.
-  const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments, conversations);
+  const navigation = h('div', { className: 'navigation' }, comments, conversations);
 
   const breakdownRows = h('div', { className: 'rows' });
   const timeInfo = h('div', {
@@ -538,13 +526,7 @@ export const createPanel = (
     pendingText.textContent = pending.title ? ` ${pending.title}` : '';
   };
 
-  const renderNavigation = ({ unviewed, comments: conversationState }: Navigation) => {
-    const unviewedLabel = unviewed ? i18n.t('panelNextUnviewed', [format(unviewed)]) : i18n.t('panelAllViewed');
-    nextUnviewed.setAttribute('aria-label', unviewedLabel);
-    nextUnviewed.title = unviewedLabel;
-    nextUnviewed.disabled = unviewed === 0;
-    const count = nextUnviewed.querySelector('.option-count');
-    if (count) count.textContent = unviewed ? format(unviewed) : '';
+  const renderNavigation = ({ comments: conversationState }: Navigation) => {
     const total = conversationState.list.length;
     comments.hidden = total === 0;
     if (!total) setConversationsOpen(false);

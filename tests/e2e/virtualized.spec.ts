@@ -3,12 +3,6 @@ import { PullRequestPage } from './pages/pull-request';
 
 /** GitHub's newer diff view: the page embeds every file as JSON and only renders the files near the screen. */
 test.describe('newer, virtualized diff view', () => {
-  const regionTop = (pr: PullRequestPage, path: string) =>
-    pr.page.evaluate((target) => {
-      const heading = [...document.querySelectorAll('h3')].find((element) => element.textContent?.includes(target));
-      return heading ? Math.round(heading.closest('[role="region"]')!.getBoundingClientRect().top) : null;
-    }, path);
-
   test('counts every file from the embedded data, not only the rendered ones', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     expect(await pr.page.locator('[role="region"]').count()).toBeLessThan(8);
@@ -25,15 +19,6 @@ test.describe('newer, virtualized diff view', () => {
     const frontend = pr.page.locator('[role="region"]', { hasText: 'web/src/book-card.tsx' }).locator('xpath=..');
     await expect(frontend).toHaveCSS('opacity', '0.35');
     await expect(frontend).toBeVisible();
-  });
-
-  test('opens unrendered files to reach the next unviewed one', async ({ openPullRequest }) => {
-    const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
-    await pr.pick('Backend');
-    const next = pr.panel.locator('.next-unviewed');
-    await next.click();
-    await expect(pr.status).toHaveText('api/books/service.py, 3 unviewed left.');
-    await expect.poll(() => regionTop(pr, 'api/books/service.py')).toBeLessThan(120);
   });
 
   test('takes viewed files from the embedded data and the toggles', async ({ openPullRequest }) => {

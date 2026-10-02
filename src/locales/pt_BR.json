@@ -155,8 +155,6 @@
   "panelColumnViewed": "Vistos",
   "timeDone": "Pronto",
   "timeLeft": "Faltam $1 de revisão",
-  "panelNextUnviewed": "Próximo não visto, faltam $1",
-  "panelAllViewed": "Próximo não visto, todos os arquivos mostrados foram vistos",
   "panelComments": "Conversas",
   "panelPreviousComment": "Conversa anterior",
   "panelNextComment": "Próxima conversa",
@@ -165,14 +163,10 @@
     "1": "1 conversa",
     "n": "$1 conversas"
   },
-  "commandNextUnviewed": "Ir para o próximo arquivo não visto",
   "commandNextComment": "Ir para a próxima conversa",
   "commandPreviousComment": "Ir para a conversa anterior",
-  "panelNoMoreUnviewed": "Todos os arquivos mostrados foram vistos.",
-  "panelJumpedToFile": "$1, faltam $2 não vistos.",
   "panelJumpedToComment": "Conversa $1 de $2, em $3.",
   "panelTimeInfo": "Como o tempo de revisão é estimado",
-  "panelNextUnviewedLabel": "Próximo não visto",
   "panelStateWaiting": "Aguardando você",
   "panelStateAnswered": "Respondida",
   "panelStateResolved": "Resolvida"

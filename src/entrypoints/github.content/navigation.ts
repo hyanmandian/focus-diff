@@ -4,7 +4,6 @@ import * as page from '@/utils/github';
 import type { FileInfo } from './files';
 
 const RENDER_TIMEOUT_MS = 2000;
-const TOP_OF_SCREEN_PX = 110;
 
 const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
   new Promise((resolve) => {
@@ -31,29 +30,9 @@ const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
   return waitFor(() => page.diffByDigest(file.digest));
 };
 
-/** The file at the top of the screen, or -1 before the first one. */
-const currentIndex = (files: FileInfo[]): number => {
-  if (scrollY < 10) return -1;
-  return files.findLastIndex((file) => {
-    const box = file.diff?.element.isConnected ? file.diff.container.getBoundingClientRect() : null;
-    return box !== null && box.top <= TOP_OF_SCREEN_PX;
-  });
-};
-
 export const createNavigation = (panel: Panel, schedule: () => void) => {
   /** 1-based position of the conversation the reader last jumped to, 0 before any jump. */
   let commentIndex = 0;
-
-  const nextUnviewed = async (shown: FileInfo[]) => {
-    const start = currentIndex(shown);
-    const order = [...shown.slice(start + 1), ...shown.slice(0, start + 1)];
-    const target = order.find((file) => !file.viewed);
-    if (!target) return panel.announceText(i18n.t('panelNoMoreUnviewed'));
-    const element = await goToFile(target);
-    if (element) page.flash(element);
-    const left = shown.filter((file) => !file.viewed).length;
-    panel.announceText(i18n.t('panelJumpedToFile', [target.path, String(left)]));
-  };
 
   /** Conversations known from GitHub's data, in file order then line order. */
   const knownThreads = (shown: FileInfo[]) => shown.flatMap((file) => file.threads.map((thread) => ({ file, thread })));
@@ -132,7 +111,6 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
   };
 
   return {
-    nextUnviewed,
     comment: step,
     position: (shown: FileInfo[], complete: boolean) => {
       const list = conversations(shown, complete);

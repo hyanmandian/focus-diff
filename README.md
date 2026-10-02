@@ -23,7 +23,6 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Combine filters.** Turn on as many as you like, like _Frontend + Docs_. Turn them all off and you're back on **All**.
 - **See where the changes are.** The breakdown shows, per filter, how many files you've marked as viewed, the lines changed and the time left.
 - **Review time left.** An estimate next to the line totals, from about 400 changed lines per hour, that drops as you mark files as viewed.
-- **Next unviewed.** Jump to the next file you haven't marked as viewed, even in large pull requests where GitHub hasn't rendered it yet.
 - **Conversations.** Step through review threads one by one. Each shows its file and line, and whether it's waiting on you, answered or resolved.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
 - **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.
@@ -51,7 +50,6 @@ They're regular filters, so you can rename or tweak them later. The welcome page
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>.</kbd> | Next filter     |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>,</kbd> | Previous filter |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>0</kbd> | Show all files  |
-| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd> | Next unviewed   |
 
 On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensions/shortcuts`, or in Firefox under `about:addons` → gear → _Manage Extension Shortcuts_.
 

@@ -117,7 +117,6 @@ const memoize = (matches: Matcher): Matcher => {
 export interface Controller {
   toggle: (id: string) => void;
   openSettings: () => void;
-  nextUnviewed: () => void;
   comment: (step: 1 | -1) => void;
 }
 
@@ -180,7 +179,6 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   let files: Files = { list: [], complete: false };
   let shown: FileInfo[] = [];
   const navigation = createNavigation(panel, () => schedule());
-  const nextUnviewed = () => void navigation.nextUnviewed(shown);
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
 
   const apply = () => {
@@ -227,7 +225,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       selectionKey = key;
       navigation.reset();
     }
-    panel.renderNavigation({ unviewed: shown.filter((file) => !file.viewed).length, comments: navigation.position(shown, files.complete) });
+    panel.renderNavigation({ comments: navigation.position(shown, files.complete) });
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
     panel.renderStats(totals);
@@ -287,7 +285,6 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (message.command === 'next-filter') step(1);
     if (message.command === 'previous-filter') step(-1);
     if (message.command === 'show-all') select(ALL);
-    if (message.command === 'next-unviewed') nextUnviewed();
     if (message.command === 'next-comment') comment(1);
     if (message.command === 'previous-comment') comment(-1);
   };
@@ -314,5 +311,5 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
 
   schedule();
-  return { toggle, openSettings, nextUnviewed, comment };
+  return { toggle, openSettings, comment };
 };

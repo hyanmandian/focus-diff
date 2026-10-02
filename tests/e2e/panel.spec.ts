@@ -116,31 +116,6 @@ test.describe('panel on a pull request', () => {
     await expect(pr.option('Backend')).toHaveAccessibleName('Backend 3 files');
   });
 
-  test('jumps to the next unviewed file in the filter', async ({ openPullRequest }) => {
-    const pr = new PullRequestPage(await openPullRequest());
-    const next = pr.panel.locator('.next-unviewed');
-    await pr.pick('Backend');
-    await expect(next).toHaveAccessibleName('Next unviewed, 3 left');
-    await next.click();
-    await expect(pr.status).toHaveText('api/books/service.py, 3 unviewed left.');
-    await expect
-      .poll(() => pr.page.evaluate(() => Math.round(document.getElementById('diff-3')!.getBoundingClientRect().top)))
-      .toBeLessThan(120);
-
-    await pr.page
-      .locator('[data-diff-header-wrapper]', { hasText: 'api/books/service.py' })
-      .getByRole('button', { name: 'Viewed' })
-      .click();
-    await expect(next).toHaveAccessibleName('Next unviewed, 2 left');
-    await next.click();
-    await expect(pr.status).toHaveText('api/books/__init__.py, 2 unviewed left.');
-
-    await pr.pick('Docs');
-    await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
-    await expect(next).toBeDisabled();
-    await expect(next).toHaveAccessibleName('Next unviewed, every shown file is viewed');
-  });
-
   test('steps through the conversations in the shown files', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     const comments = pr.panel.locator('.comments');

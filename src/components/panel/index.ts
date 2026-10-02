@@ -28,7 +28,8 @@ export interface PanelActions {
 export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
   renderStats: (totals: Totals) => void;
-  renderBreakdown: (rows: BreakdownRow[], selected: string[]) => void;
+  /** Rows are only computed while the breakdown is open. */
+  renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
   announce: (summary: Totals & { name: string }) => void;
   setVisible: (visible: boolean) => void;
   reset: () => void;
@@ -91,10 +92,10 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const breakdownRows = h('div', { className: 'rows' });
   const breakdown = h(
     'div',
-    { className: 'breakdown popover', id: 'focus-diff-breakdown', hidden: true },
-    h('h2', { textContent: i18n.t('panelBreakdownHeading') }),
+    { className: 'breakdown popover', id: 'focus-diff-breakdown', hidden: true, 'aria-labelledby': 'focus-diff-breakdown-heading' },
+    h('h2', { id: 'focus-diff-breakdown-heading', textContent: i18n.t('panelBreakdownHeading') }),
     breakdownRows,
-    h('p', { className: 'hint', textContent: i18n.t('panelCombineHint') }),
+    h('p', { className: 'hint' }, i18n.t('panelCombineHint'), h('br'), i18n.t('timeHint', [LINES_PER_HOUR])),
   );
   const breakdownToggle = h(
     'button',
@@ -153,45 +154,74 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     if (!event.shiftKey && next.dataset.id) onSelect(next.dataset.id);
   });
 
-  let breakdownData: { rows: BreakdownRow[]; selected: string[] } = { rows: [], selected: [] };
+  let breakdownSource: { rows: () => BreakdownRow[]; selected: string[] } = { rows: () => [], selected: [] };
   let drawnKey = '';
-  const drawBreakdown = () => {
-    const key = JSON.stringify(breakdownData);
-    if (breakdown.hidden || key === drawnKey) return;
-    drawnKey = key;
-    const { rows, selected } = breakdownData;
-    const widest = Math.max(1, ...rows.map((row) => row.additions + row.deletions));
-    const keepFocus = focused()?.dataset.row;
-    breakdownRows.replaceChildren(
-      ...rows.map((row) => {
-        const bar = h('span', { className: 'bar' });
-        bar.style.width = `${Math.max(4, ((row.additions + row.deletions) / widest) * 100)}%`;
-        const cells = [
-          h('span', { textContent: row.name }),
-          h('span', { className: 'metric', textContent: i18n.t('fileCount', row.visible, [format(row.visible)]) }),
-          h(
-            'span',
-            { className: 'metric' },
-            h('span', { className: 'additions', textContent: `+${format(row.additions)}` }),
-            ' ',
-            h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` }),
-          ),
-          h('span', { className: 'metric', textContent: formatDuration(row.additions + row.deletions) }),
-        ];
-        return h(
-          'button',
-          {
-            type: 'button',
-            className: 'row',
-            'data-row': row.id,
-            'aria-pressed': String(selected.includes(row.id)),
-            onClick: (event: MouseEvent) => pick(row.id, event),
-          },
-          ...cells.flatMap((cell) => [cell, h('span', { className: 'visually-hidden', textContent: ', ' })]).slice(0, -1),
-          h('span', { 'aria-hidden': 'true' }, bar),
-        );
-      }),
+  const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
+
+  /** GitHub's five-square diffstat: the share of added and removed lines. */
+  const diffstat = (additions: number, deletions: number) => {
+    const total = additions + deletions;
+    const added = total ? Math.round((additions / total) * 5) : 0;
+    const removed = total ? Math.min(5 - added, Math.round((deletions / total) * 5)) : 0;
+    return h(
+      'span',
+      { className: 'diffstat', 'aria-hidden': 'true' },
+      ...Array.from({ length: 5 }, (_, index) => h('span', { className: index < added ? 'add' : index < added + removed ? 'del' : '' })),
     );
+  };
+
+  const columns = () =>
+    h(
+      'div',
+      { className: 'columns', 'aria-hidden': 'true' },
+      h('span'),
+      h('span', { textContent: i18n.t('panelColumnFilter') }),
+      h('span', { textContent: i18n.t('panelColumnFiles') }),
+      h('span', { textContent: i18n.t('panelColumnLines') }),
+      h('span', { textContent: i18n.t('panelColumnTime') }),
+    );
+
+  const breakdownRow = (row: BreakdownRow, selected: boolean) => {
+    const time = formatDuration(row.additions + row.deletions);
+    return h(
+      'button',
+      {
+        type: 'button',
+        className: 'row',
+        'data-row': row.id,
+        'aria-pressed': String(selected),
+        'aria-label': i18n.t('panelBreakdownRow', [
+          row.name,
+          i18n.t('fileCount', row.visible, [format(row.visible)]),
+          format(row.additions),
+          format(row.deletions),
+          time,
+        ]),
+        onClick: (event: MouseEvent) => pick(row.id, event),
+      },
+      h('span', { className: 'row-check' }, selected ? checkIcon() : null),
+      h('span', { className: 'row-name', textContent: row.name }),
+      h('span', { className: 'row-files', textContent: format(row.visible) }),
+      h(
+        'span',
+        { className: 'row-lines' },
+        h('span', { className: 'additions', textContent: `+${format(row.additions)}` }),
+        h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` }),
+        diffstat(row.additions, row.deletions),
+      ),
+      h('span', { className: 'row-time', textContent: time }),
+    );
+  };
+
+  const drawBreakdown = () => {
+    if (breakdown.hidden) return;
+    const rows = breakdownSource.rows();
+    const { selected } = breakdownSource;
+    const key = JSON.stringify([rows, selected]);
+    if (key === drawnKey) return;
+    drawnKey = key;
+    const keepFocus = focused()?.dataset.row;
+    breakdownRows.replaceChildren(columns(), ...rows.map((row) => breakdownRow(row, selected.includes(row.id))));
     if (keepFocus) breakdownRows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
   };
 
@@ -264,8 +294,8 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     moveIndicator();
   };
 
-  const renderBreakdown = (rows: BreakdownRow[], selected: string[]) => {
-    breakdownData = { rows, selected };
+  const renderBreakdown = (rows: () => BreakdownRow[], selected: string[]) => {
+    breakdownSource = { rows, selected };
     drawBreakdown();
   };
 

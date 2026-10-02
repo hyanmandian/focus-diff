@@ -63,9 +63,11 @@ test.describe('panel on a pull request', () => {
       'the arrow points at the button',
     ).toBeLessThan(2);
     await expect(pr.breakdownRows.first()).toHaveAttribute('aria-pressed', 'true');
-    await expect(pr.breakdownRows.first()).toContainText('8 files');
-    await expect(pr.breakdownRows.nth(1)).toContainText('1 file');
-    await expect(pr.breakdownRows.nth(1)).toContainText('~8 min');
+    await expect(pr.breakdownRows.first()).toHaveAccessibleName('All: 8 files, 120 lines added, 30 removed, ~23 min to review');
+    await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 40 lines added, 10 removed, ~8 min to review');
+    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~8 min');
+    await expect(pr.breakdownRows.first().locator('.diffstat .add')).toHaveCount(4);
+    await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
 
     await pr.breakdownRows.nth(1).click();
     await expect(pr.pressed).toHaveText(['Frontend']);

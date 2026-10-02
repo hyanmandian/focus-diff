@@ -21,7 +21,8 @@ interface LoadedDiff {
   stats: FileStats | null;
 }
 
-const APPLY_DELAY_MS = 50;
+/** GitHub keeps rendering while a pull request loads; page changes wait for idle time, at most this long. */
+const IDLE_TIMEOUT_MS = 200;
 const everything: Matcher = () => true;
 
 const show = (element: HTMLElement, visible: boolean) => {
@@ -85,7 +86,7 @@ export interface Controller {
 export const startController = async (ctx: ContentScriptContext, panel: Panel): Promise<Controller> => {
   let config: Config = await loadConfig();
   let selections: Selections = await selectionsItem.getValue();
-  let scheduled = false;
+  let pending: 'frame' | 'idle' | null = null;
   let announceNext = false;
 
   const filters = (repo: string) =>
@@ -131,7 +132,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   };
 
   const apply = () => {
-    scheduled = false;
+    pending = null;
     if (ctx.isInvalid) return;
     const repo = page.repository();
     observe(Boolean(repo));
@@ -153,7 +154,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     updatePageCounters(totals, filtering);
     panel.renderStats(totals);
     panel.renderBreakdown(
-      options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything) })),
+      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(diffs, option.matches ?? everything) })),
       selection,
     );
 
@@ -164,13 +165,15 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     }
   };
 
-  const schedule = () => {
-    if (scheduled || ctx.isInvalid) return;
-    scheduled = true;
-    ctx.setTimeout(apply, APPLY_DELAY_MS);
+  /** Reader actions apply on the next frame; changes GitHub makes to the page wait for idle time. */
+  const schedule = (when: 'frame' | 'idle' = 'frame') => {
+    if (ctx.isInvalid || pending === 'frame' || pending === when) return;
+    pending = when;
+    if (when === 'frame') ctx.requestAnimationFrame(apply);
+    else ctx.requestIdleCallback(apply, { timeout: IDLE_TIMEOUT_MS });
   };
 
-  const pageObserver = new MutationObserver(schedule);
+  const pageObserver = new MutationObserver(() => schedule('idle'));
   let observing = false;
   const observe = (active: boolean) => {
     if (active === observing) return;
@@ -197,7 +200,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     schedule();
   });
 
-  ctx.addEventListener(window, 'wxt:locationchange', schedule);
+  ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
     if (!browser.runtime?.id) return;

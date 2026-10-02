@@ -142,5 +142,10 @@
   "fileCount": {
     "1": "1 arquivo",
     "n": "$1 arquivos"
-  }
+  },
+  "panelColumnFilter": "Filtro",
+  "panelColumnFiles": "Arquivos",
+  "panelColumnLines": "Linhas",
+  "panelColumnTime": "Revisão",
+  "panelBreakdownRow": "$1: $2, $3 linhas adicionadas, $4 removidas, $5 de revisão"
 }

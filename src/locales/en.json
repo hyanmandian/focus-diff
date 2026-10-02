@@ -11,9 +11,15 @@
   "panelLinesRemoved": "lines removed",
   "panelSettings": "Focus Diff settings",
   "panelSetUp": "Set up filters",
-  "panelNotLoaded": "$1 files not loaded yet, so line counts are partial",
+  "panelNotLoaded": {
+    "1": "1 file not loaded yet, so line counts are partial",
+    "n": "$1 files not loaded yet, so line counts are partial"
+  },
   "panelAnnounce": "$1: $2 of $3 files, $4 lines added, $5 removed.",
-  "panelAnnouncePartial": "$1 of them haven't loaded yet, so line counts are partial.",
+  "panelAnnouncePartial": {
+    "1": "1 of them hasn't loaded yet, so line counts are partial.",
+    "n": "$1 of them haven't loaded yet, so line counts are partial."
+  },
   "optionsTitle": "Focus Diff settings",
   "skipToFilters": "Skip to filters",
   "optionsTagline": "Each filter becomes a button on the Files changed tab of a pull request.",

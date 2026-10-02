@@ -11,9 +11,15 @@
   "panelLinesRemoved": "linhas removidas",
   "panelSettings": "Configurações do Focus Diff",
   "panelSetUp": "Configurar filtros",
-  "panelNotLoaded": "$1 arquivos ainda não carregaram, então a contagem de linhas é parcial",
+  "panelNotLoaded": {
+    "1": "1 arquivo ainda não carregou, então a contagem de linhas é parcial",
+    "n": "$1 arquivos ainda não carregaram, então a contagem de linhas é parcial"
+  },
   "panelAnnounce": "$1: $2 de $3 arquivos, $4 linhas adicionadas, $5 removidas.",
-  "panelAnnouncePartial": "$1 deles ainda não carregaram, então a contagem de linhas é parcial.",
+  "panelAnnouncePartial": {
+    "1": "1 deles ainda não carregou, então a contagem de linhas é parcial.",
+    "n": "$1 deles ainda não carregaram, então a contagem de linhas é parcial."
+  },
   "optionsTitle": "Configurações do Focus Diff",
   "skipToFilters": "Pular para os filtros",
   "optionsTagline": "Cada filtro vira um botão na aba Files changed de um pull request.",

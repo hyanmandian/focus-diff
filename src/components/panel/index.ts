@@ -533,7 +533,7 @@ export const createPanel = (
     time.set(Math.round(totals.minutesLeft * 60));
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
     pending.classList.toggle('active', totals.pending > 0);
-    pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', [format(totals.pending)]) : '';
+    pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
     stats.title = pending.title;
     pendingText.textContent = pending.title ? ` ${pending.title}` : '';
   };
@@ -570,7 +570,7 @@ export const createPanel = (
       i18n.t('panelAnnounce', [name, format(visible), format(total), format(added), format(removed)]),
       i18n.t('panelAnnounceTime', [formatDuration(minutes)]),
     ];
-    if (waiting > 0) parts.push(i18n.t('panelAnnouncePartial', [format(waiting)]));
+    if (waiting > 0) parts.push(i18n.t('panelAnnouncePartial', waiting, [format(waiting)]));
     status.textContent = parts.join(' ');
   };
 

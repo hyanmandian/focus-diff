@@ -27,7 +27,7 @@ test.describe('panel on a pull request', () => {
     expect(await pr.visibleTreeFiles()).toEqual(['__init__.py', 'service.py', 'routes.py']);
     await expect(pr.filesCounter()).toHaveText('3/8');
     await expect(pr.lineCounters().additions).toHaveText('+120');
-    await expect(pr.status).toContainText("haven't loaded yet");
+    await expect(pr.status).toContainText("1 of them hasn't loaded yet");
 
     await pr.pick('All');
     await expect(pr.filesCounter()).toHaveText('8');

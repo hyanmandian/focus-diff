@@ -27,7 +27,7 @@ interface PageCounters {
   deletions: HTMLElement | null;
 }
 
-const DIFF = '[role="region"][id^="diff-"], [data-tagsearch-path]';
+const DIFF = '[role="region"][id^="diff-"], [data-tagsearch-path][id^="diff-"]';
 const TREE_ITEM = '[role="treeitem"]';
 const PAGE_LAYOUT = 'main, [role="main"], #diff-comparison-viewer-container, #files';
 const PULL_REQUEST_FILES = /^\/([^/]+)\/([^/]+)\/pull\/\d+\/(?:changes|files)(?:\/|$)/;

@@ -161,57 +161,93 @@
       }
       .manual {
         display: grid;
-        gap: 8px;
+        justify-items: center;
+        gap: 16px;
         width: 100%;
-        max-width: 760px;
-        text-align: left;
+        max-width: 680px;
       }
       h2 {
         margin: 0;
         font-size: 28px;
         font-weight: 750;
         letter-spacing: -0.02em;
-        text-align: center;
       }
       .manual > p {
-        margin: 0 0 12px;
+        margin: 0;
         color: var(--muted);
-        text-align: center;
         text-wrap: balance;
       }
-      .browser {
-        display: grid;
-        grid-template-columns: 220px 1fr;
-        gap: 8px 32px;
-        padding: 22px 0;
-        border-top: 1px solid var(--border);
-      }
-      h3 {
-        margin: 0 0 10px;
-        font-size: 17px;
-        font-weight: 650;
-      }
-      .browser .also {
-        display: block;
-        color: var(--muted);
-        font-size: 14px;
-        font-weight: 400;
-      }
-      .download {
+      [role='tablist'] {
         display: inline-flex;
-        align-items: center;
-        min-height: 36px;
-        padding: 0 14px;
+        gap: 2px;
+        padding: 4px;
         border: 1px solid var(--border);
         border-radius: 999px;
         background: var(--surface);
+      }
+      [role='tab'] {
+        min-height: 36px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background-color 150ms ease-out,
+          color 150ms ease-out;
+      }
+      [role='tab']:hover {
         color: var(--fg);
+      }
+      [role='tab'][aria-selected='true'] {
+        background: var(--fg);
+        color: var(--bg);
+      }
+      [role='tab']:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+      [role='tabpanel'] {
+        display: grid;
+        gap: 14px;
+        width: 100%;
+        padding: 22px 24px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(240, 246, 252, 0.03);
+        text-align: left;
+      }
+      [role='tabpanel'][hidden] {
+        display: none;
+      }
+      [role='tabpanel']:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+      .also {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .download {
+        justify-self: start;
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 0 18px;
+        border-radius: 999px;
+        background: var(--fg);
+        color: var(--bg);
         font-size: 15px;
         font-weight: 600;
         text-decoration: none;
       }
       .download:hover {
-        background: rgba(240, 246, 252, 0.12);
+        background: #d5dde6;
       }
       .download:focus-visible {
         outline: 2px solid var(--focus);
@@ -241,11 +277,6 @@
           monospace;
         overflow-wrap: anywhere;
       }
-      .note {
-        margin: 10px 0 0;
-        color: var(--muted);
-        font-size: 14px;
-      }
       pre {
         margin: 8px 0 2px;
         padding: 10px 12px;
@@ -258,10 +289,10 @@
         padding: 0;
         background: none;
       }
-      @media (max-width: 640px) {
-        .browser {
-          grid-template-columns: 1fr;
-        }
+      .note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
       }
       footer {
         display: flex;
@@ -330,13 +361,16 @@
         <h2 id="manual-title">Install it yourself</h2>
         <p>Every release comes with ready-made builds. Download one and load it straight into your browser, no store needed.</p>
 
-        <section class="browser" aria-labelledby="chromium-title">
-          <div>
-            <h3 id="chromium-title">Chrome <span class="also">Edge, Brave, Arc, Opera and other Chromium browsers</span></h3>
-            <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-chromium.zip"
-              >Download for Chromium</a
-            >
-          </div>
+        <div role="tablist" aria-label="Browser">
+          <button type="button" role="tab" id="tab-chromium" aria-controls="panel-chromium" aria-selected="true">Chromium</button>
+          <button type="button" role="tab" id="tab-firefox" aria-controls="panel-firefox" aria-selected="false" tabindex="-1">
+            Firefox
+          </button>
+          <button type="button" role="tab" id="tab-safari" aria-controls="panel-safari" aria-selected="false" tabindex="-1">Safari</button>
+        </div>
+
+        <div role="tabpanel" id="panel-chromium" aria-labelledby="tab-chromium" tabindex="0">
+          <p class="also">Chrome, Edge, Brave, Arc, Opera and every other Chromium browser.</p>
           <ol>
             <li>Unzip <code>focus-diff-chromium.zip</code>.</li>
             <li>
@@ -344,31 +378,25 @@
             </li>
             <li>Click <strong>Load unpacked</strong> and pick the unzipped folder.</li>
           </ol>
-        </section>
+          <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-chromium.zip"
+            >Download for Chromium</a
+          >
+        </div>
 
-        <section class="browser" aria-labelledby="firefox-title">
-          <div>
-            <h3 id="firefox-title">Firefox <span class="also">Zen, LibreWolf, Floorp and other Firefox browsers</span></h3>
-            <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-firefox.zip"
-              >Download for Firefox</a
-            >
-          </div>
-          <div>
-            <ol>
-              <li>Open <code>about:debugging#/runtime/this-firefox</code>.</li>
-              <li>Click <strong>Load Temporary Add-on</strong> and pick <code>focus-diff-firefox.zip</code>.</li>
-            </ol>
-            <p class="note">It stays until Firefox restarts. The store version stays for good.</p>
-          </div>
-        </section>
+        <div role="tabpanel" id="panel-firefox" aria-labelledby="tab-firefox" tabindex="0" hidden>
+          <p class="also">Firefox, Zen, LibreWolf, Floorp and other browsers built on Firefox.</p>
+          <ol>
+            <li>Open <code>about:debugging#/runtime/this-firefox</code>.</li>
+            <li>Click <strong>Load Temporary Add-on</strong> and pick <code>focus-diff-firefox.zip</code>.</li>
+          </ol>
+          <p class="note">It stays until Firefox restarts. The store version stays for good.</p>
+          <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-firefox.zip"
+            >Download for Firefox</a
+          >
+        </div>
 
-        <section class="browser" aria-labelledby="safari-title">
-          <div>
-            <h3 id="safari-title">Safari <span class="also">On a Mac with Xcode</span></h3>
-            <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-safari.zip"
-              >Download for Safari</a
-            >
-          </div>
+        <div role="tabpanel" id="panel-safari" aria-labelledby="tab-safari" tabindex="0" hidden>
+          <p class="also">Safari on a Mac with Xcode.</p>
           <ol>
             <li>
               Unzip <code>focus-diff-safari.zip</code>, run this in Terminal, then click <strong>Run</strong> in Xcode:
@@ -382,7 +410,46 @@
               Turn on Focus Diff in <strong>Settings › Extensions</strong>. Safari asks again for unsigned extensions after it restarts.
             </li>
           </ol>
-        </section>
+          <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-safari.zip"
+            >Download for Safari</a
+          >
+        </div>
+
+        <script>
+          // Tabs that follow the WAI-ARIA pattern, opening on the visitor's own browser.
+          {
+            const tabs = [...document.querySelectorAll('[role="tab"]')];
+            const select = (tab, focus) => {
+              for (const other of tabs) {
+                const selected = other === tab;
+                other.setAttribute('aria-selected', String(selected));
+                other.tabIndex = selected ? 0 : -1;
+                document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
+              }
+              if (focus) tab.focus();
+            };
+            tabs.forEach((tab, index) => {
+              tab.addEventListener('click', () => select(tab));
+              tab.addEventListener('keydown', (event) => {
+                const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+                const target =
+                  event.key === 'Home'
+                    ? tabs[0]
+                    : event.key === 'End'
+                      ? tabs.at(-1)
+                      : step
+                        ? tabs[(index + step + tabs.length) % tabs.length]
+                        : null;
+                if (!target) return;
+                event.preventDefault();
+                select(target, true);
+              });
+            });
+            const agent = navigator.userAgent;
+            if (/Firefox\//.test(agent)) select(tabs[1]);
+            else if (/Safari\//.test(agent) && !/Chrome\/|Chromium\//.test(agent)) select(tabs[2]);
+          }
+        </script>
       </section>
 
       <footer>

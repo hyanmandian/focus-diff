@@ -252,7 +252,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const mine = ++ticket;
     const run = () => mine === ticket && apply();
     if (when === 'frame') ctx.requestAnimationFrame(run);
-    else ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
+    // Safari has no requestIdleCallback; a short timeout keeps page changes batched there.
+    else if ('requestIdleCallback' in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
+    else ctx.setTimeout(run, IDLE_TIMEOUT_MS / 4);
   };
 
   const changesElements = (record: MutationRecord) =>

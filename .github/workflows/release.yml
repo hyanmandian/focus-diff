@@ -39,12 +39,20 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
       - run: npm run lint:firefox
-      - run: npm run zip && npm run zip:firefox
+      - run: npm run zip && npm run zip:firefox && npm run zip:safari
 
+      # Fixed names, so the site can link to the latest release's files: one build for every Chromium browser
+      # (Chrome, Edge, Brave, Arc, Opera), one for Firefox and the browsers built on it, one for Safari.
       - name: Attach the builds to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.release-please.outputs.tag }}" .output/*.zip --clobber
+        run: |
+          mkdir release
+          cp .output/*-chrome.zip release/focus-diff-chromium.zip
+          cp .output/*-firefox.zip release/focus-diff-firefox.zip
+          cp .output/*-safari.zip release/focus-diff-safari.zip
+          cp .output/*-sources.zip release/focus-diff-sources.zip
+          gh release upload "${{ needs.release-please.outputs.tag }}" release/*.zip --clobber
 
       - name: Publish to the stores
         env:

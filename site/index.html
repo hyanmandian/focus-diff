@@ -159,6 +159,110 @@
         width: 100%;
         height: 100%;
       }
+      .manual {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        max-width: 760px;
+        text-align: left;
+      }
+      h2 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+        text-align: center;
+      }
+      .manual > p {
+        margin: 0 0 12px;
+        color: var(--muted);
+        text-align: center;
+        text-wrap: balance;
+      }
+      .browser {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 8px 32px;
+        padding: 22px 0;
+        border-top: 1px solid var(--border);
+      }
+      h3 {
+        margin: 0 0 10px;
+        font-size: 17px;
+        font-weight: 650;
+      }
+      .browser .also {
+        display: block;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 400;
+      }
+      .download {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 14px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--fg);
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .download:hover {
+        background: rgba(240, 246, 252, 0.12);
+      }
+      .download:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 3px;
+      }
+      ol {
+        display: grid;
+        gap: 6px;
+        margin: 0;
+        padding-left: 22px;
+        color: var(--muted);
+      }
+      ol strong {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      code {
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--fg);
+        font:
+          14px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+      .note {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      pre {
+        margin: 8px 0 2px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: rgba(1, 4, 9, 0.6);
+        white-space: pre-wrap;
+      }
+      pre code {
+        padding: 0;
+        background: none;
+      }
+      @media (max-width: 640px) {
+        .browser {
+          grid-template-columns: 1fr;
+        }
+      }
       footer {
         display: flex;
         flex-wrap: wrap;
@@ -221,6 +325,65 @@
           aria-label="Focus Diff in 30 seconds: filtering a pull request, the review breakdown, and stepping through conversations"
         ></video>
       </div>
+
+      <section class="manual" aria-labelledby="manual-title">
+        <h2 id="manual-title">Install it yourself</h2>
+        <p>Every release comes with ready-made builds. Download one and load it straight into your browser, no store needed.</p>
+
+        <section class="browser" aria-labelledby="chromium-title">
+          <div>
+            <h3 id="chromium-title">Chrome <span class="also">Edge, Brave, Arc, Opera and other Chromium browsers</span></h3>
+            <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-chromium.zip"
+              >Download for Chromium</a
+            >
+          </div>
+          <ol>
+            <li>Unzip <code>focus-diff-chromium.zip</code>.</li>
+            <li>
+              Open <code>chrome://extensions</code> (<code>edge://extensions</code> in Edge) and turn on <strong>Developer mode</strong>.
+            </li>
+            <li>Click <strong>Load unpacked</strong> and pick the unzipped folder.</li>
+          </ol>
+        </section>
+
+        <section class="browser" aria-labelledby="firefox-title">
+          <div>
+            <h3 id="firefox-title">Firefox <span class="also">Zen, LibreWolf, Floorp and other Firefox browsers</span></h3>
+            <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-firefox.zip"
+              >Download for Firefox</a
+            >
+          </div>
+          <div>
+            <ol>
+              <li>Open <code>about:debugging#/runtime/this-firefox</code>.</li>
+              <li>Click <strong>Load Temporary Add-on</strong> and pick <code>focus-diff-firefox.zip</code>.</li>
+            </ol>
+            <p class="note">It stays until Firefox restarts. The store version stays for good.</p>
+          </div>
+        </section>
+
+        <section class="browser" aria-labelledby="safari-title">
+          <div>
+            <h3 id="safari-title">Safari <span class="also">On a Mac with Xcode</span></h3>
+            <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-safari.zip"
+              >Download for Safari</a
+            >
+          </div>
+          <ol>
+            <li>
+              Unzip <code>focus-diff-safari.zip</code>, run this in Terminal, then click <strong>Run</strong> in Xcode:
+              <pre><code>xcrun safari-web-extension-converter focus-diff-safari --app-name "Focus Diff" --macos-only</code></pre>
+            </li>
+            <li>
+              In Safari, turn on <strong>Settings › Advanced › Show features for web developers</strong>, then
+              <strong>Develop › Allow Unsigned Extensions</strong>.
+            </li>
+            <li>
+              Turn on Focus Diff in <strong>Settings › Extensions</strong>. Safari asks again for unsigned extensions after it restarts.
+            </li>
+          </ol>
+        </section>
+      </section>
 
       <footer>
         <span>Free and open source, under the MIT license.</span>

@@ -24,7 +24,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
       - run: npm run lint:firefox
-      - run: npm run zip && npm run zip:firefox
+      - run: npm run zip && npm run zip:firefox && npm run zip:safari
       - uses: actions/upload-artifact@v4
         with:
           name: extension

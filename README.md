@@ -55,10 +55,13 @@ On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensio
 
 ## Install
 
-Store listings are on the way. Until then, build it from source with `npm install` and:
+Store listings are on the way. Meanwhile, every [release](https://github.com/hyanmandian/focus-diff/releases/latest) has builds you can load yourself:
 
-- **Chrome or Edge:** run `npm run build`, open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick `.output/chrome-mv3`.
-- **Firefox:** run `npm run build:firefox`, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick `.output/firefox-mv3/manifest.json`.
+- **Chrome, Edge, Brave, Arc and other Chromium browsers:** unzip `focus-diff-chromium.zip`, open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder.
+- **Firefox and browsers built on it:** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick `focus-diff-firefox.zip`. It stays until Firefox restarts.
+- **Safari (Mac with Xcode):** unzip `focus-diff-safari.zip`, run `xcrun safari-web-extension-converter focus-diff-safari --app-name "Focus Diff" --macos-only` and click **Run** in Xcode. In Safari, turn on **Settings › Advanced › Show features for web developers**, then **Develop › Allow Unsigned Extensions**, and enable Focus Diff in **Settings › Extensions**.
+
+To build from source instead, run `npm install` and `npm run build` (or `build:firefox`, `build:safari`); the builds land in `.output/`.
 
 ## Development
 

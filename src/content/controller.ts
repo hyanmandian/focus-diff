@@ -8,7 +8,7 @@ import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
 import { collectFiles, everything, totalsFor, type FileInfo, type Files } from '@/content/files';
-import { createNavigation, goToFile } from '@/content/navigation';
+import { createNavigation, goToFile, waitFor } from '@/content/navigation';
 import { canTransition, removeTransitionStyle, withTransition } from '@/content/transition';
 
 interface Option {
@@ -349,6 +349,33 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const dismissUpdate = () => void updateItem.setValue(null);
 
   ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
+
+  // A file picked in GitHub's tree scrolls smoothly from where the page was, and lines up below the sticky bar instead
+  // of under it. GitHub still updates the address and the tree; a jump of its own is undone before it's painted.
+  ctx.addEventListener(
+    document,
+    'click',
+    (event) => {
+      const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('[role="tree"] a[href^="#diff-"]');
+      if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const digest = link.getAttribute('href')?.slice('#diff-'.length) ?? '';
+      const from = scrollY;
+      const bringIn = (diff: HTMLElement) => {
+        if (scrollY !== from) scrollTo({ top: from });
+        page.scrollToTop(files.list.find((file) => file.diff?.element === diff)?.diff?.container ?? diff);
+      };
+      const diff = page.diffByDigest(digest);
+      if (diff) {
+        event.preventDefault();
+        history.pushState(history.state, '', `#diff-${digest}`);
+        ctx.requestAnimationFrame(() => bringIn(diff));
+      } else {
+        // Not drawn yet: GitHub brings it in, then it's lined up.
+        void waitFor(() => page.diffByDigest(digest)).then((found) => found && page.scrollToTop(found));
+      }
+    },
+    { capture: true },
+  );
   ctx.addEventListener(document, 'change', () => schedule(), { capture: true });
   ctx.onInvalidated(() => {
     pageObserver.disconnect();

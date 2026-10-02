@@ -7,7 +7,7 @@ import type { FileInfo } from '@/content/files';
 const RENDER_TIMEOUT_MS = 2000;
 const EXPAND_TIMEOUT_MS = 1500;
 
-const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
+export const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
   new Promise((resolve) => {
     const started = performance.now();
     const check = () => {

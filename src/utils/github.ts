@@ -321,14 +321,32 @@ export const threads = (diff: HTMLElement): Thread[] => {
     .map((element) => ({ element, state: threadState(element, login), line: threadLine(element) }));
 };
 
-const STICKY_OFFSET_PX = 80;
+/** Used when no file header says where GitHub's sticky bar ends. */
+const STICKY_FALLBACK_PX = 80;
+const FILE_HEADER = '[data-diff-header-wrapper], .file-header';
+
+/**
+ * Where GitHub's sticky bar ends: each file's header sticks right below it, so its `top` says. A file brought to the
+ * top lines up there, with nothing of it hidden behind the bar.
+ */
+const stickyBarBottom = (): number => {
+  const header = document.querySelector(FILE_HEADER);
+  const top = header ? Number.parseFloat(getComputedStyle(header).top) : Number.NaN;
+  return Number.isFinite(top) && top > 0 ? top : STICKY_FALLBACK_PX;
+};
+
+/** How much of the screen's top GitHub covers over something inside a file: its bar, then the file's own header. */
+const coveredTop = (element: Element): number => {
+  const header = element.closest(DIFF)?.querySelector<HTMLElement>(FILE_HEADER);
+  return stickyBarBottom() + (header?.offsetHeight ?? 0);
+};
 const FLASH_MS = 2000;
 
 const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'auto');
 
 /** Scrolls an element to the top of the page, below GitHub's sticky headers. */
 export const scrollToTop = (element: Element, behavior: ScrollBehavior = scrollBehavior()): void => {
-  const top = element.getBoundingClientRect().top + scrollY - STICKY_OFFSET_PX;
+  const top = element.getBoundingClientRect().top + scrollY - stickyBarBottom();
   scrollTo({ top, behavior });
 };
 
@@ -347,7 +365,7 @@ export const scrollToCenter = (element: Element): void => {
   // Where the page has to be, within how far it can scroll.
   const targetOf = () => {
     const box = element.getBoundingClientRect();
-    const top = box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2);
+    const top = box.top + scrollY - Math.max(coveredTop(element), (innerHeight - box.height) / 2);
     return Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
   };
   releaseHold();

@@ -23,6 +23,20 @@ test.describe('newer, virtualized diff view', () => {
     await expect(stories).toBeVisible();
   });
 
+  test("lines a file picked in the tree up below GitHub's sticky bar", async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
+    // Like GitHub, file headers stick below a 58px bar.
+    await pr.page.addStyleTag({ content: '[data-diff-header-wrapper] { position: sticky; top: 58px; background: white; }' });
+    // One GitHub hasn't drawn yet, then one it has.
+    for (const path of ['web/src/book-card.stories.tsx', 'api/books/service.py']) {
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      await pr.page.locator('[role="tree"] a', { hasText: new RegExp(`^${name.replaceAll('.', '\\.')}$`) }).click();
+      const region = pr.page.locator('[role="region"]', { hasText: path });
+      await expect.poll(() => region.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBe(58);
+    }
+    await expect(pr.page).toHaveURL(/#diff-/);
+  });
+
   test('takes viewed files from the embedded data and the toggles', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     await pr.breakdownToggle.click();

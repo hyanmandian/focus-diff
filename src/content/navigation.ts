@@ -35,6 +35,8 @@ const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
 export const createNavigation = (panel: Panel, schedule: () => void) => {
   /** 1-based position of the conversation the reader last jumped to, 0 before any jump. */
   let commentIndex = 0;
+  /** Bumped by every jump, so one still waiting on GitHub gives way to a newer one instead of landing late. */
+  let jump = 0;
 
   /**
    * Newer view: conversations from GitHub's data, in file order then line order, kept current with the ones open on the
@@ -89,17 +91,21 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
+    const mine = ++jump;
     const { thread, file } = target;
     let found: HTMLElement | null = null;
     if (thread.comment) {
       history.replaceState(history.state, '', `#r${thread.comment}`);
       dispatchEvent(new HashChangeEvent('hashchange'));
       found = await waitFor(() => openThread(thread.id), EXPAND_TIMEOUT_MS);
+      if (mine !== jump) return;
     }
     if (!found) {
       const element = await goToFile(file);
+      if (mine !== jump) return;
       const lines = [...new Set(file.threads.map(({ line }) => line))];
       found = element ? ((await waitFor(() => page.commentIndicators(element)[lines.indexOf(thread.line)] ?? null, 600)) ?? element) : null;
+      if (mine !== jump) return;
     }
     if (found) {
       page.scrollToCenter(found);
@@ -114,12 +120,14 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
+    const mine = ++jump;
     const { element } = target.thread;
     const toggle = page.collapsedThreadToggle(element);
     if (toggle) {
       toggle.click();
       // GitHub loads a resolved thread's comments on demand; centre it once they're in.
       await waitFor(() => (page.threadComments(element).length ? element : null), EXPAND_TIMEOUT_MS);
+      if (mine !== jump) return;
     }
     page.scrollToCenter(element);
     page.flash(target.thread.element);

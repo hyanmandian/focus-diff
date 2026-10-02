@@ -131,20 +131,21 @@ export const diffs = (): Diff[] => {
   return [...byPath.values()];
 };
 
-const labelOf = (item: Element) => (item.querySelector(':scope > div')?.textContent || item.getAttribute('aria-label') || '').trim();
+/** A tree item's name: its row's first line of text, which keeps names with spaces whole. */
+const labelOf = (item: Element) =>
+  (item.querySelector(':scope > div')?.textContent || item.getAttribute('aria-label') || '').trim().split('\n')[0]?.trim() ?? '';
 
 const folderPathOf = (item: Element | null | undefined): string => {
   const parts: string[] = [];
   for (let folder = item; folder; folder = folder.parentElement?.closest(TREE_ITEM)) {
-    parts.unshift(labelOf(folder).split(/\s/)[0] ?? '');
+    parts.unshift(labelOf(folder));
   }
   return parts.join('/');
 };
 
 /** A file's path as the tree spells it out, for trees without `#diff-` links. */
 export const treePathOf = (item: Element): string => {
-  const label = labelOf(item);
-  const name = label.match(/[^\s/]+\.[A-Za-z0-9]+/)?.[0] ?? label;
+  const name = labelOf(item);
   const folder = folderPathOf(item.parentElement?.closest(TREE_ITEM));
   return folder ? `${folder}/${name}` : name;
 };
@@ -324,6 +325,8 @@ const HOLD_MS = 5000;
 const SETTLED_MS = 600;
 const DRIFT_PX = 24;
 const READER_INPUT = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+/** Lets go of the element held by the last jump, so two never pull the page different ways. */
+let releaseHold = () => {};
 
 /**
  * Scrolls an element to the middle of the screen and keeps it there while GitHub is still loading the diffs above it,
@@ -334,6 +337,7 @@ export const scrollToCenter = (element: Element): void => {
     const box = element.getBoundingClientRect();
     return box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2);
   };
+  releaseHold();
   let target = targetOf();
   scrollTo({ top: target, behavior: scrollBehavior() });
 
@@ -344,6 +348,7 @@ export const scrollToCenter = (element: Element): void => {
     held = false;
     for (const type of READER_INPUT) removeEventListener(type, release, true);
   };
+  releaseHold = release;
   for (const type of READER_INPUT) addEventListener(type, release, { capture: true, passive: true });
   const hold = (now: number) => {
     if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) return release();

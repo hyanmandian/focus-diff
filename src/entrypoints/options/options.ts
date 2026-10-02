@@ -18,6 +18,7 @@ import {
 } from '@/utils/filters';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translate, translateDocument } from '@/utils/page';
+import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, saveConfig } from '@/utils/storage';
 
 type Field = 'name' | 'include' | 'exclude';
@@ -328,15 +329,33 @@ window.addEventListener('beforeunload', (event) => {
 translateDocument(i18n.t('optionsTitle'));
 $('#version').textContent = i18n.t('optionsVersion', [browser.runtime.getManifest().version]);
 
+/** `#repo=owner/name` comes from the panel on that repository: it's tried, and offered as a new repository. */
+const applyRepoHash = () => {
+  const repo = new URLSearchParams(location.hash.slice(1)).get('repo');
+  if (repo) {
+    $<HTMLInputElement>('#try-repo').value = repo;
+    suggestedRepo = config.repos.some((entry) => repoMatches(entry.repo, repo)) ? '' : repo;
+  }
+  syncAddRepo();
+  updateTry();
+};
+window.addEventListener('hashchange', applyRepoHash);
+
+// Opened again from a pull request: this tab comes forward, with that repository, instead of a new one opening.
+browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
+  if (message?.type !== 'show-options') return;
+  sendResponse(true);
+  if (message.repo) location.hash = `repo=${encodeURIComponent(message.repo)}`;
+  void browser.tabs.getCurrent().then((tab) => {
+    if (tab?.id === undefined) return;
+    void browser.tabs.update(tab.id, { active: true });
+    void browser.windows.update(tab.windowId, { focused: true });
+  });
+});
+
 void loadConfig().then((loaded) => {
   config = loaded;
   render();
   reveal();
-  const repo = new URLSearchParams(location.hash.slice(1)).get('repo');
-  if (repo) {
-    $<HTMLInputElement>('#try-repo').value = repo;
-    if (!config.repos.some((entry) => repoMatches(entry.repo, repo))) suggestedRepo = repo;
-  }
-  syncAddRepo();
-  updateTry();
+  applyRepoHash();
 });

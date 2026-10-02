@@ -270,6 +270,14 @@ test.describe('panel on a pull request', () => {
     const pr = new PullRequestPage(await openPullRequest());
     const [settings] = await Promise.all([context.waitForEvent('page'), pr.settings.click()]);
     await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fweb$/);
+    await expect(settings.locator('#try-repo')).toHaveValue('octo/web');
+    // Opening it again, from another repository, reuses the tab.
+    await pr.page.evaluate(() => history.pushState(null, '', '/octo/api/pull/1/files'));
+    const pages = context.pages().length;
+    await pr.settings.click();
+    await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fapi$/);
+    await expect(settings.locator('#try-repo')).toHaveValue('octo/api');
+    expect(context.pages()).toHaveLength(pages);
   });
 
   test('sends people without filters to the examples', async ({ openPullRequest, seed, context }) => {
@@ -386,6 +394,11 @@ test.describe('panel on a pull request', () => {
     await expect(pr.filesCounter()).toHaveText('1/12');
     await pr.pick('All');
     await expect.poll(() => pr.statsText()).toMatch(/12\/12 files/);
+    await expect(pr.panel.locator('.pending')).toHaveClass(/active/);
+    // Files not loaded yet might match the filter too, so it can't be done.
+    await pr.pick('Docs');
+    await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
+    await expect.poll(() => pr.statsText()).toMatch(/^1\/12 files.*left to review$/);
     await expect(pr.panel.locator('.pending')).toHaveClass(/active/);
   });
 

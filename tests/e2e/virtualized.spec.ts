@@ -58,6 +58,23 @@ test.describe('newer, virtualized diff view', () => {
     expect(await marker.evaluate(flashed)).toBe(true);
   });
 
+  test('lands on the last of several quick steps', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
+    await pr.panel.locator('.comments').click();
+    await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
+    // Three steps in the same moment, before GitHub has drawn the first.
+    await pr.panel.getByRole('button', { name: 'Next conversation' }).evaluate((next: HTMLElement) => {
+      next.click();
+      next.click();
+      next.click();
+    });
+    await expect(pr.status).toHaveText('Conversation 4 of 4, in docs/books.md.');
+    await expect(pr.page.locator('[class*="CommentIndicator"][data-line="R1"]')).toBeInViewport();
+    await pr.page.waitForTimeout(1500);
+    await expect(pr.status).toHaveText('Conversation 4 of 4, in docs/books.md.');
+    await expect(pr.page.locator('[class*="CommentIndicator"][data-line="R1"]')).toBeInViewport();
+  });
+
   test('picks up a conversation started after the page loaded', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     const comments = pr.panel.locator('.comments');

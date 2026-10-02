@@ -80,9 +80,11 @@ export const totalsFor = ({ list, complete }: Files, matches: Matcher, reported:
     if (file.viewed) totals.viewed++;
     else totals.minutesLeft += minutes;
   }
-  if (matches === everything && !complete) {
-    const unrendered = total - list.length;
-    totals.pending += unrendered;
+  if (complete) return totals;
+  // Files GitHub hasn't loaded yet might match too, so with a filter the totals are partial: never Done.
+  const unrendered = total - list.length;
+  totals.pending += unrendered;
+  if (matches === everything) {
     totals.visible = total;
     totals.minutes += unrendered * reviewMinutes('', null);
     totals.minutesLeft += unrendered * reviewMinutes('', null);

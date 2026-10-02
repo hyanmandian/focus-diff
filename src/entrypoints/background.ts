@@ -7,13 +7,16 @@ import { updateItem } from '@/utils/storage';
 const isNotable = (previous: string, current: string) =>
   previous.split('.').slice(0, 2).join('.') !== current.split('.').slice(0, 2).join('.');
 
-/** Reuses an open settings tab instead of piling up copies that could overwrite each other. */
+/**
+ * Reuses an open settings tab instead of piling up copies that could overwrite each other. Finding the tab by its URL
+ * would need the tabs permission, so the open page is asked to come forward instead.
+ */
 const openOptions = async (repo?: string | null) => {
+  const message: Message = { type: 'show-options', repo };
+  const shown = await browser.runtime.sendMessage(message).catch(() => false);
+  if (shown === true) return;
   const url = browser.runtime.getURL(`/options.html${repo ? `#repo=${encodeURIComponent(repo)}` : ''}`);
-  const [open] = await browser.tabs.query({ url: browser.runtime.getURL('/options.html*') });
-  if (!open?.id) return browser.tabs.create({ url });
-  await browser.windows.update(open.windowId, { focused: true });
-  return browser.tabs.update(open.id, { active: true, ...(repo && { url }) });
+  await browser.tabs.create({ url });
 };
 
 const openWelcome = () => browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });

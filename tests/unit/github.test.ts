@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { pullRequestData } from '@/utils/github';
+import { pullRequestData, treeFiles, treePathOf } from '@/utils/github';
 
 const embed = (data: unknown) => {
   document.head.innerHTML = '';
@@ -77,5 +77,18 @@ describe('pullRequestData', () => {
     expect(pullRequestData()).toBeNull();
     embed({ unrelated: true });
     expect(pullRequestData()).toBeNull();
+  });
+});
+
+describe('treePathOf', () => {
+  it('keeps folder and file names with spaces whole', () => {
+    document.body.innerHTML = `
+      <ul role="tree">
+        <li role="treeitem" aria-expanded="true"><div>my docs</div>
+          <ul role="group"><li role="treeitem"><div>getting started.md</div></li></ul>
+        </li>
+      </ul>`;
+    const [file] = treeFiles();
+    expect(treePathOf(file!.element)).toBe('my docs/getting started.md');
   });
 });

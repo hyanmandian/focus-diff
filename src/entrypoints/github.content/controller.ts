@@ -1,7 +1,8 @@
 import { i18n } from '#i18n';
 import type { ContentScriptContext } from '#imports';
 import { browser } from 'wxt/browser';
-import type { Panel, Totals } from '@/components/panel';
+import type { Panel } from '@/components/panel';
+import type { Totals } from '@/components/stats';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
 import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';

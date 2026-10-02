@@ -4,8 +4,13 @@ import { breakdownIcon, checkIcon, infoIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
-import { centreOver, pointAt, returnFocus } from './popover';
-import type { BreakdownRow, PanelContext } from './types';
+import type { PanelOption } from '@/components/filters';
+import type { PanelContext } from '@/components/panel';
+import { centreOver, pointAt, returnFocus } from '@/components/popover';
+import type { Totals } from '@/components/stats';
+
+/** One filter's share of the pull request. */
+export interface BreakdownRow extends PanelOption, Totals {}
 
 interface BreakdownActions {
   onToggle: (id: string) => void;

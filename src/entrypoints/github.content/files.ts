@@ -1,4 +1,4 @@
-import type { Totals } from '@/components/panel';
+import type { Totals } from '@/components/stats';
 import type { Matcher } from '@/utils/filters';
 import * as page from '@/utils/github';
 import type { FileStats } from '@/utils/github';

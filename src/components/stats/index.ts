@@ -4,7 +4,20 @@ import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
 import { counter } from './counter';
-import type { PanelContext, Totals } from './types';
+import type { PanelContext } from '@/components/panel';
+
+export interface Totals {
+  visible: number;
+  total: number;
+  additions: number;
+  deletions: number;
+  pending: number;
+  /** Estimated review time, see utils/review-time.ts. */
+  minutes: number;
+  /** Files marked as viewed on GitHub, and the estimate for the rest. */
+  viewed: number;
+  minutesLeft: number;
+}
 
 /** Shown files out of all, lines added and removed, and the time left to review them. */
 export const createStats = ({ host, signal }: PanelContext) => {

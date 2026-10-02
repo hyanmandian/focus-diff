@@ -3,8 +3,22 @@ import { i18n } from '#i18n';
 import { chevronIcon, commentIcon, threadStateIcons } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format';
-import { centreOver, returnFocus } from './popover';
-import type { Conversations, PanelContext } from './types';
+import type { PanelContext } from '@/components/panel';
+import { centreOver, returnFocus } from '@/components/popover';
+import type { ThreadState } from '@/utils/github';
+
+export interface Conversation {
+  path: string;
+  /** Line in the new version of the file, when known. */
+  line: number | null;
+  state: ThreadState;
+}
+
+export interface Conversations {
+  list: Conversation[];
+  /** The one the reader last jumped to, 1-based; 0 before the first jump. */
+  current: number;
+}
 
 interface ConversationActions {
   onStep: (direction: 1 | -1) => void;

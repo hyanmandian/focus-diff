@@ -3,14 +3,18 @@ import { i18n } from '#i18n';
 import { settingsIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
-import { createBreakdown } from './breakdown';
-import { createConversations } from './conversations';
-import { createFilters } from './filters';
-import { createStats } from './stats';
-import type { BreakdownRow, Conversations, PanelContext, PanelOption, Totals } from './types';
-import { createUpdateNotice } from './update-notice';
+import { createBreakdown, type BreakdownRow } from '@/components/breakdown';
+import { createConversations, type Conversations } from '@/components/conversations';
+import { createFilters, type PanelOption } from '@/components/filters';
+import { createStats, type Totals } from '@/components/stats';
+import { createUpdateNotice } from '@/components/update-notice';
 
-export type { BreakdownRow, Conversation, Conversations, PanelOption, Totals } from './types';
+/** What every part of the panel shares: where it's mounted, when it's torn down, and what has focus inside it. */
+export interface PanelContext {
+  host: HTMLElement;
+  signal: AbortSignal;
+  focused: () => HTMLElement | null;
+}
 
 export interface PanelActions {
   onToggle: (id: string) => void;

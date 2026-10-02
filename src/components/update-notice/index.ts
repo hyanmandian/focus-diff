@@ -2,7 +2,7 @@ import './update-notice.css';
 import { i18n } from '#i18n';
 import { closeIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import type { PanelContext } from './types';
+import type { PanelContext } from '@/components/panel';
 
 const RELEASES = 'https://github.com/hyanmandian/focus-diff/releases/tag/v';
 

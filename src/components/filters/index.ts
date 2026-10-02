@@ -2,7 +2,14 @@ import './filters.css';
 import { i18n } from '#i18n';
 import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format';
-import type { PanelContext, PanelOption } from './types';
+import type { PanelContext } from '@/components/panel';
+
+export interface PanelOption {
+  id: string;
+  name: string;
+  /** Files this option shows. */
+  count?: number;
+}
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 

@@ -5,7 +5,7 @@ import type { Panel, Totals } from '@/components/panel';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
 import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';
-import { configItem, loadConfig, selectionsItem, type Selections } from '@/utils/storage';
+import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
 import { collectFiles, everything, totalsFor, type FileInfo, type Files } from './files';
 import { createNavigation } from './navigation';
 
@@ -118,6 +118,7 @@ export interface Controller {
   toggle: (id: string) => void;
   openSettings: () => void;
   comment: (step: 1 | -1) => void;
+  dismissUpdate: () => void;
 }
 
 export const startController = async (ctx: ContentScriptContext, panel: Panel): Promise<Controller> => {
@@ -300,6 +301,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     selections = value;
     schedule();
   });
+  panel.showUpdate(await updateItem.getValue());
+  const unwatchUpdate = updateItem.watch((version) => panel.showUpdate(version));
+  const dismissUpdate = () => void updateItem.setValue(null);
 
   ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
   ctx.addEventListener(document, 'change', () => schedule(), { capture: true });
@@ -310,8 +314,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     browser.runtime.onMessage.removeListener(onMessage);
     unwatchConfig();
     unwatchSelections();
+    unwatchUpdate();
   });
 
   schedule();
-  return { toggle, openSettings, comment };
+  return { toggle, openSettings, comment, dismissUpdate };
 };

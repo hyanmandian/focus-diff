@@ -73,7 +73,8 @@ button {
 button:hover {
   background: var(--fd-hover);
 }
-button:focus-visible {
+button:focus-visible,
+a:focus-visible {
   outline: 2px solid var(--fd-focus);
   outline-offset: 1px;
 }
@@ -438,6 +439,40 @@ button:focus-visible {
 }
 .pending.active {
   display: block;
+}
+
+.update {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--fd-accent) 10%, transparent);
+}
+.update[hidden] {
+  display: none;
+}
+.update-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--fd-target);
+  padding: 0 4px 0 10px;
+  border-radius: 6px;
+  color: var(--fd-accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.update-link:hover {
+  text-decoration: underline;
+}
+.update-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.update-dismiss {
+  min-width: 28px;
 }
 
 .settings.labelled {

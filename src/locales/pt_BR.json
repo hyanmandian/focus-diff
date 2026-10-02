@@ -10,6 +10,8 @@
   "panelLinesAdded": "linhas adicionadas,",
   "panelLinesRemoved": "linhas removidas",
   "panelSettings": "Configurações do Focus Diff",
+  "panelUpdate": "Novidades da $1",
+  "panelUpdateDismiss": "Dispensar novidades",
   "panelSetUp": "Configurar filtros",
   "panelNotLoaded": {
     "1": "1 arquivo ainda não carregou, então a contagem de linhas é parcial",

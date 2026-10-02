@@ -243,6 +243,22 @@ test.describe('panel on a pull request', () => {
     await expect(welcome).toHaveURL(/\/welcome\.html$/);
   });
 
+  test("points to what's new after an update until it's read or dismissed", async ({ openPullRequest, background, context }) => {
+    await context.route('https://github.com/hyanmandian/focus-diff/releases/**', (route) => route.fulfill({ body: 'Notes' }));
+    const pr = new PullRequestPage(await openPullRequest());
+    const notice = pr.panel.getByRole('link', { name: 'New in 1.1' });
+    await expect(notice).toBeHidden();
+    await background.evaluate(() => chrome.storage.local.set({ update: '1.1.0' }));
+    await expect(notice).toHaveAttribute('href', 'https://github.com/hyanmandian/focus-diff/releases/tag/v1.1.0');
+    const [notes] = await Promise.all([context.waitForEvent('page'), notice.click()]);
+    await expect(notes).toHaveURL(/\/releases\/tag\/v1\.1\.0$/);
+    await expect(notice).toBeHidden();
+    expect(await background.evaluate(async () => (await chrome.storage.local.get('update')).update ?? null)).toBeNull();
+    await background.evaluate(() => chrome.storage.local.set({ update: '2.0.0' }));
+    await pr.panel.getByRole('button', { name: "Dismiss what's new" }).click();
+    await expect(pr.panel.getByRole('link', { name: 'New in 2.0' })).toBeHidden();
+  });
+
   // GitHub's own colour tokens (Primer), which the panel picks up, so contrast is checked against the real themes.
   const PRIMER = {
     light: {
@@ -271,8 +287,9 @@ test.describe('panel on a pull request', () => {
     },
   };
   for (const colorScheme of ['light', 'dark'] as const) {
-    test(`has no accessibility violations in the ${colorScheme} theme`, async ({ openPullRequest }) => {
+    test(`has no accessibility violations in the ${colorScheme} theme`, async ({ openPullRequest, background }) => {
       const page = await openPullRequest();
+      await background.evaluate(() => chrome.storage.local.set({ update: '1.1.0' }));
       await page.emulateMedia({ colorScheme });
       const c = PRIMER[colorScheme];
       await page.addStyleTag({
@@ -281,6 +298,7 @@ test.describe('panel on a pull request', () => {
       const pr = new PullRequestPage(page);
       await pr.pick('Frontend');
       await expect(pr.pressed).toHaveText(['Frontend']);
+      await expect(pr.panel.getByRole('link', { name: 'New in 1.1' })).toBeVisible();
       expect(await accessibilityViolations(page, 'focus-diff-panel')).toEqual([]);
       await pr.breakdownToggle.click();
       expect(await accessibilityViolations(page, 'focus-diff-panel')).toEqual([]);

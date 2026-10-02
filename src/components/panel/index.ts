@@ -44,6 +44,8 @@ export interface PanelActions {
   onToggle: (id: string) => void;
   onSettings: () => void;
   onComment: (step: 1 | -1) => void;
+  /** The reader opened or dismissed the update notice. */
+  onUpdateSeen: () => void;
 }
 
 export interface Panel {
@@ -56,7 +58,11 @@ export interface Panel {
   /** Reads out a short message, like where a jump landed. */
   announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
+  /** Points to the notes of a release the reader hasn't seen, or hides the notice with `null`. */
+  showUpdate: (version: string | null) => void;
 }
+
+const RELEASES = 'https://github.com/hyanmandian/focus-diff/releases/tag/v';
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 
@@ -78,6 +84,7 @@ const infoIcon = () =>
     14,
   );
 const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
+const closeIcon = () => icon('M4.5 4.5l7 7M11.5 4.5l-7 7', 14);
 const chevron = (direction: 'left' | 'right') => icon(direction === 'left' ? 'M10 4.5 6.5 8 10 11.5' : 'M6 4.5 9.5 8 6 11.5');
 
 interface PanelMount {
@@ -87,7 +94,10 @@ interface PanelMount {
   signal: AbortSignal;
 }
 
-export const createPanel = ({ root, container, host, signal }: PanelMount, { onToggle, onSettings, onComment }: PanelActions): Panel => {
+export const createPanel = (
+  { root, container, host, signal }: PanelMount,
+  { onToggle, onSettings, onComment, onUpdateSeen }: PanelActions,
+): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
   const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
@@ -204,9 +214,32 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onT
     title: i18n.t('panelSettings'),
     onClick: () => onSettings(),
   });
+  const updateText = h('span');
+  const updateLink = h(
+    'a',
+    { className: 'update-link', target: '_blank', rel: 'noopener', onClick: () => onUpdateSeen() },
+    h('span', { className: 'update-dot', 'aria-hidden': 'true' }),
+    updateText,
+  );
+  const update = h(
+    'div',
+    { className: 'update', hidden: true },
+    updateLink,
+    h(
+      'button',
+      {
+        type: 'button',
+        className: 'icon-button update-dismiss',
+        'aria-label': i18n.t('panelUpdateDismiss'),
+        title: i18n.t('panelUpdateDismiss'),
+        onClick: () => onUpdateSeen(),
+      },
+      closeIcon(),
+    ),
+  );
   const status = h('span', { className: 'visually-hidden', role: 'status' });
   // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
-  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, breakdown, navigation, settings, status);
+  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, breakdown, navigation, update, settings, status);
   container.append(panel);
 
   const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
@@ -573,5 +606,16 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onT
     status.textContent = text;
   };
 
-  return { renderOptions, renderStats, renderNavigation, renderBreakdown, announce, announceText, setVisible };
+  const showUpdate = (version: string | null) => {
+    if (!version) {
+      if (update.contains(focused())) settings.focus();
+      update.hidden = true;
+      return;
+    }
+    updateLink.href = `${RELEASES}${version}`;
+    updateText.textContent = i18n.t('panelUpdate', [version.split('.').slice(0, 2).join('.')]);
+    update.hidden = false;
+  };
+
+  return { renderOptions, renderStats, renderNavigation, renderBreakdown, announce, announceText, setVisible, showUpdate };
 };

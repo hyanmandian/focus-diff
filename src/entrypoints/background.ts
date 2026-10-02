@@ -1,6 +1,11 @@
 import { defineBackground } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Command, Message } from '@/utils/messages';
+import { updateItem } from '@/utils/storage';
+
+/** Patch releases only fix things, so only a new minor or major version is worth telling the reader about. */
+const isNotable = (previous: string, current: string) =>
+  previous.split('.').slice(0, 2).join('.') !== current.split('.').slice(0, 2).join('.');
 
 /** Reuses an open settings tab instead of piling up copies that could overwrite each other. */
 const openOptions = async (repo?: string | null) => {
@@ -14,8 +19,10 @@ const openOptions = async (repo?: string | null) => {
 const openWelcome = () => browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });
 
 export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener(({ reason }) => {
+  browser.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
     if (reason === 'install') void openWelcome();
+    const { version } = browser.runtime.getManifest();
+    if (reason === 'update' && previousVersion && isNotable(previousVersion, version)) void updateItem.setValue(version);
   });
 
   browser.action.onClicked.addListener(() => void openOptions());

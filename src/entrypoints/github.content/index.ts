@@ -22,6 +22,7 @@ export default defineContentScript({
             onToggle: (id) => controller?.toggle(id),
             onSettings: () => controller?.openSettings(),
             onComment: (step) => controller?.comment(step),
+            onUpdateSeen: () => controller?.dismissUpdate(),
           },
         ),
     });

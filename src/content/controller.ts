@@ -337,6 +337,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     unwatchUpdate();
   });
 
-  schedule();
+  // The first pass runs straight away, not on the next frame, so a pull request opened in a background tab is already
+  // filtered when the reader gets to it.
+  apply();
   return { toggle, openSettings, comment, dismissUpdate };
 };

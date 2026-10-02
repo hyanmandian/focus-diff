@@ -1,5 +1,6 @@
 import { i18n } from '#i18n';
 import { counter } from '@/components/panel/counter';
+import { pointAt } from '@/components/panel/popover';
 import { h, icon } from '@/utils/dom';
 import { formatDuration, formatNumber as format, LINES_PER_HOUR } from '@/utils/format';
 
@@ -90,7 +91,7 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const breakdownRows = h('div', { className: 'rows' });
   const breakdown = h(
     'div',
-    { className: 'breakdown', id: 'focus-diff-breakdown', hidden: true },
+    { className: 'breakdown popover', id: 'focus-diff-breakdown', hidden: true },
     h('h2', { textContent: i18n.t('panelBreakdownHeading') }),
     breakdownRows,
     h('p', { className: 'hint', textContent: i18n.t('panelCombineHint') }),
@@ -130,8 +131,12 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
     indicator.style.translate = `${target.offsetLeft}px ${target.offsetTop}px`;
     if (!indicator.classList.contains('ready')) requestAnimationFrame(() => indicator.classList.add('ready'));
   };
-  const resizeObserver = new ResizeObserver(moveIndicator);
+  const resizeObserver = new ResizeObserver(() => {
+    moveIndicator();
+    pointAt(breakdown, breakdownToggle);
+  });
   resizeObserver.observe(group);
+  resizeObserver.observe(breakdown);
   signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   group.addEventListener('keydown', (event) => {
@@ -193,8 +198,10 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onS
   const setBreakdownOpen = (open: boolean) => {
     breakdown.hidden = !open;
     breakdownToggle.setAttribute('aria-expanded', String(open));
-    if (open) drawBreakdown();
-    else drawnKey = '';
+    if (open) {
+      drawBreakdown();
+      pointAt(breakdown, breakdownToggle);
+    } else drawnKey = '';
   };
   breakdownToggle.addEventListener('click', () => setBreakdownOpen(breakdown.hidden));
   document.addEventListener(

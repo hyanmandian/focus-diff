@@ -53,6 +53,15 @@ test.describe('panel on a pull request', () => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.breakdownToggle.click();
     await expect(pr.breakdownRows).toHaveCount(4);
+    const breakdown = pr.panel.locator('.breakdown');
+    const arrowX = Number.parseFloat(
+      await breakdown.evaluate((element) => (element as HTMLElement).style.getPropertyValue('--fd-arrow-x')),
+    );
+    const [popover, toggle] = await Promise.all([breakdown.boundingBox(), pr.breakdownToggle.boundingBox()]);
+    expect(
+      Math.abs((popover?.x ?? 0) + arrowX - ((toggle?.x ?? 0) + (toggle?.width ?? 0) / 2)),
+      'the arrow points at the button',
+    ).toBeLessThan(2);
     await expect(pr.breakdownRows.first()).toHaveAttribute('aria-pressed', 'true');
     await expect(pr.breakdownRows.first()).toContainText('8 files');
     await expect(pr.breakdownRows.nth(1)).toContainText('1 file');

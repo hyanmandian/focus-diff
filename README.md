@@ -17,10 +17,10 @@ Large pull requests mix the code you need to read with tests, stories, generated
 
 ## Features
 
-- **Your own filters.** Each filter is a button with an *Include* regex and an optional *Exclude* regex, tested against the full file path. **All** is always there.
+- **Your own filters.** Each filter is a button with an _Include_ regex and an optional _Exclude_ regex, tested against the full file path. **All** is always there.
 - **Everywhere or per repository.** Keep filters for every pull request, and add extra ones for `owner/name` or a whole `owner/*`.
 - **Real numbers.** Files changed and the line totals show only what the filter keeps, and update as GitHub loads more files.
-- **Combine filters.** Shift-click to look at several filters at once, like *Frontend + Docs*.
+- **Combine filters.** Shift-click to look at several filters at once, like _Frontend + Docs_.
 - **See where the changes are.** The breakdown shows how much of the pull request falls under each filter before you start.
 - **Review time.** A rough estimate next to the line totals, at about 400 changed lines per hour.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
@@ -44,31 +44,47 @@ They're regular filters, so you can rename or tweak them later. The welcome page
 
 ## Keyboard shortcuts
 
-| Shortcut | Action |
-|---|---|
-| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>.</kbd> | Next filter |
+| Shortcut                                     | Action          |
+| -------------------------------------------- | --------------- |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>.</kbd> | Next filter     |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>,</kbd> | Previous filter |
-| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>0</kbd> | Show all files |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>0</kbd> | Show all files  |
 
-On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensions/shortcuts`, or in Firefox under `about:addons` → gear → *Manage Extension Shortcuts*.
+On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensions/shortcuts`, or in Firefox under `about:addons` → gear → _Manage Extension Shortcuts_.
 
 ## Install
 
-Store listings are on the way. Until then, load it from source:
+Store listings are on the way. Until then, build it from source with `npm install` and:
 
-- **Chrome or Edge:** open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the `src` folder.
-- **Firefox:** run `npm run build`, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick `dist/firefox/manifest.json`.
+- **Chrome or Edge:** run `npm run build`, open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick `.output/chrome-mv3`.
+- **Firefox:** run `npm run build:firefox`, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick `.output/firefox-mv3/manifest.json`.
 
 ## Development
 
+Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runtime dependencies.
+
 ```sh
-npm install
-npm test        # unit tests and end-to-end tests in headless Chrome, with axe accessibility checks
-npm run lint    # syntax check, build and Firefox's add-on linter
-npm run build   # zips for Chrome/Edge and Firefox in dist/
+npm install         # also generates WXT's types
+npm run dev         # Chrome with the extension loaded and hot reload (dev:firefox for Firefox)
+npm run check       # types, Oxlint and Oxfmt
+npm test            # unit tests with Vitest
+npm run e2e         # builds, then runs Playwright against the real extension, with axe accessibility checks
+npm run fmt         # format everything
+npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)
 ```
 
-The end-to-end tests run the real content scripts on a local copy of a pull request page, so they don't depend on github.com.
+```text
+src/
+  entrypoints/      background, the GitHub content script, options and welcome pages
+  components/panel/ the floating bar, rendered in a shadow root
+  utils/            filters, storage, the GitHub page adapter, formatting
+  locales/          English and Brazilian Portuguese messages
+tests/
+  unit/             Vitest with WXT's fake browser
+  e2e/              Playwright, on a local copy of a pull request page
+```
+
+The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
 
 ## License
 

@@ -7,16 +7,33 @@
   "author": "Hyan Mandian",
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "lint": "node scripts/check-syntax.mjs && npm run build && web-ext lint --source-dir dist/firefox --self-hosted",
-    "test": "node --test tests/unit/*.test.mjs tests/e2e/*.test.mjs",
-    "test:unit": "node --test tests/unit/*.test.mjs",
-    "test:e2e": "node --test tests/e2e/*.test.mjs"
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "compile": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",
+    "fmt": "oxfmt",
+    "check": "tsc --noEmit && oxlint && oxfmt --check",
+    "test": "vitest run",
+    "e2e": "wxt build && playwright test",
+    "postinstall": "wxt prepare"
   },
   "devDependencies": {
-    "axe-core": "^4.10.2",
-    "puppeteer": "^23.10.0",
-    "web-ext": "^8.3.0"
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@wxt-dev/i18n": "^0.2.7",
+    "happy-dom": "^20.14.5",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3",
+    "web-ext": "^10.7.0",
+    "wxt": "^0.21.4"
   },
   "engines": {
     "node": ">=22"

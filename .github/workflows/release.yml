@@ -10,9 +10,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      PUBLISH_CHROME: ${{ secrets.CHROME_EXTENSION_ID != '' }}
-      PUBLISH_FIREFOX: ${{ secrets.AMO_JWT_ISSUER != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,42 +18,39 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Check the tag matches the manifest version
+      - name: Check the tag matches the package version
         run: |
-          version=$(node -p "require('./src/manifest.json').version")
+          version=$(node -p "require('./package.json').version")
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME doesn't match manifest version $version"
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $version"
             exit 1
           fi
 
-      - run: npm run lint
+      - run: npm run check
       - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - run: npm run lint:firefox
+      - run: npm run zip && npm run zip:firefox
 
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" .output/*.zip --title "$GITHUB_REF_NAME" --generate-notes
 
-      - name: Publish to the Chrome Web Store
-        if: env.PUBLISH_CHROME == 'true'
+      - name: Publish to the stores
         env:
+          CHROME_API_VERSION: v2
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
-        run: >
-          npx --yes chrome-webstore-upload-cli@3 upload --auto-publish
-          --source dist/focus-diff-*-chrome.zip
-          --extension-id "$CHROME_EXTENSION_ID"
-          --client-id "$CHROME_CLIENT_ID"
-          --client-secret "$CHROME_CLIENT_SECRET"
-          --refresh-token "$CHROME_REFRESH_TOKEN"
-
-      - name: Publish to Firefox Add-ons
-        if: env.PUBLISH_FIREFOX == 'true'
-        env:
-          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
-          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: >
-          npx web-ext sign --source-dir dist/firefox --channel listed
-          --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          FIREFOX_EXTENSION_ID: focus-diff@hyan.com.br
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+        run: |
+          args=()
+          if [ -n "$CHROME_EXTENSION_ID" ]; then args+=(--chrome-zip .output/*-chrome.zip); fi
+          if [ -n "$FIREFOX_JWT_ISSUER" ]; then args+=(--firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip); fi
+          if [ ${#args[@]} -eq 0 ]; then echo "No store secrets set, skipping."; exit 0; fi
+          npx wxt submit "${args[@]}"

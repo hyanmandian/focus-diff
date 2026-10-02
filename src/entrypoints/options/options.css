@@ -263,12 +263,15 @@ input[aria-invalid='true'] {
 .project ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
+  gap: 0 16px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .project a {
+  /* 24px tall, so wrapped links stay comfortable to tap. */
+  display: inline-block;
+  padding-block: 4px;
   color: var(--focus);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;

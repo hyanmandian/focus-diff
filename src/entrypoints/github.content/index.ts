@@ -1,4 +1,3 @@
-import '@/components/panel/panel.css';
 import { createShadowRootUi, defineContentScript } from '#imports';
 import { createPanel } from '@/components/panel';
 import { startController, type Controller } from './controller';

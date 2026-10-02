@@ -26,3 +26,8 @@ export const centreOver = (popover: HTMLElement, trigger: HTMLElement, offsetPar
   popover.style.right = 'auto';
   pointAt(popover, trigger);
 };
+
+/** Focus inside a closing popover goes back to its toggle, or to `fallback` when the toggle is gone too. */
+export const returnFocus = (popover: HTMLElement, toggle: HTMLElement, fallback: HTMLElement, focused: HTMLElement | null): void => {
+  if (popover.contains(focused)) (toggle.hidden ? fallback : toggle).focus();
+};

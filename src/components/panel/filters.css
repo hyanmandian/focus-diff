@@ -1,0 +1,62 @@
+.filters {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  isolation: isolate;
+}
+.indicator {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: inset(0 100% 100% 0 round 8px);
+  background: var(--fd-selected-bg);
+  pointer-events: none;
+}
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+  font-weight: 500;
+}
+.option[aria-pressed='true'] .option-count {
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--fd-selected-fg);
+}
+.option.empty:not([aria-pressed='true']) {
+  color: var(--fd-muted);
+}
+.option[aria-pressed='true'],
+.option[aria-pressed='true']:hover {
+  background: transparent;
+  color: var(--fd-selected-fg);
+}
+.filters.combined .indicator {
+  opacity: 0;
+}
+.filters.combined .option[aria-pressed='true'] {
+  background: var(--fd-selected-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .indicator.ready {
+    transition: clip-path 260ms var(--fd-ease);
+  }
+}
+@media (forced-colors: active) {
+  .indicator,
+  .option[aria-pressed='true'],
+  .filters.combined .option[aria-pressed='true'] {
+    forced-color-adjust: none;
+  }
+  .indicator {
+    background: Highlight;
+  }
+  .option[aria-pressed='true'] {
+    color: HighlightText;
+  }
+  .filters.combined .option[aria-pressed='true'] {
+    background: Highlight;
+  }
+}

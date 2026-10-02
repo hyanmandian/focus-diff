@@ -1,0 +1,100 @@
+.navigation {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--fd-border);
+}
+.comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+}
+.comments[hidden] {
+  display: none;
+}
+.comments[aria-expanded='true'] {
+  background: var(--fd-hover);
+}
+.comments-icon {
+  display: inline-grid;
+  color: var(--fd-muted);
+}
+.comments[aria-expanded='true'] .comments-icon {
+  color: var(--fd-fg);
+}
+
+/* A fixed width, so the card doesn't resize with each file name. */
+.conversations {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  width: min(272px, calc(100vw - 32px));
+  padding: 8px 8px 8px 12px;
+  font-size: 13px;
+}
+.conversation-icon {
+  display: grid;
+  grid-row: 1 / span 2;
+  color: var(--fd-attention);
+}
+.conversations[data-state='answered'] .conversation-icon {
+  color: var(--fd-accent);
+}
+.conversations[data-state='resolved'] .conversation-icon {
+  color: var(--fd-add);
+}
+.conversation-file {
+  display: flex;
+  grid-column: 2;
+  min-width: 0;
+  font-weight: 600;
+  line-height: 20px;
+}
+.conversation-name,
+.conversation-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-line {
+  flex: none;
+  color: var(--fd-muted);
+  font-weight: 400;
+}
+.conversation-state {
+  grid-column: 2;
+  color: var(--fd-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+/* The position sits over the arrows that change it. */
+.conversation-position {
+  grid-row: 1;
+  grid-column: 3;
+  color: var(--fd-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+.conversation-steps {
+  display: flex;
+  grid-row: 2;
+  grid-column: 3;
+}
+.conversation-steps .icon-button {
+  min-width: 28px;
+  min-height: 24px;
+  border-radius: 6px;
+}
+@media (pointer: coarse) {
+  .conversation-steps .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

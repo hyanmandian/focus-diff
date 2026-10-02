@@ -226,7 +226,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       selectionKey = key;
       navigation.reset();
     }
-    panel.renderNavigation({ comments: navigation.position(shown, files.complete) });
+    panel.renderConversations(navigation.position(shown, files.complete));
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
     panel.renderStats(totals);

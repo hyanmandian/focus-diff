@@ -21,7 +21,10 @@ npm run zip         # store zips in .output/ (zip:firefox also packs the sources
 ```text
 src/
   entrypoints/      background, the GitHub content script, options and welcome pages
-  components/panel/ the floating bar, rendered in a shadow root
+  components/       the UI, as plain functions that build elements and return how to update them
+    icons.ts        the SVG icons
+    panel/          the floating bar, mounted in a shadow root: index.ts lays out its parts
+                    (filters, stats, breakdown, conversations, update-notice), each with its own CSS
   utils/            filters, storage, the GitHub page adapter, formatting
   locales/          English and Brazilian Portuguese messages
 tests/

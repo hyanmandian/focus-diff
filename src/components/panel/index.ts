@@ -1,44 +1,16 @@
+import './panel.css';
 import { i18n } from '#i18n';
-import { counter } from '@/components/panel/counter';
-import { centreOver, pointAt } from '@/components/panel/popover';
-import { h, icon } from '@/utils/dom';
-import type { ThreadState } from '@/utils/github';
+import { settingsIcon } from '@/components/icons';
+import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
-import { LINES_PER_HOUR } from '@/utils/review-time';
+import { createBreakdown } from './breakdown';
+import { createConversations } from './conversations';
+import { createFilters } from './filters';
+import { createStats } from './stats';
+import type { BreakdownRow, Conversations, PanelContext, PanelOption, Totals } from './types';
+import { createUpdateNotice } from './update-notice';
 
-export interface Totals {
-  visible: number;
-  total: number;
-  additions: number;
-  deletions: number;
-  pending: number;
-  /** Estimated review time, see utils/review-time.ts. */
-  minutes: number;
-  /** Files marked as viewed on GitHub, and the estimate for the rest. */
-  viewed: number;
-  minutesLeft: number;
-}
-
-export interface PanelOption {
-  id: string;
-  name: string;
-  /** Files this option shows. */
-  count?: number;
-}
-
-export interface Conversation {
-  path: string;
-  /** Line in the new version of the file, when known. */
-  line: number | null;
-  state: ThreadState;
-}
-
-export interface Navigation {
-  /** Conversations in the shown files, and which one the reader last jumped to (1-based, 0 before the first jump). */
-  comments: { current: number; list: Conversation[] };
-}
-
-export interface BreakdownRow extends PanelOption, Totals {}
+export type { BreakdownRow, Conversation, Conversations, PanelOption, Totals } from './types';
 
 export interface PanelActions {
   onToggle: (id: string) => void;
@@ -51,7 +23,7 @@ export interface PanelActions {
 export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
   renderStats: (totals: Totals) => void;
-  renderNavigation: (navigation: Navigation) => void;
+  renderConversations: (conversations: Conversations) => void;
   /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
   announce: (summary: Totals & { name: string }) => void;
@@ -62,31 +34,6 @@ export interface Panel {
   showUpdate: (version: string | null) => void;
 }
 
-const RELEASES = 'https://github.com/hyanmandian/focus-diff/releases/tag/v';
-
-const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-
-const settingsIcon = () =>
-  icon([
-    ['path', { d: 'M2 4h7M13 4h1M2 8h1M7 8h7M2 12h5M11 12h3' }],
-    ['circle', { cx: '11', cy: '4', r: '2' }],
-    ['circle', { cx: '5', cy: '8', r: '2' }],
-    ['circle', { cx: '9', cy: '12', r: '2' }],
-  ]);
-
-const breakdownIcon = () => icon('M2 13.5h12M4 11V7M8 11V3M12 11V8');
-const infoIcon = () =>
-  icon(
-    [
-      ['circle', { cx: '8', cy: '8', r: '6.25' }],
-      ['path', { d: 'M8 7.25v3.75M8 5v.25' }],
-    ],
-    14,
-  );
-const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
-const closeIcon = () => icon('M4.5 4.5l7 7M11.5 4.5l-7 7', 14);
-const chevron = (direction: 'left' | 'right') => icon(direction === 'left' ? 'M10 4.5 6.5 8 10 11.5' : 'M6 4.5 9.5 8 6 11.5');
-
 interface PanelMount {
   root: ShadowRoot;
   container: HTMLElement;
@@ -94,499 +41,91 @@ interface PanelMount {
   signal: AbortSignal;
 }
 
+/**
+ * The floating bar: filters, stats, the breakdown, conversations, the update notice and settings, in that order. Each
+ * part lives in its own module; this one lays them out and settles what they share, like which popover is open.
+ */
 export const createPanel = (
   { root, container, host, signal }: PanelMount,
   { onToggle, onSettings, onComment, onUpdateSeen }: PanelActions,
 ): Panel => {
-  const focused = () => root.activeElement as HTMLElement | null;
+  const context: PanelContext = { host, signal, focused: () => root.activeElement as HTMLElement | null };
 
-  const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
-  const group = h('div', { className: 'filters', role: 'group', 'aria-label': i18n.t('panelShowFiles') }, indicator);
-  const visibleFiles = counter('visible', format);
-  const totalFiles = counter('total', format);
-  const additions = counter('additions', (n) => `+${format(n)}`);
-  const deletions = counter('deletions', (n) => `−${format(n)}`);
-  const time = counter('time', (seconds) => (seconds === 0 ? i18n.t('timeDone') : formatDuration(seconds / 60)));
-  const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
-  const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
-  const pendingText = h('span', { className: 'visually-hidden' });
-  const stats = h(
-    'span',
-    { className: 'stats' },
-    h(
-      'span',
-      { className: 'files' },
-      visibleFiles.element,
-      h('span', { className: 'number', textContent: '/' }),
-      totalFiles.element,
-      h('span', { className: 'files-label', textContent: ` ${i18n.t('panelFilesLabel')}` }),
-      pending,
-      pendingText,
-    ),
-    h(
-      'span',
-      { className: 'lines' },
-      additions.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesAdded')}` }),
-      deletions.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
-    ),
-    h('span', { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) }, time.element, timeLabel),
-  );
-
-  // One button walks forward through the conversations; going back only appears once there's somewhere to go back to.
-  const commentsCount = h('span', { className: 'option-count', 'aria-hidden': 'true' });
-  const comments = h(
-    'button',
-    { type: 'button', className: 'comments', 'aria-expanded': 'false', 'aria-controls': 'focus-diff-conversations' },
-    h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
-    commentsCount,
-  );
-  const conversationIcon = h('span', { className: 'conversation-icon', 'aria-hidden': 'true' });
-  const conversationFile = h('span', { className: 'conversation-file' });
-  const conversationState = h('span', { className: 'conversation-state' });
-  const conversationPosition = h('span', { className: 'conversation-position', 'aria-hidden': 'true' });
-  const step = (direction: 1 | -1) =>
-    h(
-      'button',
-      {
-        type: 'button',
-        className: 'icon-button',
-        'aria-label': i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment'),
-        title: i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment'),
-        onClick: () => onComment(direction),
-      },
-      chevron(direction > 0 ? 'right' : 'left'),
-    );
-  const conversations = h(
-    'div',
-    {
-      className: 'conversations popover',
-      id: 'focus-diff-conversations',
-      role: 'dialog',
-      'aria-label': i18n.t('panelComments'),
-      hidden: true,
-    },
-    conversationIcon,
-    conversationFile,
-    conversationState,
-    conversationPosition,
-    h('span', { className: 'conversation-steps' }, step(-1), step(1)),
-  );
-  // Like the breakdown, the conversations popover follows its toggle and is positioned against the host.
-  const navigation = h('div', { className: 'navigation' }, comments, conversations);
-
-  const breakdownRows = h('div', { className: 'rows' });
-  const timeInfo = h('div', {
-    className: 'tooltip',
-    id: 'focus-diff-time-info',
-    role: 'tooltip',
-    hidden: true,
-    textContent: i18n.t('timeHint', [LINES_PER_HOUR]),
-  });
-  const breakdown = h(
-    'div',
-    {
-      className: 'breakdown popover',
-      id: 'focus-diff-breakdown',
-      role: 'dialog',
-      hidden: true,
-      'aria-label': i18n.t('panelBreakdown'),
-    },
-    breakdownRows,
-    timeInfo,
-  );
-  const breakdownToggle = h(
-    'button',
-    {
-      type: 'button',
-      className: 'icon-button breakdown-toggle',
-      title: i18n.t('panelBreakdown'),
-      'aria-label': i18n.t('panelBreakdown'),
-      'aria-expanded': 'false',
-      'aria-controls': 'focus-diff-breakdown',
-    },
-    breakdownIcon(),
-  );
   const settings = h('button', {
     type: 'button',
     className: 'settings icon-button',
     title: i18n.t('panelSettings'),
     onClick: () => onSettings(),
   });
-  const updateText = h('span');
-  const updateLink = h(
-    'a',
-    { className: 'update-link', target: '_blank', rel: 'noopener', onClick: () => onUpdateSeen() },
-    h('span', { className: 'update-dot', 'aria-hidden': 'true' }),
-    updateText,
-  );
-  const update = h(
-    'div',
-    { className: 'update', hidden: true },
-    updateLink,
-    h(
-      'button',
-      {
-        type: 'button',
-        className: 'icon-button update-dismiss',
-        'aria-label': i18n.t('panelUpdateDismiss'),
-        title: i18n.t('panelUpdateDismiss'),
-        onClick: () => onUpdateSeen(),
-      },
-      closeIcon(),
-    ),
-  );
+  const filters = createFilters(context, onToggle);
+  const stats = createStats(context);
+  const breakdown = createBreakdown(context, { onToggle, onOpen: () => conversations.setOpen(false), fallback: settings });
+  const conversations = createConversations(context, { onStep: onComment, onOpen: () => breakdown.setOpen(false), fallback: settings });
+  const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
   const status = h('span', { className: 'visually-hidden', role: 'status' });
   // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
-  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, breakdown, navigation, update, settings, status);
-  container.append(panel);
-
-  const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
-
-  const moveIndicator = () => {
-    const pressed = group.querySelectorAll<HTMLElement>('[aria-pressed="true"]');
-    group.classList.toggle('combined', pressed.length > 1);
-    const target = pressed[0];
-    if (pressed.length !== 1 || !target?.offsetWidth) return;
-    const right = group.clientWidth - target.offsetLeft - target.offsetWidth;
-    const bottom = group.clientHeight - target.offsetTop - target.offsetHeight;
-    indicator.style.clipPath = `inset(${target.offsetTop}px ${right}px ${bottom}px ${target.offsetLeft}px round 8px)`;
-    if (!indicator.classList.contains('ready')) requestAnimationFrame(() => indicator.classList.add('ready'));
-  };
-  const resizeObserver = new ResizeObserver(() => {
-    moveIndicator();
-    centreOver(breakdown, breakdownToggle, host);
-    centreOver(conversations, comments, host);
-  });
-  resizeObserver.observe(group);
-  resizeObserver.observe(breakdown);
-  resizeObserver.observe(conversations);
-  signal.addEventListener('abort', () => resizeObserver.disconnect());
-
-  group.addEventListener('keydown', (event) => {
-    const list = options();
-    const index = list.indexOf(focused() as HTMLButtonElement);
-    if (index === -1) return;
-    const target = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
-    if (Number.isNaN(target)) return;
-    event.preventDefault();
-    const next = list[(target + list.length) % list.length];
-    if (!next) return;
-    list.forEach((option) => (option.tabIndex = option === next ? 0 : -1));
-    next.focus();
-  });
-
-  let breakdownSource: { rows: () => BreakdownRow[]; selected: string[] } = { rows: () => [], selected: [] };
-  let drawnKey = '';
-  const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
-
-  /** GitHub's five-square diffstat: the share of added and removed lines. */
-  const diffstat = (additions: number, deletions: number) => {
-    const total = additions + deletions;
-    const added = total ? Math.round((additions / total) * 5) : 0;
-    const removed = total ? Math.min(5 - added, Math.round((deletions / total) * 5)) : 0;
-    return h(
-      'span',
-      { className: 'diffstat', 'aria-hidden': 'true' },
-      ...Array.from({ length: 5 }, (_, index) => h('span', { className: index < added ? 'add' : index < added + removed ? 'del' : '' })),
-    );
-  };
-
-  // Closing waits a moment so the pointer can move onto the tooltip and keep it open.
-  let timeInfoClosing = 0;
-  const closeTimeInfo = () => {
-    timeInfoClosing = window.setTimeout(() => (timeInfo.hidden = true), 120);
-  };
-  const keepTimeInfo = () => clearTimeout(timeInfoClosing);
-  timeInfo.addEventListener('mouseenter', keepTimeInfo);
-  timeInfo.addEventListener('mouseleave', closeTimeInfo);
-
-  /** The (i) beside "Time left": explains the estimate on hover or focus. */
-  const timeInfoButton = () => {
-    const button = h(
-      'button',
-      { type: 'button', className: 'info', 'aria-label': i18n.t('panelTimeInfo'), 'aria-describedby': 'focus-diff-time-info' },
-      infoIcon(),
-    );
-    // Sits above the icon, its arrow pointing down at it, like the breakdown does over its button.
-    const open = () => {
-      const box = button.getBoundingClientRect();
-      const popover = breakdown.getBoundingClientRect();
-      timeInfo.style.bottom = `${Math.round(popover.bottom - box.top + 10)}px`;
-      timeInfo.hidden = false;
-      pointAt(timeInfo, button);
-    };
-    button.addEventListener('mouseenter', () => (keepTimeInfo(), open()));
-    button.addEventListener('focus', () => (keepTimeInfo(), open()));
-    button.addEventListener('mouseleave', closeTimeInfo);
-    button.addEventListener('blur', closeTimeInfo);
-    return button;
-  };
-
-  const columns = () =>
+  container.append(
     h(
       'div',
-      { className: 'columns' },
-      h('span'),
-      h('span', { textContent: i18n.t('panelColumnFilter') }),
-      h('span', { textContent: i18n.t('panelColumnViewed') }),
-      h('span', { textContent: i18n.t('panelColumnLines') }),
-      h('span', { className: 'column-time' }, i18n.t('panelColumnTime'), timeInfoButton()),
-    );
+      { className: 'panel' },
+      filters.element,
+      stats.element,
+      breakdown.toggle,
+      breakdown.popover,
+      conversations.element,
+      update.element,
+      settings,
+      status,
+    ),
+  );
 
-  const breakdownRow = (row: BreakdownRow, selected: boolean) => {
-    // A complete row already reads as done through its green Viewed count, so its time stays empty.
-    const time = row.minutesLeft === 0 ? '' : formatDuration(row.minutesLeft);
-    const complete = row.visible > 0 && row.viewed === row.visible;
-    return h(
-      'button',
-      {
-        type: 'button',
-        className: 'row',
-        'data-row': row.id,
-        'aria-pressed': String(selected),
-        'aria-label': i18n.t('panelBreakdownRow', [
-          row.name,
-          i18n.t('fileCount', row.visible, [format(row.visible)]),
-          format(row.viewed),
-          format(row.additions),
-          format(row.deletions),
-          row.minutesLeft === 0 ? i18n.t('timeDone') : i18n.t('timeLeft', [time]),
-        ]),
-        onClick: () => onToggle(row.id),
-      },
-      h('span', { className: 'row-check' }, selected ? checkIcon() : null),
-      h('span', { className: 'row-name', textContent: row.name }),
-      h('span', { className: `row-viewed${complete ? ' complete' : ''}`, textContent: `${format(row.viewed)}/${format(row.visible)}` }),
-      h(
-        'span',
-        { className: 'row-lines' },
-        h('span', { className: 'additions', textContent: `+${format(row.additions)}` }),
-        h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` }),
-        diffstat(row.additions, row.deletions),
-      ),
-      h('span', { className: 'row-time', textContent: time }),
-    );
-  };
-
-  const drawBreakdown = () => {
-    if (breakdown.hidden) return;
-    const rows = breakdownSource.rows();
-    const { selected } = breakdownSource;
-    const key = JSON.stringify([rows, selected]);
-    if (key === drawnKey) return;
-    drawnKey = key;
-    const keepFocus = focused()?.dataset.row;
-    breakdownRows.replaceChildren(columns(), ...rows.map((row) => breakdownRow(row, selected.includes(row.id))));
-    if (keepFocus) breakdownRows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
-  };
-
-  /** Focus inside a closing popover goes back to its toggle, or to settings when the toggle is gone too. */
-  const returnFocus = (popover: HTMLElement, toggle: HTMLElement) => {
-    if (popover.contains(focused())) (toggle.hidden ? settings : toggle).focus();
-  };
-
-  const setBreakdownOpen = (open: boolean) => {
-    if (!open) {
-      returnFocus(breakdown, breakdownToggle);
-      timeInfo.hidden = true;
-    }
-    breakdown.hidden = !open;
-    breakdownToggle.setAttribute('aria-expanded', String(open));
-    if (open) {
-      setConversationsOpen(false);
-      drawBreakdown();
-      centreOver(breakdown, breakdownToggle, host);
-    } else drawnKey = '';
-  };
-  breakdownToggle.addEventListener('click', () => setBreakdownOpen(breakdown.hidden));
-
-  let conversationSource: Navigation['comments'] = { current: 0, list: [] };
-  const STATE_LABEL = { waiting: 'panelStateWaiting', answered: 'panelStateAnswered', resolved: 'panelStateResolved' } as const;
-
-  const stateIcons: Record<ThreadState, () => SVGSVGElement> = {
-    waiting: () => icon([['circle', { cx: '8', cy: '8', r: '3.5', fill: 'currentColor', stroke: 'none' }]]),
-    answered: () => icon('M6.5 4 3 7.5 6.5 11M3 7.5h6a4 4 0 0 1 4 4v.5'),
-    resolved: () =>
-      icon([
-        ['circle', { cx: '8', cy: '8', r: '6.25' }],
-        ['path', { d: 'M5.5 8.25 7.25 10l3.25-3.5' }],
-      ]),
-  };
-
-  /** The conversation the reader is on (the first one while the jump to it lands): where it is and whether it needs them. */
-  const drawConversations = () => {
-    if (conversations.hidden) return;
-    const { current, list } = conversationSource;
-    const target = list[current - 1] ?? list[0];
-    if (!target) return;
-    const name = target.path.slice(target.path.lastIndexOf('/') + 1);
-    // The name gives way to an ellipsis; the line number always shows.
-    conversationFile.replaceChildren(
-      h('span', { className: 'conversation-name', textContent: name }),
-      target.line ? h('span', { className: 'conversation-line', textContent: `:${format(target.line)}` }) : '',
-    );
-    conversationFile.title = target.path;
-    if (conversations.dataset.state !== target.state) {
-      conversations.dataset.state = target.state;
-      conversationIcon.replaceChildren(stateIcons[target.state]());
-    }
-    conversationState.textContent = i18n.t(STATE_LABEL[target.state]);
-    conversationPosition.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
-  };
-
-  /** Stays open while the reader steps through conversations; only its toggle or Escape closes it. */
-  const setConversationsOpen = (open: boolean) => {
-    if (conversations.hidden === !open) return;
-    if (!open) returnFocus(conversations, comments);
-    conversations.hidden = !open;
-    comments.setAttribute('aria-expanded', String(open));
-    if (open) {
-      setBreakdownOpen(false);
-      // Opening lands on a conversation straight away, so the popover always has one to show.
-      if (conversationSource.current === 0) onComment(1);
-      drawConversations();
-      centreOver(conversations, comments, host);
-    }
-  };
-  comments.addEventListener('click', () => setConversationsOpen(conversations.hidden));
+  const resizeObserver = new ResizeObserver(() => {
+    filters.moveIndicator();
+    breakdown.reposition();
+    conversations.reposition();
+  });
+  for (const element of [filters.element, breakdown.popover, conversations.popover]) resizeObserver.observe(element);
+  signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape') return;
-      if (!timeInfo.hidden) timeInfo.hidden = true;
-      else if (!breakdown.hidden) setBreakdownOpen(false);
+      if (event.key !== 'Escape' || breakdown.dismiss()) return;
       // Escape elsewhere on the page belongs to GitHub, like cancelling a reply.
-      else if (!conversations.hidden && focused()) setConversationsOpen(false);
+      if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
     },
     { signal },
   );
   document.addEventListener(
     'pointerdown',
     (event) => {
-      if (!breakdown.hidden && !event.composedPath().includes(host)) setBreakdownOpen(false);
+      if (breakdown.isOpen() && !event.composedPath().includes(host)) breakdown.setOpen(false);
     },
     { signal },
   );
 
-  let optionsKey = '';
-  let indicatorKey = '';
+  /** Without filters there's nothing to break down, and settings becomes a labelled call to set them up. */
   const renderOptions = (list: PanelOption[], selected: string[]) => {
-    const key = JSON.stringify(list.map(({ id, name }) => [id, name]));
-    if (key !== optionsKey) {
-      optionsKey = key;
-      const keepFocus = group.contains(focused());
-      options().forEach((option) => option.remove());
-      group.append(
-        ...list.map(({ id, name }) =>
-          h(
-            'button',
-            { type: 'button', className: 'option', 'data-id': id, onClick: () => onToggle(id) },
-            h('span', { className: 'option-name', textContent: name }),
-            h('span', { className: 'option-count', 'aria-hidden': 'true' }),
-            h('span', { className: 'visually-hidden option-count-label' }),
-          ),
-        ),
-      );
-      if (keepFocus) requestAnimationFrame(() => group.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus());
-
-      const configured = list.length > 1;
-      settings.classList.toggle('labelled', !configured);
-      breakdownToggle.hidden = !configured;
-      if (configured) {
-        settings.replaceChildren(settingsIcon());
-        settings.setAttribute('aria-label', i18n.t('panelSettings'));
-      } else {
-        settings.textContent = i18n.t('panelSetUp');
-        settings.removeAttribute('aria-label');
-        setBreakdownOpen(false);
-      }
-    }
-
-    const current = focused()?.classList.contains('option') ? focused() : null;
-    for (const option of options()) {
-      const count = list.find((item) => item.id === option.dataset.id)?.count;
-      const countElement = option.querySelector('.option-count');
-      const countLabel = option.querySelector('.option-count-label');
-      if (countElement && countLabel && count !== undefined) {
-        const text = format(count);
-        if (countElement.textContent !== text) countElement.textContent = text;
-        countLabel.textContent = ` ${i18n.t('fileCount', count, [text])}`;
-        option.classList.toggle('empty', count === 0);
-      }
-      const pressed = selected.includes(option.dataset.id ?? '');
-      if (option.getAttribute('aria-pressed') !== String(pressed)) option.setAttribute('aria-pressed', String(pressed));
-      option.tabIndex = (current ? option === current : option.dataset.id === selected[0]) ? 0 : -1;
-    }
-    // Measuring the chips forces a layout, so it only happens when the selection changes; the ResizeObserver covers the rest.
-    const pressedKey = `${optionsKey} ${selected.join()}`;
-    if (pressedKey !== indicatorKey) {
-      indicatorKey = pressedKey;
-      moveIndicator();
+    if (!filters.render(list, selected)) return;
+    const configured = list.length > 1;
+    settings.classList.toggle('labelled', !configured);
+    breakdown.toggle.hidden = !configured;
+    if (configured) {
+      settings.replaceChildren(settingsIcon());
+      settings.setAttribute('aria-label', i18n.t('panelSettings'));
+    } else {
+      settings.textContent = i18n.t('panelSetUp');
+      settings.removeAttribute('aria-label');
+      breakdown.setOpen(false);
     }
   };
 
-  const renderBreakdown = (rows: () => BreakdownRow[], selected: string[]) => {
-    breakdownSource = { rows, selected };
-    drawBreakdown();
-  };
-
-  /** The stats block only grows: shorter numbers leave room at its end instead of shifting the buttons after it. */
-  let reservedWidth = 0;
-  const reserveStatsWidth = () => {
-    // WXT injects the stylesheet asynchronously; before it lands, hidden labels are inline and inflate the width.
-    if (host.style.display === 'none' || getComputedStyle(pendingText).position !== 'absolute') return;
-    const width = Math.ceil(stats.getBoundingClientRect().width);
-    if (width <= reservedWidth) return;
-    reservedWidth = width;
-    stats.style.minWidth = `${width}px`;
-  };
-  const resizeStats = new ResizeObserver(reserveStatsWidth);
-  resizeStats.observe(stats);
-  signal.addEventListener('abort', () => resizeStats.disconnect());
-
-  const renderStats = (totals: Totals) => {
-    visibleFiles.set(totals.visible);
-    totalFiles.set(totals.total);
-    additions.set(totals.additions);
-    deletions.set(totals.deletions);
-    time.set(Math.round(totals.minutesLeft * 60));
-    timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
-    pending.classList.toggle('active', totals.pending > 0);
-    pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
-    stats.title = pending.title;
-    pendingText.textContent = pending.title ? ` ${pending.title}` : '';
-  };
-
-  const renderNavigation = ({ comments: conversationState }: Navigation) => {
-    const total = conversationState.list.length;
-    comments.hidden = total === 0;
-    if (!total) setConversationsOpen(false);
-    commentsCount.textContent = format(total);
-    const where = conversationState.current
-      ? i18n.t('panelCommentPosition', [format(conversationState.current), format(total)])
-      : i18n.t('panelCommentCount', total, [format(total)]);
-    comments.setAttribute('aria-label', `${i18n.t('panelComments')}, ${where}`);
-    conversationSource = conversationState;
-    drawConversations();
-  };
-
-  const announce = ({
-    name,
-    visible,
-    total,
-    additions: added,
-    deletions: removed,
-    pending: waiting,
-    minutes,
-  }: Totals & { name: string }) => {
+  const announce = ({ name, visible, total, additions, deletions, pending, minutes }: Totals & { name: string }) => {
     const parts = [
-      i18n.t('panelAnnounce', [name, format(visible), format(total), format(added), format(removed)]),
+      i18n.t('panelAnnounce', [name, format(visible), format(total), format(additions), format(deletions)]),
       i18n.t('panelAnnounceTime', [formatDuration(minutes)]),
     ];
-    if (waiting > 0) parts.push(i18n.t('panelAnnouncePartial', waiting, [format(waiting)]));
+    if (pending > 0) parts.push(i18n.t('panelAnnouncePartial', pending, [format(pending)]));
     status.textContent = parts.join(' ');
   };
 
@@ -594,28 +133,22 @@ export const createPanel = (
     const display = visible ? '' : 'none';
     if (host.style.display === display) return;
     host.style.display = display;
-    if (visible) requestAnimationFrame(moveIndicator);
+    if (visible) requestAnimationFrame(filters.moveIndicator);
     else {
-      setBreakdownOpen(false);
-      setConversationsOpen(false);
+      breakdown.setOpen(false);
+      conversations.setOpen(false);
     }
   };
-
   setVisible(false);
-  const announceText = (text: string) => {
-    status.textContent = text;
-  };
 
-  const showUpdate = (version: string | null) => {
-    if (!version) {
-      if (update.contains(focused())) settings.focus();
-      update.hidden = true;
-      return;
-    }
-    updateLink.href = `${RELEASES}${version}`;
-    updateText.textContent = i18n.t('panelUpdate', [version.split('.').slice(0, 2).join('.')]);
-    update.hidden = false;
+  return {
+    renderOptions,
+    renderStats: stats.render,
+    renderConversations: conversations.render,
+    renderBreakdown: breakdown.render,
+    announce,
+    announceText: (text) => (status.textContent = text),
+    setVisible,
+    showUpdate: update.show,
   };
-
-  return { renderOptions, renderStats, renderNavigation, renderBreakdown, announce, announceText, setVisible, showUpdate };
 };

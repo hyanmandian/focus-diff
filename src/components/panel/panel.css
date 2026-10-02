@@ -44,22 +44,6 @@
   color: var(--fd-fg);
   font: 500 13px/20px var(--fd-font);
 }
-
-.filters {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  isolation: isolate;
-}
-.indicator {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  clip-path: inset(0 100% 100% 0 round 8px);
-  background: var(--fd-selected-bg);
-  pointer-events: none;
-}
 button {
   min-height: var(--fd-target);
   padding: 0 12px;
@@ -78,13 +62,6 @@ a:focus-visible {
   outline: 2px solid var(--fd-focus);
   outline-offset: 1px;
 }
-.option {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px 0 12px;
-  font-weight: 500;
-}
 .option-count {
   box-sizing: border-box;
   min-width: 20px;
@@ -96,23 +73,8 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-.option[aria-pressed='true'] .option-count {
-  background: rgba(0, 0, 0, 0.16);
-  color: var(--fd-selected-fg);
-}
-.option.empty:not([aria-pressed='true']) {
-  color: var(--fd-muted);
-}
-.option[aria-pressed='true'],
-.option[aria-pressed='true']:hover {
-  background: transparent;
-  color: var(--fd-selected-fg);
-}
-.filters.combined .indicator {
-  opacity: 0;
-}
-.filters.combined .option[aria-pressed='true'] {
-  background: var(--fd-selected-bg);
+.option-count:empty {
+  display: none;
 }
 
 .icon-button {
@@ -145,334 +107,11 @@ a:focus-visible {
 .popover[hidden] {
   display: none;
 }
-.columns .column-time {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-.info {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  min-height: 20px;
-  padding: 0;
-  border-radius: 50%;
-  color: var(--fd-muted);
-}
-.info:hover,
-.info:focus-visible {
-  color: var(--fd-fg);
-}
-.tooltip {
-  position: absolute;
-  right: 12px;
-  z-index: 1;
-  box-sizing: border-box;
-  width: max-content;
-  max-width: min(280px, calc(100% - 24px));
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--fd-fg);
-  color: var(--fd-bg);
-  box-shadow: var(--fd-shadow);
-  font: 400 12px/18px var(--fd-font);
-}
-.tooltip[hidden] {
-  display: none;
-}
-.tooltip::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: var(--fd-arrow-x, calc(100% - 24px));
-  width: 10px;
-  height: 10px;
-  translate: -50% 0;
-  rotate: 45deg;
-  border-bottom-right-radius: 2px;
-  background: inherit;
-}
-.rows {
-  display: grid;
-  grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);
-  column-gap: 16px;
-  max-height: min(52vh, 420px);
-  padding: 8px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.columns,
-.row {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-  padding: 0 8px;
-}
-.columns {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--fd-border-muted);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--fd-muted);
-}
-.columns > :nth-child(n + 4),
-.row > :nth-child(n + 4) {
-  justify-self: end;
-}
-/* Viewed reads with the filter's name; the line counts start a new group. */
-.columns > :nth-child(3),
-.row > :nth-child(3) {
-  justify-self: start;
-  margin-left: -6px;
-}
-.columns > :nth-child(4),
-.row > :nth-child(4) {
-  margin-left: 20px;
-}
-.row {
-  position: relative;
-  min-height: 36px;
-  border-radius: 6px;
-  text-align: left;
-  font-weight: 400;
-}
-.row + .row::before {
-  content: '';
-  position: absolute;
-  inset: -1px 8px auto;
-  border-top: 1px solid var(--fd-border-muted);
-}
-.row:hover::before,
-.row:hover + .row::before {
-  border-color: transparent;
-}
-.row-check {
-  display: grid;
-  color: var(--fd-accent);
-}
-.row[aria-pressed='true'] .row-name {
-  font-weight: 600;
-}
-.row-lines {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.diffstat {
-  display: inline-flex;
-  gap: 1px;
-}
-.diffstat span {
-  width: 8px;
-  height: 8px;
-  border-radius: 1px;
-  background: var(--fd-track);
-}
-.diffstat .add {
-  background: var(--fd-add);
-}
-.diffstat .del {
-  background: var(--fd-del);
-}
-.row-time {
-  font-weight: 600;
-}
-.row-viewed {
-  color: var(--fd-muted);
-}
-.row-viewed.complete {
-  color: var(--fd-add);
-  font-weight: 600;
-}
-
-.stats {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 4px 0 10px;
-  border-left: 1px solid var(--fd-border);
-  color: var(--fd-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.files {
-  display: inline-flex;
-  align-items: baseline;
-}
-.files-label {
-  margin-left: 0.35em;
-}
-.files .pending {
-  align-self: center;
-  margin-left: 6px;
-}
-.lines {
-  display: inline-flex;
-  gap: 6px;
-}
-
-.navigation {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding-left: 8px;
-  border-left: 1px solid var(--fd-border);
-}
-.option-count:empty {
-  display: none;
-}
-.comments {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px 0 10px;
-}
-.comments[hidden] {
-  display: none;
-}
-.comments[aria-expanded='true'] {
-  background: var(--fd-hover);
-}
-.comments-icon {
-  display: inline-grid;
-  color: var(--fd-muted);
-}
-.comments[aria-expanded='true'] .comments-icon {
-  color: var(--fd-fg);
-}
-
-/* A fixed width, so the card doesn't resize with each file name. */
-.conversations {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  align-items: center;
-  column-gap: 10px;
-  row-gap: 2px;
-  width: min(272px, calc(100vw - 32px));
-  padding: 8px 8px 8px 12px;
-  font-size: 13px;
-}
-.conversation-icon {
-  display: grid;
-  grid-row: 1 / span 2;
-  color: var(--fd-attention);
-}
-.conversations[data-state='answered'] .conversation-icon {
-  color: var(--fd-accent);
-}
-.conversations[data-state='resolved'] .conversation-icon {
-  color: var(--fd-add);
-}
-.conversation-file {
-  display: flex;
-  grid-column: 2;
-  min-width: 0;
-  font-weight: 600;
-  line-height: 20px;
-}
-.conversation-name,
-.conversation-state {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.conversation-line {
-  flex: none;
-  color: var(--fd-muted);
-  font-weight: 400;
-}
-.conversation-state {
-  grid-column: 2;
-  color: var(--fd-muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-/* The position sits over the arrows that change it. */
-.conversation-position {
-  grid-row: 1;
-  grid-column: 3;
-  color: var(--fd-muted);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 16px;
-  text-align: center;
-}
-.conversation-steps {
-  display: flex;
-  grid-row: 2;
-  grid-column: 3;
-}
-.conversation-steps .icon-button {
-  min-width: 28px;
-  min-height: 24px;
-  border-radius: 6px;
-}
-@media (pointer: coarse) {
-  .conversation-steps .icon-button {
-    min-width: 44px;
-    min-height: 44px;
-  }
-}
-.number {
-  display: inline-grid;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.visible {
-  justify-items: end;
-}
 .additions {
   color: var(--fd-add);
 }
 .deletions {
   color: var(--fd-del);
-}
-.pending {
-  display: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fd-attention);
-}
-.pending.active {
-  display: block;
-}
-
-.update {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--fd-accent) 10%, transparent);
-}
-.update[hidden] {
-  display: none;
-}
-.update-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--fd-target);
-  padding: 0 4px 0 10px;
-  border-radius: 6px;
-  color: var(--fd-accent);
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.update-link:hover {
-  text-decoration: underline;
-}
-.update-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.update-dismiss {
-  min-width: 28px;
 }
 
 .settings.labelled {
@@ -526,33 +165,11 @@ button {
       translate: 0 6px;
     }
   }
-  .indicator.ready {
-    transition: clip-path 260ms var(--fd-ease);
-  }
 }
+
 @media (forced-colors: active) {
   .panel {
     border-color: CanvasText;
-  }
-  .indicator,
-  .option[aria-pressed='true'],
-  .filters.combined .option[aria-pressed='true'] {
-    forced-color-adjust: none;
-  }
-  .indicator {
-    background: Highlight;
-  }
-  .option[aria-pressed='true'] {
-    color: HighlightText;
-  }
-  .row[aria-pressed='true'] {
-    outline: 2px solid Highlight;
-  }
-  .diffstat span {
-    border: 1px solid CanvasText;
-  }
-  .filters.combined .option[aria-pressed='true'] {
-    background: Highlight;
   }
 }
 

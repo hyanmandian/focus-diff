@@ -20,7 +20,8 @@
   display: grid;
   grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);
   column-gap: 16px;
-  max-height: min(52vh, 420px);
+  /* Fits above the bar however short the window, with the column headings: 180px is the bar, gaps and headings. */
+  max-height: min(52vh, 420px, calc(100vh - 180px));
   padding: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;

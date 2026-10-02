@@ -126,7 +126,7 @@
   "recipeDocsName": "Docs",
   "welcomeNextHeading": "Próximos passos",
   "welcomeOpenSettings": "Abrir configurações",
-  "welcomeShortcuts": "Troque de filtro sem o mouse: $1 próximo, $2 anterior, $3 todos os arquivos.",
+  "welcomeShortcuts": "Sem o mouse: $1 próximo filtro, $2 anterior, $3 todos os arquivos, $4 próximo arquivo para revisar.",
   "optionsVersion": "Focus Diff $1, código aberto sob a licença MIT",
   "projectLinks": "Projeto Focus Diff",
   "linkSource": "Código-fonte",
@@ -174,6 +174,20 @@
   "panelCommentCount": {
     "1": "1 conversa",
     "n": "$1 conversas"
+  },
+  "commandNextUnviewed": "Ir para o próximo arquivo para revisar",
+  "panelNextFile": {
+    "1": "Próximo arquivo para revisar, falta 1",
+    "n": "Próximo arquivo para revisar, faltam $1"
+  },
+  "panelNextFilter": {
+    "1": "Ir para $1, 1 arquivo para revisar",
+    "n": "Ir para $1, $2 arquivos para revisar"
+  },
+  "panelAllReviewed": "Todos os arquivos aqui já foram vistos",
+  "panelJumpedToFile": {
+    "1": "$1, o último arquivo para revisar.",
+    "n": "$1. Faltam $2 arquivos para revisar."
   },
   "commandNextComment": "Ir para a próxima conversa",
   "commandPreviousComment": "Ir para a conversa anterior",

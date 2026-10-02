@@ -45,11 +45,12 @@ They're regular filters, so you can rename or tweak them later. The welcome page
 
 ## Keyboard shortcuts
 
-| Shortcut                                     | Action          |
-| -------------------------------------------- | --------------- |
-| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>.</kbd> | Next filter     |
-| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>,</kbd> | Previous filter |
-| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>0</kbd> | Show all files  |
+| Shortcut                                     | Action              |
+| -------------------------------------------- | ------------------- |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>.</kbd> | Next filter         |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>,</kbd> | Previous filter     |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>0</kbd> | Show all files      |
+| <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd> | Next file to review |
 
 On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensions/shortcuts`, or in Firefox under `about:addons` → gear → _Manage Extension Shortcuts_.
 

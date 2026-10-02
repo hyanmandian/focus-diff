@@ -272,6 +272,48 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['Docs']);
   });
 
+  test('goes to the next file to review, then on to the next filter with any', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const next = pr.panel.locator('.next-file');
+    await expect(next).toHaveAccessibleName('Next file to review, 8 left');
+    await next.hover();
+    await expect(pr.panel.locator('.tip')).toHaveText('Next file to review, 8 left');
+    // The first file is already on screen, so it's the one after it.
+    await next.click();
+    await expect(pr.status).toHaveText('web/src/book-card.test.tsx. 8 files left to review.');
+    // Docs done: the button moves on to the next filter in the bar.
+    await pr.pick('Docs');
+    await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
+    await expect(next).toHaveAccessibleName('Go to Frontend, 1 file to review');
+    await next.click();
+    await expect(pr.pressed).toHaveText(['Frontend']);
+  });
+
+  test('says when everything is viewed, and goes on with the keyboard shortcut', async ({ openPullRequest, background, seed }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await background.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tab?.id) await chrome.tabs.sendMessage(tab.id, { type: 'command', command: 'next-unviewed' });
+    });
+    await expect(pr.status).toHaveText(/^web\/src\/book-card\.test\.tsx\./);
+    // With Docs the only filter, finishing it leaves nothing to go on to.
+    await seed({ ...DEFAULT_CONFIG, global: DEFAULT_CONFIG.global.filter((filter) => filter.id === 'docs') });
+    await pr.pick('Docs');
+    await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
+    const next = pr.panel.locator('.next-file');
+    await expect(next).toHaveAttribute('aria-disabled', 'true');
+    await expect(next).toHaveAccessibleName('Every file here is viewed');
+  });
+
+  test("keeps popovers' arrows: they never scroll themselves", async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.setViewportSize({ width: 1280, height: 420 });
+    await pr.panel.locator('.comments').click();
+    await pr.breakdownToggle.click();
+    for (const popover of [pr.panel.locator('.breakdown'), pr.panel.locator('.conversations')])
+      expect(await popover.evaluate((element) => getComputedStyle(element).overflowY)).toBe('visible');
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);

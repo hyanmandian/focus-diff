@@ -7,6 +7,7 @@ import { formatDuration, formatNumber as format } from '@/utils/format';
 import { createBreakdown, type BreakdownRow } from '@/components/breakdown/breakdown';
 import { createConversations, type Conversations } from '@/components/conversations/conversations';
 import { createFilters, type PanelOption } from '@/components/filters/filters';
+import { createNextFile, type NextFile } from '@/components/next-file/next-file';
 import { createStats, type Totals } from '@/components/stats/stats';
 import { createTooltip } from '@/components/tooltip/tooltip';
 import { createUpdateNotice } from '@/components/update-notice/update-notice';
@@ -22,6 +23,7 @@ export interface PanelActions {
   onToggle: (id: string) => void;
   onSettings: () => void;
   onComment: (step: 1 | -1) => void;
+  onNextFile: () => void;
   /** The reader opened or dismissed the update notice. */
   onUpdateSeen: () => void;
 }
@@ -30,6 +32,7 @@ export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
   renderStats: (totals: Totals) => void;
   renderConversations: (conversations: Conversations) => void;
+  renderNextFile: (next: NextFile) => void;
   /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
   announce: (summary: Totals & { name: string }) => void;
@@ -55,7 +58,7 @@ interface PanelMount {
  */
 export const createPanel = (
   { root, container, host, signal }: PanelMount,
-  { onToggle, onSettings, onComment, onUpdateSeen }: PanelActions,
+  { onToggle, onSettings, onComment, onNextFile, onUpdateSeen }: PanelActions,
 ): Panel => {
   const context: PanelContext = { host, signal, focused: () => root.activeElement as HTMLElement | null };
 
@@ -64,6 +67,7 @@ export const createPanel = (
     className: 'settings icon-button',
     onClick: () => onSettings(),
   });
+  const nextFile = createNextFile(onNextFile);
   const filters = createFilters(context, onToggle);
   const stats = createStats(context);
   const breakdown = createBreakdown(context, { onToggle, onOpen: () => conversations.setOpen(false), fallback: settings });
@@ -75,6 +79,7 @@ export const createPanel = (
     h(
       'div',
       { className: 'panel' },
+      nextFile.element,
       filters.element,
       stats.element,
       breakdown.toggle,
@@ -177,6 +182,10 @@ export const createPanel = (
   return {
     renderOptions,
     renderStats: stats.render,
+    renderNextFile: (next) => {
+      nextFile.render(next);
+      tooltip.refresh();
+    },
     renderConversations: (list) => {
       conversations.render(list);
       tooltip.refresh();

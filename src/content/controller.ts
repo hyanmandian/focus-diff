@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 import type { Panel } from '@/components/panel/panel';
 import { isDone, type Totals } from '@/components/stats/stats';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
+import { formatNumber as format } from '@/utils/format';
 import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
@@ -120,6 +121,7 @@ export interface Controller {
   toggle: (id: string) => void;
   openSettings: () => void;
   comment: (step: 1 | -1) => void;
+  nextUnviewed: () => void;
   dismissUpdate: () => void;
 }
 
@@ -206,6 +208,44 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const navigation = createNavigation(panel, () => schedule());
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
 
+  /** The next filter in the bar, after the ones shown, that still has files to review. */
+  const nextFilterWithWork = (repo: string) => {
+    const list = filters(repo);
+    const ids = selectedIds(repo);
+    const last = Math.max(-1, ...ids.map((id) => list.findIndex((filter) => filter.id === id)));
+    for (let offset = 1; offset <= list.length; offset++) {
+      const filter = list[(last + offset) % list.length];
+      if (!filter || ids.includes(filter.id)) continue;
+      const left = files.list.filter((file) => !file.viewed && filter.matches?.(file.path)).length;
+      if (left) return { id: filter.id, name: filter.name, left };
+    }
+    return undefined;
+  };
+
+  /**
+   * The next shown file left to review, after the one at the top of the screen, wrapping around. With none left in the
+   * shown filters, the next filter with files to review is picked, which takes the reader to its first one.
+   */
+  const nextUnviewed = () => {
+    const repo = page.repository();
+    if (!repo) return;
+    const left = shown.filter((file) => !file.viewed);
+    if (!left.length) {
+      const then = selectedIds(repo).length ? nextFilterWithWork(repo) : undefined;
+      if (then) choose([then.id]);
+      return;
+    }
+    const top = page.stickyBarBottom();
+    const atTop = shown.findIndex((file) => (file.diff?.container.getBoundingClientRect().bottom ?? 0) > top + 1);
+    const current = shown[atTop];
+    // The file at the top counts when it hasn't been brought all the way up yet.
+    const currentIsNext = current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
+    const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? left[0]);
+    if (!target) return;
+    void goToFile(target);
+    panel.announceText(i18n.t('panelJumpedToFile', left.length, [target.path, format(left.length)]));
+  };
+
   const apply = () => {
     pending = null;
     if (ctx.isInvalid) return;
@@ -252,6 +292,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       navigation.reset();
     }
     panel.renderConversations(navigation.position(shown, files.complete));
+    const left = totals.visible - totals.viewed;
+    panel.renderNextFile({ left, then: filtering && !left ? nextFilterWithWork(repo) : undefined });
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
     panel.renderStats(totals);
@@ -339,6 +381,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (message.command === 'next-filter') step(1);
     if (message.command === 'previous-filter') step(-1);
     if (message.command === 'show-all') select(ALL);
+    if (message.command === 'next-unviewed') nextUnviewed();
     if (message.command === 'next-comment') comment(1);
     if (message.command === 'previous-comment') comment(-1);
   };
@@ -399,5 +442,5 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   // The first pass runs straight away, not on the next frame, so a pull request opened in a background tab is already
   // filtered when the reader gets to it.
   apply();
-  return { toggle, openSettings, comment, dismissUpdate };
+  return { toggle, openSettings, comment, nextUnviewed, dismissUpdate };
 };

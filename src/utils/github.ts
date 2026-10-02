@@ -329,7 +329,7 @@ const FILE_HEADER = '[data-diff-header-wrapper], .file-header';
  * Where GitHub's sticky bar ends: each file's header sticks right below it, so its `top` says. A file brought to the
  * top lines up there, with nothing of it hidden behind the bar.
  */
-const stickyBarBottom = (): number => {
+export const stickyBarBottom = (): number => {
   const header = document.querySelector(FILE_HEADER);
   const top = header ? Number.parseFloat(getComputedStyle(header).top) : Number.NaN;
   return Number.isFinite(top) && top > 0 ? top : STICKY_FALLBACK_PX;
@@ -347,35 +347,29 @@ const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motio
 /** Lets go of the element held by the last jump, so two never pull the page different ways. */
 let releaseHold = () => {};
 
-/** Scrolls an element to the top of the page, below GitHub's sticky headers. */
-export const scrollToTop = (element: Element, behavior: ScrollBehavior = scrollBehavior()): void => {
-  // Going somewhere else lets go of a conversation held in the middle of the screen.
-  releaseHold();
-  const top = element.getBoundingClientRect().top + scrollY - stickyBarBottom();
-  scrollTo({ top, behavior });
-};
-
 const HOLD_MS = 5000;
 const SETTLED_MS = 600;
 const DRIFT_PX = 24;
 const READER_INPUT = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
 
 /**
- * Scrolls an element to the middle of the screen and keeps it there while GitHub is still loading the diffs above it,
- * which would otherwise push it out of view. It lets go once the page settles, or as soon as the reader scrolls.
+ * Scrolls so an element sits `offsetOf(its box)` below the top of the screen, and keeps it there while GitHub is still
+ * drawing diffs on the way, which would otherwise push it off. A move of the target is followed in the same manner
+ * the scroll started, so a smooth scroll stays smooth. It lets go once the page settles, or as soon as the reader
+ * scrolls; going somewhere else lets go of the previous one.
  */
-export const scrollToCenter = (element: Element): void => {
+const scrollAndHold = (element: Element, offsetOf: (box: DOMRect) => number, behavior: ScrollBehavior): void => {
   // Hidden, say by a filter picked since the jump began: there's nowhere to go.
   if (!element.getClientRects().length) return;
   // Where the page has to be, within how far it can scroll.
   const targetOf = () => {
     const box = element.getBoundingClientRect();
-    const top = box.top + scrollY - Math.max(coveredTop(element), (innerHeight - box.height) / 2);
+    const top = box.top + scrollY - offsetOf(box);
     return Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
   };
   releaseHold();
   let target = targetOf();
-  scrollTo({ top: target, behavior: scrollBehavior() });
+  scrollTo({ top: target, behavior });
 
   const started = performance.now();
   let settledSince = started;
@@ -391,21 +385,29 @@ export const scrollToCenter = (element: Element): void => {
   const hold = (now: number) => {
     if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) return release();
     const next = targetOf();
-    // Content loading above moves the element; GitHub scrolling to the comment itself moves the page. Either way, and
-    // only once the page is still, so a smooth scroll on its way there isn't cut short.
+    // Content drawn above moves the element; GitHub scrolling by itself moves the page, which only counts once the
+    // page is still, so a smooth scroll on its way there isn't mistaken for it.
     const moved = Math.abs(next - target) > DRIFT_PX;
     stillFrames = scrollY === lastScrollY ? stillFrames + 1 : 0;
     const strayed = stillFrames >= 3 && Math.abs(scrollY - next) > DRIFT_PX;
     if (moved || strayed) {
       target = next;
       settledSince = now;
-      scrollTo({ top: target });
+      scrollTo({ top: target, behavior });
     }
     lastScrollY = scrollY;
     requestAnimationFrame(hold);
   };
   requestAnimationFrame(hold);
 };
+
+/** Brings an element to the top of the screen, right below GitHub's sticky bar. */
+export const scrollToTop = (element: Element, behavior: ScrollBehavior = scrollBehavior()): void =>
+  scrollAndHold(element, () => stickyBarBottom(), behavior);
+
+/** Brings an element to the middle of the screen, clear of GitHub's sticky bar and its file's header. */
+export const scrollToCenter = (element: Element): void =>
+  scrollAndHold(element, (box) => Math.max(coveredTop(element), (innerHeight - box.height) / 2), scrollBehavior());
 
 const FLASH_ID = 'focus-diff-flash';
 

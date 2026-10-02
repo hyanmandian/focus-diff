@@ -112,11 +112,6 @@ a:focus-visible {
   font: 400 14px/20px var(--fd-font);
   font-variant-numeric: tabular-nums;
 }
-/* Always on screen above the bar, however short the window, scrolling inside if they must. */
-.popover {
-  max-height: calc(100vh - 96px);
-  overflow-y: auto;
-}
 .popover[hidden] {
   display: none;
 }

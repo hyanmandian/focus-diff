@@ -95,6 +95,7 @@ const DEFAULT_SHORTCUTS: Record<string, string> = {
   'next-filter': 'Alt+Shift+.',
   'previous-filter': 'Alt+Shift+,',
   'show-all': 'Alt+Shift+0',
+  'next-unviewed': 'Alt+Shift+J',
 };
 
 const renderShortcuts = async () => {
@@ -103,7 +104,7 @@ const renderShortcuts = async () => {
     ([name, fallback]) => commands.find((command) => command.name === name)?.shortcut || fallback,
   );
   const marker = '@@@';
-  const parts = i18n.t('welcomeShortcuts', [marker, marker, marker]).split(marker);
+  const parts = i18n.t('welcomeShortcuts', [marker, marker, marker, marker]).split(marker);
   const paragraph = $('#shortcuts');
   paragraph.replaceChildren();
   parts.forEach((part, index) => {

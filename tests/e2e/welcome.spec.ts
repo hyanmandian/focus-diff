@@ -18,7 +18,7 @@ test.describe('welcome page', () => {
     await expect(page.locator('h1')).toHaveText('Welcome to Focus Diff');
     await expect(page.locator('.steps li')).toHaveCount(3);
     await expect(page.locator('.recipe')).toHaveCount(7);
-    await expect(page.locator('#shortcuts kbd')).toHaveCount(3);
+    await expect(page.locator('#shortcuts kbd')).toHaveCount(4);
   });
 
   test('adds and removes an example', async ({ openExtensionPage, background }) => {

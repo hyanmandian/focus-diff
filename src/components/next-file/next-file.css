@@ -1,0 +1,12 @@
+/* Set apart from the filters it works through. */
+.next-file {
+  position: relative;
+  margin-inline-end: 6px;
+}
+.next-file::after {
+  content: '';
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-end: -5px;
+  border-inline-end: 1px solid var(--fd-border);
+}

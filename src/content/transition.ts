@@ -26,6 +26,8 @@ html[${ACTIVE}]::view-transition-new(*.${FILE_CLASS}):only-child { animation: no
 html[${ACTIVE}]::view-transition-old(${PANEL}) { display: none; }
 html[${ACTIVE}]::view-transition-group(${PANEL}),
 html[${ACTIVE}]::view-transition-new(${PANEL}) { animation: none; }
+html[${ACTIVE}]::view-transition-new(${PANEL}) { mix-blend-mode: normal; }
+html[${ACTIVE}]::view-transition-image-pair(${PANEL}) { isolation: auto; }
 `;
 
 /** A file on screen, known by a key that stays the same if GitHub redraws its element. */

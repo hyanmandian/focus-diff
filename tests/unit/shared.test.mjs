@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vite-plus/test';
 import vm from 'node:vm';
 
 const loadShared = () => {
@@ -55,7 +55,10 @@ describe('filtersFor', () => {
         { repo: 'other/x', filters: [{ name: 'Elsewhere' }] },
       ],
     });
-    assert.deepEqual([...FocusDiff.filtersFor(config, 'octo/web').map((filter) => filter.name)], ['Docs', 'Web only', 'Org']);
+    assert.deepEqual(
+      Array.from(FocusDiff.filtersFor(config, 'octo/web'), (filter) => filter.name),
+      ['Docs', 'Web only', 'Org'],
+    );
   });
 });
 
@@ -69,7 +72,13 @@ describe('normalize', () => {
   });
 
   it('gives every filter a unique id that is never "all"', () => {
-    const config = FocusDiff.normalize({ global: [{ id: 'all', name: 'A' }, { id: 'x', name: 'B' }, { id: 'x', name: 'C' }] });
+    const config = FocusDiff.normalize({
+      global: [
+        { id: 'all', name: 'A' },
+        { id: 'x', name: 'B' },
+        { id: 'x', name: 'C' },
+      ],
+    });
     const ids = config.global.map((filter) => filter.id);
     assert.equal(new Set(ids).size, 3);
     assert.ok(!ids.includes('all'));

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vite-plus/test';
 import { axe, settle, setup } from './helpers.mjs';
 
 let env;
 
-before(async () => (env = await setup()));
-after(async () => env.close());
+beforeAll(async () => (env = await setup()));
+afterAll(async () => env.close());
 
 const type = (page, selector, value) =>
   page.evaluate(
@@ -25,8 +25,8 @@ describe('settings page', () => {
     const page = await env.open('/ext/options.html');
     const names = await page.$$eval('#global .f-name', (inputs) => inputs.map((input) => input.value));
     assert.deepEqual(names, ['Frontend', 'Backend', 'Docs']);
-    const untranslated = await page.evaluate(() =>
-      [...document.querySelectorAll('[data-i18n], [data-i18n-html]')].filter((element) => !element.textContent.trim()).length,
+    const untranslated = await page.evaluate(
+      () => [...document.querySelectorAll('[data-i18n], [data-i18n-html]')].filter((element) => !element.textContent.trim()).length,
     );
     assert.equal(untranslated, 0);
     await page.close();
@@ -52,7 +52,10 @@ describe('settings page', () => {
     await type(page, '.repo .f-include', '^api/');
     await page.click('#save');
     await settle(50);
-    assert.deepEqual((await stored(page)).repos.map((entry) => [entry.repo, entry.filters.map((filter) => filter.name)]), [['octo/web', ['API']]]);
+    assert.deepEqual(
+      (await stored(page)).repos.map((entry) => [entry.repo, entry.filters.map((filter) => filter.name)]),
+      [['octo/web', ['API']]],
+    );
     await page.close();
   });
 
@@ -79,7 +82,10 @@ describe('settings page', () => {
   });
 
   it('has no accessibility violations and no horizontal scroll', async () => {
-    for (const [scheme, width] of [['light', 1280], ['dark', 390]]) {
+    for (const [scheme, width] of [
+      ['light', 1280],
+      ['dark', 390],
+    ]) {
       const page = await env.open('/ext/options.html#repo=octo/web', { scheme, width });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${scheme} ${width}`);
       assert.deepEqual(await axe(page), [], `${scheme} ${width}`);

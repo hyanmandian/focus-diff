@@ -23,10 +23,22 @@
         <div class="help-body">
           <p data-i18n-html="helpBody"></p>
           <dl>
-            <div><dt><code>\.(ts|tsx)$</code></dt><dd data-i18n="helpTypeScript"></dd></div>
-            <div><dt><code>\.(test|spec|stories)\.</code></dt><dd data-i18n="helpTests"></dd></div>
-            <div><dt><code>^packages/api/</code></dt><dd data-i18n="helpFolder"></dd></div>
-            <div><dt><code>(^|/)tests?/</code></dt><dd data-i18n-html="helpTestFolders"></dd></div>
+            <div>
+              <dt><code>\.(ts|tsx)$</code></dt>
+              <dd data-i18n="helpTypeScript"></dd>
+            </div>
+            <div>
+              <dt><code>\.(test|spec|stories)\.</code></dt>
+              <dd data-i18n="helpTests"></dd>
+            </div>
+            <div>
+              <dt><code>^packages/api/</code></dt>
+              <dd data-i18n="helpFolder"></dd>
+            </div>
+            <div>
+              <dt><code>(^|/)tests?/</code></dt>
+              <dd data-i18n-html="helpTestFolders"></dd>
+            </div>
           </dl>
           <p data-i18n-html="helpAll"></p>
         </div>
@@ -59,7 +71,14 @@
             </div>
             <div class="field">
               <label for="try-path" data-i18n="filePathLabel"></label>
-              <input id="try-path" type="text" class="mono" placeholder="src/components/Button.test.tsx" spellcheck="false" autocomplete="off" />
+              <input
+                id="try-path"
+                type="text"
+                class="mono"
+                placeholder="src/components/Button.test.tsx"
+                spellcheck="false"
+                autocomplete="off"
+              />
             </div>
           </div>
           <p id="try-result" class="try-result" aria-live="polite"></p>
@@ -107,7 +126,9 @@
           <span data-i18n="columnName"></span><span data-i18n="columnInclude"></span><span data-i18n="columnExclude"></span><span></span>
         </div>
         <ul class="filter-list" role="list"></ul>
-        <p class="empty hint"><span data-i18n="filtersEmptyWithExamples"></span> <a href="welcome.html#recipes-h" data-i18n="browseExamples"></a></p>
+        <p class="empty hint">
+          <span data-i18n="filtersEmptyWithExamples"></span> <a href="welcome.html#recipes-h" data-i18n="browseExamples"></a>
+        </p>
         <button type="button" class="btn add-filter" data-i18n="addFilter"></button>
       </div>
     </template>
@@ -118,7 +139,9 @@
           <input class="f-include mono" type="text" placeholder="\.(ts|tsx)$" spellcheck="false" autocomplete="off" />
           <input class="f-exclude mono" type="text" placeholder="\.test\." spellcheck="false" autocomplete="off" />
           <button type="button" class="icon-btn remove-filter">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" />
+            </svg>
           </button>
         </div>
         <p class="error" aria-live="polite"></p>

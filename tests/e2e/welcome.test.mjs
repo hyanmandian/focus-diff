@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vite-plus/test';
 import { axe, settle, setup } from './helpers.mjs';
 
 let env;
 
-before(async () => (env = await setup()));
-after(async () => env.close());
+beforeAll(async () => (env = await setup()));
+afterAll(async () => env.close());
 
 const openEmpty = async (path = '/ext/welcome.html', options) => {
   const page = await env.open(path, options);
@@ -46,7 +46,10 @@ describe('welcome page', () => {
   });
 
   it('has no accessibility violations and no horizontal scroll', async () => {
-    for (const [scheme, width] of [['light', 1280], ['dark', 390]]) {
+    for (const [scheme, width] of [
+      ['light', 1280],
+      ['dark', 390],
+    ]) {
       const page = await openEmpty('/ext/welcome.html', { scheme, width });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${scheme} ${width}`);
       assert.deepEqual(await axe(page), [], `${scheme} ${width}`);

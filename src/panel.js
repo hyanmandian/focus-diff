@@ -112,7 +112,17 @@ var FocusDiffPanel = (() => {
   const SVG = 'http://www.w3.org/2000/svg';
   const settingsIcon = () => {
     const svg = document.createElementNS(SVG, 'svg');
-    const attributes = { viewBox: '0 0 16 16', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'aria-hidden': 'true', focusable: 'false' };
+    const attributes = {
+      viewBox: '0 0 16 16',
+      width: '16',
+      height: '16',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '1.5',
+      'stroke-linecap': 'round',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    };
     Object.entries(attributes).forEach(([name, value]) => svg.setAttribute(name, value));
     const shapes = [
       ['path', { d: 'M2 4h7M13 4h1M2 8h1M7 8h7M2 12h5M11 12h3' }],
@@ -130,7 +140,17 @@ var FocusDiffPanel = (() => {
 
   const breakdownIcon = () => {
     const svg = document.createElementNS(SVG, 'svg');
-    const attributes = { viewBox: '0 0 16 16', width: '16', height: '16', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'aria-hidden': 'true', focusable: 'false' };
+    const attributes = {
+      viewBox: '0 0 16 16',
+      width: '16',
+      height: '16',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '1.5',
+      'stroke-linecap': 'round',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    };
     Object.entries(attributes).forEach(([name, value]) => svg.setAttribute(name, value));
     const path = document.createElementNS(SVG, 'path');
     path.setAttribute('d', 'M2 13.5h12M4 11V7M8 11V3M12 11V8');
@@ -205,12 +225,24 @@ var FocusDiffPanel = (() => {
     const stats = h(
       'span',
       { className: 'stats' },
-      h('span', { className: 'files' }, visibleFiles.element, h('span', { className: 'number', textContent: '/' }), totalFiles.element, h('span', { className: 'files-label', textContent: ` ${t('panelFilesLabel')}` })),
+      h(
+        'span',
+        { className: 'files' },
+        visibleFiles.element,
+        h('span', { className: 'number', textContent: '/' }),
+        totalFiles.element,
+        h('span', { className: 'files-label', textContent: ` ${t('panelFilesLabel')}` }),
+      ),
       additions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesAdded')}` }),
       deletions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${t('panelLinesRemoved')}` }),
-      h('span', { className: 'time-wrap', title: t('timeHint', FocusDiff.LINES_PER_HOUR) }, time.element, h('span', { className: 'visually-hidden', textContent: ` ${t('panelTimeLabel')}` })),
+      h(
+        'span',
+        { className: 'time-wrap', title: t('timeHint', FocusDiff.LINES_PER_HOUR) },
+        time.element,
+        h('span', { className: 'visually-hidden', textContent: ` ${t('panelTimeLabel')}` }),
+      ),
       pending,
     );
 
@@ -222,15 +254,24 @@ var FocusDiffPanel = (() => {
       breakdownRows,
       h('p', { className: 'hint', textContent: t('panelCombineHint') }),
     );
-    const breakdownToggle = h('button', {
+    const breakdownToggle = h(
+      'button',
+      {
+        type: 'button',
+        className: 'icon-button',
+        title: t('panelBreakdown'),
+        'aria-label': t('panelBreakdown'),
+        'aria-expanded': 'false',
+        'aria-controls': 'focus-diff-breakdown',
+      },
+      breakdownIcon(),
+    );
+    const settings = h('button', {
       type: 'button',
-      className: 'icon-button',
-      title: t('panelBreakdown'),
-      'aria-label': t('panelBreakdown'),
-      'aria-expanded': 'false',
-      'aria-controls': 'focus-diff-breakdown',
-    }, breakdownIcon());
-    const settings = h('button', { type: 'button', className: 'settings icon-button', title: t('panelSettings'), onClick: () => onSettings() });
+      className: 'settings icon-button',
+      title: t('panelSettings'),
+      onClick: () => onSettings(),
+    });
     const status = h('span', { className: 'visually-hidden', role: 'status' });
     const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, settings, status);
     root.append(h('style', { textContent: STYLES }), breakdown, panel);
@@ -255,8 +296,7 @@ var FocusDiffPanel = (() => {
       const list = options();
       const index = list.indexOf(root.activeElement);
       if (index === -1) return;
-      const target =
-        event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? NaN);
+      const target = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? NaN);
       if (Number.isNaN(target)) return;
       event.preventDefault();
       const next = list[(target + list.length) % list.length];
@@ -281,12 +321,24 @@ var FocusDiffPanel = (() => {
           const cells = [
             h('span', { textContent: row.name }),
             h('span', { className: 'metric', textContent: t(row.visible === 1 ? 'breakdownFile' : 'breakdownFiles', format(row.visible)) }),
-            h('span', { className: 'metric' }, h('span', { className: 'additions', textContent: `+${format(row.additions)}` }), ' ', h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` })),
+            h(
+              'span',
+              { className: 'metric' },
+              h('span', { className: 'additions', textContent: `+${format(row.additions)}` }),
+              ' ',
+              h('span', { className: 'deletions', textContent: `−${format(row.deletions)}` }),
+            ),
             h('span', { className: 'metric', textContent: FocusDiff.formatDuration(row.additions + row.deletions) }),
           ];
           return h(
             'button',
-            { type: 'button', className: 'row', 'data-row': row.id, 'aria-pressed': String(selected.includes(row.id)), onClick: (event) => pick(row.id, event) },
+            {
+              type: 'button',
+              className: 'row',
+              'data-row': row.id,
+              'aria-pressed': String(selected.includes(row.id)),
+              onClick: (event) => pick(row.id, event),
+            },
             ...cells.flatMap((cell) => [cell, h('span', { className: 'visually-hidden', textContent: ', ' })]).slice(0, -1),
             h('span', { 'aria-hidden': 'true' }, bar),
           );

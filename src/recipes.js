@@ -31,7 +31,8 @@ var FocusDiffRecipes = [
       {
         name: 'recipeGeneratedName',
         include: '',
-        exclude: '(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/',
+        exclude:
+          '(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/',
       },
     ],
   },
@@ -39,7 +40,13 @@ var FocusDiffRecipes = [
     id: 'infra',
     title: 'recipeInfraTitle',
     description: 'recipeInfraDescription',
-    filters: [{ name: 'recipeInfraName', include: '(^|/)(\\.github|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$', exclude: '' }],
+    filters: [
+      {
+        name: 'recipeInfraName',
+        include: '(^|/)(\\.github|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$',
+        exclude: '',
+      },
+    ],
   },
   {
     id: 'database',

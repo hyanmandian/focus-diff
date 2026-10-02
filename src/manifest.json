@@ -8,9 +8,7 @@
     "email": "contact@hyan.com.br"
   },
   "homepage_url": "https://github.com/hyanmandian/focus-diff",
-  "permissions": [
-    "storage"
-  ],
+  "permissions": ["storage"],
   "background": {
     "service_worker": "background.js"
   },
@@ -20,15 +18,8 @@
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": [
-        "https://github.com/*"
-      ],
-      "js": [
-        "shared.js",
-        "github.js",
-        "panel.js",
-        "content.js"
-      ],
+      "matches": ["https://github.com/*"],
+      "js": ["shared.js", "github.js", "panel.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

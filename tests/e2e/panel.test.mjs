@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vite-plus/test';
 import { axe, clickFilter, panelState, settle, setup } from './helpers.mjs';
 
 const PR = '/octo/web/pull/1/changes';
 let env;
 
-before(async () => (env = await setup()));
-after(async () => env.close());
+beforeAll(async () => (env = await setup()));
+afterAll(async () => env.close());
 
 describe('panel on a pull request', () => {
   it('shows every file with All selected', async () => {
@@ -103,14 +103,24 @@ describe('panel on a pull request', () => {
     assert.deepEqual(await axe(page, 'html > div:last-child'), []);
 
     await page.keyboard.press('Escape');
-    assert.equal(await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.breakdown').hidden), true);
+    assert.equal(
+      await page.evaluate(
+        () => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.breakdown').hidden,
+      ),
+      true,
+    );
     await page.close();
   });
 
   it('moves between filters with the keyboard', async () => {
     const page = await env.open(PR);
     await settle();
-    await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.option').focus());
+    await page.evaluate(() =>
+      [...document.documentElement.children]
+        .find((e) => e.shadowRoot)
+        .shadowRoot.querySelector('.option')
+        .focus(),
+    );
     await page.keyboard.press('ArrowRight');
     await settle();
     assert.equal((await panelState(page)).checked, 'Frontend');
@@ -174,7 +184,12 @@ describe('panel on a pull request', () => {
   it('opens the settings for the current repository', async () => {
     const page = await env.open(PR);
     await settle();
-    await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.settings').click());
+    await page.evaluate(() =>
+      [...document.documentElement.children]
+        .find((e) => e.shadowRoot)
+        .shadowRoot.querySelector('.settings')
+        .click(),
+    );
     assert.deepEqual(await page.evaluate(() => window.__sent), [{ type: 'open-options', repo: 'octo/web' }]);
     await page.close();
   });
@@ -185,7 +200,12 @@ describe('panel on a pull request', () => {
     await settle();
     const state = await panelState(page);
     assert.deepEqual(state.options, ['All']);
-    await page.evaluate(() => [...document.documentElement.children].find((e) => e.shadowRoot).shadowRoot.querySelector('.settings').click());
+    await page.evaluate(() =>
+      [...document.documentElement.children]
+        .find((e) => e.shadowRoot)
+        .shadowRoot.querySelector('.settings')
+        .click(),
+    );
     assert.deepEqual(await page.evaluate(() => window.__sent), [{ type: 'open-welcome' }]);
     await page.close();
   });
@@ -213,7 +233,10 @@ describe('panel on a pull request', () => {
   it('stays hidden outside pull request diffs', async () => {
     const page = await env.open('/octo/web/pull/1');
     await settle();
-    assert.equal(await page.evaluate(() => [...document.documentElement.children].find((element) => element.shadowRoot)?.style.display ?? 'none'), 'none');
+    assert.equal(
+      await page.evaluate(() => [...document.documentElement.children].find((element) => element.shadowRoot)?.style.display ?? 'none'),
+      'none',
+    );
     assert.equal(await page.evaluate(() => document.body.querySelectorAll('[style*="display: none"]').length), 0);
     await page.close();
   });

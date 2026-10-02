@@ -32,14 +32,11 @@ export const settle = (ms = 250) => new Promise((resolve) => setTimeout(resolve,
 
 export const axe = async (page, include) => {
   await page.addScriptTag({ content: axeSource });
-  return page.evaluate(
-    async (selector) => {
-      const context = selector ? { include: [[selector]] } : document;
-      const result = await window.axe.run(context, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'] });
-      return result.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
-    },
-    include ?? null,
-  );
+  return page.evaluate(async (selector) => {
+    const context = selector ? { include: [[selector]] } : document;
+    const result = await window.axe.run(context, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'] });
+    return result.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
+  }, include ?? null);
 };
 
 export const panelState = (page) =>
@@ -55,7 +52,8 @@ export const panelState = (page) =>
     return {
       present: Boolean(host?.isConnected),
       options: [...(root?.querySelectorAll('.option') ?? [])].map((option) => option.textContent),
-      checked: [...(root?.querySelectorAll('.option[aria-pressed="true"]') ?? [])].map((option) => option.textContent).join(' + ') || undefined,
+      checked:
+        [...(root?.querySelectorAll('.option[aria-pressed="true"]') ?? [])].map((option) => option.textContent).join(' + ') || undefined,
       focused: root?.activeElement?.textContent ?? null,
       stats: (() => {
         const copy = root?.querySelector('.stats')?.cloneNode(true);

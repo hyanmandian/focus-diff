@@ -111,8 +111,7 @@
     return block;
   };
 
-  const repoProblem = (repo) =>
-    FocusDiff.REPO_PATTERN.test(repo.trim()) ? '' : t('errorRepo');
+  const repoProblem = (repo) => (FocusDiff.REPO_PATTERN.test(repo.trim()) ? '' : t('errorRepo'));
 
   const renderRepo = (entry, focus) => {
     const card = clone('repo-template');
@@ -172,9 +171,7 @@
       return;
     }
     const filters = repo ? FocusDiff.filtersFor(config, repo) : config.global;
-    const shown = filters
-      .filter((filter) => filter.name.trim() && FocusDiff.toMatcher(filter)?.(path))
-      .map((filter) => filter.name.trim());
+    const shown = filters.filter((filter) => filter.name.trim() && FocusDiff.toMatcher(filter)?.(path)).map((filter) => filter.name.trim());
     result.dataset.tone = shown.length ? 'ok' : '';
     result.textContent = shown.length ? t('tryShown', t('filterAll'), shown.join(', ')) : t('tryOnlyAll', t('filterAll'));
   };

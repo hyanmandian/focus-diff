@@ -15,11 +15,11 @@ jobs:
       PUBLISH_FIREFOX: ${{ secrets.AMO_JWT_ISSUER != '' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: voidzero-dev/setup-vp@v1.21.1
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+          cache: true
+      - run: vp install
 
       - name: Check the tag matches the manifest version
         run: |
@@ -29,8 +29,9 @@ jobs:
             exit 1
           fi
 
-      - run: npm run lint
-      - run: npm test
+      - run: vp check
+      - run: vp run lint
+      - run: vp test
 
       - name: Create the GitHub release
         env:

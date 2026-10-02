@@ -68,7 +68,9 @@ export const startServer = () =>
       }
       if (/^\/ext\/[\w-]+\.html$/.test(url.pathname)) {
         const page = readFileSync(join(source, url.pathname.slice(5)), 'utf8');
-        return send(page.replace('<script src="shared.js">', `<script src="/test/shim.js?locale=${locale}"></script><script src="shared.js">`));
+        return send(
+          page.replace('<script src="shared.js">', `<script src="/test/shim.js?locale=${locale}"></script><script src="shared.js">`),
+        );
       }
       if (url.pathname.startsWith('/ext/')) {
         try {

@@ -19,7 +19,10 @@ var GitHubPage = (() => {
   const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿]/g;
 
   const cleanPath = (value = '') => {
-    const parts = value.replace(INVISIBLE, '').trim().split(/\s+→\s+/);
+    const parts = value
+      .replace(INVISIBLE, '')
+      .trim()
+      .split(/\s+→\s+/);
     return parts[parts.length - 1].trim();
   };
 

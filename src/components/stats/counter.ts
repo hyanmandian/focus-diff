@@ -29,7 +29,8 @@ export const counter = (className: string, render: (value: number) => string): C
     if (from === null || prefersReducedMotion()) return paint(next);
     const start = performance.now();
     const step = (now: number) => {
-      const progress = Math.min(1, (now - start) / COUNT_MS);
+      // A frame can be stamped a touch before `start`; outside 0–1 the easing would overshoot.
+      const progress = Math.min(1, Math.max(0, (now - start) / COUNT_MS));
       paint(Math.round(from + (next - from) * easeOutExpo(progress)));
       if (progress < 1) frame = requestAnimationFrame(step);
     };

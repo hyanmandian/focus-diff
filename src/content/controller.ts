@@ -9,7 +9,7 @@ import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
 import { collectFiles, everything, totalsFor, type FileInfo, type Files } from '@/content/files';
 import { createNavigation, goToFile } from '@/content/navigation';
-import { removeTransitionStyle, withTransition } from '@/content/transition';
+import { canTransition, removeTransitionStyle, withTransition } from '@/content/transition';
 
 interface Option {
   id: string;
@@ -278,11 +278,21 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     const run = () => {
       if (mine !== ticket) return;
       if (!chosen) return apply();
-      // A new selection: the page cross-fades to it, then scrolls to the first file left to review.
+      // A new selection: the files on screen move into place at the first file left to review, in one motion.
       chosen = false;
-      void withTransition(apply).then(() => {
+      let pending: FileInfo | undefined;
+      const pieces = () =>
+        files.list.flatMap((file) => (file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : []));
+      // Inside a transition the move is the animation, so the scroll itself is instant.
+      const behavior = canTransition() ? 'instant' : undefined;
+      void withTransition(() => {
+        apply();
         const next = shown.find((file) => !file.viewed);
-        if (next) void goToFile(next);
+        if (next?.diff?.element.isConnected) page.scrollToTop(next.diff.container, behavior);
+        else pending = next;
+      }, pieces).then(() => {
+        // A file GitHub hasn't drawn yet is opened once the motion is over.
+        if (pending) void goToFile(pending);
       });
     };
     if (when === 'frame') ctx.requestAnimationFrame(run);

@@ -327,9 +327,9 @@ const FLASH_MS = 2000;
 const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'auto');
 
 /** Scrolls an element to the top of the page, below GitHub's sticky headers. */
-export const scrollToTop = (element: Element): void => {
+export const scrollToTop = (element: Element, behavior: ScrollBehavior = scrollBehavior()): void => {
   const top = element.getBoundingClientRect().top + scrollY - STICKY_OFFSET_PX;
-  scrollTo({ top, behavior: scrollBehavior() });
+  scrollTo({ top, behavior });
 };
 
 const HOLD_MS = 5000;

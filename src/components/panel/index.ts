@@ -149,8 +149,25 @@ export const createPanel = (
   const cardTitle = h('span', { className: 'conversation-title' });
   const cardStatus = h('span', { className: 'conversation-status' });
   const cardMeta = h('span', { className: 'conversation-meta' });
-  const card = h('div', { className: 'conversation' }, h('span', { className: 'conversation-heading' }, cardTitle, cardStatus), cardMeta);
-  const conversationPosition = h('span', { className: 'conversation-position', 'aria-hidden': 'true' });
+  const cardText = h(
+    'div',
+    { className: 'conversation-text' },
+    h('span', { className: 'conversation-line' }, cardTitle, cardStatus),
+    cardMeta,
+  );
+  const step = (direction: 1 | -1) =>
+    h(
+      'button',
+      {
+        type: 'button',
+        className: 'icon-button conversation-step',
+        'aria-label': i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment'),
+        title: i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment'),
+        onClick: () => onComment(direction),
+      },
+      chevron(direction > 0 ? 'right' : 'left'),
+    );
+  // A carousel: the conversation in the middle, the arrows either side, the progress under it.
   const conversations = h(
     'div',
     {
@@ -160,24 +177,9 @@ export const createPanel = (
       'aria-label': i18n.t('panelComments'),
       hidden: true,
     },
-    h('div', { className: 'conversation-header' }, rail, conversationPosition),
-    card,
-    h(
-      'div',
-      { className: 'conversation-steps' },
-      h(
-        'button',
-        { type: 'button', className: 'conversation-step', 'aria-label': i18n.t('panelPreviousComment'), onClick: () => onComment(-1) },
-        chevron('left'),
-        i18n.t('panelPrevious'),
-      ),
-      h(
-        'button',
-        { type: 'button', className: 'conversation-step', 'aria-label': i18n.t('panelNextComment'), onClick: () => onComment(1) },
-        i18n.t('panelNext'),
-        chevron('right'),
-      ),
-    ),
+    step(-1),
+    h('div', { className: 'conversation' }, cardText, rail),
+    step(1),
   );
   // Like the breakdown, the conversations popover follows its toggle and is positioned against the host.
   const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments, conversations);
@@ -375,49 +377,46 @@ export const createPanel = (
   let conversationSource: Navigation['comments'] = { current: 0, list: [] };
   let railKey = '';
   let shownCurrent = -1;
-  const dots = () => [...rail.querySelectorAll<HTMLButtonElement>('.dot')];
+  const segments = () => [...rail.querySelectorAll<HTMLButtonElement>('.segment')];
   const fileName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
   const folder = (path: string) => path.slice(0, Math.max(path.lastIndexOf('/'), 0));
   const lineText = (conversation: Conversation) => (conversation.line ? i18n.t('panelLine', [format(conversation.line)]) : '');
   const statusText = (conversation: Conversation) => i18n.t(conversation.resolved ? 'panelResolved' : 'panelUnresolved');
 
-  /** One dot per conversation, grouped by file; the open conversation stretches into a bar. */
+  /** A progress bar with one segment per conversation; the open one is highlighted. */
   const drawRail = (list: Conversation[]) => {
     const key = JSON.stringify(list);
     if (key === railKey) return;
     railKey = key;
     const keepFocus = rail.contains(focused());
-    const files: HTMLElement[] = [];
-    list.forEach((conversation, index) => {
-      if (conversation.path !== list[index - 1]?.path) files.push(h('span', { className: 'rail-file' }));
-      const label = [
-        i18n.t('panelCommentPosition', [format(index + 1), format(list.length)]),
-        conversation.path,
-        lineText(conversation),
-        statusText(conversation),
-      ];
-      files.at(-1)?.append(
+    rail.replaceChildren(
+      ...list.map((conversation, index) =>
         h('button', {
           type: 'button',
-          className: conversation.resolved ? 'dot resolved' : 'dot',
-          'aria-label': label.filter(Boolean).join(', '),
+          className: 'segment',
+          'aria-label': [
+            i18n.t('panelCommentPosition', [format(index + 1), format(list.length)]),
+            conversation.path,
+            lineText(conversation),
+            statusText(conversation),
+          ]
+            .filter(Boolean)
+            .join(', '),
           onClick: () => onConversation(index),
         }),
-      );
-    });
-    rail.replaceChildren(...files);
-    if (keepFocus) dots()[0]?.focus();
+      ),
+    );
+    if (keepFocus) segments()[0]?.focus();
   };
 
   const drawConversations = () => {
     if (conversations.hidden) return;
     const { current, list } = conversationSource;
     drawRail(list);
-    dots().forEach((dot, index) => {
-      const active = index === current - 1;
-      if (active) dot.setAttribute('aria-current', 'true');
-      else dot.removeAttribute('aria-current');
-      dot.tabIndex = index === Math.max(current - 1, 0) ? 0 : -1;
+    segments().forEach((segment, index) => {
+      if (index === current - 1) segment.setAttribute('aria-current', 'true');
+      else segment.removeAttribute('aria-current');
+      segment.tabIndex = index === Math.max(current - 1, 0) ? 0 : -1;
     });
 
     const target = list[current - 1];
@@ -436,10 +435,15 @@ export const createPanel = (
       cardMeta.textContent = `${i18n.t('panelUnresolvedCount', [format(unresolved)])} · ${i18n.t('fileCount', files, [format(files)])}`;
       cardStatus.hidden = true;
     }
-    conversationPosition.textContent = current ? `${format(current)} / ${format(list.length)}` : '';
-    if (shownCurrent !== -1 && shownCurrent !== current) {
+    if (shownCurrent > 0 && current > 0 && shownCurrent !== current) {
+      // Slides in from the side it came from, wrapping from the last conversation to the first and back.
+      const wrapped = Math.abs(current - shownCurrent) === list.length - 1 && list.length > 2;
+      const forward = current > shownCurrent !== wrapped;
       const moving = matchMedia('(prefers-reduced-motion: no-preference)').matches;
-      card.animate(moving ? { opacity: [0, 1], translate: ['0 4px', '0 0'] } : { opacity: [0, 1] }, { duration: 180, easing: 'ease-out' });
+      cardText.animate(moving ? { opacity: [0, 1], translate: [`${forward ? 12 : -12}px 0`, '0 0'] } : { opacity: [0, 1] }, {
+        duration: 200,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      });
     }
     shownCurrent = current;
   };
@@ -458,7 +462,7 @@ export const createPanel = (
   comments.addEventListener('click', () => setConversationsOpen(conversations.hidden));
 
   rail.addEventListener('keydown', (event) => {
-    const list = dots();
+    const list = segments();
     const index = list.indexOf(focused() as HTMLButtonElement);
     if (index === -1) return;
     const target = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
@@ -466,7 +470,7 @@ export const createPanel = (
     event.preventDefault();
     const next = list[(target + list.length) % list.length];
     if (!next) return;
-    list.forEach((dot) => (dot.tabIndex = dot === next ? 0 : -1));
+    list.forEach((segment) => (segment.tabIndex = segment === next ? 0 : -1));
     next.focus();
   });
 

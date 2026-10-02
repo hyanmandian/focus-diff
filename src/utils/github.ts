@@ -263,7 +263,7 @@ export const threads = (containers: HTMLElement[]): Thread[] =>
     .map((element) => ({ element, resolved: element.dataset.resolved === 'true' }));
 
 const STICKY_OFFSET_PX = 80;
-const FLASH_MS = 1600;
+const FLASH_MS = 2000;
 
 const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'auto');
 
@@ -279,11 +279,28 @@ export const scrollToCenter = (element: Element): void => {
   scrollTo({ top: box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2), behavior: scrollBehavior() });
 };
 
-/** Outlines an element for a moment so the eye finds it after a jump. */
+const FLASH_ID = 'focus-diff-flash';
+
+/**
+ * Lights a ring around an element after a jump so the eye finds it: it glows in, holds, and fades out. It's an
+ * animation, so it leaves nothing behind on GitHub's markup.
+ */
 export const flash = (element: HTMLElement): void => {
-  const { outline, outlineOffset, borderRadius } = element.style;
-  element.style.outline = '2px solid var(--focus-outlineColor, var(--color-accent-fg, #0969da))';
-  element.style.outlineOffset = '2px';
-  element.style.borderRadius ||= '6px';
-  setTimeout(() => Object.assign(element.style, { outline, outlineOffset, borderRadius }), FLASH_MS);
+  const accent =
+    getComputedStyle(document.documentElement).getPropertyValue('--fgColor-accent').trim() ||
+    getComputedStyle(document.documentElement).getPropertyValue('--color-accent-fg').trim() ||
+    '#0969da';
+  const ring = (alpha: number, glow: number) =>
+    `0 0 0 2px color-mix(in srgb, ${accent} ${alpha}%, transparent), 0 0 0 ${glow}px color-mix(in srgb, ${accent} ${alpha / 4}%, transparent)`;
+  for (const animation of element.getAnimations()) if (animation.id === FLASH_ID) animation.cancel();
+  const animation = element.animate(
+    [
+      { boxShadow: ring(0, 0), offset: 0 },
+      { boxShadow: ring(100, 8), offset: 0.12 },
+      { boxShadow: ring(100, 6), offset: 0.7 },
+      { boxShadow: ring(0, 0), offset: 1 },
+    ],
+    { duration: FLASH_MS, easing: 'ease-out' },
+  );
+  animation.id = FLASH_ID;
 };

@@ -60,7 +60,7 @@ test.describe('newer, virtualized diff view', () => {
     await expect(pr.panel.locator('.conversation')).toContainText('service.pyUnresolvedapi/books · Line 40');
     const marker = pr.page.locator('[class*="CommentIndicator"][data-line="R40"]');
     await expect(marker).toBeInViewport();
-    await expect(marker).toHaveCSS('outline-style', 'solid');
+    expect(await marker.evaluate((element) => element.getAnimations().some((animation) => animation.id === 'focus-diff-flash'))).toBe(true);
   });
 
   test.afterEach(({ pageErrors }) => {

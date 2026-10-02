@@ -155,7 +155,7 @@ test.describe('panel on a pull request', () => {
         // Near the top of the page there's nothing to scroll; on screen is as centred as it gets.
         const centred =
           scrollY === 0 ? box.top >= 0 && box.bottom <= innerHeight : Math.abs(box.top + box.height / 2 - innerHeight / 2) < 80;
-        return centred && (thread as HTMLElement).style.outline.includes('solid');
+        return centred && thread.getAnimations().some((animation) => animation.id === 'focus-diff-flash');
       }, text);
 
     await expect(comments).toHaveAccessibleName('Conversations, 4 conversations');
@@ -174,7 +174,7 @@ test.describe('panel on a pull request', () => {
     await expect(popover).toBeVisible();
     await pr.panel.getByRole('button', { name: /^Conversation 4 of 4, / }).click();
     await expect(pr.status).toHaveText(/^Conversation 4 of 4, in /);
-    await expect(popover).toContainText('4 / 4');
+    await expect(pr.panel.getByRole('button', { name: /^Conversation 4 of 4, / })).toHaveAttribute('aria-current', 'true');
     await pr.page.keyboard.press('Escape');
     await expect(popover).toBeHidden();
     await expect(comments).toBeFocused();

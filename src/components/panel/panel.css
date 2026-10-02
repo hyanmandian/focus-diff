@@ -368,75 +368,53 @@ button:focus-visible {
 
 .conversations {
   display: grid;
-  gap: 12px;
-  width: 296px;
-  padding: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  width: 312px;
+  padding: 10px 8px;
   font-size: 13px;
 }
-/* Inset to line up with the card's text: the first dot's mark with its left edge, the position with its right. */
-.conversation-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 0 13px 0 5px;
+.conversation-step {
+  color: var(--fd-muted);
 }
-.rail {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 6px;
-}
-.rail-file {
-  display: inline-flex;
-}
-/* Every dot is a 24px target; the visible mark is a pill clipped down to a circle, so the open one grows without layout. */
-.dot {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 6px;
-}
-.dot::before {
-  content: '';
-  width: 20px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--fd-muted);
-  clip-path: inset(0 6px round 999px);
-}
-.dot.resolved::before {
-  background: radial-gradient(circle, transparent 2.5px, var(--fd-muted) 3px);
-}
-.dot[aria-current='true']::before {
-  background: var(--fd-selected-bg);
-  clip-path: inset(0 0 round 999px);
+.conversation-step:hover {
+  color: var(--fd-fg);
 }
 .conversation {
   display: grid;
+  gap: 8px;
+  min-width: 0;
+  text-align: center;
+}
+.conversation-text {
+  display: grid;
   gap: 2px;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--fd-border-muted);
-  border-radius: 8px;
 }
-.conversation-heading {
+.conversation-line {
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.conversation-title {
+.conversation-title,
+.conversation-meta {
   overflow: hidden;
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.conversation-title {
+  font-weight: 600;
+}
+.conversation-meta {
+  color: var(--fd-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
 .conversation-status {
   flex: none;
-  margin-left: auto;
   padding: 0 8px;
   border-radius: 999px;
   font: 600 11px/18px var(--fd-font);
@@ -452,44 +430,35 @@ button:focus-visible {
   background: color-mix(in srgb, var(--fd-add) 14%, transparent);
   color: var(--fd-add);
 }
-.conversation-meta {
-  overflow: hidden;
-  color: var(--fd-muted);
-  font-size: 12px;
-  line-height: 18px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.rail {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
 }
-.conversation-steps {
+/* Each segment is a 24px-tall target; the bar inside it is the visible part. */
+.segment {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  border: 1px solid var(--fd-border);
-  border-radius: 8px;
-}
-.conversation-step {
-  display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border-radius: 7px 0 0 7px;
-  font-weight: 500;
+  min-width: 2px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 4px;
 }
-.conversation-step + .conversation-step {
-  border-radius: 0 7px 7px 0;
-  box-shadow: inset 1px 0 0 var(--fd-border);
+.segment::before {
+  content: '';
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fd-track);
 }
-.conversation-step:focus-visible {
-  outline-offset: -2px;
+.segment:hover {
+  background: transparent;
 }
-.conversation-step svg {
-  color: var(--fd-muted);
+.segment:hover::before {
+  background: var(--fd-muted);
 }
-.conversation-position {
-  color: var(--fd-muted);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 24px;
-  white-space: nowrap;
+.segment[aria-current='true']::before {
+  background: var(--fd-selected-bg);
 }
 .number {
   display: inline-grid;
@@ -544,7 +513,8 @@ button:focus-visible {
     opacity: 0;
   }
 }
-button {
+button,
+.segment::before {
   transition:
     background-color 120ms ease-out,
     color 160ms ease-out;
@@ -573,11 +543,6 @@ button {
   .indicator.ready {
     transition: clip-path 260ms var(--fd-ease);
   }
-  .dot::before {
-    transition:
-      clip-path 240ms var(--fd-ease),
-      background-color 160ms ease-out;
-  }
 }
 @media (forced-colors: active) {
   .panel {
@@ -598,14 +563,11 @@ button {
   .filters.combined .option[aria-pressed='true'] {
     background: Highlight;
   }
-  .dot::before {
+  .segment::before {
     forced-color-adjust: none;
-    background: CanvasText;
+    background: GrayText;
   }
-  .dot.resolved::before {
-    background: radial-gradient(circle, transparent 2.5px, CanvasText 3px);
-  }
-  .dot[aria-current='true']::before {
+  .segment[aria-current='true']::before {
     background: Highlight;
   }
 }

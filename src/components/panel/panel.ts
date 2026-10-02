@@ -3,11 +3,11 @@ import { i18n } from '#i18n';
 import { settingsIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
-import { createBreakdown, type BreakdownRow } from '@/components/breakdown';
-import { createConversations, type Conversations } from '@/components/conversations';
-import { createFilters, type PanelOption } from '@/components/filters';
-import { createStats, type Totals } from '@/components/stats';
-import { createUpdateNotice } from '@/components/update-notice';
+import { createBreakdown, type BreakdownRow } from '@/components/breakdown/breakdown';
+import { createConversations, type Conversations } from '@/components/conversations/conversations';
+import { createFilters, type PanelOption } from '@/components/filters/filters';
+import { createStats, type Totals } from '@/components/stats/stats';
+import { createUpdateNotice } from '@/components/update-notice/update-notice';
 
 /** What every part of the panel shares: where it's mounted, when it's torn down, and what has focus inside it. */
 export interface PanelContext {

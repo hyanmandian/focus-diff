@@ -1,20 +1,18 @@
-import type { Totals } from '@/components/stats';
+import type { Totals } from '@/components/stats/stats';
 import type { Matcher } from '@/utils/filters';
 import * as page from '@/utils/github';
-import type { FileStats } from '@/utils/github';
-import { pullRequestData, type ThreadSummary } from '@/utils/github-data';
 import { reviewMinutes } from '@/utils/review-time';
 
 export interface FileInfo {
   path: string;
   /** Used for `#diff-<digest>` anchors; empty when unknown. */
   digest: string;
-  stats: FileStats | null;
+  stats: page.FileStats | null;
   viewed: boolean;
   /** The rendered diff, when GitHub has it in the page. */
   diff: { element: HTMLElement; container: HTMLElement } | null;
   /** Review threads, known up front only in the newer diff view. */
-  threads: ThreadSummary[];
+  threads: page.ThreadSummary[];
 }
 
 export interface Files {
@@ -42,7 +40,7 @@ export const collectFiles = (): Files => {
       return [diff.path, { element: diff.element as HTMLElement, container: diff.container, stats: diff.stats }] as const;
     }),
   );
-  const data = pullRequestData();
+  const data = page.pullRequestData();
   if (data) {
     const list = data.files.map((file) => ({
       path: file.path,

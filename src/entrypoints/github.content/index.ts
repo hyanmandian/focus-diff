@@ -1,5 +1,5 @@
 import { createShadowRootUi, defineContentScript } from '#imports';
-import { createPanel } from '@/components/panel';
+import { createPanel } from '@/components/panel/panel';
 import { startController, type Controller } from './controller';
 
 export default defineContentScript({

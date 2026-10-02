@@ -3,7 +3,7 @@ import { i18n } from '#i18n';
 import { chevronIcon, commentIcon, threadStateIcons } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format';
-import type { PanelContext } from '@/components/panel';
+import type { PanelContext } from '@/components/panel/panel';
 import { centreOver, returnFocus } from '@/components/popover';
 import type { ThreadState } from '@/utils/github';
 

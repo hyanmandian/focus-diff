@@ -4,7 +4,7 @@ import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
 import { counter } from './counter';
-import type { PanelContext } from '@/components/panel';
+import type { PanelContext } from '@/components/panel/panel';
 
 export interface Totals {
   visible: number;

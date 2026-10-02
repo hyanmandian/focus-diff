@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { pullRequestData } from '@/utils/github-data';
+import { pullRequestData } from '@/utils/github';
 
 const embed = (data: unknown) => {
   document.head.innerHTML = '';

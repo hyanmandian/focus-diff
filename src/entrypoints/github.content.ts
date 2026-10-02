@@ -1,6 +1,7 @@
 import { createShadowRootUi, defineContentScript } from '#imports';
 import { createPanel } from '@/components/panel/panel';
 import { startController, type Controller } from '@/content/controller';
+import { keepOutOfTransitions } from '@/content/transition';
 
 export default defineContentScript({
   matches: ['https://github.com/*'],
@@ -14,8 +15,9 @@ export default defineContentScript({
       anchor: 'html',
       append: 'last',
       inheritStyles: true,
-      onMount: (container, root, host) =>
-        createPanel(
+      onMount: (container, root, host) => {
+        keepOutOfTransitions(host);
+        return createPanel(
           { root, container, host, signal: ctx.signal },
           {
             onToggle: (id) => controller?.toggle(id),
@@ -23,7 +25,8 @@ export default defineContentScript({
             onComment: (step) => controller?.comment(step),
             onUpdateSeen: () => controller?.dismissUpdate(),
           },
-        ),
+        );
+      },
     });
     ui.mount();
     if (ui.mounted) controller = await startController(ctx, ui.mounted);

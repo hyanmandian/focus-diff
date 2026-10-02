@@ -158,6 +158,41 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['Docs']);
   });
 
+  test('goes to the first file left to review when the filter changes', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const top = (path: string) =>
+      pr.page.locator('[data-diff-header-wrapper]', { hasText: path }).evaluate((header) => Math.round(header.getBoundingClientRect().top));
+    await pr.page
+      .locator('[data-diff-header-wrapper]', { hasText: 'api/books/service.py' })
+      .getByRole('button', { name: 'Viewed' })
+      .click();
+    await pr.pick('Backend');
+    // service.py is viewed, so the next Backend file comes to the top, under GitHub's sticky header.
+    await expect.poll(() => top('api/tests/test_service.py')).toBeLessThan(120);
+  });
+
+  test('cross-fades the page into a new filter, leaving the panel out', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
+    expect(await pr.page.locator('focus-diff-panel').evaluate((host) => getComputedStyle(host).viewTransitionName)).toBe(
+      'focus-diff-panel',
+    );
+    const started = pr.page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          new MutationObserver(() => document.documentElement.hasAttribute('data-focus-diff-filtering') && resolve(true)).observe(
+            document.documentElement,
+            { attributes: true },
+          );
+          setTimeout(() => resolve(false), 3000);
+        }),
+    );
+    await pr.pick('Docs');
+    expect(await started).toBe(true);
+    await expect(pr.page.locator('html')).not.toHaveAttribute('data-focus-diff-filtering');
+    await expect(pr.pressed).toHaveText(['Docs']);
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);

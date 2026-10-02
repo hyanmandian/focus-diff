@@ -16,9 +16,10 @@ test.describe('newer, virtualized diff view', () => {
   test('dims files outside the filter instead of leaving gaps', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     await pr.pick('Backend');
-    const frontend = pr.page.locator('[role="region"]', { hasText: 'web/src/book-card.tsx' }).locator('xpath=..');
-    await expect(frontend).toHaveCSS('opacity', '0.35');
-    await expect(frontend).toBeVisible();
+    // Picking scrolls to the first Backend file; the file before it is outside the filter.
+    const stories = pr.page.locator('[role="region"]', { hasText: 'web/src/book-card.stories.tsx' }).locator('xpath=..');
+    await expect(stories).toHaveCSS('opacity', '0.35');
+    await expect(stories).toBeVisible();
   });
 
   test('takes viewed files from the embedded data and the toggles', async ({ openPullRequest }) => {

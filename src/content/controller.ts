@@ -8,7 +8,8 @@ import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
 import { collectFiles, everything, totalsFor, type FileInfo, type Files } from '@/content/files';
-import { createNavigation } from '@/content/navigation';
+import { createNavigation, goToFile } from '@/content/navigation';
+import { removeTransitionStyle, withTransition } from '@/content/transition';
 
 interface Option {
   id: string;
@@ -161,6 +162,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     selections = { ...selections, [repo]: ids };
     void selectionsItem.setValue(selections);
     announceNext = true;
+    chosen = true;
     schedule();
   };
 
@@ -267,11 +269,22 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
    * overtakes a pending idle one, which then does nothing.
    */
   let ticket = 0;
+  /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
+  let chosen = false;
   const schedule = (when: 'frame' | 'idle' = 'frame') => {
     if (ctx.isInvalid || pending === 'frame' || pending === when) return;
     pending = when;
     const mine = ++ticket;
-    const run = () => mine === ticket && apply();
+    const run = () => {
+      if (mine !== ticket) return;
+      if (!chosen) return apply();
+      // A new selection: the page cross-fades to it, then scrolls to the first file left to review.
+      chosen = false;
+      void withTransition(apply).then(() => {
+        const next = shown.find((file) => !file.viewed);
+        if (next) void goToFile(next);
+      });
+    };
     if (when === 'frame') ctx.requestAnimationFrame(run);
     // Safari has no requestIdleCallback; a short timeout keeps page changes batched there.
     else if ('requestIdleCallback' in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
@@ -329,6 +342,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   ctx.addEventListener(document, 'change', () => schedule(), { capture: true });
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
+    removeTransitionStyle();
     if (pageChanged) restorePage();
     if (!browser.runtime?.id) return;
     browser.runtime.onMessage.removeListener(onMessage);

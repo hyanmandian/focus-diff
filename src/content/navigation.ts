@@ -19,7 +19,7 @@ const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<
   });
 
 /** Brings a file to the top of the screen. Files GitHub hasn't rendered are opened through the file tree's link. */
-const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
+export const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
   if (file.diff?.element.isConnected) {
     page.scrollToTop(file.diff.container);
     return file.diff.element;

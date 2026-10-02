@@ -55,7 +55,14 @@ export const createStats = () => {
       deletions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
     ),
-    h('span', { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeWords, timeLabel, done),
+    h(
+      'span',
+      { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) },
+      time.element,
+      timeWords,
+      timeLabel,
+      done,
+    ),
   );
 
   /**

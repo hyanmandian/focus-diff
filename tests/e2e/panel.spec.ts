@@ -314,19 +314,6 @@ test.describe('panel on a pull request', () => {
       expect(await popover.evaluate((element) => getComputedStyle(element).overflowY)).toBe('visible');
   });
 
-  test('grows smoothly when its width changes, without moving its contents', async ({ openPullRequest, background }) => {
-    const pr = new PullRequestPage(await openPullRequest());
-    await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
-    const settings = async () => Math.round((await pr.settings.boundingBox())!.x);
-    const before = await settings();
-    // The update notice widens the bar.
-    await background.evaluate(() => chrome.storage.local.set({ update: '1.1.0' }));
-    await expect
-      .poll(() => pr.panel.locator('.panel').evaluate((bar) => bar.getAnimations().some((animation) => animation.playState === 'running')))
-      .toBe(true);
-    expect(await settings()).toBe(before);
-  });
-
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);

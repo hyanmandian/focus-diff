@@ -389,8 +389,9 @@ export const createPanel = ({ root, container, host, signal }: PanelMount, { onT
     const target = list[current - 1] ?? list[0];
     if (!target) return;
     const name = target.path.slice(target.path.lastIndexOf('/') + 1);
+    // The name gives way to an ellipsis; the line number always shows.
     conversationFile.replaceChildren(
-      name,
+      h('span', { className: 'conversation-name', textContent: name }),
       target.line ? h('span', { className: 'conversation-line', textContent: `:${format(target.line)}` }) : '',
     );
     conversationFile.title = target.path;

@@ -276,6 +276,22 @@ const threadLine = (thread: HTMLElement): number | null => {
   return Number(numbers?.[numbers.length - 1]?.getAttribute('data-line-number')) || null;
 };
 
+/**
+ * Newer view: the conversations open in a diff, read from the page. GitHub's data stops at page load, so this is how a
+ * conversation started or answered since then is known.
+ */
+export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
+  const login = viewer();
+  return [...diff.querySelectorAll<HTMLElement>('[data-marker-id]')].flatMap((element) => {
+    const [first] = threadComments(element);
+    const cell = element.closest<HTMLElement>('[data-line-number]');
+    if (!first || !cell) return [];
+    const side = cell.dataset.diffSide === 'left' ? 'L' : 'R';
+    const line = `${side}${cell.dataset.lineNumber}`;
+    return [{ id: element.dataset.markerId ?? '', line, state: threadState(element, login), comment: first.id.slice(1) }];
+  });
+};
+
 /** A conversation open in the newer view, found by its thread id. */
 export const threadById = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-marker-id="${CSS.escape(id)}"]`);
 

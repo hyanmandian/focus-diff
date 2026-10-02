@@ -11,8 +11,12 @@
   gap: 6px;
   padding: 0 8px 0 10px;
 }
-.comments[hidden] {
-  display: none;
+.comments[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.5;
+}
+.comments[aria-disabled='true']:hover {
+  background: none;
 }
 .comments[aria-expanded='true'] {
   background: var(--fd-hover);

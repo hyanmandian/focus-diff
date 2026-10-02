@@ -169,6 +169,7 @@
   "panelPreviousComment": "Conversa anterior",
   "panelGoToComment": "Ir para a conversa",
   "panelNextComment": "Próxima conversa",
+  "panelNoComments": "Nenhuma conversa nestes arquivos ainda",
   "panelCommentPosition": "Conversa $1 de $2",
   "panelCommentCount": {
     "1": "1 conversa",

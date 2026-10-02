@@ -129,16 +129,22 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
       reposition();
     }
   };
-  toggle.addEventListener('click', () => setOpen(popover.hidden));
+  toggle.addEventListener('click', () => {
+    if (source.list.length) setOpen(popover.hidden);
+  });
 
   const render = (conversations: Conversations) => {
     const total = conversations.list.length;
-    toggle.hidden = total === 0;
+    // Without conversations it stays in place, disabled, so the bar keeps its shape; it stays focusable to explain why.
+    toggle.setAttribute('aria-disabled', String(total === 0));
+    toggle.title = total === 0 ? i18n.t('panelNoComments') : '';
     if (!total) setOpen(false);
-    count.textContent = format(total);
-    const where = conversations.current
-      ? i18n.t('panelCommentPosition', [format(conversations.current), format(total)])
-      : i18n.t('panelCommentCount', total, [format(total)]);
+    count.textContent = total ? format(total) : '';
+    const where = !total
+      ? i18n.t('panelNoComments')
+      : conversations.current
+        ? i18n.t('panelCommentPosition', [format(conversations.current), format(total)])
+        : i18n.t('panelCommentCount', total, [format(total)]);
     toggle.setAttribute('aria-label', `${i18n.t('panelComments')}, ${where}`);
     source = conversations;
     draw();

@@ -58,6 +58,24 @@ test.describe('newer, virtualized diff view', () => {
     expect(await marker.evaluate(flashed)).toBe(true);
   });
 
+  test('picks up a conversation started after the page loaded', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
+    const comments = pr.panel.locator('.comments');
+    await expect(comments).toHaveAccessibleName('Conversations, 4 conversations');
+    // GitHub draws the new conversation in the diff; its embedded data doesn't change.
+    await pr.page.locator('[role="region"]', { hasText: 'web/src/book-card.tsx' }).evaluate((region) => {
+      region.insertAdjacentHTML(
+        'beforeend',
+        `<table><tr><td data-line-number="5" data-diff-side="right"><div data-marker-id="999">
+          <div id="r9990"><a data-hovercard-type="user" href="#">reviewer</a> Let's rename this.</div>
+        </div></td></tr></table>`,
+      );
+    });
+    await expect(comments).toHaveAccessibleName('Conversations, 5 conversations');
+    await comments.click();
+    await expect(pr.panel.getByRole('dialog', { name: 'Conversations' })).toContainText('book-card.tsx:5Answered1/5');
+  });
+
   test.afterEach(({ pageErrors }) => {
     expect(pageErrors).toEqual([]);
   });

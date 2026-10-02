@@ -1,4 +1,4 @@
-import { accessibilityViolations, CAN_SWITCH_LANGUAGE, expect, PULL_REQUEST, test } from './fixtures';
+import { accessibilityViolations, CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, PULL_REQUEST, test } from './fixtures';
 import { PullRequestPage } from './pages/pull-request';
 
 test.describe('panel on a pull request', () => {
@@ -181,6 +181,20 @@ test.describe('panel on a pull request', () => {
     await pr.pick('Docs', { combine: true });
     await expect(comments).toHaveAccessibleName('Conversations, 2 conversations');
     await pr.pick('All');
+  });
+
+  test('keeps the conversations button, disabled, for files without any', async ({ openPullRequest, seed }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await seed({ ...DEFAULT_CONFIG, global: [{ id: 'tests', name: 'Tests', include: '\\.test\\.', exclude: '' }] });
+    await pr.pick('Tests');
+    const comments = pr.panel.locator('.comments');
+    await expect(comments).toHaveAttribute('aria-disabled', 'true');
+    await expect(comments).toHaveAccessibleName('Conversations, No conversations in these files yet');
+    await expect(comments).toHaveAttribute('title', 'No conversations in these files yet');
+    await comments.click({ force: true });
+    await expect(pr.panel.getByRole('dialog', { name: 'Conversations' })).toBeHidden();
+    await pr.pick('All');
+    await expect(comments).toHaveAttribute('aria-disabled', 'false');
   });
 
   test('offers a single button for a single conversation', async ({ openPullRequest }) => {

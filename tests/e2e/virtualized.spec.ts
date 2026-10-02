@@ -48,6 +48,13 @@ test.describe('newer, virtualized diff view', () => {
     const flashed = (element: Element) => element.getAnimations().some((animation) => animation.id === 'focus-diff-flash');
     const thread = pr.page.locator('[data-marker-id="103"]');
     await expect(thread).toBeInViewport();
+    // Centred, even though GitHub scrolls the comment to the top of the screen after it opens.
+    await pr.page.waitForTimeout(600);
+    const centre = await thread.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return Math.round(box.top + box.height / 2 - innerHeight / 2);
+    });
+    expect(Math.abs(centre)).toBeLessThan(40);
     expect(await thread.evaluate(flashed)).toBe(true);
     expect(await pr.page.evaluate(() => history.length)).toBe(historyLength);
     // Without a comment link, the file opens and the thread's marker is centred.

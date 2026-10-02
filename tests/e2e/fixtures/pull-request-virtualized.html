@@ -179,6 +179,8 @@
         rows.querySelector(`[data-index="${index}"]`)?.remove();
         scrollTo({ top: rows.getBoundingClientRect().top + scrollY + index * ROW - 70 });
         setTimeout(sync, 100);
+        // Then, like GitHub, it brings the comment to the top of the screen.
+        setTimeout(() => document.querySelector(`[data-marker-id="${id}"]`)?.scrollIntoView({ block: 'start' }), 300);
       });
       sync();
       document.addEventListener('click', (event) => {

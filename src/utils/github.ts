@@ -333,9 +333,11 @@ let releaseHold = () => {};
  * which would otherwise push it out of view. It lets go once the page settles, or as soon as the reader scrolls.
  */
 export const scrollToCenter = (element: Element): void => {
+  // Where the page has to be, within how far it can scroll.
   const targetOf = () => {
     const box = element.getBoundingClientRect();
-    return box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2);
+    const top = box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2);
+    return Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
   };
   releaseHold();
   let target = targetOf();
@@ -350,14 +352,22 @@ export const scrollToCenter = (element: Element): void => {
   };
   releaseHold = release;
   for (const type of READER_INPUT) addEventListener(type, release, { capture: true, passive: true });
+  let lastScrollY = scrollY;
+  let stillFrames = 0;
   const hold = (now: number) => {
     if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) return release();
     const next = targetOf();
-    if (Math.abs(next - target) > DRIFT_PX) {
+    // Content loading above moves the element; GitHub scrolling to the comment itself moves the page. Either way, and
+    // only once the page is still, so a smooth scroll on its way there isn't cut short.
+    const moved = Math.abs(next - target) > DRIFT_PX;
+    stillFrames = scrollY === lastScrollY ? stillFrames + 1 : 0;
+    const strayed = stillFrames >= 3 && Math.abs(scrollY - next) > DRIFT_PX;
+    if (moved || strayed) {
       target = next;
       settledSince = now;
       scrollTo({ top: target });
     }
+    lastScrollY = scrollY;
     requestAnimationFrame(hold);
   };
   requestAnimationFrame(hold);

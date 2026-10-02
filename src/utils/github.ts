@@ -276,6 +276,9 @@ const threadLine = (thread: HTMLElement): number | null => {
   return Number(numbers?.[numbers.length - 1]?.getAttribute('data-line-number')) || null;
 };
 
+/** A conversation open in the newer view, found by its thread id. */
+export const threadById = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-marker-id="${CSS.escape(id)}"]`);
+
 /** The control that expands a collapsed classic thread, like a resolved one, or `null` when it's already open. */
 export const collapsedThreadToggle = (thread: HTMLElement): HTMLButtonElement | null => {
   const toggle = thread.querySelector<HTMLButtonElement>('button[aria-expanded="false"][data-target$=".button"]');

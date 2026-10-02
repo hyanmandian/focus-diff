@@ -47,11 +47,20 @@
     </div>
     <script>
       // GitHub's newer diff view, reduced: the embedded data lists every file, the list renders only files near the screen.
+      // A thread with `comments` opens through its first comment's link, `#r<id>0`; one without only has its marker.
       const files = [
-        ['web/src/book-card.tsx', 40, 10, { R12: [{ id: '101', resolved: false }] }],
+        ['web/src/book-card.tsx', 40, 10, { R12: [{ id: '101', resolved: false, comments: true }] }],
         ['web/src/book-card.test.tsx', 30, 5, {}],
         ['web/src/book-card.stories.tsx', 10, 0, {}],
-        ['api/books/service.py', 25, 10, { R3: [{ id: '102', resolved: true }], R40: [{ id: '103', resolved: false }] }],
+        [
+          'api/books/service.py',
+          25,
+          10,
+          {
+            R3: [{ id: '102', resolved: true, comments: true }],
+            R40: [{ id: '103', resolved: false, comments: true, mine: true }],
+          },
+        ],
         ['api/tests/test_service.py', 10, 5, {}],
         ['docs/books.md', 5, 0, { R1: [{ id: '104', resolved: false }] }],
         ['api/books/__init__.py', 0, 0, {}],
@@ -59,6 +68,7 @@
       ];
       const digest = (index) => `d${index}`.padEnd(64, '0');
       const ROW = 600;
+      const opened = new Set();
       const viewed = new Set(['docs/books.md']);
       const data = {
         payload: {
@@ -78,7 +88,21 @@
               threads: Object.fromEntries(
                 files
                   .flatMap(([, , , markers]) => Object.values(markers).flat())
-                  .map(({ id, resolved }) => [id, { id, isResolved: resolved }]),
+                  .map(({ id, resolved, comments, mine }) => [
+                    id,
+                    {
+                      id,
+                      isResolved: resolved,
+                      commentsData: {
+                        comments: comments
+                          ? [
+                              { databaseId: Number(`${id}0`), viewerDidAuthor: false, reactionGroups: [] },
+                              { databaseId: Number(`${id}1`), viewerDidAuthor: Boolean(mine), reactionGroups: [] },
+                            ]
+                          : [],
+                      },
+                    },
+                  ]),
               ),
             },
           },
@@ -122,6 +146,11 @@
               <span class="sr-only">Lines changed: ${added} additions &amp; ${removed} deletions</span>
             </div>
             ${indicators}
+            ${Object.values(markers)
+              .flat()
+              .filter(({ id }) => opened.has(id))
+              .map(({ id }) => `<div data-marker-id="${id}"><div id="r${id}0">Comment</div><div id="r${id}1">Reply</div></div>`)
+              .join('')}
           </div>`;
         rows.append(row);
       };
@@ -136,6 +165,20 @@
         for (let index = first; index <= last; index++) render(index);
       };
       addEventListener('scroll', sync);
+      // Like GitHub, a comment link scrolls to the thread's file and opens the thread, a moment later.
+      addEventListener('hashchange', () => {
+        const id = /^#r(\d+)0$/.exec(location.hash)?.[1];
+        const index = files.findIndex(([, , , markers]) =>
+          Object.values(markers)
+            .flat()
+            .some((thread) => thread.id === id),
+        );
+        if (index === -1) return;
+        opened.add(id);
+        rows.querySelector(`[data-index="${index}"]`)?.remove();
+        scrollTo({ top: rows.getBoundingClientRect().top + scrollY + index * ROW - 70 });
+        setTimeout(sync, 100);
+      });
       sync();
       document.addEventListener('click', (event) => {
         const link = event.target.closest('[role="treeitem"] a');

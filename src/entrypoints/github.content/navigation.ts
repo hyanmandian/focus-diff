@@ -47,7 +47,7 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
       ? knownThreads(shown).map(({ file, thread }) => ({
           path: file.path,
           line: Number(thread.line.slice(1)) || null,
-          state: thread.resolved ? 'resolved' : 'waiting',
+          state: thread.state,
         }))
       : renderedThreads(shown).map(({ file, thread }) => ({ path: file.path, line: thread.line, state: thread.state }));
 
@@ -56,22 +56,38 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     schedule();
   };
 
-  /** Newer view: open the thread's file and centre its marker. */
+  /** The open, expanded conversation for a thread, once GitHub has rendered its comments. */
+  const openThread = (id: string) => {
+    const thread = page.threadById(id);
+    return thread && page.threadComments(thread).length ? thread : null;
+  };
+
+  /**
+   * Newer view: GitHub's own comment link opens the thread, resolved or not, wherever it is in the diff. Replacing the
+   * hash keeps these jumps out of the reader's history. Without it, the file is opened and its marker centred.
+   */
   const goToKnown = async (shown: FileInfo[], index: number) => {
     const threads = knownThreads(shown);
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
-    const element = await goToFile(target.file);
-    const lines = [...new Set(target.file.threads.map((thread) => thread.line))];
-    const marker = element
-      ? ((await waitFor(() => page.commentIndicators(element)[lines.indexOf(target.thread.line)] ?? null, 600)) ?? element)
-      : null;
-    if (marker) {
-      page.scrollToCenter(marker);
-      page.flash(marker);
+    const { thread, file } = target;
+    let found: HTMLElement | null = null;
+    if (thread.comment) {
+      history.replaceState(history.state, '', `#r${thread.comment}`);
+      dispatchEvent(new HashChangeEvent('hashchange'));
+      found = await waitFor(() => openThread(thread.id), EXPAND_TIMEOUT_MS);
     }
-    announce(threads.length, target.file.path);
+    if (!found) {
+      const element = await goToFile(file);
+      const lines = [...new Set(file.threads.map(({ line }) => line))];
+      found = element ? ((await waitFor(() => page.commentIndicators(element)[lines.indexOf(thread.line)] ?? null, 600)) ?? element) : null;
+    }
+    if (found) {
+      page.scrollToCenter(found);
+      page.flash(found);
+    }
+    announce(threads.length, file.path);
   };
 
   /** Classic view: every conversation is already on the page; collapsed ones are opened so they can be read. */

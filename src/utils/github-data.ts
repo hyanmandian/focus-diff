@@ -1,3 +1,5 @@
+import type { ThreadState } from './github';
+
 /**
  * GitHub's newer diff view (shown to signed-in reviewers) embeds the whole pull request as JSON in
  * `script[data-target="react-app.embeddedData"]`: every changed file with its line counts and Viewed state, and every
@@ -19,7 +21,9 @@ interface FileSummary {
 export interface ThreadSummary {
   id: string;
   line: string;
-  resolved: boolean;
+  state: ThreadState;
+  /** The first comment's id; `#r<id>` is GitHub's own link that opens the thread. */
+  comment: string;
 }
 
 export interface PullRequestData {
@@ -40,6 +44,23 @@ const holderOf = (value: unknown, key: string, depth = 0): Json | null => {
     if (found) return found;
   }
   return null;
+};
+
+const commentsOf = (detail: unknown): Json[] =>
+  isObject(detail) && isObject(detail.commentsData) && Array.isArray(detail.commentsData.comments)
+    ? detail.commentsData.comments.filter(isObject)
+    : [];
+
+/** Same rule as the classic view: answered when the reader wrote or reacted to the last comment. */
+const stateOf = (detail: unknown): ThreadState => {
+  if (!isObject(detail)) return 'waiting';
+  if (detail.isResolved === true) return 'resolved';
+  const last = commentsOf(detail).at(-1);
+  if (!last) return 'waiting';
+  const reacted =
+    Array.isArray(last.reactionGroups) &&
+    last.reactionGroups.some((group) => isObject(group) && isObject(group.reaction) && group.reaction.viewerHasReacted === true);
+  return last.viewerDidAuthor === true || reacted ? 'answered' : 'waiting';
 };
 
 const lineNumber = (anchor: string) => Number(anchor.slice(1)) || 0;
@@ -63,7 +84,7 @@ const parse = (text: string): PullRequestData | null => {
           ? marker.threads.filter(isObject).map((thread) => {
               const id = String(thread.id ?? '');
               const detail = threadDetails[id];
-              return { id, line, resolved: isObject(detail) && detail.isResolved === true };
+              return { id, line, state: stateOf(detail), comment: String(commentsOf(detail)[0]?.databaseId ?? '') };
             })
           : [],
       )

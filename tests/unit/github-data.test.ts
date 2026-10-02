@@ -14,7 +14,7 @@ const embed = (data: unknown) => {
 describe('pullRequestData', () => {
   beforeEach(() => history.replaceState(null, '', `/octo/web/pull/${Math.random().toString(36).slice(2)}/changes`));
 
-  it('reads files, counts, viewed state and threads wherever GitHub nests them', () => {
+  it("reads files, counts, viewed state and threads and the reader's part in them wherever GitHub nests them", () => {
     embed({
       payload: {
         route: {
@@ -25,12 +25,31 @@ describe('pullRequestData', () => {
               linesAdded: 3,
               linesDeleted: 1,
               markedAsViewed: true,
-              markersMap: { R40: { threads: [{ id: 2 }] }, R3: { threads: [{ id: 1 }] } },
+              markersMap: {
+                R40: { threads: [{ id: 2 }] },
+                R3: { threads: [{ id: 1 }] },
+                R50: { threads: [{ id: 3 }, { id: 4 }] },
+              },
             },
             { path: 'b.ts', pathDigest: 'bb', linesAdded: 0, linesDeleted: 9, markedAsViewed: false, markersMap: {} },
             { notAFile: true },
           ],
-          markers: { threads: { 1: { isResolved: true }, 2: { isResolved: false } } },
+          markers: {
+            threads: {
+              1: { isResolved: true, commentsData: { comments: [{ databaseId: 10, viewerDidAuthor: false }] } },
+              2: {
+                isResolved: false,
+                commentsData: {
+                  comments: [
+                    { databaseId: 20, viewerDidAuthor: true },
+                    { databaseId: 21, viewerDidAuthor: false, reactionGroups: [{ reaction: { viewerHasReacted: true } }] },
+                  ],
+                },
+              },
+              3: { isResolved: false, commentsData: { comments: [{ databaseId: 30, viewerDidAuthor: false }] } },
+              4: { isResolved: false },
+            },
+          },
         },
       },
     });
@@ -43,8 +62,10 @@ describe('pullRequestData', () => {
         deletions: 1,
         viewed: true,
         threads: [
-          { id: '1', line: 'R3', resolved: true },
-          { id: '2', line: 'R40', resolved: false },
+          { id: '1', line: 'R3', state: 'resolved', comment: '10' },
+          { id: '2', line: 'R40', state: 'answered', comment: '20' },
+          { id: '3', line: 'R50', state: 'waiting', comment: '30' },
+          { id: '4', line: 'R50', state: 'waiting', comment: '' },
         ],
       },
       { path: 'b.ts', digest: 'bb', additions: 0, deletions: 9, viewed: false, threads: [] },

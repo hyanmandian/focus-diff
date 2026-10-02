@@ -35,6 +35,7 @@ test.describe('newer, virtualized diff view', () => {
   test('reaches conversations in files GitHub has not rendered', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     const next = pr.panel.getByRole('button', { name: 'Next conversation' });
+    const historyLength = await pr.page.evaluate(() => history.length);
     await expect(pr.panel.locator('.comments')).toHaveAccessibleName('Conversations, 4 conversations');
     await pr.panel.locator('.comments').click();
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
@@ -42,10 +43,19 @@ test.describe('newer, virtualized diff view', () => {
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 3 of 4, in api/books/service.py.');
-    await expect(pr.panel.getByRole('dialog', { name: 'Conversations' })).toContainText('service.py:40Waiting on you3/4');
-    const marker = pr.page.locator('[class*="CommentIndicator"][data-line="R40"]');
+    const dialog = pr.panel.getByRole('dialog', { name: 'Conversations' });
+    await expect(dialog).toContainText('service.py:40Answered3/4');
+    const flashed = (element: Element) => element.getAnimations().some((animation) => animation.id === 'focus-diff-flash');
+    const thread = pr.page.locator('[data-marker-id="103"]');
+    await expect(thread).toBeInViewport();
+    expect(await thread.evaluate(flashed)).toBe(true);
+    expect(await pr.page.evaluate(() => history.length)).toBe(historyLength);
+    // Without a comment link, the file opens and the thread's marker is centred.
+    await next.click();
+    await expect(dialog).toContainText('books.md:1Waiting on you4/4');
+    const marker = pr.page.locator('[class*="CommentIndicator"][data-line="R1"]');
     await expect(marker).toBeInViewport();
-    expect(await marker.evaluate((element) => element.getAnimations().some((animation) => animation.id === 'focus-diff-flash'))).toBe(true);
+    expect(await marker.evaluate(flashed)).toBe(true);
   });
 
   test.afterEach(({ pageErrors }) => {

@@ -1,7 +1,7 @@
 const EDGE = 18;
 
 /** Points a popover's arrow at the centre of the button that opened it, kept clear of the rounded corners. */
-export const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
+const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
   if (popover.hidden || !trigger.offsetWidth) return;
   const box = popover.getBoundingClientRect();
   const target = trigger.getBoundingClientRect();

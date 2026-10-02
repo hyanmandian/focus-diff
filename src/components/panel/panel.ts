@@ -98,9 +98,12 @@ export const createPanel = (
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || breakdown.dismiss()) return;
+      if (event.key !== 'Escape') return;
+      // One thing at a time: the tooltip, then the breakdown, then the conversations.
+      if (tooltip.isVisible()) tooltip.hide();
+      else if (breakdown.isOpen()) breakdown.setOpen(false);
       // Escape elsewhere on the page belongs to GitHub, like cancelling a reply.
-      if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
+      else if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
     },
     { signal },
   );

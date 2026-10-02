@@ -6,7 +6,7 @@ import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
 import type { PanelOption } from '@/components/filters/filters';
 import type { PanelContext } from '@/components/panel/panel';
-import { centreOver, pointAt, returnFocus } from '@/components/popover';
+import { centreOver, returnFocus } from '@/components/popover';
 import type { Totals } from '@/components/stats/stats';
 
 /** One filter's share of the pull request. */
@@ -35,18 +35,10 @@ const diffstat = (additions: number, deletions: number) => {
 /** How the pull request splits across the filters: files viewed, lines and time left for each. Rows toggle filters. */
 export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onOpen, fallback }: BreakdownActions) => {
   const rows = h('div', { className: 'rows' });
-  const timeInfo = h('div', {
-    className: 'tooltip',
-    id: 'focus-diff-time-info',
-    role: 'tooltip',
-    hidden: true,
-    textContent: i18n.t('timeHint', [format(LINES_PER_HOUR)]),
-  });
   const popover = h(
     'div',
     { className: 'breakdown popover', id: 'focus-diff-breakdown', role: 'dialog', hidden: true, 'aria-label': i18n.t('panelBreakdown') },
     rows,
-    timeInfo,
   );
   const toggle = h(
     'button',
@@ -61,34 +53,21 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     breakdownIcon(),
   );
 
-  // Closing waits a moment so the pointer can move onto the tooltip and keep it open.
-  let timeInfoClosing = 0;
-  const closeTimeInfo = () => {
-    timeInfoClosing = window.setTimeout(() => (timeInfo.hidden = true), 120);
-  };
-  const keepTimeInfo = () => clearTimeout(timeInfoClosing);
-  timeInfo.addEventListener('mouseenter', keepTimeInfo);
-  timeInfo.addEventListener('mouseleave', closeTimeInfo);
-
-  /** The (i) beside "Time left": explains the estimate on hover or focus. */
+  /** The (i) beside "Time left": its tooltip explains the estimate, and is read out as its description. */
   const timeInfoButton = () => {
-    const button = h(
+    const hint = i18n.t('timeHint', [format(LINES_PER_HOUR)]);
+    return h(
       'button',
-      { type: 'button', className: 'info', 'aria-label': i18n.t('panelTimeInfo'), 'aria-describedby': 'focus-diff-time-info' },
+      {
+        type: 'button',
+        className: 'info',
+        'aria-label': i18n.t('panelTimeInfo'),
+        'aria-description': hint,
+        'data-tip': hint,
+        'data-tip-instant': '',
+      },
       infoIcon(),
     );
-    // Sits above the icon, its arrow pointing down at it, like the breakdown does over its button.
-    const open = () => {
-      const box = button.getBoundingClientRect();
-      timeInfo.style.bottom = `${Math.round(popover.getBoundingClientRect().bottom - box.top + 10)}px`;
-      timeInfo.hidden = false;
-      pointAt(timeInfo, button);
-    };
-    button.addEventListener('mouseenter', () => (keepTimeInfo(), open()));
-    button.addEventListener('focus', () => (keepTimeInfo(), open()));
-    button.addEventListener('mouseleave', closeTimeInfo);
-    button.addEventListener('blur', closeTimeInfo);
-    return button;
   };
 
   const columns = () =>
@@ -160,10 +139,7 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
   const reposition = () => centreOver(popover, toggle, host);
 
   const setOpen = (open: boolean) => {
-    if (!open) {
-      returnFocus(popover, toggle, fallback, focused());
-      timeInfo.hidden = true;
-    }
+    if (!open) returnFocus(popover, toggle, fallback, focused());
     popover.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
     if (open) {
@@ -180,13 +156,5 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     draw();
   };
 
-  /** Escape closes the tooltip first, then the breakdown; returns whether there was something to close. */
-  const dismiss = () => {
-    if (!timeInfo.hidden) timeInfo.hidden = true;
-    else if (!popover.hidden) setOpen(false);
-    else return false;
-    return true;
-  };
-
-  return { toggle, popover, render, setOpen, dismiss, reposition, isOpen: () => !popover.hidden };
+  return { toggle, popover, render, setOpen, reposition, isOpen: () => !popover.hidden };
 };

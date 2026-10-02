@@ -1,17 +1,31 @@
 .tip {
   position: fixed;
   z-index: 1;
-  max-width: 260px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border-radius: 8px;
   background: var(--fd-fg);
   color: var(--fd-bg);
-  font: 500 12px/18px var(--fd-font);
-  pointer-events: none;
-  white-space: normal;
+  box-shadow: var(--fd-shadow);
+  font: 400 12px/18px var(--fd-font);
 }
 .tip[hidden] {
   display: none;
+}
+/* An arrow under the tooltip, pointing at its control. */
+.tip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: var(--fd-tip-arrow-x, 50%);
+  width: 10px;
+  height: 10px;
+  translate: -50% 0;
+  rotate: 45deg;
+  border-bottom-right-radius: 2px;
+  background: inherit;
 }
 @media (prefers-reduced-motion: no-preference) {
   .tip {
@@ -21,7 +35,6 @@
 @keyframes tip-in {
   from {
     opacity: 0;
-    translate: 0 2px;
   }
 }
 @media (forced-colors: active) {

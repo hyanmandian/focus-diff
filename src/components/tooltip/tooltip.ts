@@ -3,18 +3,24 @@ import type { PanelContext } from '@/components/panel/panel';
 import { h } from '@/utils/dom';
 
 const DELAY_MS = 350;
-const GAP = 8;
+/** Long enough to move the pointer onto the tooltip, which keeps it open. */
+const LINGER_MS = 120;
+const GAP = 10;
 const SCREEN_MARGIN = 8;
+/** Keeps the arrow clear of the tooltip's rounded corners. */
+const ARROW_EDGE = 14;
 
 /**
- * One tooltip for the whole panel: anything with a `data-tip` shows it above itself on hover, and on keyboard focus.
- * Controls already carry the same words as their accessible name or description, so screen readers skip it.
+ * One tooltip for the whole panel: anything with a `data-tip` shows it above itself on hover, and on keyboard focus;
+ * `data-tip-instant` skips the delay, for an (i) whose only job is the tooltip. The pointer can move onto the tooltip
+ * to read it. Controls carry the same words as their accessible name or description, so screen readers skip it.
  */
 export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => {
   const tip = h('div', { className: 'tip', 'aria-hidden': 'true', hidden: true });
   within.append(tip);
   let current: HTMLElement | null = null;
-  let timer = 0;
+  let showing = 0;
+  let hiding = 0;
 
   const place = (target: HTMLElement) => {
     const box = target.getBoundingClientRect();
@@ -23,6 +29,9 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
     const left = Math.min(Math.max(box.left + box.width / 2 - width / 2, SCREEN_MARGIN), screen - SCREEN_MARGIN - width);
     tip.style.left = `${left}px`;
     tip.style.top = `${box.top - height - GAP}px`;
+    // The arrow points at the control's centre, even when the tooltip is held on screen.
+    const arrow = Math.min(Math.max(box.left + box.width / 2 - left, ARROW_EDGE), width - ARROW_EDGE);
+    tip.style.setProperty('--fd-tip-arrow-x', `${arrow}px`);
   };
 
   const show = (target: HTMLElement) => {
@@ -34,9 +43,17 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
   };
 
   const hide = () => {
-    clearTimeout(timer);
+    clearTimeout(showing);
+    clearTimeout(hiding);
     current = null;
     tip.hidden = true;
+  };
+
+  const open = (target: HTMLElement, delay: number) => {
+    hide();
+    current = target;
+    if (delay) showing = window.setTimeout(() => show(target), delay);
+    else show(target);
   };
 
   const targetOf = (event: Event) => (event.target as Element | null)?.closest<HTMLElement>('[data-tip]') ?? null;
@@ -44,19 +61,22 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
   within.addEventListener(
     'pointerover',
     (event) => {
+      clearTimeout(hiding);
+      if (tip.contains(event.target as Node)) return;
       const target = targetOf(event);
       if (target === current) return;
-      hide();
-      if (!target) return;
-      current = target;
-      timer = window.setTimeout(() => show(target), DELAY_MS);
+      if (!target) return hide();
+      open(target, 'tipInstant' in target.dataset ? 0 : DELAY_MS);
     },
     { signal },
   );
   within.addEventListener(
     'pointerout',
     (event) => {
-      if (current && !current.contains(event.relatedTarget as Node | null)) hide();
+      const next = event.relatedTarget as Node | null;
+      if (!current || current.contains(next) || tip.contains(next)) return;
+      clearTimeout(showing);
+      hiding = window.setTimeout(hide, LINGER_MS);
     },
     { signal },
   );
@@ -64,22 +84,26 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
     'focusin',
     (event) => {
       const target = targetOf(event);
-      hide();
-      if (target?.matches(':focus-visible')) {
-        current = target;
-        show(target);
-      }
+      if (target?.matches(':focus-visible')) open(target, 0);
+      else hide();
     },
     { signal },
   );
   within.addEventListener('focusout', hide, { signal });
-  within.addEventListener('pointerdown', hide, { signal });
-  document.addEventListener('keydown', (event) => event.key === 'Escape' && hide(), { signal });
+  within.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (!tip.contains(event.target as Node)) hide();
+    },
+    { signal },
+  );
 
-  /** Keeps an open tooltip in step with its control, whose text or place may have changed. */
-  const refresh = () => {
-    if (current && !tip.hidden) show(current);
+  return {
+    hide,
+    isVisible: () => !tip.hidden,
+    /** Keeps an open tooltip in step with its control, whose text or place may have changed. */
+    refresh: () => {
+      if (current && !tip.hidden) show(current);
+    },
   };
-
-  return { hide, refresh };
 };

@@ -16,35 +16,6 @@
 .info:focus-visible {
   color: var(--fd-fg);
 }
-.tooltip {
-  position: absolute;
-  right: 12px;
-  z-index: 1;
-  box-sizing: border-box;
-  width: max-content;
-  max-width: min(280px, calc(100% - 24px));
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--fd-fg);
-  color: var(--fd-bg);
-  box-shadow: var(--fd-shadow);
-  font: 400 12px/18px var(--fd-font);
-}
-.tooltip[hidden] {
-  display: none;
-}
-.tooltip::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: var(--fd-arrow-x, calc(100% - 24px));
-  width: 10px;
-  height: 10px;
-  translate: -50% 0;
-  rotate: 45deg;
-  border-bottom-right-radius: 2px;
-  background: inherit;
-}
 .rows {
   display: grid;
   grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);

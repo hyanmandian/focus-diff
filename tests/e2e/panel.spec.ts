@@ -80,7 +80,13 @@ test.describe('panel on a pull request', () => {
     await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
 
     await pr.panel.getByRole('button', { name: 'How review time is estimated' }).hover();
-    await expect(pr.panel.getByRole('tooltip')).toContainText('Review time assumes about 1,000 changed lines an hour');
+    await expect(pr.panel.locator('.tip')).toContainText('Review time assumes about 1,000 changed lines an hour');
+    // The pointer can move onto it to read it.
+    await pr.panel.locator('.tip').hover();
+    await expect(pr.panel.locator('.tip')).toBeVisible();
+    await expect(pr.panel.getByRole('button', { name: 'How review time is estimated' })).toHaveAccessibleDescription(
+      /^Review time assumes about 1,000 changed lines an hour/,
+    );
 
     await pr.breakdownRows.nth(1).click();
     await expect(pr.pressed).toHaveText(['Frontend']);

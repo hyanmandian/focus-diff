@@ -49,7 +49,6 @@ describe('pullRequestData', () => {
       },
       { path: 'b.ts', digest: 'bb', additions: 0, deletions: 9, viewed: false, threads: [] },
     ]);
-    expect(data?.byPath.get('b.ts')?.deletions).toBe(9);
   });
 
   it('is absent on the classic view or with unreadable data', () => {

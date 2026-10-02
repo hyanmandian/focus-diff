@@ -59,7 +59,6 @@ export interface Panel {
   /** Reads out a short message, like where a jump landed. */
   announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
-  reset: () => void;
 }
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -145,8 +144,10 @@ export const createPanel = (
     h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
     commentsCount,
   );
+  const conversationIcon = h('span', { className: 'conversation-icon', 'aria-hidden': 'true' });
   const conversationFile = h('span', { className: 'conversation-file' });
   const conversationState = h('span', { className: 'conversation-state' });
+  const conversationPosition = h('span', { className: 'conversation-position', 'aria-hidden': 'true' });
   const step = (direction: 1 | -1) =>
     h(
       'button',
@@ -168,9 +169,11 @@ export const createPanel = (
       'aria-label': i18n.t('panelComments'),
       hidden: true,
     },
-    step(-1),
-    h('div', { className: 'conversation' }, conversationFile, conversationState),
-    step(1),
+    conversationIcon,
+    conversationFile,
+    conversationState,
+    conversationPosition,
+    h('span', { className: 'conversation-steps' }, step(-1), step(1)),
   );
   // Like the breakdown, the conversations popover follows its toggle and is positioned against the host.
   const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments, conversations);
@@ -219,8 +222,6 @@ export const createPanel = (
   container.append(panel);
 
   const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
-  /** Every filter toggles; the controller keeps All exclusive and falls back to it when nothing is left. */
-  const pick = (id: string) => onToggle(id);
 
   const moveIndicator = () => {
     const pressed = group.querySelectorAll<HTMLElement>('[aria-pressed="true"]');
@@ -271,6 +272,15 @@ export const createPanel = (
     );
   };
 
+  // Closing waits a moment so the pointer can move onto the tooltip and keep it open.
+  let timeInfoClosing = 0;
+  const closeTimeInfo = () => {
+    timeInfoClosing = window.setTimeout(() => (timeInfo.hidden = true), 120);
+  };
+  const keepTimeInfo = () => clearTimeout(timeInfoClosing);
+  timeInfo.addEventListener('mouseenter', keepTimeInfo);
+  timeInfo.addEventListener('mouseleave', closeTimeInfo);
+
   /** The (i) beside "Time left": explains the estimate on hover or focus. */
   const timeInfoButton = () => {
     const button = h(
@@ -286,13 +296,10 @@ export const createPanel = (
       timeInfo.hidden = false;
       pointAt(timeInfo, button);
     };
-    const close = () => {
-      timeInfo.hidden = true;
-    };
-    button.addEventListener('mouseenter', open);
-    button.addEventListener('focus', open);
-    button.addEventListener('mouseleave', close);
-    button.addEventListener('blur', close);
+    button.addEventListener('mouseenter', () => (keepTimeInfo(), open()));
+    button.addEventListener('focus', () => (keepTimeInfo(), open()));
+    button.addEventListener('mouseleave', closeTimeInfo);
+    button.addEventListener('blur', closeTimeInfo);
     return button;
   };
 
@@ -326,7 +333,7 @@ export const createPanel = (
           format(row.deletions),
           row.minutesLeft === 0 ? i18n.t('timeDone') : i18n.t('timeLeft', [time]),
         ]),
-        onClick: () => pick(row.id),
+        onClick: () => onToggle(row.id),
       },
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: row.name }),
@@ -354,7 +361,16 @@ export const createPanel = (
     if (keepFocus) breakdownRows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
   };
 
+  /** Focus inside a closing popover goes back to its toggle, or to settings when the toggle is gone too. */
+  const returnFocus = (popover: HTMLElement, toggle: HTMLElement) => {
+    if (popover.contains(focused())) (toggle.hidden ? settings : toggle).focus();
+  };
+
   const setBreakdownOpen = (open: boolean) => {
+    if (!open) {
+      returnFocus(breakdown, breakdownToggle);
+      timeInfo.hidden = true;
+    }
     breakdown.hidden = !open;
     breakdownToggle.setAttribute('aria-expanded', String(open));
     if (open) {
@@ -368,11 +384,21 @@ export const createPanel = (
   let conversationSource: Navigation['comments'] = { current: 0, list: [] };
   const STATE_LABEL = { waiting: 'panelStateWaiting', answered: 'panelStateAnswered', resolved: 'panelStateResolved' } as const;
 
-  /** The conversation the reader is on: where it is and whether it needs them. */
+  const stateIcons: Record<ThreadState, () => SVGSVGElement> = {
+    waiting: () => icon([['circle', { cx: '8', cy: '8', r: '3.5', fill: 'currentColor', stroke: 'none' }]]),
+    answered: () => icon('M6.5 4 3 7.5 6.5 11M3 7.5h6a4 4 0 0 1 4 4v.5'),
+    resolved: () =>
+      icon([
+        ['circle', { cx: '8', cy: '8', r: '6.25' }],
+        ['path', { d: 'M5.5 8.25 7.25 10l3.25-3.5' }],
+      ]),
+  };
+
+  /** The conversation the reader is on (the first one while the jump to it lands): where it is and whether it needs them. */
   const drawConversations = () => {
     if (conversations.hidden) return;
     const { current, list } = conversationSource;
-    const target = list[current - 1];
+    const target = list[current - 1] ?? list[0];
     if (!target) return;
     const name = target.path.slice(target.path.lastIndexOf('/') + 1);
     conversationFile.replaceChildren(
@@ -380,13 +406,18 @@ export const createPanel = (
       target.line ? h('span', { className: 'conversation-line', textContent: `:${format(target.line)}` }) : '',
     );
     conversationFile.title = target.path;
-    conversationState.dataset.state = target.state;
-    conversationState.textContent = `${i18n.t(STATE_LABEL[target.state])} · ${format(current)}/${format(list.length)}`;
+    if (conversations.dataset.state !== target.state) {
+      conversations.dataset.state = target.state;
+      conversationIcon.replaceChildren(stateIcons[target.state]());
+    }
+    conversationState.textContent = i18n.t(STATE_LABEL[target.state]);
+    conversationPosition.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
   };
 
   /** Stays open while the reader steps through conversations; only its toggle or Escape closes it. */
   const setConversationsOpen = (open: boolean) => {
     if (conversations.hidden === !open) return;
+    if (!open) returnFocus(conversations, comments);
     conversations.hidden = !open;
     comments.setAttribute('aria-expanded', String(open));
     if (open) {
@@ -403,17 +434,10 @@ export const createPanel = (
     'keydown',
     (event) => {
       if (event.key !== 'Escape') return;
-      if (!breakdown.hidden) {
-        const focusInside = breakdown.contains(focused());
-        setBreakdownOpen(false);
-        if (focusInside) breakdownToggle.focus();
-        return;
-      }
+      if (!timeInfo.hidden) timeInfo.hidden = true;
+      else if (!breakdown.hidden) setBreakdownOpen(false);
       // Escape elsewhere on the page belongs to GitHub, like cancelling a reply.
-      if (!conversations.hidden && focused()) {
-        setConversationsOpen(false);
-        comments.focus();
-      }
+      else if (!conversations.hidden && focused()) setConversationsOpen(false);
     },
     { signal },
   );
@@ -426,6 +450,7 @@ export const createPanel = (
   );
 
   let optionsKey = '';
+  let indicatorKey = '';
   const renderOptions = (list: PanelOption[], selected: string[]) => {
     const key = JSON.stringify(list.map(({ id, name }) => [id, name]));
     if (key !== optionsKey) {
@@ -436,7 +461,7 @@ export const createPanel = (
         ...list.map(({ id, name }) =>
           h(
             'button',
-            { type: 'button', className: 'option', 'data-id': id, onClick: () => pick(id) },
+            { type: 'button', className: 'option', 'data-id': id, onClick: () => onToggle(id) },
             h('span', { className: 'option-name', textContent: name }),
             h('span', { className: 'option-count', 'aria-hidden': 'true' }),
             h('span', { className: 'visually-hidden option-count-label' }),
@@ -473,7 +498,12 @@ export const createPanel = (
       if (option.getAttribute('aria-pressed') !== String(pressed)) option.setAttribute('aria-pressed', String(pressed));
       option.tabIndex = (current ? option === current : option.dataset.id === selected[0]) ? 0 : -1;
     }
-    moveIndicator();
+    // Measuring the chips forces a layout, so it only happens when the selection changes; the ResizeObserver covers the rest.
+    const pressedKey = `${optionsKey} ${selected.join()}`;
+    if (pressedKey !== indicatorKey) {
+      indicatorKey = pressedKey;
+      moveIndicator();
+    }
   };
 
   const renderBreakdown = (rows: () => BreakdownRow[], selected: string[]) => {
@@ -555,15 +585,10 @@ export const createPanel = (
     }
   };
 
-  const reset = () => {
-    optionsKey = '';
-    drawnKey = '';
-  };
-
   setVisible(false);
   const announceText = (text: string) => {
     status.textContent = text;
   };
 
-  return { renderOptions, renderStats, renderNavigation, renderBreakdown, announce, announceText, setVisible, reset };
+  return { renderOptions, renderStats, renderNavigation, renderBreakdown, announce, announceText, setVisible };
 };

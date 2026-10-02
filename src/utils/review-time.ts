@@ -6,7 +6,7 @@ import type { FileStats } from '@/utils/github';
  */
 export const LINES_PER_HOUR = 400;
 /** Our assumption, not measured: removed code is read, not studied. */
-export const REMOVED_LINE_WEIGHT = 0.25;
+const REMOVED_LINE_WEIGHT = 0.25;
 /** Our assumption, not measured: opening a file and getting oriented in it. */
 export const MINUTES_PER_FILE = 0.5;
 

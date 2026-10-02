@@ -39,7 +39,7 @@ export const collectFiles = (): Files => {
     page.diffs().map((diff) => {
       const viewed = page.viewed(diff);
       if (viewed !== null) viewedByPath.set(diff.path, viewed);
-      return [diff.path, { element: diff.element as HTMLElement, container: diff.container, stats: diff.stats() }] as const;
+      return [diff.path, { element: diff.element as HTMLElement, container: diff.container, stats: diff.stats }] as const;
     }),
   );
   const data = pullRequestData();
@@ -57,7 +57,8 @@ export const collectFiles = (): Files => {
   const list = [...rendered].map(([path, diff]) => ({
     path,
     digest: diff.element.id.startsWith('diff-') ? diff.element.id.slice('diff-'.length) : '',
-    stats: diff.stats,
+    // Only the classic view reads line counts from the page; the embedded data already has them.
+    stats: diff.stats(),
     viewed: viewedByPath.get(path) ?? false,
     diff: { element: diff.element, container: diff.container },
     threads: [],

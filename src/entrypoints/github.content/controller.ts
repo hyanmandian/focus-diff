@@ -65,17 +65,20 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
   show(original, false);
 };
 
-const filterTree = (matches: Matcher, filtering: boolean, visiblePaths: string[], pathByDigest: Map<string, string>) => {
-  const files = page.treeFiles().map((file) => ({ ...file, path: pathByDigest.get(file.digest) ?? file.path }));
-  for (const file of files) show(file.element, matches(file.path));
-  const shown = [...visiblePaths, ...files.filter((file) => file.element.style.display !== 'none').map((file) => file.path)];
-  for (const folder of page.treeFolders()) {
-    const prefix = `${folder.path}/`;
-    show(
-      folder.element,
-      !filtering || shown.some((path) => path.startsWith(prefix)) || folder.files.some((file) => file.style.display !== 'none'),
-    );
+/** Hides tree files outside the filter, and folders left with nothing to show. */
+const filterTree = (matches: Matcher, filtering: boolean, shownPaths: string[], pathByDigest: Map<string, string>) => {
+  const folders = new Set<string>();
+  const keepFoldersOf = (path: string) => {
+    for (let end = path.lastIndexOf('/'); end > 0; end = path.lastIndexOf('/', end - 1)) folders.add(path.slice(0, end));
+  };
+  shownPaths.forEach(keepFoldersOf);
+  for (const file of page.treeFiles()) {
+    const path = pathByDigest.get(file.digest) ?? page.treePathOf(file.element);
+    const visible = matches(path);
+    show(file.element, visible);
+    if (visible) keepFoldersOf(path);
   }
+  for (const folder of page.treeFolders()) show(folder.element, !filtering || folders.has(folder.path));
 };
 
 const updatePageCounters = (totals: Totals, filtering: boolean) => {
@@ -112,7 +115,6 @@ const memoize = (matches: Matcher): Matcher => {
 };
 
 export interface Controller {
-  select: (id: string) => void;
   toggle: (id: string) => void;
   openSettings: () => void;
   nextUnviewed: () => void;
@@ -219,8 +221,10 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       shown.map((file) => file.path),
       new Map(files.list.filter((file) => file.digest).map((file) => [file.digest, file.path])),
     );
-    if (selectionKey !== selection.join()) {
-      selectionKey = selection.join();
+    // A new pull request or a new selection starts the conversation count over.
+    const key = `${location.pathname} ${selection.join()}`;
+    if (selectionKey !== key) {
+      selectionKey = key;
       navigation.reset();
     }
     panel.renderNavigation({ unviewed: shown.filter((file) => !file.viewed).length, comments: navigation.position(shown, files.complete) });
@@ -239,17 +243,28 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     }
   };
 
-  /** Reader actions apply on the next frame; changes GitHub makes to the page wait for idle time. */
+  /**
+   * Reader actions apply on the next frame; changes GitHub makes to the page wait for idle time. A frame request
+   * overtakes a pending idle one, which then does nothing.
+   */
+  let ticket = 0;
   const schedule = (when: 'frame' | 'idle' = 'frame') => {
     if (ctx.isInvalid || pending === 'frame' || pending === when) return;
     pending = when;
-    if (when === 'frame') ctx.requestAnimationFrame(apply);
-    else ctx.requestIdleCallback(apply, { timeout: IDLE_TIMEOUT_MS });
+    const mine = ++ticket;
+    const run = () => mine === ticket && apply();
+    if (when === 'frame') ctx.requestAnimationFrame(run);
+    else ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
   };
 
-  /** New diffs get filtered on the next frame so they never flash in; any other change waits for idle time. */
+  const changesElements = (record: MutationRecord) =>
+    record.type === 'attributes' || [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element);
+
+  /** New diffs get filtered on the next frame so they never flash in; text-only changes, like ticking timestamps, are ignored. */
   const pageObserver = new MutationObserver((records) => {
-    const urgent = records.some((record) => record.type === 'attributes' || [...record.addedNodes].some(page.containsDiff));
+    const relevant = records.filter(changesElements);
+    if (!relevant.length) return;
+    const urgent = relevant.some((record) => record.type === 'attributes' || [...record.addedNodes].some(page.containsDiff));
     schedule(urgent ? 'frame' : 'idle');
   });
   let observing = false;
@@ -280,7 +295,6 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   const unwatchConfig = configItem.watch((value) => {
     config = normalize(value);
-    panel.reset();
     schedule();
   });
   const unwatchSelections = selectionsItem.watch((value) => {
@@ -300,5 +314,5 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
 
   schedule();
-  return { select, toggle, openSettings, nextUnviewed, comment };
+  return { toggle, openSettings, nextUnviewed, comment };
 };

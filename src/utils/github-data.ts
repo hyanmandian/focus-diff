@@ -5,7 +5,7 @@
  * pull request. The classic view has no such data; callers fall back to reading the DOM.
  */
 
-export interface FileSummary {
+interface FileSummary {
   path: string;
   /** SHA-256 of the path, as used in `#diff-<digest>` anchors and region ids. */
   digest: string;
@@ -24,7 +24,6 @@ export interface ThreadSummary {
 
 export interface PullRequestData {
   files: FileSummary[];
-  byPath: Map<string, FileSummary>;
 }
 
 const EMBEDDED = 'script[data-target="react-app.embeddedData"]';
@@ -80,17 +79,23 @@ const parse = (text: string): PullRequestData | null => {
       },
     ];
   });
-  return { files, byPath: new Map(files.map((file) => [file.path, file])) };
+  return { files };
 };
 
-let cached: { pathname: string; length: number; data: PullRequestData | null } | null = null;
+const parsed = new WeakMap<Element, PullRequestData | null>();
 
-/** The current pull request's embedded data, parsed once per page, or `null` on the classic view. */
+/**
+ * The current pull request's embedded data, or `null` on the classic view. GitHub swaps the script element on
+ * navigation, so each one is parsed once. A page can embed data for other apps too; the first with diffs wins.
+ */
 export const pullRequestData = (): PullRequestData | null => {
-  const script = document.querySelector(EMBEDDED);
-  if (!script?.textContent) return null;
-  const { length } = script.textContent;
-  if (cached?.pathname === location.pathname && cached.length === length) return cached.data;
-  cached = { pathname: location.pathname, length, data: parse(script.textContent) };
-  return cached.data;
+  for (const script of document.querySelectorAll(EMBEDDED)) {
+    let data = parsed.get(script);
+    if (data === undefined) {
+      data = parse(script.textContent ?? '');
+      parsed.set(script, data);
+    }
+    if (data) return data;
+  }
+  return null;
 };

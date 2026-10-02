@@ -10,26 +10,24 @@ export interface Diff {
   stats: () => FileStats | null;
 }
 
-export interface TreeFile {
+interface TreeFile {
   element: HTMLElement;
-  path: string;
   /** From the item's `#diff-<digest>` link, when the tree has one. */
   digest: string;
 }
 
-export interface TreeFolder {
+interface TreeFolder {
   element: HTMLElement;
   path: string;
-  files: HTMLElement[];
 }
 
-export interface PageCounters {
+interface PageCounters {
   files: HTMLElement | null;
   additions: HTMLElement | null;
   deletions: HTMLElement | null;
 }
 
-const DIFF = '[role="region"][id^="diff-"], .file[data-tagsearch-path]';
+const DIFF = '[role="region"][id^="diff-"], [data-tagsearch-path]';
 const TREE_ITEM = '[role="treeitem"]';
 const PAGE_LAYOUT = 'main, [role="main"], #diff-comparison-viewer-container, #files';
 const PULL_REQUEST_FILES = /^\/([^/]+)\/([^/]+)\/pull\/\d+\/(?:changes|files)(?:\/|$)/;
@@ -62,7 +60,7 @@ const pathOf = (diff: HTMLElement) =>
     diff.querySelector<HTMLElement>('[data-file-path]')?.dataset.filePath ||
       diff.dataset.tagsearchPath ||
       document.getElementById(diff.getAttribute('aria-labelledby') ?? '')?.textContent ||
-      diff.querySelector('h3, [class*="file-name"], a[href^="#diff-"]')?.textContent ||
+      diff.querySelector('h3, a[href^="#diff-"]')?.textContent ||
       '',
   );
 
@@ -143,7 +141,8 @@ const folderPathOf = (item: Element | null | undefined): string => {
   return parts.join('/');
 };
 
-const treePathOf = (item: Element) => {
+/** A file's path as the tree spells it out, for trees without `#diff-` links. */
+export const treePathOf = (item: Element): string => {
   const label = labelOf(item);
   const name = label.match(/[^\s/]+\.[A-Za-z0-9]+/)?.[0] ?? label;
   const folder = folderPathOf(item.parentElement?.closest(TREE_ITEM));
@@ -153,7 +152,6 @@ const treePathOf = (item: Element) => {
 export const treeFiles = (): TreeFile[] =>
   [...document.querySelectorAll<HTMLElement>(`${TREE_ITEM}:not([aria-expanded])`)].map((element) => ({
     element,
-    path: treePathOf(element),
     digest: element.querySelector('a[href^="#diff-"]')?.getAttribute('href')?.slice('#diff-'.length) ?? '',
   }));
 
@@ -161,7 +159,6 @@ export const treeFolders = (): TreeFolder[] =>
   [...document.querySelectorAll<HTMLElement>(`${TREE_ITEM}[aria-expanded]`)].map((element) => ({
     element,
     path: folderPathOf(element),
-    files: [...element.querySelectorAll<HTMLElement>(`${TREE_ITEM}:not([aria-expanded])`)],
   }));
 
 const findFilesCounter = (): HTMLElement | null =>
@@ -213,24 +210,25 @@ export const reportedFileCount = (): number => {
   return Number(text.replace(/[^\d]/g, '')) || 0;
 };
 
-const VIEWED =
-  'input.js-reviewed-checkbox, button[class*="MarkAsViewedButton"], [data-diff-header-wrapper] button[aria-pressed], [data-diff-header-wrapper] input[type="checkbox"]';
-const VIEWED_LABEL = /viewed/i;
+/** The classic view's checkbox, or the newer view's toggle button, found by its label rather than its styling. */
+const VIEWED = 'input.js-reviewed-checkbox, button[aria-pressed], [data-diff-header-wrapper] input[type="checkbox"]';
+const VIEWED_LABEL = /^(not )?viewed$/i;
 
 /** Whether the reviewer marked a file as viewed on GitHub, or `null` when its toggle isn't rendered. */
 export const viewed = (diff: Pick<Diff, 'element'>): boolean | null => {
   for (const control of diff.element.querySelectorAll<HTMLElement>(VIEWED)) {
-    const label = control.matches('.js-reviewed-checkbox, [class*="MarkAsViewedButton"]')
-      ? 'viewed'
-      : `${control.getAttribute('aria-label') ?? ''} ${control.closest('label')?.textContent ?? ''} ${control.textContent ?? ''}`;
-    if (!VIEWED_LABEL.test(label)) continue;
-    return control instanceof HTMLInputElement ? control.checked : control.getAttribute('aria-pressed') === 'true';
+    if (control instanceof HTMLInputElement) {
+      if (control.classList.contains('js-reviewed-checkbox') || VIEWED_LABEL.test(control.closest('label')?.textContent?.trim() ?? ''))
+        return control.checked;
+    } else if (VIEWED_LABEL.test((control.getAttribute('aria-label') ?? control.textContent ?? '').trim())) {
+      return control.getAttribute('aria-pressed') === 'true';
+    }
   }
   return null;
 };
 
 /** The newer diff view positions each file absolutely in a tall list and only renders the ones near the screen. */
-export const isVirtualized = (): boolean => document.querySelector('[data-index][data-path-digest][style*="top"]') !== null;
+export const isVirtualized = (): boolean => document.querySelector('[data-index][data-path-digest]') !== null;
 
 export const diffByDigest = (digest: string): HTMLElement | null => (digest ? document.getElementById(`diff-${digest}`) : null);
 
@@ -240,9 +238,10 @@ export const treeLink = (digest: string): HTMLAnchorElement | null =>
 
 /** Conversation markers beside the lines of a rendered diff in the newer view, top to bottom. */
 export const commentIndicators = (diff: Element): HTMLElement[] =>
-  [...diff.querySelectorAll<HTMLElement>('[class*="CommentIndicator-module__commentIn"]')].toSorted(
-    (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
-  );
+  [...diff.querySelectorAll<HTMLElement>('[class*="CommentIndicator-module__commentIn"]')]
+    .map((element) => ({ element, top: element.getBoundingClientRect().top }))
+    .toSorted((a, b) => a.top - b.top)
+    .map(({ element }) => element);
 
 /** Review conversations in the classic view; the class is a fallback for the custom element. */
 const THREAD = 'review-thread-collapsible, .js-resolvable-timeline-thread-container';
@@ -274,14 +273,12 @@ const threadLine = (thread: HTMLElement): number | null => {
   return Number(numbers?.[numbers.length - 1]?.getAttribute('data-line-number')) || null;
 };
 
-/** Conversations inside the given diffs, in page order. */
-export const threads = (containers: HTMLElement[]): Thread[] => {
+/** Conversations inside a diff, in page order. */
+export const threads = (diff: HTMLElement): Thread[] => {
   const login = viewer();
-  return [...new Set(containers.flatMap((container) => [...container.querySelectorAll<HTMLElement>(THREAD)]))].map((element) => ({
-    element,
-    state: threadState(element, login),
-    line: threadLine(element),
-  }));
+  return [...diff.querySelectorAll<HTMLElement>(THREAD)]
+    .filter((element) => !element.parentElement?.closest(THREAD))
+    .map((element) => ({ element, state: threadState(element, login), line: threadLine(element) }));
 };
 
 const STICKY_OFFSET_PX = 80;
@@ -303,17 +300,15 @@ export const scrollToCenter = (element: Element): void => {
 
 const FLASH_ID = 'focus-diff-flash';
 
+const ACCENT = 'var(--fgColor-accent, var(--color-accent-fg, #0969da))';
+const ring = (alpha: number, glow: number) =>
+  `0 0 0 2px color-mix(in srgb, ${ACCENT} ${alpha}%, transparent), 0 0 0 ${glow}px color-mix(in srgb, ${ACCENT} ${alpha / 4}%, transparent)`;
+
 /**
  * Lights a ring around an element after a jump so the eye finds it: it glows in, holds, and fades out. It's an
  * animation, so it leaves nothing behind on GitHub's markup.
  */
 export const flash = (element: HTMLElement): void => {
-  const accent =
-    getComputedStyle(document.documentElement).getPropertyValue('--fgColor-accent').trim() ||
-    getComputedStyle(document.documentElement).getPropertyValue('--color-accent-fg').trim() ||
-    '#0969da';
-  const ring = (alpha: number, glow: number) =>
-    `0 0 0 2px color-mix(in srgb, ${accent} ${alpha}%, transparent), 0 0 0 ${glow}px color-mix(in srgb, ${accent} ${alpha / 4}%, transparent)`;
   for (const animation of element.getAnimations()) if (animation.id === FLASH_ID) animation.cancel();
   const animation = element.animate(
     [

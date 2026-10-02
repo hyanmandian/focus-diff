@@ -120,7 +120,7 @@ test.describe('panel on a pull request', () => {
     const pr = new PullRequestPage(await openPullRequest());
     const next = pr.panel.locator('.next-unviewed');
     await pr.pick('Backend');
-    await expect(next).toHaveAccessibleName('Go to the next unviewed file (3 left)');
+    await expect(next).toHaveAccessibleName('Next unviewed, 3 left');
     await next.click();
     await expect(pr.status).toHaveText('api/books/service.py, 3 unviewed left.');
     await expect
@@ -131,14 +131,14 @@ test.describe('panel on a pull request', () => {
       .locator('[data-diff-header-wrapper]', { hasText: 'api/books/service.py' })
       .getByRole('button', { name: 'Viewed' })
       .click();
-    await expect(next).toHaveAccessibleName('Go to the next unviewed file (2 left)');
+    await expect(next).toHaveAccessibleName('Next unviewed, 2 left');
     await next.click();
     await expect(pr.status).toHaveText('api/books/__init__.py, 2 unviewed left.');
 
     await pr.pick('Docs');
     await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
     await expect(next).toBeDisabled();
-    await expect(next).toHaveAccessibleName('Every shown file is viewed');
+    await expect(next).toHaveAccessibleName('Next unviewed, every shown file is viewed');
   });
 
   test('steps through the conversations in the shown files', async ({ openPullRequest }) => {
@@ -165,18 +165,18 @@ test.describe('panel on a pull request', () => {
     await expect(pr.status).toHaveText('Conversation 1 of 4, in web/src/book-card.tsx.');
     await expect.poll(() => centred('missing cover')).toBe(true);
     await expect(popover).toContainText('book-card.tsx:12');
-    await expect(popover).toContainText('Waiting on you · 1/4');
+    await expect(popover).toContainText('Waiting on you1/4');
     await expect(comments).toHaveAccessibleName('Conversations, Conversation 1 of 4');
     await next.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
     await expect.poll(() => centred('Typo')).toBe(true);
-    await expect(popover).toContainText('Resolved · 2/4');
+    await expect(popover).toContainText('Resolved2/4');
     await next.click();
     await expect(popover).toContainText('service.py:40');
-    await expect(popover).toContainText('Answered · 3/4');
+    await expect(popover).toContainText('Answered3/4');
     await next.click();
     // A reaction to the last comment counts as an answer.
-    await expect(popover).toContainText('Answered · 4/4');
+    await expect(popover).toContainText('Answered4/4');
     await previous.click();
     await previous.click();
     await expect(pr.status).toHaveText('Conversation 2 of 4, in api/books/service.py.');
@@ -266,13 +266,49 @@ test.describe('panel on a pull request', () => {
     await expect(welcome).toHaveURL(/\/welcome\.html$/);
   });
 
+  // GitHub's own colour tokens (Primer), which the panel picks up, so contrast is checked against the real themes.
+  const PRIMER = {
+    light: {
+      fg: '#1f2328',
+      muted: '#59636e',
+      overlay: '#ffffff',
+      accent: '#0969da',
+      emphasis: '#0969da',
+      success: '#1a7f37',
+      danger: '#d1242f',
+      attention: '#9a6700',
+      neutral: '#818b981f',
+      border: '#d1d9e0',
+    },
+    dark: {
+      fg: '#f0f6fc',
+      muted: '#9198a1',
+      overlay: '#010409',
+      accent: '#4493f8',
+      emphasis: '#1f6feb',
+      success: '#3fb950',
+      danger: '#f85149',
+      attention: '#d29922',
+      neutral: '#656c7633',
+      border: '#3d444d',
+    },
+  };
   for (const colorScheme of ['light', 'dark'] as const) {
     test(`has no accessibility violations in the ${colorScheme} theme`, async ({ openPullRequest }) => {
       const page = await openPullRequest();
       await page.emulateMedia({ colorScheme });
+      const c = PRIMER[colorScheme];
+      await page.addStyleTag({
+        content: `:root { --fgColor-default: ${c.fg}; --fgColor-muted: ${c.muted}; --overlay-bgColor: ${c.overlay}; --fgColor-accent: ${c.accent}; --bgColor-accent-emphasis: ${c.emphasis}; --fgColor-success: ${c.success}; --fgColor-danger: ${c.danger}; --fgColor-attention: ${c.attention}; --bgColor-neutral-muted: ${c.neutral}; --borderColor-default: ${c.border}; } body { background: ${c.overlay}; color: ${c.fg}; }`,
+      });
       const pr = new PullRequestPage(page);
       await pr.pick('Frontend');
       await expect(pr.pressed).toHaveText(['Frontend']);
+      expect(await accessibilityViolations(page, 'focus-diff-panel')).toEqual([]);
+      await pr.breakdownToggle.click();
+      expect(await accessibilityViolations(page, 'focus-diff-panel')).toEqual([]);
+      await pr.panel.getByRole('button', { name: /^Conversations,/ }).click();
+      await expect(pr.panel.getByRole('dialog', { name: 'Conversations' })).toBeVisible();
       expect(await accessibilityViolations(page, 'focus-diff-panel')).toEqual([]);
     });
   }

@@ -23,9 +23,11 @@ const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
     page.scrollToTop(file.diff.container);
     return file.diff.element;
   }
+  if (!file.digest) return null;
+  // With its folder collapsed or the tree closed, the file's anchor still takes GitHub there.
   const link = page.treeLink(file.digest);
-  if (!link) return null;
-  link.click();
+  if (link) link.click();
+  else location.hash = `diff-${file.digest}`;
   return waitFor(() => page.diffByDigest(file.digest));
 };
 
@@ -56,7 +58,9 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
   /** Conversations known from GitHub's data, in file order then line order. */
   const knownThreads = (shown: FileInfo[]) => shown.flatMap((file) => file.threads.map((thread) => ({ file, thread })));
 
-  const renderedThreads = (shown: FileInfo[]) => page.threads(shown.flatMap((file) => (file.diff ? [file.diff.element] : [])));
+  /** Classic view: the conversations GitHub rendered, with their file. */
+  const renderedThreads = (shown: FileInfo[]) =>
+    shown.flatMap((file) => (file.diff ? page.threads(file.diff.element).map((thread) => ({ file, thread })) : []));
 
   const conversations = (shown: FileInfo[], complete: boolean): Conversation[] =>
     complete
@@ -65,11 +69,7 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
           line: Number(thread.line.slice(1)) || null,
           state: thread.resolved ? 'resolved' : 'waiting',
         }))
-      : renderedThreads(shown).map((thread) => ({
-          path: shown.find((file) => file.diff?.element.contains(thread.element))?.path ?? '',
-          line: thread.line,
-          state: thread.state,
-        }));
+      : renderedThreads(shown).map(({ file, thread }) => ({ path: file.path, line: thread.line, state: thread.state }));
 
   const announce = (total: number, path: string) => {
     panel.announceText(i18n.t('panelJumpedToComment', [String(commentIndex), String(total), path]));
@@ -100,9 +100,9 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
-    page.scrollToCenter(target.element);
-    page.flash(target.element);
-    announce(threads.length, shown.find((file) => file.diff?.element.contains(target.element))?.path ?? '');
+    page.scrollToCenter(target.thread.element);
+    page.flash(target.thread.element);
+    announce(threads.length, target.file.path);
   };
 
   /** Before the first jump, starts from the top (or the end); in the classic view, from the middle of the screen. */
@@ -116,7 +116,7 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     const threads = renderedThreads(shown);
     if (!threads.length) return;
     const middle = innerHeight / 2;
-    const centre = (thread: page.Thread) => {
+    const centre = ({ thread }: { thread: page.Thread }) => {
       const box = thread.element.getBoundingClientRect();
       return box.top + box.height / 2;
     };

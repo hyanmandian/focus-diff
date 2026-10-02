@@ -144,17 +144,48 @@ button:focus-visible {
 .breakdown[hidden] {
   display: none;
 }
-.breakdown h2 {
-  margin: 0;
-  padding: 12px 16px 8px;
-  font: 600 14px/20px var(--fd-font);
+.columns .column-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.info {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  min-height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--fd-muted);
+}
+.info:hover,
+.info:focus-visible {
+  color: var(--fd-fg);
+}
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  right: 12px;
+  z-index: 1;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(280px, calc(100% - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--fd-fg);
+  color: var(--fd-bg);
+  box-shadow: var(--fd-shadow);
+  font: 400 12px/18px var(--fd-font);
+}
+.tooltip[hidden] {
+  display: none;
 }
 .rows {
   display: grid;
   grid-template-columns: 16px minmax(96px, max-content) repeat(4, max-content);
   column-gap: 16px;
   max-height: min(52vh, 420px);
-  padding: 0 8px;
+  padding: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -238,17 +269,6 @@ button:focus-visible {
   margin-left: -4px;
   color: var(--fd-muted);
 }
-.hint {
-  /* Wraps to the table's width instead of widening the popover. */
-  width: 0;
-  min-width: calc(100% - 32px);
-  margin: 0;
-  padding: 8px 16px 12px;
-  border-top: 1px solid var(--fd-border-muted);
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--fd-muted);
-}
 
 .stats {
   box-sizing: border-box;
@@ -285,9 +305,14 @@ button:focus-visible {
   border-left: 1px solid var(--fd-border);
 }
 .next-unviewed {
-  gap: 4px;
-  padding: 0 8px;
-  grid-auto-flow: column;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  font-weight: 500;
+}
+.next-unviewed svg {
+  color: var(--fd-muted);
 }
 .next-unviewed:disabled {
   opacity: 0.45;
@@ -301,6 +326,7 @@ button:focus-visible {
   font: 600 12px/16px var(--fd-font);
   font-variant-numeric: tabular-nums;
 }
+.option-count:empty,
 .nav-count:empty {
   display: none;
 }

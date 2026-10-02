@@ -35,7 +35,6 @@ export interface Navigation {
 export interface BreakdownRow extends PanelOption, Totals {}
 
 export interface PanelActions {
-  onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onSettings: () => void;
   onNextUnviewed: () => void;
@@ -66,6 +65,14 @@ const settingsIcon = () =>
   ]);
 
 const breakdownIcon = () => icon('M2 13.5h12M4 11V7M8 11V3M12 11V8');
+const infoIcon = () =>
+  icon(
+    [
+      ['circle', { cx: '8', cy: '8', r: '6.25' }],
+      ['path', { d: 'M8 7.25v3.75M8 5v.25' }],
+    ],
+    14,
+  );
 const nextFileIcon = () => icon('M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10');
 const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
 const chevron = (direction: 'up' | 'down') => icon(direction === 'up' ? 'M4.5 10 8 6.5 11.5 10' : 'M4.5 6 8 9.5 11.5 6');
@@ -79,7 +86,7 @@ interface PanelMount {
 
 export const createPanel = (
   { root, container, host, signal }: PanelMount,
-  { onSelect, onToggle, onSettings, onNextUnviewed, onComment }: PanelActions,
+  { onToggle, onSettings, onNextUnviewed, onComment }: PanelActions,
 ): Panel => {
   const focused = () => root.activeElement as HTMLElement | null;
 
@@ -119,9 +126,10 @@ export const createPanel = (
 
   const nextUnviewed = h(
     'button',
-    { type: 'button', className: 'icon-button next-unviewed', onClick: () => onNextUnviewed() },
+    { type: 'button', className: 'next-unviewed', onClick: () => onNextUnviewed() },
+    h('span', { className: 'next-unviewed-label', textContent: i18n.t('panelNextUnviewedLabel') }),
+    h('span', { className: 'option-count', 'aria-hidden': 'true' }),
     nextFileIcon(),
-    h('span', { className: 'nav-count', 'aria-hidden': 'true' }),
   );
   const commentPosition = h('span', { className: 'nav-count', 'aria-hidden': 'true' });
   const previousComment = h(
@@ -157,6 +165,13 @@ export const createPanel = (
   const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments);
 
   const breakdownRows = h('div', { className: 'rows' });
+  const timeInfo = h('div', {
+    className: 'tooltip',
+    id: 'focus-diff-time-info',
+    role: 'tooltip',
+    hidden: true,
+    textContent: i18n.t('timeHint', [LINES_PER_HOUR]),
+  });
   const breakdown = h(
     'div',
     {
@@ -164,11 +179,10 @@ export const createPanel = (
       id: 'focus-diff-breakdown',
       role: 'dialog',
       hidden: true,
-      'aria-labelledby': 'focus-diff-breakdown-heading',
+      'aria-label': i18n.t('panelBreakdown'),
     },
-    h('h2', { id: 'focus-diff-breakdown-heading', textContent: i18n.t('panelBreakdownHeading') }),
     breakdownRows,
-    h('p', { className: 'hint' }, i18n.t('panelCombineHint'), h('br'), i18n.t('timeHint', [LINES_PER_HOUR])),
+    timeInfo,
   );
   const breakdownToggle = h(
     'button',
@@ -190,11 +204,12 @@ export const createPanel = (
   });
   const status = h('span', { className: 'visually-hidden', role: 'status' });
   // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
-  const panel = h('div', { className: 'panel' }, group, stats, navigation, breakdownToggle, breakdown, settings, status);
+  const panel = h('div', { className: 'panel' }, group, stats, breakdownToggle, breakdown, navigation, settings, status);
   container.append(panel);
 
   const options = () => [...group.querySelectorAll<HTMLButtonElement>('.option')];
-  const pick = (id: string, event: MouseEvent | KeyboardEvent) => (event.shiftKey ? onToggle(id) : onSelect(id));
+  /** Every filter toggles; the controller keeps All exclusive and falls back to it when nothing is left. */
+  const pick = (id: string) => onToggle(id);
 
   const moveIndicator = () => {
     const pressed = group.querySelectorAll<HTMLElement>('[aria-pressed="true"]');
@@ -225,7 +240,6 @@ export const createPanel = (
     if (!next) return;
     list.forEach((option) => (option.tabIndex = option === next ? 0 : -1));
     next.focus();
-    if (!event.shiftKey && next.dataset.id) onSelect(next.dataset.id);
   });
 
   let breakdownSource: { rows: () => BreakdownRow[]; selected: string[] } = { rows: () => [], selected: [] };
@@ -244,16 +258,39 @@ export const createPanel = (
     );
   };
 
+  /** The (i) beside "Time left": explains the estimate on hover or focus. */
+  const timeInfoButton = () => {
+    const button = h(
+      'button',
+      { type: 'button', className: 'info', 'aria-label': i18n.t('panelTimeInfo'), 'aria-describedby': 'focus-diff-time-info' },
+      infoIcon(),
+    );
+    const open = () => {
+      const box = button.getBoundingClientRect();
+      const popover = breakdown.getBoundingClientRect();
+      timeInfo.style.top = `${Math.round(box.bottom - popover.top + 6)}px`;
+      timeInfo.hidden = false;
+    };
+    const close = () => {
+      timeInfo.hidden = true;
+    };
+    button.addEventListener('mouseenter', open);
+    button.addEventListener('focus', open);
+    button.addEventListener('mouseleave', close);
+    button.addEventListener('blur', close);
+    return button;
+  };
+
   const columns = () =>
     h(
       'div',
-      { className: 'columns', 'aria-hidden': 'true' },
+      { className: 'columns' },
       h('span'),
       h('span', { textContent: i18n.t('panelColumnFilter') }),
       h('span', { textContent: i18n.t('panelColumnFiles') }),
       h('span', { textContent: i18n.t('panelColumnViewed') }),
       h('span', { textContent: i18n.t('panelColumnLines') }),
-      h('span', { textContent: i18n.t('panelColumnTime') }),
+      h('span', { className: 'column-time' }, i18n.t('panelColumnTime'), timeInfoButton()),
     );
 
   const breakdownRow = (row: BreakdownRow, selected: boolean) => {
@@ -274,7 +311,7 @@ export const createPanel = (
           format(row.deletions),
           row.minutesLeft === 0 ? i18n.t('timeDone') : i18n.t('timeLeft', [time]),
         ]),
-        onClick: (event: MouseEvent) => pick(row.id, event),
+        onClick: () => pick(row.id),
       },
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: row.name }),
@@ -341,7 +378,7 @@ export const createPanel = (
         ...list.map(({ id, name }) =>
           h(
             'button',
-            { type: 'button', className: 'option', 'data-id': id, onClick: (event: MouseEvent) => pick(id, event) },
+            { type: 'button', className: 'option', 'data-id': id, onClick: () => pick(id) },
             h('span', { className: 'option-name', textContent: name }),
             h('span', { className: 'option-count', 'aria-hidden': 'true' }),
             h('span', { className: 'visually-hidden option-count-label' }),
@@ -418,7 +455,7 @@ export const createPanel = (
     nextUnviewed.setAttribute('aria-label', unviewedLabel);
     nextUnviewed.title = unviewedLabel;
     nextUnviewed.disabled = unviewed === 0;
-    const count = nextUnviewed.querySelector('.nav-count');
+    const count = nextUnviewed.querySelector('.option-count');
     if (count) count.textContent = unviewed ? format(unviewed) : '';
     comments.hidden = total === 0;
     commentPosition.textContent = current ? `${format(current)}/${format(total)}` : format(total);

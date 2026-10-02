@@ -122,8 +122,6 @@
   "filtersEmptyWithExamples": "No filters yet. Add one, or start from an example.",
   "browseExamples": "Browse examples",
   "panelBreakdown": "Breakdown by filter",
-  "panelBreakdownHeading": "Where the changes are",
-  "panelCombineHint": "Shift-click to combine filters",
   "timeUnderMinute": "<1 min",
   "timeMinutes": "~$1 min",
   "timeHours": "~$1 h",
@@ -168,5 +166,7 @@
   "commandPreviousComment": "Go to the previous conversation",
   "panelNoMoreUnviewed": "Every shown file is viewed.",
   "panelJumpedToFile": "$1, $2 unviewed left.",
-  "panelJumpedToComment": "Conversation $1 of $2, in $3."
+  "panelJumpedToComment": "Conversation $1 of $2, in $3.",
+  "panelTimeInfo": "How review time is estimated",
+  "panelNextUnviewedLabel": "Next unviewed"
 }

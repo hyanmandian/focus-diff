@@ -19,7 +19,6 @@ export default defineContentScript({
         createPanel(
           { root, container, host, signal: ctx.signal },
           {
-            onSelect: (id) => controller?.select(id),
             onToggle: (id) => controller?.toggle(id),
             onSettings: () => controller?.openSettings(),
             onNextUnviewed: () => controller?.nextUnviewed(),

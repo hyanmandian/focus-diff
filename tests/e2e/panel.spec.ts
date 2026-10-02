@@ -34,18 +34,24 @@ test.describe('panel on a pull request', () => {
     await expect(pr.lineCounters().deletions).toHaveText('−30');
   });
 
-  test('combines filters with shift-click', async ({ openPullRequest }) => {
+  test('turns filters on and off, falling back to All', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
-    await pr.pick('Frontend');
-    await pr.pick('Docs', { combine: true });
+    await expect(pr.pressed).toHaveText(['All']);
+    await pr.option('Frontend').click();
+    await expect(pr.pressed).toHaveText(['Frontend']);
+    await pr.option('Docs').click();
     await expect(pr.pressed).toHaveText(['Frontend', 'Docs']);
     await expect.poll(() => pr.visiblePaths()).toEqual(['web/src/book-card.tsx', 'docs/books.md']);
     await expect(pr.filesCounter()).toHaveText('2/8');
     await expect(pr.status).toContainText('Frontend + Docs: 2 of 8 files');
 
-    await pr.pick('Frontend', { combine: true });
+    await pr.option('Frontend').click();
     await expect(pr.pressed).toHaveText(['Docs']);
-    await pr.pick('Docs', { combine: true });
+    await pr.option('Docs').click();
+    await expect(pr.pressed).toHaveText(['All'], { timeout: 2000 });
+
+    await pr.option('Backend').click();
+    await pr.option('All').click();
     await expect(pr.pressed).toHaveText(['All']);
   });
 
@@ -72,6 +78,9 @@ test.describe('panel on a pull request', () => {
     await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~7 min');
     await expect(pr.breakdownRows.first().locator('.diffstat .add')).toHaveCount(4);
     await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
+
+    await pr.panel.getByRole('button', { name: 'How review time is estimated' }).hover();
+    await expect(pr.panel.getByRole('tooltip')).toContainText('Review time assumes about 400 changed lines an hour');
 
     await pr.breakdownRows.nth(1).click();
     await expect(pr.pressed).toHaveText(['Frontend']);
@@ -103,7 +112,7 @@ test.describe('panel on a pull request', () => {
 
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
-    await expect(pr.panel.locator('.option-count')).toHaveText(['8', '1', '3', '1']);
+    await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);
     await expect(pr.option('Backend')).toHaveAccessibleName('Backend 3 files');
   });
 
@@ -172,11 +181,16 @@ test.describe('panel on a pull request', () => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.option('All').focus();
     await pr.page.keyboard.press('ArrowRight');
-    await expect(pr.pressed).toHaveText(['Frontend']);
     await expect(pr.option('Frontend')).toBeFocused();
+    await expect(pr.pressed).toHaveText(['All']);
+    await pr.page.keyboard.press('Enter');
+    await expect(pr.pressed).toHaveText(['Frontend']);
     await pr.page.keyboard.press('End');
-    await expect(pr.pressed).toHaveText(['Docs']);
-    await pr.page.keyboard.press('ArrowRight');
+    await expect(pr.option('Docs')).toBeFocused();
+    await pr.page.keyboard.press('Space');
+    await expect(pr.pressed).toHaveText(['Frontend', 'Docs']);
+    await pr.page.keyboard.press('Home');
+    await pr.page.keyboard.press('Enter');
     await expect(pr.pressed).toHaveText(['All']);
   });
 

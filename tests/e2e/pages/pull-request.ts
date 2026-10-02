@@ -26,8 +26,10 @@ export class PullRequestPage {
     return this.panel.locator(`.option:has(.option-name:text-is("${name}"))`);
   }
 
+  /** Shows only `name`, or adds it to the current filters with `combine`. */
   async pick(name: string, { combine = false } = {}) {
-    await this.option(name).click({ modifiers: combine ? ['Shift'] : [] });
+    if (!combine && name !== 'All') await this.option('All').click();
+    await this.option(name).click();
   }
 
   async statsText() {

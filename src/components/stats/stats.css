@@ -16,10 +16,6 @@
 .files-label {
   margin-left: 0.35em;
 }
-.files .pending {
-  align-self: center;
-  margin-left: 6px;
-}
 .lines {
   display: inline-flex;
   gap: 6px;
@@ -29,18 +25,13 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.visible {
+.stats .number {
   justify-items: end;
 }
-.pending {
-  display: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fd-attention);
-}
-.pending.active {
-  display: block;
+/* Measures numbers for their slots, unseen. */
+.ruler {
+  position: absolute;
+  visibility: hidden;
 }
 .stats[data-done] .time,
 .stats:not([data-done]) .done {

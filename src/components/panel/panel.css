@@ -40,6 +40,12 @@
   box-shadow: var(--fd-shadow);
   color: var(--fd-fg);
 }
+/* While its width animates, the contents stay put against the corner and the free edge clips them. */
+.panel.resizing {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  overflow: hidden;
+}
 .panel {
   display: flex;
   flex-wrap: wrap;

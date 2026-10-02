@@ -314,6 +314,19 @@ test.describe('panel on a pull request', () => {
       expect(await popover.evaluate((element) => getComputedStyle(element).overflowY)).toBe('visible');
   });
 
+  test('grows smoothly when its width changes, without moving its contents', async ({ openPullRequest, background }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
+    const settings = async () => Math.round((await pr.settings.boundingBox())!.x);
+    const before = await settings();
+    // The update notice widens the bar.
+    await background.evaluate(() => chrome.storage.local.set({ update: '1.1.0' }));
+    await expect
+      .poll(() => pr.panel.locator('.panel').evaluate((bar) => bar.getAnimations().some((animation) => animation.playState === 'running')))
+      .toBe(true);
+    expect(await settings()).toBe(before);
+  });
+
   test('shows how many files each filter holds', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);
@@ -612,12 +625,12 @@ test.describe('panel on a pull request', () => {
     await expect(pr.filesCounter()).toHaveText('1/12');
     await pr.pick('All');
     await expect.poll(() => pr.statsText()).toMatch(/12\/12 files/);
-    await expect(pr.panel.locator('.pending')).toHaveClass(/active/);
+    await expect(pr.stats).toHaveAttribute('data-tip', /not loaded yet/);
     // Files not loaded yet might match the filter too, so it can't be done.
     await pr.pick('Docs');
     await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
     await expect.poll(() => pr.statsText()).toMatch(/^1\/12 files.*left to review$/);
-    await expect(pr.panel.locator('.pending')).toHaveClass(/active/);
+    await expect(pr.stats).toHaveAttribute('data-tip', /not loaded yet/);
   });
 
   test('hides collapsed folders that hold no matching files', async ({ openPullRequest }) => {

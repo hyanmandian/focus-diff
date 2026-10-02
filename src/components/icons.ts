@@ -34,8 +34,12 @@ export const targetIcon = () =>
     ['circle', { cx: '8', cy: '8', r: '4.25' }],
     ['path', { d: 'M8 1.5v2.25M8 12.25v2.25M1.5 8h2.25M12.25 8h2.25' }],
   ]);
-/** Two chevrons down to a line: on to the next file. */
-export const nextFileIcon = () => icon('M4.5 3.5 8 7l3.5-3.5M4.5 7.5 8 11l3.5-3.5M4 13.5h8');
+/** A file with an arrow pointing on: the next file to review. */
+export const nextFileIcon = () =>
+  icon([
+    ['path', { d: 'M9.25 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h3.25M9.25 1.75l3.25 3.25v2.75M9.25 1.75V5h3.25' }],
+    ['path', { d: 'M9.5 11.75h5M12.5 9.75l2 2-2 2' }],
+  ]);
 export const closeIcon = () => icon('M4.5 4.5l7 7M11.5 4.5l-7 7', 14);
 export const chevronIcon = (direction: 'left' | 'right') => icon(direction === 'left' ? 'M10 4.5 6.5 8 10 11.5' : 'M6 4.5 9.5 8 6 11.5');
 

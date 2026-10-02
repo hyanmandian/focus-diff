@@ -296,7 +296,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     panel.renderNextFile({ left, nextFilter: filtering && !left ? nextFilterWithWork(repo) : undefined });
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
-    panel.renderStats(totals);
+    panel.renderStats(totals, filtering ? totalsFor(files, everything, reported) : totals);
     panel.renderBreakdown(
       () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported) })),
       selection,

@@ -30,7 +30,8 @@ export interface PanelActions {
 
 export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
-  renderStats: (totals: Totals) => void;
+  /** `all` is the totals with every file shown, the most the numbers can be. */
+  renderStats: (totals: Totals, all?: Totals) => void;
   renderConversations: (conversations: Conversations) => void;
   renderNextFile: (next: NextFile) => void;
   /** Rows are only computed while the breakdown is open. */
@@ -69,7 +70,7 @@ export const createPanel = (
   });
   const nextFile = createNextFile(onNextFile);
   const filters = createFilters(context, onToggle);
-  const stats = createStats(context);
+  const stats = createStats();
   const breakdown = createBreakdown(context, { onToggle, onOpen: () => conversations.setOpen(false), fallback: settings });
   const conversations = createConversations(context, { onStep: onComment, onOpen: () => breakdown.setOpen(false), fallback: settings });
   const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
@@ -107,7 +108,35 @@ export const createPanel = (
   };
   signal.addEventListener('abort', () => document.documentElement.style.removeProperty('scroll-padding-bottom'));
 
+  /**
+   * When the bar's width changes, say a count gains a digit, it grows or shrinks smoothly from its corner instead of
+   * jumping. The contents hold their final places, sitting against the corner, while the free edge moves.
+   */
+  let barWidth = 0;
+  let resizing: Animation | null = null;
+  const RESIZE_MS = 240;
+  const animateWidth = () => {
+    if (!panelElement || resizing || host.style.display === 'none') return;
+    const next = panelElement.offsetWidth;
+    const from = barWidth;
+    barWidth = next;
+    if (!from || from === next || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    panelElement.classList.add('resizing');
+    resizing = panelElement.animate(
+      { width: [`${from}px`, `${next}px`] },
+      { duration: RESIZE_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+    void resizing.finished
+      .catch(() => {})
+      .finally(() => {
+        resizing = null;
+        panelElement.classList.remove('resizing');
+        animateWidth();
+      });
+  };
+
   const resizeObserver = new ResizeObserver(() => {
+    animateWidth();
     reserveScrollRoom();
     filters.moveIndicator();
     breakdown.reposition();

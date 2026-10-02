@@ -5,7 +5,6 @@ import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
 import { counter } from './counter';
-import type { PanelContext } from '@/components/panel/panel';
 
 export interface Totals {
   visible: number;
@@ -24,7 +23,7 @@ export interface Totals {
 export const isDone = (totals: Totals): boolean => totals.visible > 0 && totals.minutesLeft === 0 && totals.pending === 0;
 
 /** Shown files out of all, lines added and removed, and the time left to review them. */
-export const createStats = ({ host, signal }: PanelContext) => {
+export const createStats = () => {
   const visibleFiles = counter('visible', format);
   const totalFiles = counter('total', format);
   const additions = counter('additions', (n) => `+${format(n)}`);
@@ -32,7 +31,6 @@ export const createStats = ({ host, signal }: PanelContext) => {
   const time = counter('time', (seconds) => (seconds === 0 ? '–' : formatDuration(seconds / 60)));
   const done = h('span', { className: 'done' }, doneIcon(), i18n.t('timeDone'));
   const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
-  const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
   const pendingText = h('span', { className: 'visually-hidden' });
   const element = h(
     'span',
@@ -44,7 +42,6 @@ export const createStats = ({ host, signal }: PanelContext) => {
       h('span', { className: 'number', textContent: '/' }),
       totalFiles.element,
       h('span', { className: 'files-label', textContent: ` ${i18n.t('panelFilesLabel')}` }),
-      pending,
       pendingText,
     ),
     h(
@@ -59,30 +56,34 @@ export const createStats = ({ host, signal }: PanelContext) => {
   );
 
   /**
-   * The panel sits in the corner, so a narrower block would slide the filter chips under the pointer. Shorter numbers
-   * leave room at its end instead; the room is kept per pull request.
+   * Each number keeps a slot as wide as it is with every file shown, the most it can be in this pull request. Fewer
+   * files shown leave a little room inside each slot rather than a gap at the end, and the bar keeps its width.
    */
-  let reservedWidth = 0;
-  let reservedFor = -1;
-  const reserveWidth = () => {
-    // WXT injects the stylesheet asynchronously; before it lands, hidden labels are inline and inflate the width.
-    if (host.style.display === 'none' || getComputedStyle(pendingText).position !== 'absolute') return;
-    const width = Math.ceil(element.getBoundingClientRect().width);
-    if (width <= reservedWidth) return;
-    reservedWidth = width;
-    element.style.minWidth = `${width}px`;
+  const ruler = h('span', { className: 'number ruler', 'aria-hidden': 'true' });
+  element.append(ruler);
+  const widthOf = (text: string) => {
+    ruler.textContent = text;
+    return Math.ceil(ruler.getBoundingClientRect().width);
   };
-  const resizeObserver = new ResizeObserver(reserveWidth);
-  resizeObserver.observe(element);
-  signal.addEventListener('abort', () => resizeObserver.disconnect());
+  let slotsFor = '';
+  const sizeSlots = (all: Totals) => {
+    const key = `${all.total} ${all.additions} ${all.deletions} ${Math.round(all.minutes)}`;
+    // Measuring needs the stylesheet, which WXT injects a moment after the panel is created.
+    if (key === slotsFor || getComputedStyle(ruler).position !== 'absolute') return;
+    const files = widthOf(format(all.total));
+    // Hidden, nothing can be measured yet.
+    if (!files) return;
+    slotsFor = key;
+    visibleFiles.element.style.minWidth = `${files}px`;
+    additions.element.style.minWidth = `${widthOf(`+${format(all.additions)}`)}px`;
+    deletions.element.style.minWidth = `${widthOf(`−${format(all.deletions)}`)}px`;
+    time.element.style.minWidth = `${widthOf(formatDuration(all.minutes))}px`;
+    ruler.textContent = '';
+  };
 
-  const render = (totals: Totals) => {
-    // Another pull request starts from its own numbers.
-    if (totals.total !== reservedFor) {
-      reservedFor = totals.total;
-      reservedWidth = 0;
-      element.style.minWidth = '';
-    }
+  /** `all` is the same with every file shown, which sizes the slots. */
+  const render = (totals: Totals, all: Totals = totals) => {
+    sizeSlots(all);
     visibleFiles.set(totals.visible);
     totalFiles.set(totals.total);
     additions.set(totals.additions);
@@ -91,8 +92,7 @@ export const createStats = ({ host, signal }: PanelContext) => {
     // Every shown file is marked as viewed: the time left gives way to a badge.
     element.toggleAttribute('data-done', isDone(totals));
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
-    pending.classList.toggle('active', totals.pending > 0);
-    // The dot's meaning is in the panel's tooltip, and read out with the numbers.
+    // Files not loaded yet are told in the numbers' tooltip, and read out with them.
     const notLoaded = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
     if (notLoaded) element.dataset.tip = notLoaded;
     else delete element.dataset.tip;

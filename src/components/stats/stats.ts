@@ -53,8 +53,12 @@ export const createStats = ({ host, signal }: PanelContext) => {
     h('span', { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) }, time.element, timeLabel),
   );
 
-  /** The block only grows: shorter numbers leave room at its end instead of shifting the buttons after it. */
+  /**
+   * The panel sits in the corner, so a narrower block would slide the filter chips under the pointer. Shorter numbers
+   * leave room at its end instead; the room is kept per pull request.
+   */
   let reservedWidth = 0;
+  let reservedFor = -1;
   const reserveWidth = () => {
     // WXT injects the stylesheet asynchronously; before it lands, hidden labels are inline and inflate the width.
     if (host.style.display === 'none' || getComputedStyle(pendingText).position !== 'absolute') return;
@@ -68,6 +72,12 @@ export const createStats = ({ host, signal }: PanelContext) => {
   signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   const render = (totals: Totals) => {
+    // Another pull request starts from its own numbers.
+    if (totals.total !== reservedFor) {
+      reservedFor = totals.total;
+      reservedWidth = 0;
+      element.style.minWidth = '';
+    }
     visibleFiles.set(totals.visible);
     totalFiles.set(totals.total);
     additions.set(totals.additions);

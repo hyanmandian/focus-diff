@@ -304,10 +304,42 @@ export const scrollToTop = (element: Element): void => {
   scrollTo({ top, behavior: scrollBehavior() });
 };
 
-/** Scrolls an element to the middle of the screen. */
+const HOLD_MS = 5000;
+const SETTLED_MS = 600;
+const DRIFT_PX = 24;
+const READER_INPUT = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+
+/**
+ * Scrolls an element to the middle of the screen and keeps it there while GitHub is still loading the diffs above it,
+ * which would otherwise push it out of view. It lets go once the page settles, or as soon as the reader scrolls.
+ */
 export const scrollToCenter = (element: Element): void => {
-  const box = element.getBoundingClientRect();
-  scrollTo({ top: box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2), behavior: scrollBehavior() });
+  const targetOf = () => {
+    const box = element.getBoundingClientRect();
+    return box.top + scrollY - Math.max(STICKY_OFFSET_PX, (innerHeight - box.height) / 2);
+  };
+  let target = targetOf();
+  scrollTo({ top: target, behavior: scrollBehavior() });
+
+  const started = performance.now();
+  let settledSince = started;
+  let held = true;
+  const release = () => {
+    held = false;
+    for (const type of READER_INPUT) removeEventListener(type, release, true);
+  };
+  for (const type of READER_INPUT) addEventListener(type, release, { capture: true, passive: true });
+  const hold = (now: number) => {
+    if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) return release();
+    const next = targetOf();
+    if (Math.abs(next - target) > DRIFT_PX) {
+      target = next;
+      settledSince = now;
+      scrollTo({ top: target });
+    }
+    requestAnimationFrame(hold);
+  };
+  requestAnimationFrame(hold);
 };
 
 const FLASH_ID = 'focus-diff-flash';

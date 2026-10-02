@@ -361,7 +361,9 @@ button:focus-visible {
   grid-template-columns: 16px minmax(0, 1fr) auto auto;
   align-items: center;
   column-gap: 10px;
-  width: 300px;
+  width: max-content;
+  min-width: 260px;
+  max-width: min(380px, calc(100vw - 32px));
   padding: 8px 8px 8px 14px;
   font-size: 13px;
 }

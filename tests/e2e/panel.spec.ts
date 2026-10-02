@@ -19,8 +19,8 @@ test.describe('panel on a pull request', () => {
     await expect(pr.filesCounter()).toHaveText('1/8');
     await expect(pr.lineCounters().additions).toHaveText('+40');
     await expect(pr.lineCounters().deletions).toHaveText('−10');
-    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~7 min left to review.');
-    await expect.poll(() => pr.statsText()).toMatch(/~7 min/);
+    await expect(pr.status).toHaveText('Frontend: 1 of 8 files, 40 lines added, 10 removed. About ~3 min left to review.');
+    await expect.poll(() => pr.statsText()).toMatch(/~3 min/);
 
     await pr.pick('Backend');
     await expect.poll(() => pr.visiblePaths()).toEqual(['api/books/service.py', 'api/books/__init__.py', 'api/legacy/routes.py']);
@@ -70,17 +70,17 @@ test.describe('panel on a pull request', () => {
     ).toBeLessThan(2);
     await expect(pr.breakdownRows.first()).toHaveAttribute('aria-pressed', 'true');
     await expect(pr.breakdownRows.first()).toHaveAccessibleName(
-      'All: 8 files, 0 viewed, 120 lines added, 30 removed. ~23 min left to review',
+      'All: 8 files, 0 viewed, 120 lines added, 30 removed. ~10 min left to review',
     );
     await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName(
-      'Frontend: 1 file, 0 viewed, 40 lines added, 10 removed. ~7 min left to review',
+      'Frontend: 1 file, 0 viewed, 40 lines added, 10 removed. ~3 min left to review',
     );
-    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~7 min');
+    await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('~3 min');
     await expect(pr.breakdownRows.first().locator('.diffstat .add')).toHaveCount(4);
     await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
 
     await pr.panel.getByRole('button', { name: 'How review time is estimated' }).hover();
-    await expect(pr.panel.getByRole('tooltip')).toContainText('Review time assumes about 400 changed lines an hour');
+    await expect(pr.panel.getByRole('tooltip')).toContainText('Review time assumes about 1,000 changed lines an hour');
 
     await pr.breakdownRows.nth(1).click();
     await expect(pr.pressed).toHaveText(['Frontend']);
@@ -96,17 +96,26 @@ test.describe('panel on a pull request', () => {
       pr.page.locator('[data-diff-header-wrapper]', { hasText: path }).getByRole('button', { name: 'Viewed' });
 
     await pr.pick('Frontend');
-    await expect.poll(() => pr.statsText()).toMatch(/~7 min left to review$/);
+    await expect.poll(() => pr.statsText()).toMatch(/~3 min left to review$/);
+    // Finishing the filter's last file is celebrated.
+    await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
     await viewedToggle('web/src/book-card.tsx').click();
     await expect.poll(() => pr.statsText()).toMatch(/1\/8 files.*Done$/);
+    await expect(pr.status).toHaveText('Every file in Frontend is reviewed.');
+    await expect(pr.panel.locator('canvas')).toHaveCount(1);
+    await expect(pr.panel.locator('canvas')).toHaveCount(0, { timeout: 4000 });
+    // Coming back to a finished filter isn't.
+    await pr.pick('Backend');
+    await pr.pick('Frontend');
     await expect(pr.status).toContainText('Frontend: 1 of 8 files');
+    await expect(pr.panel.locator('canvas')).toHaveCount(0);
 
     await pr.breakdownToggle.click();
     await expect(pr.breakdownRows.nth(1).locator('.row-viewed')).toHaveText('1/1');
     await expect(pr.breakdownRows.nth(1).locator('.row-viewed')).toHaveClass(/complete/);
     await expect(pr.breakdownRows.nth(1).locator('.row-time')).toHaveText('');
     await expect(pr.breakdownRows.first().locator('.row-viewed')).toHaveText('1/8');
-    await expect(pr.breakdownRows.first().locator('.row-time')).toHaveText('~16 min');
+    await expect(pr.breakdownRows.first().locator('.row-time')).toHaveText('~7 min');
     await expect(pr.breakdownRows.nth(1)).toHaveAccessibleName('Frontend: 1 file, 1 viewed, 40 lines added, 10 removed. Done');
   });
 
@@ -172,6 +181,17 @@ test.describe('panel on a pull request', () => {
     await pr.pick('Docs', { combine: true });
     await expect(comments).toHaveAccessibleName('Conversations, 2 conversations');
     await pr.pick('All');
+  });
+
+  test('offers a single button for a single conversation', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    await pr.pick('Docs');
+    await pr.panel.getByRole('button', { name: /^Conversations,/ }).click();
+    const card = pr.panel.getByRole('dialog', { name: 'Conversations' });
+    await expect(card).toContainText('books.md:7');
+    await expect(card.getByRole('button', { name: 'Go to the conversation' })).toBeVisible();
+    await expect(card.getByRole('button', { name: /(Next|Previous) conversation/ })).toHaveCount(0);
+    await expect(card.locator('.conversation-position')).toBeHidden();
   });
 
   test('moves between filters with the keyboard', async ({ openPullRequest }) => {

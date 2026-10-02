@@ -141,7 +141,7 @@
   "timeMinutes": "~$1 min",
   "timeHours": "~$1 h",
   "timeHoursMinutes": "~$1 h $2 min",
-  "timeHint": "O tempo de revisão considera cerca de $1 linhas alteradas por hora. Linhas removidas contam um quarto, cada arquivo soma meio minuto, e arquivos gerados ou de lock somam só esse meio minuto.",
+  "timeHint": "O tempo de revisão considera cerca de $1 linhas alteradas por hora. Linhas removidas contam um quinto, cada arquivo soma 15 segundos, e arquivos gerados ou de lock somam só esses 15 segundos.",
   "panelAnnounceTime": "Cerca de $1 para terminar a revisão.",
   "panelTimeLabel": "para terminar",
   "copied": {
@@ -162,10 +162,12 @@
   "panelBreakdownRow": "$1: $2, $3 vistos, $4 linhas adicionadas, $5 removidas. $6",
   "statusChangedElsewhere": "Os filtros mudaram em outra janela. Salve para manter suas edições ou recarregue para ver os novos filtros.",
   "panelColumnViewed": "Vistos",
+  "panelAnnounceDone": "Todos os arquivos de $1 foram revisados.",
   "timeDone": "Pronto",
   "timeLeft": "Faltam $1 de revisão",
   "panelComments": "Conversas",
   "panelPreviousComment": "Conversa anterior",
+  "panelGoToComment": "Ir para a conversa",
   "panelNextComment": "Próxima conversa",
   "panelCommentPosition": "Conversa $1 de $2",
   "panelCommentCount": {

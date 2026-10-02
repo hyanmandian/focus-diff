@@ -98,3 +98,11 @@
     min-height: 44px;
   }
 }
+.conversations[data-single] .conversation-position,
+.conversations[data-single] .step,
+.conversations:not([data-single]) .go-to {
+  display: none;
+}
+.conversations[data-single] .conversation-steps {
+  grid-row: 1 / span 2;
+}

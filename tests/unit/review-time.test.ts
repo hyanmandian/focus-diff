@@ -7,7 +7,7 @@ describe('reviewMinutes', () => {
   });
 
   it('counts removed lines at a quarter', () => {
-    expect(reviewMinutes('src/app.ts', { additions: 0, deletions: 400 })).toBe(MINUTES_PER_FILE + 15);
+    expect(reviewMinutes('src/app.ts', { additions: 0, deletions: 1000 })).toBe(MINUTES_PER_FILE + 12);
   });
 
   it('only opens generated and lock files', () => {

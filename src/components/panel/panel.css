@@ -15,6 +15,7 @@
   --fd-del: var(--fgColor-danger, var(--color-danger-fg, #d1242f));
   --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
   --fd-accent: var(--fgColor-accent, var(--color-accent-fg, #0969da));
+  --fd-done: var(--fgColor-done, var(--color-done-fg, #8250df));
   --fd-track: var(--bgColor-neutral-muted, var(--color-neutral-muted, rgba(129, 139, 152, 0.2)));
   --fd-border-muted: var(--borderColor-muted, var(--color-border-muted, rgba(209, 217, 224, 0.7)));
   --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));

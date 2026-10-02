@@ -141,7 +141,7 @@
   "timeMinutes": "~$1 min",
   "timeHours": "~$1 h",
   "timeHoursMinutes": "~$1 h $2 min",
-  "timeHint": "Review time assumes about $1 changed lines an hour. Removed lines count a quarter, each file adds half a minute, and generated or lock files only add that half minute.",
+  "timeHint": "Review time assumes about $1 changed lines an hour. Removed lines count a fifth, each file adds 15 seconds, and generated or lock files only add those 15 seconds.",
   "panelAnnounceTime": "About $1 left to review.",
   "panelTimeLabel": "left to review",
   "copied": {
@@ -162,10 +162,12 @@
   "panelBreakdownRow": "$1: $2, $3 viewed, $4 lines added, $5 removed. $6",
   "statusChangedElsewhere": "Filters changed in another window. Save to keep your edits, or reload to see the new filters.",
   "panelColumnViewed": "Viewed",
+  "panelAnnounceDone": "Every file in $1 is reviewed.",
   "timeDone": "Done",
   "timeLeft": "$1 left to review",
   "panelComments": "Conversations",
   "panelPreviousComment": "Previous conversation",
+  "panelGoToComment": "Go to the conversation",
   "panelNextComment": "Next conversation",
   "panelCommentPosition": "Conversation $1 of $2",
   "panelCommentCount": {

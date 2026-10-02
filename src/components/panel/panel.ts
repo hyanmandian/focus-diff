@@ -1,5 +1,6 @@
 import './panel.css';
 import { i18n } from '#i18n';
+import { confetti } from '@/components/confetti';
 import { settingsIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
@@ -34,6 +35,8 @@ export interface Panel {
   /** Reads out a short message, like where a jump landed. */
   announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
+  /** Throws confetti from the Done badge and says the named filter is reviewed. */
+  celebrate: (name: string) => void;
   /** Points to the notes of a release the reader hasn't seen, or hides the notice with `null`. */
   showUpdate: (version: string | null) => void;
 }
@@ -154,5 +157,10 @@ export const createPanel = (
     announceText: (text) => (status.textContent = text),
     setVisible,
     showUpdate: update.show,
+    celebrate: (name) => {
+      const box = stats.done.getBoundingClientRect();
+      confetti(container, { x: box.left + box.width / 2, y: box.top });
+      status.textContent = i18n.t('panelAnnounceDone', [name]);
+    },
   };
 };

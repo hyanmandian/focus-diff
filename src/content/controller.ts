@@ -2,7 +2,7 @@ import { i18n } from '#i18n';
 import type { ContentScriptContext } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Panel } from '@/components/panel/panel';
-import type { Totals } from '@/components/stats/stats';
+import { isDone, type Totals } from '@/components/stats/stats';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
 import * as page from '@/utils/github';
 import type { Message } from '@/utils/messages';
@@ -178,6 +178,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   let pageChanged = false;
   let selectionKey = '';
+  /** The selection last seen with files left to review: finishing it is what earns the confetti. */
+  let unfinishedKey = '';
   let files: Files = { list: [], complete: false };
   let shown: FileInfo[] = [];
   const navigation = createNavigation(panel, () => schedule());
@@ -236,11 +238,14 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       selection,
     );
 
+    const name = filtering ? selected.map((option) => option.name).join(' + ') : i18n.t('filterAll');
     if (announceNext) {
       announceNext = false;
-      const name = filtering ? selected.map((option) => option.name).join(' + ') : i18n.t('filterAll');
       panel.announce({ name, ...totals });
     }
+    const done = isDone(totals);
+    if (done && unfinishedKey === key) panel.celebrate(name);
+    unfinishedKey = done ? '' : key;
   };
 
   /**

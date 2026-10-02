@@ -34,8 +34,10 @@ export class PullRequestPage {
 
   async statsText() {
     return this.stats.evaluate((element) => {
+      // What's on screen: parts hidden by the current state, like the Done badge, are left out.
+      const hidden = [...element.querySelectorAll('*')].map((child) => getComputedStyle(child).display === 'none');
       const copy = element.cloneNode(true) as HTMLElement;
-      copy.querySelectorAll('.ghost').forEach((ghost) => ghost.remove());
+      [...copy.querySelectorAll('*')].forEach((child, index) => hidden[index] && child.remove());
       return (copy.textContent ?? '').replace(/\s+/g, ' ').trim();
     });
   }

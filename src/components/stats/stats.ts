@@ -1,5 +1,6 @@
 import './stats.css';
 import { i18n } from '#i18n';
+import { doneIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
@@ -19,13 +20,17 @@ export interface Totals {
   minutesLeft: number;
 }
 
+/** Every shown file is marked as viewed, and they're all loaded. */
+export const isDone = (totals: Totals): boolean => totals.visible > 0 && totals.minutesLeft === 0 && totals.pending === 0;
+
 /** Shown files out of all, lines added and removed, and the time left to review them. */
 export const createStats = ({ host, signal }: PanelContext) => {
   const visibleFiles = counter('visible', format);
   const totalFiles = counter('total', format);
   const additions = counter('additions', (n) => `+${format(n)}`);
   const deletions = counter('deletions', (n) => `−${format(n)}`);
-  const time = counter('time', (seconds) => (seconds === 0 ? i18n.t('timeDone') : formatDuration(seconds / 60)));
+  const time = counter('time', (seconds) => (seconds === 0 ? '–' : formatDuration(seconds / 60)));
+  const done = h('span', { className: 'done' }, doneIcon(), i18n.t('timeDone'));
   const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
   const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
   const pendingText = h('span', { className: 'visually-hidden' });
@@ -50,7 +55,7 @@ export const createStats = ({ host, signal }: PanelContext) => {
       deletions.element,
       h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
     ),
-    h('span', { className: 'time-wrap', title: i18n.t('timeHint', [LINES_PER_HOUR]) }, time.element, timeLabel),
+    h('span', { className: 'time-wrap', title: i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeLabel, done),
   );
 
   /**
@@ -83,6 +88,8 @@ export const createStats = ({ host, signal }: PanelContext) => {
     additions.set(totals.additions);
     deletions.set(totals.deletions);
     time.set(Math.round(totals.minutesLeft * 60));
+    // Every shown file is marked as viewed: the time left gives way to a badge.
+    element.toggleAttribute('data-done', isDone(totals));
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
     pending.classList.toggle('active', totals.pending > 0);
     pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
@@ -90,5 +97,5 @@ export const createStats = ({ host, signal }: PanelContext) => {
     pendingText.textContent = pending.title ? ` ${pending.title}` : '';
   };
 
-  return { element, render };
+  return { element, render, done };
 };

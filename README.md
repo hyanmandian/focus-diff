@@ -22,7 +22,7 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Real numbers.** Files changed and the line totals show only what the filter keeps, and update as GitHub loads more files.
 - **Combine filters.** Turn on as many as you like, like _Frontend + Docs_. Turn them all off and you're back on **All**.
 - **See where the changes are.** The breakdown shows, per filter, how many files you've marked as viewed, the lines changed and the time left.
-- **Review time left.** An estimate next to the line totals, from about 400 changed lines per hour, that drops as you mark files as viewed.
+- **Review time left.** An estimate next to the line totals, from about 1,000 changed lines per hour, that drops as you mark files as viewed.
 - **Conversations.** Step through review threads one by one. Each shows its file and line, and whether it's waiting on you, answered or resolved.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
 - **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.

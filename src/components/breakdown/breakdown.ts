@@ -40,7 +40,7 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     id: 'focus-diff-time-info',
     role: 'tooltip',
     hidden: true,
-    textContent: i18n.t('timeHint', [LINES_PER_HOUR]),
+    textContent: i18n.t('timeHint', [format(LINES_PER_HOUR)]),
   });
   const popover = h(
     'div',

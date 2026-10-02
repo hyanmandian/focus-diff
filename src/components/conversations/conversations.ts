@@ -1,6 +1,6 @@
 import './conversations.css';
 import { i18n } from '#i18n';
-import { chevronIcon, commentIcon, threadStateIcons } from '@/components/icons';
+import { chevronIcon, commentIcon, targetIcon, threadStateIcons } from '@/components/icons';
 import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format';
 import type { PanelContext } from '@/components/panel/panel';
@@ -50,7 +50,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     const label = i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment');
     return h(
       'button',
-      { type: 'button', className: 'icon-button', 'aria-label': label, title: label, onClick: () => onStep(direction) },
+      { type: 'button', className: 'icon-button step', 'aria-label': label, title: label, onClick: () => onStep(direction) },
       chevronIcon(direction > 0 ? 'right' : 'left'),
     );
   };
@@ -67,7 +67,24 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     file,
     state,
     position,
-    h('span', { className: 'conversation-steps' }, step(-1), step(1)),
+    h(
+      'span',
+      { className: 'conversation-steps' },
+      step(-1),
+      step(1),
+      // With a single conversation there's nowhere to step to, only back to it.
+      h(
+        'button',
+        {
+          type: 'button',
+          className: 'icon-button go-to',
+          'aria-label': i18n.t('panelGoToComment'),
+          title: i18n.t('panelGoToComment'),
+          onClick: () => onStep(1),
+        },
+        targetIcon(),
+      ),
+    ),
   );
   // Like the breakdown, the card follows its toggle and is positioned against the host.
   const element = h('div', { className: 'navigation' }, toggle, popover);
@@ -92,6 +109,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
       icon.replaceChildren(threadStateIcons[target.state]());
     }
     state.textContent = i18n.t(STATE_LABEL[target.state]);
+    popover.toggleAttribute('data-single', list.length === 1);
     position.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
   };
 

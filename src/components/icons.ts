@@ -17,8 +17,23 @@ export const infoIcon = () =>
     ],
     14,
   );
+/** A check in a circle; the check is its own path so it can be drawn in. */
+export const doneIcon = () =>
+  icon(
+    [
+      ['circle', { cx: '8', cy: '8', r: '6.25' }],
+      ['path', { d: 'M5.25 8.25 7.25 10.25 10.75 6.25', class: 'done-check' }],
+    ],
+    14,
+  );
 export const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
 export const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
+/** Crosshairs: go to the one thing there is. */
+export const targetIcon = () =>
+  icon([
+    ['circle', { cx: '8', cy: '8', r: '4.25' }],
+    ['path', { d: 'M8 1.5v2.25M8 12.25v2.25M1.5 8h2.25M12.25 8h2.25' }],
+  ]);
 export const closeIcon = () => icon('M4.5 4.5l7 7M11.5 4.5l-7 7', 14);
 export const chevronIcon = (direction: 'left' | 'right') => icon(direction === 'left' ? 'M10 4.5 6.5 8 10 11.5' : 'M6 4.5 9.5 8 6 11.5');
 

@@ -216,9 +216,19 @@ button:focus-visible {
   line-height: 16px;
   color: var(--fd-muted);
 }
-.columns > :nth-child(n + 3),
-.row > :nth-child(n + 3) {
+.columns > :nth-child(n + 4),
+.row > :nth-child(n + 4) {
   justify-self: end;
+}
+/* Viewed reads with the filter's name; the line counts start a new group. */
+.columns > :nth-child(3),
+.row > :nth-child(3) {
+  justify-self: start;
+  margin-left: -6px;
+}
+.columns > :nth-child(4),
+.row > :nth-child(4) {
+  margin-left: 20px;
 }
 .row {
   min-height: 36px;
@@ -345,18 +355,35 @@ button:focus-visible {
 .comments {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  margin-left: 4px;
+  border-radius: 8px;
 }
 .comments[hidden] {
   display: none;
 }
+.comment-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-weight: 500;
+}
 .comments-icon {
   display: inline-grid;
-  margin: 0 4px 0 8px;
   color: var(--fd-muted);
 }
-.comments .nav-count {
-  margin-right: 2px;
+.comment-previous {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  padding: 0;
+  color: var(--fd-muted);
+}
+.comment-previous[hidden] {
+  display: none;
+}
+.comment-previous:not([hidden]) + .comment-next {
+  padding-left: 4px;
 }
 .number {
   display: inline-grid;

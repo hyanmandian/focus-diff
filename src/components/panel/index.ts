@@ -1,6 +1,6 @@
 import { i18n } from '#i18n';
 import { counter } from '@/components/panel/counter';
-import { pointAt } from '@/components/panel/popover';
+import { centreOver, pointAt } from '@/components/panel/popover';
 import { h, icon } from '@/utils/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format';
 import { LINES_PER_HOUR } from '@/utils/review-time';
@@ -73,7 +73,6 @@ const infoIcon = () =>
     ],
     14,
   );
-const nextFileIcon = () => icon('M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10');
 const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
 const chevron = (direction: 'up' | 'down') => icon(direction === 'up' ? 'M4.5 10 8 6.5 11.5 10' : 'M4.5 6 8 9.5 11.5 6');
 
@@ -129,14 +128,15 @@ export const createPanel = (
     { type: 'button', className: 'next-unviewed', onClick: () => onNextUnviewed() },
     h('span', { className: 'next-unviewed-label', textContent: i18n.t('panelNextUnviewedLabel') }),
     h('span', { className: 'option-count', 'aria-hidden': 'true' }),
-    nextFileIcon(),
   );
+  // One button walks forward through the conversations; going back only appears once there's somewhere to go back to.
   const commentPosition = h('span', { className: 'nav-count', 'aria-hidden': 'true' });
   const previousComment = h(
     'button',
     {
       type: 'button',
-      className: 'icon-button',
+      className: 'comment-previous',
+      hidden: true,
       'aria-label': i18n.t('panelPreviousComment'),
       title: i18n.t('panelPreviousComment'),
       onClick: () => onComment(-1),
@@ -145,23 +145,11 @@ export const createPanel = (
   );
   const nextComment = h(
     'button',
-    {
-      type: 'button',
-      className: 'icon-button',
-      'aria-label': i18n.t('panelNextComment'),
-      title: i18n.t('panelNextComment'),
-      onClick: () => onComment(1),
-    },
-    chevron('down'),
-  );
-  const comments = h(
-    'span',
-    { className: 'comments', role: 'group', 'aria-label': i18n.t('panelComments') },
+    { type: 'button', className: 'comment-next', title: i18n.t('panelNextComment'), onClick: () => onComment(1) },
     h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
     commentPosition,
-    previousComment,
-    nextComment,
   );
+  const comments = h('span', { className: 'comments', role: 'group', 'aria-label': i18n.t('panelComments') }, previousComment, nextComment);
   const navigation = h('div', { className: 'navigation' }, nextUnviewed, comments);
 
   const breakdownRows = h('div', { className: 'rows' });
@@ -223,7 +211,7 @@ export const createPanel = (
   };
   const resizeObserver = new ResizeObserver(() => {
     moveIndicator();
-    pointAt(breakdown, breakdownToggle);
+    centreOver(breakdown, breakdownToggle, host);
   });
   resizeObserver.observe(group);
   resizeObserver.observe(breakdown);
@@ -346,7 +334,7 @@ export const createPanel = (
     breakdownToggle.setAttribute('aria-expanded', String(open));
     if (open) {
       drawBreakdown();
-      pointAt(breakdown, breakdownToggle);
+      centreOver(breakdown, breakdownToggle, host);
     } else drawnKey = '';
   };
   breakdownToggle.addEventListener('click', () => setBreakdownOpen(breakdown.hidden));
@@ -459,11 +447,13 @@ export const createPanel = (
     const count = nextUnviewed.querySelector('.option-count');
     if (count) count.textContent = unviewed ? format(unviewed) : '';
     comments.hidden = total === 0;
+    previousComment.hidden = current === 0;
     commentPosition.textContent = current ? `${format(current)}/${format(total)}` : format(total);
-    comments.setAttribute(
-      'aria-label',
-      current ? i18n.t('panelCommentPosition', [format(current), format(total)]) : i18n.t('panelCommentCount', total, [format(total)]),
-    );
+    const where = current
+      ? i18n.t('panelCommentPosition', [format(current), format(total)])
+      : i18n.t('panelCommentCount', total, [format(total)]);
+    comments.setAttribute('aria-label', where);
+    nextComment.setAttribute('aria-label', `${i18n.t('panelNextComment')}, ${where}`);
   };
 
   const announce = ({

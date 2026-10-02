@@ -13,13 +13,14 @@ const MAX_STAGGER = 8;
 
 /**
  * Only while one of our filter changes runs. Each file on screen is its own layer: one that stays glides from where it
- * was to where it lands, while files that leave or arrive are animated below. The rest of the page cross-fades
- * quickly; the panel sits it out, and the page stays clickable throughout.
+ * was to where it lands, while files that leave or arrive are animated below. The rest of the page switches at once,
+ * since cross-fading a page that scrolls in the same change shows it twice; the panel sits it out, and the page stays
+ * clickable throughout.
  */
 const CSS = `
 html[${ACTIVE}]::view-transition { pointer-events: none; }
-html[${ACTIVE}]::view-transition-old(root),
-html[${ACTIVE}]::view-transition-new(root) { animation-duration: 220ms; }
+html[${ACTIVE}]::view-transition-old(root) { display: none; }
+html[${ACTIVE}]::view-transition-new(root) { animation: none; }
 html[${ACTIVE}]::view-transition-group(*.${FILE_CLASS}) { animation-duration: ${MOVE_MS}ms; animation-timing-function: ${EASE_OUT}; }
 html[${ACTIVE}]::view-transition-old(*.${FILE_CLASS}):only-child,
 html[${ACTIVE}]::view-transition-new(*.${FILE_CLASS}):only-child { animation: none; }

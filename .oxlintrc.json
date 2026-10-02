@@ -1,0 +1,44 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "ignorePatterns": [".output/**", ".wxt/**", "playwright-report/**", "test-results/**"],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "ignoreRestSiblings": true,
+        "caughtErrors": "none"
+      }
+    ],
+    "unicorn/consistent-function-scoping": "off",
+    "no-shadow": "off",
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": ["**/*.css"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["tests/**", "*.config.ts"],
+      "env": {
+        "node": true
+      }
+    },
+    {
+      "files": ["tests/e2e/**"],
+      "rules": {
+        "no-empty-pattern": "off"
+      }
+    }
+  ]
+}

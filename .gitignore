@@ -1,0 +1,9 @@
+.output
+.wxt
+web-ext.config.ts
+node_modules
+playwright-report
+test-results
+.DS_Store
+.claude/
+skills-lock.json

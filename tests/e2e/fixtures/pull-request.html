@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="user-login" content="reviewer" />
+    <title>Add bookshelf · Pull Request #1</title>
+    <style>
+      body {
+        font: 14px system-ui;
+        margin: 0;
+        padding: 16px;
+      }
+      /* GitHub's thread box. */
+      review-thread-collapsible {
+        display: block;
+        margin: 8px 16px;
+        padding: 4px 16px;
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 16px;
+      }
+      [role='region'] {
+        border: 1px solid #ccc;
+        margin-bottom: 16px;
+        min-height: 80px;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a role="tab" href="#">Conversation <span class="Counter">3</span></a>
+      <a role="tab" href="#" aria-current="page">Files changed <span class="Counter">8</span></a>
+    </nav>
+    <div class="summary"><span>+120</span><span>−30</span></div>
+    <div class="layout">
+      <ul role="tree" aria-label="File tree">
+        <li role="treeitem" aria-expanded="true">
+          <div>web/src</div>
+          <ul role="group">
+            <li role="treeitem"><div>book-card.tsx</div></li>
+            <li role="treeitem"><div>book-card.test.tsx</div></li>
+            <li role="treeitem"><div>book-card.stories.tsx</div></li>
+          </ul>
+        </li>
+        <li role="treeitem" aria-expanded="true">
+          <div>api</div>
+          <ul role="group">
+            <li role="treeitem" aria-expanded="true">
+              <div>books</div>
+              <ul role="group">
+                <li role="treeitem"><div>__init__.py</div></li>
+                <li role="treeitem"><div>service.py</div></li>
+              </ul>
+            </li>
+            <li role="treeitem" aria-expanded="true">
+              <div>legacy</div>
+              <ul role="group">
+                <li role="treeitem"><div>routes.py</div></li>
+              </ul>
+            </li>
+            <li role="treeitem" aria-expanded="true">
+              <div>tests</div>
+              <ul role="group">
+                <li role="treeitem"><div>test_service.py</div></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li role="treeitem" aria-expanded="true">
+          <div>docs</div>
+          <ul role="group">
+            <li role="treeitem"><div>books.md</div></li>
+          </ul>
+        </li>
+      </ul>
+      <div id="diff-comparison-viewer-container"></div>
+    </div>
+    <script>
+      const files = [
+        ['web/src/book-card.tsx', 40, 10, 'attribute'],
+        ['web/src/book-card.test.tsx', 30, 5],
+        ['web/src/book-card.stories.tsx', 10, 0],
+        ['api/books/service.py', 25, 10],
+        ['api/tests/test_service.py', 10, 5],
+        ['docs/books.md', 5, 0],
+        ['api/books/__init__.py', 0, 0, 'empty'],
+        ['api/legacy/routes.py', 0, 0, 'unrendered'],
+      ];
+      const container = document.getElementById('diff-comparison-viewer-container');
+      // Review conversations, marked up the way GitHub's classic diff view renders them.
+      const conversations = {
+        'web/src/book-card.tsx': [
+          { line: 12, resolved: false, comments: [{ author: 'alice', text: 'Should the card handle a missing cover?' }] },
+        ],
+        'api/books/service.py': [
+          { line: 3, resolved: true, comments: [{ author: 'alice', text: 'Typo in the docstring.' }] },
+          {
+            line: 40,
+            resolved: false,
+            comments: [
+              { author: 'alice', text: 'This query runs once per book.' },
+              { author: 'reviewer', text: 'Batched it.' },
+            ],
+          },
+        ],
+        'docs/books.md': [
+          { line: 7, resolved: false, comments: [{ author: 'alice', text: 'Link the API reference here.', reacted: true }] },
+        ],
+      };
+      let commentId = 100;
+      const comment = ({ author, text, reacted }) =>
+        `<div id="r${commentId++}"><strong><a data-hovercard-type="user" href="/${author}">${author}</a></strong><p>${text}</p>${
+          reacted ? '<button type="button" data-reaction-content="+1" aria-pressed="true">👍 1</button>' : ''
+        }</div>`;
+      // Resolved threads start collapsed and load their comments when opened, like GitHub's.
+      const thread = ({ line, resolved, comments }) =>
+        `<table><tr><td data-line-number="${line}"></td><td data-line-number="${line}"></td></tr><tr><td><review-thread-collapsible class="review-thread-component js-comment-container js-resolvable-timeline-thread-container" data-resolved="${resolved}">${
+          resolved
+            ? `<div><button type="button" data-target="review-thread-collapsible.button" aria-expanded="false">Comment thread</button> Marked as resolved</div><div data-body hidden><include-fragment data-comments="${encodeURIComponent(comments.map(comment).join(''))}"></include-fragment></div>`
+            : comments.map(comment).join('')
+        }</review-thread-collapsible></td></tr></table>`;
+      document.addEventListener('click', (event) => {
+        const toggle = event.target.closest('button[data-target="review-thread-collapsible.button"]');
+        if (!toggle) return;
+        const body = toggle.closest('review-thread-collapsible').querySelector('[data-body]');
+        toggle.setAttribute('aria-expanded', 'true');
+        body.hidden = false;
+        const fragment = body.querySelector('include-fragment');
+        if (fragment) setTimeout(() => (fragment.outerHTML = decodeURIComponent(fragment.dataset.comments)), 200);
+      });
+      files.forEach(([path, added, removed, source], index) => {
+        const wrapper = document.createElement('div');
+        const button = source === 'attribute' ? `<button data-file-path="${path}">Expand all lines</button>` : '';
+        if (source === 'unrendered') {
+          wrapper.innerHTML = `<div role="region" id="diff-${index}" aria-labelledby="heading-${index}"><span id="heading-${index}" hidden>${path}</span></div>`;
+          wrapper.dataset.unrendered = '';
+          container.append(wrapper);
+          return;
+        }
+        const stats = source === 'empty' ? '' : `<span class="sr-only">Lines changed: ${added} additions &amp; ${removed} deletions</span>`;
+        wrapper.innerHTML = `
+          <div role="region" id="diff-${index}" aria-labelledby="heading-${index}">
+            <div data-diff-header-wrapper>
+              <h3 id="heading-${index}">‎${path}‎</h3>${button}
+              <button type="button" class="viewed" aria-pressed="false">Viewed</button>
+              ${stats}
+            </div>
+            <div role="region" id="diff-${index}-hunk" aria-label="Hunk" style="min-height: 320px"><pre>@@ -1 +1 @@</pre>${(conversations[path] ?? []).map(thread).join('')}</div>
+          </div>`;
+        container.append(wrapper);
+      });
+      // GitHub's Viewed toggle, as signed-in reviewers see it.
+      document.addEventListener('click', (event) => {
+        const toggle = event.target.closest('button.viewed');
+        if (toggle) toggle.setAttribute('aria-pressed', String(toggle.getAttribute('aria-pressed') !== 'true'));
+      });
+    </script>
+  </body>
+</html>

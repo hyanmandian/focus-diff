@@ -1,0 +1,43 @@
+{
+  "name": "focus-diff",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Review what matters. A browser extension that filters pull request diffs.",
+  "license": "MIT",
+  "author": "Hyan Mandian",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "build:safari": "wxt build -b safari",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "zip:safari": "wxt zip -b safari",
+    "compile": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",
+    "fmt": "oxfmt",
+    "check": "tsc --noEmit && oxlint && oxfmt --check",
+    "test": "vitest run",
+    "e2e": "wxt build && playwright test",
+    "postinstall": "wxt prepare"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@wxt-dev/i18n": "^0.2.7",
+    "happy-dom": "^20.14.5",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3",
+    "web-ext": "^10.7.0",
+    "wxt": "^0.21.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,34 @@
+import { icon } from '@/utils/dom';
+import type { ThreadState } from '@/utils/github';
+
+export const settingsIcon = () =>
+  icon([
+    ['path', { d: 'M2 4h7M13 4h1M2 8h1M7 8h7M2 12h5M11 12h3' }],
+    ['circle', { cx: '11', cy: '4', r: '2' }],
+    ['circle', { cx: '5', cy: '8', r: '2' }],
+    ['circle', { cx: '9', cy: '12', r: '2' }],
+  ]);
+export const breakdownIcon = () => icon('M2 13.5h12M4 11V7M8 11V3M12 11V8');
+export const infoIcon = () =>
+  icon(
+    [
+      ['circle', { cx: '8', cy: '8', r: '6.25' }],
+      ['path', { d: 'M8 7.25v3.75M8 5v.25' }],
+    ],
+    14,
+  );
+export const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
+export const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
+export const closeIcon = () => icon('M4.5 4.5l7 7M11.5 4.5l-7 7', 14);
+export const chevronIcon = (direction: 'left' | 'right') => icon(direction === 'left' ? 'M10 4.5 6.5 8 10 11.5' : 'M6 4.5 9.5 8 6 11.5');
+
+/** A conversation waiting on the reader (a dot), answered (a reply arrow) or resolved (a check). */
+export const threadStateIcons: Record<ThreadState, () => SVGSVGElement> = {
+  waiting: () => icon([['circle', { cx: '8', cy: '8', r: '3.5', fill: 'currentColor', stroke: 'none' }]]),
+  answered: () => icon('M6.5 4 3 7.5 6.5 11M3 7.5h6a4 4 0 0 1 4 4v.5'),
+  resolved: () =>
+    icon([
+      ['circle', { cx: '8', cy: '8', r: '6.25' }],
+      ['path', { d: 'M5.5 8.25 7.25 10l3.25-3.5' }],
+    ]),
+};

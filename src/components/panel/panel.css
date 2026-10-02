@@ -1,0 +1,195 @@
+:host {
+  all: initial;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  --fd-bg: var(--overlay-bgColor, var(--color-canvas-overlay, #ffffff));
+  --fd-border: var(--borderColor-default, var(--color-border-default, #d1d9e0));
+  --fd-fg: var(--fgColor-default, var(--color-fg-default, #1f2328));
+  --fd-muted: var(--fgColor-muted, var(--color-fg-muted, #59636e));
+  --fd-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(129, 139, 152, 0.15)));
+  --fd-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis, #0969da));
+  --fd-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #ffffff));
+  --fd-add: var(--fgColor-success, var(--color-success-fg, #1a7f37));
+  --fd-del: var(--fgColor-danger, var(--color-danger-fg, #d1242f));
+  --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
+  --fd-accent: var(--fgColor-accent, var(--color-accent-fg, #0969da));
+  --fd-track: var(--bgColor-neutral-muted, var(--color-neutral-muted, rgba(129, 139, 152, 0.2)));
+  --fd-border-muted: var(--borderColor-muted, var(--color-border-muted, rgba(209, 217, 224, 0.7)));
+  --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));
+  --fd-shadow: var(--shadow-floating-large, 0 0 0 1px rgba(209, 217, 224, 0.5), 0 24px 48px rgba(37, 41, 46, 0.2));
+  --fd-mono: var(--fontStack-monospace, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
+  --fd-font: var(--fontStack-sansSerif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif);
+  --fd-target: 32px;
+  --fd-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (pointer: coarse) {
+  :host {
+    --fd-target: 44px;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: min(1040px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid var(--fd-border);
+  border-radius: 12px;
+  background: var(--fd-bg);
+  box-shadow: var(--fd-shadow);
+  color: var(--fd-fg);
+  font: 500 13px/20px var(--fd-font);
+}
+button {
+  min-height: var(--fd-target);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fd-fg);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--fd-hover);
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--fd-focus);
+  outline-offset: 1px;
+}
+.option-count {
+  box-sizing: border-box;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--fd-track);
+  color: var(--fd-muted);
+  font: 600 11px/18px var(--fd-font);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.option-count:empty {
+  display: none;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--fd-target);
+  padding: 0;
+  color: var(--fd-muted);
+}
+.icon-button[aria-expanded='true'] {
+  background: var(--fd-hover);
+  color: var(--fd-fg);
+}
+
+.popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  border: 1px solid var(--fd-border);
+  border-radius: 12px;
+  background: var(--fd-bg);
+  box-shadow: var(--fd-shadow);
+  color: var(--fd-fg);
+  font: 400 14px/20px var(--fd-font);
+  font-variant-numeric: tabular-nums;
+}
+.popover[hidden] {
+  display: none;
+}
+.additions {
+  color: var(--fd-add);
+}
+.deletions {
+  color: var(--fd-del);
+}
+
+.settings.labelled {
+  padding: 0 12px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Fades and colour changes carry state, so they stay with reduced motion; movement does not. */
+.panel {
+  transition: opacity 200ms ease-out;
+}
+.popover {
+  transition: opacity 160ms ease-out;
+}
+@starting-style {
+  .panel,
+  .popover {
+    opacity: 0;
+  }
+}
+button {
+  transition:
+    background-color 120ms ease-out,
+    color 160ms ease-out;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    transition:
+      opacity 200ms ease-out,
+      translate 280ms var(--fd-ease);
+  }
+  @starting-style {
+    .panel {
+      translate: 0 8px;
+    }
+  }
+  .popover {
+    transition:
+      opacity 160ms ease-out,
+      translate 220ms var(--fd-ease);
+  }
+  @starting-style {
+    .popover {
+      translate: 0 6px;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .panel {
+    border-color: CanvasText;
+  }
+}
+
+/* An arrow under a popover, pointing at the button that opened it. */
+.popover::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: var(--fd-arrow-x, calc(100% - 24px));
+  width: 10px;
+  height: 10px;
+  translate: -50% 0;
+  rotate: 45deg;
+  border-right: 1px solid var(--fd-border);
+  border-bottom: 1px solid var(--fd-border);
+  border-bottom-right-radius: 2px;
+  background: var(--fd-bg);
+}
+@media (forced-colors: active) {
+  .popover::after {
+    border-color: CanvasText;
+  }
+}

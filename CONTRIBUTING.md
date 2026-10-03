@@ -27,10 +27,10 @@ src/
   assets/           global.css: the extension pages' colours, reset and type
   utils/            filters, storage, the GitHub page adapter, formatting
   locales/          English and Brazilian Portuguese messages
-tests/
-  unit/             Vitest with WXT's fake browser
-  e2e/              Playwright, on a local copy of a pull request page
+tests/              Playwright end-to-end tests, on a local copy of a pull request page
 ```
+
+Unit tests (Vitest with WXT's fake browser) sit next to the file they cover, as `<name>.test.ts`. A folder exists only when it holds more than one file.
 
 The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
 

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test, VIRTUALIZED_PULL_REQUEST } from './fixtures';
-import { PullRequestPage } from './pages/pull-request';
+import { PullRequestPage } from './pull-request-page';
 
 /** GitHub's newer diff view: the page embeds every file as JSON and only renders the files near the screen. */
 test.describe('newer, virtualized diff view', () => {

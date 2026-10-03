@@ -1,6 +1,6 @@
 {
   "path": ["src", "tests"],
-  "ignore": ["tests/e2e/fixtures/**"],
+  "ignore": ["tests/fixtures/**"],
   "minLines": 5,
   "minTokens": 50,
   "threshold": 0,

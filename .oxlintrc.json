@@ -29,13 +29,10 @@
   },
   "overrides": [
     {
-      "files": ["tests/**", "*.config.ts"],
+      "files": ["tests/**", "*.config.ts", "vitest.setup.ts"],
       "env": {
         "node": true
-      }
-    },
-    {
-      "files": ["tests/e2e/**"],
+      },
       "rules": {
         "no-empty-pattern": "off"
       }

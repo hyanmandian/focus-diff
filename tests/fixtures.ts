@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { chromium, test as base, type BrowserContext, type Locator, type Page, type Worker } from '@playwright/test';
-import type { Config } from '../../src/utils/filters';
+import type { Config } from '../src/utils/filters';
 
 const extensionPath = path.resolve('.output/chrome-mv3');
-const pullRequestHtml = readFileSync(path.resolve('tests/e2e/fixtures/pull-request.html'), 'utf8');
-const virtualizedHtml = readFileSync(path.resolve('tests/e2e/fixtures/pull-request-virtualized.html'), 'utf8');
+const pullRequestHtml = readFileSync(path.resolve('tests/fixtures/pull-request.html'), 'utf8');
+const virtualizedHtml = readFileSync(path.resolve('tests/fixtures/pull-request-virtualized.html'), 'utf8');
 
 export const PULL_REQUEST = 'https://github.com/octo/web/pull/1/changes';
 /** GitHub's newer, virtualized diff view with its embedded data. */

@@ -1,5 +1,5 @@
 import { accessibilityViolations, CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, LARGE_PULL_REQUEST, PULL_REQUEST, test } from './fixtures';
-import { PullRequestPage } from './pages/pull-request';
+import { PullRequestPage } from './pull-request-page';
 
 test.describe('panel on a pull request', () => {
   test('shows every file with All selected', async ({ openPullRequest }) => {

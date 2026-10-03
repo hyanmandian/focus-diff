@@ -16,6 +16,7 @@ npm test            # unit tests with Vitest
 npm run e2e         # builds, then runs Playwright against the real extension, with axe accessibility checks
 npm run fmt         # format everything
 npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)
+npm run build:demo  # the welcome page's live demo as one script for the site, in .output/demo/
 ```
 
 ```text
@@ -29,6 +30,8 @@ src/
   locales/          English and Brazilian Portuguese messages
 tests/              Playwright end-to-end tests, on a local copy of a pull request page
 ```
+
+The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`content/review.ts`) as on GitHub. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
 
 Unit tests (Vitest with WXT's fake browser) sit next to the file they cover, as `<name>.test.ts`. A module gets a folder named after it only when it has more than one file, like its test or its CSS (`utils/format/format.ts` and `format.test.ts`); a module of one file stays flat. Import the file itself, never an index.
 

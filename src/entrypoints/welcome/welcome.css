@@ -1,18 +1,10 @@
-/* Welcome page: one reading column. How it works pairs the steps with a small replica of the bar; examples follow as a list. */
-:root {
-  --selected: #0969da;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --selected: #1f6feb;
-  }
-}
-
+/* Welcome page: one reading column. How it works has three steps over a live demo of the bar; examples follow as a list. */
 .welcome-page {
   padding-block: 56px 72px;
 }
 .welcome {
-  max-width: 880px;
+  /* Wide enough for the demo's bar on one row, as it sits on GitHub. */
+  max-width: 920px;
   gap: 56px;
 }
 
@@ -38,29 +30,18 @@
 section > h2 {
   margin-bottom: 4px;
 }
-.how-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  gap: 32px;
-  align-items: center;
-  margin-top: 16px;
-}
-@media (max-width: 760px) {
-  .how-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .steps {
   list-style: none;
-  margin: 0;
+  margin: 16px 0 0;
   padding: 0;
   display: grid;
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 20px 28px;
   counter-reset: step;
 }
 .steps li {
   display: grid;
+  align-content: start;
   grid-template-columns: 28px 1fr;
   column-gap: 12px;
   counter-increment: step;
@@ -87,81 +68,8 @@ section > h2 {
   color: var(--muted);
 }
 
-.preview {
-  margin: 0;
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface-muted);
-}
-.preview-files {
-  display: grid;
-  gap: 6px;
-}
-.file {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px dashed var(--line);
-  background: transparent;
-  font: 12px var(--mono);
-  color: var(--muted);
-  text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
-}
-.file.keep {
-  border-style: solid;
-  background: var(--surface);
-  color: var(--fg);
-  text-decoration: none;
-}
-.file b {
-  color: var(--ok);
-  font-weight: 500;
-}
-.preview-bar {
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 5px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgba(31, 35, 40, 0.12);
-  font: 500 12px/18px var(--sans);
-}
-.chip {
-  padding: 5px 10px;
-  border-radius: 8px;
-}
-.chip.selected {
-  background: var(--selected);
-  color: #ffffff;
-  font-weight: 600;
-}
-.preview-stats {
-  display: inline-flex;
-  gap: 6px;
-  margin-left: 6px;
-  padding-left: 10px;
-  border-left: 1px solid var(--line);
-  color: var(--muted);
-  white-space: nowrap;
-}
-.mono {
-  font-family: var(--mono);
-  font-size: 13px;
-}
-.add {
-  color: var(--ok);
-}
-.del {
-  color: var(--danger);
+.demo-hint {
+  margin: 28px 0 12px;
 }
 
 .recipes {

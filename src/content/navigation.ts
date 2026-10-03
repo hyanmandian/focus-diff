@@ -3,6 +3,7 @@ import type { Conversation } from '@/components/conversations/conversations';
 import type { Panel } from '@/components/panel/panel';
 import * as page from '@/utils/github/github';
 import type { FileInfo } from '@/content/files';
+import { stepFrom } from '@/content/review';
 
 const RENDER_TIMEOUT_MS = 2000;
 const EXPAND_TIMEOUT_MS = 1500;
@@ -142,8 +143,7 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     if (complete) {
       const total = knownThreads(shown).length;
       if (!total) return;
-      const index = commentIndex === 0 ? (direction > 0 ? 0 : total - 1) : (commentIndex - 1 + direction + total) % total;
-      return goToKnown(shown, index);
+      return goToKnown(shown, stepFrom(commentIndex, direction, total));
     }
     const threads = renderedThreads(shown);
     if (!threads.length) return;

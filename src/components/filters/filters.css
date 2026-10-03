@@ -86,18 +86,17 @@
     background: Highlight;
   }
 }
-@media (max-width: 480px), (max-height: 420px) {
-  .filters {
-    flex-wrap: nowrap;
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  /* The sliding highlight can't follow a scrolled row, so pressed chips fill in instead. */
-  .indicator {
-    display: none;
-  }
-  .filters .option[aria-pressed='true'] {
-    background: var(--fd-selected-bg);
-  }
+/* In a compact bar, see panel.css. */
+:host([data-compact]) .filters {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+/* The sliding highlight can't follow a scrolled row, so pressed chips fill in instead. */
+:host([data-compact]) .indicator {
+  display: none;
+}
+:host([data-compact]) .filters .option[aria-pressed='true'] {
+  background: var(--fd-selected-bg);
 }

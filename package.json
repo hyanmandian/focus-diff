@@ -10,6 +10,7 @@
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
+    "build:demo": "vite build -c vite.demo.config.ts",
     "build:firefox": "wxt build -b firefox",
     "build:safari": "wxt build -b safari",
     "zip": "wxt zip",
@@ -21,7 +22,7 @@
     "fmt": "oxfmt",
     "check": "tsc --noEmit && oxlint && oxfmt --check && jscpd",
     "test": "vitest run",
-    "e2e": "wxt build && playwright test",
+    "e2e": "wxt build && npm run build:demo && playwright test",
     "postinstall": "wxt prepare",
     "duplicates": "jscpd"
   },

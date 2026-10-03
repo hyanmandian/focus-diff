@@ -45,11 +45,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  max-width: min(1040px, calc(100vw - 32px));
+  /* A page that lays the bar out itself, like the welcome page's demo, sets the room it has. */
+  max-width: var(--fd-max-width, min(1040px, calc(100vw - 32px)));
   padding: 6px;
   font: 500 13px/20px var(--fd-font);
 }
-button {
+/* Scoped to the bar, so pages that bundle these styles, like the welcome page, keep their own buttons. */
+:where(.panel) button {
   min-height: var(--fd-target);
   padding: 0 12px;
   border: 0;
@@ -59,19 +61,19 @@ button {
   font: inherit;
   cursor: pointer;
 }
-button:hover {
+:where(.panel) button:hover {
   background: var(--fd-hover);
 }
 /* Disabled controls stay focusable so their tooltip can say why; they fade back and stop reacting. */
-button[aria-disabled='true'] {
+:where(.panel) button[aria-disabled='true'] {
   opacity: 0.45;
   cursor: not-allowed;
 }
-button[aria-disabled='true']:hover {
+:where(.panel) button[aria-disabled='true']:hover {
   background: none;
 }
-button:focus-visible,
-a:focus-visible {
+:where(.panel) button:focus-visible,
+:where(.panel) a:focus-visible {
   outline: 2px solid var(--fd-focus);
   outline-offset: 1px;
 }
@@ -147,7 +149,7 @@ a:focus-visible {
     opacity: 0;
   }
 }
-button {
+:where(.panel) button {
   transition:
     background-color 120ms ease-out,
     color 160ms ease-out;
@@ -202,13 +204,12 @@ button {
   }
 }
 
-/* On very small screens, like at 400% zoom, the bar keeps to one row: the numbers live on in the breakdown, and the
-   chips scroll sideways. */
-@media (max-width: 480px), (max-height: 420px) {
-  .panel {
-    flex-wrap: nowrap;
-  }
-  .panel .stats {
-    display: none;
-  }
+/* A compact bar, on very small screens like at 400% zoom, or in a page without room for a row: one row whose chips
+   scroll sideways, the numbers living on in the breakdown. A bar laid out in a page keeps to one row as well. */
+:host([data-compact]) .panel,
+:host([data-inline]) .panel {
+  flex-wrap: nowrap;
+}
+:host([data-compact]) .panel .stats {
+  display: none;
 }

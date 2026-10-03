@@ -5,6 +5,8 @@ import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters/filters';
 import { message } from '@/utils/i18n';
+import { createDemo } from '@/components/demo/demo';
+import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
@@ -124,6 +126,7 @@ configItem.watch((value) => {
 });
 
 translateDocument(i18n.t('welcomeTitle'));
+createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html') });
 void Promise.all([loadConfig(), renderShortcuts()]).then(([loaded]) => {
   config = loaded;
   render();

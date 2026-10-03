@@ -41,6 +41,8 @@ export interface Panel {
   /** Reads out a short message, like where a jump landed. */
   announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
+  /** One row whose chips scroll, without the numbers. A floating bar goes compact on very small screens by itself. */
+  setCompact: (compact: boolean) => void;
   /** Throws confetti from the Done badge and says the named filter is reviewed. */
   celebrate: (name: string) => void;
   /** Points to the notes of a release the reader hasn't seen, or hides the notice with `null`. */
@@ -52,6 +54,8 @@ interface PanelMount {
   container: HTMLElement;
   host: HTMLElement;
   signal: AbortSignal;
+  /** Floating over the page, which then keeps room for it at the bottom; a bar laid out in a page doesn't. */
+  floating?: boolean;
 }
 
 /**
@@ -59,7 +63,7 @@ interface PanelMount {
  * part lives in its own module; this one lays them out and settles what they share, like which popover is open.
  */
 export const createPanel = (
-  { root, container, host, signal }: PanelMount,
+  { root, container, host, signal, floating = true }: PanelMount,
   { onToggle, onSettings, onComment, onNextFile, onUpdateSeen }: PanelActions,
 ): Panel => {
   const context: PanelContext = { host, signal, focused: () => root.activeElement as HTMLElement | null };
@@ -101,6 +105,7 @@ export const createPanel = (
   let padding = '';
   const panelElement = container.querySelector<HTMLElement>('.panel');
   const reserveScrollRoom = () => {
+    if (!floating) return;
     const next = host.style.display === 'none' || !panelElement ? '' : `${panelElement.offsetHeight + 32}px`;
     if (next === padding) return;
     padding = next;
@@ -167,6 +172,17 @@ export const createPanel = (
     status.textContent = parts.join(' ');
   };
 
+  const setCompact = (compact: boolean) => {
+    if (host.hasAttribute('data-compact') === compact) return;
+    host.toggleAttribute('data-compact', compact);
+    requestAnimationFrame(filters.moveIndicator);
+  };
+  if (floating) {
+    const narrow = matchMedia('(max-width: 480px), (max-height: 420px)');
+    setCompact(narrow.matches);
+    narrow.addEventListener('change', () => setCompact(narrow.matches), { signal });
+  } else host.setAttribute('data-inline', '');
+
   const setVisible = (visible: boolean) => {
     const display = visible ? '' : 'none';
     if (host.style.display === display) return;
@@ -196,6 +212,7 @@ export const createPanel = (
     announce,
     announceText: (text) => (status.textContent = text),
     setVisible,
+    setCompact,
     showUpdate: update.show,
     celebrate: (name) => {
       const box = stats.done.getBoundingClientRect();

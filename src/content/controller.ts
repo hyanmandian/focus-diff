@@ -2,21 +2,16 @@ import { i18n } from '#i18n';
 import type { ContentScriptContext } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Panel } from '@/components/panel/panel';
-import { isDone, type Totals } from '@/components/stats/stats';
+import type { Totals } from '@/components/stats/stats';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters/filters';
 import { formatNumber as format } from '@/utils/format/format';
 import * as page from '@/utils/github/github';
 import type { Message } from '@/utils/messages';
 import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage/storage';
-import { collectFiles, everything, totalsFor, type FileInfo, type Files } from '@/content/files';
+import { collectFiles, type FileInfo, type Files } from '@/content/files';
 import { createNavigation, goToFile, waitFor } from '@/content/navigation';
+import { createReviewView, nextFilterWithWork, review, toggled, type Option } from '@/content/review';
 import { canTransition, removeTransitionStyle, withTransition } from '@/content/transition';
-
-interface Option {
-  id: string;
-  name: string;
-  matches?: Matcher;
-}
 
 /** GitHub keeps rendering while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
@@ -177,9 +172,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   const toggle = (id: string) => {
     const repo = page.repository();
-    if (!repo || id === ALL) return select(ALL);
-    const current = selectedIds(repo);
-    choose(current.includes(id) ? current.filter((other) => other !== id) : [...current, id]);
+    if (!repo) return select(ALL);
+    choose(toggled(selectedIds(repo), id));
   };
 
   const step = (offset: number) => {
@@ -202,25 +196,10 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   let pageChanged = false;
   let selectionKey = '';
-  /** The selection last seen with files left to review: finishing it is what earns the confetti. */
-  let unfinishedKey = '';
   let shown: FileInfo[] = [];
   const navigation = createNavigation(panel, () => schedule());
+  const showReview = createReviewView(panel);
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
-
-  /** The next filter in the bar, after the ones shown, that still has files to review. */
-  const nextFilterWithWork = (repo: string) => {
-    const list = filters(repo);
-    const ids = selectedIds(repo);
-    const last = Math.max(-1, ...ids.map((id) => list.findIndex((filter) => filter.id === id)));
-    for (let offset = 1; offset <= list.length; offset++) {
-      const filter = list[(last + offset) % list.length];
-      if (!filter || ids.includes(filter.id)) continue;
-      const left = files.list.filter((file) => !file.viewed && filter.matches?.(file.path)).length;
-      if (left) return { id: filter.id, name: filter.name, left };
-    }
-    return undefined;
-  };
 
   /**
    * The next shown file left to review, after the one at the top of the screen, wrapping around. With none left in the
@@ -231,7 +210,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (!repo) return;
     const left = shown.filter((file) => !file.viewed);
     if (!left.length) {
-      const then = selectedIds(repo).length ? nextFilterWithWork(repo) : undefined;
+      const ids = selectedIds(repo);
+      const then = ids.length ? nextFilterWithWork(files.list, filters(repo), ids) : undefined;
       if (then) choose([then.id]);
       return;
     }
@@ -259,25 +239,11 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     }
 
     files = collectFiles();
-    const options = optionsFor(repo);
-    const ids = selectedIds(repo);
-    const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
-    const filtering = selected.length > 0;
-    const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
-    const selection = filtering ? selected.map((option) => option.id) : [ALL];
-
     const reported = page.reportedFileCount();
-    const totals = totalsFor(files, matches, reported);
-    panel.renderOptions(
-      options.map((option) => ({
-        ...option,
-        count: option.matches ? files.list.filter((file) => option.matches?.(file.path)).length : totals.total,
-        loading: loading(),
-      })),
-      selection,
-    );
+    const current = review(files, optionsFor(repo), selectedIds(repo), { reported, loading: loading() });
+    const { filtering, matches, selection, totals } = current;
     const virtualized = page.isVirtualized();
-    shown = files.list.filter((file) => matches(file.path));
+    shown = current.shown;
     for (const file of files.list) if (file.diff) present(file.diff.container, matches(file.path), virtualized);
     filterTree(
       matches,
@@ -295,24 +261,10 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       navigation.position(shown, files.complete),
       filtering ? navigation.count(files.list, files.complete) : undefined,
     );
-    const left = totals.visible - totals.viewed;
-    panel.renderNextFile({ left, nextFilter: filtering && !left ? nextFilterWithWork(repo) : undefined });
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
-    panel.renderStats(totals, filtering ? totalsFor(files, everything, reported) : totals);
-    panel.renderBreakdown(
-      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported) })),
-      selection,
-    );
-
-    const name = filtering ? selected.map((option) => option.name).join(' + ') : i18n.t('filterAll');
-    if (announceNext) {
-      announceNext = false;
-      panel.announce({ name, ...totals });
-    }
-    const done = isDone(totals);
-    if (done && unfinishedKey === key) panel.celebrate(name);
-    unfinishedKey = done ? '' : key;
+    showReview(current, key, { announce: announceNext });
+    announceNext = false;
   };
 
   /**

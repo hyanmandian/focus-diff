@@ -1,0 +1,222 @@
+/* GitHub's colours, which the bar reads as it does on github.com, so the demo looks the same on any page. */
+:host {
+  display: block;
+  --fgColor-default: #1f2328;
+  --fgColor-muted: #59636e;
+  --overlay-bgColor: #ffffff;
+  --bgColor-default: #ffffff;
+  --bgColor-muted: #f6f8fa;
+  --fgColor-accent: #0969da;
+  --bgColor-accent-emphasis: #0969da;
+  --fgColor-success: #1a7f37;
+  --fgColor-danger: #d1242f;
+  --fgColor-attention: #9a6700;
+  --fgColor-done: #8250df;
+  --bgColor-neutral-muted: #818b981f;
+  --borderColor-default: #d1d9e0;
+  --borderColor-muted: #d1d9e0b3;
+  --focus-outlineColor: #0969da;
+  color-scheme: light;
+  /* The bar's tooltip, shown for the files' buttons too. */
+  --fd-fg: var(--fgColor-default);
+  --fd-bg: var(--overlay-bgColor);
+  --fd-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --fd-shadow: 0 8px 24px rgba(37, 41, 46, 0.2);
+}
+@media (prefers-color-scheme: dark) {
+  :host {
+    --fgColor-default: #f0f6fc;
+    --fgColor-muted: #9198a1;
+    --overlay-bgColor: #151b23;
+    --bgColor-default: #0d1117;
+    --bgColor-muted: #151b23;
+    --fgColor-accent: #4493f8;
+    --bgColor-accent-emphasis: #1f6feb;
+    --fgColor-success: #3fb950;
+    --fgColor-danger: #f85149;
+    --fgColor-attention: #d29922;
+    --fgColor-done: #ab7df8;
+    --bgColor-neutral-muted: #656c7633;
+    --borderColor-default: #3d444d;
+    --borderColor-muted: #3d444db3;
+    --focus-outlineColor: #1f6feb;
+    color-scheme: dark;
+  }
+}
+
+.demo {
+  display: grid;
+  /* Never wider than the page gives it: on a narrow screen the bar's buttons scroll, as on GitHub. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--borderColor-default);
+  border-radius: 16px;
+  background: var(--bgColor-muted);
+  color: var(--fgColor-default);
+  font:
+    400 14px/20px -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Noto Sans',
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+/* The pull request's files, as GitHub lists them; the bar hides those outside the filter. */
+.demo-files {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.demo-file {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 44px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--borderColor-default);
+  border-radius: 8px;
+  background: var(--bgColor-default);
+  font:
+    12px/18px ui-monospace,
+    SFMono-Regular,
+    'SF Mono',
+    Menlo,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+}
+/* Outside the filter: on GitHub it's hidden; here it stays in place, set back and struck through, its colours muted. */
+.demo-file {
+  transition: color 200ms ease-out;
+}
+.demo-file[data-out] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--fgColor-muted);
+}
+.demo-file[data-out] .demo-path {
+  text-decoration: line-through;
+}
+.demo-file[data-out] :is(.demo-add, .demo-del, .demo-talk) {
+  color: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-file {
+    transition: none;
+  }
+}
+/* Where the bar took the reader. */
+.demo-file[aria-current='true'] {
+  border-color: var(--fgColor-accent);
+  box-shadow: 0 0 0 1px var(--fgColor-accent);
+}
+.demo-path {
+  /* On a narrow screen the path takes the row, and the rest goes below it. */
+  flex: 1 0 min(100%, 26ch);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.demo-talks {
+  display: inline-flex;
+  gap: 4px;
+}
+.demo-talk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--fgColor-muted);
+}
+/* The conversation the bar took the reader to. */
+.demo-talk[data-current] {
+  background: var(--bgColor-accent-emphasis);
+  color: #ffffff;
+}
+@media (forced-colors: active) {
+  .demo-talk[data-current] {
+    outline: 2px solid Highlight;
+  }
+}
+.demo-lines {
+  display: inline-flex;
+  gap: 6px;
+  font-weight: 600;
+}
+.demo-add {
+  color: var(--fgColor-success);
+}
+.demo-del {
+  color: var(--fgColor-danger);
+}
+.demo-viewed {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--borderColor-default);
+  border-radius: 6px;
+  background: var(--bgColor-muted);
+  color: var(--fgColor-default);
+  font:
+    500 12px/18px -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Noto Sans',
+    Helvetica,
+    Arial,
+    sans-serif;
+  cursor: pointer;
+}
+.demo-viewed[aria-pressed='true'] {
+  border-color: var(--fgColor-success);
+  color: var(--fgColor-success);
+}
+.demo-viewed[aria-pressed='true']::before {
+  content: '✓ ';
+}
+.demo-viewed[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.demo-viewed:focus-visible {
+  outline: 2px solid var(--focus-outlineColor);
+  outline-offset: 1px;
+}
+@media (pointer: coarse) {
+  .demo-viewed {
+    min-height: 44px;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The bar, laid out in the demo instead of floating over the page. */
+.demo-bar {
+  /* The bar's popovers open above it, positioned against it as they are against the floating bar. */
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  --fd-max-width: 100%;
+}
+
+@media (forced-colors: active) {
+  .demo-file[aria-current='true'] {
+    outline: 2px solid Highlight;
+  }
+}

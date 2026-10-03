@@ -16,6 +16,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "zip:safari": "wxt zip -b safari",
+    "screenshots": "wxt build && node scripts/screenshots.ts",
     "compile": "tsc --noEmit",
     "lint": "oxlint",
     "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",

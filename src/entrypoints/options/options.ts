@@ -15,11 +15,11 @@ import {
   type Config,
   type Filter,
   type RepoFilters,
-} from '@/utils/filters';
+} from '@/utils/filters/filters';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translate, translateDocument } from '@/utils/page';
 import type { Message } from '@/utils/messages';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage';
+import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
 
 type Field = 'name' | 'include' | 'exclude';
 type Tone = '' | 'ok' | 'warn' | 'error';

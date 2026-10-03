@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { chromium, test as base, type BrowserContext, type Locator, type Page, type Worker } from '@playwright/test';
-import type { Config } from '../src/utils/filters';
+import type { Config } from '../src/utils/filters/filters';
 
 const extensionPath = path.resolve('.output/chrome-mv3');
 const pullRequestHtml = readFileSync(path.resolve('tests/fixtures/pull-request.html'), 'utf8');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, formatDuration, formatNumber } from '@/utils/format';
+import { formatClock, formatDuration, formatNumber } from '@/utils/format/format';
 
 describe('formatDuration', () => {
   it('rounds to minutes, then to five minute steps past an hour', () => {

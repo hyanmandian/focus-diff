@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compile, filtersFor, normalize, repoMatches, toMatcher } from '@/utils/filters';
+import { compile, filtersFor, normalize, repoMatches, toMatcher } from '@/utils/filters/filters';
 
 const match = (filter: { include?: string; exclude?: string }, path: string) => toMatcher({ include: '', exclude: '', ...filter })?.(path);
 

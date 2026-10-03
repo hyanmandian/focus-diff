@@ -1,7 +1,7 @@
 import type { Totals } from '@/components/stats/stats';
-import type { Matcher } from '@/utils/filters';
-import * as page from '@/utils/github';
-import { reviewMinutes } from '@/utils/review-time';
+import type { Matcher } from '@/utils/filters/filters';
+import * as page from '@/utils/github/github';
+import { reviewMinutes } from '@/utils/review-time/review-time';
 
 export interface FileInfo {
   path: string;

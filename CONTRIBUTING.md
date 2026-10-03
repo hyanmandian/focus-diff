@@ -22,15 +22,15 @@ npm run zip         # store zips in .output/ (zip:firefox also packs the sources
 src/
   entrypoints/      what the browser loads: background, the GitHub content script, options and welcome pages
   content/          the content script's logic: reading the page, filtering it, moving between conversations
-  components/       the UI: functions that build elements and return how to update them. A component with
-                    its own CSS gets a folder; panel/ lays the others out in a shadow root
+  components/       the UI: functions that build elements and return how to update them; panel/ lays the
+                    others out in a shadow root
   assets/           global.css: the extension pages' colours, reset and type
   utils/            filters, storage, the GitHub page adapter, formatting
   locales/          English and Brazilian Portuguese messages
 tests/              Playwright end-to-end tests, on a local copy of a pull request page
 ```
 
-Unit tests (Vitest with WXT's fake browser) sit next to the file they cover, as `<name>.test.ts`. A folder exists only when it holds more than one file.
+Unit tests (Vitest with WXT's fake browser) sit next to the file they cover, as `<name>.test.ts`. A module gets a folder named after it only when it has more than one file, like its test or its CSS (`utils/format/format.ts` and `format.test.ts`); a module of one file stays flat. Import the file itself, never an index.
 
 The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
 

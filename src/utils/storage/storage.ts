@@ -1,5 +1,5 @@
 import { storage } from '#imports';
-import { ALL, normalize, type Config } from '@/utils/filters';
+import { ALL, normalize, type Config } from '@/utils/filters/filters';
 
 /** Selected filter ids per repository. An empty list means "All". */
 export type Selections = Record<string, string[]>;

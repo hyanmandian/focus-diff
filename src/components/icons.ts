@@ -1,5 +1,5 @@
 import { icon } from '@/utils/dom';
-import type { ThreadState } from '@/utils/github';
+import type { ThreadState } from '@/utils/github/github';
 
 export const settingsIcon = () =>
   icon([

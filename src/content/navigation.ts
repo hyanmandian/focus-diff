@@ -1,7 +1,7 @@
 import { i18n } from '#i18n';
 import type { Conversation } from '@/components/conversations/conversations';
 import type { Panel } from '@/components/panel/panel';
-import * as page from '@/utils/github';
+import * as page from '@/utils/github/github';
 import type { FileInfo } from '@/content/files';
 
 const RENDER_TIMEOUT_MS = 2000;

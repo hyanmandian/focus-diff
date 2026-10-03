@@ -1,4 +1,4 @@
-import type { FileStats } from '@/utils/github';
+import type { FileStats } from '@/utils/github/github';
 
 /**
  * Our assumption, not measured: a working review pace. SmartBear's study of 2,500 reviews at Cisco puts careful

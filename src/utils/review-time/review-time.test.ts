@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isGenerated, LINES_PER_HOUR, MINUTES_PER_FILE, reviewMinutes } from '@/utils/review-time';
+import { isGenerated, LINES_PER_HOUR, MINUTES_PER_FILE, reviewMinutes } from '@/utils/review-time/review-time';
 
 describe('reviewMinutes', () => {
   it('reads added lines at the review pace, plus a moment to open the file', () => {

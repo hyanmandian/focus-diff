@@ -2,8 +2,8 @@ import './stats.css';
 import { i18n } from '#i18n';
 import { clockIcon, diffIcon, doneIcon, fileIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatClock, formatDuration, formatNumber as format } from '@/utils/format';
-import { LINES_PER_HOUR } from '@/utils/review-time';
+import { formatClock, formatDuration, formatNumber as format } from '@/utils/format/format';
+import { LINES_PER_HOUR } from '@/utils/review-time/review-time';
 import { createScoreboard } from '@/components/scoreboard/scoreboard';
 
 export interface Totals {

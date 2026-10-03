@@ -1,7 +1,7 @@
 import { defineBackground } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Command, Message } from '@/utils/messages';
-import { updateItem } from '@/utils/storage';
+import { updateItem } from '@/utils/storage/storage';
 
 /** Patch releases only fix things, so only a new minor or major version is worth telling the reader about. */
 const isNotable = (previous: string, current: string) =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { configItem, loadConfig, saveConfig, selectionsItem } from '@/utils/storage';
+import { configItem, loadConfig, saveConfig, selectionsItem } from '@/utils/storage/storage';
 
 describe('selections', () => {
   it('moves single selections from earlier versions to lists', async () => {

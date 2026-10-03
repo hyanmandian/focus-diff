@@ -2,7 +2,7 @@ import './next-file.css';
 import { i18n } from '#i18n';
 import { nextFileIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatNumber as format } from '@/utils/format';
+import { formatNumber as format } from '@/utils/format/format';
 
 /** What's left to review: files in the shown filters, or else the next filter in the bar that still has some. */
 export interface NextFile {

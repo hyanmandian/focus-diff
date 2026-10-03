@@ -3,7 +3,7 @@ import { i18n } from '#i18n';
 import { confetti } from '@/components/confetti';
 import { settingsIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatDuration, formatNumber as format } from '@/utils/format';
+import { formatDuration, formatNumber as format } from '@/utils/format/format';
 import { createBreakdown, type BreakdownRow } from '@/components/breakdown/breakdown';
 import { createConversations, type Conversations } from '@/components/conversations/conversations';
 import { createFilters, type PanelOption } from '@/components/filters/filters';

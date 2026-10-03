@@ -3,12 +3,12 @@ import '@/components/button.css';
 import './welcome.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
-import { normalize, type Config } from '@/utils/filters';
+import { normalize, type Config } from '@/utils/filters/filters';
 import { message } from '@/utils/i18n';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage';
+import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
 
 const notify = toaster($('#toast'));
 let config: Config = normalize({});

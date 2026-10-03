@@ -6,12 +6,11 @@
   padding: 0 4px 0 10px;
   border-left: 1px solid var(--fd-border);
   color: var(--fd-muted);
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .files {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
 }
 .files-label {
   margin-left: 0.35em;
@@ -20,19 +19,23 @@
   display: inline-flex;
   gap: 6px;
 }
-.number {
+/* The clock and the Done badge share one place, as wide as the wider; the one not shown is only hidden. */
+.time-wrap {
   display: inline-grid;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  align-items: center;
 }
-.stats .number {
-  justify-items: end;
-  font-family: var(--fd-mono);
-  font-size: 12px;
+.time-wrap > .clock,
+.time-wrap > .done {
+  grid-area: 1 / 1;
 }
-.stats[data-done] .time,
+.clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.stats[data-done] .clock,
 .stats:not([data-done]) .done {
-  display: none;
+  visibility: hidden;
 }
 .done {
   display: inline-flex;

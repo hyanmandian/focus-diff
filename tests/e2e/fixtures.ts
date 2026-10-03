@@ -11,6 +11,11 @@ const virtualizedHtml = readFileSync(path.resolve('tests/e2e/fixtures/pull-reque
 export const PULL_REQUEST = 'https://github.com/octo/web/pull/1/changes';
 /** GitHub's newer, virtualized diff view with its embedded data. */
 export const VIRTUALIZED_PULL_REQUEST = 'https://github.com/octo/web/pull/2/changes';
+/** The classic view again, with a hundred times more lines in two of its files. */
+export const LARGE_PULL_REQUEST = 'https://github.com/octo/web/pull/3/changes';
+const largeHtml = pullRequestHtml
+  .replace("['web/src/book-card.tsx', 40, 10", "['web/src/book-card.tsx', 12040, 1510")
+  .replace("['api/books/service.py', 25, 10", "['api/books/service.py', 2525, 310");
 
 export const DEFAULT_CONFIG: Config = {
   global: [
@@ -23,6 +28,8 @@ export const DEFAULT_CONFIG: Config = {
 
 /** Chrome picks its UI language, and so the extension's, from `--lang` everywhere but macOS. */
 export const CAN_SWITCH_LANGUAGE = process.platform !== 'darwin';
+
+const pageFor = (url: string) => (url.includes('/pull/2/') ? virtualizedHtml : url.includes('/pull/3/') ? largeHtml : pullRequestHtml);
 
 interface Fixtures {
   context: BrowserContext;
@@ -44,7 +51,7 @@ export const test = base.extend<Fixtures>({
       env: { ...process.env, LANGUAGE: language.replace('-', '_') },
     });
     await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+\/(changes|files)$/, (route) =>
-      route.fulfill({ contentType: 'text/html', body: route.request().url().includes('/pull/2/') ? virtualizedHtml : pullRequestHtml }),
+      route.fulfill({ contentType: 'text/html', body: pageFor(route.request().url()) }),
     );
     await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+$/, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<title>Conversation</title>' }),

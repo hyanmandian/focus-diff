@@ -34,8 +34,12 @@ export class PullRequestPage {
 
   async statsText() {
     return this.stats.evaluate((element) => {
-      // What's on screen: parts hidden by the current state, like the Done badge, are left out.
-      const hidden = [...element.querySelectorAll('*')].map((child) => getComputedStyle(child).display === 'none');
+      // What's read out: parts hidden by the current state, like the Done badge, and the scoreboards, which are only
+      // for the eye, are left out.
+      const hidden = [...element.querySelectorAll('*')].map((child) => {
+        const style = getComputedStyle(child);
+        return style.display === 'none' || style.visibility === 'hidden' || child.getAttribute('aria-hidden') === 'true';
+      });
       const copy = element.cloneNode(true) as HTMLElement;
       [...copy.querySelectorAll('*')].forEach((child, index) => hidden[index] && child.remove());
       return (copy.textContent ?? '').replace(/\s+/g, ' ').trim();

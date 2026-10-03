@@ -11,7 +11,7 @@ test.describe('newer, virtualized diff view', () => {
     await expect(pr.stats).not.toHaveAttribute('data-tip');
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);
     await pr.pick('Backend');
-    await expect.poll(() => pr.statsText()).toMatch(/^3\/8 files\+25.*−10/);
+    await expect.poll(() => pr.statsText()).toMatch(/^3\/8 files \+25.*−10/);
   });
 
   test('dims files outside the filter instead of leaving gaps', async ({ openPullRequest }) => {

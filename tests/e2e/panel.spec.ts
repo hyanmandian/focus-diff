@@ -1,4 +1,4 @@
-import { accessibilityViolations, CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, PULL_REQUEST, test } from './fixtures';
+import { accessibilityViolations, CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, LARGE_PULL_REQUEST, PULL_REQUEST, test } from './fixtures';
 import { PullRequestPage } from './pages/pull-request';
 
 test.describe('panel on a pull request', () => {
@@ -459,16 +459,47 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['All']);
   });
 
-  test('keeps the panel the same width when switching filters', async ({ openPullRequest }) => {
-    const pr = new PullRequestPage(await openPullRequest());
-    const width = async () => Math.round((await pr.panel.locator('.panel').boundingBox())?.width ?? 0);
-    const widths = [await width()];
-    for (const name of ['Frontend', 'Docs', 'Backend', 'All']) {
-      await pr.pick(name);
-      await expect(pr.pressed).toHaveText([name]);
-      widths.push(await width());
-    }
-    expect(new Set(widths).size, `widths changed: ${widths.join(', ')}`).toBe(1);
+  for (const [size, url] of [
+    ['small', PULL_REQUEST],
+    ['large', LARGE_PULL_REQUEST],
+  ] as const) {
+    test(`keeps every part of the bar the same width when switching filters, in a ${size} pull request`, async ({ openPullRequest }) => {
+      const pr = new PullRequestPage(await openPullRequest(url));
+      // Docs' only file is viewed, so switching to it swaps the clock for the Done badge too.
+      await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
+      const widths = () =>
+        pr.panel.evaluate((host) =>
+          ['.panel', '.next-file', '.option-count', '.stats', '.files', '.lines', '.time-wrap', '.scoreboard', '.cell']
+            .flatMap((selector) => [...host.shadowRoot!.querySelectorAll(selector)])
+            .map((element) => element.getBoundingClientRect().width.toFixed(2))
+            .join(' '),
+        );
+      const first = await widths();
+      for (const name of ['Frontend', 'Docs', 'Backend', 'All']) {
+        await pr.pick(name);
+        await expect(pr.pressed).toHaveText([name]);
+        expect(await widths(), `after picking ${name}`).toBe(first);
+      }
+      await pr.pick('Docs');
+      await expect.poll(() => pr.statsText()).toMatch(/Done$/);
+      expect(await widths()).toBe(first);
+    });
+  }
+
+  test('shows the numbers on scoreboards, and reads them out as text', async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest(LARGE_PULL_REQUEST));
+    await pr.pick('Docs');
+    const cells = (name: string) =>
+      pr.panel.evaluate((host, selector) => {
+        const board = host.shadowRoot!.querySelector(selector)!;
+        return { hidden: board.getAttribute('aria-hidden'), cells: [...board.children].map((cell) => cell.textContent) };
+      }, `.scoreboard.${name}`);
+    // The cells are those of the widest number, the unused ones blank; the separators stay where they are.
+    await expect.poll(() => cells('files-count')).toEqual({ hidden: 'true', cells: ['1', '/', '8'] });
+    expect(await cells('additions')).toEqual({ hidden: 'true', cells: ['', '', '', '', '', '+', '5'] });
+    expect(await cells('time')).toEqual({ hidden: 'true', cells: ['', '0', ':', '0', '1'] });
+    await expect(pr.panel.locator('.clock svg')).toHaveAttribute('aria-hidden', 'true');
+    await expect.poll(() => pr.statsText()).toBe('1/8 files +5 lines added, −0 lines removed <1 min left to review');
   });
 
   test('survives GitHub replacing the page body', async ({ openPullRequest }) => {

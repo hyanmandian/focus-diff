@@ -26,6 +26,15 @@ export const doneIcon = () =>
     ],
     14,
   );
+/** A clock face: the time left to review. */
+export const clockIcon = () =>
+  icon(
+    [
+      ['circle', { cx: '8', cy: '8', r: '6.25' }],
+      ['path', { d: 'M8 4.75V8l2.25 1.5' }],
+    ],
+    14,
+  );
 export const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
 export const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
 /** Crosshairs: go to the one thing there is. */

@@ -98,16 +98,22 @@ test.describe('welcome page', () => {
     await expect(files.filter({ hasText: 'api/orders/migrations' })).toHaveAttribute('aria-current', 'true');
     await expect(demo.locator('.demo-file:not([data-out])')).toHaveCount(3);
 
+    /** A card has no accessibility violations once it has faded in; Escape closes it, after any tooltip the pointer left. */
+    const checkAndClose = async (card: string) => {
+      const dialog = bar.getByRole('dialog', { name: card });
+      await expect(dialog).toHaveCSS('opacity', '1');
+      expect(await accessibilityViolations(page, '#demo')).toEqual([]);
+      await page.mouse.move(0, 0);
+      await expect(demo.locator('.tip:not([hidden])')).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden();
+    };
+
     // The breakdown lists every button with its numbers, from the same totals.
     await bar.getByRole('button', { name: /^All/ }).click();
     await bar.getByRole('button', { name: 'Breakdown by filter' }).click();
-    const rows = bar.locator('.row');
-    // Once it has faded in.
-    await expect(bar.getByRole('dialog', { name: 'Breakdown by filter' })).toHaveCSS('opacity', '1');
-    await expect(rows).toHaveText([/^All.*5\/12.*\+910.*−443/, /^Frontend.*3\/3.*\+150.*−25/, /^Backend.*1\/3.*\+118.*−23/]);
-    expect(await accessibilityViolations(page, '#demo')).toEqual([]);
-    await page.keyboard.press('Escape');
-    await expect(rows.first()).toBeHidden();
+    await expect(bar.locator('.row')).toHaveText([/^All.*5\/12.*\+910.*−443/, /^Frontend.*3\/3.*\+150.*−25/, /^Backend.*1\/3.*\+118.*−23/]);
+    await checkAndClose('Breakdown by filter');
 
     // The conversations card lands on the first one, and its arrows step through the rest.
     await bar.getByRole('button', { name: /^Conversations,/ }).click();
@@ -119,10 +125,7 @@ test.describe('welcome page', () => {
     await expect(talk('api/orders/service.py')).toHaveAttribute('data-current', '');
     await expect(talk('web/src/checkout/cart.tsx')).not.toHaveAttribute('data-current');
     await expect(bar.getByRole('status')).toHaveText('Conversation 2 of 3, in api/orders/service.py.');
-    await expect(bar.getByRole('dialog', { name: 'Conversations' })).toHaveCSS('opacity', '1');
-    expect(await accessibilityViolations(page, '#demo')).toEqual([]);
-    await page.keyboard.press('Escape');
-    await expect(bar.getByRole('dialog', { name: 'Conversations' })).toBeHidden();
+    await checkAndClose('Conversations');
   });
 
   for (const [width, compact] of [

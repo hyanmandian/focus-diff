@@ -8,16 +8,17 @@
   color: var(--fd-muted);
   white-space: nowrap;
 }
-.files {
+/* Each number after its icon, all on one centre line. */
+.stat {
   display: inline-flex;
   align-items: center;
-}
-.files-label {
-  margin-left: 0.35em;
-}
-.lines {
-  display: inline-flex;
   gap: 6px;
+}
+.stats .additions {
+  --fd-cell: var(--fd-add);
+}
+.stats .deletions {
+  --fd-cell: var(--fd-del);
 }
 /* The clock and the Done badge share one place, as wide as the wider; the one not shown is only hidden. */
 .time-wrap {
@@ -27,11 +28,6 @@
 .time-wrap > .clock,
 .time-wrap > .done {
   grid-area: 1 / 1;
-}
-.clock {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
 }
 .stats[data-done] .clock,
 .stats:not([data-done]) .done {

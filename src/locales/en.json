@@ -14,6 +14,10 @@
   "panelUpdate": "New in $1",
   "panelUpdateDismiss": "Dismiss what's new",
   "panelSetUp": "Set up filters",
+  "panelFilesLeft": {
+    "1": "1 file left to review",
+    "n": "$1 files left to review"
+  },
   "panelNotLoaded": {
     "1": "1 file not loaded yet, so line counts are partial",
     "n": "$1 files not loaded yet, so line counts are partial"

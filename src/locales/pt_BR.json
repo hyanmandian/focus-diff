@@ -14,6 +14,10 @@
   "panelUpdate": "Novidades da $1",
   "panelUpdateDismiss": "Dispensar novidades",
   "panelSetUp": "Configurar filtros",
+  "panelFilesLeft": {
+    "1": "1 arquivo para revisar",
+    "n": "$1 arquivos para revisar"
+  },
   "panelNotLoaded": {
     "1": "1 arquivo ainda não carregou, então a contagem de linhas é parcial",
     "n": "$1 arquivos ainda não carregaram, então a contagem de linhas é parcial"

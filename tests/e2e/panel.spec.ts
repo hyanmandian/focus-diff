@@ -7,7 +7,7 @@ test.describe('panel on a pull request', () => {
     await expect(pr.options).toHaveText(['All', 'Frontend', 'Backend', 'Docs']);
     await expect(pr.pressed).toHaveText(['All']);
     expect(await pr.visiblePaths()).toHaveLength(8);
-    await expect.poll(() => pr.statsText()).toMatch(/8\/8 files/);
+    await expect.poll(() => pr.statsText()).toMatch(/^8 files left to review/);
     await expect(pr.filesCounter()).toHaveText('8');
   });
 
@@ -106,7 +106,7 @@ test.describe('panel on a pull request', () => {
     // Finishing the filter's last file is celebrated.
     await pr.page.emulateMedia({ reducedMotion: 'no-preference' });
     await viewedToggle('web/src/book-card.tsx').click();
-    await expect.poll(() => pr.statsText()).toMatch(/1\/8 files.*Done$/);
+    await expect.poll(() => pr.statsText()).toMatch(/^0 files left to review.*Done$/);
     await expect(pr.status).toHaveText('Every file in Frontend is reviewed.');
     await expect(pr.panel.locator('canvas')).toHaveCount(1);
     await expect(pr.panel.locator('canvas')).toHaveCount(0, { timeout: 4000 });
@@ -495,11 +495,11 @@ test.describe('panel on a pull request', () => {
         return { hidden: board.getAttribute('aria-hidden'), cells: [...board.children].map((cell) => cell.textContent) };
       }, `.scoreboard.${name}`);
     // The cells are those of the widest number, the unused ones blank; the separators stay where they are.
-    await expect.poll(() => cells('files-count')).toEqual({ hidden: 'true', cells: ['1', '/', '8'] });
+    await expect.poll(() => cells('files-count')).toEqual({ hidden: 'true', cells: ['1'] });
     expect(await cells('additions')).toEqual({ hidden: 'true', cells: ['', '', '', '', '', '+', '5'] });
     expect(await cells('time')).toEqual({ hidden: 'true', cells: ['', '0', ':', '0', '1'] });
     await expect(pr.panel.locator('.clock svg')).toHaveAttribute('aria-hidden', 'true');
-    await expect.poll(() => pr.statsText()).toBe('1/8 files +5 lines added, −0 lines removed <1 min left to review');
+    await expect.poll(() => pr.statsText()).toBe('1 file left to review +5 lines added, −0 lines removed <1 min left to review');
   });
 
   test('survives GitHub replacing the page body', async ({ openPullRequest }) => {
@@ -642,12 +642,12 @@ test.describe('panel on a pull request', () => {
     await pr.pick('Frontend');
     await expect(pr.filesCounter()).toHaveText('1/12');
     await pr.pick('All');
-    await expect.poll(() => pr.statsText()).toMatch(/12\/12 files/);
+    await expect.poll(() => pr.statsText()).toMatch(/^12 files left to review/);
     await expect(pr.stats).toHaveAttribute('data-tip', /not loaded yet/);
     // Files not loaded yet might match the filter too, so it can't be done.
     await pr.pick('Docs');
     await pr.page.locator('[data-diff-header-wrapper]', { hasText: 'docs/books.md' }).getByRole('button', { name: 'Viewed' }).click();
-    await expect.poll(() => pr.statsText()).toMatch(/^1\/12 files.*left to review$/);
+    await expect.poll(() => pr.statsText()).toMatch(/^1 file left to review.*left to review$/);
     await expect(pr.stats).toHaveAttribute('data-tip', /not loaded yet/);
   });
 
@@ -679,6 +679,6 @@ test.describe('in Brazilian Portuguese', () => {
   test('speaks the browser language', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.options.first()).toHaveText('Todos');
-    await expect.poll(() => pr.statsText()).toMatch(/8\/8 arquivos/);
+    await expect.poll(() => pr.statsText()).toMatch(/^8 arquivos para revisar/);
   });
 });

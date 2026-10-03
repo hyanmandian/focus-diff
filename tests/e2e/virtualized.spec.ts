@@ -7,11 +7,12 @@ test.describe('newer, virtualized diff view', () => {
   test('counts every file from the embedded data, not only the rendered ones', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     expect(await pr.page.locator('[role="region"]').count()).toBeLessThan(8);
-    await expect.poll(() => pr.statsText()).toMatch(/^8\/8 files/);
+    // Eight files, one of them already viewed.
+    await expect.poll(() => pr.statsText()).toMatch(/^7 files left to review/);
     await expect(pr.stats).not.toHaveAttribute('data-tip');
     await expect(pr.panel.locator('.option .option-count')).toHaveText(['8', '1', '3', '1']);
     await pr.pick('Backend');
-    await expect.poll(() => pr.statsText()).toMatch(/^3\/8 files \+25.*−10/);
+    await expect.poll(() => pr.statsText()).toMatch(/^3 files left to review \+25.*−10/);
   });
 
   test('dims files outside the filter instead of leaving gaps', async ({ openPullRequest }) => {

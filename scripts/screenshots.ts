@@ -47,8 +47,15 @@ const open = async (colorScheme: 'light' | 'dark', width: number, height: number
   const bar = page.locator('focus-diff-panel .panel');
   await bar.waitFor();
   await bar.getByRole('button', { name: /^Frontend/ }).click();
-  // The files settle, the scoreboard flips, and the page scrolls to the first file to review.
-  await page.waitForTimeout(2500);
+  // GitHub keeps loading files after the first paint: wait until the bar has read the same totals
+  // for two seconds, so every shot counts the whole pull request, then let the cells finish flipping.
+  let last = '';
+  for (let stable = 0, tries = 0; stable < 4 && tries < 60; tries += 1) {
+    await page.waitForTimeout(500);
+    const text = await bar.innerText();
+    stable = text === last ? stable + 1 : 0;
+    last = text;
+  }
   await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
   await page.waitForTimeout(500);
   return { context, page, bar };
@@ -71,9 +78,12 @@ for (const scheme of ['light', 'dark'] as const) {
 }
 
 // At twice the pixels, so the zoomed-in bar stays sharp; the page itself is kept at its CSS size.
-const { context, page, bar } = await open('dark', 1871, 1100, 2);
-const top = await titleTop(page);
-await page.screenshot({ path: `${out}/pull-request.png`, scale: 'css', clip: { x: 0, y: top, width: 1871, height: 807 } });
+// The viewport is the shot's own size, scrolled to the title, so the bar, fixed to the bottom of the
+// viewport, sits inside the frame.
+const { context, page, bar } = await open('dark', 1871, 807, 2);
+await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), await titleTop(page));
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${out}/pull-request.png`, scale: 'css' });
 const box = await bar.boundingBox();
 const zoomed = await bar.screenshot({ scale: 'device' });
 await close(context);
@@ -83,7 +93,7 @@ const framer = await chromium.launch();
 const frame = await framer.newPage({ viewport: { width: 1991, height: 951 } });
 const image = (buffer: Buffer) => `data:image/png;base64,${buffer.toString('base64')}`;
 const shot = readFileSync(`${out}/pull-request.png`);
-const ring = box ? { left: 60 + box.x - 6, top: 60 + box.y - top - 6, width: box.width + 12, height: box.height + 12 } : null;
+const ring = box ? { left: 60 + box.x - 6, top: 60 + box.y - 6, width: box.width + 12, height: box.height + 12 } : null;
 await frame.setContent(`<!doctype html><style>
   body { margin: 0; width: 1991px; height: 951px; background: linear-gradient(135deg, #2f4fa8, #6a4fc8 55%, #b05aa8); }
   .window { position: absolute; left: 60px; top: 60px; width: 1871px; height: 807px; border-radius: 14px; overflow: hidden;

@@ -15,10 +15,11 @@ import {
   type Config,
   type Filter,
   type RepoFilters,
-} from '@/utils/filters';
+} from '@/utils/filters/filters';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translate, translateDocument } from '@/utils/page';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage';
+import type { Message } from '@/utils/messages';
+import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
 
 type Field = 'name' | 'include' | 'exclude';
 type Tone = '' | 'ok' | 'warn' | 'error';
@@ -103,7 +104,7 @@ const renderFilters = (filters: Filter[]) => {
         showFilterProblems(row, filter);
         if (key === 'name') label(row, filter);
         setDirty();
-        updateTry();
+        updateTryWhileTyping();
       });
     }
     $('.remove-filter', row).addEventListener('click', () => {
@@ -164,7 +165,7 @@ const renderRepo = (entry: RepoFilters, focus: boolean) => {
     syncLabel();
     if (input.hasAttribute('aria-invalid')) check(false);
     setDirty();
-    updateTry();
+    updateTryWhileTyping();
   });
   input.addEventListener('blur', () => check(false));
   remove.addEventListener('click', () => {
@@ -200,6 +201,14 @@ const updateTry = () => {
   result.textContent = shown.length
     ? i18n.t('tryShown', [i18n.t('filterAll'), shown.join(', ')])
     : i18n.t('tryOnlyAll', [i18n.t('filterAll')]);
+};
+
+/** The result is read out as it changes, so while typing it waits for a pause instead of speaking every keystroke. */
+const TYPING_PAUSE_MS = 400;
+let typing = 0;
+const updateTryWhileTyping = () => {
+  clearTimeout(typing);
+  typing = window.setTimeout(updateTry, TYPING_PAUSE_MS);
 };
 
 const save = async () => {
@@ -248,7 +257,7 @@ $('#add-repo').addEventListener('click', () => {
   setDirty();
 });
 
-['#try-path', '#try-repo'].forEach((selector) => $(selector).addEventListener('input', updateTry));
+['#try-path', '#try-repo'].forEach((selector) => $(selector).addEventListener('input', updateTryWhileTyping));
 
 const notify = toaster($('#toast'));
 const filterCount = (value: Config) => value.global.length + value.repos.reduce((sum, entry) => sum + entry.filters.length, 0);
@@ -328,15 +337,33 @@ window.addEventListener('beforeunload', (event) => {
 translateDocument(i18n.t('optionsTitle'));
 $('#version').textContent = i18n.t('optionsVersion', [browser.runtime.getManifest().version]);
 
+/** `#repo=owner/name` comes from the panel on that repository: it's tried, and offered as a new repository. */
+const applyRepoHash = () => {
+  const repo = new URLSearchParams(location.hash.slice(1)).get('repo');
+  if (repo) {
+    $<HTMLInputElement>('#try-repo').value = repo;
+    suggestedRepo = config.repos.some((entry) => repoMatches(entry.repo, repo)) ? '' : repo;
+  }
+  syncAddRepo();
+  updateTry();
+};
+window.addEventListener('hashchange', applyRepoHash);
+
+// Opened again from a pull request: this tab comes forward, with that repository, instead of a new one opening.
+browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
+  if (message?.type !== 'show-options') return;
+  sendResponse(true);
+  if (message.repo) location.hash = `repo=${encodeURIComponent(message.repo)}`;
+  void browser.tabs.getCurrent().then((tab) => {
+    if (tab?.id === undefined) return;
+    void browser.tabs.update(tab.id, { active: true });
+    void browser.windows.update(tab.windowId, { focused: true });
+  });
+});
+
 void loadConfig().then((loaded) => {
   config = loaded;
   render();
   reveal();
-  const repo = new URLSearchParams(location.hash.slice(1)).get('repo');
-  if (repo) {
-    $<HTMLInputElement>('#try-repo').value = repo;
-    if (!config.repos.some((entry) => repoMatches(entry.repo, repo))) suggestedRepo = repo;
-  }
-  syncAddRepo();
-  updateTry();
+  applyRepoHash();
 });

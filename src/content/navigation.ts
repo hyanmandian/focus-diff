@@ -1,13 +1,14 @@
 import { i18n } from '#i18n';
 import type { Conversation } from '@/components/conversations/conversations';
 import type { Panel } from '@/components/panel/panel';
-import * as page from '@/utils/github';
+import * as page from '@/utils/github/github';
 import type { FileInfo } from '@/content/files';
+import { stepFrom } from '@/content/review';
 
 const RENDER_TIMEOUT_MS = 2000;
 const EXPAND_TIMEOUT_MS = 1500;
 
-const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
+export const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
   new Promise((resolve) => {
     const started = performance.now();
     const check = () => {
@@ -19,7 +20,7 @@ const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<
   });
 
 /** Brings a file to the top of the screen. Files GitHub hasn't rendered are opened through the file tree's link. */
-const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
+export const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
   if (file.diff?.element.isConnected) {
     page.scrollToTop(file.diff.container);
     return file.diff.element;
@@ -35,19 +36,24 @@ const goToFile = async (file: FileInfo): Promise<HTMLElement | null> => {
 export const createNavigation = (panel: Panel, schedule: () => void) => {
   /** 1-based position of the conversation the reader last jumped to, 0 before any jump. */
   let commentIndex = 0;
+  /** Bumped by every jump, so one still waiting on GitHub gives way to a newer one instead of landing late. */
+  let jump = 0;
 
   /**
    * Newer view: conversations from GitHub's data, in file order then line order, kept current with the ones open on the
-   * page: a new conversation joins them, and a reply of the reader's marks one as answered.
+   * page: a new conversation joins them, a deleted one leaves, and a reply of the reader's marks one as answered.
    */
   const knownThreads = (shown: FileInfo[]) =>
     shown.flatMap((file) => {
-      const open = file.diff ? page.openThreads(file.diff.element) : [];
-      if (!open.length) return file.threads.map((thread) => ({ file, thread }));
+      const diff = file.diff?.element;
+      const open = diff ? page.openThreads(diff) : [];
+      const openIds = new Set(open.map((thread) => thread.id));
+      const kept = diff ? file.threads.filter((thread) => openIds.has(thread.id) || !page.threadRemoved(diff, thread.line)) : file.threads;
+      if (!open.length) return kept.map((thread) => ({ file, thread }));
       const answered = new Set(open.filter((thread) => thread.state === 'answered').map((thread) => thread.id));
       const known = new Set(file.threads.map((thread) => thread.id));
       return [
-        ...file.threads.map((thread) =>
+        ...kept.map((thread) =>
           thread.state === 'waiting' && answered.has(thread.id) ? { ...thread, state: 'answered' as const } : thread,
         ),
         ...open.filter((thread) => !known.has(thread.id)),
@@ -89,17 +95,21 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
+    const mine = ++jump;
     const { thread, file } = target;
     let found: HTMLElement | null = null;
     if (thread.comment) {
       history.replaceState(history.state, '', `#r${thread.comment}`);
       dispatchEvent(new HashChangeEvent('hashchange'));
       found = await waitFor(() => openThread(thread.id), EXPAND_TIMEOUT_MS);
+      if (mine !== jump) return;
     }
     if (!found) {
       const element = await goToFile(file);
+      if (mine !== jump) return;
       const lines = [...new Set(file.threads.map(({ line }) => line))];
       found = element ? ((await waitFor(() => page.commentIndicators(element)[lines.indexOf(thread.line)] ?? null, 600)) ?? element) : null;
+      if (mine !== jump) return;
     }
     if (found) {
       page.scrollToCenter(found);
@@ -114,12 +124,14 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     const target = threads[index];
     if (!target) return;
     commentIndex = index + 1;
+    const mine = ++jump;
     const { element } = target.thread;
     const toggle = page.collapsedThreadToggle(element);
     if (toggle) {
       toggle.click();
       // GitHub loads a resolved thread's comments on demand; centre it once they're in.
       await waitFor(() => (page.threadComments(element).length ? element : null), EXPAND_TIMEOUT_MS);
+      if (mine !== jump) return;
     }
     page.scrollToCenter(element);
     page.flash(target.thread.element);
@@ -131,8 +143,7 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
     if (complete) {
       const total = knownThreads(shown).length;
       if (!total) return;
-      const index = commentIndex === 0 ? (direction > 0 ? 0 : total - 1) : (commentIndex - 1 + direction + total) % total;
-      return goToKnown(shown, index);
+      return goToKnown(shown, stepFrom(commentIndex, direction, total));
     }
     const threads = renderedThreads(shown);
     if (!threads.length) return;
@@ -159,8 +170,12 @@ export const createNavigation = (panel: Panel, schedule: () => void) => {
       if (commentIndex > list.length) commentIndex = 0;
       return { current: commentIndex, list };
     },
+    /** How many conversations a set of files has, for sizing the count. */
+    count: (list: FileInfo[], complete: boolean) => conversations(list, complete).length,
+    /** A new selection: back to before the first jump, and any jump still waiting on GitHub gives way. */
     reset: () => {
       commentIndex = 0;
+      jump++;
     },
   };
 };

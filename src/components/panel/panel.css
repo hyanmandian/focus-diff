@@ -31,21 +31,27 @@
   }
 }
 
-.panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  max-width: min(1040px, calc(100vw - 32px));
-  padding: 6px;
+/* The bar and its popovers are the same raised surface. */
+.panel,
+.popover {
   border: 1px solid var(--fd-border);
   border-radius: 12px;
   background: var(--fd-bg);
   box-shadow: var(--fd-shadow);
   color: var(--fd-fg);
+}
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  /* A page that lays the bar out itself, like the welcome page's demo, sets the room it has. */
+  max-width: var(--fd-max-width, min(1040px, calc(100vw - 32px)));
+  padding: 6px;
   font: 500 13px/20px var(--fd-font);
 }
-button {
+/* Scoped to the bar, so pages that bundle these styles, like the welcome page, keep their own buttons. */
+:where(.panel) button {
   min-height: var(--fd-target);
   padding: 0 12px;
   border: 0;
@@ -55,11 +61,19 @@ button {
   font: inherit;
   cursor: pointer;
 }
-button:hover {
+:where(.panel) button:hover {
   background: var(--fd-hover);
 }
-button:focus-visible,
-a:focus-visible {
+/* Disabled controls stay focusable so their tooltip can say why; they fade back and stop reacting. */
+:where(.panel) button[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+:where(.panel) button[aria-disabled='true']:hover {
+  background: none;
+}
+:where(.panel) button:focus-visible,
+:where(.panel) a:focus-visible {
   outline: 2px solid var(--fd-focus);
   outline-offset: 1px;
 }
@@ -97,11 +111,6 @@ a:focus-visible {
   box-sizing: border-box;
   width: max-content;
   max-width: min(560px, calc(100vw - 32px));
-  border: 1px solid var(--fd-border);
-  border-radius: 12px;
-  background: var(--fd-bg);
-  box-shadow: var(--fd-shadow);
-  color: var(--fd-fg);
   font: 400 14px/20px var(--fd-font);
   font-variant-numeric: tabular-nums;
 }
@@ -140,7 +149,7 @@ a:focus-visible {
     opacity: 0;
   }
 }
-button {
+:where(.panel) button {
   transition:
     background-color 120ms ease-out,
     color 160ms ease-out;
@@ -193,4 +202,14 @@ button {
   .popover::after {
     border-color: CanvasText;
   }
+}
+
+/* A compact bar, on very small screens like at 400% zoom, or in a page without room for a row: one row whose chips
+   scroll sideways, the numbers living on in the breakdown. A bar laid out in a page keeps to one row as well. */
+:host([data-compact]) .panel,
+:host([data-inline]) .panel {
+  flex-wrap: nowrap;
+}
+:host([data-compact]) .panel .stats {
+  display: none;
 }

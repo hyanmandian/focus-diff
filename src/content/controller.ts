@@ -2,19 +2,16 @@ import { i18n } from '#i18n';
 import type { ContentScriptContext } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Panel } from '@/components/panel/panel';
-import { isDone, type Totals } from '@/components/stats/stats';
-import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters';
-import * as page from '@/utils/github';
+import type { Totals } from '@/components/stats/stats';
+import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters/filters';
+import { formatNumber as format } from '@/utils/format/format';
+import * as page from '@/utils/github/github';
 import type { Message } from '@/utils/messages';
-import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage';
-import { collectFiles, everything, totalsFor, type FileInfo, type Files } from '@/content/files';
-import { createNavigation } from '@/content/navigation';
-
-interface Option {
-  id: string;
-  name: string;
-  matches?: Matcher;
-}
+import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage/storage';
+import { collectFiles, type FileInfo, type Files } from '@/content/files';
+import { createNavigation, goToFile, waitFor } from '@/content/navigation';
+import { createReviewView, nextFilterWithWork, review, toggled, type Option } from '@/content/review';
+import { canTransition, removeTransitionStyle, withTransition } from '@/content/transition';
 
 /** GitHub keeps rendering while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
@@ -119,6 +116,7 @@ export interface Controller {
   toggle: (id: string) => void;
   openSettings: () => void;
   comment: (step: 1 | -1) => void;
+  nextUnviewed: () => void;
   dismissUpdate: () => void;
 }
 
@@ -141,7 +139,24 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   const optionsFor = (repo: string): Option[] => [{ id: ALL, name: i18n.t('filterAll') }, ...filters(repo)];
 
-  const selectedIds = (repo: string) => (selections[repo] ?? []).filter((id) => id !== ALL);
+  let files: Files = { list: [], complete: false };
+
+  /**
+   * The reader's saved filters for a repository, less those with no files in this pull request; with none left, All.
+   * The saved choice stays as it is, so another pull request in the repository still gets the full set.
+   */
+  const selectedIds = (repo: string) => {
+    const matchers = new Map(filters(repo).map((filter) => [filter.id, filter.matches]));
+    return (selections[repo] ?? []).filter((id) => {
+      const matches = matchers.get(id);
+      return Boolean(matches) && hasFiles(matches);
+    });
+  };
+
+  /** Files GitHub hasn't loaded yet could still match any filter, so a filter's count is only final once they're in. */
+  const loading = () => !files.complete && page.reportedFileCount() > files.list.length;
+  /** Whether a filter has, or may yet have, files in this pull request. */
+  const hasFiles = (matches?: Matcher) => !matches || loading() || files.list.some((file) => matches(file.path));
 
   const choose = (ids: string[]) => {
     const repo = page.repository();
@@ -149,6 +164,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     selections = { ...selections, [repo]: ids };
     void selectionsItem.setValue(selections);
     announceNext = true;
+    chosen = true;
     schedule();
   };
 
@@ -156,15 +172,17 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   const toggle = (id: string) => {
     const repo = page.repository();
-    if (!repo || id === ALL) return select(ALL);
-    const current = selectedIds(repo);
-    choose(current.includes(id) ? current.filter((other) => other !== id) : [...current, id]);
+    if (!repo) return select(ALL);
+    choose(toggled(selectedIds(repo), id));
   };
 
   const step = (offset: number) => {
     const repo = page.repository();
     if (!repo) return;
-    const ids = optionsFor(repo).map((option) => option.id);
+    // Filters with nothing in this pull request are skipped.
+    const ids = optionsFor(repo)
+      .filter((option) => hasFiles(option.matches))
+      .map((option) => option.id);
     const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
     const next = ids[(index + offset + ids.length) % ids.length];
     if (next) select(next);
@@ -178,12 +196,35 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
 
   let pageChanged = false;
   let selectionKey = '';
-  /** The selection last seen with files left to review: finishing it is what earns the confetti. */
-  let unfinishedKey = '';
-  let files: Files = { list: [], complete: false };
   let shown: FileInfo[] = [];
   const navigation = createNavigation(panel, () => schedule());
+  const showReview = createReviewView(panel);
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
+
+  /**
+   * The next shown file left to review, after the one at the top of the screen, wrapping around. With none left in the
+   * shown filters, the next filter with files to review is picked, which takes the reader to its first one.
+   */
+  const nextUnviewed = () => {
+    const repo = page.repository();
+    if (!repo) return;
+    const left = shown.filter((file) => !file.viewed);
+    if (!left.length) {
+      const ids = selectedIds(repo);
+      const then = ids.length ? nextFilterWithWork(files.list, filters(repo), ids) : undefined;
+      if (then) choose([then.id]);
+      return;
+    }
+    const top = page.stickyBarBottom();
+    const atTop = shown.findIndex((file) => (file.diff?.container.getBoundingClientRect().bottom ?? 0) > top + 1);
+    const current = shown[atTop];
+    // The file at the top counts when it hasn't been brought all the way up yet.
+    const currentIsNext = current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
+    const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? left[0]);
+    if (!target) return;
+    void goToFile(target);
+    panel.announceText(i18n.t('panelJumpedToFile', left.length, [target.path, format(left.length)]));
+  };
 
   const apply = () => {
     pending = null;
@@ -197,25 +238,12 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       return;
     }
 
-    const options = optionsFor(repo);
-    const ids = selectedIds(repo);
-    const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
-    const filtering = selected.length > 0;
-    const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
-    const selection = filtering ? selected.map((option) => option.id) : [ALL];
-
     files = collectFiles();
     const reported = page.reportedFileCount();
-    const totals = totalsFor(files, matches, reported);
-    panel.renderOptions(
-      options.map((option) => ({
-        ...option,
-        count: option.matches ? files.list.filter((file) => option.matches?.(file.path)).length : totals.total,
-      })),
-      selection,
-    );
+    const current = review(files, optionsFor(repo), selectedIds(repo), { reported, loading: loading() });
+    const { filtering, matches, selection, totals } = current;
     const virtualized = page.isVirtualized();
-    shown = files.list.filter((file) => matches(file.path));
+    shown = current.shown;
     for (const file of files.list) if (file.diff) present(file.diff.container, matches(file.path), virtualized);
     filterTree(
       matches,
@@ -229,23 +257,14 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       selectionKey = key;
       navigation.reset();
     }
-    panel.renderConversations(navigation.position(shown, files.complete));
+    panel.renderConversations(
+      navigation.position(shown, files.complete),
+      filtering ? navigation.count(files.list, files.complete) : undefined,
+    );
     updatePageCounters(totals, filtering);
     pageChanged = filtering;
-    panel.renderStats(totals);
-    panel.renderBreakdown(
-      () => options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported) })),
-      selection,
-    );
-
-    const name = filtering ? selected.map((option) => option.name).join(' + ') : i18n.t('filterAll');
-    if (announceNext) {
-      announceNext = false;
-      panel.announce({ name, ...totals });
-    }
-    const done = isDone(totals);
-    if (done && unfinishedKey === key) panel.celebrate(name);
-    unfinishedKey = done ? '' : key;
+    showReview(current, key, { announce: announceNext });
+    announceNext = false;
   };
 
   /**
@@ -253,11 +272,34 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
    * overtakes a pending idle one, which then does nothing.
    */
   let ticket = 0;
+  /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
+  let chosen = false;
   const schedule = (when: 'frame' | 'idle' = 'frame') => {
     if (ctx.isInvalid || pending === 'frame' || pending === when) return;
     pending = when;
     const mine = ++ticket;
-    const run = () => mine === ticket && apply();
+    const run = () => {
+      if (mine !== ticket) return;
+      if (!chosen) return apply();
+      // A new selection: the files on screen move into place at the first file left to review, in one motion.
+      chosen = false;
+      let pending: FileInfo | undefined;
+      const pieces = () =>
+        files.list.flatMap((file) => (file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : []));
+      // Inside a transition the move is the animation, so the scroll itself is instant.
+      const behavior = canTransition() ? 'instant' : undefined;
+      void withTransition(() => {
+        apply();
+        // Picked again while this change was being prepared: that pick gets its own turn.
+        if (chosen) schedule();
+        const next = shown.find((file) => !file.viewed);
+        if (next?.diff?.element.isConnected) page.scrollToTop(next.diff.container, behavior);
+        else pending = next;
+      }, pieces).then(() => {
+        // A file GitHub hasn't drawn yet is opened once the motion is over.
+        if (pending) void goToFile(pending);
+      });
+    };
     if (when === 'frame') ctx.requestAnimationFrame(run);
     // Safari has no requestIdleCallback; a short timeout keeps page changes batched there.
     else if ('requestIdleCallback' in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
@@ -294,6 +336,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     if (message.command === 'next-filter') step(1);
     if (message.command === 'previous-filter') step(-1);
     if (message.command === 'show-all') select(ALL);
+    if (message.command === 'next-unviewed') nextUnviewed();
     if (message.command === 'next-comment') comment(1);
     if (message.command === 'previous-comment') comment(-1);
   };
@@ -312,9 +355,37 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const dismissUpdate = () => void updateItem.setValue(null);
 
   ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
+
+  // A file picked in GitHub's tree scrolls smoothly from where the page was, and lines up below the sticky bar instead
+  // of under it. GitHub still updates the address and the tree; a jump of its own is undone before it's painted.
+  ctx.addEventListener(
+    document,
+    'click',
+    (event) => {
+      const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('[role="tree"] a[href^="#diff-"]');
+      if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const digest = link.getAttribute('href')?.slice('#diff-'.length) ?? '';
+      const from = scrollY;
+      const bringIn = (diff: HTMLElement) => {
+        if (scrollY !== from) scrollTo({ top: from });
+        page.scrollToTop(files.list.find((file) => file.diff?.element === diff)?.diff?.container ?? diff);
+      };
+      const diff = page.diffByDigest(digest);
+      if (diff) {
+        event.preventDefault();
+        history.pushState(history.state, '', `#diff-${digest}`);
+        ctx.requestAnimationFrame(() => bringIn(diff));
+      } else {
+        // Not drawn yet: GitHub brings it in, then it's lined up.
+        void waitFor(() => page.diffByDigest(digest)).then((found) => found && page.scrollToTop(found));
+      }
+    },
+    { capture: true },
+  );
   ctx.addEventListener(document, 'change', () => schedule(), { capture: true });
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
+    removeTransitionStyle();
     if (pageChanged) restorePage();
     if (!browser.runtime?.id) return;
     browser.runtime.onMessage.removeListener(onMessage);
@@ -323,6 +394,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     unwatchUpdate();
   });
 
-  schedule();
-  return { toggle, openSettings, comment, dismissUpdate };
+  // The first pass runs straight away, not on the next frame, so a pull request opened in a background tab is already
+  // filtered when the reader gets to it.
+  apply();
+  return { toggle, openSettings, comment, nextUnviewed, dismissUpdate };
 };

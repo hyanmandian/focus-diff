@@ -9,10 +9,15 @@
   "panelShowFiles": "Show files",
   "panelLinesAdded": "lines added,",
   "panelLinesRemoved": "lines removed",
+  "panelFilterEmpty": "No files in this pull request match $1",
   "panelSettings": "Focus Diff settings",
   "panelUpdate": "New in $1",
   "panelUpdateDismiss": "Dismiss what's new",
   "panelSetUp": "Set up filters",
+  "panelFilesLeft": {
+    "1": "1 file left to review",
+    "n": "$1 files left to review"
+  },
   "panelNotLoaded": {
     "1": "1 file not loaded yet, so line counts are partial",
     "n": "$1 files not loaded yet, so line counts are partial"
@@ -78,21 +83,23 @@
   "statusSaveError": "Couldn't save: $1",
   "importEmpty": "That text has no filters in it. Ask your teammate to copy their filters again.",
   "importInvalid": "That text isn't a copied set of filters. Paste exactly what $1 produced.",
-  "panelFilesLabel": "files",
   "welcomeTitle": "Welcome to Focus Diff",
   "welcomeLead": "Big pull requests mix the code you need to read with tests, generated files and things other people own. Focus Diff adds a bar to GitHub that shows only the files you pick, with the real count of what is left to review.",
   "howHeading": "How it works",
-  "howStep1Title": "Create filters",
-  "howStep1Body": "Each filter becomes a button. A file shows up when its path matches the filter's Include pattern and doesn't match its Exclude pattern.",
-  "howStep2Title": "Open a pull request",
-  "howStep2Body": "On the Files changed tab, the bar shows up in the bottom-right corner, with All plus your filters.",
-  "howStep3Title": "Pick a filter",
-  "howStep3Body": "Only the matching files stay. The file tree, Files changed and the +/− totals update to match. All brings everything back.",
-  "previewLabel": "Example of the bar on a pull request",
+  "howStep1Title": "Pick a filter",
+  "howStep1Body": "Each filter you set up is a button in the bar on a pull request's Files changed tab. Only the files whose path it matches stay; pick another to add its files.",
+  "howStep2Title": "See what's left",
+  "howStep2Body": "The numbers are the files left to review, the lines they change and the time they take. Mark a file as viewed and they count down, until Done.",
+  "howStep3Title": "Go file by file",
+  "howStep3Body": "The first button takes you to the next file left to review, then on to the next filter that has some. The conversations button steps through the review comments.",
+  "demoHint": "Try it below: it's the real bar, on a sample pull request.",
+  "demoLabel": "Sample pull request",
+  "demoViewed": "Viewed",
+  "demoOutside": "Not in $1",
   "recipesHeading": "Start from an example",
   "recipesHint": "Add the ones that fit how you review. They're regular filters, so you can rename or tweak them later in settings.",
   "recipeAdd": "Add",
-  "recipeAdded": "Added",
+  "recipeRemove": "Remove",
   "recipeAddLabel": "Add $1",
   "recipeRemoveLabel": "Remove $1",
   "recipeAddedNotice": "Added $1. Open a pull request to try it.",
@@ -125,7 +132,7 @@
   "recipeDocsName": "Docs",
   "welcomeNextHeading": "Next",
   "welcomeOpenSettings": "Open settings",
-  "welcomeShortcuts": "Switch filters without the mouse: $1 next, $2 previous, $3 all files.",
+  "welcomeShortcuts": "Without the mouse: $1 next filter, $2 previous, $3 all files, $4 next file to review.",
   "optionsVersion": "Focus Diff $1, open source under the MIT license",
   "projectLinks": "Focus Diff project",
   "linkSource": "Source code",
@@ -170,10 +177,23 @@
   "panelGoToComment": "Go to the conversation",
   "panelNextComment": "Next conversation",
   "panelNoComments": "No conversations in these files yet",
-  "panelCommentPosition": "Conversation $1 of $2",
   "panelCommentCount": {
     "1": "1 conversation",
     "n": "$1 conversations"
+  },
+  "commandNextUnviewed": "Go to the next file to review",
+  "panelNextFile": {
+    "1": "Next file to review, 1 left",
+    "n": "Next file to review, $1 left"
+  },
+  "panelNextFilter": {
+    "1": "Go to $1, 1 file to review",
+    "n": "Go to $1, $2 files to review"
+  },
+  "panelAllReviewed": "Every file here is viewed",
+  "panelJumpedToFile": {
+    "1": "$1, the last file to review.",
+    "n": "$1. $2 files left to review."
   },
   "commandNextComment": "Go to the next conversation",
   "commandPreviousComment": "Go to the previous conversation",

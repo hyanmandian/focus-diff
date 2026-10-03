@@ -31,3 +31,8 @@
 .update-dismiss {
   min-width: 28px;
 }
+@media (pointer: coarse) {
+  .update-dismiss {
+    min-width: 44px;
+  }
+}

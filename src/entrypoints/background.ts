@@ -1,19 +1,22 @@
 import { defineBackground } from '#imports';
 import { browser } from 'wxt/browser';
 import type { Command, Message } from '@/utils/messages';
-import { updateItem } from '@/utils/storage';
+import { updateItem } from '@/utils/storage/storage';
 
 /** Patch releases only fix things, so only a new minor or major version is worth telling the reader about. */
 const isNotable = (previous: string, current: string) =>
   previous.split('.').slice(0, 2).join('.') !== current.split('.').slice(0, 2).join('.');
 
-/** Reuses an open settings tab instead of piling up copies that could overwrite each other. */
+/**
+ * Reuses an open settings tab instead of piling up copies that could overwrite each other. Finding the tab by its URL
+ * would need the tabs permission, so the open page is asked to come forward instead.
+ */
 const openOptions = async (repo?: string | null) => {
+  const message: Message = { type: 'show-options', repo };
+  const shown = await browser.runtime.sendMessage(message).catch(() => false);
+  if (shown === true) return;
   const url = browser.runtime.getURL(`/options.html${repo ? `#repo=${encodeURIComponent(repo)}` : ''}`);
-  const [open] = await browser.tabs.query({ url: browser.runtime.getURL('/options.html*') });
-  if (!open?.id) return browser.tabs.create({ url });
-  await browser.windows.update(open.windowId, { focused: true });
-  return browser.tabs.update(open.id, { active: true, ...(repo && { url }) });
+  await browser.tabs.create({ url });
 };
 
 const openWelcome = () => browser.tabs.create({ url: browser.runtime.getURL('/welcome.html') });

@@ -2,11 +2,11 @@ import './breakdown.css';
 import { i18n } from '#i18n';
 import { breakdownIcon, checkIcon, infoIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatDuration, formatNumber as format } from '@/utils/format';
-import { LINES_PER_HOUR } from '@/utils/review-time';
+import { formatDuration, formatNumber as format } from '@/utils/format/format';
+import { LINES_PER_HOUR } from '@/utils/review-time/review-time';
 import type { PanelOption } from '@/components/filters/filters';
 import type { PanelContext } from '@/components/panel/panel';
-import { centreOver, pointAt, returnFocus } from '@/components/popover';
+import { centreOver, returnFocus } from '@/components/popover';
 import type { Totals } from '@/components/stats/stats';
 
 /** One filter's share of the pull request. */
@@ -35,25 +35,17 @@ const diffstat = (additions: number, deletions: number) => {
 /** How the pull request splits across the filters: files viewed, lines and time left for each. Rows toggle filters. */
 export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onOpen, fallback }: BreakdownActions) => {
   const rows = h('div', { className: 'rows' });
-  const timeInfo = h('div', {
-    className: 'tooltip',
-    id: 'focus-diff-time-info',
-    role: 'tooltip',
-    hidden: true,
-    textContent: i18n.t('timeHint', [format(LINES_PER_HOUR)]),
-  });
   const popover = h(
     'div',
     { className: 'breakdown popover', id: 'focus-diff-breakdown', role: 'dialog', hidden: true, 'aria-label': i18n.t('panelBreakdown') },
     rows,
-    timeInfo,
   );
   const toggle = h(
     'button',
     {
       type: 'button',
       className: 'icon-button breakdown-toggle',
-      title: i18n.t('panelBreakdown'),
+      'data-tip': i18n.t('panelBreakdown'),
       'aria-label': i18n.t('panelBreakdown'),
       'aria-expanded': 'false',
       'aria-controls': 'focus-diff-breakdown',
@@ -61,34 +53,21 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     breakdownIcon(),
   );
 
-  // Closing waits a moment so the pointer can move onto the tooltip and keep it open.
-  let timeInfoClosing = 0;
-  const closeTimeInfo = () => {
-    timeInfoClosing = window.setTimeout(() => (timeInfo.hidden = true), 120);
-  };
-  const keepTimeInfo = () => clearTimeout(timeInfoClosing);
-  timeInfo.addEventListener('mouseenter', keepTimeInfo);
-  timeInfo.addEventListener('mouseleave', closeTimeInfo);
-
-  /** The (i) beside "Time left": explains the estimate on hover or focus. */
+  /** The (i) beside "Time left": its tooltip explains the estimate, and is read out as its description. */
   const timeInfoButton = () => {
-    const button = h(
+    const hint = i18n.t('timeHint', [format(LINES_PER_HOUR)]);
+    return h(
       'button',
-      { type: 'button', className: 'info', 'aria-label': i18n.t('panelTimeInfo'), 'aria-describedby': 'focus-diff-time-info' },
+      {
+        type: 'button',
+        className: 'info',
+        'aria-label': i18n.t('panelTimeInfo'),
+        'aria-description': hint,
+        'data-tip': hint,
+        'data-tip-instant': '',
+      },
       infoIcon(),
     );
-    // Sits above the icon, its arrow pointing down at it, like the breakdown does over its button.
-    const open = () => {
-      const box = button.getBoundingClientRect();
-      timeInfo.style.bottom = `${Math.round(popover.getBoundingClientRect().bottom - box.top + 10)}px`;
-      timeInfo.hidden = false;
-      pointAt(timeInfo, button);
-    };
-    button.addEventListener('mouseenter', () => (keepTimeInfo(), open()));
-    button.addEventListener('focus', () => (keepTimeInfo(), open()));
-    button.addEventListener('mouseleave', closeTimeInfo);
-    button.addEventListener('blur', closeTimeInfo);
-    return button;
   };
 
   const columns = () =>
@@ -106,6 +85,8 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     // A complete row already reads as done through its green Viewed count, so its time stays empty.
     const time = data.minutesLeft === 0 ? '' : formatDuration(data.minutesLeft);
     const complete = data.visible > 0 && data.viewed === data.visible;
+    // Files still loading might match, so an empty row only turns off once they're in.
+    const disabled = data.visible === 0 && data.pending === 0 && !selected;
     return h(
       'button',
       {
@@ -113,6 +94,11 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
         className: 'row',
         'data-row': data.id,
         'aria-pressed': String(selected),
+        'aria-disabled': String(disabled),
+        ...(disabled && {
+          'data-tip': i18n.t('panelFilterEmpty', [data.name]),
+          'aria-description': i18n.t('panelFilterEmpty', [data.name]),
+        }),
         'aria-label': i18n.t('panelBreakdownRow', [
           data.name,
           i18n.t('fileCount', data.visible, [format(data.visible)]),
@@ -121,7 +107,7 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
           format(data.deletions),
           data.minutesLeft === 0 ? i18n.t('timeDone') : i18n.t('timeLeft', [time]),
         ]),
-        onClick: () => onToggle(data.id),
+        onClick: () => disabled || onToggle(data.id),
       },
       h('span', { className: 'row-check' }, selected ? checkIcon() : null),
       h('span', { className: 'row-name', textContent: data.name }),
@@ -147,17 +133,17 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     if (key === drawnKey) return;
     drawnKey = key;
     const keepFocus = focused()?.dataset.row;
+    const onInfo = focused()?.classList.contains('info');
     rows.replaceChildren(columns(), ...list.map((data) => row(data, selected.includes(data.id))));
+    // Redrawn controls take focus back, so it doesn't fall to the page.
     if (keepFocus) rows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
+    else if (onInfo) rows.querySelector<HTMLElement>('.info')?.focus();
   };
 
   const reposition = () => centreOver(popover, toggle, host);
 
   const setOpen = (open: boolean) => {
-    if (!open) {
-      returnFocus(popover, toggle, fallback, focused());
-      timeInfo.hidden = true;
-    }
+    if (!open) returnFocus(popover, toggle, fallback, focused());
     popover.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
     if (open) {
@@ -166,7 +152,8 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
       reposition();
     } else drawnKey = '';
   };
-  toggle.addEventListener('click', () => setOpen(popover.hidden));
+  const isOpen = () => !popover.hidden;
+  toggle.addEventListener('click', () => setOpen(!isOpen()));
 
   /** Rows are only computed while it's open. */
   const render = (list: () => BreakdownRow[], selected: string[]) => {
@@ -174,13 +161,5 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     draw();
   };
 
-  /** Escape closes the tooltip first, then the breakdown; returns whether there was something to close. */
-  const dismiss = () => {
-    if (!timeInfo.hidden) timeInfo.hidden = true;
-    else if (!popover.hidden) setOpen(false);
-    else return false;
-    return true;
-  };
-
-  return { toggle, popover, render, setOpen, dismiss, reposition, isOpen: () => !popover.hidden };
+  return { toggle, popover, render, setOpen, reposition, isOpen };
 };

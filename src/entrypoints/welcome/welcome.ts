@@ -3,12 +3,14 @@ import '@/components/button.css';
 import './welcome.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
-import { normalize, type Config } from '@/utils/filters';
+import { normalize, type Config } from '@/utils/filters/filters';
 import { message } from '@/utils/i18n';
+import { createDemo } from '@/components/demo/demo';
+import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage';
+import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
 
 const notify = toaster($('#toast'));
 let config: Config = normalize({});
@@ -31,7 +33,8 @@ const toggle = async (recipe: Recipe) => {
     return;
   }
   config = next;
-  render();
+  const item = document.querySelector<HTMLElement>(`[data-recipe="${recipe.id}"]`);
+  if (item) showState(item, recipe);
   notify(adding ? i18n.t('recipeAddedNotice', [names(recipe)]) : i18n.t('recipeRemovedNotice', [names(recipe)]));
 };
 
@@ -67,14 +70,22 @@ const renderRecipe = (recipe: Recipe) => {
     group.append(name, patterns);
     list.append(group);
   }
-  const button = $<HTMLButtonElement>('.recipe-toggle', item);
-  const added = isAdded(recipe);
-  button.textContent = added ? i18n.t('recipeAdded') : i18n.t('recipeAdd');
-  button.setAttribute('aria-pressed', String(added));
-  button.setAttribute('aria-label', added ? i18n.t('recipeRemoveLabel', [names(recipe)]) : i18n.t('recipeAddLabel', [names(recipe)]));
-  button.addEventListener('click', () => void toggle(recipe));
+  $<HTMLButtonElement>('.recipe-toggle', item).addEventListener('click', () => void toggle(recipe));
+  showState(item, recipe);
   return item;
 };
+
+/**
+ * The button names what it does, Add or Remove, and its full name starts with those words. It's updated in place, so
+ * focus stays on it and it isn't read out again.
+ */
+function showState(item: HTMLElement, recipe: Recipe) {
+  const added = isAdded(recipe);
+  const button = $<HTMLButtonElement>('.recipe-toggle', item);
+  button.textContent = added ? i18n.t('recipeRemove') : i18n.t('recipeAdd');
+  button.setAttribute('aria-label', added ? i18n.t('recipeRemoveLabel', [names(recipe)]) : i18n.t('recipeAddLabel', [names(recipe)]));
+  item.toggleAttribute('data-added', added);
+}
 
 const render = () => {
   const focusedId = (document.activeElement?.closest('.recipe') as HTMLElement | null)?.dataset.recipe;
@@ -86,6 +97,7 @@ const DEFAULT_SHORTCUTS: Record<string, string> = {
   'next-filter': 'Alt+Shift+.',
   'previous-filter': 'Alt+Shift+,',
   'show-all': 'Alt+Shift+0',
+  'next-unviewed': 'Alt+Shift+J',
 };
 
 const renderShortcuts = async () => {
@@ -94,7 +106,7 @@ const renderShortcuts = async () => {
     ([name, fallback]) => commands.find((command) => command.name === name)?.shortcut || fallback,
   );
   const marker = '@@@';
-  const parts = i18n.t('welcomeShortcuts', [marker, marker, marker]).split(marker);
+  const parts = i18n.t('welcomeShortcuts', [marker, marker, marker, marker]).split(marker);
   const paragraph = $('#shortcuts');
   paragraph.replaceChildren();
   parts.forEach((part, index) => {
@@ -114,6 +126,7 @@ configItem.watch((value) => {
 });
 
 translateDocument(i18n.t('welcomeTitle'));
+createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html') });
 void Promise.all([loadConfig(), renderShortcuts()]).then(([loaded]) => {
   config = loaded;
   render();

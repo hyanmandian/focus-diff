@@ -10,28 +10,32 @@
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
+    "build:demo": "vite build -c vite.demo.config.ts",
     "build:firefox": "wxt build -b firefox",
     "build:safari": "wxt build -b safari",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "zip:safari": "wxt zip -b safari",
+    "screenshots": "wxt build && node scripts/screenshots.ts",
     "compile": "tsc --noEmit",
     "lint": "oxlint",
     "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",
     "fmt": "oxfmt",
-    "check": "tsc --noEmit && oxlint && oxfmt --check",
+    "check": "tsc --noEmit && oxlint && oxfmt --check && jscpd",
     "test": "vitest run",
-    "e2e": "wxt build && playwright test",
-    "postinstall": "wxt prepare"
+    "e2e": "wxt build && npm run build:demo && playwright test",
+    "postinstall": "wxt prepare",
+    "duplicates": "jscpd"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@wxt-dev/i18n": "^0.2.7",
     "happy-dom": "^20.14.5",
+    "jscpd": "^5.4.0",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vite": "^8.3.2",
     "vitest": "^5.0.3",
     "web-ext": "^10.7.0",
@@ -39,5 +43,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }

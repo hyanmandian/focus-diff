@@ -1,11 +1,10 @@
 import './stats.css';
 import { i18n } from '#i18n';
-import { doneIcon } from '@/components/icons';
+import { clockIcon, diffIcon, doneIcon, fileIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatDuration, formatNumber as format } from '@/utils/format';
-import { LINES_PER_HOUR } from '@/utils/review-time';
-import { counter } from './counter';
-import type { PanelContext } from '@/components/panel/panel';
+import { formatClock, formatDuration, formatNumber as format } from '@/utils/format/format';
+import { LINES_PER_HOUR } from '@/utils/review-time/review-time';
+import { createScoreboard } from '@/components/scoreboard/scoreboard';
 
 export interface Totals {
   visible: number;
@@ -23,78 +22,62 @@ export interface Totals {
 /** Every shown file is marked as viewed, and they're all loaded. */
 export const isDone = (totals: Totals): boolean => totals.visible > 0 && totals.minutesLeft === 0 && totals.pending === 0;
 
-/** Shown files out of all, lines added and removed, and the time left to review them. */
-export const createStats = ({ host, signal }: PanelContext) => {
-  const visibleFiles = counter('visible', format);
-  const totalFiles = counter('total', format);
-  const additions = counter('additions', (n) => `+${format(n)}`);
-  const deletions = counter('deletions', (n) => `−${format(n)}`);
-  const time = counter('time', (seconds) => (seconds === 0 ? '–' : formatDuration(seconds / 60)));
+/** The files left to review, the lines they change, and the time they take, each after its icon. */
+export const createStats = () => {
+  // The numbers are on scoreboards, for the eye; the text beside each is what screen readers hear.
+  const files = createScoreboard('files-count');
+  const additions = createScoreboard('additions');
+  const deletions = createScoreboard('deletions');
+  const time = createScoreboard('time');
+  const readOut = () => h('span', { className: 'visually-hidden' });
+  const filesText = readOut();
+  const additionsText = readOut();
+  const deletionsText = readOut();
+  const timeWords = readOut();
   const done = h('span', { className: 'done' }, doneIcon(), i18n.t('timeDone'));
   const timeLabel = h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelTimeLabel')}` });
-  const pending = h('span', { className: 'pending', 'aria-hidden': 'true' });
-  const pendingText = h('span', { className: 'visually-hidden' });
+  const pendingText = readOut();
+  const filesGroup = h('span', { className: 'stat files' }, fileIcon(), files.element, filesText);
   const element = h(
     'span',
     { className: 'stats' },
+    filesGroup,
+    h('span', { className: 'stat lines' }, diffIcon(), additions.element, additionsText, deletions.element, deletionsText, pendingText),
+    // The clock and the Done badge take turns in one place, as wide as the wider of them.
     h(
       'span',
-      { className: 'files' },
-      visibleFiles.element,
-      h('span', { className: 'number', textContent: '/' }),
-      totalFiles.element,
-      h('span', { className: 'files-label', textContent: ` ${i18n.t('panelFilesLabel')}` }),
-      pending,
-      pendingText,
+      { className: 'time-wrap', 'data-tip': i18n.t('timeHint', [format(LINES_PER_HOUR)]) },
+      h('span', { className: 'stat clock' }, clockIcon(), time.element),
+      timeWords,
+      timeLabel,
+      done,
     ),
-    h(
-      'span',
-      { className: 'lines' },
-      additions.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesAdded')}` }),
-      deletions.element,
-      h('span', { className: 'visually-hidden', textContent: ` ${i18n.t('panelLinesRemoved')}` }),
-    ),
-    h('span', { className: 'time-wrap', title: i18n.t('timeHint', [format(LINES_PER_HOUR)]) }, time.element, timeLabel, done),
   );
 
   /**
-   * The panel sits in the corner, so a narrower block would slide the filter chips under the pointer. Shorter numbers
-   * leave room at its end instead; the room is kept per pull request.
+   * `all` is the same with every file shown: the most each number can be in this pull request, so its cells, which
+   * never change with the shown files.
    */
-  let reservedWidth = 0;
-  let reservedFor = -1;
-  const reserveWidth = () => {
-    // WXT injects the stylesheet asynchronously; before it lands, hidden labels are inline and inflate the width.
-    if (host.style.display === 'none' || getComputedStyle(pendingText).position !== 'absolute') return;
-    const width = Math.ceil(element.getBoundingClientRect().width);
-    if (width <= reservedWidth) return;
-    reservedWidth = width;
-    element.style.minWidth = `${width}px`;
-  };
-  const resizeObserver = new ResizeObserver(reserveWidth);
-  resizeObserver.observe(element);
-  signal.addEventListener('abort', () => resizeObserver.disconnect());
-
-  const render = (totals: Totals) => {
-    // Another pull request starts from its own numbers.
-    if (totals.total !== reservedFor) {
-      reservedFor = totals.total;
-      reservedWidth = 0;
-      element.style.minWidth = '';
-    }
-    visibleFiles.set(totals.visible);
-    totalFiles.set(totals.total);
-    additions.set(totals.additions);
-    deletions.set(totals.deletions);
-    time.set(Math.round(totals.minutesLeft * 60));
+  const render = (totals: Totals, all: Totals = totals) => {
+    const left = totals.visible - totals.viewed;
+    files.set(format(left), format(all.total));
+    filesText.textContent = filesGroup.dataset.tip = i18n.t('panelFilesLeft', left, [format(left)]);
+    const added = `+${format(totals.additions)}`;
+    const removed = `−${format(totals.deletions)}`;
+    additions.set(added, `+${format(all.additions)}`);
+    deletions.set(removed, `−${format(all.deletions)}`);
+    additionsText.textContent = ` ${added} ${i18n.t('panelLinesAdded')}`;
+    deletionsText.textContent = ` ${removed} ${i18n.t('panelLinesRemoved')}`;
+    time.set(totals.minutesLeft === 0 ? '–' : formatClock(totals.minutesLeft), formatClock(all.minutes));
     // Every shown file is marked as viewed: the time left gives way to a badge.
     element.toggleAttribute('data-done', isDone(totals));
+    timeWords.textContent = totals.minutesLeft === 0 ? '' : ` ${formatDuration(totals.minutesLeft)}`;
     timeLabel.textContent = totals.minutesLeft === 0 ? '' : ` ${i18n.t('panelTimeLabel')}`;
-    pending.classList.toggle('active', totals.pending > 0);
-    pending.title = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
-    element.title = pending.title;
-    pendingText.textContent = pending.title ? ` ${pending.title}` : '';
+    // Files not loaded yet are told in the numbers' tooltip, and read out with them.
+    const notLoaded = totals.pending > 0 ? i18n.t('panelNotLoaded', totals.pending, [format(totals.pending)]) : '';
+    if (notLoaded) element.dataset.tip = notLoaded;
+    else delete element.dataset.tip;
+    pendingText.textContent = notLoaded ? ` ${notLoaded}` : '';
   };
 
   return { element, render, done };

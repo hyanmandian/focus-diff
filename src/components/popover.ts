@@ -1,7 +1,7 @@
 const EDGE = 18;
 
 /** Points a popover's arrow at the centre of the button that opened it, kept clear of the rounded corners. */
-export const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
+const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
   if (popover.hidden || !trigger.offsetWidth) return;
   const box = popover.getBoundingClientRect();
   const target = trigger.getBoundingClientRect();
@@ -28,7 +28,8 @@ export const centreOver = (popover: HTMLElement, trigger: HTMLElement, offsetPar
   // A popover wider than the panel is only kept on screen.
   const [min, max] = end - start >= width ? [start, end - width] : [SCREEN_MARGIN, screen - SCREEN_MARGIN - width];
   const left = Math.min(Math.max(ideal, min), max);
-  popover.style.left = `${Math.round(left - parent.left)}px`;
+  // Unrounded, so a popover held against the panel's edge lines up with it exactly.
+  popover.style.left = `${left - parent.left}px`;
   popover.style.right = 'auto';
   pointAt(popover, trigger);
 };

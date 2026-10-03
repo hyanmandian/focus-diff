@@ -3,11 +3,13 @@ import { i18n } from '#i18n';
 import { confetti } from '@/components/confetti';
 import { settingsIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
-import { formatDuration, formatNumber as format } from '@/utils/format';
+import { formatDuration, formatNumber as format } from '@/utils/format/format';
 import { createBreakdown, type BreakdownRow } from '@/components/breakdown/breakdown';
 import { createConversations, type Conversations } from '@/components/conversations/conversations';
 import { createFilters, type PanelOption } from '@/components/filters/filters';
+import { createNextFile, type NextFile } from '@/components/next-file/next-file';
 import { createStats, type Totals } from '@/components/stats/stats';
+import { createTooltip } from '@/components/tooltip/tooltip';
 import { createUpdateNotice } from '@/components/update-notice/update-notice';
 
 /** What every part of the panel shares: where it's mounted, when it's torn down, and what has focus inside it. */
@@ -21,20 +23,26 @@ export interface PanelActions {
   onToggle: (id: string) => void;
   onSettings: () => void;
   onComment: (step: 1 | -1) => void;
+  onNextFile: () => void;
   /** The reader opened or dismissed the update notice. */
   onUpdateSeen: () => void;
 }
 
 export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
-  renderStats: (totals: Totals) => void;
-  renderConversations: (conversations: Conversations) => void;
+  /** `all` is the totals with every file shown, the most the numbers can be. */
+  renderStats: (totals: Totals, all?: Totals) => void;
+  /** `most` is the pull request's conversations in all. */
+  renderConversations: (conversations: Conversations, most?: number) => void;
+  renderNextFile: (next: NextFile) => void;
   /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
   announce: (summary: Totals & { name: string }) => void;
   /** Reads out a short message, like where a jump landed. */
   announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
+  /** One row whose chips scroll, without the numbers. A floating bar goes compact on very small screens by itself. */
+  setCompact: (compact: boolean) => void;
   /** Throws confetti from the Done badge and says the named filter is reviewed. */
   celebrate: (name: string) => void;
   /** Points to the notes of a release the reader hasn't seen, or hides the notice with `null`. */
@@ -46,6 +54,8 @@ interface PanelMount {
   container: HTMLElement;
   host: HTMLElement;
   signal: AbortSignal;
+  /** Floating over the page, which then keeps room for it at the bottom; a bar laid out in a page doesn't. */
+  floating?: boolean;
 }
 
 /**
@@ -53,19 +63,19 @@ interface PanelMount {
  * part lives in its own module; this one lays them out and settles what they share, like which popover is open.
  */
 export const createPanel = (
-  { root, container, host, signal }: PanelMount,
-  { onToggle, onSettings, onComment, onUpdateSeen }: PanelActions,
+  { root, container, host, signal, floating = true }: PanelMount,
+  { onToggle, onSettings, onComment, onNextFile, onUpdateSeen }: PanelActions,
 ): Panel => {
   const context: PanelContext = { host, signal, focused: () => root.activeElement as HTMLElement | null };
 
   const settings = h('button', {
     type: 'button',
     className: 'settings icon-button',
-    title: i18n.t('panelSettings'),
     onClick: () => onSettings(),
   });
+  const nextFile = createNextFile(onNextFile);
   const filters = createFilters(context, onToggle);
-  const stats = createStats(context);
+  const stats = createStats();
   const breakdown = createBreakdown(context, { onToggle, onOpen: () => conversations.setOpen(false), fallback: settings });
   const conversations = createConversations(context, { onStep: onComment, onOpen: () => breakdown.setOpen(false), fallback: settings });
   const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
@@ -75,6 +85,7 @@ export const createPanel = (
     h(
       'div',
       { className: 'panel' },
+      nextFile.element,
       filters.element,
       stats.element,
       breakdown.toggle,
@@ -85,21 +96,43 @@ export const createPanel = (
       status,
     ),
   );
+  const tooltip = createTooltip(context, container);
+
+  /**
+   * Keyboard focus on GitHub's page scrolls clear of the bar: the page gets bottom scroll padding as tall as the bar
+   * while it shows. Only set when it changes, since it touches GitHub's root element.
+   */
+  let padding = '';
+  const panelElement = container.querySelector<HTMLElement>('.panel');
+  const reserveScrollRoom = () => {
+    if (!floating) return;
+    const next = host.style.display === 'none' || !panelElement ? '' : `${panelElement.offsetHeight + 32}px`;
+    if (next === padding) return;
+    padding = next;
+    if (next) document.documentElement.style.setProperty('scroll-padding-bottom', next);
+    else document.documentElement.style.removeProperty('scroll-padding-bottom');
+  };
+  signal.addEventListener('abort', () => document.documentElement.style.removeProperty('scroll-padding-bottom'));
 
   const resizeObserver = new ResizeObserver(() => {
+    reserveScrollRoom();
     filters.moveIndicator();
     breakdown.reposition();
     conversations.reposition();
   });
   for (const element of [filters.element, breakdown.popover, conversations.popover]) resizeObserver.observe(element);
+  if (panelElement) resizeObserver.observe(panelElement);
   signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || breakdown.dismiss()) return;
+      if (event.key !== 'Escape') return;
+      // One thing at a time: the tooltip, then the breakdown, then the conversations.
+      if (tooltip.isVisible()) tooltip.hide();
+      else if (breakdown.isOpen()) breakdown.setOpen(false);
       // Escape elsewhere on the page belongs to GitHub, like cancelling a reply.
-      if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
+      else if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
     },
     { signal },
   );
@@ -120,9 +153,11 @@ export const createPanel = (
     if (configured) {
       settings.replaceChildren(settingsIcon());
       settings.setAttribute('aria-label', i18n.t('panelSettings'));
+      settings.dataset.tip = i18n.t('panelSettings');
     } else {
       settings.textContent = i18n.t('panelSetUp');
       settings.removeAttribute('aria-label');
+      delete settings.dataset.tip;
       breakdown.setOpen(false);
     }
   };
@@ -130,18 +165,32 @@ export const createPanel = (
   const announce = ({ name, visible, total, additions, deletions, pending, minutes }: Totals & { name: string }) => {
     const parts = [
       i18n.t('panelAnnounce', [name, format(visible), format(total), format(additions), format(deletions)]),
-      i18n.t('panelAnnounceTime', [formatDuration(minutes)]),
+      // The estimate's ~ would be read out as "tilde"; the sentence already says "about".
+      i18n.t('panelAnnounceTime', [formatDuration(minutes).replace(/^~/, '')]),
     ];
     if (pending > 0) parts.push(i18n.t('panelAnnouncePartial', pending, [format(pending)]));
     status.textContent = parts.join(' ');
   };
 
+  const setCompact = (compact: boolean) => {
+    if (host.hasAttribute('data-compact') === compact) return;
+    host.toggleAttribute('data-compact', compact);
+    requestAnimationFrame(filters.moveIndicator);
+  };
+  if (floating) {
+    const narrow = matchMedia('(max-width: 480px), (max-height: 420px)');
+    setCompact(narrow.matches);
+    narrow.addEventListener('change', () => setCompact(narrow.matches), { signal });
+  } else host.setAttribute('data-inline', '');
+
   const setVisible = (visible: boolean) => {
     const display = visible ? '' : 'none';
     if (host.style.display === display) return;
     host.style.display = display;
+    reserveScrollRoom();
     if (visible) requestAnimationFrame(filters.moveIndicator);
     else {
+      tooltip.hide();
       breakdown.setOpen(false);
       conversations.setOpen(false);
     }
@@ -151,11 +200,19 @@ export const createPanel = (
   return {
     renderOptions,
     renderStats: stats.render,
-    renderConversations: conversations.render,
+    renderNextFile: (next) => {
+      nextFile.render(next);
+      tooltip.refresh();
+    },
+    renderConversations: (list, most) => {
+      conversations.render(list, most);
+      tooltip.refresh();
+    },
     renderBreakdown: breakdown.render,
     announce,
     announceText: (text) => (status.textContent = text),
     setVisible,
+    setCompact,
     showUpdate: update.show,
     celebrate: (name) => {
       const box = stats.done.getBoundingClientRect();

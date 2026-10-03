@@ -4,8 +4,8 @@ import { WxtVitest } from 'wxt/testing/vitest-plugin';
 export default defineConfig({
   plugins: [WxtVitest()],
   test: {
-    include: ['tests/unit/**/*.test.ts'],
-    setupFiles: ['tests/unit/setup.ts'],
+    include: ['src/**/*.test.ts'],
+    setupFiles: ['vitest.setup.ts'],
     restoreMocks: true,
   },
 });

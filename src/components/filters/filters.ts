@@ -1,7 +1,7 @@
 import './filters.css';
 import { i18n } from '#i18n';
 import { h } from '@/utils/dom';
-import { formatNumber as format } from '@/utils/format';
+import { formatNumber as format } from '@/utils/format/format';
 import type { PanelContext } from '@/components/panel/panel';
 
 export interface PanelOption {
@@ -9,6 +9,8 @@ export interface PanelOption {
   name: string;
   /** Files this option shows. */
   count?: number;
+  /** Files GitHub hasn't loaded yet might add to the count, so none isn't final. */
+  loading?: boolean;
 }
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
@@ -19,7 +21,7 @@ const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, Arrow
  */
 export const createFilters = ({ focused }: PanelContext, onToggle: (id: string) => void) => {
   const indicator = h('span', { className: 'indicator', 'aria-hidden': 'true' });
-  const element = h('div', { className: 'filters', role: 'group', 'aria-label': i18n.t('panelShowFiles') }, indicator);
+  const element = h('div', { className: 'filters', role: 'toolbar', 'aria-label': i18n.t('panelShowFiles') }, indicator);
   const options = () => [...element.querySelectorAll<HTMLButtonElement>('.option')];
 
   const moveIndicator = () => {
@@ -59,7 +61,14 @@ export const createFilters = ({ focused }: PanelContext, onToggle: (id: string) 
         ...list.map(({ id, name }) =>
           h(
             'button',
-            { type: 'button', className: 'option', 'data-id': id, onClick: () => onToggle(id) },
+            {
+              type: 'button',
+              className: 'option',
+              'data-id': id,
+              onClick: (event: MouseEvent) => {
+                if ((event.currentTarget as HTMLElement).getAttribute('aria-disabled') !== 'true') onToggle(id);
+              },
+            },
             h('span', { className: 'option-name', textContent: name }),
             h('span', { className: 'option-count', 'aria-hidden': 'true' }),
             h('span', { className: 'visually-hidden option-count-label' }),
@@ -71,7 +80,8 @@ export const createFilters = ({ focused }: PanelContext, onToggle: (id: string) 
 
     const current = focused()?.classList.contains('option') ? focused() : null;
     for (const option of options()) {
-      const count = list.find((item) => item.id === option.dataset.id)?.count;
+      const item = list.find(({ id }) => id === option.dataset.id);
+      const count = item?.count;
       const countElement = option.querySelector('.option-count');
       const countLabel = option.querySelector('.option-count-label');
       if (countElement && countLabel && count !== undefined) {
@@ -82,6 +92,18 @@ export const createFilters = ({ focused }: PanelContext, onToggle: (id: string) 
       }
       const pressed = selected.includes(option.dataset.id ?? '');
       if (option.getAttribute('aria-pressed') !== String(pressed)) option.setAttribute('aria-pressed', String(pressed));
+      // A filter with nothing to show can't be picked, and says why; one already on can still be turned off.
+      const disabled = count === 0 && !pressed && !item?.loading;
+      option.setAttribute('aria-disabled', String(disabled));
+      // The reason shows as a tooltip and is read out as the chip's description.
+      const reason = disabled && item ? i18n.t('panelFilterEmpty', [item.name]) : '';
+      if (reason) {
+        option.dataset.tip = reason;
+        option.setAttribute('aria-description', reason);
+      } else {
+        delete option.dataset.tip;
+        option.removeAttribute('aria-description');
+      }
       option.tabIndex = (current ? option === current : option.dataset.id === selected[0]) ? 0 : -1;
     }
     // Measuring the chips forces a layout, so it only happens when the selection changes; a ResizeObserver covers the rest.

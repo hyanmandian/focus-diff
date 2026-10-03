@@ -16,40 +16,12 @@
 .info:focus-visible {
   color: var(--fd-fg);
 }
-.tooltip {
-  position: absolute;
-  right: 12px;
-  z-index: 1;
-  box-sizing: border-box;
-  width: max-content;
-  max-width: min(280px, calc(100% - 24px));
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--fd-fg);
-  color: var(--fd-bg);
-  box-shadow: var(--fd-shadow);
-  font: 400 12px/18px var(--fd-font);
-}
-.tooltip[hidden] {
-  display: none;
-}
-.tooltip::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: var(--fd-arrow-x, calc(100% - 24px));
-  width: 10px;
-  height: 10px;
-  translate: -50% 0;
-  rotate: 45deg;
-  border-bottom-right-radius: 2px;
-  background: inherit;
-}
 .rows {
   display: grid;
   grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);
   column-gap: 16px;
-  max-height: min(52vh, 420px);
+  /* Fits above the bar however short the window, with the column headings: 180px is the bar, gaps and headings. */
+  max-height: min(52vh, 420px, calc(100vh - 180px));
   padding: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -143,7 +115,25 @@
   .row[aria-pressed='true'] {
     outline: 2px solid Highlight;
   }
+  /* Focus has to stand out from the pressed outline. */
+  .row:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
   .diffstat span {
     border: 1px solid CanvasText;
+  }
+}
+.row[aria-disabled='true']:hover::before,
+.row[aria-disabled='true']:hover + .row::before {
+  border-color: var(--fd-border-muted);
+}
+@media (pointer: coarse) {
+  .info {
+    width: 44px;
+    min-height: 44px;
+  }
+  .row {
+    min-height: 44px;
   }
 }

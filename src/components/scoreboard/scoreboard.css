@@ -1,0 +1,36 @@
+/* `--fd-cell` is the board's colour; the stats set it per number. */
+.scoreboard {
+  display: inline-flex;
+  gap: 2px;
+  perspective: 120px;
+  color: var(--fd-cell, var(--fd-muted));
+}
+.cell {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 1.5ch;
+  height: 18px;
+  border-radius: 3px;
+  /* A blank cell only gives the board its shape. */
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  font: 700 12px/1 var(--fd-mono);
+}
+/* A filled cell is the board's colour with its character in the panel's: both GitHub themes keep 4.5:1 either way. */
+.cell:not(:empty) {
+  background: var(--fd-cell, var(--fd-muted));
+  color: var(--fd-bg);
+}
+.cell.separator {
+  width: 0.75ch;
+  background: none;
+  color: inherit;
+}
+@media (forced-colors: active) {
+  .cell {
+    border: 1px solid CanvasText;
+  }
+  .cell.separator {
+    border: 0;
+  }
+}

@@ -1,25 +1,16 @@
-import type { Totals } from '@/components/stats/stats';
-import type { Matcher } from '@/utils/filters';
-import * as page from '@/utils/github';
-import { reviewMinutes } from '@/utils/review-time';
+import * as page from '@/utils/github/github';
+import type { FileList, ReviewFile } from '@/content/review';
 
-export interface FileInfo {
-  path: string;
+export interface FileInfo extends ReviewFile {
   /** Used for `#diff-<digest>` anchors; empty when unknown. */
   digest: string;
-  stats: page.FileStats | null;
-  viewed: boolean;
   /** The rendered diff, when GitHub has it in the page. */
   diff: { element: HTMLElement; container: HTMLElement } | null;
   /** Review threads, known up front only in the newer diff view. */
   threads: page.ThreadSummary[];
 }
 
-export interface Files {
-  list: FileInfo[];
-  /** True when the list covers every changed file, not only the rendered ones. */
-  complete: boolean;
-}
+export type Files = FileList<FileInfo>;
 
 const viewedByPath = new Map<string, boolean>();
 let viewedPathname = '';
@@ -62,30 +53,4 @@ export const collectFiles = (): Files => {
     threads: [],
   }));
   return { list, complete: false };
-};
-
-export const everything: Matcher = () => true;
-
-export const totalsFor = ({ list, complete }: Files, matches: Matcher, reported: number): Totals => {
-  const total = complete ? list.length : Math.max(list.length, reported);
-  const totals = { visible: 0, total, additions: 0, deletions: 0, pending: 0, minutes: 0, viewed: 0, minutesLeft: 0 };
-  for (const file of list) {
-    if (!matches(file.path)) continue;
-    totals.visible++;
-    if (!file.stats) totals.pending++;
-    totals.additions += file.stats?.additions ?? 0;
-    totals.deletions += file.stats?.deletions ?? 0;
-    const minutes = reviewMinutes(file.path, file.stats);
-    totals.minutes += minutes;
-    if (file.viewed) totals.viewed++;
-    else totals.minutesLeft += minutes;
-  }
-  if (matches === everything && !complete) {
-    const unrendered = total - list.length;
-    totals.pending += unrendered;
-    totals.visible = total;
-    totals.minutes += unrendered * reviewMinutes('', null);
-    totals.minutesLeft += unrendered * reviewMinutes('', null);
-  }
-  return totals;
 };

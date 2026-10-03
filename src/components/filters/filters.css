@@ -27,6 +27,7 @@
 .option.empty:not([aria-pressed='true']) {
   color: var(--fd-muted);
 }
+
 .option[aria-pressed='true'],
 .option[aria-pressed='true']:hover {
   background: transparent;
@@ -37,6 +38,26 @@
 }
 .filters.combined .option[aria-pressed='true'] {
   background: var(--fd-selected-bg);
+}
+/* Neighbours that are both on read as one pill: the corners between them go square, the gap fills in, and a hairline
+   divides them. Each keeps its own width. */
+.filters.combined .option[aria-pressed='true']:has(+ .option[aria-pressed='true']) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  box-shadow: 2px 0 0 var(--fd-selected-bg);
+}
+.filters.combined .option[aria-pressed='true'] + .option[aria-pressed='true'] {
+  position: relative;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+.filters.combined .option[aria-pressed='true'] + .option[aria-pressed='true']::before {
+  content: '';
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: -1.5px;
+  width: 1px;
+  background: color-mix(in srgb, var(--fd-selected-fg) 45%, transparent);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -53,10 +74,29 @@
   .indicator {
     background: Highlight;
   }
-  .option[aria-pressed='true'] {
+  .option[aria-pressed='true'],
+  .option[aria-pressed='true'] .option-count {
     color: HighlightText;
+  }
+  .option[aria-pressed='true'] .option-count {
+    background: transparent;
+    outline: 1px solid HighlightText;
   }
   .filters.combined .option[aria-pressed='true'] {
     background: Highlight;
   }
+}
+/* In a compact bar, see panel.css. */
+:host([data-compact]) .filters {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+/* The sliding highlight can't follow a scrolled row, so pressed chips fill in instead. */
+:host([data-compact]) .indicator {
+  display: none;
+}
+:host([data-compact]) .filters .option[aria-pressed='true'] {
+  background: var(--fd-selected-bg);
 }

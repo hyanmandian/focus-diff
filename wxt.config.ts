@@ -11,11 +11,12 @@ export default defineConfig({
     homepage_url: 'https://github.com/hyanmandian/focus-diff',
     permissions: ['storage'],
     action: { default_title: '__MSG_actionTitle__' },
-    minimum_chrome_version: '102',
+    minimum_chrome_version: '111',
     commands: {
       'next-filter': { suggested_key: { default: 'Alt+Shift+Period' }, description: '__MSG_commandNext__' },
       'previous-filter': { suggested_key: { default: 'Alt+Shift+Comma' }, description: '__MSG_commandPrevious__' },
       'show-all': { suggested_key: { default: 'Alt+Shift+0' }, description: '__MSG_commandAll__' },
+      'next-unviewed': { suggested_key: { default: 'Alt+Shift+J' }, description: '__MSG_commandNextUnviewed__' },
       'next-comment': { description: '__MSG_commandNextComment__' },
       'previous-comment': { description: '__MSG_commandPreviousComment__' },
     },

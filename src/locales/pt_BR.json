@@ -9,10 +9,15 @@
   "panelShowFiles": "Mostrar arquivos",
   "panelLinesAdded": "linhas adicionadas,",
   "panelLinesRemoved": "linhas removidas",
+  "panelFilterEmpty": "Nenhum arquivo deste pull request entra em $1",
   "panelSettings": "Configurações do Focus Diff",
   "panelUpdate": "Novidades da $1",
   "panelUpdateDismiss": "Dispensar novidades",
   "panelSetUp": "Configurar filtros",
+  "panelFilesLeft": {
+    "1": "1 arquivo para revisar",
+    "n": "$1 arquivos para revisar"
+  },
   "panelNotLoaded": {
     "1": "1 arquivo ainda não carregou, então a contagem de linhas é parcial",
     "n": "$1 arquivos ainda não carregaram, então a contagem de linhas é parcial"
@@ -78,21 +83,23 @@
   "statusSaveError": "Não foi possível salvar: $1",
   "importEmpty": "Esse texto não tem filtros. Peça para a pessoa copiar os filtros de novo.",
   "importInvalid": "Esse texto não é um conjunto de filtros copiado. Cole exatamente o que $1 gerou.",
-  "panelFilesLabel": "arquivos",
   "welcomeTitle": "Boas-vindas ao Focus Diff",
   "welcomeLead": "Pull requests grandes misturam o código que você precisa ler com testes, arquivos gerados e coisas que são de outros times. O Focus Diff adiciona uma barra no GitHub que mostra só os arquivos que você escolher, com a contagem real do que falta revisar.",
   "howHeading": "Como funciona",
-  "howStep1Title": "Crie filtros",
-  "howStep1Body": "Cada filtro vira um botão. Um arquivo aparece quando o caminho dele combina com o padrão Incluir do filtro e não combina com o padrão Excluir.",
-  "howStep2Title": "Abra um pull request",
-  "howStep2Body": "Na aba Files changed, a barra aparece no canto inferior direito, com Todos e os seus filtros.",
-  "howStep3Title": "Escolha um filtro",
-  "howStep3Body": "Só os arquivos que combinam ficam. A árvore de arquivos, o Files changed e o total de +/− mudam junto. Todos traz tudo de volta.",
-  "previewLabel": "Exemplo da barra em um pull request",
+  "howStep1Title": "Escolha um filtro",
+  "howStep1Body": "Cada filtro que você cria vira um botão na barra da aba Files changed de um pull request. Só ficam os arquivos cujo caminho combina com ele; escolha outro para somar os arquivos dele.",
+  "howStep2Title": "Veja o que falta",
+  "howStep2Body": "Os números são os arquivos que faltam revisar, as linhas que eles mudam e o tempo que levam. Marque um arquivo como visualizado e eles diminuem, até ficar Pronto.",
+  "howStep3Title": "Vá arquivo por arquivo",
+  "howStep3Body": "O primeiro botão leva ao próximo arquivo para revisar e, depois, ao próximo filtro que ainda tem algum. O botão de conversas passa pelos comentários da revisão.",
+  "demoHint": "Experimente abaixo: é a barra de verdade, em um pull request de exemplo.",
+  "demoLabel": "Pull request de exemplo",
+  "demoViewed": "Visualizado",
+  "demoOutside": "Fora de $1",
   "recipesHeading": "Comece com um exemplo",
   "recipesHint": "Adicione os que combinam com o seu jeito de revisar. São filtros comuns, então dá para renomear ou ajustar depois nas configurações.",
   "recipeAdd": "Adicionar",
-  "recipeAdded": "Adicionado",
+  "recipeRemove": "Remover",
   "recipeAddLabel": "Adicionar $1",
   "recipeRemoveLabel": "Remover $1",
   "recipeAddedNotice": "$1 adicionado. Abra um pull request para testar.",
@@ -125,7 +132,7 @@
   "recipeDocsName": "Docs",
   "welcomeNextHeading": "Próximos passos",
   "welcomeOpenSettings": "Abrir configurações",
-  "welcomeShortcuts": "Troque de filtro sem o mouse: $1 próximo, $2 anterior, $3 todos os arquivos.",
+  "welcomeShortcuts": "Sem o mouse: $1 próximo filtro, $2 anterior, $3 todos os arquivos, $4 próximo arquivo para revisar.",
   "optionsVersion": "Focus Diff $1, código aberto sob a licença MIT",
   "projectLinks": "Projeto Focus Diff",
   "linkSource": "Código-fonte",
@@ -170,10 +177,23 @@
   "panelGoToComment": "Ir para a conversa",
   "panelNextComment": "Próxima conversa",
   "panelNoComments": "Nenhuma conversa nestes arquivos ainda",
-  "panelCommentPosition": "Conversa $1 de $2",
   "panelCommentCount": {
     "1": "1 conversa",
     "n": "$1 conversas"
+  },
+  "commandNextUnviewed": "Ir para o próximo arquivo para revisar",
+  "panelNextFile": {
+    "1": "Próximo arquivo para revisar, falta 1",
+    "n": "Próximo arquivo para revisar, faltam $1"
+  },
+  "panelNextFilter": {
+    "1": "Ir para $1, 1 arquivo para revisar",
+    "n": "Ir para $1, $2 arquivos para revisar"
+  },
+  "panelAllReviewed": "Todos os arquivos aqui já foram vistos",
+  "panelJumpedToFile": {
+    "1": "$1, o último arquivo para revisar.",
+    "n": "$1. Faltam $2 arquivos para revisar."
   },
   "commandNextComment": "Ir para a próxima conversa",
   "commandPreviousComment": "Ir para a conversa anterior",

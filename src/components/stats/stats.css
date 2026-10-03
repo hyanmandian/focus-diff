@@ -6,45 +6,32 @@
   padding: 0 4px 0 10px;
   border-left: 1px solid var(--fd-border);
   color: var(--fd-muted);
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.files {
+/* Each number after its icon, all on one centre line. */
+.stat {
   display: inline-flex;
-  align-items: baseline;
-}
-.files-label {
-  margin-left: 0.35em;
-}
-.files .pending {
-  align-self: center;
-  margin-left: 6px;
-}
-.lines {
-  display: inline-flex;
+  align-items: center;
   gap: 6px;
 }
-.number {
+.stats .additions {
+  --fd-cell: var(--fd-add);
+}
+.stats .deletions {
+  --fd-cell: var(--fd-del);
+}
+/* The clock and the Done badge share one place, as wide as the wider; the one not shown is only hidden. */
+.time-wrap {
   display: inline-grid;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  align-items: center;
 }
-.visible {
-  justify-items: end;
+.time-wrap > .clock,
+.time-wrap > .done {
+  grid-area: 1 / 1;
 }
-.pending {
-  display: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fd-attention);
-}
-.pending.active {
-  display: block;
-}
-.stats[data-done] .time,
+.stats[data-done] .clock,
 .stats:not([data-done]) .done {
-  display: none;
+  visibility: hidden;
 }
 .done {
   display: inline-flex;
@@ -53,7 +40,9 @@
   height: 22px;
   padding: 0 9px 0 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--fd-add) 12%, transparent);
+  /* Light enough for GitHub's green text to keep 4.5:1 on it. */
+  background: color-mix(in srgb, var(--fd-add) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fd-add) 35%, transparent);
   color: var(--fd-add);
   font-weight: 600;
 }

@@ -28,4 +28,5 @@ export const createWebI18n = (language: string) => {
   return { t };
 };
 
+/** @public Stands in for `#i18n` in the demo's build for web pages (vite.demo.config.ts). */
 export const i18n = createWebI18n(typeof navigator === 'undefined' ? 'en' : navigator.language);

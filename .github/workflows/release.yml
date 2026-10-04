@@ -1,60 +1,159 @@
+# Every merge to main updates a release pull request with the next version and its changelog, worked out from the
+# conventional pull request titles. Merging that pull request tags the release and creates it as a draft; then:
+#
+#   1. `build` checks, tests and zips the tagged commit, with read-only access.
+#   2. `release-assets` signs the zips' build provenance, attaches them and the provenance to the draft, and
+#      publishes the release, so the site's "latest release" download links only ever see a complete one.
+#   3. `publish-stores` sends the zips to the Chrome Web Store and Firefox Add-ons. It runs in the `stores`
+#      environment, which holds the store credentials and waits for a maintainer to approve it.
+#
+# One-time setup, in the repository's settings (not done by CI):
+#   - Environments → New environment → `stores`: add yourself as a required reviewer, and add the store secrets
+#     there (CHROME_EXTENSION_ID, CHROME_PUBLISHER_ID, CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL,
+#     CHROME_SERVICE_ACCOUNT_PRIVATE_KEY, FIREFOX_JWT_ISSUER, FIREFOX_JWT_SECRET), not as repository secrets.
+#   - Releases can be made immutable (Settings → General → Releases): assets go on while the release is a draft.
+
 name: Release
 
-# Every merge to main updates a release pull request with the next version and its changelog, worked out from the
-# conventional pull request titles. Merging that pull request tags the release, attaches the builds and publishes them.
 on:
   push:
     branches: [main]
 
+concurrency:
+  group: release
+
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   release-please:
+    name: Release Please
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       created: ${{ steps.release.outputs.release_created }}
       tag: ${{ steps.release.outputs.tag_name }}
     steps:
-      - id: release
-        uses: googleapis/release-please-action@v4
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish:
+  build:
+    name: Check, test and zip the release
     needs: release-please
-    if: needs.release-please.outputs.created == 'true'
+    if: ${{ needs.release-please.outputs.created == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm test
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-      - run: npm run lint:firefox
-      - run: npm run zip && npm run zip:firefox && npm run zip:safari
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Typecheck, lint, format, duplication, dependencies, lockfile and unused code
+        run: npm run check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Install the browser for the end-to-end tests
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Lint the Firefox build as Firefox Add-ons does
+        run: npm run lint:firefox
 
       # Fixed names, so the site can link to the latest release's files: one build for every Chromium browser
-      # (Chrome, Edge, Brave, Arc, Opera), one for Firefox and the browsers built on it, one for Safari.
-      - name: Attach the builds to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # (Chrome, Edge, Brave, Arc, Opera), one for Firefox and the browsers built on it, one for Safari, and the
+      # sources Firefox Add-ons reviews.
+      - name: Zip the builds
         run: |
+          npm run zip && npm run zip:firefox && npm run zip:safari
           mkdir release
           cp .output/*-chrome.zip release/focus-diff-chromium.zip
           cp .output/*-firefox.zip release/focus-diff-firefox.zip
           cp .output/*-safari.zip release/focus-diff-safari.zip
           cp .output/*-sources.zip release/focus-diff-sources.zip
-          gh release upload "${{ needs.release-please.outputs.tag }}" release/*.zip --clobber
 
-      - name: Publish to the stores
+      - name: Upload the zips
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release
+          path: release/*.zip
+          if-no-files-found: error
+
+  release-assets:
+    name: Sign, attach and publish the release
+    needs: [release-please, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag }}
+    steps:
+      - name: Download the zips
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+
+      - name: Attest the build provenance of the zips
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/*.zip
+
+      # `gh attestation verify <zip> --repo hyanmandian/focus-diff` checks a zip against the Sigstore bundle; the
+      # .intoto.jsonl file holds the same signed SLSA provenance as a DSSE envelope, the form OpenSSF Scorecard
+      # (Signed-Releases) looks for.
+      - name: Attach the zips and their provenance, then publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          head -n 1 "$BUNDLE" | jq . > release/focus-diff.sigstore.json
+          jq -c .dsseEnvelope "$BUNDLE" > release/focus-diff.intoto.jsonl
+          gh release upload "$TAG" release/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+
+  publish-stores:
+    name: Publish to the stores
+    needs: [release-please, release-assets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: stores
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Download the zips
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+
+      - name: Submit
         env:
           CHROME_API_VERSION: v2
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
@@ -66,7 +165,7 @@ jobs:
           FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
         run: |
           args=()
-          if [ -n "$CHROME_EXTENSION_ID" ]; then args+=(--chrome-zip .output/*-chrome.zip); fi
-          if [ -n "$FIREFOX_JWT_ISSUER" ]; then args+=(--firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip); fi
+          if [ -n "$CHROME_EXTENSION_ID" ]; then args+=(--chrome-zip release/focus-diff-chromium.zip); fi
+          if [ -n "$FIREFOX_JWT_ISSUER" ]; then args+=(--firefox-zip release/focus-diff-firefox.zip --firefox-sources-zip release/focus-diff-sources.zip); fi
           if [ ${#args[@]} -eq 0 ]; then echo "No store secrets set, skipping."; exit 0; fi
           npx wxt submit "${args[@]}"

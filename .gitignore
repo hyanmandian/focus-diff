@@ -4,6 +4,7 @@ web-ext.config.ts
 node_modules
 playwright-report
 test-results
+coverage
 .DS_Store
 .claude/
 skills-lock.json

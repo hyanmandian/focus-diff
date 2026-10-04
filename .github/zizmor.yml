@@ -1,0 +1,7 @@
+# zizmor prefers `uses: $/.github/actions/setup` (self-repository) over the workspace-relative `./.github/actions/setup`,
+# but actionlint and OpenSSF Scorecard don't know the `$/` form: Scorecard reads it as an unpinned third-party action.
+rules:
+  self-repository:
+    ignore:
+      - ci.yml
+      - release.yml

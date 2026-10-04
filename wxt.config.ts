@@ -32,7 +32,7 @@ export default defineConfig({
             gecko_android: { strict_min_version: '142.0' },
           },
         }
-      : { author: { email: 'contact@hyan.com.br' } }),
+      : { author: { email: 'focus-diff@hyan.com.br' } }),
   }),
   zip: {
     artifactTemplate: '{{name}}-{{version}}-{{browser}}.zip',

@@ -7,4 +7,4 @@ Focus Diff does not collect, send, sell, or share any data.
 - **Permissions:** `storage`, to keep your filters. No other permission is requested.
 - **Third parties:** none. The extension makes no network requests.
 
-Questions: email contact@hyan.com.br or open an issue at https://github.com/hyanmandian/focus-diff/issues.
+Questions: email focus-diff@hyan.com.br or open an issue at https://github.com/hyanmandian/focus-diff/issues.

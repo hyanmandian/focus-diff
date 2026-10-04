@@ -59,7 +59,7 @@ test.describe('settings page', () => {
       host.evaluate((element) => getComputedStyle(element).getPropertyValue('--fd-accent').trim());
     const page = await openExtensionPage('options.html');
     await expect(page.locator('#tagline')).toHaveText(/Works on GitHub\.$/);
-    await expect(page.locator('#theme option')).toHaveText(['Match the site', 'GitHub']);
+    await expect(page.locator('#theme option')).toHaveText(['Match the provider', 'GitHub']);
     const preview = page.locator('#preview .demo-bar');
     await expect(preview.locator('.panel')).toBeVisible();
     const themed = await accent(preview);
@@ -70,7 +70,7 @@ test.describe('settings page', () => {
     await expect(page.locator('#theme option:checked')).toHaveText('My theme 1');
     await page.getByLabel('Theme name').fill('Pink');
     await expect(page.locator('#theme option:checked')).toHaveText('Pink');
-    // An empty colour shows what the site's theme gives it.
+    // An empty colour shows what the provider's theme gives it.
     const accentField = page.getByRole('textbox', { name: 'Accent', exact: true });
     await expect(accentField).toHaveAttribute('placeholder', themed);
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -91,7 +91,7 @@ test.describe('settings page', () => {
     await expect(page.locator('#status')).toHaveText("Check the theme's name and colours before saving.");
     await expect(textField).toBeFocused();
     await expect(textField).toHaveAttribute('aria-invalid', 'true');
-    await page.getByRole('button', { name: "Use the site's Text" }).click();
+    await page.getByRole('button', { name: "Use the provider's Text" }).click();
 
     await page.locator('#save').click();
     await expect(page.locator('#status')).toContainText('Saved.');
@@ -101,7 +101,7 @@ test.describe('settings page', () => {
     await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).toBe('#bf3989');
 
     await page.bringToFront();
-    await page.locator('#theme').selectOption({ label: 'Match the site' });
+    await page.locator('#theme').selectOption({ label: 'Match the provider' });
     await page.locator('#save').click();
     await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).not.toBe('#bf3989');
   });
@@ -119,7 +119,7 @@ test.describe('settings page', () => {
     expect(JSON.parse(copied)).toEqual({ name: 'Pink', colors: { accent: '#bf3989' } });
 
     await page.getByRole('button', { name: 'Delete theme' }).click();
-    await expect(page.locator('#theme option')).toHaveText(['Match the site', 'GitHub']);
+    await expect(page.locator('#theme option')).toHaveText(['Match the provider', 'GitHub']);
     await page.getByLabel("Import a teammate's theme").fill('not a theme');
     await page.getByRole('button', { name: 'Import theme' }).click();
     await expect(page.locator('#theme-json-error')).toContainText("isn't a copied theme");

@@ -205,14 +205,13 @@
   "lookHeading": "Aparência da barra",
   "lookHint": "Como a barra aparece nos pull requests. A prévia muda enquanto você edita; os pull requests mudam quando você salva.",
   "themeLabel": "Tema",
-  "themeSite": "Igual ao site",
   "previewHeading": "Prévia",
   "themeNew": "Novo tema",
   "themeNameLabel": "Nome do tema",
   "colorsLegend": "Cores",
-  "colorsHint": "Escolha uma cor ou digite o código hex, como #bf3989. Uma cor deixada em branco segue o tema do site, claro ou escuro.",
+  "colorsHint": "Escolha uma cor ou digite o código hex, como #bf3989. Uma cor deixada em branco segue o tema do provedor, claro ou escuro.",
   "colorReset": "Voltar",
-  "colorResetLabel": "Usar $1 do site",
+  "colorResetLabel": "Usar $1 do provedor",
   "colorPick": "Escolher $1",
   "themeCopy": "Copiar tema",
   "themeDelete": "Excluir tema",
@@ -246,5 +245,6 @@
   "colorAccent": "Destaque",
   "colorAdd": "Linhas adicionadas",
   "colorDel": "Linhas removidas",
-  "colorAttention": "Esperando você"
+  "colorAttention": "Esperando você",
+  "themeProvider": "Igual ao provedor"
 }

@@ -9,7 +9,7 @@ import {
   importThemes,
   normalizeAppearance,
   shareTheme,
-  SITE_THEME,
+  PROVIDER_THEME,
   THEME_COLORS,
   type Appearance,
   type CustomTheme,
@@ -70,7 +70,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   const list = $('#colors');
   const current = () => appearance.themes.find((theme) => theme.id === appearance.theme);
 
-  /** The colours as the preview shows them, so a colour left to the site's theme still shows what it is. */
+  /** The colours as the preview shows them, so a colour left to the provider's theme still shows what it is. */
   const showDefaults = () => {
     const host = $('#preview').shadowRoot?.querySelector<HTMLElement>('.demo-bar');
     if (!host) return;
@@ -84,7 +84,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     }
   };
 
-  // The site's colours change with the system's light or dark mode, and so do the ones shown for empty fields.
+  // The provider's colours change with the system's light or dark mode, and so do the ones shown for empty fields.
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => requestAnimationFrame(showDefaults));
 
   /** The theme being edited, with its valid colours: what the preview shows while the reader types. */
@@ -164,7 +164,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
 
   const renderSelect = () => {
     select.replaceChildren(
-      new Option(i18n.t('themeSite'), SITE_THEME),
+      new Option(i18n.t('themeProvider'), PROVIDER_THEME),
       ...PROVIDERS.map((provider) => new Option(provider.name, provider.id)),
       ...appearance.themes.map((theme) => new Option(theme.name.trim() || i18n.t('untitledTheme'), theme.id)),
     );
@@ -194,7 +194,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     sync();
   });
 
-  /** A new theme starts as the site's: every colour left to it, until one is picked. */
+  /** A new theme starts as the provider's: every colour left to it, until one is picked. */
   $('#theme-new').addEventListener('click', () => {
     const theme: CustomTheme = { id: newId(), name: i18n.t('newThemeName', [String(appearance.themes.length + 1)]), colors: {} };
     appearance = { theme: theme.id, themes: [...appearance.themes, theme] };
@@ -207,7 +207,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   $('#theme-delete').addEventListener('click', () => {
     const theme = current();
     if (!theme) return;
-    appearance = { theme: SITE_THEME, themes: appearance.themes.filter((each) => each !== theme) };
+    appearance = { theme: PROVIDER_THEME, themes: appearance.themes.filter((each) => each !== theme) };
     render();
     onChange();
     notify(i18n.t('themeDeleted', [theme.name.trim() || i18n.t('untitledTheme')]));

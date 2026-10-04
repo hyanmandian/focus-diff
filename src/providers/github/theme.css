@@ -1,26 +1,26 @@
 /*
- * The bar in GitHub's colours: each --fd-site-* reads Primer's token, or the older name before it. Where neither is on
+ * The bar in GitHub's colours: each --fd-provider-* reads Primer's token, or the older name before it. Where neither is on
  * the page, the property is left unset and the bar keeps its default (see components/theme.css).
  */
 :host {
-  --fd-site-bg: var(--overlay-bgColor, var(--color-canvas-overlay));
-  --fd-site-fg: var(--fgColor-default, var(--color-fg-default));
-  --fd-site-muted: var(--fgColor-muted, var(--color-fg-muted));
-  --fd-site-border: var(--borderColor-default, var(--color-border-default));
-  --fd-site-border-muted: var(--borderColor-muted, var(--color-border-muted));
-  --fd-site-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg));
-  --fd-site-focus: var(--focus-outlineColor, var(--color-accent-fg));
-  --fd-site-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
-  --fd-site-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis));
-  --fd-site-track: var(--bgColor-neutral-muted, var(--color-neutral-muted));
-  --fd-site-accent: var(--fgColor-accent, var(--color-accent-fg));
-  --fd-site-add: var(--fgColor-success, var(--color-success-fg));
-  --fd-site-del: var(--fgColor-danger, var(--color-danger-fg));
-  --fd-site-attention: var(--fgColor-attention, var(--color-attention-fg));
-  --fd-site-done: var(--fgColor-done, var(--color-done-fg));
-  --fd-site-canvas: var(--bgColor-default, var(--color-canvas-default));
-  --fd-site-canvas-muted: var(--bgColor-muted, var(--color-canvas-subtle));
-  --fd-site-shadow: var(--shadow-floating-large);
-  --fd-site-font: var(--fontStack-sansSerif);
-  --fd-site-mono: var(--fontStack-monospace);
+  --fd-provider-bg: var(--overlay-bgColor, var(--color-canvas-overlay));
+  --fd-provider-fg: var(--fgColor-default, var(--color-fg-default));
+  --fd-provider-muted: var(--fgColor-muted, var(--color-fg-muted));
+  --fd-provider-border: var(--borderColor-default, var(--color-border-default));
+  --fd-provider-border-muted: var(--borderColor-muted, var(--color-border-muted));
+  --fd-provider-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg));
+  --fd-provider-focus: var(--focus-outlineColor, var(--color-accent-fg));
+  --fd-provider-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
+  --fd-provider-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis));
+  --fd-provider-track: var(--bgColor-neutral-muted, var(--color-neutral-muted));
+  --fd-provider-accent: var(--fgColor-accent, var(--color-accent-fg));
+  --fd-provider-add: var(--fgColor-success, var(--color-success-fg));
+  --fd-provider-del: var(--fgColor-danger, var(--color-danger-fg));
+  --fd-provider-attention: var(--fgColor-attention, var(--color-attention-fg));
+  --fd-provider-done: var(--fgColor-done, var(--color-done-fg));
+  --fd-provider-canvas: var(--bgColor-default, var(--color-canvas-default));
+  --fd-provider-canvas-muted: var(--bgColor-muted, var(--color-canvas-subtle));
+  --fd-provider-shadow: var(--shadow-floating-large);
+  --fd-provider-font: var(--fontStack-sansSerif);
+  --fd-provider-mono: var(--fontStack-monospace);
 }

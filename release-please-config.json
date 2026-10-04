@@ -4,7 +4,8 @@
     ".": {
       "release-type": "node",
       "package-name": "focus-diff",
-      "include-component-in-tag": false
+      "include-component-in-tag": false,
+      "exclude-paths": ["site", "store"]
     }
   }
 }

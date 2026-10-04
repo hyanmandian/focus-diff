@@ -22,7 +22,7 @@ describe('normalizeAppearance', () => {
     expect(appearance).toEqual({ theme: 'pink', themes: [{ id: 'pink', name: 'Pink', colors: { accent: '#bf3989' } }] });
   });
 
-  it("falls back to the provider's theme, and gives clashing ids new ones", () => {
+  it('falls back to the provider’s theme, and gives clashing ids new ones', () => {
     const appearance = normalizeAppearance({ theme: 'gone', themes: [{ id: 'github', name: 'Mine', colors: {} }] });
     expect(appearance.theme).toBe(PROVIDER_THEME);
     expect(appearance.themes[0]?.id).not.toBe('github');
@@ -60,7 +60,7 @@ describe('customThemeCss', () => {
 });
 
 describe('appearanceCss', () => {
-  it("puts the reader's colours after the provider's theme", async () => {
+  it("puts the reader's colours after the provider’s theme", async () => {
     const css = await appearanceCss({ theme: 'pink', themes: [pink] }, 'github');
     expect(css).toContain('--fd-provider-bg:');
     expect(css.indexOf('--fd-accent: #bf3989')).toBeGreaterThan(css.indexOf('--fd-provider-bg:'));

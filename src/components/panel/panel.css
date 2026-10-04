@@ -1,5 +1,7 @@
 :host {
   all: initial;
+  /* Light or dark as the page is, which picks the theme's defaults (components/theme.css). */
+  color-scheme: inherit;
   position: fixed;
   right: 16px;
   bottom: 16px;

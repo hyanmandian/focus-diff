@@ -28,7 +28,7 @@ test.describe('newer, virtualized diff view', () => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     // Like GitHub, file headers stick below a 58px bar.
     await pr.page.addStyleTag({ content: '[data-diff-header-wrapper] { position: sticky; top: 58px; background: white; }' });
-    // One GitHub hasn't drawn yet, then one it has.
+    // One GitHub hasn’t drawn yet, then one it has.
     for (const path of ['web/src/book-card.stories.tsx', 'api/books/service.py']) {
       const name = path.slice(path.lastIndexOf('/') + 1);
       await pr.page.locator('[role="tree"] a', { hasText: new RegExp(`^${name.replaceAll('.', '\\.')}$`) }).click();

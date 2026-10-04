@@ -1,7 +1,6 @@
 /* The sample pull request and its bar take their colours from the same theme, the --fd-* properties. */
 :host {
   display: block;
-  color-scheme: light dark;
 }
 
 .demo {

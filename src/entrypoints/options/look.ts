@@ -35,6 +35,14 @@ const COLOR_NAMES: Record<ThemeColor, string> = {
   attention: i18n.t('colorAttention'),
 };
 
+/** A computed `rgb()` or `rgba()` colour as hex, with its alpha when it has one. */
+const hexOf = (color: string): string | null => {
+  const [r, g, b, a = 1] = color.match(/[\d.]+/g)?.map(Number) ?? [];
+  if (r === undefined || g === undefined || b === undefined) return null;
+  const channels = a < 1 ? [r, g, b, Math.round(a * 255)] : [r, g, b];
+  return `#${channels.map((channel) => Math.round(channel).toString(16).padStart(2, '0')).join('')}`;
+};
+
 /** `#rgb`, `#rgba` and `#rrggbbaa` as the `#rrggbb` a colour picker takes; its alpha, if any, is left out. */
 const pickerValue = (hex: string): string => {
   const digits = hex.slice(1);
@@ -74,18 +82,19 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   const showDefaults = () => {
     const host = $('#preview').shadowRoot?.querySelector<HTMLElement>('.demo-bar');
     if (!host) return;
-    const styles = getComputedStyle(host);
+    // A colour can be `light-dark()` or a site's variable; a probe inside the bar resolves it to the colour shown.
+    const probe = document.createElement('span');
+    (host.shadowRoot ?? host).append(probe);
     for (const row of list.querySelectorAll<HTMLElement>('.color')) {
+      probe.style.color = `var(--fd-${row.dataset.color})`;
+      const value = hexOf(getComputedStyle(probe).color);
+      if (!value) continue;
       const hex = $<HTMLInputElement>('.color-hex', row);
-      const value = styles.getPropertyValue(`--fd-${row.dataset.color}`).trim();
-      if (!HEX_COLOR.test(value)) continue;
       hex.placeholder = value;
       if (!hex.value) $<HTMLInputElement>('.color-pick', row).value = pickerValue(value);
     }
+    probe.remove();
   };
-
-  // The provider's colours change with the system's light or dark mode, and so do the ones shown for empty fields.
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => requestAnimationFrame(showDefaults));
 
   /** The theme being edited, with its valid colours: what the preview shows while the reader types. */
   const sync = () => {
@@ -263,7 +272,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
       if (!preview) {
         preview = createDemo(
           $('#preview'),
-          { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 4) },
+          { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 2) },
           // Settings are this page; the button goes to the filters.
           { onSettings: () => $('#global-h').focus(), theme: await appearanceCss(appearance) },
         );

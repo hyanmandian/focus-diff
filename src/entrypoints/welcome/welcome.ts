@@ -9,7 +9,7 @@ import { providerNames } from '@/providers/providers';
 import { createDemo } from '@/components/demo/demo';
 import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
 import { toaster } from '@/components/toast/toast';
-import { $, reveal, translateDocument } from '@/utils/page';
+import { $, reveal, translate, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
 import { appearanceCss, createStyler, normalizeAppearance } from '@/utils/appearance/appearance';
 import { appearanceItem, configItem, loadAppearance, loadConfig, saveConfig } from '@/utils/storage/storage';
@@ -59,6 +59,11 @@ const renderRecipe = (recipe: Recipe) => {
   item.dataset.recipe = recipe.id;
   $('.recipe-title', item).textContent = message(recipe.title);
   $('.recipe-description', item).textContent = message(recipe.description);
+  translate(item);
+  // The buttons it adds, by name; their patterns are folded below, for whoever wants to read them.
+  $('.recipe-names', item).replaceChildren(
+    ...recipe.filters.map((filter) => Object.assign(document.createElement('li'), { textContent: message(filter.name) })),
+  );
   const list = $('.recipe-filters', item);
   for (const filter of recipe.filters) {
     const group = document.createElement('div');

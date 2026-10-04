@@ -48,9 +48,21 @@ let saving = false;
 let suggestedRepo = '';
 
 const status = $('#status');
+const savebar = $('#savebar');
+/** How long "Saved" stays up before the save bar goes away. */
+const SAVED_MS = 2500;
+let lowering = 0;
+/**
+ * Says how saving stands. The save bar rises with anything to say, and is out of the way, and out of the tab order,
+ * when there's nothing: once saved, it lowers after a moment.
+ */
 const say = (text: string, tone: Tone = '') => {
   status.textContent = text;
   status.dataset.tone = tone;
+  clearTimeout(lowering);
+  savebar.toggleAttribute('data-raised', Boolean(text));
+  savebar.inert = !text;
+  if (tone === 'ok') lowering = window.setTimeout(() => say(''), SAVED_MS);
 };
 const setDirty = () => {
   dirty = true;
@@ -175,16 +187,23 @@ const renderRepo = (entry: RepoFilters, focus: boolean) => {
   remove.addEventListener('click', () => {
     config.repos.splice(config.repos.indexOf(entry), 1);
     card.remove();
+    syncRepos();
     $('#add-repo').focus();
     setDirty();
     updateTry();
   });
 
   syncLabel();
-  $('.box-body', card).append(renderFilters(entry.filters));
+  $('.repo-body', card).append(renderFilters(entry.filters));
   $('#repos').append(card);
+  syncRepos();
   if (focus) input.focus();
 };
+
+/** With no repository of its own yet, the section says what one is for. */
+function syncRepos() {
+  $('#repos-empty').hidden = config.repos.length > 0;
+}
 
 const syncAddRepo = () => {
   $('#add-repo').textContent = suggestedRepo ? i18n.t('addRepoFor', [suggestedRepo]) : i18n.t('addRepo');
@@ -330,6 +349,7 @@ const render = () => {
   $('#global').replaceChildren(renderFilters(config.global));
   $('#repos').replaceChildren();
   config.repos.forEach((entry) => renderRepo(entry, false));
+  syncRepos();
   updateTry();
 };
 
@@ -352,6 +372,21 @@ appearanceItem.watch((value) => {
 window.addEventListener('beforeunload', (event) => {
   if (dirty) event.preventDefault();
 });
+
+/** The section index marks the section being read, the one nearest the top of the screen. */
+const sectionLinks = [...document.querySelectorAll<HTMLAnchorElement>('.sections a')];
+const sections = sectionLinks.flatMap((link) => document.getElementById(link.hash.slice(1)) ?? []);
+const markSection = () => {
+  const line = innerHeight * 0.3;
+  const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+  const current = atEnd ? sections.at(-1) : (sections.findLast((section) => section.getBoundingClientRect().top <= line) ?? sections[0]);
+  for (const link of sectionLinks) {
+    if (link.hash === `#${current?.id}`) link.setAttribute('aria-current', 'true');
+    else link.removeAttribute('aria-current');
+  }
+};
+addEventListener('scroll', () => requestAnimationFrame(markSection), { passive: true });
+addEventListener('resize', markSection);
 
 translateDocument(i18n.t('optionsTitle'));
 $('#tagline').textContent = i18n.t('optionsTagline', [providerNames(uiLanguage())]);
@@ -385,6 +420,7 @@ void Promise.all([loadConfig(), loadAppearance()]).then(async ([loaded, appearan
   config = loaded;
   render();
   await look.render(appearance);
+  markSection();
   reveal();
   applyRepoHash();
 });

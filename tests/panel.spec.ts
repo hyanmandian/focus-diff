@@ -27,7 +27,7 @@ test.describe('panel on a pull request', () => {
     expect(await pr.visibleTreeFiles()).toEqual(['__init__.py', 'service.py', 'routes.py']);
     await expect(pr.filesCounter()).toHaveText('3/8');
     await expect(pr.lineCounters().additions).toHaveText('+120');
-    await expect(pr.status).toContainText("1 of them hasn't loaded yet");
+    await expect(pr.status).toContainText('1 of them hasn’t loaded yet');
 
     await pr.pick('All');
     await expect(pr.filesCounter()).toHaveText('8');
@@ -79,12 +79,12 @@ test.describe('panel on a pull request', () => {
     await expect(pr.breakdownRows.first().locator('.diffstat .add')).toHaveCount(4);
     await expect(pr.breakdownRows.first().locator('.diffstat .del')).toHaveCount(1);
 
-    await pr.panel.getByRole('button', { name: 'How review time is estimated' }).hover();
+    await pr.panel.getByRole('button', { name: 'How the review time is worked out' }).hover();
     await expect(pr.panel.locator('.tip')).toContainText('Review time assumes about 1,000 changed lines an hour');
     // The pointer can move onto it to read it.
     await pr.panel.locator('.tip').hover();
     await expect(pr.panel.locator('.tip')).toBeVisible();
-    await expect(pr.panel.getByRole('button', { name: 'How review time is estimated' })).toHaveAccessibleDescription(
+    await expect(pr.panel.getByRole('button', { name: 'How the review time is worked out' })).toHaveAccessibleDescription(
       /^Review time assumes about 1,000 changed lines an hour/,
     );
 
@@ -110,7 +110,7 @@ test.describe('panel on a pull request', () => {
     await expect(pr.status).toHaveText('Every file in Frontend is reviewed.');
     await expect(pr.panel.locator('canvas')).toHaveCount(1);
     await expect(pr.panel.locator('canvas')).toHaveCount(0, { timeout: 4000 });
-    // Coming back to a finished filter isn't.
+    // Coming back to a finished filter isn’t.
     await pr.pick('Backend');
     await pr.pick('Frontend');
     await expect(pr.status).toContainText('Frontend: 1 of 8 files');
@@ -153,7 +153,7 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['All']);
     // What was remembered stays, for pull requests where Rust has files.
     expect(await background.evaluate(async () => (await chrome.storage.local.get('active')).active)).toEqual({ 'octo/web': ['rust'] });
-    // Picking from here starts from what's shown.
+    // Picking from here starts from what’s shown.
     await pr.pick('Docs');
     await expect(pr.pressed).toHaveText(['Docs']);
   });
@@ -253,7 +253,7 @@ test.describe('panel on a pull request', () => {
   test('opens the review time hint on click, for touch', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.breakdownToggle.click();
-    const info = pr.panel.getByRole('button', { name: 'How review time is estimated' });
+    const info = pr.panel.getByRole('button', { name: 'How the review time is worked out' });
     await info.click();
     await expect(pr.panel.locator('.tip')).toBeVisible();
     await info.click();
@@ -278,7 +278,7 @@ test.describe('panel on a pull request', () => {
     await expect(next).toHaveAccessibleName('Next file to review, 8 left');
     await next.hover();
     await expect(pr.panel.locator('.tip')).toHaveText('Next file to review, 8 left');
-    // The first file is already on screen, so it's the one after it.
+    // The first file is already on screen, so it’s the one after it.
     await next.click();
     await expect(pr.status).toHaveText('web/src/book-card.test.tsx. 8 files left to review.');
     // Docs done: the button moves on to the next filter in the bar.
@@ -538,7 +538,7 @@ test.describe('panel on a pull request', () => {
     await expect(welcome).toHaveURL(/\/welcome\.html$/);
   });
 
-  test("points to what's new after an update until it's read or dismissed", async ({ openPullRequest, background, context }) => {
+  test('points to what’s new after an update until it’s read or dismissed', async ({ openPullRequest, background, context }) => {
     await context.route('https://github.com/hyanmandian/focus-diff/releases/**', (route) => route.fulfill({ body: 'Notes' }));
     const pr = new PullRequestPage(await openPullRequest());
     const notice = pr.panel.getByRole('link', { name: 'New in 1.1' });
@@ -550,7 +550,7 @@ test.describe('panel on a pull request', () => {
     await expect(notice).toBeHidden();
     expect(await background.evaluate(async () => (await chrome.storage.local.get('update')).update ?? null)).toBeNull();
     await background.evaluate(() => chrome.storage.local.set({ update: '2.0.0' }));
-    await pr.panel.getByRole('button', { name: "Dismiss what's new" }).click();
+    await pr.panel.getByRole('button', { name: 'Dismiss what’s new' }).click();
     await expect(pr.panel.getByRole('link', { name: 'New in 2.0' })).toBeHidden();
   });
 

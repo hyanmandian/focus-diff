@@ -1,0 +1,48 @@
+/*
+ * Every colour and font the bar reads, the --fd-* properties, and their defaults: Primer's light and dark values.
+ * Components read only these. A site's theme fills in --fd-site-* from the site's own design tokens, which win over
+ * the defaults wherever the site has them; a theme of the reader's own sets --fd-* itself, after this.
+ */
+:host {
+  --fd-bg: var(--fd-site-bg, #ffffff);
+  --fd-fg: var(--fd-site-fg, #1f2328);
+  --fd-muted: var(--fd-site-muted, #59636e);
+  --fd-border: var(--fd-site-border, #d1d9e0);
+  --fd-border-muted: var(--fd-site-border-muted, #d1d9e0b3);
+  --fd-hover: var(--fd-site-hover, #818b9826);
+  --fd-focus: var(--fd-site-focus, #0969da);
+  --fd-selected-bg: var(--fd-site-selected-bg, #0969da);
+  --fd-selected-fg: var(--fd-site-selected-fg, #ffffff);
+  --fd-track: var(--fd-site-track, #818b9833);
+  --fd-accent: var(--fd-site-accent, #0969da);
+  --fd-add: var(--fd-site-add, #1a7f37);
+  --fd-del: var(--fd-site-del, #d1242f);
+  --fd-attention: var(--fd-site-attention, #9a6700);
+  --fd-done: var(--fd-site-done, #8250df);
+  --fd-canvas: var(--fd-site-canvas, #ffffff);
+  --fd-canvas-muted: var(--fd-site-canvas-muted, #f6f8fa);
+  --fd-shadow: var(--fd-site-shadow, 0 0 0 1px #d1d9e080, 0 24px 48px #25292e33);
+  --fd-font: var(--fd-site-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif);
+  --fd-mono: var(--fd-site-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
+}
+@media (prefers-color-scheme: dark) {
+  :host {
+    --fd-bg: var(--fd-site-bg, #151b23);
+    --fd-fg: var(--fd-site-fg, #f0f6fc);
+    --fd-muted: var(--fd-site-muted, #9198a1);
+    --fd-border: var(--fd-site-border, #3d444d);
+    --fd-border-muted: var(--fd-site-border-muted, #3d444db3);
+    --fd-hover: var(--fd-site-hover, #656c7633);
+    --fd-focus: var(--fd-site-focus, #1f6feb);
+    --fd-selected-bg: var(--fd-site-selected-bg, #1f6feb);
+    --fd-track: var(--fd-site-track, #656c7633);
+    --fd-accent: var(--fd-site-accent, #4493f8);
+    --fd-add: var(--fd-site-add, #3fb950);
+    --fd-del: var(--fd-site-del, #f85149);
+    --fd-attention: var(--fd-site-attention, #d29922);
+    --fd-done: var(--fd-site-done, #ab7df8);
+    --fd-canvas: var(--fd-site-canvas, #0d1117);
+    --fd-canvas-muted: var(--fd-site-canvas-muted, #151b23);
+    --fd-shadow: var(--fd-site-shadow, 0 0 0 1px #3d444d, 0 24px 48px #010409);
+  }
+}

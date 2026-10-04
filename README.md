@@ -26,7 +26,7 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Conversations.** Step through review threads one by one. Each shows its file and line, and whether it's waiting on you, answered or resolved.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
 - **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.
-- **Looks at home.** Follows your GitHub theme, or restyle the bar with your own CSS in settings, with a live preview. Checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.
+- **Looks at home.** Follows your GitHub theme, or make your own: pick the bar's colours in settings with a live preview, and share the theme with your team like filters. Checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.
 - **Ready for more sites.** It works on GitHub. Everything that reads the page lives in one adapter per site, so others can follow: see [adding a site](CONTRIBUTING.md#adding-a-site).
 - **Private.** No tracking and no network requests. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
 

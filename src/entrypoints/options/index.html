@@ -94,28 +94,48 @@
           <p class="hint" data-i18n="lookHint"></p>
         </div>
         <div class="box-body look">
-          <div class="look-fields">
+          <div class="look-pick">
             <div class="field">
               <label for="theme" data-i18n="themeLabel"></label>
               <select id="theme"></select>
             </div>
+            <button id="theme-new" type="button" class="btn" data-i18n="themeNew"></button>
+          </div>
+          <div id="theme-editor" class="theme-editor" hidden>
             <div class="field">
-              <label for="css"><span data-i18n="cssLabel"></span> <span class="optional" data-i18n="optional"></span></label>
-              <p class="hint" id="css-hint" data-i18n-html="cssHint"></p>
-              <textarea
-                id="css"
-                class="mono"
-                rows="7"
-                spellcheck="false"
-                autocomplete="off"
-                placeholder=":host { --fd-accent: #bf3989; }"
-                aria-describedby="css-hint"
-              ></textarea>
-              <div class="look-actions">
-                <button id="css-start" type="button" class="btn" data-i18n="cssStart"></button>
-                <button id="css-clear" type="button" class="btn" data-i18n="cssClear"></button>
-              </div>
+              <label for="theme-name" data-i18n="themeNameLabel"></label>
+              <input id="theme-name" type="text" autocomplete="off" aria-describedby="theme-name-error" />
+              <p class="error" id="theme-name-error" aria-live="polite"></p>
             </div>
+            <fieldset class="colors">
+              <legend data-i18n="colorsLegend"></legend>
+              <p class="hint" data-i18n="colorsHint"></p>
+              <ul id="colors" role="list"></ul>
+            </fieldset>
+            <div class="look-actions">
+              <button id="theme-copy" type="button" class="btn" data-i18n="themeCopy"></button>
+              <button id="theme-delete" type="button" class="btn danger" data-i18n="themeDelete"></button>
+            </div>
+            <div class="field" id="theme-export-fallback" hidden>
+              <label for="theme-export" data-i18n="themeExportLabel"></label>
+              <p class="hint" id="theme-export-hint" data-i18n="copyFallbackHint"></p>
+              <textarea id="theme-export" class="mono" rows="6" readonly aria-describedby="theme-export-hint"></textarea>
+            </div>
+          </div>
+          <div class="theme-import">
+            <div class="field">
+              <label for="theme-json" data-i18n="themeImportLabel"></label>
+              <p class="hint" id="theme-json-hint" data-i18n="themeImportHint"></p>
+              <textarea
+                id="theme-json"
+                class="mono"
+                spellcheck="false"
+                rows="4"
+                aria-describedby="theme-json-hint theme-json-error"
+              ></textarea>
+              <p class="error" id="theme-json-error" aria-live="polite"></p>
+            </div>
+            <button id="theme-import" type="button" class="btn" disabled data-i18n="themeImportButton"></button>
           </div>
           <div class="look-preview">
             <h3 id="preview-h" data-i18n="previewHeading"></h3>
@@ -219,6 +239,15 @@
           </button>
         </div>
         <p class="error"></p>
+      </li>
+    </template>
+    <template id="color-template">
+      <li class="color">
+        <label class="color-label"></label>
+        <input class="color-pick" type="color" />
+        <input class="color-hex mono" type="text" spellcheck="false" autocomplete="off" />
+        <button type="button" class="btn color-reset" data-i18n="colorReset"></button>
+        <p class="error color-error" aria-live="polite"></p>
       </li>
     </template>
     <template id="repo-template">

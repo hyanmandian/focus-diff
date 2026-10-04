@@ -4,7 +4,7 @@
   right: 16px;
   bottom: 16px;
   z-index: 2147483000;
-  /* The colours and fonts, the other --fd-* properties, come from a theme: a provider's, then the reader's own CSS. */
+  /* The colours and fonts, the other --fd-* properties, are in components/theme.css. */
   --fd-target: 32px;
   --fd-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }

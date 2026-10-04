@@ -1,47 +1,26 @@
 /*
- * The bar in GitHub's colours. On github.com it reads Primer's tokens (and the older names before them), so it follows
- * the reader's GitHub theme. Anywhere else, like the welcome page's demo, Primer's own light and dark values stand in.
+ * The bar in GitHub's colours: each --fd-site-* reads Primer's token, or the older name before it. Where neither is on
+ * the page, the property is left unset and the bar keeps its default (see components/theme.css).
  */
 :host {
-  --fd-bg: var(--overlay-bgColor, var(--color-canvas-overlay, #ffffff));
-  --fd-canvas: var(--bgColor-default, var(--color-canvas-default, #ffffff));
-  --fd-canvas-muted: var(--bgColor-muted, var(--color-canvas-subtle, #f6f8fa));
-  --fd-border: var(--borderColor-default, var(--color-border-default, #d1d9e0));
-  --fd-border-muted: var(--borderColor-muted, var(--color-border-muted, #d1d9e0b3));
-  --fd-fg: var(--fgColor-default, var(--color-fg-default, #1f2328));
-  --fd-muted: var(--fgColor-muted, var(--color-fg-muted, #59636e));
-  --fd-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, #818b9826));
-  --fd-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis, #0969da));
-  --fd-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #ffffff));
-  --fd-add: var(--fgColor-success, var(--color-success-fg, #1a7f37));
-  --fd-del: var(--fgColor-danger, var(--color-danger-fg, #d1242f));
-  --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
-  --fd-accent: var(--fgColor-accent, var(--color-accent-fg, #0969da));
-  --fd-done: var(--fgColor-done, var(--color-done-fg, #8250df));
-  --fd-track: var(--bgColor-neutral-muted, var(--color-neutral-muted, #818b9833));
-  --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));
-  --fd-shadow: var(--shadow-floating-large, 0 0 0 1px #d1d9e080, 0 24px 48px #25292e33);
-  --fd-font: var(--fontStack-sansSerif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif);
-  --fd-mono: var(--fontStack-monospace, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
-}
-@media (prefers-color-scheme: dark) {
-  :host {
-    --fd-bg: var(--overlay-bgColor, var(--color-canvas-overlay, #151b23));
-    --fd-canvas: var(--bgColor-default, var(--color-canvas-default, #0d1117));
-    --fd-canvas-muted: var(--bgColor-muted, var(--color-canvas-subtle, #151b23));
-    --fd-border: var(--borderColor-default, var(--color-border-default, #3d444d));
-    --fd-border-muted: var(--borderColor-muted, var(--color-border-muted, #3d444db3));
-    --fd-fg: var(--fgColor-default, var(--color-fg-default, #f0f6fc));
-    --fd-muted: var(--fgColor-muted, var(--color-fg-muted, #9198a1));
-    --fd-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, #656c7633));
-    --fd-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis, #1f6feb));
-    --fd-add: var(--fgColor-success, var(--color-success-fg, #3fb950));
-    --fd-del: var(--fgColor-danger, var(--color-danger-fg, #f85149));
-    --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #d29922));
-    --fd-accent: var(--fgColor-accent, var(--color-accent-fg, #4493f8));
-    --fd-done: var(--fgColor-done, var(--color-done-fg, #ab7df8));
-    --fd-track: var(--bgColor-neutral-muted, var(--color-neutral-muted, #656c7633));
-    --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #1f6feb));
-    --fd-shadow: var(--shadow-floating-large, 0 0 0 1px #3d444d, 0 24px 48px #010409);
-  }
+  --fd-site-bg: var(--overlay-bgColor, var(--color-canvas-overlay));
+  --fd-site-fg: var(--fgColor-default, var(--color-fg-default));
+  --fd-site-muted: var(--fgColor-muted, var(--color-fg-muted));
+  --fd-site-border: var(--borderColor-default, var(--color-border-default));
+  --fd-site-border-muted: var(--borderColor-muted, var(--color-border-muted));
+  --fd-site-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg));
+  --fd-site-focus: var(--focus-outlineColor, var(--color-accent-fg));
+  --fd-site-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
+  --fd-site-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis));
+  --fd-site-track: var(--bgColor-neutral-muted, var(--color-neutral-muted));
+  --fd-site-accent: var(--fgColor-accent, var(--color-accent-fg));
+  --fd-site-add: var(--fgColor-success, var(--color-success-fg));
+  --fd-site-del: var(--fgColor-danger, var(--color-danger-fg));
+  --fd-site-attention: var(--fgColor-attention, var(--color-attention-fg));
+  --fd-site-done: var(--fgColor-done, var(--color-done-fg));
+  --fd-site-canvas: var(--bgColor-default, var(--color-canvas-default));
+  --fd-site-canvas-muted: var(--bgColor-muted, var(--color-canvas-subtle));
+  --fd-site-shadow: var(--shadow-floating-large);
+  --fd-site-font: var(--fontStack-sansSerif);
+  --fd-site-mono: var(--fontStack-monospace);
 }

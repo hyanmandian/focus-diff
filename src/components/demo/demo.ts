@@ -8,6 +8,7 @@ import { ALL, toMatcher } from '@/utils/filters/filters';
 import { formatNumber as format } from '@/utils/format/format';
 import { message } from '@/utils/i18n';
 import type { DemoFile, DemoPullRequest } from './sample';
+import themeStyles from '@/components/theme.css?inline';
 import tooltipStyles from '@/components/tooltip/tooltip.css?inline';
 import demoStyles from './demo.css?inline';
 
@@ -47,7 +48,7 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
   const root = target.shadowRoot ?? target.attachShadow({ mode: 'open' });
   // The sample files take the theme's colours too; the bar gets its own copy, in its shadow root.
   const themeSheet = sheet(theme);
-  root.adoptedStyleSheets = [sheet(tooltipStyles), sheet(demoStyles), themeSheet];
+  root.adoptedStyleSheets = [sheet(themeStyles), sheet(tooltipStyles), sheet(demoStyles), themeSheet];
 
   const filters: Option[] = pullRequest.filters.flatMap((filter) => {
     const matches = toMatcher(filter);

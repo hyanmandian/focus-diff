@@ -50,7 +50,11 @@ test.describe('settings page', () => {
     ).toEqual([['octo/web', ['API']]]);
   });
 
-  test("previews the bar's look as it's edited, and styles pull requests once saved", async ({ openExtensionPage, openPullRequest }) => {
+  test('makes a theme from picked colours, previews it, and styles pull requests once saved', async ({
+    openExtensionPage,
+    openPullRequest,
+    background,
+  }) => {
     const accent = (host: import('@playwright/test').Locator) =>
       host.evaluate((element) => getComputedStyle(element).getPropertyValue('--fd-accent').trim());
     const page = await openExtensionPage('options.html');
@@ -59,27 +63,71 @@ test.describe('settings page', () => {
     const preview = page.locator('#preview .demo-bar');
     await expect(preview.locator('.panel')).toBeVisible();
     const themed = await accent(preview);
-    expect(themed).not.toBe('');
+    expect(themed).toMatch(/^#[\da-f]{6}$/);
 
-    await page.locator('#css').fill(':host { --fd-accent: rgb(1, 2, 3); }');
-    await expect.poll(() => accent(preview)).toBe('rgb(1, 2, 3)');
+    await page.getByRole('button', { name: 'New theme' }).click();
+    await expect(page.locator('#theme')).toHaveValue(/.+/);
+    await expect(page.locator('#theme option:checked')).toHaveText('My theme 1');
+    await page.getByLabel('Theme name').fill('Pink');
+    await expect(page.locator('#theme option:checked')).toHaveText('Pink');
+    // An empty colour shows what the site's theme gives it.
+    const accentField = page.getByRole('textbox', { name: 'Accent', exact: true });
+    await expect(accentField).toHaveAttribute('placeholder', themed);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(accentField).not.toHaveAttribute('placeholder', themed);
+    await expect.poll(() => accent(preview)).toBe(await accentField.getAttribute('placeholder'));
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(accentField).toHaveAttribute('placeholder', themed);
+
+    await accentField.fill('#bf3989');
+    await expect.poll(() => accent(preview)).toBe('#bf3989');
+    await expect(page.getByLabel('Pick Accent')).toHaveValue('#bf3989');
     await expect(page.locator('#status')).toHaveText('Unsaved changes');
 
-    // The theme's colours come in above the reader's own CSS, which they then override.
-    await page.locator('#css-start').click();
-    await expect(page.locator('#css')).toHaveValue(/^:host \{\n {2}--fd-bg: [^;]+;[\s\S]+\n\n:host \{ --fd-accent: rgb\(1, 2, 3\); \}$/);
-    await expect.poll(() => accent(preview)).toBe('rgb(1, 2, 3)');
+    // A typo is caught, keeps the preview as it was, and blocks saving.
+    const textField = page.getByRole('textbox', { name: 'Text', exact: true });
+    await textField.fill('#12');
+    await page.locator('#save').click();
+    await expect(page.locator('#status')).toHaveText("Check the theme's name and colours before saving.");
+    await expect(textField).toBeFocused();
+    await expect(textField).toHaveAttribute('aria-invalid', 'true');
+    await page.getByRole('button', { name: "Use the site's Text" }).click();
 
     await page.locator('#save').click();
     await expect(page.locator('#status')).toContainText('Saved.');
+    const saved = await background.evaluate(async () => (await chrome.storage.sync.get('appearance')).appearance);
+    expect(saved).toEqual({ theme: expect.any(String), themes: [{ id: saved.theme, name: 'Pink', colors: { accent: '#bf3989' } }] });
     const pullRequest = await openPullRequest();
-    await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).toBe('rgb(1, 2, 3)');
+    await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).toBe('#bf3989');
 
     await page.bringToFront();
-    await page.locator('#css-clear').click();
-    await expect.poll(() => accent(preview)).toBe(themed);
+    await page.locator('#theme').selectOption({ label: 'Match the site' });
     await page.locator('#save').click();
-    await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).not.toBe('rgb(1, 2, 3)');
+    await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).not.toBe('#bf3989');
+  });
+
+  test('shares a theme the way filters are shared', async ({ openExtensionPage, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const page = await openExtensionPage('options.html');
+    await expect(page.locator('#preview .demo-bar .panel')).toBeVisible();
+    await page.getByRole('button', { name: 'New theme' }).click();
+    await page.getByLabel('Theme name').fill('Pink');
+    await page.getByRole('textbox', { name: 'Accent', exact: true }).fill('#bf3989');
+    await page.getByRole('button', { name: 'Copy theme' }).click();
+    await expect(page.locator('#toast')).toHaveText('Copied Pink to the clipboard');
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(JSON.parse(copied)).toEqual({ name: 'Pink', colors: { accent: '#bf3989' } });
+
+    await page.getByRole('button', { name: 'Delete theme' }).click();
+    await expect(page.locator('#theme option')).toHaveText(['Match the site', 'GitHub']);
+    await page.getByLabel("Import a teammate's theme").fill('not a theme');
+    await page.getByRole('button', { name: 'Import theme' }).click();
+    await expect(page.locator('#theme-json-error')).toContainText("isn't a copied theme");
+    await page.getByLabel("Import a teammate's theme").fill(copied);
+    await page.getByRole('button', { name: 'Import theme' }).click();
+    await expect(page.locator('#toast')).toHaveText('Imported 1 theme. Review it, then save.');
+    await expect(page.locator('#theme option:checked')).toHaveText('Pink');
+    await expect(page.getByRole('textbox', { name: 'Accent', exact: true })).toHaveValue('#bf3989');
   });
 
   test('checks a path against the filters', async ({ openExtensionPage }) => {
@@ -107,6 +155,14 @@ test.describe('settings page', () => {
     test(`has no accessibility violations and no horizontal scroll (${view.join(', ')}px)`, async ({ openExtensionPage }) => {
       const page = await openExtensionPage('options.html#repo=octo/web');
       await expectSoundPage(page, view, page.locator('#global .f-name'));
+    });
+
+  for (const view of PAGE_VIEWS)
+    test(`edits a theme without accessibility violations or horizontal scroll (${view.join(', ')}px)`, async ({ openExtensionPage }) => {
+      const page = await openExtensionPage('options.html');
+      await page.getByRole('button', { name: 'New theme' }).click();
+      await page.getByRole('textbox', { name: 'Accent', exact: true }).fill('#bf3989');
+      await expectSoundPage(page, view, page.locator('#colors .color'));
     });
 
   test.afterEach(({ pageErrors }) => {

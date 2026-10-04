@@ -307,15 +307,76 @@ html {
 .look {
   gap: 20px;
 }
-.look-fields {
+.look-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+.look-pick .field {
+  flex: 1 1 240px;
+}
+.theme-editor {
   display: grid;
   gap: 16px;
+}
+.colors {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.colors legend {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+#colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 8px 24px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.color {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--target) 7.5em auto;
+  align-items: center;
+  gap: 4px 8px;
+}
+.color-label {
+  font-weight: 400;
+}
+.color-pick {
+  width: var(--target);
+  padding: 2px;
+  cursor: pointer;
+}
+.color-hex:placeholder-shown + .color-reset {
+  visibility: hidden;
+}
+.color-error {
+  grid-column: 1 / -1;
+}
+.color-error:empty {
+  display: none;
 }
 .look-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 4px;
+}
+.theme-import {
+  display: grid;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+#theme-export {
+  background: var(--surface-muted);
 }
 .look-preview {
   display: grid;

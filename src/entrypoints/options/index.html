@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Filters Focus Diff shows on pull request diffs, globally and per repository." />
+    <meta
+      name="description"
+      content="Filters Focus Diff shows on pull request diffs, globally and per repository, and how its bar looks."
+    />
     <title data-i18n="optionsTitle">Focus Diff settings</title>
     <meta name="manifest.open_in_tab" content="true" />
     <link rel="icon" href="/icon/32.png" />
@@ -15,7 +18,7 @@
         <img src="/icon/128.png" width="56" height="56" alt="" />
         <div>
           <h1>Focus Diff</h1>
-          <p data-i18n="optionsTagline"></p>
+          <p id="tagline"></p>
           <p><a href="/welcome.html" data-i18n="welcomeLink"></a></p>
         </div>
       </header>
@@ -83,6 +86,41 @@
             </div>
           </div>
           <p id="try-result" class="try-result" aria-live="polite"></p>
+        </div>
+      </section>
+      <section class="box" aria-labelledby="look-h">
+        <div class="box-head">
+          <h2 id="look-h" data-i18n="lookHeading"></h2>
+          <p class="hint" data-i18n="lookHint"></p>
+        </div>
+        <div class="box-body look">
+          <div class="look-fields">
+            <div class="field">
+              <label for="theme" data-i18n="themeLabel"></label>
+              <select id="theme"></select>
+            </div>
+            <div class="field">
+              <label for="css"><span data-i18n="cssLabel"></span> <span class="optional" data-i18n="optional"></span></label>
+              <p class="hint" id="css-hint" data-i18n-html="cssHint"></p>
+              <textarea
+                id="css"
+                class="mono"
+                rows="7"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder=":host { --fd-accent: #bf3989; }"
+                aria-describedby="css-hint"
+              ></textarea>
+              <div class="look-actions">
+                <button id="css-start" type="button" class="btn" data-i18n="cssStart"></button>
+                <button id="css-clear" type="button" class="btn" data-i18n="cssClear"></button>
+              </div>
+            </div>
+          </div>
+          <div class="look-preview">
+            <h3 id="preview-h" data-i18n="previewHeading"></h3>
+            <div id="preview" role="group" aria-labelledby="preview-h"></div>
+          </div>
         </div>
       </section>
       <section class="box" aria-labelledby="share-h">

@@ -5,7 +5,7 @@ import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format/format';
 import type { PanelContext } from '@/components/panel/panel';
 import { centreOver, returnFocus } from '@/components/popover';
-import type { ThreadState } from '@/utils/github/github';
+import type { ThreadState } from '@/providers/provider';
 
 export interface Conversation {
   path: string;

@@ -5,12 +5,12 @@ import type { NextFile } from '@/components/next-file/next-file';
 import type { Panel } from '@/components/panel/panel';
 import { isDone, type Totals } from '@/components/stats/stats';
 import { ALL, type Matcher } from '@/utils/filters/filters';
-import type { FileStats } from '@/utils/github/github';
+import type { FileStats } from '@/providers/provider';
 import { reviewMinutes } from '@/utils/review-time/review-time';
 
 /**
  * What the bar shows for a pull request and a selection of filters, worked out from the files alone. The content script
- * feeds it GitHub's page; the welcome page feeds it a sample pull request, so both show the same bar.
+ * feeds it a review site's page; the welcome page feeds it a sample pull request, so both show the same bar.
  */
 
 /** A button in the bar: All, or a filter with the paths it matches. */
@@ -50,7 +50,7 @@ const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: num
     else totals.minutesLeft += minutes;
   }
   if (complete) return totals;
-  // Files GitHub hasn't loaded yet might match too, so with a filter the totals are partial: never Done.
+  // Files the site hasn't loaded yet might match too, so with a filter the totals are partial: never Done.
   const unrendered = total - list.length;
   totals.pending += unrendered;
   if (matches === everything) {

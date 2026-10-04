@@ -9,7 +9,7 @@ export interface PanelOption {
   name: string;
   /** Files this option shows. */
   count?: number;
-  /** Files GitHub hasn't loaded yet might add to the count, so none isn't final. */
+  /** Files the site hasn't loaded yet might add to the count, so none isn't final. */
   loading?: boolean;
 }
 

@@ -50,6 +50,38 @@ test.describe('settings page', () => {
     ).toEqual([['octo/web', ['API']]]);
   });
 
+  test("previews the bar's look as it's edited, and styles pull requests once saved", async ({ openExtensionPage, openPullRequest }) => {
+    const accent = (host: import('@playwright/test').Locator) =>
+      host.evaluate((element) => getComputedStyle(element).getPropertyValue('--fd-accent').trim());
+    const page = await openExtensionPage('options.html');
+    await expect(page.locator('#tagline')).toHaveText(/Works on GitHub\.$/);
+    await expect(page.locator('#theme option')).toHaveText(['Match the site', 'GitHub']);
+    const preview = page.locator('#preview .demo-bar');
+    await expect(preview.locator('.panel')).toBeVisible();
+    const themed = await accent(preview);
+    expect(themed).not.toBe('');
+
+    await page.locator('#css').fill(':host { --fd-accent: rgb(1, 2, 3); }');
+    await expect.poll(() => accent(preview)).toBe('rgb(1, 2, 3)');
+    await expect(page.locator('#status')).toHaveText('Unsaved changes');
+
+    // The theme's colours come in above the reader's own CSS, which they then override.
+    await page.locator('#css-start').click();
+    await expect(page.locator('#css')).toHaveValue(/^:host \{\n {2}--fd-bg: [^;]+;[\s\S]+\n\n:host \{ --fd-accent: rgb\(1, 2, 3\); \}$/);
+    await expect.poll(() => accent(preview)).toBe('rgb(1, 2, 3)');
+
+    await page.locator('#save').click();
+    await expect(page.locator('#status')).toContainText('Saved.');
+    const pullRequest = await openPullRequest();
+    await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).toBe('rgb(1, 2, 3)');
+
+    await page.bringToFront();
+    await page.locator('#css-clear').click();
+    await expect.poll(() => accent(preview)).toBe(themed);
+    await page.locator('#save').click();
+    await expect.poll(() => accent(pullRequest.locator('focus-diff-panel'))).not.toBe('rgb(1, 2, 3)');
+  });
+
   test('checks a path against the filters', async ({ openExtensionPage }) => {
     const page = await openExtensionPage('options.html');
     await page.locator('#try-path').fill('web/src/book-card.tsx');

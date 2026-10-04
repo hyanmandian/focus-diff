@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compile, filtersFor, normalize, repoMatches, toMatcher } from '@/utils/filters/filters';
+import { compile, filtersFor, normalize, REPO_PATTERN, repoMatches, toMatcher } from '@/utils/filters/filters';
 
 const match = (filter: { include?: string; exclude?: string }, path: string) => toMatcher({ include: '', exclude: '', ...filter })?.(path);
 
@@ -33,6 +33,8 @@ describe('repoMatches', () => {
     expect(repoMatches('octo/*', 'octo/api')).toBe(true);
     expect(repoMatches('octo/*', 'other/api')).toBe(false);
     expect(repoMatches('octo/web', 'octo/website')).toBe(false);
+    // Sites that nest groups, like GitLab, have deeper paths; a group's pattern covers its subgroups.
+    expect(repoMatches('group/*', 'group/sub/web')).toBe(true);
   });
 });
 
@@ -72,5 +74,12 @@ describe('normalize', () => {
 
   it('handles empty input', () => {
     expect(normalize(undefined)).toEqual({ global: [], repos: [] });
+  });
+});
+
+describe('REPO_PATTERN', () => {
+  it('takes owner/name, nested groups and wildcards, but not a lone name', () => {
+    for (const repo of ['octo/web', 'octo/*', 'group/sub/web', 'group/sub/*']) expect(REPO_PATTERN.test(repo), repo).toBe(true);
+    for (const repo of ['web', 'octo/', '/web', 'octo web/x']) expect(REPO_PATTERN.test(repo), repo).toBe(false);
   });
 });

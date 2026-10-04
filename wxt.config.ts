@@ -8,7 +8,7 @@ export default defineConfig({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     default_locale: 'en',
-    homepage_url: 'https://github.com/hyanmandian/focus-diff',
+    homepage_url: 'https://focus-diff.com',
     permissions: ['storage'],
     action: { default_title: '__MSG_actionTitle__' },
     minimum_chrome_version: '111',

@@ -105,6 +105,8 @@ code {
   background: var(--code);
   padding: 2px 6px;
   border-radius: 6px;
+  /* A short token, like a property name, reads as one: it moves to the next line whole instead of breaking at a hyphen. */
+  white-space: nowrap;
 }
 .hint {
   color: var(--muted);

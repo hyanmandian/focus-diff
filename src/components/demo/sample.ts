@@ -1,4 +1,4 @@
-import type { ThreadState } from '@/utils/github/github';
+import type { ThreadState } from '@/providers/provider';
 import { RECIPES } from '@/utils/recipes';
 
 /** A changed file of a made-up pull request, with the conversations on it. */

@@ -123,5 +123,12 @@ export const expectSoundPage = async (page: Page, [colorScheme, width]: (typeof 
   await page.emulateMedia({ colorScheme });
   await expect(ready).not.toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  // Contrast is checked as the page rests, not halfway through a fade, like the bar's as it comes in.
+  await page.evaluate(() => {
+    const roots: (Document | ShadowRoot)[] = [document];
+    for (const root of roots) for (const element of root.querySelectorAll('*')) if (element.shadowRoot) roots.push(element.shadowRoot);
+    const animations = roots.flatMap((root) => root.getAnimations());
+    return Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
+  });
   expect(await accessibilityViolations(page)).toEqual([]);
 };

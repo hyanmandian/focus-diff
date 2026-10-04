@@ -56,7 +56,7 @@ export const RECIPES: Recipe[] = [
     filters: [
       {
         name: 'recipeInfraName',
-        include: '(^|/)(\\.github|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$',
+        include: '(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$',
         exclude: '',
       },
     ],

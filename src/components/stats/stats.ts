@@ -14,7 +14,7 @@ export interface Totals {
   pending: number;
   /** Estimated review time, see utils/review-time.ts. */
   minutes: number;
-  /** Files marked as viewed on GitHub, and the estimate for the rest. */
+  /** Files marked as viewed on the site, and the estimate for the rest. */
   viewed: number;
   minutesLeft: number;
 }

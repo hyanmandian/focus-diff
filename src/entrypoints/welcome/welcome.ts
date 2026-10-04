@@ -4,13 +4,15 @@ import './welcome.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters/filters';
-import { message } from '@/utils/i18n';
+import { message, uiLanguage } from '@/utils/i18n';
+import { providerNames } from '@/providers/providers';
 import { createDemo } from '@/components/demo/demo';
 import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
+import { appearanceCss, createStyler, normalizeAppearance } from '@/utils/appearance/appearance';
+import { appearanceItem, configItem, loadAppearance, loadConfig, saveConfig } from '@/utils/storage/storage';
 
 const notify = toaster($('#toast'));
 let config: Config = normalize({});
@@ -126,8 +128,12 @@ configItem.watch((value) => {
 });
 
 translateDocument(i18n.t('welcomeTitle'));
-createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html') });
-void Promise.all([loadConfig(), renderShortcuts()]).then(([loaded]) => {
+$('#lead').textContent = i18n.t('welcomeLead', [providerNames(uiLanguage())]);
+void Promise.all([loadConfig(), loadAppearance().then(appearanceCss), renderShortcuts()]).then(([loaded, theme]) => {
+  // The demo wears the reader's look for the bar from the start, and follows it as it changes in settings.
+  const demo = createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html'), theme });
+  const restyle = createStyler(demo.setTheme);
+  appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
   config = loaded;
   render();
   reveal();

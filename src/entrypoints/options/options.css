@@ -114,6 +114,7 @@ label,
 }
 
 input,
+select,
 textarea {
   width: 100%;
   min-height: var(--target);
@@ -138,6 +139,7 @@ textarea::placeholder {
   opacity: 0.8;
 }
 input:focus-visible,
+select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -1px;
@@ -302,8 +304,33 @@ html {
   background: var(--surface-muted);
 }
 
+.look {
+  gap: 20px;
+}
+.look-fields {
+  display: grid;
+  gap: 16px;
+}
+.look-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.look-preview {
+  display: grid;
+  gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.look-preview h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
 @media (forced-colors: active) {
   input,
+  select,
   textarea {
     border: 1px solid ButtonText;
   }

@@ -2,7 +2,7 @@ const COUNT = 120;
 const DURATION_MS = 2200;
 const GRAVITY = 1400;
 const DRAG = 1.6;
-/** GitHub's own colours, as the panel reads them from the page's theme. */
+/** The theme's colours, as the panel reads them. */
 const COLORS = ['--fd-add', '--fd-accent', '--fd-attention', '--fd-done', '--fd-del'];
 
 interface Piece {

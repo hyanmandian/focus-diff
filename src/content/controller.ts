@@ -5,15 +5,25 @@ import type { Panel } from '@/components/panel/panel';
 import type { Totals } from '@/components/stats/stats';
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters/filters';
 import { formatNumber as format } from '@/utils/format/format';
-import * as page from '@/utils/github/github';
+import type { Provider } from '@/providers/provider';
+import { createStyler, normalizeAppearance } from '@/utils/appearance/appearance';
 import type { Message } from '@/utils/messages';
-import { configItem, loadConfig, selectionsItem, updateItem, type Selections } from '@/utils/storage/storage';
+import {
+  appearanceItem,
+  configItem,
+  loadAppearance,
+  loadConfig,
+  selectionsItem,
+  updateItem,
+  type Selections,
+} from '@/utils/storage/storage';
 import { collectFiles, type FileInfo, type Files } from '@/content/files';
-import { createNavigation, goToFile, waitFor } from '@/content/navigation';
+import { createNavigation, goToFile } from '@/content/navigation';
 import { createReviewView, nextFilterWithWork, review, toggled, type Option } from '@/content/review';
+import { scrollToTop, waitFor } from '@/content/scroll';
 import { canTransition, removeTransitionStyle, withTransition } from '@/content/transition';
 
-/** GitHub keeps rendering while a pull request loads; page changes wait for idle time, at most this long. */
+/** A site keeps drawing while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
 const DIMMED_OPACITY = '0.35';
 
@@ -34,11 +44,8 @@ const present = (element: HTMLElement, visible: boolean, virtualized: boolean) =
 
 const COUNTER_COPY = 'data-focus-diff-counter';
 
-/** GitHub's counters use English number formatting whatever the browser language. */
-const githubNumber = new Intl.NumberFormat('en-US').format;
-
 /**
- * Shows `value` in place of one of GitHub's counters through a copy beside it, so GitHub keeps updating its own node.
+ * Shows `value` in place of one of the site's counters through a copy beside it, so the site keeps updating its own node.
  * `null` removes the copy and shows the original again.
  */
 const mirror = (original: HTMLElement | null, value: string | null) => {
@@ -64,39 +71,40 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
 };
 
 /** Hides tree files outside the filter, and folders left with nothing to show. */
-const filterTree = (matches: Matcher, filtering: boolean, shownPaths: string[], pathByDigest: Map<string, string>) => {
+const filterTree = (provider: Provider, matches: Matcher, filtering: boolean, shownPaths: string[], pathByAnchor: Map<string, string>) => {
   const folders = new Set<string>();
   const keepFoldersOf = (path: string) => {
     for (let end = path.lastIndexOf('/'); end > 0; end = path.lastIndexOf('/', end - 1)) folders.add(path.slice(0, end));
   };
   shownPaths.forEach(keepFoldersOf);
-  for (const file of page.treeFiles()) {
-    const path = pathByDigest.get(file.digest) ?? page.treePathOf(file.element);
+  for (const file of provider.tree.files()) {
+    const path = pathByAnchor.get(file.anchor) ?? provider.tree.pathOf(file.element);
     const visible = matches(path);
     show(file.element, visible);
     if (visible) keepFoldersOf(path);
   }
-  for (const folder of page.treeFolders()) show(folder.element, !filtering || folders.has(folder.path));
+  for (const folder of provider.tree.folders()) show(folder.element, !filtering || folders.has(folder.path));
 };
 
-const updatePageCounters = (totals: Totals, filtering: boolean) => {
-  const counters = page.pageCounters();
+const updatePageCounters = (provider: Provider, totals: Totals, filtering: boolean) => {
+  const counters = provider.counters();
+  const number = provider.formatCount;
   if (!filtering) {
     Object.values(counters).forEach((counter) => mirror(counter, null));
     return;
   }
-  mirror(counters.files, `${githubNumber(totals.visible)}/${githubNumber(totals.total)}`);
+  mirror(counters.files, `${number(totals.visible)}/${number(totals.total)}`);
   const complete = totals.pending === 0;
-  mirror(counters.additions, complete ? `+${githubNumber(totals.additions)}` : null);
-  mirror(counters.deletions, complete ? `−${githubNumber(totals.deletions)}` : null);
+  mirror(counters.additions, complete ? `+${number(totals.additions)}` : null);
+  mirror(counters.deletions, complete ? `−${number(totals.deletions)}` : null);
 };
 
-/** Puts the page back the way GitHub drew it. */
-const restorePage = () => {
-  for (const diff of page.diffs()) present(diff.container, true, false);
-  for (const item of page.treeFiles()) show(item.element, true);
-  for (const folder of page.treeFolders()) show(folder.element, true);
-  Object.values(page.pageCounters()).forEach((counter) => mirror(counter, null));
+/** Puts the page back the way the site drew it. */
+const restorePage = (provider: Provider) => {
+  for (const diff of provider.diffs()) present(diff.container, true, false);
+  for (const item of provider.tree.files()) show(item.element, true);
+  for (const folder of provider.tree.folders()) show(folder.element, true);
+  Object.values(provider.counters()).forEach((counter) => mirror(counter, null));
 };
 
 /** Compiled filters, kept until the configuration changes. Each matcher remembers its answer per path. */
@@ -120,7 +128,10 @@ export interface Controller {
   dismissUpdate: () => void;
 }
 
-export const startController = async (ctx: ContentScriptContext, panel: Panel): Promise<Controller> => {
+/** Runs the bar on one review site: reads its page through `provider`, and filters it as the reader picks filters. */
+export const startController = async (ctx: ContentScriptContext, panel: Panel, provider: Provider): Promise<Controller> => {
+  const restyle = createStyler(panel.setTheme, provider.id);
+  await restyle(await loadAppearance());
   let config: Config = await loadConfig();
   let selections: Selections = await selectionsItem.getValue();
   let pending: 'frame' | 'idle' | null = null;
@@ -153,13 +164,13 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
     });
   };
 
-  /** Files GitHub hasn't loaded yet could still match any filter, so a filter's count is only final once they're in. */
-  const loading = () => !files.complete && page.reportedFileCount() > files.list.length;
+  /** Files the site hasn't loaded yet could still match any filter, so a filter's count is only final once they're in. */
+  const loading = () => !files.complete && provider.reportedFileCount() > files.list.length;
   /** Whether a filter has, or may yet have, files in this pull request. */
   const hasFiles = (matches?: Matcher) => !matches || loading() || files.list.some((file) => matches(file.path));
 
   const choose = (ids: string[]) => {
-    const repo = page.repository();
+    const repo = provider.repository();
     if (!repo || ctx.isInvalid) return;
     selections = { ...selections, [repo]: ids };
     void selectionsItem.setValue(selections);
@@ -171,13 +182,13 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const select = (id: string) => choose(id === ALL ? [] : [id]);
 
   const toggle = (id: string) => {
-    const repo = page.repository();
+    const repo = provider.repository();
     if (!repo) return select(ALL);
     choose(toggled(selectedIds(repo), id));
   };
 
   const step = (offset: number) => {
-    const repo = page.repository();
+    const repo = provider.repository();
     if (!repo) return;
     // Filters with nothing in this pull request are skipped.
     const ids = optionsFor(repo)
@@ -189,15 +200,16 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   };
 
   const openSettings = () => {
-    const repo = page.repository();
+    const repo = provider.repository();
     const message: Message = repo && filters(repo).length > 0 ? { type: 'open-options', repo } : { type: 'open-welcome' };
     void browser.runtime.sendMessage(message);
   };
 
+  const covered = () => provider.coveredTop();
   let pageChanged = false;
   let selectionKey = '';
   let shown: FileInfo[] = [];
-  const navigation = createNavigation(panel, () => schedule());
+  const navigation = createNavigation(provider, panel, () => schedule());
   const showReview = createReviewView(panel);
   const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
 
@@ -206,7 +218,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
    * shown filters, the next filter with files to review is picked, which takes the reader to its first one.
    */
   const nextUnviewed = () => {
-    const repo = page.repository();
+    const repo = provider.repository();
     if (!repo) return;
     const left = shown.filter((file) => !file.viewed);
     if (!left.length) {
@@ -215,41 +227,42 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       if (then) choose([then.id]);
       return;
     }
-    const top = page.stickyBarBottom();
+    const top = provider.coveredTop();
     const atTop = shown.findIndex((file) => (file.diff?.container.getBoundingClientRect().bottom ?? 0) > top + 1);
     const current = shown[atTop];
     // The file at the top counts when it hasn't been brought all the way up yet.
     const currentIsNext = current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
     const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? left[0]);
     if (!target) return;
-    void goToFile(target);
+    void goToFile(provider, target);
     panel.announceText(i18n.t('panelJumpedToFile', left.length, [target.path, format(left.length)]));
   };
 
   const apply = () => {
     pending = null;
     if (ctx.isInvalid) return;
-    const repo = page.repository();
+    const repo = provider.repository();
     observe(Boolean(repo));
     panel.setVisible(Boolean(repo));
     if (!repo) {
-      if (pageChanged) restorePage();
+      if (pageChanged) restorePage(provider);
       pageChanged = false;
       return;
     }
 
-    files = collectFiles();
-    const reported = page.reportedFileCount();
+    files = collectFiles(provider);
+    const reported = provider.reportedFileCount();
     const current = review(files, optionsFor(repo), selectedIds(repo), { reported, loading: loading() });
     const { filtering, matches, selection, totals } = current;
-    const virtualized = page.isVirtualized();
+    const virtualized = provider.isVirtualized();
     shown = current.shown;
     for (const file of files.list) if (file.diff) present(file.diff.container, matches(file.path), virtualized);
     filterTree(
+      provider,
       matches,
       filtering,
       shown.map((file) => file.path),
-      new Map(files.list.filter((file) => file.digest).map((file) => [file.digest, file.path])),
+      new Map(files.list.filter((file) => file.anchor).map((file) => [file.anchor, file.path])),
     );
     // A new pull request or a new selection starts the conversation count over.
     const key = `${location.pathname} ${selection.join()}`;
@@ -261,14 +274,14 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
       navigation.position(shown, files.complete),
       filtering ? navigation.count(files.list, files.complete) : undefined,
     );
-    updatePageCounters(totals, filtering);
+    updatePageCounters(provider, totals, filtering);
     pageChanged = filtering;
     showReview(current, key, { announce: announceNext });
     announceNext = false;
   };
 
   /**
-   * Reader actions apply on the next frame; changes GitHub makes to the page wait for idle time. A frame request
+   * Reader actions apply on the next frame; changes the site makes to the page wait for idle time. A frame request
    * overtakes a pending idle one, which then does nothing.
    */
   let ticket = 0;
@@ -293,11 +306,11 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
         // Picked again while this change was being prepared: that pick gets its own turn.
         if (chosen) schedule();
         const next = shown.find((file) => !file.viewed);
-        if (next?.diff?.element.isConnected) page.scrollToTop(next.diff.container, behavior);
+        if (next?.diff?.element.isConnected) scrollToTop(next.diff.container, covered, behavior);
         else pending = next;
       }, pieces).then(() => {
-        // A file GitHub hasn't drawn yet is opened once the motion is over.
-        if (pending) void goToFile(pending);
+        // A file the site hasn't drawn yet is opened once the motion is over.
+        if (pending) void goToFile(provider, pending);
       });
     };
     if (when === 'frame') ctx.requestAnimationFrame(run);
@@ -313,20 +326,20 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   const pageObserver = new MutationObserver((records) => {
     const relevant = records.filter(changesElements);
     if (!relevant.length) return;
-    const urgent = relevant.some((record) => record.type === 'attributes' || [...record.addedNodes].some(page.containsDiff));
+    const urgent = relevant.some((record) => record.type === 'attributes' || [...record.addedNodes].some(provider.containsDiff));
     schedule(urgent ? 'frame' : 'idle');
   });
   let observing = false;
   const observe = (active: boolean) => {
     if (active === observing) return;
     observing = active;
-    // Viewed toggles flip aria-pressed in the new diff view; the classic one only fires `change` (below).
+    // Some Viewed toggles only change an attribute; checkboxes fire `change`, which is watched below.
     if (active)
       pageObserver.observe(document.documentElement, {
         childList: true,
         subtree: true,
-        attributes: true,
-        attributeFilter: ['aria-pressed'],
+        attributes: provider.observedAttributes.length > 0,
+        ...(provider.observedAttributes.length ? { attributeFilter: provider.observedAttributes } : {}),
       });
     else pageObserver.disconnect();
   };
@@ -352,32 +365,32 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   });
   panel.showUpdate(await updateItem.getValue());
   const unwatchUpdate = updateItem.watch((version) => panel.showUpdate(version));
+  const unwatchAppearance = appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
   const dismissUpdate = () => void updateItem.setValue(null);
 
   ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
 
-  // A file picked in GitHub's tree scrolls smoothly from where the page was, and lines up below the sticky bar instead
-  // of under it. GitHub still updates the address and the tree; a jump of its own is undone before it's painted.
+  // A file picked in the site's tree scrolls smoothly from where the page was, and lines up below the sticky bar
+  // instead of under it. The site still updates the address and the tree; a jump of its own is undone before it's painted.
   ctx.addEventListener(
     document,
     'click',
     (event) => {
-      const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('[role="tree"] a[href^="#diff-"]');
-      if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const digest = link.getAttribute('href')?.slice('#diff-'.length) ?? '';
+      const anchor = provider.tree.anchorAt(event.target);
+      if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const from = scrollY;
       const bringIn = (diff: HTMLElement) => {
         if (scrollY !== from) scrollTo({ top: from });
-        page.scrollToTop(files.list.find((file) => file.diff?.element === diff)?.diff?.container ?? diff);
+        scrollToTop(files.list.find((file) => file.diff?.element === diff)?.diff?.container ?? diff, covered);
       };
-      const diff = page.diffByDigest(digest);
+      const diff = provider.diffAt(anchor);
       if (diff) {
         event.preventDefault();
-        history.pushState(history.state, '', `#diff-${digest}`);
+        history.pushState(history.state, '', provider.hashOf(anchor));
         ctx.requestAnimationFrame(() => bringIn(diff));
       } else {
-        // Not drawn yet: GitHub brings it in, then it's lined up.
-        void waitFor(() => page.diffByDigest(digest)).then((found) => found && page.scrollToTop(found));
+        // Not drawn yet: the site brings it in, then it's lined up.
+        void waitFor(() => provider.diffAt(anchor)).then((found) => found && scrollToTop(found, covered));
       }
     },
     { capture: true },
@@ -386,12 +399,13 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel): 
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
     removeTransitionStyle();
-    if (pageChanged) restorePage();
+    if (pageChanged) restorePage(provider);
     if (!browser.runtime?.id) return;
     browser.runtime.onMessage.removeListener(onMessage);
     unwatchConfig();
     unwatchSelections();
     unwatchUpdate();
+    unwatchAppearance();
   });
 
   // The first pass runs straight away, not on the next frame, so a pull request opened in a background tab is already

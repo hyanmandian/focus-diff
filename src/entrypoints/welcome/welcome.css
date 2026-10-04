@@ -3,7 +3,7 @@
   padding-block: 56px 72px;
 }
 .welcome {
-  /* Wide enough for the demo's bar on one row, as it sits on GitHub. */
+  /* Wide enough for the demo's bar on one row, as it sits on a review page. */
   max-width: 920px;
   gap: 56px;
 }

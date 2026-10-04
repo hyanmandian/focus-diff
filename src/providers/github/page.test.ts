@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { pullRequestData, treeFiles, treePathOf } from '@/utils/github/github';
+import { pullRequestData, treeFiles, treePathOf } from '@/providers/github/page';
 
 const embed = (data: unknown) => {
   document.head.innerHTML = '';
@@ -57,7 +57,7 @@ describe('pullRequestData', () => {
     expect(data?.files).toEqual([
       {
         path: 'a.ts',
-        digest: 'aa',
+        anchor: 'aa',
         additions: 3,
         deletions: 1,
         viewed: true,
@@ -68,7 +68,7 @@ describe('pullRequestData', () => {
           { id: '4', line: 'R50', state: 'waiting', comment: '' },
         ],
       },
-      { path: 'b.ts', digest: 'bb', additions: 0, deletions: 9, viewed: false, threads: [] },
+      { path: 'b.ts', anchor: 'bb', additions: 0, deletions: 9, viewed: false, threads: [] },
     ]);
   });
 

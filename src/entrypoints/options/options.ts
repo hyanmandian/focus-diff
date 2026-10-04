@@ -16,10 +16,23 @@ import {
   type Filter,
   type RepoFilters,
 } from '@/utils/filters/filters';
+import { createDemo, type Demo } from '@/components/demo/demo';
+import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
 import { toaster } from '@/components/toast/toast';
+import { PROVIDERS, providerNames } from '@/providers/providers';
+import {
+  appearanceCss,
+  createStyler,
+  DEFAULT_APPEARANCE,
+  normalizeAppearance,
+  SITE_THEME,
+  THEME_PROPERTIES,
+  type Appearance,
+} from '@/utils/appearance/appearance';
+import { uiLanguage } from '@/utils/i18n';
 import { $, reveal, translate, translateDocument } from '@/utils/page';
 import type { Message } from '@/utils/messages';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
+import { appearanceItem, configItem, loadAppearance, loadConfig, saveAppearance, saveConfig } from '@/utils/storage/storage';
 
 type Field = 'name' | 'include' | 'exclude';
 type Tone = '' | 'ok' | 'warn' | 'error';
@@ -39,6 +52,7 @@ let uid = 0;
 const nextId = (prefix: string) => `${prefix}-${++uid}`;
 
 let config: Config = normalize({});
+let appearance: Appearance = { ...DEFAULT_APPEARANCE };
 let dirty = false;
 let saving = false;
 let suggestedRepo = '';
@@ -227,14 +241,19 @@ const save = async () => {
     document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
     return;
   }
+  // Each is saved on its own, so a quota error says which one is too big.
+  let saved: 'filters' | 'look' = 'filters';
   try {
     saving = true;
     await saveConfig(config);
+    saved = 'look';
+    await saveAppearance(appearance);
     dirty = false;
     say(i18n.t('statusSaved'), 'ok');
   } catch (error) {
     const reason = (error as Error).message;
-    say(/QUOTA/i.test(reason) ? i18n.t('statusQuota') : i18n.t('statusSaveError', [reason]), 'error');
+    const quota = saved === 'filters' ? i18n.t('statusQuota') : i18n.t('statusQuotaCss');
+    say(/QUOTA/i.test(reason) ? quota : i18n.t('statusSaveError', [reason]), 'error');
   } finally {
     saving = false;
   }
@@ -330,11 +349,67 @@ configItem.watch((value) => {
   render();
 });
 
+/**
+ * The bar's look. The preview is the welcome page's demo on a few of its files, restyled on every change; pull requests
+ * get the new look once it's saved.
+ */
+const themeSelect = $<HTMLSelectElement>('#theme');
+const cssBox = $<HTMLTextAreaElement>('#css');
+let preview: Demo | null = null;
+const restylePreview = createStyler((css) => preview?.setTheme(css));
+
+themeSelect.replaceChildren(
+  new Option(i18n.t('themeSite'), SITE_THEME),
+  ...PROVIDERS.map((provider) => new Option(provider.name, provider.id)),
+);
+
+const renderLook = () => {
+  themeSelect.value = appearance.theme;
+  cssBox.value = appearance.css;
+  void restylePreview(appearance);
+};
+
+const changeLook = (next: Partial<Appearance>) => {
+  appearance = { ...appearance, ...next };
+  setDirty();
+  void restylePreview(appearance);
+};
+
+themeSelect.addEventListener('change', () => changeLook({ theme: themeSelect.value }));
+cssBox.addEventListener('input', () => changeLook({ css: cssBox.value }));
+
+/** The theme's colours as the preview shows them, written out as CSS to change; the reader's CSS stays below. */
+$('#css-start').addEventListener('click', () => {
+  const host = $('#preview').shadowRoot?.querySelector<HTMLElement>('.demo-bar');
+  if (!host) return;
+  const styles = getComputedStyle(host);
+  const lines = THEME_PROPERTIES.map((name) => `  ${name}: ${styles.getPropertyValue(name).trim()};`);
+  const starter = `:host {\n${lines.join('\n')}\n}`;
+  cssBox.value = appearance.css.trim() ? `${starter}\n\n${appearance.css}` : starter;
+  changeLook({ css: cssBox.value });
+  cssBox.focus();
+  cssBox.setSelectionRange(0, 0);
+});
+
+$('#css-clear').addEventListener('click', () => {
+  cssBox.value = '';
+  changeLook({ css: '' });
+  cssBox.focus();
+});
+
+appearanceItem.watch((value) => {
+  if (saving) return;
+  if (dirty) return say(i18n.t('statusChangedElsewhere'), 'warn');
+  appearance = normalizeAppearance(value);
+  renderLook();
+});
+
 window.addEventListener('beforeunload', (event) => {
   if (dirty) event.preventDefault();
 });
 
 translateDocument(i18n.t('optionsTitle'));
+$('#tagline').textContent = i18n.t('optionsTagline', [providerNames(uiLanguage())]);
 $('#version').textContent = i18n.t('optionsVersion', [browser.runtime.getManifest().version]);
 
 /** `#repo=owner/name` comes from the panel on that repository: it's tried, and offered as a new repository. */
@@ -361,9 +436,17 @@ browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) 
   });
 });
 
-void loadConfig().then((loaded) => {
+void Promise.all([loadConfig(), loadAppearance()]).then(async ([loaded, look]) => {
   config = loaded;
+  appearance = look;
   render();
+  preview = createDemo(
+    $('#preview'),
+    { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 4) },
+    // Settings are this page; the button goes to the filters.
+    { onSettings: () => $('#global-h').focus(), theme: await appearanceCss(appearance) },
+  );
+  renderLook();
   reveal();
   applyRepoHash();
 });

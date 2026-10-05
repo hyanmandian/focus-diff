@@ -1,11 +1,11 @@
 /**
- * Takes the store and README screenshots of the built extension on a real pull request:
+ * Takes the README screenshots of the built extension on a real pull request:
  *
  *   npm run screenshots -- https://github.com/<owner>/<repo>/pull/<number>/files
  *
  * It loads .output/chrome-mv3, sets up the Frontend, Backend and Docs examples, picks Frontend, and writes
- * store/screenshots/: store-1280x800-{light,dark}.png (the store's exact size), pull-request.png, and readme.png, which
- * frames pull-request.png with the bar zoomed in. Signed out, so no account shows. Optimise the PNGs afterwards.
+ * store/screenshots/: pull-request.png, and readme.png, which frames pull-request.png with the bar zoomed in. Signed
+ * out, so no account shows. Optimise the PNGs afterwards. The store's own images come from scripts/store-images.ts.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -69,13 +69,6 @@ const titleTop = (page: Page) =>
   });
 
 const close = (context: BrowserContext) => context.close();
-
-for (const scheme of ['light', 'dark'] as const) {
-  const { context, page } = await open(scheme, 1280, 800);
-  await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), await titleTop(page));
-  await page.screenshot({ path: `${out}/store-1280x800-${scheme}.png` });
-  await close(context);
-}
 
 // At twice the pixels, so the zoomed-in bar stays sharp; the page itself is kept at its CSS size.
 // The viewport is the shot's own size, scrolled to the title, so the bar, fixed to the bottom of the

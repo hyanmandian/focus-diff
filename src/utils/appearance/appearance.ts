@@ -46,7 +46,7 @@ export const HEX_COLOR = /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 /** A theme as it's kept or shared: a trimmed name and only valid colours, in lower case. */
-export const normalizeTheme = (input: unknown, id: string = newId()): CustomTheme | null => {
+const normalizeTheme = (input: unknown, id: string = newId()): CustomTheme | null => {
   if (!isRecord(input) || typeof input.name !== 'string' || !input.name.trim()) return null;
   const given = isRecord(input.colors) ? input.colors : {};
   const colors: CustomTheme['colors'] = {};

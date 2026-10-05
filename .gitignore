@@ -8,3 +8,6 @@ coverage
 .DS_Store
 .claude/
 skills-lock.json
+
+# The store listing text, kept locally
+store/listing.md

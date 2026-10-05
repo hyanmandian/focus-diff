@@ -49,7 +49,7 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 3. `src/providers/providers.ts` lists it, with its name and its theme, which loads only when it's needed.
 4. `src/entrypoints/gitlab.content.ts` runs the bar there, like `github.content.ts`: each site's content script carries only its own provider.
 5. A saved page in `tests/fixtures/` and end-to-end tests on it, like the GitHub ones.
-6. The places that name the supported sites by hand: the manifest description in the locales, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and `store/listing.md`.
+6. The places that name the supported sites by hand: the manifest description in the locales, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and the store listings.
 
 ## Releasing
 

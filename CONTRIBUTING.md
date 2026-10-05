@@ -53,7 +53,7 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 
 ## Releasing
 
-Pull requests are squash-merged, and their titles follow [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. Last, it sends the zips to the Chrome Web Store and Firefox Add-ons, once a maintainer approves the `stores` environment that holds their credentials.
+Pull requests are merged with all their commits, so every commit message follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. Last, it sends the zips to the Chrome Web Store and Firefox Add-ons, once a maintainer approves the `stores` environment that holds their credentials.
 
 ## Supply chain
 
@@ -64,7 +64,7 @@ Pull requests are squash-merged, and their titles follow [Conventional Commits](
 
 ## Pull requests
 
-- Keep each pull request to one change, and its title a [Conventional Commit](https://www.conventionalcommits.org): it becomes the changelog entry.
+- Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
 - Put new text in both `src/locales/en.json` and `src/locales/pt_BR.json`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.

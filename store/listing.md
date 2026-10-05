@@ -16,6 +16,18 @@ Every image is a 24-bit PNG with no alpha, the format the Chrome Web Store asks 
 
 AMO takes the same screenshots. Each one is a real capture of the extension on a public pull request ([withastro/astro#16488](https://github.com/withastro/astro/pull/16488) and [#16366](https://github.com/withastro/astro/pull/16366)), framed with a headline in the look of focus-diff.com.
 
+### Screenshot captions
+
+AMO shows a caption under each screenshot, and the Chrome Web Store doesn’t ask for one. The same lines work as alt text wherever the images go:
+
+| Screenshot                       | English                                                                                                                               | Português                                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `screenshot-1-filter.png`        | Frontend picked on a 465-file pull request: the diff shows its 20 files, and the bar counts the files, lines and time left to review. | Frontend escolhido num pull request de 465 arquivos: o diff mostra só os 20 dele, e a barra conta os arquivos, as linhas e o tempo que faltam revisar. |
+| `screenshot-2-breakdown.png`     | The breakdown by filter: files viewed, lines and review time left for All, Frontend and Backend, side by side.                        | O resumo por filtro: arquivos vistos, linhas e tempo de revisão de Todos, Frontend e Backend, lado a lado.                                             |
+| `screenshot-3-conversations.png` | Stepping through the conversations on a pull request: the second of eight is open, and it’s waiting on you.                           | Passando pelas conversas do pull request: a segunda de oito está aberta e aguarda você.                                                                |
+| `screenshot-4-settings.png`      | Settings: each filter is a button name with the file patterns it includes and excludes.                                               | Configurações: cada filtro tem um nome de botão e os padrões de arquivo que ele inclui e exclui.                                                       |
+| `screenshot-5-theme.png`         | Appearance: a theme of your own called Grape, with a live preview of the bar above its colours.                                       | Aparência: um tema próprio chamado Grape, com a prévia ao vivo da barra acima das cores.                                                               |
+
 ## Shared fields
 
 | Field          | Value                                                          |

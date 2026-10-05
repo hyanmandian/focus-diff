@@ -3,7 +3,10 @@ name: Site
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/site.yml', 'package.json', 'package-lock.json']
+    paths: ['site/**', 'scripts/installs.ts', '.github/workflows/site.yml', 'package.json', 'package-lock.json']
+  # Daily, so the installs badge (badges/installs.json) keeps up.
+  schedule:
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 permissions:
@@ -37,6 +40,16 @@ jobs:
       # The page is minified on the way out, with its inline styles and scripts; site/ keeps the readable source.
       - name: Build the site
         run: npm run build:site
+
+      # Chrome Web Store users, Firefox Add-ons users and release downloads, as a shields.io endpoint badge. The Chrome
+      # listing's id is a repository variable, set once the listing is live.
+      - name: Count the installs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+        run: |
+          mkdir -p .output/site/badges
+          node scripts/installs.ts > .output/site/badges/installs.json
 
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

@@ -353,8 +353,7 @@
         font-weight: 650;
         letter-spacing: -0.01em;
       }
-      .feature-list p,
-      .faq dd {
+      .feature-list p {
         margin: 0;
         color: var(--muted);
         font-size: 16px;
@@ -372,21 +371,66 @@
           Consolas,
           monospace;
       }
-      .faq dl {
-        display: grid;
+      .faq-list {
         width: 100%;
         max-width: 680px;
-        margin: 8px 0 0;
+        margin-top: 8px;
         text-align: left;
       }
-      .faq dl > div {
-        padding: 18px 0;
+      .faq details {
         border-top: 1px solid var(--border);
       }
-      .faq dt {
-        margin-bottom: 6px;
+      .faq details:last-child {
+        border-bottom: 1px solid var(--border);
+      }
+      .faq summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 60px;
+        padding: 12px 0;
         font-size: 17px;
         font-weight: 650;
+        cursor: pointer;
+        list-style: none;
+      }
+      .faq summary::-webkit-details-marker {
+        display: none;
+      }
+      /* A chevron that turns when the answer opens. */
+      .faq summary::after {
+        content: '';
+        flex: none;
+        width: 8px;
+        height: 8px;
+        margin-right: 4px;
+        border-right: 2px solid var(--muted);
+        border-bottom: 2px solid var(--muted);
+        transform: rotate(45deg) translateY(-2px);
+        transition: transform 200ms ease-out;
+      }
+      .faq details[open] summary::after {
+        transform: rotate(-135deg) translateY(-2px);
+      }
+      .faq summary:hover::after {
+        border-color: var(--fg);
+      }
+      .faq summary:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      .faq details p {
+        margin: 0;
+        padding: 0 0 20px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .faq summary::after {
+          transition: none;
+        }
       }
       .faq a {
         color: var(--fg);
@@ -731,33 +775,33 @@
 
       <section class="faq" aria-labelledby="faq-title">
         <h2 id="faq-title">Questions about Focus Diff</h2>
-        <dl>
-          <div>
-            <dt>Does it send my code anywhere?</dt>
-            <dd>No. It makes no network requests and collects no data. Your filters stay in your browser’s storage.</dd>
-          </div>
-          <div>
-            <dt>Does it work on private repositories?</dt>
-            <dd>
+        <div class="faq-list">
+          <details>
+            <summary>Does it send my code anywhere?</summary>
+            <p>No. It makes no network requests and collects no data. Your filters stay in your browser’s storage.</p>
+          </details>
+          <details>
+            <summary>Does it work on private repositories?</summary>
+            <p>
               Yes. It works on any pull request page you can open on github.com, public or private, using only what that page shows you.
-            </dd>
-          </div>
-          <div>
-            <dt>Which browsers does it support?</dt>
-            <dd>Chrome, Edge, Brave, Arc, Opera and other Chromium browsers, Firefox and the browsers built on it, and Safari on a Mac.</dd>
-          </div>
-          <div>
-            <dt>Does it work with GitLab or Bitbucket?</dt>
-            <dd>Not yet. It works on GitHub today, and it’s built so other code review sites can be added.</dd>
-          </div>
-          <div>
-            <dt>Is it free?</dt>
-            <dd>
+            </p>
+          </details>
+          <details>
+            <summary>Which browsers does it support?</summary>
+            <p>Chrome, Edge, Brave, Arc, Opera and other Chromium browsers, Firefox and the browsers built on it, and Safari on a Mac.</p>
+          </details>
+          <details>
+            <summary>Does it work with GitLab or Bitbucket?</summary>
+            <p>Not yet. It works on GitHub today, and it’s built so other code review sites can be added.</p>
+          </details>
+          <details>
+            <summary>Is it free?</summary>
+            <p>
               Yes. Focus Diff is free and open source under the MIT license, and its code is on
               <a href="https://github.com/hyanmandian/focus-diff">GitHub</a>.
-            </dd>
-          </div>
-        </dl>
+            </p>
+          </details>
+        </div>
       </section>
 
       <footer>

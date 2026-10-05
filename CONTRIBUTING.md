@@ -17,7 +17,8 @@ npm run e2e         # builds, then runs Playwright against the real extension, w
 npm run fmt         # format everything
 npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)
 npm run build:demo  # the welcome page's live demo as one script for the site, in .output/demo/
-npm run screenshots -- <pull request files URL>  # store and README images in store/screenshots/, then optimise them
+npm run screenshots -- <pull request files URL>  # README images in store/screenshots/, then optimise them
+npm run store-images  # the store's screenshots and promo tiles, in English and Portuguese, in store/images/
 ```
 
 ```text

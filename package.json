@@ -1,6 +1,6 @@
 {
   "name": "focus-diff",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Review what matters. A browser extension that filters pull request diffs.",
   "license": "MIT",

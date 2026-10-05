@@ -3,7 +3,7 @@ name: Site
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/site.yml']
+    paths: ['site/**', '.github/workflows/site.yml', 'package.json', 'package-lock.json']
   workflow_dispatch:
 
 permissions:
@@ -31,13 +31,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # The page is minified on the way out, with its inline styles and scripts; site/ keeps the readable source.
+      - name: Build the site
+        run: npm run build:site
+
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload the site
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: site
+          path: .output/site
 
       - name: Deploy
         id: deployment

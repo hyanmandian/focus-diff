@@ -5,3 +5,4 @@ rules:
     ignore:
       - ci.yml
       - release.yml
+      - site.yml

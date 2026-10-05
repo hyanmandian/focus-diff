@@ -20,7 +20,7 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="favicon.png" />
-    <link rel="preload" as="image" href="poster.jpg" fetchpriority="high" />
+    <link rel="preload" as="image" href="poster.webp" type="image/webp" fetchpriority="high" />
     <style>
       :root {
         --bg: #0b0f14;
@@ -159,7 +159,7 @@
         overflow: hidden;
         border: 1px solid var(--border);
         border-radius: 16px;
-        background: #000 url(poster.jpg) center / cover;
+        background: #000 url(poster.webp) center / cover;
         box-shadow: 0 40px 120px rgba(0, 0, 0, 0.55);
       }
       video {
@@ -353,9 +353,9 @@
       </ul>
 
       <div class="video">
+        <!-- AV1 where the browser can decode it (about a third smaller), H.264 everywhere else. -->
         <video
-          src="focus-diff.mp4"
-          poster="poster.jpg"
+          poster="poster.webp"
           width="1280"
           height="720"
           muted
@@ -364,7 +364,10 @@
           controls
           preload="none"
           aria-label="Focus Diff in 74 seconds: filtering a pull request to Frontend or Backend files, combining filters, the files, lines and review time left, the breakdown by filter, the next file to review, stepping through conversations, the Done badge, switching filters from the keyboard, writing filters and trying a path in settings, filters for one repository, starting from examples, sharing filters with your team, making your own theme, and following light and dark mode"
-        ></video>
+        >
+          <source src="focus-diff.av1.mp4" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"' />
+          <source src="focus-diff.mp4" type="video/mp4" />
+        </video>
         <script>
           // Start the demo once the page has loaded, so the video never competes with it. With reduced motion, wait for a press on play.
           {

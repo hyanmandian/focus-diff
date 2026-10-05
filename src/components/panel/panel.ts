@@ -1,5 +1,3 @@
-import '@/components/theme.css';
-import './panel.css';
 import { i18n } from '#i18n';
 import { confetti } from '@/components/confetti';
 import { settingsIcon } from '@/components/icons';

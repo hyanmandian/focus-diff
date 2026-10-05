@@ -1,4 +1,3 @@
-import './scoreboard.css';
 import { h } from '@/utils/dom';
 
 const FLIP_MS = 260;

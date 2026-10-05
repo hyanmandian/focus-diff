@@ -1,6 +1,5 @@
 import { i18n } from '#i18n';
-import { createDemo, type Demo } from '@/components/demo/demo';
-import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
+import type { Demo } from '@/components/demo/demo';
 import { PROVIDERS } from '@/providers/providers';
 import {
   appearanceCss,
@@ -265,18 +264,30 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     select.focus();
   });
 
+  /**
+   * The preview is the demo's bar, a bundle of its own: it's loaded after the page shows, below the fold, so it never
+   * holds the page up. It starts in the look as it is by then.
+   */
+  let previewLoading: Promise<void> | null = null;
+  const loadPreview = async () => {
+    const [{ createDemo }, { SAMPLE_PULL_REQUEST }] = await Promise.all([
+      import('@/components/demo/demo'),
+      import('@/components/demo/sample'),
+    ]);
+    preview = createDemo(
+      $('#preview'),
+      { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 2) },
+      // Settings are this page; the button goes to the filters.
+      { onSettings: () => $('#global-h').focus(), theme: await appearanceCss(appearance) },
+    );
+    showDefaults();
+  };
+
   return {
     /** Shows a look, like the saved one or one saved elsewhere, with the preview wearing it. */
-    render: async (next: Appearance) => {
+    render: (next: Appearance) => {
       appearance = next;
-      if (!preview) {
-        preview = createDemo(
-          $('#preview'),
-          { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 2) },
-          // Settings are this page; the button goes to the filters.
-          { onSettings: () => $('#global-h').focus(), theme: await appearanceCss(appearance) },
-        );
-      }
+      previewLoading ??= loadPreview();
       render();
     },
     /** Whether the theme being edited can be saved; if not, says why at the field and focuses it. */

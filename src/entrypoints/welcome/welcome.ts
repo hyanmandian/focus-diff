@@ -6,8 +6,6 @@ import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters/filters';
 import { message, uiLanguage } from '@/utils/i18n';
 import { providerNames } from '@/providers/providers';
-import { createDemo } from '@/components/demo/demo';
-import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
 import { toaster } from '@/components/toast/toast';
 import { $, reveal, translate, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
@@ -134,13 +132,19 @@ configItem.watch((value) => {
 
 translateDocument(i18n.t('welcomeTitle'));
 $('#lead').textContent = i18n.t('welcomeLead', [providerNames(uiLanguage())]);
-void Promise.all([loadConfig(), loadAppearance().then(appearanceCss), renderShortcuts()]).then(([loaded, theme]) => {
-  // The demo wears the reader's look for the bar from the start, and follows it as it changes in settings.
-  const demo = createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html'), theme });
-  const restyle = createStyler(demo.setTheme);
-  appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
+void Promise.all([loadConfig(), renderShortcuts()]).then(([loaded]) => {
   config = loaded;
   render();
   reveal();
   if (location.hash === '#recipes-h') $('#recipes-h').focus();
 });
+
+// The demo is a bundle of its own, loaded once the page shows. It wears the reader's look for the bar from the start,
+// and follows it as it changes in settings.
+void Promise.all([import('@/components/demo/demo'), import('@/components/demo/sample'), loadAppearance().then(appearanceCss)]).then(
+  ([{ createDemo }, { SAMPLE_PULL_REQUEST }, theme]) => {
+    const demo = createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html'), theme });
+    const restyle = createStyler(demo.setTheme);
+    appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
+  },
+);

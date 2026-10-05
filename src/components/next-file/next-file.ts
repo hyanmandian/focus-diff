@@ -1,4 +1,3 @@
-import './next-file.css';
 import { i18n } from '#i18n';
 import { nextFileIcon } from '@/components/icons';
 import { h } from '@/utils/dom';

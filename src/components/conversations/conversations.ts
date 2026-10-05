@@ -1,4 +1,3 @@
-import './conversations.css';
 import { i18n } from '#i18n';
 import { chevronIcon, commentIcon, targetIcon, threadStateIcons } from '@/components/icons';
 import { h } from '@/utils/dom';

@@ -1,4 +1,3 @@
-import './breakdown.css';
 import { i18n } from '#i18n';
 import { breakdownIcon, checkIcon, infoIcon } from '@/components/icons';
 import { h } from '@/utils/dom';

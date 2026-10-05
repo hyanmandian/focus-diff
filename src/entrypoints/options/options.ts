@@ -419,7 +419,7 @@ browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) 
 void Promise.all([loadConfig(), loadAppearance()]).then(async ([loaded, appearance]) => {
   config = loaded;
   render();
-  await look.render(appearance);
+  look.render(appearance);
   markSection();
   reveal();
   applyRepoHash();

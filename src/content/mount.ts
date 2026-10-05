@@ -5,6 +5,13 @@ import { keepOutOfTransitions } from '@/content/transition';
 import type { Provider } from '@/providers/provider';
 import { uiLanguage } from '@/utils/i18n';
 
+// The bar's styles, every component's, which the content script injects into the bar's shadow root. They're imported
+// here rather than by each component, so the extension's pages, which show the bar only in the demo (with its own copies
+// in its shadow roots), don't load them as page styles.
+import.meta.glob(['../components/**/*.css', '!../components/demo/**', '!../components/toast/**', '!../components/button.css'], {
+  eager: true,
+});
+
 /** Puts the bar on a review site's pages and starts filtering them; every provider's content script runs this. */
 export const mountBar = async (ctx: ContentScriptContext, provider: Provider): Promise<void> => {
   let controller: Controller | null = null;

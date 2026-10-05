@@ -83,6 +83,15 @@
 .demo-hint {
   margin: 0 0 12px;
 }
+/* The demo loads after the page shows; its room is kept, so nothing below it moves when it arrives. */
+#demo {
+  min-height: 810px;
+}
+@media (max-width: 560px) {
+  #demo {
+    min-height: 936px;
+  }
+}
 
 /* Examples: a grid of them, each with the buttons it adds and its patterns folded away. */
 .recipes {

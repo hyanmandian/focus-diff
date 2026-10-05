@@ -1,4 +1,3 @@
-import './filters.css';
 import { i18n } from '#i18n';
 import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format/format';

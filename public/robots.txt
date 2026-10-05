@@ -1,0 +1,3 @@
+# Extension pages are out of search engines' reach anyway; this file only answers the tools that ask for one.
+User-agent: *
+Allow: /

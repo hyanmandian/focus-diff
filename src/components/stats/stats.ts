@@ -1,4 +1,3 @@
-import './stats.css';
 import { i18n } from '#i18n';
 import { clockIcon, diffIcon, doneIcon, fileIcon } from '@/components/icons';
 import { h } from '@/utils/dom';

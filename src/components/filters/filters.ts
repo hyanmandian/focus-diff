@@ -1,4 +1,3 @@
-import './filters.css';
 import { i18n } from '#i18n';
 import { h } from '@/utils/dom';
 import { formatNumber as format } from '@/utils/format/format';
@@ -9,7 +8,7 @@ export interface PanelOption {
   name: string;
   /** Files this option shows. */
   count?: number;
-  /** Files GitHub hasn't loaded yet might add to the count, so none isn't final. */
+  /** Files the site hasn't loaded yet might add to the count, so none isn't final. */
   loading?: boolean;
 }
 

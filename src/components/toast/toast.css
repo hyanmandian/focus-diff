@@ -1,14 +1,15 @@
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   max-width: calc(100vw - 32px);
   padding: 10px 16px;
-  border-radius: 8px;
-  background: var(--fg);
-  color: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-raised);
+  color: var(--fg);
   font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow);
   transform: translate(-50%, 8px);
   opacity: 0;
   pointer-events: none;

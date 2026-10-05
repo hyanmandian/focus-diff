@@ -1,31 +1,10 @@
-export interface FileStats {
-  additions: number;
-  deletions: number;
-}
+import type { Diff, FileStats, FileSummary, PageCounters, ThreadState, ThreadSummary, TreeFile, TreeFolder } from '@/providers/provider';
 
-export interface Diff {
-  element: Element;
-  path: string;
-  container: HTMLElement;
-  stats: () => FileStats | null;
-}
-
-interface TreeFile {
-  element: HTMLElement;
-  /** From the item's `#diff-<digest>` link, when the tree has one. */
-  digest: string;
-}
-
-interface TreeFolder {
-  element: HTMLElement;
-  path: string;
-}
-
-interface PageCounters {
-  files: HTMLElement | null;
-  additions: HTMLElement | null;
-  deletions: HTMLElement | null;
-}
+/**
+ * Reads GitHub's pull request pages, in both of its diff views. The classic one draws every file and its conversations
+ * up front; the newer one, shown to signed-in reviewers, draws files as they scroll into view and embeds the whole pull
+ * request as data. A file's anchor is GitHub's digest of its path, as in `#diff-<digest>`.
+ */
 
 const DIFF = '[role="region"][id^="diff-"], [data-tagsearch-path][id^="diff-"]';
 const TREE_ITEM = '[role="treeitem"]';
@@ -126,7 +105,14 @@ export const diffs = (): Diff[] => {
     if (element.parentElement?.closest(DIFF)) continue;
     const path = cachedPathOf(element);
     if (!path || byPath.has(path)) continue;
-    byPath.set(path, { element, path, container: containerOf(element), stats: () => statsOf(element, path) });
+    byPath.set(path, {
+      element,
+      path,
+      container: containerOf(element),
+      stats: () => statsOf(element, path),
+      viewed: () => viewed(element),
+      anchor: element.id.startsWith('diff-') ? element.id.slice('diff-'.length) : '',
+    });
   }
   return [...byPath.values()];
 };
@@ -153,7 +139,7 @@ export const treePathOf = (item: Element): string => {
 export const treeFiles = (): TreeFile[] =>
   [...document.querySelectorAll<HTMLElement>(`${TREE_ITEM}:not([aria-expanded])`)].map((element) => ({
     element,
-    digest: element.querySelector('a[href^="#diff-"]')?.getAttribute('href')?.slice('#diff-'.length) ?? '',
+    anchor: element.querySelector('a[href^="#diff-"]')?.getAttribute('href')?.slice('#diff-'.length) ?? '',
   }));
 
 export const treeFolders = (): TreeFolder[] =>
@@ -216,8 +202,8 @@ const VIEWED = 'input.js-reviewed-checkbox, button[aria-pressed], [data-diff-hea
 const VIEWED_LABEL = /^(not )?viewed$/i;
 
 /** Whether the reviewer marked a file as viewed on GitHub, or `null` when its toggle isn't rendered. */
-export const viewed = (diff: Pick<Diff, 'element'>): boolean | null => {
-  for (const control of diff.element.querySelectorAll<HTMLElement>(VIEWED)) {
+const viewed = (diff: Element): boolean | null => {
+  for (const control of diff.querySelectorAll<HTMLElement>(VIEWED)) {
     if (control instanceof HTMLInputElement) {
       if (control.classList.contains('js-reviewed-checkbox') || VIEWED_LABEL.test(control.closest('label')?.textContent?.trim() ?? ''))
         return control.checked;
@@ -231,11 +217,24 @@ export const viewed = (diff: Pick<Diff, 'element'>): boolean | null => {
 /** The newer diff view positions each file absolutely in a tall list and only renders the ones near the screen. */
 export const isVirtualized = (): boolean => document.querySelector('[data-index][data-path-digest]') !== null;
 
-export const diffByDigest = (digest: string): HTMLElement | null => (digest ? document.getElementById(`diff-${digest}`) : null);
+export const diffAt = (anchor: string): HTMLElement | null => (anchor ? document.getElementById(`diff-${anchor}`) : null);
 
 /** The file tree's link to a file, which makes GitHub scroll to it and render it. */
-export const treeLink = (digest: string): HTMLAnchorElement | null =>
-  digest ? document.querySelector<HTMLAnchorElement>(`[role="treeitem"] a[href="#diff-${CSS.escape(digest)}"]`) : null;
+const treeLink = (anchor: string): HTMLAnchorElement | null =>
+  anchor ? document.querySelector<HTMLAnchorElement>(`[role="treeitem"] a[href="#diff-${CSS.escape(anchor)}"]`) : null;
+
+/** Opens a file GitHub hasn't drawn: with its folder collapsed or the tree closed, its anchor still takes GitHub there. */
+export const reveal = (anchor: string): void => {
+  const link = treeLink(anchor);
+  if (link) link.click();
+  else location.hash = `diff-${anchor}`;
+};
+
+/** The file a click in the tree went to, by the anchor of its link. */
+export const treeAnchorAt = (target: EventTarget | null): string | null => {
+  const link = target instanceof Element ? target.closest('[role="tree"] a[href^="#diff-"]') : null;
+  return link?.getAttribute('href')?.slice('#diff-'.length) || null;
+};
 
 /** Conversation markers beside the lines of a rendered diff in the newer view, top to bottom. */
 export const commentIndicators = (diff: Element): HTMLElement[] =>
@@ -246,9 +245,6 @@ export const commentIndicators = (diff: Element): HTMLElement[] =>
 
 /** Review conversations in the classic view; the class is a fallback for the custom element. */
 const THREAD = 'review-thread-collapsible, .js-resolvable-timeline-thread-container';
-
-/** Waiting on the reader, answered by them (they wrote or reacted to the last comment), or resolved. */
-export type ThreadState = 'waiting' | 'answered' | 'resolved';
 
 export interface Thread {
   element: HTMLElement;
@@ -329,110 +325,16 @@ const FILE_HEADER = '[data-diff-header-wrapper], .file-header';
  * Where GitHub's sticky bar ends: each file's header sticks right below it, so its `top` says. A file brought to the
  * top lines up there, with nothing of it hidden behind the bar.
  */
-export const stickyBarBottom = (): number => {
+const stickyBarBottom = (): number => {
   const header = document.querySelector(FILE_HEADER);
   const top = header ? Number.parseFloat(getComputedStyle(header).top) : Number.NaN;
   return Number.isFinite(top) && top > 0 ? top : STICKY_FALLBACK_PX;
 };
 
-/** How much of the screen's top GitHub covers over something inside a file: its bar, then the file's own header. */
-const coveredTop = (element: Element): number => {
-  const header = element.closest(DIFF)?.querySelector<HTMLElement>(FILE_HEADER);
+/** How much of the screen's top GitHub covers: its bar, and over something inside a file, the file's own header too. */
+export const coveredTop = (inside?: Element): number => {
+  const header = inside?.closest(DIFF)?.querySelector<HTMLElement>(FILE_HEADER);
   return stickyBarBottom() + (header?.offsetHeight ?? 0);
-};
-const FLASH_MS = 2000;
-
-const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'auto');
-
-/** Lets go of the element held by the last jump, so two never pull the page different ways. */
-let releaseHold = () => {};
-
-const HOLD_MS = 5000;
-const SETTLED_MS = 600;
-const DRIFT_PX = 24;
-const READER_INPUT = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
-
-/**
- * Scrolls so an element sits `offsetOf(its box)` below the top of the screen, and keeps it there while GitHub is still
- * drawing diffs on the way, which would otherwise push it off. A move of the target is followed in the same manner
- * the scroll started, so a smooth scroll stays smooth. It lets go once the page settles, or as soon as the reader
- * scrolls; going somewhere else lets go of the previous one.
- */
-const scrollAndHold = (element: Element, offsetOf: (box: DOMRect) => number, behavior: ScrollBehavior): void => {
-  // Hidden, say by a filter picked since the jump began: there's nowhere to go.
-  if (!element.getClientRects().length) return;
-  // Where the page has to be, within how far it can scroll.
-  const targetOf = () => {
-    const box = element.getBoundingClientRect();
-    const top = box.top + scrollY - offsetOf(box);
-    return Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
-  };
-  releaseHold();
-  let target = targetOf();
-  scrollTo({ top: target, behavior });
-
-  const started = performance.now();
-  let settledSince = started;
-  let held = true;
-  const release = () => {
-    held = false;
-    for (const type of READER_INPUT) removeEventListener(type, release, true);
-  };
-  releaseHold = release;
-  for (const type of READER_INPUT) addEventListener(type, release, { capture: true, passive: true });
-  let lastScrollY = scrollY;
-  let stillFrames = 0;
-  const hold = (now: number) => {
-    if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) return release();
-    const next = targetOf();
-    // Content drawn above moves the element; GitHub scrolling by itself moves the page, which only counts once the
-    // page is still, so a smooth scroll on its way there isn't mistaken for it.
-    const moved = Math.abs(next - target) > DRIFT_PX;
-    stillFrames = scrollY === lastScrollY ? stillFrames + 1 : 0;
-    const strayed = stillFrames >= 3 && Math.abs(scrollY - next) > DRIFT_PX;
-    if (moved || strayed) {
-      target = next;
-      settledSince = now;
-      scrollTo({ top: target, behavior });
-    }
-    lastScrollY = scrollY;
-    requestAnimationFrame(hold);
-  };
-  requestAnimationFrame(hold);
-};
-
-/** Brings an element to the top of the screen, right below GitHub's sticky bar. */
-export const scrollToTop = (element: Element, behavior: ScrollBehavior = scrollBehavior()): void =>
-  scrollAndHold(element, () => stickyBarBottom(), behavior);
-
-/** Brings an element to the middle of the screen, clear of GitHub's sticky bar and its file's header. */
-export const scrollToCenter = (element: Element): void =>
-  scrollAndHold(element, (box) => Math.max(coveredTop(element), (innerHeight - box.height) / 2), scrollBehavior());
-
-const FLASH_ID = 'focus-diff-flash';
-
-const ACCENT = 'var(--fgColor-accent, var(--color-accent-fg, #0969da))';
-const ring = (alpha: number, glow: number) =>
-  `0 0 0 2px color-mix(in srgb, ${ACCENT} ${alpha}%, transparent), 0 0 0 ${glow}px color-mix(in srgb, ${ACCENT} ${alpha / 4}%, transparent)`;
-
-/**
- * Lights a ring around an element after a jump so the eye finds it: it glows in, holds, and fades out. It's an
- * animation, so it leaves nothing behind on GitHub's markup.
- */
-export const flash = (element: HTMLElement): void => {
-  for (const animation of element.getAnimations()) if (animation.id === FLASH_ID) animation.cancel();
-  // With reduced motion the ring doesn't grow; it shows, holds and fades.
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const animation = element.animate(
-    [
-      { boxShadow: ring(0, still ? 6 : 0), offset: 0 },
-      { boxShadow: ring(100, still ? 6 : 8), offset: 0.12 },
-      { boxShadow: ring(100, 6), offset: 0.7 },
-      { boxShadow: ring(0, still ? 6 : 0), offset: 1 },
-    ],
-    { duration: FLASH_MS, easing: 'ease-out' },
-  );
-  animation.id = FLASH_ID;
 };
 
 /**
@@ -442,26 +344,8 @@ export const flash = (element: HTMLElement): void => {
  * pull request. The classic view has no such data; callers fall back to reading the DOM.
  */
 
-interface FileSummary {
-  path: string;
-  /** SHA-256 of the path, as used in `#diff-<digest>` anchors and region ids. */
-  digest: string;
-  additions: number;
-  deletions: number;
-  viewed: boolean;
-  /** Thread anchors in this file, like `R550` for line 550 of the new version. */
-  threads: ThreadSummary[];
-}
-
-export interface ThreadSummary {
-  id: string;
-  line: string;
-  state: ThreadState;
-  /** The first comment's id; `#r<id>` is GitHub's own link that opens the thread. */
-  comment: string;
-}
-
 export interface PullRequestData {
+  /** A file's anchor is the SHA-256 of its path; a thread's comment is its first comment's id, which `#r<id>` opens. */
   files: FileSummary[];
 }
 
@@ -527,7 +411,7 @@ const parse = (text: string): PullRequestData | null => {
     return [
       {
         path: summary.path,
-        digest: typeof summary.pathDigest === 'string' ? summary.pathDigest : '',
+        anchor: typeof summary.pathDigest === 'string' ? summary.pathDigest : '',
         additions: Number(summary.linesAdded) || 0,
         deletions: Number(summary.linesDeleted) || 0,
         viewed: summary.markedAsViewed === true,

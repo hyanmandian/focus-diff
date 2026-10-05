@@ -3,159 +3,249 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Filters Focus Diff shows on pull request diffs, globally and per repository." />
+    <meta
+      name="description"
+      content="Filters Focus Diff shows on pull request diffs, globally and per repository, and how its bar looks."
+    />
     <title data-i18n="optionsTitle">Focus Diff settings</title>
     <meta name="manifest.open_in_tab" content="true" />
     <link rel="icon" href="/icon/32.png" />
   </head>
   <body>
     <a class="skip" href="#global-h" data-i18n="skipToFilters">Skip to filters</a>
-    <main>
-      <header class="intro">
-        <img src="/icon/128.png" width="56" height="56" alt="" />
-        <div>
-          <h1>Focus Diff</h1>
-          <p data-i18n="optionsTagline"></p>
-          <p><a href="/welcome.html" data-i18n="welcomeLink"></a></p>
-        </div>
-      </header>
-      <details class="help">
-        <summary data-i18n="helpSummary"></summary>
-        <div class="help-body">
-          <p data-i18n-html="helpBody"></p>
-          <dl>
-            <div>
-              <dt><code>\.(ts|tsx)$</code></dt>
-              <dd data-i18n="helpTypeScript"></dd>
-            </div>
-            <div>
-              <dt><code>\.(test|spec|stories)\.</code></dt>
-              <dd data-i18n="helpTests"></dd>
-            </div>
-            <div>
-              <dt><code>^packages/api/</code></dt>
-              <dd data-i18n="helpFolder"></dd>
-            </div>
-            <div>
-              <dt><code>(^|/)tests?/</code></dt>
-              <dd data-i18n-html="helpTestFolders"></dd>
-            </div>
-          </dl>
-          <p data-i18n-html="helpAll"></p>
-        </div>
-      </details>
-      <section class="box" aria-labelledby="global-h">
-        <div class="box-head">
-          <h2 id="global-h" tabindex="-1" data-i18n="globalHeading"></h2>
-          <p class="hint" data-i18n="globalHint"></p>
-        </div>
-        <div class="box-body" id="global"></div>
-      </section>
-      <section class="repos" aria-labelledby="repos-h">
-        <div class="section-head">
-          <h2 id="repos-h" data-i18n="reposHeading"></h2>
-          <p class="hint" data-i18n="reposHint"></p>
-        </div>
-        <div id="repos"></div>
-        <button id="add-repo" type="button" class="btn" data-i18n="addRepo"></button>
-      </section>
-      <section class="box" aria-labelledby="try-h">
-        <div class="box-head">
-          <h2 id="try-h" data-i18n="tryHeading"></h2>
-          <p class="hint" data-i18n="tryHint"></p>
-        </div>
-        <div class="box-body">
-          <div class="try">
-            <div class="field">
-              <label for="try-repo"><span data-i18n="repositoryLabel"></span> <span class="optional" data-i18n="optional"></span></label>
-              <input id="try-repo" type="text" placeholder="owner/name" spellcheck="false" autocomplete="off" />
-            </div>
-            <div class="field">
-              <label for="try-path" data-i18n="filePathLabel"></label>
-              <input
-                id="try-path"
-                type="text"
-                class="mono"
-                placeholder="src/components/Button.test.tsx"
-                spellcheck="false"
-                autocomplete="off"
-              />
-            </div>
-          </div>
-          <p id="try-result" class="try-result" aria-live="polite"></p>
-        </div>
-      </section>
-      <section class="box" aria-labelledby="share-h">
-        <div class="box-head">
-          <h2 id="share-h" data-i18n="shareHeading"></h2>
-          <p class="hint" data-i18n="shareHint"></p>
-        </div>
-        <div class="box-body share">
-          <div class="share-copy">
-            <div>
-              <h3 data-i18n="yourFilters"></h3>
-              <p class="hint" data-i18n="copyHint"></p>
-            </div>
-            <button id="export" type="button" class="btn" data-i18n="copyButton"></button>
-          </div>
-          <div class="field" id="export-fallback" hidden>
-            <label for="export-json" data-i18n="yourFilters"></label>
-            <p class="hint" id="export-json-hint" data-i18n="copyFallbackHint"></p>
-            <textarea id="export-json" class="mono" rows="6" readonly aria-describedby="export-json-hint"></textarea>
-          </div>
-          <div class="share-import">
-            <div class="field">
-              <label for="json" data-i18n="importLabel"></label>
-              <p class="hint" id="json-hint" data-i18n="importHint"></p>
-              <textarea id="json" class="mono" spellcheck="false" rows="5" aria-describedby="json-hint json-error"></textarea>
-              <p class="error" id="json-error" aria-live="polite"></p>
-            </div>
-            <button id="import" type="button" class="btn" disabled data-i18n="importButton"></button>
-          </div>
-        </div>
-      </section>
-      <footer class="project">
-        <p id="version"></p>
-        <nav aria-label="Focus Diff project" data-i18n-label="projectLinks">
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="/welcome.html">
+          <img src="/logo-96.webp" width="36" height="36" alt="" />
+          <span>Focus Diff</span>
+        </a>
+        <nav class="sections" aria-label="Settings sections" data-i18n-label="sectionsLabel">
           <ul>
-            <li><a href="https://github.com/hyanmandian/focus-diff" target="_blank" rel="noopener" data-i18n="linkSource"></a></li>
-            <li>
-              <a href="https://github.com/hyanmandian/focus-diff/releases" target="_blank" rel="noopener" data-i18n="linkReleases"></a>
-            </li>
-            <li>
-              <a
-                href="https://github.com/hyanmandian/focus-diff/issues/new?template=bug_report.yml"
-                target="_blank"
-                rel="noopener"
-                data-i18n="linkBug"
-              ></a>
-            </li>
-            <li>
-              <a
-                href="https://github.com/hyanmandian/focus-diff/issues/new?template=feature_request.yml"
-                target="_blank"
-                rel="noopener"
-                data-i18n="linkIdea"
-              ></a>
-            </li>
-            <li>
-              <a
-                href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md"
-                target="_blank"
-                rel="noopener"
-                data-i18n="linkPrivacy"
-              ></a>
-            </li>
+            <li><a href="#filters" data-i18n="globalHeading"></a></li>
+            <li><a href="#repositories" data-i18n="reposHeading"></a></li>
+            <li><a href="#try" data-i18n="tryHeading"></a></li>
+            <li><a href="#appearance" data-i18n="lookHeading"></a></li>
+            <li><a href="#share" data-i18n="shareHeading"></a></li>
           </ul>
         </nav>
-      </footer>
-    </main>
+        <a class="sidebar-link" href="/welcome.html" data-i18n="welcomeLink"></a>
+      </aside>
+
+      <main>
+        <header class="page-head">
+          <h1 data-i18n="settingsHeading"></h1>
+          <p id="tagline"></p>
+        </header>
+
+        <section class="section" id="filters" aria-labelledby="global-h">
+          <div class="section-head">
+            <h2 id="global-h" tabindex="-1" data-i18n="globalHeading"></h2>
+            <p class="hint" data-i18n="globalHint"></p>
+          </div>
+          <div class="surface" id="global"></div>
+          <details class="help">
+            <summary data-i18n="helpSummary"></summary>
+            <div class="help-body">
+              <p data-i18n-html="helpBody"></p>
+              <dl>
+                <div>
+                  <dt><code>\.(ts|tsx)$</code></dt>
+                  <dd data-i18n="helpTypeScript"></dd>
+                </div>
+                <div>
+                  <dt><code>\.(test|spec|stories)\.</code></dt>
+                  <dd data-i18n="helpTests"></dd>
+                </div>
+                <div>
+                  <dt><code>^packages/api/</code></dt>
+                  <dd data-i18n="helpFolder"></dd>
+                </div>
+                <div>
+                  <dt><code>(^|/)tests?/</code></dt>
+                  <dd data-i18n-html="helpTestFolders"></dd>
+                </div>
+              </dl>
+              <p data-i18n-html="helpAll"></p>
+            </div>
+          </details>
+        </section>
+
+        <section class="section" id="repositories" aria-labelledby="repos-h">
+          <div class="section-head">
+            <h2 id="repos-h" data-i18n="reposHeading"></h2>
+            <p class="hint" data-i18n="reposHint"></p>
+          </div>
+          <div id="repos"></div>
+          <div class="empty-state" id="repos-empty">
+            <p class="hint" data-i18n="reposEmpty"></p>
+          </div>
+          <button id="add-repo" type="button" class="btn" data-i18n="addRepo"></button>
+        </section>
+
+        <section class="section" id="try" aria-labelledby="try-h">
+          <div class="section-head">
+            <h2 id="try-h" data-i18n="tryHeading"></h2>
+            <p class="hint" data-i18n="tryHint"></p>
+          </div>
+          <div class="surface surface-body">
+            <div class="try">
+              <div class="field">
+                <label for="try-repo"><span data-i18n="repositoryLabel"></span> <span class="optional" data-i18n="optional"></span></label>
+                <input id="try-repo" type="text" placeholder="owner/name" spellcheck="false" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label for="try-path" data-i18n="filePathLabel"></label>
+                <input
+                  id="try-path"
+                  type="text"
+                  class="mono"
+                  placeholder="src/components/Button.test.tsx"
+                  spellcheck="false"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <p id="try-result" class="try-result" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="section" id="appearance" aria-labelledby="look-h">
+          <div class="section-head">
+            <h2 id="look-h" data-i18n="lookHeading"></h2>
+            <p class="hint" data-i18n="lookHint"></p>
+          </div>
+          <div class="look">
+            <div class="surface surface-body look-edit">
+              <div class="look-pick">
+                <div class="field">
+                  <label for="theme" data-i18n="themeLabel"></label>
+                  <select id="theme"></select>
+                </div>
+                <button id="theme-new" type="button" class="btn" data-i18n="themeNew"></button>
+              </div>
+              <div id="theme-editor" class="theme-editor" hidden>
+                <div class="field">
+                  <label for="theme-name" data-i18n="themeNameLabel"></label>
+                  <input id="theme-name" type="text" autocomplete="off" aria-describedby="theme-name-error" />
+                  <p class="error" id="theme-name-error" aria-live="polite"></p>
+                </div>
+                <fieldset class="colors">
+                  <legend data-i18n="colorsLegend"></legend>
+                  <p class="hint" data-i18n="colorsHint"></p>
+                  <ul id="colors" role="list"></ul>
+                </fieldset>
+                <div class="actions">
+                  <button id="theme-copy" type="button" class="btn" data-i18n="themeCopy"></button>
+                  <button id="theme-delete" type="button" class="btn danger" data-i18n="themeDelete"></button>
+                </div>
+                <div class="field" id="theme-export-fallback" hidden>
+                  <label for="theme-export" data-i18n="themeExportLabel"></label>
+                  <p class="hint" id="theme-export-hint" data-i18n="copyFallbackHint"></p>
+                  <textarea id="theme-export" class="mono" rows="6" readonly aria-describedby="theme-export-hint"></textarea>
+                </div>
+              </div>
+              <details class="import">
+                <summary data-i18n="themeImportLabel"></summary>
+                <div class="import-body">
+                  <div class="field">
+                    <label class="visually-hidden" for="theme-json" data-i18n="themeImportLabel"></label>
+                    <p class="hint" id="theme-json-hint" data-i18n="themeImportHint"></p>
+                    <textarea
+                      id="theme-json"
+                      class="mono"
+                      spellcheck="false"
+                      rows="4"
+                      aria-describedby="theme-json-hint theme-json-error"
+                    ></textarea>
+                    <p class="error" id="theme-json-error" aria-live="polite"></p>
+                  </div>
+                  <button id="theme-import" type="button" class="btn" disabled data-i18n="themeImportButton"></button>
+                </div>
+              </details>
+            </div>
+            <div class="look-preview">
+              <h3 id="preview-h" data-i18n="previewHeading"></h3>
+              <div id="preview" role="group" aria-labelledby="preview-h"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="share" aria-labelledby="share-h">
+          <div class="section-head">
+            <h2 id="share-h" data-i18n="shareHeading"></h2>
+            <p class="hint" data-i18n="shareHint"></p>
+          </div>
+          <div class="surface">
+            <div class="share-row">
+              <div>
+                <h3 data-i18n="yourFilters"></h3>
+                <p class="hint" data-i18n="copyHint"></p>
+              </div>
+              <button id="export" type="button" class="btn" data-i18n="copyButton"></button>
+            </div>
+            <div class="field share-fallback" id="export-fallback" hidden>
+              <label for="export-json" data-i18n="yourFilters"></label>
+              <p class="hint" id="export-json-hint" data-i18n="copyFallbackHint"></p>
+              <textarea id="export-json" class="mono" rows="6" readonly aria-describedby="export-json-hint"></textarea>
+            </div>
+            <details class="import">
+              <summary data-i18n="importLabel"></summary>
+              <div class="import-body">
+                <div class="field">
+                  <label class="visually-hidden" for="json" data-i18n="importLabel"></label>
+                  <p class="hint" id="json-hint" data-i18n="importHint"></p>
+                  <textarea id="json" class="mono" spellcheck="false" rows="5" aria-describedby="json-hint json-error"></textarea>
+                  <p class="error" id="json-error" aria-live="polite"></p>
+                </div>
+                <button id="import" type="button" class="btn" disabled data-i18n="importButton"></button>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <footer class="project">
+          <p id="version"></p>
+          <nav aria-label="Focus Diff project" data-i18n-label="projectLinks">
+            <ul>
+              <li><a href="https://github.com/hyanmandian/focus-diff" target="_blank" rel="noopener" data-i18n="linkSource"></a></li>
+              <li>
+                <a href="https://github.com/hyanmandian/focus-diff/releases" target="_blank" rel="noopener" data-i18n="linkReleases"></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/issues/new?template=bug_report.yml"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkBug"
+                ></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/issues/new?template=feature_request.yml"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkIdea"
+                ></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkPrivacy"
+                ></a>
+              </li>
+            </ul>
+          </nav>
+        </footer>
+      </main>
+    </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <footer class="savebar">
+    <div class="savebar" id="savebar" inert>
       <span id="status" class="status" role="status"></span>
       <button id="save" type="button" class="btn primary" aria-keyshortcuts="Meta+S Control+S" data-i18n="saveButton"></button>
-    </footer>
+    </div>
     <template id="filters-template">
       <div class="filters">
         <div class="filter-head" aria-hidden="true">
@@ -165,7 +255,12 @@
         <p class="empty hint">
           <span data-i18n="filtersEmptyWithExamples"></span> <a href="/welcome.html#recipes-h" data-i18n="browseExamples"></a>
         </p>
-        <button type="button" class="btn add-filter" data-i18n="addFilter"></button>
+        <button type="button" class="btn quiet add-filter">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" />
+          </svg>
+          <span data-i18n="addFilter"></span>
+        </button>
       </div>
     </template>
     <template id="filter-template">
@@ -183,17 +278,26 @@
         <p class="error"></p>
       </li>
     </template>
+    <template id="color-template">
+      <li class="color">
+        <label class="color-label"></label>
+        <input class="color-pick" type="color" />
+        <input class="color-hex mono" type="text" spellcheck="false" autocomplete="off" />
+        <button type="button" class="btn color-reset" data-i18n="colorReset"></button>
+        <p class="error color-error" aria-live="polite"></p>
+      </li>
+    </template>
     <template id="repo-template">
-      <article class="box repo">
-        <div class="box-head repo-head">
+      <article class="surface repo">
+        <div class="repo-head">
           <div class="field">
             <label class="repo-label" data-i18n="repositoryLabel"></label>
-            <input class="repo-name" type="text" data-i18n-placeholder="repoPlaceholder" spellcheck="false" autocomplete="off" />
+            <input class="repo-name mono" type="text" data-i18n-placeholder="repoPlaceholder" spellcheck="false" autocomplete="off" />
             <p class="error repo-error" aria-live="polite"></p>
           </div>
-          <button type="button" class="btn danger remove-repo" data-i18n="removeRepo"></button>
+          <button type="button" class="btn quiet danger remove-repo" data-i18n="removeRepo"></button>
         </div>
-        <div class="box-body"></div>
+        <div class="repo-body"></div>
       </article>
     </template>
     <script type="module" src="./options.ts"></script>

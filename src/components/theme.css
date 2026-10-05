@@ -1,0 +1,28 @@
+/*
+ * Every colour and font the bar reads, the --fd-* properties, and their defaults: Primer's light and dark values,
+ * picked by the colour scheme the bar inherits from its page. Components read only these. A provider's theme fills in
+ * --fd-provider-* from its site's own design tokens, which win over the defaults wherever the site has them; a theme of
+ * the reader's own sets --fd-* itself, after this.
+ */
+:host {
+  --fd-bg: var(--fd-provider-bg, light-dark(#ffffff, #151b23));
+  --fd-fg: var(--fd-provider-fg, light-dark(#1f2328, #f0f6fc));
+  --fd-muted: var(--fd-provider-muted, light-dark(#59636e, #9198a1));
+  --fd-border: var(--fd-provider-border, light-dark(#d1d9e0, #3d444d));
+  --fd-border-muted: var(--fd-provider-border-muted, light-dark(#d1d9e0b3, #3d444db3));
+  --fd-hover: var(--fd-provider-hover, light-dark(#818b9826, #656c7633));
+  --fd-focus: var(--fd-provider-focus, light-dark(#0969da, #1f6feb));
+  --fd-selected-bg: var(--fd-provider-selected-bg, light-dark(#0969da, #1f6feb));
+  --fd-selected-fg: var(--fd-provider-selected-fg, #ffffff);
+  --fd-track: var(--fd-provider-track, light-dark(#818b9833, #656c7633));
+  --fd-accent: var(--fd-provider-accent, light-dark(#0969da, #4493f8));
+  --fd-add: var(--fd-provider-add, light-dark(#1a7f37, #3fb950));
+  --fd-del: var(--fd-provider-del, light-dark(#d1242f, #f85149));
+  --fd-attention: var(--fd-provider-attention, light-dark(#9a6700, #d29922));
+  --fd-done: var(--fd-provider-done, light-dark(#8250df, #ab7df8));
+  --fd-canvas: var(--fd-provider-canvas, light-dark(#ffffff, #0d1117));
+  --fd-canvas-muted: var(--fd-provider-canvas-muted, light-dark(#f6f8fa, #151b23));
+  --fd-shadow: var(--fd-provider-shadow, 0 0 0 1px light-dark(#d1d9e080, #3d444d), 0 24px 48px light-dark(#25292e33, #010409));
+  --fd-font: var(--fd-provider-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif);
+  --fd-mono: var(--fd-provider-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
+}

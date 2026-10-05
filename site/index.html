@@ -3,24 +3,38 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Focus Diff · Review only the code that matters</title>
+    <title>Focus Diff: filter GitHub pull request diffs and review faster</title>
     <meta
       name="description"
-      content="A browser extension that filters GitHub pull request diffs to the files you care about, shows how big the review really is, and walks you through every conversation."
+      content="Free browser extension for Chrome, Firefox and Safari: filter GitHub pull request diffs by file path, see what’s left to review, and jump between conversations."
     />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#0b0f14" />
     <link rel="canonical" href="https://focus-diff.com/" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Focus Diff" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://focus-diff.com/" />
-    <meta property="og:title" content="Focus Diff" />
-    <meta property="og:description" content="Review only the code that matters. A free, open source extension for GitHub pull requests." />
+    <meta property="og:title" content="Focus Diff: filter GitHub pull request diffs and review faster" />
+    <meta
+      property="og:description"
+      content="A free, open source browser extension that narrows big GitHub pull requests to the files you own and counts what’s left to review."
+    />
     <meta property="og:image" content="https://focus-diff.com/og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The Focus Diff logo, with the line “Review only the code that matters.”" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Focus Diff: filter GitHub pull request diffs and review faster" />
+    <meta
+      name="twitter:description"
+      content="A free, open source browser extension that narrows big GitHub pull requests to the files you own and counts what’s left to review."
+    />
+    <meta name="twitter:image" content="https://focus-diff.com/og.jpg" />
+    <meta name="twitter:image:alt" content="The Focus Diff logo, with the line “Review only the code that matters.”" />
     <link rel="icon" href="favicon.png" />
-    <link rel="preload" as="image" href="poster.jpg" fetchpriority="high" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preload" as="image" href="poster.webp" type="image/webp" fetchpriority="high" />
     <style>
       :root {
         --bg: #0b0f14;
@@ -159,7 +173,7 @@
         overflow: hidden;
         border: 1px solid var(--border);
         border-radius: 16px;
-        background: #000 url(poster.jpg) center / cover;
+        background: #000 url(poster.webp) center / cover;
         box-shadow: 0 40px 120px rgba(0, 0, 0, 0.55);
       }
       video {
@@ -305,6 +319,128 @@
         color: var(--muted);
         font-size: 14px;
       }
+      .features,
+      .faq {
+        display: grid;
+        justify-items: center;
+        gap: 16px;
+        width: 100%;
+        max-width: 880px;
+      }
+      .section-lede {
+        max-width: 620px;
+        margin: 0;
+        color: var(--muted);
+        text-wrap: balance;
+      }
+      .feature-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+        gap: 0 48px;
+        width: 100%;
+        margin: 16px 0 0;
+        padding: 0;
+        list-style: none;
+        text-align: left;
+      }
+      .feature-list li {
+        padding: 20px 0;
+        border-top: 1px solid var(--border);
+      }
+      h3 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .feature-list p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      kbd {
+        padding: 1px 6px;
+        border: 1px solid var(--border);
+        border-bottom-width: 2px;
+        border-radius: 6px;
+        color: var(--fg);
+        font:
+          13px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .faq-list {
+        width: 100%;
+        max-width: 680px;
+        margin-top: 8px;
+        text-align: left;
+      }
+      .faq details {
+        border-top: 1px solid var(--border);
+      }
+      .faq details:last-child {
+        border-bottom: 1px solid var(--border);
+      }
+      .faq summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 60px;
+        padding: 12px 0;
+        font-size: 17px;
+        font-weight: 650;
+        cursor: pointer;
+        list-style: none;
+      }
+      .faq summary::-webkit-details-marker {
+        display: none;
+      }
+      /* A chevron that turns when the answer opens. */
+      .faq summary::after {
+        content: '';
+        flex: none;
+        width: 8px;
+        height: 8px;
+        margin-right: 4px;
+        border-right: 2px solid var(--muted);
+        border-bottom: 2px solid var(--muted);
+        transform: rotate(45deg) translateY(-2px);
+        transition: transform 200ms ease-out;
+      }
+      .faq details[open] summary::after {
+        transform: rotate(-135deg) translateY(-2px);
+      }
+      .faq summary:hover::after {
+        border-color: var(--fg);
+      }
+      .faq summary:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      .faq details p {
+        margin: 0;
+        padding: 0 0 20px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .faq summary::after {
+          transition: none;
+        }
+      }
+      .faq a {
+        color: var(--fg);
+        text-underline-offset: 3px;
+      }
+      .faq a:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
       footer {
         display: flex;
         flex-wrap: wrap;
@@ -326,6 +462,102 @@
         border-radius: 2px;
       }
     </style>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://focus-diff.com/#website",
+            "url": "https://focus-diff.com/",
+            "name": "Focus Diff",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://focus-diff.com/#app",
+            "name": "Focus Diff",
+            "description": "Free browser extension for Chrome, Firefox and Safari: filter GitHub pull request diffs by file path, see what’s left to review, and jump between conversations.",
+            "url": "https://focus-diff.com/",
+            "applicationCategory": "DeveloperApplication",
+            "applicationSubCategory": "Browser extension",
+            "operatingSystem": "Windows, macOS, Linux",
+            "browserRequirements": "Chrome, Edge, Firefox or Safari",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "downloadUrl": "https://github.com/hyanmandian/focus-diff/releases/latest",
+            "license": "https://opensource.org/licenses/MIT",
+            "image": "https://focus-diff.com/og.jpg",
+            "screenshot": "https://focus-diff.com/poster.webp",
+            "author": {
+              "@type": "Person",
+              "name": "Hyan Mandian",
+              "url": "https://github.com/hyanmandian"
+            },
+            "sameAs": ["https://github.com/hyanmandian/focus-diff"]
+          },
+          {
+            "@type": "VideoObject",
+            "name": "Focus Diff in 74 seconds",
+            "description": "A tour of Focus Diff on GitHub pull requests: filters, the files, lines and review time left, conversations, settings, examples, sharing and themes.",
+            "thumbnailUrl": ["https://focus-diff.com/poster.webp", "https://focus-diff.com/og.jpg"],
+            "uploadDate": "2026-10-05",
+            "duration": "PT1M14S",
+            "contentUrl": "https://focus-diff.com/focus-diff.mp4",
+            "embedUrl": "https://focus-diff.com/"
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Does it send my code anywhere?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. It makes no network requests and collects no data. Your filters stay in your browser’s storage."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work on private repositories?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. It works on any pull request page you can open on github.com, public or private, using only what that page shows you."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which browsers does it support?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Chrome, Edge, Brave, Arc, Opera and other Chromium browsers, Firefox and the browsers built on it, and Safari on a Mac."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work with GitLab or Bitbucket?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Not yet. It works on GitHub today, and it’s built so other code review sites can be added."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Focus Diff is free and open source under the MIT license, and its code is on GitHub."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <main>
@@ -353,9 +585,9 @@
       </ul>
 
       <div class="video">
+        <!-- AV1 where the browser can decode it (about a third smaller), H.264 everywhere else. -->
         <video
-          src="focus-diff.mp4"
-          poster="poster.jpg"
+          poster="poster.webp"
           width="1280"
           height="720"
           muted
@@ -363,8 +595,11 @@
           playsinline
           controls
           preload="none"
-          aria-label="Focus Diff in 30 seconds: filtering a pull request to the files you own, the review breakdown with review time, jumping between conversations, the next unviewed file, and the Done badge"
-        ></video>
+          aria-label="Focus Diff in 74 seconds: filtering a pull request to Frontend or Backend files, combining filters, the files, lines and review time left, the breakdown by filter, the next file to review, stepping through conversations, the Done badge, switching filters from the keyboard, writing filters and trying a path in settings, filters for one repository, starting from examples, sharing filters with your team, making your own theme, and following light and dark mode"
+        >
+          <source src="focus-diff.av1.mp4" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"' />
+          <source src="focus-diff.mp4" type="video/mp4" />
+        </video>
         <script>
           // Start the demo once the page has loaded, so the video never competes with it. With reduced motion, wait for a press on play.
           {
@@ -374,6 +609,63 @@
           }
         </script>
       </div>
+
+      <section class="features" aria-labelledby="features-title">
+        <h2 id="features-title">Review a big pull request one part at a time</h2>
+        <p class="section-lede">
+          Focus Diff adds a small bar to the Files changed page of every GitHub pull request. It works from what the page already shows: no
+          account, no setup on the repository.
+        </p>
+        <ul class="feature-list">
+          <li>
+            <h3>Filters from file paths</h3>
+            <p>
+              Each filter is a button with an Include and an optional Exclude regex, tested against the full path. Keep them for every
+              repository, or add some for one repository or one owner.
+            </p>
+          </li>
+          <li>
+            <h3>Counters that count again</h3>
+            <p>
+              Files changed and the added and removed lines show only what the filter keeps, so you see the real size of your review before
+              you start.
+            </p>
+          </li>
+          <li>
+            <h3>Review time left</h3>
+            <p>
+              An estimate next to the line totals, from about 1,000 changed lines an hour, that drops as you mark files as viewed, until it
+              says Done.
+            </p>
+          </li>
+          <li>
+            <h3>A breakdown by filter</h3>
+            <p>Every filter side by side: how many of its files you’ve viewed, the lines they change and the time they take.</p>
+          </li>
+          <li>
+            <h3>The next file to review</h3>
+            <p>
+              One click, or <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd>, takes you to the next file you haven’t viewed, then on to the next
+              filter that has some.
+            </p>
+          </li>
+          <li>
+            <h3>Every conversation, one by one</h3>
+            <p>Step through the review threads, each with its file and line, and see which are waiting on you, answered or resolved.</p>
+          </li>
+          <li>
+            <h3>Made to share</h3>
+            <p>Copy your filters and send them to a teammate, who imports them in one step. Themes for the bar are shared the same way.</p>
+          </li>
+          <li>
+            <h3>Private by design</h3>
+            <p>
+              No account, no tracking and no network requests. Focus Diff reads the file paths and line counts on the page, and nothing
+              leaves your browser.
+            </p>
+          </li>
+        </ul>
+      </section>
 
       <section class="manual" aria-labelledby="manual-title">
         <h2 id="manual-title">Install it yourself</h2>
@@ -479,6 +771,37 @@
             else if (/Safari\//.test(agent) && !/Chrome\/|Chromium\//.test(agent)) select(tabs[2]);
           }
         </script>
+      </section>
+
+      <section class="faq" aria-labelledby="faq-title">
+        <h2 id="faq-title">Questions about Focus Diff</h2>
+        <div class="faq-list">
+          <details>
+            <summary>Does it send my code anywhere?</summary>
+            <p>No. It makes no network requests and collects no data. Your filters stay in your browser’s storage.</p>
+          </details>
+          <details>
+            <summary>Does it work on private repositories?</summary>
+            <p>
+              Yes. It works on any pull request page you can open on github.com, public or private, using only what that page shows you.
+            </p>
+          </details>
+          <details>
+            <summary>Which browsers does it support?</summary>
+            <p>Chrome, Edge, Brave, Arc, Opera and other Chromium browsers, Firefox and the browsers built on it, and Safari on a Mac.</p>
+          </details>
+          <details>
+            <summary>Does it work with GitLab or Bitbucket?</summary>
+            <p>Not yet. It works on GitHub today, and it’s built so other code review sites can be added.</p>
+          </details>
+          <details>
+            <summary>Is it free?</summary>
+            <p>
+              Yes. Focus Diff is free and open source under the MIT license, and its code is on
+              <a href="https://github.com/hyanmandian/focus-diff">GitHub</a>.
+            </p>
+          </details>
+        </div>
       </section>
 
       <footer>

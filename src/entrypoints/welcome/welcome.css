@@ -1,114 +1,172 @@
-/* Welcome page: one reading column. How it works has three steps over a live demo of the bar; examples follow as a list. */
-.welcome-page {
-  padding-block: 56px 72px;
-}
+/*
+ * Welcome: the site's opening, then how the bar works over a live demo of it, the examples to start from, and the way
+ * to settings. One column, wide enough for the demo's bar on one row, as it sits on a review page.
+ */
 .welcome {
-  /* Wide enough for the demo's bar on one row, as it sits on GitHub. */
+  display: grid;
+  gap: 88px;
   max-width: 920px;
-  gap: 56px;
+  margin: 0 auto;
+  padding: 72px 16px 96px;
 }
 
 .hero {
   display: grid;
-  gap: 12px;
-  justify-items: start;
+  justify-items: center;
+  gap: 18px;
+  text-align: center;
 }
 .hero img {
-  border-radius: 16px;
+  border-radius: 22px;
+  box-shadow: 0 16px 40px rgba(1, 4, 9, 0.55);
 }
 .hero h1 {
-  font-size: 32px;
-  letter-spacing: -0.01em;
+  margin-top: 6px;
+  font-size: 48px;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 .lead {
-  font-size: 16px;
-  line-height: 1.6;
+  max-width: 620px;
   color: var(--muted);
-  max-width: 64ch;
+  font-size: 18px;
+  line-height: 1.6;
+  text-wrap: balance;
 }
 
-section > h2 {
-  margin-bottom: 4px;
+.section-head {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 24px;
 }
+.section-head h2 {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
 .steps {
   list-style: none;
-  margin: 16px 0 0;
+  margin: 0 0 32px;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 20px 28px;
+  gap: 24px 32px;
   counter-reset: step;
 }
 .steps li {
   display: grid;
   align-content: start;
-  grid-template-columns: 28px 1fr;
-  column-gap: 12px;
+  gap: 6px;
   counter-increment: step;
 }
+/* The steps go in this order, so they're numbered. */
 .steps li::before {
   content: counter(step);
-  grid-row: span 2;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 6px;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--fg);
-  font: 600 13px var(--mono);
+  background: rgba(63, 185, 80, 0.14);
+  color: var(--green);
+  font: 700 14px var(--sans);
   font-variant-numeric: tabular-nums;
 }
 .steps h3 {
-  margin: 3px 0 2px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .steps p {
   color: var(--muted);
 }
 
 .demo-hint {
-  margin: 28px 0 12px;
+  margin: 0 0 12px;
+}
+/* The demo loads after the page shows; its room is kept, so nothing below it moves when it arrives. */
+#demo {
+  min-height: 810px;
+}
+@media (max-width: 560px) {
+  #demo {
+    min-height: 936px;
+  }
 }
 
+/* Examples: a grid of them, each with the buttons it adds and its patterns folded away. */
 .recipes {
   list-style: none;
-  margin: 16px 0 0;
+  margin: 0;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
 }
 .recipe {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: start;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 14px;
   padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
 }
-.recipe + .recipe {
-  border-top: 1px solid var(--line);
+.recipe:hover {
+  border-color: var(--line-strong);
+}
+.recipe[data-added] {
+  border-color: rgba(63, 185, 80, 0.45);
+  background: rgba(63, 185, 80, 0.06);
+}
+.recipe-text {
+  display: grid;
+  gap: 6px;
 }
 .recipe-title {
-  margin: 0 0 4px;
-  font-size: 15px;
+  font-size: 16px;
+  letter-spacing: -0.01em;
 }
 .recipe-description {
-  margin-bottom: 12px;
-  max-width: 62ch;
+  color: var(--muted);
+  font-size: 13px;
+}
+.recipe-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recipe-names li {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(240, 246, 252, 0.04);
+  font-size: 12px;
+  font-weight: 600;
+}
+.recipe-patterns {
+  align-self: start;
+  font-size: 13px;
+}
+.recipe-patterns summary {
+  width: fit-content;
+  color: var(--focus);
+  font-weight: 600;
+  cursor: pointer;
 }
 .recipe-filters {
   display: grid;
   gap: 10px;
-  margin: 0;
+  margin-top: 10px;
 }
 .recipe-filter {
   display: grid;
   gap: 4px;
 }
 .recipe-filter-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 .recipe-filter dl {
@@ -118,7 +176,7 @@ section > h2 {
 }
 .recipe-filter dl > div {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 56px minmax(0, 1fr);
   gap: 8px;
   align-items: baseline;
 }
@@ -136,51 +194,61 @@ section > h2 {
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.recipe-toggle {
-  min-width: 96px;
-}
-[data-added] .recipe-toggle {
-  background: var(--surface-muted);
-  color: var(--ok);
-  border-color: var(--ok);
-}
-@media (max-width: 560px) {
-  .recipe {
-    grid-template-columns: 1fr;
-  }
-}
-
-.next {
-  display: grid;
-  gap: 12px;
-  justify-items: start;
-  padding-top: 8px;
-}
-.next p {
-  color: var(--muted);
-}
-kbd {
-  display: inline-block;
-  margin: 0 2px;
-  padding: 1px 6px;
-  border: 1px solid var(--line);
-  border-bottom-width: 2px;
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--fg);
-  font: 12px var(--mono);
-}
-.next .btn {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-}
-
-.welcome-page .toast {
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-}
 .recipe-filter .everything {
   font-size: 12px;
   font-style: italic;
   color: var(--muted);
+}
+.recipe-toggle {
+  justify-self: stretch;
+}
+[data-added] .recipe-toggle {
+  color: var(--green);
+  border-color: rgba(63, 185, 80, 0.45);
+}
+
+.next {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 48px 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: radial-gradient(600px 240px at 50% 0%, rgba(63, 185, 80, 0.1), transparent 70%), var(--panel);
+  text-align: center;
+}
+.next h2 {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+.next p {
+  color: var(--muted);
+  max-width: 56ch;
+}
+.next kbd {
+  margin: 0 2px;
+  color: var(--fg);
+}
+.next .btn {
+  justify-self: center;
+  min-height: 40px;
+  padding-inline: 20px;
+  font-size: 15px;
+}
+
+.toast {
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 560px) {
+  .welcome {
+    gap: 64px;
+    padding-top: 48px;
+  }
+  .hero h1 {
+    font-size: 36px;
+  }
+  .lead {
+    font-size: 16px;
+  }
 }

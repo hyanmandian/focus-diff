@@ -35,7 +35,7 @@ html[${ACTIVE}]::view-transition-group(${PANEL}) { z-index: 1; }
 html[${ACTIVE}]::view-transition-image-pair(${PANEL}) { isolation: auto; }
 `;
 
-/** A file on screen, known by a key that stays the same if GitHub redraws its element. */
+/** A file on screen, known by a key that stays the same if the site redraws its element. */
 export interface Piece {
   key: string;
   element: HTMLElement;
@@ -57,7 +57,7 @@ const onScreen = (pieces: Piece[]) =>
  * Runs `update`, which swaps one filter's files for another's and may scroll, inside a view transition: files that stay
  * on screen glide into place, files that leave shrink away, and files that arrive rise in one after another. That's
  * where the browser has view transitions, the tab is on screen and the reader hasn't asked for less motion; otherwise
- * `update` just runs. `pieces` lists the files GitHub has drawn. Resolves once it's over.
+ * `update` just runs. `pieces` lists the files the site has drawn. Resolves once it's over.
  */
 /** Whether a change can be animated: the browser has view transitions, the tab is on screen, and motion is welcome. */
 export const canTransition = (): boolean =>
@@ -142,7 +142,7 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
   }
 };
 
-/** Takes out what the transitions added to GitHub's page. */
+/** Takes out what the transitions added to the site's page. */
 export const removeTransitionStyle = (): void => {
   document.getElementById(STYLE_ID)?.remove();
   document.documentElement.removeAttribute(ACTIVE);

@@ -8,6 +8,7 @@ import { ALL, toMatcher } from '@/utils/filters/filters';
 import { formatNumber as format } from '@/utils/format/format';
 import { message } from '@/utils/i18n';
 import type { DemoFile, DemoPullRequest } from './sample';
+import themeStyles from '@/components/theme.css?inline';
 import tooltipStyles from '@/components/tooltip/tooltip.css?inline';
 import demoStyles from './demo.css?inline';
 
@@ -25,18 +26,29 @@ const sheet = (css: string) => {
 export interface DemoOptions {
   /** What the bar's settings button does: on the welcome page, open the settings; on the site, say how to get them. */
   onSettings: () => void;
+  /** The bar's look: a theme's `--fd-*` properties, and any of the reader's own CSS after them. */
+  theme: string;
+}
+
+export interface Demo {
+  /** Restyles the demo, as the reader edits the bar's look. */
+  setTheme: (css: string) => void;
+  /** Takes the demo down. */
+  destroy: () => void;
 }
 
 /**
  * The real bar on a made-up pull request, for trying it out: the filters pick files, the numbers count what's left,
  * marking a file as viewed counts it off until Done, and the bar's buttons move through files and conversations. It's
- * built from the same components and the same review logic as on GitHub. It renders into a shadow root on `target`, so
- * it looks the same on any page; it needs no extension API beyond the messages. Returns a function that takes it down.
+ * built from the same components and the same review logic as on a review site. It renders into a shadow root on
+ * `target`, so it looks the same on any page; it needs no extension API beyond the messages.
  */
-export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { onSettings }: DemoOptions) => {
+export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { onSettings, theme }: DemoOptions): Demo => {
   const controller = new AbortController();
   const root = target.shadowRoot ?? target.attachShadow({ mode: 'open' });
-  root.adoptedStyleSheets = [sheet(tooltipStyles), sheet(demoStyles)];
+  // The sample files take the theme's colours too; the bar gets its own copy, in its shadow root.
+  const themeSheet = sheet(theme);
+  root.adoptedStyleSheets = [sheet(themeStyles), sheet(tooltipStyles), sheet(demoStyles), themeSheet];
 
   const filters: Option[] = pullRequest.filters.flatMap((filter) => {
     const matches = toMatcher(filter);
@@ -107,13 +119,13 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
 
   const host = h('div', { className: 'demo-bar' });
   const panelRoot = host.attachShadow({ mode: 'open' });
-  panelRoot.adoptedStyleSheets = componentStyles.map(sheet);
   const container = h('div');
-  panelRoot.append(container);
+  // A style element, as the content script's, so the theme the bar adds after it wins the same way.
+  panelRoot.append(h('style', { textContent: componentStyles.join('\n') }), container);
   const list = h('ul', { className: 'demo-files' }, ...rows.values());
   root.replaceChildren(h('div', { className: 'demo', role: 'group', 'aria-label': i18n.t('demoLabel') }, list, host));
 
-  /** Puts the reader at a file, the way the bar scrolls GitHub's page to it. */
+  /** Puts the reader at a file, the way the bar scrolls a review page to it. */
   const goTo = (file: File | null) => {
     current = file;
     for (const [each, row] of rows) {
@@ -152,7 +164,7 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
     shown = now.shown;
     const conversations = conversationsIn(shown);
     const at = conversations[conversation - 1];
-    // Files outside the filter stay where they are, set back, so nothing on the page moves; on GitHub they're hidden.
+    // Files outside the filter stay where they are, set back, so nothing on the page moves; on a review site they're hidden.
     const outside = now.filtering ? i18n.t('demoOutside', [now.name]) : '';
     for (const [file, row] of rows) {
       const out = !now.matches(file.path);
@@ -212,9 +224,18 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
   controller.signal.addEventListener('abort', () => resizeObserver.disconnect());
 
   apply();
+  panel.setTheme(theme);
   panel.setVisible(true);
-  return () => {
-    controller.abort();
-    root.replaceChildren();
+  // Fitted now, not on the observer's first call, so a demo made on a narrow page never shows wider than it.
+  fit();
+  return {
+    setTheme: (css) => {
+      themeSheet.replaceSync(css);
+      panel.setTheme(css);
+    },
+    destroy: () => {
+      controller.abort();
+      root.replaceChildren();
+    },
   };
 };

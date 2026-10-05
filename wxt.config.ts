@@ -8,10 +8,11 @@ export default defineConfig({
     name: '__MSG_extensionName__',
     description: '__MSG_extensionDescription__',
     default_locale: 'en',
-    homepage_url: 'https://github.com/hyanmandian/focus-diff',
+    homepage_url: 'https://focus-diff.com',
     permissions: ['storage'],
     action: { default_title: '__MSG_actionTitle__' },
-    minimum_chrome_version: '111',
+    // light-dark(), which the bar's default colours use, arrived in Chrome 123.
+    minimum_chrome_version: '123',
     commands: {
       'next-filter': { suggested_key: { default: 'Alt+Shift+Period' }, description: '__MSG_commandNext__' },
       'previous-filter': { suggested_key: { default: 'Alt+Shift+Comma' }, description: '__MSG_commandPrevious__' },

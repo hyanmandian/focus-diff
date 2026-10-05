@@ -7,5 +7,7 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     setupFiles: ['vitest.setup.ts'],
     restoreMocks: true,
+    // Themes are CSS read as text; without this, Vitest hands them over empty.
+    css: true,
   },
 });

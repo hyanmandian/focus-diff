@@ -1,38 +1,10 @@
-import { createShadowRootUi, defineContentScript } from '#imports';
-import { createPanel } from '@/components/panel/panel';
-import { startController, type Controller } from '@/content/controller';
-import { keepOutOfTransitions } from '@/content/transition';
-import { uiLanguage } from '@/utils/i18n';
+import { defineContentScript } from '#imports';
+import { mountBar } from '@/content/mount';
+import { github } from '@/providers/github/github';
 
 export default defineContentScript({
-  matches: ['https://github.com/*'],
+  matches: github.matches,
   runAt: 'document_idle',
   cssInjectionMode: 'ui',
-  async main(ctx) {
-    let controller: Controller | null = null;
-    const ui = await createShadowRootUi(ctx, {
-      name: 'focus-diff-panel',
-      position: 'inline',
-      anchor: 'html',
-      append: 'last',
-      inheritStyles: true,
-      onMount: (container, root, host) => {
-        keepOutOfTransitions(host);
-        // Read out in the extension's language, not the page's.
-        host.lang = uiLanguage();
-        return createPanel(
-          { root, container, host, signal: ctx.signal },
-          {
-            onToggle: (id) => controller?.toggle(id),
-            onSettings: () => controller?.openSettings(),
-            onComment: (step) => controller?.comment(step),
-            onNextFile: () => controller?.nextUnviewed(),
-            onUpdateSeen: () => controller?.dismissUpdate(),
-          },
-        );
-      },
-    });
-    ui.mount();
-    if (ui.mounted) controller = await startController(ctx, ui.mounted);
-  },
+  main: (ctx) => mountBar(ctx, github),
 });

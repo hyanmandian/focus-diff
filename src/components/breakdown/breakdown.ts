@@ -1,4 +1,3 @@
-import './breakdown.css';
 import { i18n } from '#i18n';
 import { breakdownIcon, checkIcon, infoIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
@@ -20,7 +19,7 @@ interface BreakdownActions {
   fallback: HTMLElement;
 }
 
-/** GitHub's five-square diffstat: the share of added and removed lines. */
+/** A five-square diffstat, as GitHub draws one: the share of added and removed lines. */
 const diffstat = (additions: number, deletions: number) => {
   const total = additions + deletions;
   const added = total ? Math.round((additions / total) * 5) : 0;

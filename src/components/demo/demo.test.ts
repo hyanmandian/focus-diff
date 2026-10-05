@@ -2,12 +2,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDemo } from './demo';
 import { SAMPLE_PULL_REQUEST } from './sample';
+import theme from '@/providers/github/theme.css?inline';
 
 const mount = () => {
   const target = document.createElement('div');
   document.body.append(target);
   const onSettings = vi.fn();
-  const destroy = createDemo(target, structuredClone(SAMPLE_PULL_REQUEST), { onSettings });
+  const { destroy } = createDemo(target, structuredClone(SAMPLE_PULL_REQUEST), { onSettings, theme });
   const root = target.shadowRoot!;
   const bar = root.querySelector('.demo-bar')!.shadowRoot!;
   const shown = () => root.querySelectorAll('.demo-file:not([data-out])').length;

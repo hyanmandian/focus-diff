@@ -1,27 +1,12 @@
 :host {
   all: initial;
+  /* Light or dark as the page is, which picks the theme's defaults (components/theme.css). */
+  color-scheme: inherit;
   position: fixed;
   right: 16px;
   bottom: 16px;
   z-index: 2147483000;
-  --fd-bg: var(--overlay-bgColor, var(--color-canvas-overlay, #ffffff));
-  --fd-border: var(--borderColor-default, var(--color-border-default, #d1d9e0));
-  --fd-fg: var(--fgColor-default, var(--color-fg-default, #1f2328));
-  --fd-muted: var(--fgColor-muted, var(--color-fg-muted, #59636e));
-  --fd-hover: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg, rgba(129, 139, 152, 0.15)));
-  --fd-selected-bg: var(--bgColor-accent-emphasis, var(--color-accent-emphasis, #0969da));
-  --fd-selected-fg: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis, #ffffff));
-  --fd-add: var(--fgColor-success, var(--color-success-fg, #1a7f37));
-  --fd-del: var(--fgColor-danger, var(--color-danger-fg, #d1242f));
-  --fd-attention: var(--fgColor-attention, var(--color-attention-fg, #9a6700));
-  --fd-accent: var(--fgColor-accent, var(--color-accent-fg, #0969da));
-  --fd-done: var(--fgColor-done, var(--color-done-fg, #8250df));
-  --fd-track: var(--bgColor-neutral-muted, var(--color-neutral-muted, rgba(129, 139, 152, 0.2)));
-  --fd-border-muted: var(--borderColor-muted, var(--color-border-muted, rgba(209, 217, 224, 0.7)));
-  --fd-focus: var(--focus-outlineColor, var(--color-accent-fg, #0969da));
-  --fd-shadow: var(--shadow-floating-large, 0 0 0 1px rgba(209, 217, 224, 0.5), 0 24px 48px rgba(37, 41, 46, 0.2));
-  --fd-mono: var(--fontStack-monospace, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
-  --fd-font: var(--fontStack-sansSerif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif);
+  /* The colours and fonts, the other --fd-* properties, are in components/theme.css. */
   --fd-target: 32px;
   --fd-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -1,6 +1,7 @@
 export const ALL = 'all';
 
-export const REPO_PATTERN = /^[^/\s]+\/[^/\s]+$/;
+/** A repository's path, `owner/name`, or deeper where a site nests groups, like `group/subgroup/name`. */
+export const REPO_PATTERN = /^[^/\s]+(?:\/[^/\s]+)+$/;
 
 export interface Filter {
   id: string;

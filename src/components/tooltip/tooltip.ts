@@ -1,4 +1,3 @@
-import './tooltip.css';
 import type { PanelContext } from '@/components/panel/panel';
 import { h } from '@/utils/dom';
 

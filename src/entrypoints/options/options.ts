@@ -17,9 +17,13 @@ import {
   type RepoFilters,
 } from '@/utils/filters/filters';
 import { toaster } from '@/components/toast/toast';
+import { providerNames } from '@/providers/providers';
+import { normalizeAppearance } from '@/utils/appearance/appearance';
+import { uiLanguage } from '@/utils/i18n';
 import { $, reveal, translate, translateDocument } from '@/utils/page';
 import type { Message } from '@/utils/messages';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
+import { appearanceItem, configItem, loadAppearance, loadConfig, saveAppearance, saveConfig } from '@/utils/storage/storage';
+import { createLook } from './look';
 
 type Field = 'name' | 'include' | 'exclude';
 type Tone = '' | 'ok' | 'warn' | 'error';
@@ -44,9 +48,21 @@ let saving = false;
 let suggestedRepo = '';
 
 const status = $('#status');
+const savebar = $('#savebar');
+/** How long "Saved" stays up before the save bar goes away. */
+const SAVED_MS = 2500;
+let lowering = 0;
+/**
+ * Says how saving stands. The save bar rises with anything to say, and is out of the way, and out of the tab order,
+ * when there's nothing: once saved, it lowers after a moment.
+ */
 const say = (text: string, tone: Tone = '') => {
   status.textContent = text;
   status.dataset.tone = tone;
+  clearTimeout(lowering);
+  savebar.toggleAttribute('data-raised', Boolean(text));
+  savebar.inert = !text;
+  if (tone === 'ok') lowering = window.setTimeout(() => say(''), SAVED_MS);
 };
 const setDirty = () => {
   dirty = true;
@@ -171,16 +187,23 @@ const renderRepo = (entry: RepoFilters, focus: boolean) => {
   remove.addEventListener('click', () => {
     config.repos.splice(config.repos.indexOf(entry), 1);
     card.remove();
+    syncRepos();
     $('#add-repo').focus();
     setDirty();
     updateTry();
   });
 
   syncLabel();
-  $('.box-body', card).append(renderFilters(entry.filters));
+  $('.repo-body', card).append(renderFilters(entry.filters));
   $('#repos').append(card);
+  syncRepos();
   if (focus) input.focus();
 };
+
+/** With no repository of its own yet, the section says what one is for. */
+function syncRepos() {
+  $('#repos-empty').hidden = config.repos.length > 0;
+}
 
 const syncAddRepo = () => {
   $('#add-repo').textContent = suggestedRepo ? i18n.t('addRepoFor', [suggestedRepo]) : i18n.t('addRepo');
@@ -218,6 +241,7 @@ const save = async () => {
   const cards = [...document.querySelectorAll<CheckableCard>('.repo')];
   const reposOk = cards.map((card) => card.check(true)).every(Boolean);
 
+  const lookOk = look.check();
   if (!filtersOk || !reposOk) {
     filters.forEach((filter, index) => {
       const row = rows[index];
@@ -227,14 +251,20 @@ const save = async () => {
     document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
     return;
   }
+  if (!lookOk) return say(i18n.t('statusFixTheme'), 'error');
+  // Each is saved on its own, so a quota error says which one is too big.
+  let saved: 'filters' | 'look' = 'filters';
   try {
     saving = true;
     await saveConfig(config);
+    saved = 'look';
+    await saveAppearance(look.value());
     dirty = false;
     say(i18n.t('statusSaved'), 'ok');
   } catch (error) {
     const reason = (error as Error).message;
-    say(/QUOTA/i.test(reason) ? i18n.t('statusQuota') : i18n.t('statusSaveError', [reason]), 'error');
+    const quota = saved === 'filters' ? i18n.t('statusQuota') : i18n.t('statusQuotaTheme');
+    say(/QUOTA/i.test(reason) ? quota : i18n.t('statusSaveError', [reason]), 'error');
   } finally {
     saving = false;
   }
@@ -319,6 +349,7 @@ const render = () => {
   $('#global').replaceChildren(renderFilters(config.global));
   $('#repos').replaceChildren();
   config.repos.forEach((entry) => renderRepo(entry, false));
+  syncRepos();
   updateTry();
 };
 
@@ -330,11 +361,35 @@ configItem.watch((value) => {
   render();
 });
 
+const look = createLook({ onChange: setDirty, notify });
+
+appearanceItem.watch((value) => {
+  if (saving) return;
+  if (dirty) return say(i18n.t('statusChangedElsewhere'), 'warn');
+  void look.render(normalizeAppearance(value));
+});
+
 window.addEventListener('beforeunload', (event) => {
   if (dirty) event.preventDefault();
 });
 
+/** The section index marks the section being read, the one nearest the top of the screen. */
+const sectionLinks = [...document.querySelectorAll<HTMLAnchorElement>('.sections a')];
+const sections = sectionLinks.flatMap((link) => document.getElementById(link.hash.slice(1)) ?? []);
+const markSection = () => {
+  const line = innerHeight * 0.3;
+  const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+  const current = atEnd ? sections.at(-1) : (sections.findLast((section) => section.getBoundingClientRect().top <= line) ?? sections[0]);
+  for (const link of sectionLinks) {
+    if (link.hash === `#${current?.id}`) link.setAttribute('aria-current', 'true');
+    else link.removeAttribute('aria-current');
+  }
+};
+addEventListener('scroll', () => requestAnimationFrame(markSection), { passive: true });
+addEventListener('resize', markSection);
+
 translateDocument(i18n.t('optionsTitle'));
+$('#tagline').textContent = i18n.t('optionsTagline', [providerNames(uiLanguage())]);
 $('#version').textContent = i18n.t('optionsVersion', [browser.runtime.getManifest().version]);
 
 /** `#repo=owner/name` comes from the panel on that repository: it's tried, and offered as a new repository. */
@@ -361,9 +416,11 @@ browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) 
   });
 });
 
-void loadConfig().then((loaded) => {
+void Promise.all([loadConfig(), loadAppearance()]).then(async ([loaded, appearance]) => {
   config = loaded;
   render();
+  look.render(appearance);
+  markSection();
   reveal();
   applyRepoHash();
 });

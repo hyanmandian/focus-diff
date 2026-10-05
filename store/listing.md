@@ -46,7 +46,7 @@ Private by design
 • No account, no tracking, no network requests. Focus Diff reads the file paths and line counts already on the page, and nothing leaves your browser.
 • Your filters are kept in your browser's storage.
 
-Built to be used by everyone: keyboard and screen reader friendly, follows GitHub's light and dark themes, in English and Brazilian Portuguese.
+Built to be used by everyone: keyboard and screen reader friendly, follows GitHub's light and dark themes, in English and Brazilian Portuguese. Prefer another look? Make your own theme: pick the bar's colours in settings, with a live preview, and share it with your team.
 
 Free and open source under the MIT license: https://github.com/hyanmandian/focus-diff
 ```
@@ -81,7 +81,7 @@ Privado de propósito
 • Sem conta, sem rastreamento, sem requisições de rede. O Focus Diff lê os caminhos e a contagem de linhas que já estão na página, e nada sai do seu navegador.
 • Seus filtros ficam guardados no armazenamento do navegador.
 
-Feito para todo mundo usar: funciona com teclado e leitor de tela, acompanha os temas claro e escuro do GitHub, em inglês e português.
+Feito para todo mundo usar: funciona com teclado e leitor de tela, acompanha os temas claro e escuro do GitHub, em inglês e português. Quer outro visual? Crie seu próprio tema: escolha as cores da barra nas configurações, com prévia ao vivo, e compartilhe com o time.
 
 Gratuito e de código aberto, sob a licença MIT: https://github.com/hyanmandian/focus-diff
 ```
@@ -98,7 +98,7 @@ Chrome asks for these in English.
 
 | Permission | Justification |
 | --- | --- |
-| `storage` | Saves the filters the user creates and the filter last picked on each repository, so they are there the next time a pull request opens. |
+| `storage` | Saves the filters the user creates, the bar's theme and the themes the user makes, and the filter last picked on each repository, so they are there the next time a pull request opens. |
 | Host permission (`https://github.com/*`, through the content script) | The extension only works on GitHub pull request pages: it reads the file paths and line counts shown there to hide files outside the chosen filter and to count what is left to review. |
 
 **Remote code:** No, I am not using remote code. All code ships in the package.

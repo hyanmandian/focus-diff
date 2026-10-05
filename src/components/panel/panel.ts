@@ -1,4 +1,3 @@
-import './panel.css';
 import { i18n } from '#i18n';
 import { confetti } from '@/components/confetti';
 import { settingsIcon } from '@/components/icons';
@@ -47,6 +46,10 @@ export interface Panel {
   celebrate: (name: string) => void;
   /** Points to the notes of a release the reader hasn't seen, or hides the notice with `null`. */
   showUpdate: (version: string | null) => void;
+  /** Styles the bar: a theme's `--fd-*` properties, and any of the reader's own CSS after them. */
+  setTheme: (css: string) => void;
+  /** The theme's accent colour, for lighting up what a jump lands on. */
+  accent: () => string;
 }
 
 interface PanelMount {
@@ -98,9 +101,13 @@ export const createPanel = (
   );
   const tooltip = createTooltip(context, container);
 
+  // Last in the shadow root, so the reader's CSS wins over the bar's own at the same specificity.
+  const theme = h('style', { 'data-focus-diff-theme': '' });
+  root.append(theme);
+
   /**
-   * Keyboard focus on GitHub's page scrolls clear of the bar: the page gets bottom scroll padding as tall as the bar
-   * while it shows. Only set when it changes, since it touches GitHub's root element.
+   * Keyboard focus on the review page scrolls clear of the bar: the page gets bottom scroll padding as tall as the bar
+   * while it shows. Only set when it changes, since it touches the site's root element.
    */
   let padding = '';
   const panelElement = container.querySelector<HTMLElement>('.panel');
@@ -131,7 +138,7 @@ export const createPanel = (
       // One thing at a time: the tooltip, then the breakdown, then the conversations.
       if (tooltip.isVisible()) tooltip.hide();
       else if (breakdown.isOpen()) breakdown.setOpen(false);
-      // Escape elsewhere on the page belongs to GitHub, like cancelling a reply.
+      // Escape elsewhere on the page belongs to the site, like cancelling a reply.
       else if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
     },
     { signal },
@@ -214,6 +221,12 @@ export const createPanel = (
     setVisible,
     setCompact,
     showUpdate: update.show,
+    setTheme: (css) => {
+      if (theme.textContent === css) return;
+      theme.textContent = css;
+      filters.moveIndicator();
+    },
+    accent: () => getComputedStyle(host).getPropertyValue('--fd-accent').trim() || 'currentColor',
     celebrate: (name) => {
       const box = stats.done.getBoundingClientRect();
       confetti(container, { x: box.left + box.width / 2, y: box.top });

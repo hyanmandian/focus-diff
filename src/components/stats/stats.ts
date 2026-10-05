@@ -1,4 +1,3 @@
-import './stats.css';
 import { i18n } from '#i18n';
 import { clockIcon, diffIcon, doneIcon, fileIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
@@ -14,7 +13,7 @@ export interface Totals {
   pending: number;
   /** Estimated review time, see utils/review-time.ts. */
   minutes: number;
-  /** Files marked as viewed on GitHub, and the estimate for the rest. */
+  /** Files marked as viewed on the site, and the estimate for the rest. */
   viewed: number;
   minutesLeft: number;
 }

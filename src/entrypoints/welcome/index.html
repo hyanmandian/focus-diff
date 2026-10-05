@@ -7,16 +7,18 @@
     <title>Welcome to Focus Diff</title>
     <link rel="icon" href="/icon/32.png" />
   </head>
-  <body class="welcome-page">
+  <body>
     <main class="welcome">
       <header class="hero">
-        <img src="/icon/128.png" width="72" height="72" alt="" />
+        <img src="/logo-192.webp" width="72" height="72" alt="" />
         <h1 data-i18n="welcomeTitle"></h1>
-        <p class="lead" data-i18n="welcomeLead"></p>
+        <p class="lead" id="lead"></p>
       </header>
 
       <section class="how" aria-labelledby="how-h">
-        <h2 id="how-h" data-i18n="howHeading"></h2>
+        <div class="section-head">
+          <h2 id="how-h" data-i18n="howHeading"></h2>
+        </div>
         <ol class="steps">
           <li>
             <h3 data-i18n="howStep1Title"></h3>
@@ -36,8 +38,10 @@
       </section>
 
       <section class="recipes-section" aria-labelledby="recipes-h">
-        <h2 id="recipes-h" tabindex="-1" data-i18n="recipesHeading"></h2>
-        <p class="hint" data-i18n="recipesHint"></p>
+        <div class="section-head">
+          <h2 id="recipes-h" tabindex="-1" data-i18n="recipesHeading"></h2>
+          <p class="hint" data-i18n="recipesHint"></p>
+        </div>
         <ul class="recipes" id="recipes"></ul>
       </section>
 
@@ -54,9 +58,13 @@
       <li class="recipe">
         <div class="recipe-text">
           <h3 class="recipe-title"></h3>
-          <p class="recipe-description hint"></p>
-          <div class="recipe-filters"></div>
+          <p class="recipe-description"></p>
         </div>
+        <ul class="recipe-names" role="list"></ul>
+        <details class="recipe-patterns">
+          <summary data-i18n="recipePatterns"></summary>
+          <div class="recipe-filters"></div>
+        </details>
         <button type="button" class="btn recipe-toggle" aria-pressed="false"></button>
       </li>
     </template>

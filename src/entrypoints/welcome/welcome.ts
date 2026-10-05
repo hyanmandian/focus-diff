@@ -4,13 +4,13 @@ import './welcome.css';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { normalize, type Config } from '@/utils/filters/filters';
-import { message } from '@/utils/i18n';
-import { createDemo } from '@/components/demo/demo';
-import { SAMPLE_PULL_REQUEST } from '@/components/demo/sample';
+import { message, uiLanguage } from '@/utils/i18n';
+import { providerNames } from '@/providers/providers';
 import { toaster } from '@/components/toast/toast';
-import { $, reveal, translateDocument } from '@/utils/page';
+import { $, reveal, translate, translateDocument } from '@/utils/page';
 import { RECIPES, type Recipe } from '@/utils/recipes';
-import { configItem, loadConfig, saveConfig } from '@/utils/storage/storage';
+import { appearanceCss, createStyler, normalizeAppearance } from '@/utils/appearance/appearance';
+import { appearanceItem, configItem, loadAppearance, loadConfig, saveConfig } from '@/utils/storage/storage';
 
 const notify = toaster($('#toast'));
 let config: Config = normalize({});
@@ -57,6 +57,11 @@ const renderRecipe = (recipe: Recipe) => {
   item.dataset.recipe = recipe.id;
   $('.recipe-title', item).textContent = message(recipe.title);
   $('.recipe-description', item).textContent = message(recipe.description);
+  translate(item);
+  // The buttons it adds, by name; their patterns are folded below, for whoever wants to read them.
+  $('.recipe-names', item).replaceChildren(
+    ...recipe.filters.map((filter) => Object.assign(document.createElement('li'), { textContent: message(filter.name) })),
+  );
   const list = $('.recipe-filters', item);
   for (const filter of recipe.filters) {
     const group = document.createElement('div');
@@ -126,10 +131,20 @@ configItem.watch((value) => {
 });
 
 translateDocument(i18n.t('welcomeTitle'));
-createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html') });
+$('#lead').textContent = i18n.t('welcomeLead', [providerNames(uiLanguage())]);
 void Promise.all([loadConfig(), renderShortcuts()]).then(([loaded]) => {
   config = loaded;
   render();
   reveal();
   if (location.hash === '#recipes-h') $('#recipes-h').focus();
 });
+
+// The demo is a bundle of its own, loaded once the page shows. It wears the reader's look for the bar from the start,
+// and follows it as it changes in settings.
+void Promise.all([import('@/components/demo/demo'), import('@/components/demo/sample'), loadAppearance().then(appearanceCss)]).then(
+  ([{ createDemo }, { SAMPLE_PULL_REQUEST }, theme]) => {
+    const demo = createDemo($('#demo'), SAMPLE_PULL_REQUEST, { onSettings: () => location.assign('/options.html'), theme });
+    const restyle = createStyler(demo.setTheme);
+    appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
+  },
+);

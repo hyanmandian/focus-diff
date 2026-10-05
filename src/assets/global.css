@@ -3,48 +3,42 @@
   visibility: hidden;
 }
 
+/*
+ * The extension's pages wear the site's identity (focus-diff.com): a night ground with a deep blue glow at the top,
+ * translucent panels on hairline borders, bold tight headings, and green kept for the one action that matters.
+ */
 :root {
-  --bg: #f6f8fa;
-  --surface: #ffffff;
-  --surface-muted: #f6f8fa;
-  --line: #d1d9e0;
-  --fg: #1f2328;
-  --muted: #59636e;
-  --accent: #1f883d;
-  --accent-hover: #1a7f37;
+  --bg: #0b0f14;
+  --glow: #142030;
+  --panel: rgba(240, 246, 252, 0.035);
+  --panel-raised: #121821;
+  --panel-hover: rgba(240, 246, 252, 0.06);
+  --line: rgba(240, 246, 252, 0.12);
+  --line-strong: rgba(240, 246, 252, 0.22);
+  --fg: #f0f6fc;
+  --muted: #9198a1;
+  --green: #3fb950;
+  --accent: #238636;
+  --accent-hover: #2ea043;
   --accent-fg: #ffffff;
-  --focus: #0969da;
-  --ok: #1a7f37;
-  --warn: #9a6700;
-  --danger: #d1242f;
-  --danger-bg: #ffebe9;
-  --input: #ffffff;
-  --code: rgba(129, 139, 152, 0.15);
+  --focus: #4493f8;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --danger: #f85149;
+  --danger-bg: rgba(248, 81, 73, 0.1);
+  --input: rgba(1, 4, 9, 0.55);
+  --code: rgba(110, 118, 129, 0.24);
+  --shadow: 0 16px 40px rgba(1, 4, 9, 0.5);
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-  --target: 32px;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  color-scheme: light;
+  --target: 32px;
+  --radius: 12px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: dark;
 }
-
-@media (prefers-color-scheme: dark) {
+@media (pointer: coarse) {
   :root {
-    --bg: #0d1117;
-    --surface: #151b23;
-    --surface-muted: #10151c;
-    --line: #3d444d;
-    --fg: #f0f6fc;
-    --muted: #9198a1;
-    --accent: #238636;
-    --accent-hover: #1f7a31;
-    --accent-fg: #ffffff;
-    --focus: #4493f8;
-    --ok: #3fb950;
-    --warn: #d29922;
-    --danger: #f85149;
-    --danger-bg: rgba(248, 81, 73, 0.1);
-    --input: #0d1117;
-    --code: rgba(101, 108, 118, 0.2);
-    color-scheme: dark;
+    --target: 44px;
   }
 }
 
@@ -55,10 +49,12 @@
 }
 html {
   background: var(--bg);
-  accent-color: var(--accent);
+  accent-color: var(--green);
+  scrollbar-color: var(--line-strong) transparent;
+  -webkit-font-smoothing: antialiased;
 }
 ::selection {
-  background: color-mix(in srgb, var(--focus) 28%, transparent);
+  background: rgba(68, 147, 248, 0.32);
   color: var(--fg);
 }
 input,
@@ -67,44 +63,59 @@ textarea {
 }
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 600px at 50% -10%, var(--glow) 0%, var(--bg) 65%) no-repeat,
+    var(--bg);
   color: var(--fg);
   font: 14px/1.5 var(--sans);
-  padding-inline: 16px;
-  padding-block: 40px 112px;
-}
-main {
-  max-width: 860px;
-  margin: 0 auto;
-  display: grid;
-  gap: 24px;
 }
 h1 {
   margin: 0;
-  font-size: 24px;
-  line-height: 1.25;
-  font-weight: 600;
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 h2 {
   margin: 0;
-  font-size: 16px;
-  line-height: 1.4;
-  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 h2:focus {
   outline: none;
 }
+h3 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+}
 p {
   margin: 0;
   max-width: 70ch;
 }
-code {
-  font: 12px var(--mono);
+a {
+  color: var(--focus);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+code,
+kbd {
+  font: 12px/1.6 var(--mono);
   background: var(--code);
-  padding: 2px 6px;
+  padding: 1px 6px;
   border-radius: 6px;
+  /* A short token, like a property name, reads as one: it moves to the next line whole instead of breaking at a hyphen. */
+  white-space: nowrap;
+}
+kbd {
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
 }
 .hint {
   color: var(--muted);
@@ -113,14 +124,23 @@ code {
 [hidden] {
   display: none !important;
 }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 .skip {
   position: absolute;
+  z-index: 10;
   left: 16px;
   top: -48px;
   padding: 8px 12px;
-  border-radius: 6px;
-  background: var(--surface);
+  border-radius: 8px;
+  background: var(--panel-raised);
   color: var(--fg);
   border: 1px solid var(--line);
 }
@@ -133,15 +153,56 @@ code {
   outline-offset: 2px;
 }
 
-@media (pointer: coarse) {
-  :root {
-    --target: 44px;
-  }
+/* Form controls, shared by the pages. */
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: var(--target);
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--input);
+  color: var(--fg);
+  font: 14px/20px var(--sans);
 }
-
-h3 {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.4;
-  font-weight: 600;
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--line-strong);
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+input[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+@media (forced-colors: active) {
+  input,
+  select,
+  textarea {
+    border: 1px solid ButtonText;
+  }
+  input[aria-invalid='true'],
+  textarea[aria-invalid='true'] {
+    border: 2px solid Mark;
+  }
 }

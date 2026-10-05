@@ -16,7 +16,7 @@ export default defineConfig({
       exclude: ['src/entrypoints/**', 'src/**/*.test.ts', 'src/**/*.d.ts'],
       reporter: ['text-summary', 'lcov'],
       // A ratchet just below what the tests reach today: coverage can't drop, and the floor moves up as tests do.
-      thresholds: { statements: 40, branches: 27, functions: 35, lines: 42 },
+      thresholds: { statements: 42, branches: 30, functions: 36, lines: 44 },
     },
   },
 });

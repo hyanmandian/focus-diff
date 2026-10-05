@@ -9,28 +9,51 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: Check, test and build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm test
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-      - run: npm run lint:firefox
-      - run: npm run zip && npm run zip:firefox && npm run zip:safari
-      - uses: actions/upload-artifact@v4
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Typecheck, lint, format, duplication, dependencies, lockfile and unused code
+        run: npm run check
+
+      - name: Unit tests, with coverage
+        run: npm run test:coverage
+
+      - name: Install the browser for the end-to-end tests
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Lint the Firefox build as Firefox Add-ons does
+        run: npm run lint:firefox
+
+      - name: Build the store zips
+        run: npm run zip && npm run zip:firefox && npm run zip:safari
+
+      - name: Upload the zips
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: extension
           path: .output/*.zip
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload the Playwright traces
         if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-traces
           path: test-results/

@@ -115,7 +115,7 @@ export interface PageCounters {
 }
 
 /** What opening a conversation can lean on, and how it knows a newer jump has taken over. */
-export interface OpenHelpers {
+interface OpenHelpers {
   goToFile: (file: FileInfo) => Promise<HTMLElement | null>;
   stale: () => boolean;
 }

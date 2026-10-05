@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/entrypoints/**/*.{ts,html}", "scripts/*.ts", "tests/**/*.ts", "*.config.ts"],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+  "ignoreUnresolved": ["#imports"]
+}

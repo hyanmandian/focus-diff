@@ -9,7 +9,7 @@
     "browser": true,
     "es2024": true
   },
-  "ignorePatterns": [".output/**", ".wxt/**", "playwright-report/**", "test-results/**"],
+  "ignorePatterns": [".output/**", ".wxt/**", "playwright-report/**", "test-results/**", "coverage/**"],
   "rules": {
     "no-unused-vars": [
       "error",

@@ -1,0 +1,39 @@
+name: Commit messages
+
+# Pull requests are merged with all their commits, and release-please works out the next version and the changelog
+# from each of them, so every commit follows Conventional Commits.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check every commit of the pull request
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          pattern='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9./_-]+\))?!?: .+'
+          failed=0
+          while IFS= read -r subject; do
+            # Merging main into the branch is fine; the merge itself isn't a change to release.
+            if [[ "$subject" == Merge\ * ]]; then continue; fi
+            if ! [[ "$subject" =~ $pattern ]]; then
+              echo "::error::Not a Conventional Commit: $subject"
+              failed=1
+            fi
+          done < <(git log --format=%s "$BASE..$HEAD")
+          exit "$failed"

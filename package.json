@@ -11,6 +11,7 @@
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:demo": "vite build -c vite.demo.config.ts",
+    "build:site": "mkdir -p .output && rm -rf .output/site && cp -R site .output/site && html-minifier-terser --collapse-whitespace --conservative-collapse --remove-comments --minify-css true --minify-js true --collapse-boolean-attributes --remove-redundant-attributes --use-short-doctype --sort-attributes --sort-class-name -o .output/site/index.html site/index.html",
     "build:firefox": "wxt build -b firefox",
     "build:safari": "wxt build -b safari",
     "zip": "wxt zip",
@@ -21,18 +22,26 @@
     "lint": "oxlint",
     "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",
     "fmt": "oxfmt",
-    "check": "tsc --noEmit && oxlint && oxfmt --check && jscpd",
+    "check": "tsc --noEmit && oxlint && oxfmt --check && jscpd && npm run check:dependencies && npm run check:lockfile && npm run check:unused",
     "test": "vitest run",
     "e2e": "wxt build && npm run build:demo && playwright test",
     "postinstall": "wxt prepare",
-    "duplicates": "jscpd"
+    "duplicates": "jscpd",
+    "check:dependencies": "node -e \"const d=Object.keys(require('./package.json').dependencies||{});if(d.length){console.error('Runtime dependencies are not allowed:',d.join(', '));process.exit(1)}\"",
+    "check:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity",
+    "check:unused": "knip",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
+    "@vitest/coverage-v8": "^5.0.3",
     "@wxt-dev/i18n": "^0.2.7",
     "happy-dom": "^20.14.5",
+    "html-minifier-terser": "^7.2.0",
     "jscpd": "^5.4.0",
+    "knip": "^6.39.0",
+    "lockfile-lint": "^5.0.1",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "typescript": "^7.0.2",
@@ -44,6 +53,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "npm@11.19.0",
   "allowScripts": {
     "fsevents@2.3.3": true
   }

@@ -11,8 +11,8 @@ Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runti
 ```sh
 npm install         # also generates WXT's types
 npm run dev         # Chrome with the extension loaded and hot reload (dev:firefox for Firefox)
-npm run check       # types, Oxlint, Oxfmt and jscpd (no copy-paste)
-npm test            # unit tests with Vitest
+npm run check       # types, Oxlint, Oxfmt, jscpd (no copy-paste), no runtime dependencies, the lockfile, Knip (unused code)
+npm test            # unit tests with Vitest (test:coverage adds coverage, with a floor it can't drop below)
 npm run e2e         # builds, then runs Playwright against the real extension, with axe accessibility checks
 npm run fmt         # format everything
 npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)
@@ -53,11 +53,18 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 
 ## Releasing
 
-Pull requests are squash-merged, and their titles follow [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release, attaches the Chrome and Firefox builds, and publishes them to the stores when their credentials are set as repository secrets.
+Pull requests are merged with all their commits, so every commit message follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. Last, it sends the zips to the Chrome Web Store and Firefox Add-ons, once a maintainer approves the `stores` environment that holds their credentials.
+
+## Supply chain
+
+- Add no runtime dependency: the extension ships only its own code, and `npm run check` enforces it.
+- Pin every action to a full commit SHA with its version in a comment (`uses: owner/action@<sha> # vX.Y.Z`), and give each job only the permissions it needs. Dependabot keeps both up to date.
+- The Security workflow lints the workflows (actionlint, zizmor), scans the lockfile (OSV-Scanner) and the commits (TruffleHog), runs CodeQL and reviews new dependencies on pull requests, and runs OpenSSF Scorecard on `main`. Fix what it reports in the same pull request.
+- Use the Node.js version in `.nvmrc`.
 
 ## Pull requests
 
-- Keep each pull request to one change, and its title a [Conventional Commit](https://www.conventionalcommits.org): it becomes the changelog entry.
+- Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
 - Put new text in both `src/locales/en.json` and `src/locales/pt_BR.json`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.

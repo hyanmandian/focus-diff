@@ -1,0 +1,7 @@
+# Known advisories in development dependencies that can't affect the extension, each with why and until when. On that
+# date the scan fails again, so each one gets looked at again rather than forgotten.
+
+[[IgnoredVulns]]
+id = "GHSA-86w9-cpqp-85rv"
+ignoreUntil = 2027-01-04
+reason = "node-forge <= 1.4.0, no fixed version yet. It reaches us only through web-ext -> @devicefarmer/adbkit, which talks to Android devices over ADB; the project only runs `web-ext lint`, which never loads it, and nothing of it ships in the extension."

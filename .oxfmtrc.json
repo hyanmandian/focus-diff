@@ -2,5 +2,14 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "singleQuote": true,
   "printWidth": 140,
-  "ignorePatterns": [".output/**", ".wxt/**", "store/**", "playwright-report/**", "test-results/**", "package-lock.json", "CHANGELOG.md"]
+  "ignorePatterns": [
+    ".output/**",
+    ".wxt/**",
+    "store/**",
+    "playwright-report/**",
+    "test-results/**",
+    "coverage/**",
+    "package-lock.json",
+    "CHANGELOG.md"
+  ]
 }

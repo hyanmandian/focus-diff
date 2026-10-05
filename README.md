@@ -3,10 +3,16 @@
   <h1>Focus Diff</h1>
   <p><strong>Review what matters.</strong><br>Filter GitHub pull request diffs down to the files you need to review.</p>
   <p>
+    <a href="https://github.com/hyanmandian/focus-diff/releases/latest"><img src="https://img.shields.io/github/v/release/hyanmandian/focus-diff?label=version&color=2ea043" alt="Latest version"></a>
+    <a href="https://focus-diff.com"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Ffocus-diff.com%2Fbadges%2Finstalls.json" alt="Installs: Chrome Web Store and Firefox Add-ons users plus release downloads"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/hyanmandian/focus-diff" alt="MIT license"></a>
+    <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="Zero runtime dependencies">
+    <img src="https://img.shields.io/badge/TypeScript-strict-3178c6" alt="TypeScript">
+    <img src="https://img.shields.io/badge/Chrome%20%C2%B7%20Edge%20%C2%B7%20Firefox%20%C2%B7%20Safari-supported-2ea043" alt="Works on Chrome, Edge, Firefox and Safari">
+    <br>
     <a href="https://github.com/hyanmandian/focus-diff/actions/workflows/ci.yml"><img src="https://github.com/hyanmandian/focus-diff/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+    <a href="https://github.com/hyanmandian/focus-diff/actions/workflows/security.yml"><img src="https://github.com/hyanmandian/focus-diff/actions/workflows/security.yml/badge.svg" alt="Security checks"></a>
     <a href="https://scorecard.dev/viewer/?uri=github.com/hyanmandian/focus-diff"><img src="https://api.scorecard.dev/projects/github.com/hyanmandian/focus-diff/badge" alt="OpenSSF Scorecard"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
-    <img src="https://img.shields.io/badge/Chrome%20%C2%B7%20Edge%20%C2%B7%20Firefox-supported-2ea043" alt="Works on Chrome, Edge and Firefox">
   </p>
 </div>
 

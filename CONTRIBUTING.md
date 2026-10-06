@@ -55,8 +55,6 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 
 Pull requests are merged with all their commits, so every commit message follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. Last, it sends the zips to the Chrome Web Store and Firefox Add-ons, once a maintainer approves the `stores` environment that holds their credentials.
 
-The README's installs badge adds up the Chrome Web Store's users, Firefox Add-ons' daily users and the release zips' downloads (`scripts/installs.ts`). The site's deploy works it out every day into `focus-diff.com/badges/installs.json`. Firefox Add-ons is found by the extension's id; once the Chrome Web Store listing is live, set its id as the `CHROME_EXTENSION_ID` repository variable (Settings → Secrets and variables → Actions → Variables).
-
 ## Supply chain
 
 - Add no runtime dependency: the extension ships only its own code, and `npm run check` enforces it.

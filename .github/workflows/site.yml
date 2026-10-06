@@ -41,12 +41,10 @@ jobs:
       - name: Build the site
         run: npm run build:site
 
-      # Chrome Web Store users, Firefox Add-ons users and release downloads, as a shields.io endpoint badge. The Chrome
-      # listing's id is a repository variable, set once the listing is live.
+      # Chrome Web Store users, Firefox Add-ons users and release downloads, as a shields.io endpoint badge.
       - name: Count the installs
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
         run: |
           mkdir -p .output/site/badges
           node scripts/installs.ts > .output/site/badges/installs.json

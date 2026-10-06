@@ -5,12 +5,12 @@
  *
  *   node scripts/installs.ts > .output/site/badges/installs.json
  *
- * Env: GITHUB_REPOSITORY (owner/name), GITHUB_TOKEN (optional, for the rate limit), CHROME_EXTENSION_ID (optional).
+ * Env: GITHUB_REPOSITORY (owner/name), GITHUB_TOKEN (optional, for the rate limit).
  */
 
+const CHROME_ID = 'nnocnopcbjipboglgbnmocfaplhlkfil';
 const FIREFOX_ID = 'focus-diff@hyan.com.br';
 const repository = process.env.GITHUB_REPOSITORY || 'hyanmandian/focus-diff';
-const chromeId = process.env.CHROME_EXTENSION_ID;
 
 const json = async (url: string, headers: Record<string, string> = {}): Promise<unknown> => {
   const response = await fetch(url, { headers: { 'user-agent': 'focus-diff-installs', ...headers } });
@@ -45,11 +45,10 @@ const firefoxUsers = async (): Promise<number> => {
   }
 };
 
-/** The Chrome Web Store's users, which it only shows rounded (like 1.2K), as shields.io reads them; 0 without a listing. */
+/** The Chrome Web Store's users, which it only shows rounded (like 1.2K), as shields.io reads them; 0 if it can't tell. */
 const chromeUsers = async (): Promise<number> => {
-  if (!chromeId) return 0;
   try {
-    const badge = (await json(`https://img.shields.io/chrome-web-store/users/${chromeId}.json`)) as { value?: string };
+    const badge = (await json(`https://img.shields.io/chrome-web-store/users/${CHROME_ID}.json`)) as { value?: string };
     const [, number, unit] = /^([\d.]+)([kKMB]?)/.exec(badge.value ?? '') ?? [];
     const scale = { '': 1, k: 1e3, K: 1e3, M: 1e6, B: 1e9 }[unit ?? ''] ?? 1;
     return number ? Math.round(Number(number) * scale) : 0;

@@ -272,6 +272,61 @@ test.describe('panel on a pull request', () => {
     await expect(pr.pressed).toHaveText(['Docs']);
   });
 
+  test('keeps many filters on one row, growing up to the page width and then scrolling', async ({ openPullRequest, seed }) => {
+    const pr = new PullRequestPage(await openPullRequest());
+    const names = Array.from({ length: 16 }, (_, index) => `Filter number ${index + 1}`);
+    await seed({ global: names.map((name, index) => ({ id: `f${index}`, name, include: '\\.md$', exclude: '' })), repos: [] });
+    await expect(pr.options).toHaveCount(17);
+    await pr.page.setViewportSize({ width: 1280, height: 800 });
+    const layout = () =>
+      pr.panel.evaluate((host) => {
+        const root = host.shadowRoot!;
+        const panel = root.querySelector('.panel')!.getBoundingClientRect();
+        const filters = root.querySelector<HTMLElement>('.filters')!;
+        return {
+          height: panel.height,
+          left: panel.left,
+          right: document.documentElement.clientWidth - panel.right,
+          scrolled: filters.scrollLeft,
+          scrolls: filters.scrollWidth > filters.clientWidth,
+        };
+      });
+    const wide = await layout();
+    expect(wide.height).toBeLessThan(64);
+    expect(wide).toMatchObject({ left: 16, right: 16, scrolled: 0, scrolls: true });
+    await expect(pr.stats).toBeVisible();
+
+    // With a mouse, the arrow at the side with more scrolls to it; the one at the start shows once there's something there.
+    const before = pr.panel.locator('.scroll-button.before');
+    await expect(before).toHaveCSS('opacity', '0');
+    await pr.panel.locator('.scroll-button.after').click();
+    await expect.poll(async () => (await layout()).scrolled).toBeGreaterThan(0);
+    await expect(before).toHaveCSS('opacity', '1');
+    await before.click();
+    await expect.poll(async () => (await layout()).scrolled).toBe(0);
+
+    // Picking a chip out of view brings it in, with the highlight on it.
+    await pr.option('All').focus();
+    await pr.page.keyboard.press('End');
+    await pr.page.keyboard.press('Enter');
+    await expect(pr.pressed).toHaveText(['Filter number 16']);
+    await expect
+      .poll(() =>
+        pr.panel.evaluate((host) => {
+          const root = host.shadowRoot!;
+          const chip = root.querySelector('.option[aria-pressed="true"]')!.getBoundingClientRect();
+          const row = root.querySelector('.filters')!.getBoundingClientRect();
+          const indicator = root.querySelector<HTMLElement>('.indicator')!;
+          const left = Number.parseFloat(indicator.style.clipPath.match(/[\d.]+px/g)![3]!);
+          return (
+            chip.left >= row.left && chip.right <= row.right && Math.abs(indicator.getBoundingClientRect().left + left - chip.left) < 1
+          );
+        }),
+      )
+      .toBe(true);
+    expect((await layout()).height).toBe(wide.height);
+  });
+
   test('goes to the next file to review, then on to the next filter with any', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     const next = pr.panel.locator('.next-file');

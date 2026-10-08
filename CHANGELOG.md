@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/hyanmandian/focus-diff/compare/v1.1.0...v1.2.0) (2026-10-08)
+
+
+### Features
+
+* **panel:** keep the filters on one row, with arrows to scroll them, and rise into place ([076b5a8](https://github.com/hyanmandian/focus-diff/commit/076b5a8f66efcbf4c34e8c62fc8acd920ee612ef))
+* **panel:** keep the filters on one row, with arrows to scroll them, and rise into place ([063708c](https://github.com/hyanmandian/focus-diff/commit/063708c977f9d1bb8ed804d3822d9f26d19cdf34))
+
 ## [1.1.0](https://github.com/hyanmandian/focus-diff/compare/v1.0.0...v1.1.0) (2026-10-05)
 
 

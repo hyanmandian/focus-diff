@@ -6,6 +6,9 @@
   right: 16px;
   bottom: 16px;
   z-index: 2147483000;
+  /* As much room as the page has, less the same 16px on the left as on the right. A percentage, unlike 100vw, leaves out
+     the page's scrollbar. */
+  max-width: calc(100% - 32px);
   /* The colours and fonts, the other --fd-* properties, are in components/theme.css. */
   --fd-target: 32px;
   --fd-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -27,11 +30,11 @@
 }
 .panel {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  box-sizing: border-box;
   gap: 8px;
   /* A page that lays the bar out itself, like the welcome page's demo, sets the room it has. */
-  max-width: var(--fd-max-width, min(1040px, calc(100vw - 32px)));
+  max-width: var(--fd-max-width, 100%);
   padding: 6px;
   font: 500 13px/20px var(--fd-font);
 }
@@ -61,6 +64,10 @@
 :where(.panel) a:focus-visible {
   outline: 2px solid var(--fd-focus);
   outline-offset: 1px;
+}
+/* Only the chips give way when room runs out (see filters.css); everything else keeps its size. */
+.panel > :not(.filter-row) {
+  flex: none;
 }
 .option-count {
   box-sizing: border-box;
@@ -140,15 +147,92 @@
     color 160ms ease-out;
 }
 @media (prefers-reduced-motion: no-preference) {
+  /* The bar rises into place on a spring, coming into focus as it does, and its parts follow it in one after another.
+     It does so whenever it appears, like on moving to a pull request's files. */
+  :host {
+    --fd-spring: linear(
+      0,
+      0.0185,
+      0.0666,
+      0.1349,
+      0.2155,
+      0.3024,
+      0.3908,
+      0.4773,
+      0.5592,
+      0.635,
+      0.7036,
+      0.7645,
+      0.8175,
+      0.8629,
+      0.9011,
+      0.9327,
+      0.9583,
+      0.9786,
+      0.9943,
+      1.006,
+      1.0144,
+      1.0201,
+      1.0235,
+      1.0253,
+      1.0256,
+      1.025,
+      1.0237,
+      1.0219,
+      1.0198,
+      1.0175,
+      1.0152,
+      1.013,
+      1.011,
+      1.009,
+      1.0073,
+      1.0058,
+      1.0045,
+      1.0033,
+      1.0024,
+      1.0016,
+      1
+    );
+  }
   .panel {
+    transform-origin: 50% 100%;
     transition:
-      opacity 200ms ease-out,
-      translate 280ms var(--fd-ease);
+      opacity 260ms ease-out,
+      translate 560ms var(--fd-spring),
+      scale 560ms var(--fd-spring),
+      filter 320ms ease-out;
   }
   @starting-style {
     .panel {
-      translate: 0 8px;
+      translate: 0 24px;
+      scale: 0.96;
+      filter: blur(6px);
     }
+  }
+  .panel > :not(.popover, .visually-hidden) {
+    transition:
+      opacity 240ms ease-out var(--fd-delay, 0ms),
+      translate 480ms var(--fd-spring) var(--fd-delay, 0ms),
+      background-color 120ms ease-out,
+      color 160ms ease-out;
+  }
+  @starting-style {
+    .panel > :not(.popover, .visually-hidden) {
+      opacity: 0;
+      translate: 0 10px;
+    }
+  }
+  .panel > :nth-child(2) {
+    --fd-delay: 50ms;
+  }
+  .panel > :nth-child(3) {
+    --fd-delay: 90ms;
+  }
+  .panel > :nth-child(4) {
+    --fd-delay: 120ms;
+  }
+  .panel > :nth-child(n + 5) {
+    --fd-delay: 150ms;
   }
   .popover {
     transition:
@@ -189,12 +273,7 @@
   }
 }
 
-/* A compact bar, on very small screens like at 400% zoom, or in a page without room for a row: one row whose chips
-   scroll sideways, the numbers living on in the breakdown. A bar laid out in a page keeps to one row as well. */
-:host([data-compact]) .panel,
-:host([data-inline]) .panel {
-  flex-wrap: nowrap;
-}
+/* A compact bar, on very small screens like at 400% zoom: the numbers live on in the breakdown. */
 :host([data-compact]) .panel .stats {
   display: none;
 }

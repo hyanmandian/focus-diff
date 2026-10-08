@@ -1,13 +1,83 @@
-.filters {
+/* One row that never wraps: the bar grows with its chips up to the page's width, then the chips scroll sideways. The side
+   with more fades out under an arrow that scrolls to it, for a mouse without a sideways wheel. The negative margin and
+   padding keep focus rings clear of the scroll edge. */
+.filter-row {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  isolation: isolate;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: -3px;
 }
+.filters {
+  --fade-start: 0px;
+  --fade-end: 0px;
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  isolation: isolate;
+  /* Clear under the arrow, then fading in past it. */
+  mask-image: linear-gradient(
+    to right,
+    transparent calc(var(--fade-start) / 2),
+    #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)),
+    transparent calc(100% - var(--fade-end) / 2)
+  );
+}
+.more-before > .filters {
+  --fade-start: 56px;
+}
+.more-after > .filters {
+  --fade-end: 56px;
+}
+.scroll-button {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  border-radius: 8px;
+  color: var(--fd-muted);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 160ms ease-out,
+    background-color 120ms ease-out,
+    color 160ms ease-out;
+}
+.scroll-button.before {
+  left: 3px;
+}
+.scroll-button.after {
+  right: 3px;
+}
+.scroll-button:hover {
+  background: var(--fd-hover);
+  color: var(--fd-fg);
+}
+.more-before > .scroll-button.before,
+.more-after > .scroll-button.after {
+  opacity: 1;
+  pointer-events: auto;
+}
+.option {
+  flex: none;
+}
+/* As wide as every chip together, so it scrolls along with them; filters.ts sets the width. */
 .indicator {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
   z-index: -1;
   clip-path: inset(0 100% 100% 0 round 8px);
   background: var(--fd-selected-bg);
@@ -85,18 +155,4 @@
   .filters.combined .option[aria-pressed='true'] {
     background: Highlight;
   }
-}
-/* In a compact bar, see panel.css. */
-:host([data-compact]) .filters {
-  flex-wrap: nowrap;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-/* The sliding highlight can't follow a scrolled row, so pressed chips fill in instead. */
-:host([data-compact]) .indicator {
-  display: none;
-}
-:host([data-compact]) .filters .option[aria-pressed='true'] {
-  background: var(--fd-selected-bg);
 }

@@ -128,13 +128,7 @@
           background-color 150ms ease-out,
           border-color 150ms ease-out;
       }
-      .links a[aria-disabled='true'] {
-        border-style: dashed;
-        background: transparent;
-        color: var(--muted);
-        cursor: not-allowed;
-      }
-      .links a:not([aria-disabled='true']):hover {
+      .links a:hover {
         background: rgba(240, 246, 252, 0.12);
         border-color: rgba(240, 246, 252, 0.28);
       }
@@ -161,11 +155,6 @@
           padding: 0 12px;
           font-size: 15px;
         }
-      }
-      .soon {
-        color: var(--muted);
-        font-size: 13px;
-        font-weight: 500;
       }
       .video {
         width: 100%;
@@ -480,11 +469,13 @@
           transition: none;
         }
       }
-      .faq a {
+      .faq a,
+      .note a {
         color: var(--fg);
         text-underline-offset: 3px;
       }
-      .faq a:focus-visible {
+      .faq a:focus-visible,
+      .note a:focus-visible {
         outline: 2px solid var(--focus);
         outline-offset: 2px;
         border-radius: 2px;
@@ -549,7 +540,8 @@
             },
             "sameAs": [
               "https://github.com/hyanmandian/focus-diff",
-              "https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil"
+              "https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil",
+              "https://addons.mozilla.org/firefox/addon/focus-diff/"
             ]
           },
           {
@@ -622,19 +614,27 @@
         </p>
       </header>
 
-      <!-- The Firefox listing isn't live yet; Safari installs from the release build below. -->
+      <!-- Safari installs from the release build below. -->
       <ul class="links" aria-label="Get Focus Diff">
         <li>
           <a class="primary" href="https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil">Add to Chrome</a>
         </li>
         <li>
-          <a aria-disabled="true">Add to Firefox <span class="soon">Soon</span></a>
+          <a href="https://addons.mozilla.org/firefox/addon/focus-diff/">Add to Firefox</a>
         </li>
         <li>
           <a href="#manual-title" data-tab="tab-safari">Add to Safari</a>
         </li>
         <li><a href="https://github.com/hyanmandian/focus-diff">View on GitHub</a></li>
       </ul>
+      <script>
+        // In Firefox, its own store is the main way in; swapped before the first paint, so nothing flickers.
+        if (/Firefox\//.test(navigator.userAgent)) {
+          const [chrome, firefox] = document.querySelectorAll('.links a');
+          chrome?.classList.remove('primary');
+          firefox?.classList.add('primary');
+        }
+      </script>
 
       <div class="video">
         <!-- AV1 where the browser can decode it (about a third smaller), H.264 everywhere else. -->
@@ -752,7 +752,10 @@
             <li>Open <code>about:debugging#/runtime/this-firefox</code>.</li>
             <li>Click <strong>Load Temporary Add-on</strong> and pick <code>focus-diff-firefox.zip</code>.</li>
           </ol>
-          <p class="note">It stays until Firefox restarts. The store version stays for good.</p>
+          <p class="note">
+            It stays until Firefox restarts. The <a href="https://addons.mozilla.org/firefox/addon/focus-diff/">Firefox Add-ons</a> version
+            stays for good, and updates itself.
+          </p>
           <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-firefox.zip"
             >Download for Firefox</a
           >

@@ -222,6 +222,8 @@
       document.addEventListener('click', (event) => {
         const link = event.target.closest('[role="treeitem"] a');
         if (link) {
+          // Like GitHub, it takes the address to the file, unless the bar already has.
+          if (!event.defaultPrevented) history.pushState(null, '', link.getAttribute('href'));
           event.preventDefault();
           const index = files.findIndex((_, i) => link.getAttribute('href') === `#diff-${digest(i)}`);
           scrollTo({ top: rows.getBoundingClientRect().top + scrollY + topOf(index) - 70 });

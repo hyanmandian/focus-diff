@@ -1,3 +1,4 @@
+import { DIGEST, HIDDEN_ROWS } from '@/providers/github/virtual-list';
 import type { Diff, FileStats, FileSummary, PageCounters, ThreadState, ThreadSummary, TreeFile, TreeFolder } from '@/providers/provider';
 
 /**
@@ -216,6 +217,15 @@ const viewed = (diff: Element): boolean | null => {
 
 /** The newer diff view positions each file absolutely in a tall list and only renders the ones near the screen. */
 export const isVirtualized = (): boolean => document.querySelector('[data-index][data-path-digest]') !== null;
+
+/** For virtual-list.ts, in the page's world: the files hidden, as `count index:digest…`, with enough digest to check. */
+export const closeUp = (hidden: { index: number; anchor: string }[], count: number): void => {
+  const value = hidden.length ? [count, ...hidden.map(({ index, anchor }) => `${index}:${anchor.slice(0, DIGEST)}`)].join(' ') : null;
+  const root = document.documentElement;
+  if (root.getAttribute(HIDDEN_ROWS) === value) return;
+  if (value === null) root.removeAttribute(HIDDEN_ROWS);
+  else root.setAttribute(HIDDEN_ROWS, value);
+};
 
 export const diffAt = (anchor: string): HTMLElement | null => (anchor ? document.getElementById(`diff-${anchor}`) : null);
 

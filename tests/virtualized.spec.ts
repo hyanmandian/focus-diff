@@ -15,13 +15,40 @@ test.describe('newer, virtualized diff view', () => {
     await expect.poll(() => pr.statsText()).toMatch(/^3 files left to review \+25.*−10/);
   });
 
-  test('dims files outside the filter instead of leaving gaps', async ({ openPullRequest }) => {
+  test('hides files outside the filter, and the list closes up around them', async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
+    const region = (path: string) => pr.page.locator('[role="region"]', { hasText: path });
+    // Where the list places a file, from the sizes it measured or estimated above it, with its 16px gap after each.
+    const top = (index: number) =>
+      pr.page.evaluate((index) => (window as unknown as { topOf: (index: number) => number }).topOf(index), index);
+    expect(await top(3)).toBe(3 * (560 + 16));
     await pr.pick('Backend');
-    // Picking scrolls to the first Backend file; the file before it is outside the filter.
-    const stories = pr.page.locator('[role="region"]', { hasText: 'web/src/book-card.stories.tsx' }).locator('xpath=..');
-    await expect(stories).toHaveCSS('opacity', '0.35');
-    await expect(stories).toBeVisible();
+    await expect(region('api/books/service.py')).toBeVisible();
+    // The three files before api/books/service.py are out, so it goes first; the two after it are out too, drawn or not,
+    // and the next file shown follows it as closely as GitHub would have it, the gap now its padding.
+    await expect.poll(() => top(3)).toBe(0);
+    await expect.poll(() => top(6)).toBe(560 + 16);
+    await pr.page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+    const card = region('web/src/book-card.tsx');
+    await expect(card).toBeHidden();
+    await expect(card.locator('xpath=..')).toHaveCSS('opacity', '1');
+    // All puts the list back as GitHub had it.
+    await pr.pick('All');
+    await pr.page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+    await expect(card).toBeVisible();
+    await expect.poll(() => top(3)).toBe(3 * (560 + 16));
+    await expect(card.locator('xpath=..')).toHaveCSS('padding-bottom', '0px');
+  });
+
+  test("leaves GitHub's layout alone when the rows aren't the files it expects", async ({ openPullRequest }) => {
+    const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
+    // A row that says it's another file than the data has in its place.
+    await pr.page.locator('[data-index="0"]').evaluate((row) => (row.dataset.pathDigest = 'elsewhere'));
+    await pr.pick('Backend');
+    await expect(pr.page.locator('[role="region"]', { hasText: 'api/books/service.py' })).toBeVisible();
+    const service = pr.page.locator('[data-index="3"]');
+    await expect(service).toHaveCSS('padding-bottom', '0px');
+    expect(await pr.page.evaluate(() => (window as unknown as { topOf: (index: number) => number }).topOf(3))).toBeGreaterThan(0);
   });
 
   test("lines a file picked in the tree up below GitHub's sticky bar", async ({ openPullRequest }) => {

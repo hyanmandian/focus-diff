@@ -31,7 +31,6 @@ import { canTransition, removeTransitionStyle, withTransition } from '@/content/
 
 /** A site keeps drawing while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
-const DIMMED_OPACITY = '0.35';
 
 const show = (element: HTMLElement, visible: boolean) => {
   const display = visible ? '' : 'none';
@@ -39,13 +38,12 @@ const show = (element: HTMLElement, visible: boolean) => {
 };
 
 /**
- * Filters a rendered diff. In the newer, virtualized list every file keeps an absolute position, so hiding one would
- * leave a gap the size of the file; there, files outside the filter are dimmed instead.
+ * Filters a rendered diff. The newer, virtualized list places each file by the height it measured, so there the file's
+ * row stays and only the file in it is hidden: the list measures the row again and closes up around it.
  */
-const present = (element: HTMLElement, visible: boolean, virtualized: boolean) => {
-  show(element, visible || virtualized);
-  const opacity = visible || !virtualized ? '' : DIMMED_OPACITY;
-  if (element.style.opacity !== opacity) element.style.opacity = opacity;
+const present = (diff: { element: HTMLElement; container: HTMLElement }, visible: boolean, virtualized: boolean) => {
+  const hidden = virtualized ? diff.element : diff.container;
+  for (const element of new Set([diff.container, diff.element])) show(element, visible || element !== hidden);
 };
 
 const COUNTER_COPY = 'data-focus-diff-counter';
@@ -107,7 +105,8 @@ const updatePageCounters = (provider: Provider, totals: Totals, filtering: boole
 
 /** Puts the page back the way the site drew it. */
 const restorePage = (provider: Provider) => {
-  for (const diff of provider.diffs()) present(diff.container, true, false);
+  for (const diff of provider.diffs()) present(diff, true, false);
+  provider.closeUp?.([], 0);
   for (const item of provider.tree.files()) show(item.element, true);
   for (const folder of provider.tree.folders()) show(folder.element, true);
   Object.values(provider.counters()).forEach((counter) => mirror(counter, null));
@@ -308,7 +307,14 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     const { filtering, matches, selection, totals } = current;
     const virtualized = provider.isVirtualized();
     shown = current.shown;
-    for (const file of files.list) if (file.diff) present(file.diff.container, matches(file.path), virtualized);
+    for (const file of files.list) if (file.diff) present(file.diff, matches(file.path), virtualized);
+    // Places in the list are only known from the site's data, which lists every file in order.
+    provider.closeUp?.(
+      virtualized && files.complete && filtering
+        ? files.list.flatMap((file, index) => (matches(file.path) || !file.anchor ? [] : [{ index, anchor: file.anchor }]))
+        : [],
+      files.list.length,
+    );
     filterTree(
       provider,
       matches,
@@ -365,7 +371,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
         if (pending) void goToFile(provider, pending);
       });
     };
-    if (when === 'frame') ctx.requestAnimationFrame(run);
+    // A tab in the background draws no frames, so there even the reader's changes wait for idle time.
+    if (when === 'frame' && !document.hidden) ctx.requestAnimationFrame(run);
     // Safari has no requestIdleCallback; a short timeout keeps page changes batched there.
     else if ('requestIdleCallback' in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
     else ctx.setTimeout(run, IDLE_TIMEOUT_MS / 4);

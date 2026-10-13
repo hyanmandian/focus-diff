@@ -37,6 +37,17 @@ export const clockIcon = () =>
     ['path', { d: 'M8 4.75V8l2.25 1.5' }],
   ]);
 export const checkIcon = () => icon('M3.5 8.5 6.5 11.5 12.5 4.5');
+export const bellIcon = () => icon('M4 11.5V7a4 4 0 0 1 8 0v4.5l1 1.25H3zM6.75 14.25h2.5');
+export const externalIcon = () => icon('M6 3.5H3.5v9h9V10M9 2.75h4.25V7M13 3 7.5 8.5', 14);
+export const pullRequestIcon = () =>
+  icon([
+    ['circle', { cx: '4', cy: '3.5', r: '1.5' }],
+    ['circle', { cx: '4', cy: '12.5', r: '1.5' }],
+    ['circle', { cx: '12', cy: '12.5', r: '1.5' }],
+    ['path', { d: 'M4 5v6M12 11V6.5a2 2 0 0 0-2-2H7.5M9 3 7.5 4.5 9 6' }],
+  ]);
+export const playIcon = () => icon('M5 3.5v9l7-4.5z');
+export const undoIcon = () => icon('M4.5 6.5h6a3 3 0 0 1 0 6H8M6.5 4 4 6.5 6.5 9');
 export const commentIcon = () => icon('M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z');
 /** Crosshairs: go to the one thing there is. */
 export const targetIcon = () =>

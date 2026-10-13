@@ -33,10 +33,12 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Review time left.** An estimate next to the line totals, from about 1,000 changed lines per hour, that drops as you mark files as viewed.
 - **Conversations.** Step through review threads one by one. Each shows its file and line, and whether it's waiting on you, answered or resolved.
 - **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
+- **Your pull requests at a glance.** The toolbar button lists what's waiting for your review and your own open pull requests, what changed since you last looked first, each a click from its files. Turn on notifications to hear about new review requests, drafts that become ready, comments, approvals and requested changes, in the repositories you pick, each leaving out what you don't need, like drafts, bots, or pull requests you've already approved.
+- **Review time.** Set aside time to review, like weekdays at 15:00 for half an hour. When it comes, Focus Diff picks the pull requests that fit, by how long each takes you, counting only the filters you pick, and tells you with a sound of its own. It learns your pace from the files you mark as viewed, so the estimates, the bar's too, follow you. Notifications can wait for it, and the toolbar icon counts the time down.
 - **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.
 - **Looks at home.** Follows your GitHub theme, or make your own: pick the bar's colours in settings with a live preview, and share the theme with your team like filters. Checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.
 - **Ready for more sites.** It works on GitHub. Everything that reads the page lives in one adapter per site, so others can follow: see [adding a site](CONTRIBUTING.md#adding-a-site).
-- **Private.** No tracking and no network requests. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
+- **Private.** No tracking, and nothing sent anywhere but GitHub. Your pull requests are read from github.com with the session already in your browser, only when you open the popup or turn notifications on. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
 
 ## Getting started
 

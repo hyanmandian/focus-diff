@@ -69,20 +69,6 @@
 .panel > :not(.filter-row) {
   flex: none;
 }
-.option-count {
-  box-sizing: border-box;
-  min-width: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--fd-track);
-  color: var(--fd-muted);
-  font: 600 11px/18px var(--fd-font);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-.option-count:empty {
-  display: none;
-}
 
 .icon-button {
   display: inline-grid;

@@ -7,16 +7,22 @@ import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from
 import { formatNumber as format } from '@/utils/format/format';
 import type { Provider } from '@/providers/provider';
 import { createStyler, normalizeAppearance } from '@/utils/appearance/appearance';
+import { createEstimator, learnFile, normalizeLearned, PACES, reviewMinutes, type Estimator } from '@/utils/review-time/review-time';
+import { normalizeReviewTime, type ReviewTimeSettings } from '@/utils/review-time/sessions';
 import type { Message } from '@/utils/messages';
 import {
   appearanceItem,
   configItem,
   loadAppearance,
   loadConfig,
+  learnedItem,
+  loadReviewTime,
+  reviewTimeItem,
   selectionsItem,
   updateItem,
   type Selections,
 } from '@/utils/storage/storage';
+import { createActiveTime, type OnScreen } from '@/content/active-time';
 import { collectFiles, type FileInfo, type Files } from '@/content/files';
 import { createNavigation, goToFile } from '@/content/navigation';
 import { createReviewView, nextFilterWithWork, review, toggled, type Option } from '@/content/review';
@@ -134,6 +140,12 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
   await restyle(await loadAppearance());
   let config: Config = await loadConfig();
   let selections: Selections = await selectionsItem.getValue();
+  // The reader's pace, from Review time and what it has learned, so the bar's estimates and review time's agree.
+  let reviewTime: ReviewTimeSettings = await loadReviewTime();
+  let learned = normalizeLearned(await learnedItem.getValue());
+  let estimator: Estimator = reviewMinutes;
+  const reestimate = () => (estimator = createEstimator(PACES[reviewTime.pace], reviewTime.learn ? learned : null));
+  reestimate();
   let pending: 'frame' | 'idle' | null = null;
   let announceNext = false;
 
@@ -238,6 +250,45 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     panel.announceText(i18n.t('panelJumpedToFile', left.length, [target.path, format(left.length)]));
   };
 
+  /**
+   * A file the reader just marked viewed is one they reviewed: the time they spent on it, next to what the starting pace
+   * gave it, teaches the estimates their pace. A file ticked off in a few seconds was skipped, not reviewed.
+   */
+  const activeTime = createActiveTime(ctx, () =>
+    provider.diffs().flatMap((diff): OnScreen => {
+      const box = diff.container.getBoundingClientRect();
+      const height = Math.min(box.bottom, innerHeight) - Math.max(box.top, 0);
+      return height > 0 ? [[diff.path, height]] : [];
+    }),
+  );
+  /** A file marked viewed after less than this wasn't reviewed, only ticked off. */
+  const MIN_REVIEW_SECONDS = 2;
+  /**
+   * Files seen not viewed on this page: only those can be learned from once marked. GitHub loads the list a bit at a
+   * time, so a file already viewed can turn up later, and that's not the reader marking it.
+   */
+  let unviewed = { pathname: '', paths: new Set<string>() };
+  const learnFromViewed = async (list: FileInfo[]) => {
+    if (unviewed.pathname !== location.pathname) unviewed = { pathname: location.pathname, paths: new Set() };
+    const marked = list.filter((file) => file.viewed && unviewed.paths.has(file.path));
+    for (const file of list) if (!file.viewed) unviewed.paths.add(file.path);
+    for (const file of marked) unviewed.paths.delete(file.path);
+    if (!reviewTime.learn) return;
+    // Without its line counts, there's nothing to tell the time spent on a file against.
+    const samples = marked.flatMap((file) => {
+      const seconds = activeTime.take(file.path);
+      return file.stats && seconds >= MIN_REVIEW_SECONDS
+        ? [{ path: file.path, expected: reviewMinutes(file.path, file.stats, PACES[reviewTime.pace]), actual: seconds / 60 }]
+        : [];
+    });
+    if (!samples.length) return;
+    // Read again first: another tab may have learned something since.
+    let latest = normalizeLearned(await learnedItem.getValue());
+    for (const sample of samples) latest = learnFile(latest, sample.path, sample.expected, sample.actual);
+    learned = latest;
+    await learnedItem.setValue(latest);
+  };
+
   const apply = () => {
     pending = null;
     if (ctx.isInvalid) return;
@@ -251,8 +302,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     }
 
     files = collectFiles(provider);
+    void learnFromViewed(files.list);
     const reported = provider.reportedFileCount();
-    const current = review(files, optionsFor(repo), selectedIds(repo), { reported, loading: loading() });
+    const current = review(files, optionsFor(repo), selectedIds(repo), { reported, loading: loading(), minutes: estimator });
     const { filtering, matches, selection, totals } = current;
     const virtualized = provider.isVirtualized();
     shown = current.shown;
@@ -359,6 +411,16 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     config = normalize(value);
     schedule();
   });
+  const unwatchReviewTime = reviewTimeItem.watch((value) => {
+    reviewTime = normalizeReviewTime(value);
+    reestimate();
+    schedule();
+  });
+  const unwatchLearned = learnedItem.watch((value) => {
+    learned = normalizeLearned(value);
+    reestimate();
+    schedule();
+  });
   const unwatchSelections = selectionsItem.watch((value) => {
     selections = value;
     schedule();
@@ -404,6 +466,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     browser.runtime.onMessage.removeListener(onMessage);
     unwatchConfig();
     unwatchSelections();
+    unwatchReviewTime();
+    unwatchLearned();
     unwatchUpdate();
     unwatchAppearance();
   });

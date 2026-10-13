@@ -6,7 +6,7 @@ import type { Panel } from '@/components/panel/panel';
 import { isDone, type Totals } from '@/components/stats/stats';
 import { ALL, type Matcher } from '@/utils/filters/filters';
 import type { FileStats } from '@/providers/provider';
-import { reviewMinutes } from '@/utils/review-time/review-time';
+import { reviewMinutes, type Estimator } from '@/utils/review-time/review-time';
 
 /**
  * What the bar shows for a pull request and a selection of filters, worked out from the files alone. The content script
@@ -35,7 +35,7 @@ export interface FileList<T extends ReviewFile = ReviewFile> {
 
 const everything: Matcher = () => true;
 
-const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: number): Totals => {
+const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: number, minutesOf: Estimator): Totals => {
   const total = complete ? list.length : Math.max(list.length, reported);
   const totals = { visible: 0, total, additions: 0, deletions: 0, pending: 0, minutes: 0, viewed: 0, minutesLeft: 0 };
   for (const file of list) {
@@ -44,7 +44,7 @@ const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: num
     if (!file.stats) totals.pending++;
     totals.additions += file.stats?.additions ?? 0;
     totals.deletions += file.stats?.deletions ?? 0;
-    const minutes = reviewMinutes(file.path, file.stats);
+    const minutes = minutesOf(file.path, file.stats);
     totals.minutes += minutes;
     if (file.viewed) totals.viewed++;
     else totals.minutesLeft += minutes;
@@ -55,8 +55,8 @@ const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: num
   totals.pending += unrendered;
   if (matches === everything) {
     totals.visible = total;
-    totals.minutes += unrendered * reviewMinutes('', null);
-    totals.minutesLeft += unrendered * reviewMinutes('', null);
+    totals.minutes += unrendered * minutesOf('', null);
+    totals.minutesLeft += unrendered * minutesOf('', null);
   }
   return totals;
 };
@@ -98,17 +98,20 @@ export interface Review<T extends ReviewFile = ReviewFile> {
   rows: () => BreakdownRow[];
 }
 
-/** `options` starts with All; `ids` are the chosen filters, `loading` says files may still arrive. */
+/**
+ * `options` starts with All; `ids` are the chosen filters, `loading` says files may still arrive, and `minutes`
+ * estimates a file, at the reader's pace as Review time has learned it.
+ */
 export const review = <T extends ReviewFile>(
   files: FileList<T>,
   options: Option[],
   ids: string[],
-  { reported = 0, loading = false } = {},
+  { reported = 0, loading = false, minutes = reviewMinutes }: { reported?: number; loading?: boolean; minutes?: Estimator } = {},
 ): Review<T> => {
   const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
   const filtering = selected.length > 0;
   const matches: Matcher = filtering ? (path) => selected.some((option) => option.matches?.(path)) : everything;
-  const totals = totalsFor(files, matches, reported);
+  const totals = totalsFor(files, matches, reported, minutes);
   const left = totals.visible - totals.viewed;
   const filters = options.filter((option) => option.id !== ALL);
   return {
@@ -118,7 +121,7 @@ export const review = <T extends ReviewFile>(
     name: filtering ? selected.map((option) => option.name).join(' + ') : i18n.t('filterAll'),
     shown: files.list.filter((file) => matches(file.path)),
     totals,
-    all: filtering ? totalsFor(files, everything, reported) : totals,
+    all: filtering ? totalsFor(files, everything, reported, minutes) : totals,
     options: options.map(({ id, name, matches: optionMatches }) => ({
       id,
       name,
@@ -127,7 +130,7 @@ export const review = <T extends ReviewFile>(
     })),
     nextFile: { left, nextFilter: filtering && !left ? nextFilterWithWork(files.list, filters, ids) : undefined },
     rows: () =>
-      options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported) })),
+      options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported, minutes) })),
   };
 };
 

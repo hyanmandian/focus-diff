@@ -6,7 +6,6 @@
 ### Features
 
 * **notifications:** hear about review requests, comments, approvals, requested changes and mentions, with quiet hours and a sound of your own ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
-* **panel:** keep the filters on one row, with arrows to scroll them, and rise into place ([076b5a8](https://github.com/hyanmandian/focus-diff/commit/076b5a8f66efcbf4c34e8c62fc8acd920ee612ef))
 * **panel:** keep the filters on one row, with arrows to scroll them, and rise into place ([063708c](https://github.com/hyanmandian/focus-diff/commit/063708c977f9d1bb8ed804d3822d9f26d19cdf34))
 * **popup:** fold drafts away, and mark pull requests done until something new happens on them ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
 * **popup:** list the pull requests waiting for your review, and your own, from the toolbar button ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))

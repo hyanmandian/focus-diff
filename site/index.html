@@ -128,13 +128,7 @@
           background-color 150ms ease-out,
           border-color 150ms ease-out;
       }
-      .links a[aria-disabled='true'] {
-        border-style: dashed;
-        background: transparent;
-        color: var(--muted);
-        cursor: not-allowed;
-      }
-      .links a:not([aria-disabled='true']):hover {
+      .links a:hover {
         background: rgba(240, 246, 252, 0.12);
         border-color: rgba(240, 246, 252, 0.28);
       }
@@ -161,11 +155,6 @@
           padding: 0 12px;
           font-size: 15px;
         }
-      }
-      .soon {
-        color: var(--muted);
-        font-size: 13px;
-        font-weight: 500;
       }
       .video {
         width: 100%;
@@ -480,11 +469,13 @@
           transition: none;
         }
       }
-      .faq a {
+      .faq a,
+      .note a {
         color: var(--fg);
         text-underline-offset: 3px;
       }
-      .faq a:focus-visible {
+      .faq a:focus-visible,
+      .note a:focus-visible {
         outline: 2px solid var(--focus);
         outline-offset: 2px;
         border-radius: 2px;
@@ -549,16 +540,17 @@
             },
             "sameAs": [
               "https://github.com/hyanmandian/focus-diff",
-              "https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil"
+              "https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil",
+              "https://addons.mozilla.org/firefox/addon/focus-diff/"
             ]
           },
           {
             "@type": "VideoObject",
-            "name": "Focus Diff in 74 seconds",
-            "description": "A tour of Focus Diff on GitHub pull requests: filters, the files, lines and review time left, conversations, settings, examples, sharing and themes.",
+            "name": "Focus Diff in 88 seconds",
+            "description": "A tour of Focus Diff on GitHub pull requests: filters, the files, lines and review time left, conversations, the review queue in the toolbar, review time, settings, examples, sharing and themes.",
             "thumbnailUrl": ["https://focus-diff.com/poster.webp", "https://focus-diff.com/og.jpg"],
-            "uploadDate": "2026-10-05",
-            "duration": "PT1M14S",
+            "uploadDate": "2026-10-13",
+            "duration": "PT1M28S",
             "contentUrl": "https://focus-diff.com/focus-diff.mp4",
             "embedUrl": "https://focus-diff.com/"
           },
@@ -570,7 +562,7 @@
                 "name": "Does it send my code anywhere?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. It makes no network requests and collects no data. Your filters stay in your browser’s storage."
+                  "text": "No. It collects no data and sends nothing to anyone but GitHub. Your filters stay in your browser’s storage."
                 }
               },
               {
@@ -622,19 +614,27 @@
         </p>
       </header>
 
-      <!-- The Firefox listing isn't live yet; Safari installs from the release build below. -->
+      <!-- Safari installs from the release build below. -->
       <ul class="links" aria-label="Get Focus Diff">
         <li>
           <a class="primary" href="https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil">Add to Chrome</a>
         </li>
         <li>
-          <a aria-disabled="true">Add to Firefox <span class="soon">Soon</span></a>
+          <a href="https://addons.mozilla.org/firefox/addon/focus-diff/">Add to Firefox</a>
         </li>
         <li>
           <a href="#manual-title" data-tab="tab-safari">Add to Safari</a>
         </li>
         <li><a href="https://github.com/hyanmandian/focus-diff">View on GitHub</a></li>
       </ul>
+      <script>
+        // In Firefox, its own store is the main way in; swapped before the first paint, so nothing flickers.
+        if (/Firefox\//.test(navigator.userAgent)) {
+          const [chrome, firefox] = document.querySelectorAll('.links a');
+          chrome?.classList.remove('primary');
+          firefox?.classList.add('primary');
+        }
+      </script>
 
       <div class="video">
         <!-- AV1 where the browser can decode it (about a third smaller), H.264 everywhere else. -->
@@ -647,7 +647,7 @@
           playsinline
           controls
           preload="none"
-          aria-label="Focus Diff in 74 seconds: filtering a pull request to Frontend or Backend files, combining filters, the files, lines and review time left, the breakdown by filter, the next file to review, stepping through conversations, the Done badge, switching filters from the keyboard, writing filters and trying a path in settings, filters for one repository, starting from examples, sharing filters with your team, making your own theme, and following light and dark mode"
+          aria-label="Focus Diff in 88 seconds: filtering a pull request to Frontend or Backend files, combining filters, the files, lines and review time left, the breakdown by filter, the next file to review, stepping through conversations, the Done badge, switching filters from the keyboard, the review queue in the toolbar with a time for each pull request, a review time planned to fit 45 minutes, picking which repositories the queue lists, writing filters and trying a path in settings, filters for one repository, starting from examples, sharing filters with your team, making your own theme, and following light and dark mode"
         >
           <source src="focus-diff.av1.mp4" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"' />
           <source src="focus-diff.mp4" type="video/mp4" />
@@ -712,8 +712,8 @@
           <li>
             <h3>Private by design</h3>
             <p>
-              No account, no tracking and no network requests. Focus Diff reads the file paths and line counts on the page, and nothing
-              leaves your browser.
+              No account and no tracking. Focus Diff reads the file paths and line counts on the page, and talks to no one but GitHub
+              itself.
             </p>
           </li>
         </ul>
@@ -752,7 +752,10 @@
             <li>Open <code>about:debugging#/runtime/this-firefox</code>.</li>
             <li>Click <strong>Load Temporary Add-on</strong> and pick <code>focus-diff-firefox.zip</code>.</li>
           </ol>
-          <p class="note">It stays until Firefox restarts. The store version stays for good.</p>
+          <p class="note">
+            It stays until Firefox restarts. The <a href="https://addons.mozilla.org/firefox/addon/focus-diff/">Firefox Add-ons</a> version
+            stays for good, and updates itself.
+          </p>
           <a class="download" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-firefox.zip"
             >Download for Firefox</a
           >
@@ -855,7 +858,7 @@
         <div class="faq-list">
           <details>
             <summary>Does it send my code anywhere?</summary>
-            <p>No. It makes no network requests and collects no data. Your filters stay in your browser’s storage.</p>
+            <p>No. It collects no data and sends nothing to anyone but GitHub. Your filters stay in your browser’s storage.</p>
           </details>
           <details>
             <summary>Does it work on private repositories?</summary>

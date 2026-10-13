@@ -17,7 +17,7 @@ test.describe('welcome page', () => {
     const page = await openExtensionPage('welcome.html');
     await expect(page.locator('h1')).toHaveText('Welcome to Focus Diff');
     await expect(page.locator('.steps li')).toHaveCount(3);
-    await expect(page.locator('.recipe')).toHaveCount(7);
+    await expect(page.locator('#recipes .recipe')).toHaveCount(7);
     await expect(page.locator('#shortcuts kbd')).toHaveCount(4);
   });
 
@@ -157,7 +157,7 @@ test.describe('welcome page', () => {
   for (const view of PAGE_VIEWS)
     test(`has no accessibility violations and no horizontal scroll (${view.join(', ')}px)`, async ({ openExtensionPage }) => {
       const page = await openExtensionPage('welcome.html');
-      await expectSoundPage(page, view, page.locator('.recipe'));
+      await expectSoundPage(page, view, page.locator('#recipes .recipe'));
     });
 
   test.afterEach(({ pageErrors }) => {

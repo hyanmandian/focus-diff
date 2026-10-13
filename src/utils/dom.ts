@@ -39,3 +39,19 @@ export const icon = (shapes: string | Shape[], size = 16): SVGSVGElement => {
   }
   return svg;
 };
+
+/** A mouse wheel only scrolls up and down; over a row that scrolls sideways, it does that instead, until either end. */
+export const wheelScrollsSideways = (element: HTMLElement, signal?: AbortSignal): void =>
+  element.addEventListener(
+    'wheel',
+    (event) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      const end = element.scrollWidth - element.clientWidth;
+      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaY;
+      const next = Math.min(end, Math.max(0, element.scrollLeft + delta));
+      if (end <= 0 || next === element.scrollLeft) return;
+      event.preventDefault();
+      element.scrollLeft = next;
+    },
+    { passive: false, signal },
+  );

@@ -252,3 +252,15 @@
     font-size: 16px;
   }
 }
+
+/* Review times to start from: like the recipes, with what each one is in place of filters. */
+.recipe[data-preset] {
+  grid-template-rows: auto 1fr auto;
+}
+.more-presets {
+  margin-top: 16px;
+}
+.recipe[data-preset] .recipe-names {
+  align-content: start;
+  align-items: start;
+}

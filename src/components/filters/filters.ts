@@ -1,6 +1,6 @@
 import { i18n } from '#i18n';
-import { chevronIcon } from '@/components/icons';
 import { h } from '@/utils/dom';
+import { FADE, scrollBehavior, scrollRow } from '@/components/scroll-row';
 import { formatNumber as format } from '@/utils/format/format';
 import type { PanelContext } from '@/components/panel/panel';
 
@@ -14,10 +14,6 @@ export interface PanelOption {
 }
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-/** How far in from either side the chips fade out while there's more to scroll to, under an arrow (filters.css). */
-const FADE = 56;
-
-const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth');
 
 /**
  * The filter chips: one roving tab stop, arrow keys between chips, and a highlight that slides to the pressed one.
@@ -28,27 +24,7 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
   const element = h('div', { className: 'filters', role: 'toolbar', 'aria-label': i18n.t('panelShowFiles') }, indicator);
   const options = () => [...element.querySelectorAll<HTMLButtonElement>('.option')];
 
-  // The arrows are for the mouse alone: the keyboard moves between chips with the arrow keys, and a screen reader reads
-  // every chip, so they stay out of the tab order and the accessibility tree.
-  const arrow = (direction: 1 | -1) =>
-    h(
-      'span',
-      {
-        className: `scroll-button ${direction > 0 ? 'after' : 'before'}`,
-        'aria-hidden': 'true',
-        onClick: () => element.scrollBy({ left: direction * (element.clientWidth - FADE * 2), behavior: scrollBehavior() }),
-      },
-      chevronIcon(direction > 0 ? 'right' : 'left'),
-    );
-  const row = h('div', { className: 'filter-row' }, arrow(-1), element, arrow(1));
-
-  /** With more chips than room, the row scrolls; each side fades out under an arrow while there's more of it. */
-  const updateEdges = () => {
-    const end = element.scrollWidth - element.clientWidth;
-    row.classList.toggle('more-before', element.scrollLeft > 1);
-    row.classList.toggle('more-after', element.scrollLeft < end - 1);
-  };
-  element.addEventListener('scroll', updateEdges, { passive: true, signal });
+  const { row, updateEdges } = scrollRow(element, signal);
 
   const moveIndicator = () => {
     updateEdges();
@@ -77,21 +53,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     const next = element.scrollLeft > left ? left : element.scrollLeft < right ? right : null;
     if (next !== null) element.scrollTo({ left: next, behavior: scrollBehavior() });
   };
-
-  // A mouse wheel only scrolls up and down; over a row that scrolls sideways, it does that instead, until either end.
-  element.addEventListener(
-    'wheel',
-    (event) => {
-      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      const end = element.scrollWidth - element.clientWidth;
-      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaY;
-      const next = Math.min(end, Math.max(0, element.scrollLeft + delta));
-      if (end <= 0 || next === element.scrollLeft) return;
-      event.preventDefault();
-      element.scrollLeft = next;
-    },
-    { passive: false, signal },
-  );
 
   element.addEventListener('keydown', (event) => {
     const list = options();

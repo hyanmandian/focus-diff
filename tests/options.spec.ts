@@ -26,6 +26,22 @@ test.describe('settings page', () => {
     await expect(links.nth(2)).toHaveAttribute('href', /\/issues\/new\?template=bug_report\.yml$/);
   });
 
+  test('marks the section picked in the index, even one too short to reach the top', async ({ openExtensionPage }) => {
+    const page = await openExtensionPage('options.html');
+    // A tall window, where the next section's top is already near the top under an empty Repositories.
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    const index = page.getByRole('navigation', { name: 'Settings sections' });
+    for (const name of ['Repositories', 'Try a path', 'Review queue']) {
+      await index.getByRole('link', { name, exact: true }).click();
+      await expect(index.getByRole('link', { name, exact: true })).toHaveAttribute('aria-current', 'true');
+      await page.waitForTimeout(1100);
+      await expect(index.locator('[aria-current]')).toHaveText(name);
+    }
+    // Scrolling on lets go of it.
+    await page.mouse.wheel(0, 4000);
+    await expect(index.getByRole('link', { name: 'Review queue', exact: true })).not.toHaveAttribute('aria-current', 'true');
+  });
+
   test('blocks saving an invalid regex and focuses it', async ({ openExtensionPage }) => {
     const page = await openExtensionPage('options.html');
     await page.locator('#global .filter').first().locator('.f-exclude').fill('(');

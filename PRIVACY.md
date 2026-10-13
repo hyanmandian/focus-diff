@@ -1,10 +1,12 @@
 # Privacy policy
 
-Focus Diff does not collect, send, sell, or share any data.
+Focus Diff does not collect, sell, or share any data. It sends nothing to its developer or to anyone but GitHub.
 
-- **What it stores:** the filters you create, the bar's theme and the themes you make, and the filter you last picked on each repository. Filters and themes are kept in Chrome's synced storage, so they follow your Chrome profile across devices. The last-picked filter stays in local storage on the device.
-- **Where it runs:** only on `https://github.com/*`, where it reads file paths and line counts already shown on pull request pages to hide files and update the counters. Nothing it reads leaves your browser.
-- **Permissions:** `storage`, to keep your filters. No other permission is requested.
-- **Third parties:** none. The extension makes no network requests.
+- **What it stores:** the filters you create, the bar's theme and the themes you make, the filter you last picked on each repository, and your notification and review time settings. Filters, themes, notification and review time settings are kept in the browser's synced storage, so they follow your profile across devices. The last-picked filter, your pull request lists as last read, what notifications it already showed or kept for review time, the files of the pull requests it estimated, when pull requests left your review queue (to spot requests to review them again), and your review pace as it learns it stay in local storage on the device.
+- **Where it runs:** only on `https://github.com/*`, where it reads file paths and line counts already shown on pull request pages to hide files and update the counters. Nothing it reads there leaves your browser.
+- **What it asks GitHub:** when you open its toolbar popup, it reads your pull request lists (waiting for your review, and your own) from `https://github.com`, and the authors' pictures from GitHub's `https://avatars.githubusercontent.com`. With notifications on, it also reads them, your notifications inbox, and the pages of pull requests with new activity, as often as you pick. To show how long each pull request waiting for your review takes, it reads their lists of changed files after reading your lists, once per push, unless you turn that off; at a review time, or when you start one, it reads the lists again to see which files you marked viewed. It reads them with the GitHub session already in your browser, like opening those pages yourself, and sends the requests only to GitHub. With notifications and review time off and the popup closed, it makes no requests.
+- **Your review pace:** with learning on, on a pull request's files it counts the time you're active on each file until you mark it viewed, and keeps only running totals per kind of file (code, tests, docs and so on) on the device. It never records which files or pull requests, and it sends nothing.
+- **Permissions:** `storage`, to keep your settings; `alarms`, to check GitHub as often as you pick while notifications are on, and to keep your review times; `offscreen` (Chrome only), to play the notification sound you pick, since Chrome's background has no audio; and `notifications`, asked for only when you turn notifications or review time on.
+- **Third parties:** none. GitHub is the only site it talks to.
 
 Questions: email focus-diff@hyan.com.br or open an issue at https://github.com/hyanmandian/focus-diff/issues.

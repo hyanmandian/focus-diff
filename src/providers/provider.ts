@@ -22,8 +22,13 @@ export interface Provider {
   containsDiff: (node: Node) => boolean;
   /** Attributes whose change calls for another look at the page, like a Viewed toggle's. */
   observedAttributes: string[];
-  /** Whether diffs keep fixed places in a list drawn as it scrolls, where hiding one leaves a gap: they're dimmed instead. */
+  /** Whether diffs sit in a list drawn as it scrolls, which places each by the heights measured above it. */
   isVirtualized: () => boolean;
+  /**
+   * Tells that list which files are hidden, by their place in `summary()`, so it can close up around them; none puts it
+   * back. Only for sites whose list needs telling.
+   */
+  closeUp?: (hidden: { index: number; anchor: string }[], count: number) => void;
 
   /** How many files the site says changed, counting those it hasn't drawn yet. */
   reportedFileCount: () => number;
@@ -67,7 +72,7 @@ export type ThreadState = 'waiting' | 'answered' | 'resolved';
 export interface Diff {
   element: HTMLElement;
   path: string;
-  /** What gets hidden or dimmed: the diff, or the wrapper the site lays it out in. */
+  /** What gets hidden: the diff, or the wrapper the site lays it out in. In a virtualized list, the row that stays. */
   container: HTMLElement;
   /** The file's line counts, or `null` while the site hasn't shown them. */
   stats: () => FileStats | null;

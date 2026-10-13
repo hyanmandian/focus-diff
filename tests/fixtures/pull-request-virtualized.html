@@ -68,7 +68,28 @@
         ['api/legacy/routes.py', 0, 0, {}],
       ];
       const digest = (index) => `d${index}`.padEnd(64, '0');
-      const ROW = 600;
+      // Like GitHub's virtual list, TanStack Virtual: a row goes below the sizes measured above it, each estimated until
+      // it's drawn, with a gap after every row. Its options are set again on every render, and React's records on the list
+      // lead to it.
+      const sizes = new Map();
+      const virtualizer = {
+        options: null,
+        itemSizeCache: sizes,
+        getVirtualItems: () => [...document.getElementById('rows').children],
+        resizeItem: (index, size) => {
+          sizes.set(virtualizer.options.getItemKey(index), size);
+          layout();
+        },
+      };
+      virtualizer.setOptions = (options) => (virtualizer.options = options);
+      const options = () => ({ count: files.length, gap: 16, estimateSize: () => 560, getItemKey: (index) => `key-${index}` });
+      virtualizer.setOptions(options());
+      const sizeOf = (index) => sizes.get(virtualizer.options.getItemKey(index)) ?? virtualizer.options.estimateSize(index);
+      const topOf = (window.topOf = (index) => {
+        let top = 0;
+        for (let before = 0; before < index; before++) top += sizeOf(before) + virtualizer.options.gap;
+        return top;
+      });
       const opened = new Set();
       const viewed = new Set(['docs/books.md']);
       const data = {
@@ -124,7 +145,19 @@
       });
 
       const rows = document.getElementById('rows');
-      rows.style.height = `${files.length * ROW}px`;
+      rows.__reactFiber$fixture = { memoizedState: { memoizedState: { current: virtualizer }, next: null }, return: null };
+      const layout = () => {
+        virtualizer.setOptions(options());
+        rows.style.height = `${topOf(files.length)}px`;
+        for (const row of rows.children) row.style.top = `${topOf(Number(row.dataset.index))}px`;
+      };
+      const measure = new ResizeObserver((entries) => {
+        for (const entry of entries)
+          sizes.set(virtualizer.options.getItemKey(Number(entry.target.dataset.index)), entry.borderBoxSize[0].blockSize);
+        layout();
+        sync();
+      });
+      layout();
       const render = (index) => {
         if (rows.querySelector(`[data-index="${index}"]`)) return;
         const [path, added, removed, markers] = files[index];
@@ -132,7 +165,7 @@
         row.className = 'row';
         row.dataset.index = String(index);
         row.dataset.pathDigest = digest(index);
-        row.style.top = `${index * ROW}px`;
+        row.style.top = `${topOf(index)}px`;
         const indicators = Object.keys(markers)
           .map(
             (line) =>
@@ -156,16 +189,17 @@
               .join('')}
           </div>`;
         rows.append(row);
+        measure.observe(row);
       };
       // Only the files near the screen are in the page, like GitHub's virtual list.
       const sync = () => {
-        const first = Math.max(0, Math.floor((scrollY - 400) / ROW));
-        const last = Math.min(files.length - 1, Math.floor((scrollY + innerHeight) / ROW));
+        const near = (index) => topOf(index) + sizeOf(index) >= scrollY - 400 && topOf(index) <= scrollY + innerHeight;
         for (const row of [...rows.children]) {
-          const index = Number(row.dataset.index);
-          if (index < first || index > last) row.remove();
+          if (near(Number(row.dataset.index))) continue;
+          measure.unobserve(row);
+          row.remove();
         }
-        for (let index = first; index <= last; index++) render(index);
+        files.forEach((_, index) => near(index) && render(index));
       };
       addEventListener('scroll', sync);
       // Like GitHub, a comment link scrolls to the thread's file and opens the thread, a moment later.
@@ -179,7 +213,7 @@
         if (index === -1) return;
         opened.add(id);
         rows.querySelector(`[data-index="${index}"]`)?.remove();
-        scrollTo({ top: rows.getBoundingClientRect().top + scrollY + index * ROW - 70 });
+        scrollTo({ top: rows.getBoundingClientRect().top + scrollY + topOf(index) - 70 });
         setTimeout(sync, 100);
         // Then, like GitHub, it brings the comment to the top of the screen.
         setTimeout(() => document.querySelector(`[data-marker-id="${id}"]`)?.scrollIntoView({ block: 'start' }), 300);
@@ -188,9 +222,11 @@
       document.addEventListener('click', (event) => {
         const link = event.target.closest('[role="treeitem"] a');
         if (link) {
+          // Like GitHub, it takes the address to the file, unless the bar already has.
+          if (!event.defaultPrevented) history.pushState(null, '', link.getAttribute('href'));
           event.preventDefault();
           const index = files.findIndex((_, i) => link.getAttribute('href') === `#diff-${digest(i)}`);
-          scrollTo({ top: rows.getBoundingClientRect().top + scrollY + index * ROW - 70 });
+          scrollTo({ top: rows.getBoundingClientRect().top + scrollY + topOf(index) - 70 });
           sync();
         }
         const toggle = event.target.closest('button[class*="MarkAsViewedButton"]');

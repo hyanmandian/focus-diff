@@ -15,6 +15,7 @@ export const github: Provider = {
   // The newer view's Viewed toggle flips aria-pressed; the classic view's checkbox fires `change`, which is always watched.
   observedAttributes: ['aria-pressed'],
   isVirtualized: page.isVirtualized,
+  closeUp: page.closeUp,
   reportedFileCount: page.reportedFileCount,
   counters: page.pageCounters,
   formatCount,

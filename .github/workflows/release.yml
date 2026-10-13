@@ -4,13 +4,11 @@
 #   1. `build` checks, tests and zips the tagged commit, with read-only access.
 #   2. `release-assets` signs the zips' build provenance, attaches them and the provenance to the draft, and
 #      publishes the release, so the site's "latest release" download links only ever see a complete one.
-#   3. `publish-stores` sends the zips to the Chrome Web Store and Firefox Add-ons. It runs in the `stores`
-#      environment, which holds the store credentials and waits for a maintainer to approve it.
+#
+# The stores get the release's zips by hand: focus-diff-chromium.zip on the Chrome Web Store, and
+# focus-diff-firefox.zip with focus-diff-sources.zip on Firefox Add-ons.
 #
 # One-time setup, in the repository's settings (not done by CI):
-#   - Environments → New environment → `stores`: add yourself as a required reviewer, and add the store secrets
-#     there (CHROME_EXTENSION_ID, CHROME_PUBLISHER_ID, CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL,
-#     CHROME_SERVICE_ACCOUNT_PRIVATE_KEY, FIREFOX_JWT_ISSUER, FIREFOX_JWT_SECRET), not as repository secrets.
 #   - Releases can be made immutable (Settings → General → Releases): assets go on while the release is a draft.
 
 name: Release
@@ -130,42 +128,3 @@ jobs:
           jq -c .dsseEnvelope "$BUNDLE" > release/focus-diff.intoto.jsonl
           gh release upload "$TAG" release/* --clobber --repo "$GITHUB_REPOSITORY"
           gh release edit "$TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
-
-  publish-stores:
-    name: Publish to the stores
-    needs: [release-please, release-assets]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: stores
-    steps:
-      - name: Checkout the release tag
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.release-please.outputs.tag }}
-          persist-credentials: false
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Download the zips
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release
-          path: release
-
-      - name: Submit
-        env:
-          CHROME_API_VERSION: v2
-          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
-          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
-          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
-          FIREFOX_EXTENSION_ID: focus-diff@hyan.com.br
-          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
-          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
-        run: |
-          args=()
-          if [ -n "$CHROME_EXTENSION_ID" ]; then args+=(--chrome-zip release/focus-diff-chromium.zip); fi
-          if [ -n "$FIREFOX_JWT_ISSUER" ]; then args+=(--firefox-zip release/focus-diff-firefox.zip --firefox-sources-zip release/focus-diff-sources.zip); fi
-          if [ ${#args[@]} -eq 0 ]; then echo "No store secrets set, skipping."; exit 0; fi
-          npx wxt submit "${args[@]}"

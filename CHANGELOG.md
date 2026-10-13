@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/hyanmandian/focus-diff/compare/v1.1.0...v1.2.0) (2026-10-13)
+
+
+### Features
+
+* **notifications:** hear about review requests, comments, approvals, requested changes and mentions, with quiet hours and a sound of your own ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+* **panel:** keep the filters on one row, with arrows to scroll them, and rise into place ([063708c](https://github.com/hyanmandian/focus-diff/commit/063708c977f9d1bb8ed804d3822d9f26d19cdf34))
+* **popup:** fold drafts away, and mark pull requests done until something new happens on them ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+* **popup:** list the pull requests waiting for your review, and your own, from the toolbar button ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+* **popup:** mark the pull requests you're asked to review again, and list them first ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+* **popup:** show about how long each pull request takes to review ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+* **review-time:** set aside time to review, now or at set times, and get the pull requests that fit it, holding notifications until then ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+* **settings:** pick which repositories the review queue lists ([d7962db](https://github.com/hyanmandian/focus-diff/commit/d7962db0fb854f55a19c01ab6a46d54589fa91e1))
+
+
+### Bug Fixes
+
+* filter a pull request opened in a background tab without waiting to switch to it ([19fa7c8](https://github.com/hyanmandian/focus-diff/commit/19fa7c8fc66b5239c808e4d10a315b930fcae665))
+* hide the files outside the filter on large pull requests, and close the list up around them ([19fa7c8](https://github.com/hyanmandian/focus-diff/commit/19fa7c8fc66b5239c808e4d10a315b930fcae665))
+
 ## [1.1.0](https://github.com/hyanmandian/focus-diff/compare/v1.0.0...v1.1.0) (2026-10-05)
 
 

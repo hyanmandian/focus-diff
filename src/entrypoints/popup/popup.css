@@ -490,6 +490,11 @@ a.pull:focus-visible {
   padding-top: 4px;
   border-top: 1px solid var(--fd-border-muted);
 }
+/* With nothing above it to set it apart from, the first starts the list. */
+.groups > .done-section:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
 .done-section summary {
   display: flex;
   align-items: center;

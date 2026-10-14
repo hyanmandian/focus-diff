@@ -14,8 +14,14 @@ const pull = (number: number, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-/** GitHub's dashboard lists, as the background reads them with the reader's session. */
+/**
+ * GitHub's dashboard lists, as the background reads them with the reader's session. #12 was asked of one of the reader's
+ * teams: the search for the ones asked of them by name doesn't find it.
+ */
 const routeGitHub = async (context: BrowserContext, { signedIn = true } = {}) => {
+  await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/, (route) =>
+    route.fulfill({ contentType: 'application/json', body: dashboard([pull(13, { isDraft: true, title: 'Try a new reader' })]) }),
+  );
   await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/, (route) => {
     if (!signedIn) return route.fulfill({ status: 302, headers: { location: 'https://github.com/login?return_to=%2Fpulls' } });
     const reviews = route.request().url().endsWith('/reviews');
@@ -178,12 +184,33 @@ test.describe('popup settings', () => {
     expect(await background.evaluate(async () => (await chrome.storage.sync.get('popup')).popup)).toEqual({
       repos: ['octo/api'],
       excludeRepos: [],
+      teams: true,
     });
     expect(await accessibilityViolations(page, '#popup')).toEqual([]);
 
     const popup = await openExtensionPage('popup.html');
     await expect(popup.getByRole('tab', { name: 'My PRs 1' })).toBeVisible();
     await expect(popup.getByRole('tab', { name: 'Review queue 0' })).toBeVisible();
+  });
+
+  test('leaves out the reviews asked of the reader’s teams, if asked', async ({ context, openExtensionPage, background }) => {
+    await routeGitHub(context);
+    const page = await openExtensionPage('options.html#popup');
+    const teams = page.getByRole('switch', { name: 'Include requests to my teams' });
+    await expect(teams).toBeChecked();
+    await teams.click();
+    await page.locator('#save').click();
+    await expect(page.locator('#status')).toContainText('Saved.');
+    expect(await background.evaluate(async () => (await chrome.storage.sync.get('popup')).popup)).toMatchObject({ teams: false });
+    expect(await accessibilityViolations(page, '#popup')).toEqual([]);
+
+    // #12 was asked of a team; the draft, of the reader, waits folded.
+    const popup = await openExtensionPage('popup.html');
+    const reviews = popup.getByRole('tabpanel', { name: /Review queue/ });
+    await expect(popup.getByRole('tab', { name: 'Review queue 0' })).toBeVisible();
+    await expect(reviews.getByRole('link', { name: /^Cache the book covers/ })).toHaveCount(0);
+    await reviews.getByText('Drafts', { exact: true }).click();
+    await expect(reviews.getByRole('link', { name: /^Try a new reader/ })).toBeVisible();
   });
 });
 
@@ -263,6 +290,101 @@ test.describe('notification settings', () => {
 
     // On, the icon counts what's waiting for review, leaving drafts out.
     await expect.poll(() => background.evaluate(() => chrome.action.getBadgeText({}))).toBe('1');
+  });
+
+  test('say what happened, and open where it did', async ({ context, background }) => {
+    await routeGitHub(context);
+    // Since the last look: #14 asked of the reader, #15 of their team, #16 of the reader again after they reviewed it,
+    // and a comment on their own #20.
+    await context.route(/^https:\/\/github\.com\/pulls\/reviews$/, (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: dashboard([
+          pull(12),
+          pull(14, { title: 'Show the reading time' }),
+          pull(15, { title: 'Lazy load the shelves' }),
+          pull(16, { title: 'Keep the shelf order' }),
+        ]),
+      }),
+    );
+    await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/, (route) =>
+      route.fulfill({ contentType: 'application/json', body: dashboard([pull(12), pull(14), pull(16)]) }),
+    );
+    const hydro = JSON.stringify({
+      payload: { comment_type: 'IssueComment', metadata: { reason: 'author', last_updated_at: '2026-10-09T03:02:24Z' } },
+    });
+    await context.route(/^https:\/\/github\.com\/notifications/, (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<meta name="user-login" content="me-too"><ul>
+          <li class="notifications-list-item" data-notification-id="NT_20">
+            <a class="notification-list-item-link" href="https://github.com/octo/web/pull/20?notification_referrer_id=NT_20#issuecomment-77"
+              data-hydro-click="${hydro.replaceAll('"', '&quot;')}">
+              <p class="markdown-title">Sort books by rating</p>
+            </a>
+          </li></ul>`,
+      }),
+    );
+    await context.route('https://github.com/octo/web/pull/20', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<div id="issuecomment-77"><strong><a class="author Link--primary" href="/grace">grace</a></strong> commented
+          <a href="#issuecomment-77" id="issuecomment-77-permalink">now</a>
+          <table><tr><td class="d-block comment-body markdown-body js-comment-body"><p>Could ratings tie?</p></td></tr></table></div>`,
+      }),
+    );
+
+    // Notifications are allowed, and each one shown is kept to look at.
+    await background.evaluate(() => {
+      const shown: unknown[] = [];
+      Object.assign(globalThis, { shown });
+      const notifications = {
+        create: async (id: string, options: object) => (shown.push({ id, ...options }), id),
+        clear: async () => true,
+        onClicked: { addListener: () => {} },
+        onButtonClicked: { addListener: () => {} },
+      };
+      // Chromium has both namespaces, apart.
+      for (const api of [chrome, (globalThis as unknown as { browser?: typeof chrome }).browser]) {
+        if (!api) continue;
+        api.permissions.contains = async () => true;
+        Object.assign(api, { notifications });
+      }
+    });
+    const events = Object.fromEntries(
+      ['review-requested', 'ready-for-review', 'comment-reviewing', 'comment-mine', 'approved', 'changes-requested', 'mention'].map(
+        (kind) => [kind, { on: kind === 'review-requested' || kind === 'comment-mine', except: [], repos: [], when: 'now' }],
+      ),
+    );
+    await background.evaluate(async (events) => {
+      const reviews = [{ url: 'https://github.com/octo/web/pull/12', draft: false }];
+      await chrome.storage.local.set({
+        inboxMemory: { threads: { NT_20: '2026-10-01T00:00:00Z' }, reviews },
+        inbox: { me: 'me-too', reviews, mine: [], checkedAt: 0, problem: null },
+        reviewQueueHistory: { 'https://github.com/octo/web/pull/16': { left: Date.now() - 86_400_000 } },
+      });
+      await chrome.storage.sync.set({ notifications: { enabled: true, events, delivery: { sound: { id: 'none', volume: 60 } } } });
+    }, events);
+
+    type Shown = { id: string; title: string; message: string; contextMessage?: string };
+    const shown = () => background.evaluate(() => (globalThis as unknown as { shown: Shown[] }).shown);
+    await expect.poll(async () => (await shown()).length).toBe(4);
+    const notifications = (await shown()).toSorted((a, b) => a.title.localeCompare(b.title));
+    expect(notifications).toMatchObject([
+      { title: 'ada asked for your review', message: 'Show the reading time', contextMessage: 'octo/web#14' },
+      { title: 'ada asked you to review again', message: 'Keep the shelf order', contextMessage: 'octo/web#16' },
+      { title: 'ada asked your team for a review', message: 'Lazy load the shelves', contextMessage: 'octo/web#15' },
+      {
+        title: 'grace commented on your pull request',
+        message: '“Could ratings tie?”',
+        contextMessage: 'octo/web#20 · Sort books by rating',
+      },
+    ]);
+    // Each its own, so none only replaces one still in the system's list; the comment opens on itself.
+    const links = await background.evaluate(async () => (await chrome.storage.local.get('notificationLinks')).notificationLinks);
+    expect(links[notifications[3]!.id]).toBe('https://github.com/octo/web/pull/20?notification_referrer_id=NT_20#issuecomment-77');
+    expect(links[notifications[0]!.id]).toBe('https://github.com/octo/web/pull/14/changes');
+    expect(new Set(notifications.map(({ id }) => id)).size).toBe(4);
   });
 
   test('stays off when the browser doesn’t allow notifications', async ({ openExtensionPage }) => {

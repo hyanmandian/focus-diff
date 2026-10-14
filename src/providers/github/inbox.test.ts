@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InboxError, parseDetail, parseFiles, parseLogin, parseNotifications, parsePulls } from './inbox';
+import { InboxError, pageCount, parseDetail, parseFiles, parseLogin, parseNotifications, parsePulls } from './inbox';
 
 const dashboard = (results: unknown[]) => ({ payload: { pullsDashboardSurfaceContentRoute: { results, pageInfo: {}, error: null } } });
 const pull = {
@@ -107,7 +107,11 @@ describe('parseDetail', () => {
   const page = `
     <div id="issuecomment-34"><strong><a class="author Link--primary" href="/apps/review-bot">review-bot</a>
       <span class="Label Label--secondary">Bot</span></strong> commented
-      <a href="#issuecomment-34" id="issuecomment-34-permalink">Oct 9</a></div>
+      <a href="#issuecomment-34" id="issuecomment-34-permalink">Oct 9</a>
+      <table><tr><td class="d-block comment-body markdown-body js-comment-body">
+        <blockquote><p>An earlier comment</p></blockquote>
+        <p>Coverage went <strong>down</strong> by 2%&nbsp;here.</p>
+      </td></tr></table></div>
     <div id="pullrequestreview-9"><strong><a class="author Link--primary" data-hovercard-type="user" href="/grace">grace</a></strong>
       approved these changes <a href="#pullrequestreview-9" id="pullrequestreview-9-permalink">Oct 9</a></div>
     <div id="pullrequestreview-10"><strong><a class="author Link--primary" href="/linus">linus</a></strong>
@@ -117,19 +121,50 @@ describe('parseDetail', () => {
     <span>me-too approved these changes</span>`;
 
   it('reads who wrote a comment, and whether they are a bot', () => {
-    expect(parseDetail(page, 'issuecomment-34', 'me-too')).toEqual({ actor: 'review-bot', bot: true, review: null, myReview: 'approved' });
+    expect(parseDetail(page, 'issuecomment-34', 'me-too')).toEqual({
+      actor: 'review-bot',
+      bot: true,
+      review: null,
+      myReview: 'approved',
+      excerpt: 'Coverage went down by 2% here.',
+    });
   });
 
   it('reads what a review did', () => {
-    expect(parseDetail(page, 'pullrequestreview-9', '')).toEqual({ actor: 'grace', bot: false, review: 'approved', myReview: null });
+    // A bare approval says nothing, and the next event's words aren't its.
+    expect(parseDetail(page, 'pullrequestreview-9', '')).toEqual({
+      actor: 'grace',
+      bot: false,
+      review: 'approved',
+      myReview: null,
+      excerpt: '',
+    });
     expect(parseDetail(page, 'pullrequestreview-10', '')).toMatchObject({ actor: 'linus', review: 'commented' });
   });
 
   it('reads only the reader’s review without an event to look at', () => {
-    expect(parseDetail(page, '', 'me-too')).toEqual({ actor: '', bot: false, review: null, myReview: 'approved' });
+    expect(parseDetail(page, '', 'me-too')).toEqual({ actor: '', bot: false, review: null, myReview: 'approved', excerpt: '' });
     expect(parseDetail(page.replace('approved these changes</span>', 'requested changes</span>'), '', 'me-too').myReview).toBe(
       'changes-requested',
     );
+  });
+});
+
+describe('parseDetail, a long comment', () => {
+  it('cuts what it says short', () => {
+    const words = 'word '.repeat(60);
+    const html = `<div id="issuecomment-1"><td class="comment-body js-comment-body">${words}</td></div>`;
+    const { excerpt } = parseDetail(html, 'issuecomment-1', '');
+    expect(excerpt).toHaveLength(140);
+    expect(excerpt.endsWith('…')).toBe(true);
+  });
+});
+
+describe('pageCount', () => {
+  it('reads how many pages a list has, or one when it doesn’t say', () => {
+    expect(pageCount({ payload: { route: { results: [], pageInfo: { totalPages: 3 } } } })).toBe(3);
+    expect(pageCount({ payload: { route: { results: [], pageInfo: {} } } })).toBe(1);
+    expect(pageCount(null)).toBe(1);
   });
 });
 

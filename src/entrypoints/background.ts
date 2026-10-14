@@ -86,15 +86,20 @@ const updateBadge = async (settings: NotifySettings, snapshot: InboxSnapshot | n
   }
   const [done, popup] = await Promise.all([doneItem.getValue(), loadPopup()]);
   // What the popup lists: the repositories the reader picked, without drafts or what they marked done.
-  const waiting = snapshot?.reviews.filter((pull) => !pull.draft && !isDone(done, pull) && inPopup(popup, pull.repo)).length ?? 0;
+  const waiting = snapshot?.reviews.filter((pull) => !pull.draft && !isDone(done, pull) && inPopup(popup, pull)).length ?? 0;
   const signedOut = snapshot?.problem === 'signed-out';
   const text = !settings.enabled ? '' : signedOut ? '!' : waiting ? String(waiting) : '';
   await browser.action.setBadgeBackgroundColor({ color: signedOut ? '#d29922' : '#1f6feb' });
   await browser.action.setBadgeText({ text });
 };
 
-const TITLES: Record<InboxEvent['kind'], (actor: string) => string> = {
-  'review-requested': (actor) => i18n.t('notifyReviewRequested', [actor]),
+const TITLES: Record<InboxEvent['kind'], (actor: string, event: InboxEvent) => string> = {
+  'review-requested': (actor, event) =>
+    event.again
+      ? i18n.t('notifyReviewAgain', [actor])
+      : event.team
+        ? i18n.t('notifyReviewRequestedTeam', [actor])
+        : i18n.t('notifyReviewRequested', [actor]),
   'ready-for-review': (actor) => i18n.t('notifyReadyForReview', [actor]),
   'comment-mine': (actor) => i18n.t('notifyCommentMine', [actor]),
   'comment-reviewing': (actor) => i18n.t('notifyCommentReviewing', [actor]),
@@ -120,35 +125,42 @@ const showNotifications = async (events: InboxEvent[], delivery: Delivery) => {
   const iconUrl = browser.runtime.getURL('/icon/128.png');
   const options = deliveryOptions(delivery);
   const links = await notificationLinksItem.getValue();
-  const line = (event: InboxEvent) => ({ title: TITLES[event.kind](event.actor || event.repo), message: event.title });
+  const titleOf = (event: InboxEvent) => TITLES[event.kind](event.actor || event.repo, event);
+  // A notification shown under an id already on screen, or still in the system's list, only replaces it, without popping
+  // up; each one gets an id of its own.
+  const stamp = Date.now();
   if (delivery.grouped && events.length > 1) {
-    // One notification for the lot, listing them; it opens GitHub's own notifications, where they all are.
-    const id = `inbox:group:${Date.now()}`;
+    // One notification for the lot, a line each; it opens GitHub's own notifications, where they all are. A list
+    // notification's lines don't show on macOS, so they're the message.
+    const id = `inbox:group:${stamp}`;
     links[id] = 'https://github.com/notifications';
     const title = i18n.t('notifyGrouped', events.length, [events.length]);
-    const items = events.slice(0, 5).map(line);
-    await browser.notifications.create(
-      id,
-      import.meta.env.FIREFOX
-        ? { type: 'basic', iconUrl, title, message: items.map((item) => `${item.title}: ${item.message}`).join('\n') }
-        : { type: 'list', iconUrl, title, message: '', items, ...options },
-    );
+    const message = events
+      .slice(0, 5)
+      .map((event) => `${titleOf(event)}: ${event.excerpt ? `“${event.excerpt}”` : event.title}`)
+      .join('\n');
+    await browser.notifications.create(id, { type: 'basic', iconUrl, title, message, ...options });
   } else {
     for (const event of events.slice(0, NOTIFICATION_LIMIT)) {
-      const id = `inbox:${event.kind}:${event.url}`;
+      const id = `inbox:${event.kind}:${event.url}:${stamp}`;
       links[id] = linkFor(event);
+      // What a comment or review said, with the pull request under it; a request or a draft made ready, the pull request.
+      const where = `${event.repo}#${event.number}`;
       await browser.notifications.create(id, {
         type: 'basic',
         iconUrl,
-        ...line(event),
-        contextMessage: `${event.repo}#${event.number}`,
+        title: titleOf(event),
+        message: event.excerpt ? (import.meta.env.FIREFOX ? `“${event.excerpt}”\n${event.title}` : `“${event.excerpt}”`) : event.title,
+        // Firefox doesn't show a context line.
+        ...(import.meta.env.FIREFOX ? {} : { contextMessage: event.excerpt ? `${where} · ${event.title}` : where }),
         ...options,
       });
     }
     const more = events.length - NOTIFICATION_LIMIT;
     if (more > 0) {
-      links['inbox:more'] = 'https://github.com/notifications';
-      await browser.notifications.create('inbox:more', {
+      const id = `inbox:more:${stamp}`;
+      links[id] = 'https://github.com/notifications';
+      await browser.notifications.create(id, {
         type: 'basic',
         iconUrl,
         title: i18n.t('notifyMore', more, [more]),
@@ -172,7 +184,9 @@ let running: Promise<void> | null = null;
 const look = (full: boolean): Promise<void> =>
   (running ??= (async () => {
     const [settings, memory, previous] = await Promise.all([loadNotify(), inboxMemoryItem.getValue(), inboxItem.getValue()]);
-    const result = await checkInbox(source, full ? settings : { ...settings, enabled: false }, memory);
+    // The queue, and what the reader is told about it, can leave out the reviews asked of their teams.
+    const { teams } = await loadPopup();
+    const result = await checkInbox(source, full ? settings : { ...settings, enabled: false }, memory, { skipTeams: !teams });
     // A failed look keeps the lists from the last one, and when they're from, except when signed out, when they're no
     // longer the reader's.
     const failed = result.snapshot.problem;
@@ -197,7 +211,10 @@ const look = (full: boolean): Promise<void> =>
     const waitsUntil = await holding();
     const held: HeldEvent[] = [];
     const now: InboxEvent[] = [];
-    for (const event of result.events) {
+    const again = new Set(snapshot.reviews.filter((pull) => pull.again).map((pull) => pull.url));
+    for (const found of result.events) {
+      // A request for a pull request the reader reviewed before is a request to review it again.
+      const event = found.kind === 'review-requested' && again.has(found.url) ? { ...found, again: true } : found;
       const until = waitsUntil(settings.events[event.kind].when);
       if (until) held.push({ ...event, until, heldAt: Date.now() });
       else now.push(event);
@@ -279,7 +296,11 @@ export default defineBackground(() => {
   reviewTimeItem.watch(() => void scheduleReviewTime());
   reviewSkipItem.watch(() => void scheduleReviewTime());
   doneItem.watch(async () => updateBadge(await loadNotify(), await inboxItem.getValue()));
-  popupItem.watch(async () => updateBadge(await loadNotify(), await inboxItem.getValue()));
+  // Leaving out the reviews asked of the reader's teams takes reading the lists again, to tell which those are.
+  popupItem.watch((next, previous) => {
+    if (next?.teams === false && previous?.teams !== false) void look(false);
+    else void loadNotify().then(async (settings) => updateBadge(settings, await inboxItem.getValue()));
+  });
   browser.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === ALARM) void refresh();
     else await onReviewAlarm(alarm);

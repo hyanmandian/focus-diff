@@ -178,6 +178,12 @@ export interface InboxEvent {
   draft: boolean;
   /** Whether the reader's latest review approved the pull request, when known. */
   approvedByMe: boolean;
+  /** Whether the review was asked of one of the reader's teams and not of them, when known. */
+  team: boolean;
+  /** Back on the review queue after the reader reviewed it: asked to review it again. */
+  again: boolean;
+  /** The start of what a comment or review said, or empty. */
+  excerpt: string;
 }
 
 /** An event kept for later: for the next review time, or for the end of the one under way. */
@@ -187,8 +193,12 @@ export interface HeldEvent extends InboxEvent {
   heldAt: number;
 }
 
-const excludes = (exception: Exception, event: InboxEvent) =>
-  exception === 'drafts' ? event.draft : exception === 'approved' ? event.approvedByMe : event.bot;
+const EXCLUDES: Record<Exception, (event: InboxEvent) => boolean> = {
+  drafts: (event) => event.draft,
+  approved: (event) => event.approvedByMe,
+  bots: (event) => event.bot,
+};
+const excludes = (exception: Exception, event: InboxEvent) => EXCLUDES[exception](event);
 
 /** Whether the reader wants this kind of event in this repository, before knowing who did it. */
 export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: string): boolean => {
@@ -206,6 +216,9 @@ export const wants = (settings: NotifySettings, event: InboxEvent): boolean =>
 /** Whether working an event out takes a look at its pull request's page, to know if the reader approved it. */
 export const needsDetail = (settings: NotifySettings, kind: EventKind, repo: string): boolean =>
   mayNotify(settings, kind, repo) && settings.events[kind].except.includes('approved');
+
+/** The events about pull requests on the review queue, which follow it in leaving out the reviews asked of a team. */
+export const QUEUE_KINDS: EventKind[] = ['review-requested', 'ready-for-review', 'comment-reviewing'];
 
 /** What the background remembers between looks, to tell what's new. */
 export interface InboxMemory {
@@ -243,6 +256,9 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
         bot: false,
         draft: pull.draft,
         approvedByMe: false,
+        team: pull.team ?? false,
+        again: false,
+        excerpt: '',
       },
     ];
   });
@@ -298,25 +314,27 @@ export const unmarkDone = (done: DoneMarks, pulls: PullRequest[]): DoneMarks => 
   return Object.fromEntries(Object.entries(done).filter(([url]) => !urls.has(url)));
 };
 
-/** Which repositories' pull requests the popup lists, and counts on the icon. */
+/** Which pull requests the popup lists, and counts on the icon. */
 export interface PopupSettings {
-  /** Only these, as `owner/name` or `owner/*`; none for every repository. */
+  /** Only these repositories, as `owner/name` or `owner/*`; none for every repository. */
   repos: string[];
   /** Never these. */
   excludeRepos: string[];
+  /** Whether the review queue lists the reviews asked of the reader's teams, and not only of them by name. */
+  teams: boolean;
 }
 
-export const DEFAULT_POPUP: PopupSettings = { repos: [], excludeRepos: [] };
+export const DEFAULT_POPUP: PopupSettings = { repos: [], excludeRepos: [], teams: true };
 
 export const normalizePopup = (value: unknown): PopupSettings => {
   const raw = record(value);
-  return { repos: repoList(raw.repos), excludeRepos: repoList(raw.excludeRepos) };
+  return { repos: repoList(raw.repos), excludeRepos: repoList(raw.excludeRepos), teams: raw.teams !== false };
 };
 
-/** Whether the popup lists a repository's pull requests. */
-export const inPopup = (settings: PopupSettings, repo: string): boolean => {
-  const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, repo));
-  return (!settings.repos.length || among(settings.repos)) && !among(settings.excludeRepos);
+/** Whether the popup lists a pull request: from the repositories picked, and not only a team's to review if left out. */
+export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, 'repo' | 'team'>): boolean => {
+  const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, pull.repo));
+  return (!settings.repos.length || among(settings.repos)) && !among(settings.excludeRepos) && (settings.teams || !pull.team);
 };
 
 /** When each pull request left the review queue, or came back to it after that: by its url, in ms. */

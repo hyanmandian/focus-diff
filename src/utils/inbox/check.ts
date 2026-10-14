@@ -1,10 +1,11 @@
-import { InboxError, type Activity, type Detail, type PullRequest } from '@/providers/github/inbox';
+import { InboxError, type Activity, type Detail, type PullList, type PullRequest } from '@/providers/github/inbox';
 import {
   activityKind,
   freshActivity,
   isWatching,
   mayNotify,
   needsDetail,
+  QUEUE_KINDS,
   rememberThreads,
   reviewListEvents,
   wants,
@@ -17,7 +18,7 @@ import {
 
 /** How the background reads GitHub; tests hand in their own. */
 export interface InboxSource {
-  pulls: (list: 'reviews' | 'authored') => Promise<PullRequest[]>;
+  pulls: (list: PullList) => Promise<PullRequest[]>;
   notifications: () => Promise<{ me: string; activity: Activity[] }>;
   detail: (repo: string, number: number, anchor: string, me: string) => Promise<Detail>;
 }
@@ -58,18 +59,44 @@ const possibleKinds = (activity: Activity): EventKind[] =>
     : [activityKind(activity, null)].filter((kind): kind is EventKind => Boolean(kind));
 
 /**
+ * Tells the reviews asked of the reader's teams from the ones asked of them by name, by the list of the latter. A pull
+ * request the reader was asked to review both ways is theirs.
+ */
+const markTeams = (reviews: PullRequest[], direct: PullRequest[]): PullRequest[] => {
+  const named = new Set(direct.map((pull) => pull.url));
+  return reviews.map((pull) => ({ ...pull, team: !named.has(pull.url) }));
+};
+
+/**
  * One look at GitHub: the reader's two lists, and with notifications on, what's new since the last look that they
  * asked to be told about. Reading the lists is all the popup needs, so without notifications nothing else is read.
+ * When the reader's queue leaves out the reviews asked of their teams (`skipTeams`), or when a new review request is to be
+ * told about, one more list tells those from the ones asked of the reader by name. Left out of the queue, a team's are
+ * left out of what the reader is told about it too.
  */
-export const checkInbox = async (source: InboxSource, settings: NotifySettings, memory: InboxMemory | null): Promise<CheckResult> => {
+export const checkInbox = async (
+  source: InboxSource,
+  settings: NotifySettings,
+  memory: InboxMemory | null,
+  { skipTeams = false }: { skipTeams?: boolean } = {},
+): Promise<CheckResult> => {
   const checkedAt = Date.now();
   try {
     const watching = isWatching(settings);
-    const [reviews, mine, inbox] = await Promise.all([
+    const [listed, mine, inbox] = await Promise.all([
       source.pulls('reviews'),
       source.pulls('authored'),
       watching ? source.notifications() : null,
     ]);
+    const requests = watching && inbox ? reviewListEvents(memory?.reviews ?? null, listed) : [];
+    // Without the list of the ones asked of the reader by name, none is known to be a team's.
+    const reviews =
+      skipTeams || requests.length
+        ? await source.pulls('direct').then(
+            (direct) => markTeams(listed, direct),
+            () => listed,
+          )
+        : listed;
     const me = inbox?.me ?? '';
     const snapshot: InboxSnapshot = { me, reviews, mine, checkedAt, problem: null };
     if (!watching || !inbox) return { snapshot, memory: null, events: [] };
@@ -83,7 +110,9 @@ export const checkInbox = async (source: InboxSource, settings: NotifySettings, 
       return queue(() => source.detail(repo, number, anchor, me).catch(() => null));
     };
 
-    const fromList = reviewListEvents(memory?.reviews ?? null, reviews)
+    const byUrl = new Map(reviews.map((pull) => [pull.url, pull]));
+    const fromList = requests
+      .map((event) => ({ ...event, team: byUrl.get(event.url)?.team ?? false }))
       .filter((event) => mayNotify(settings, event.kind, event.repo))
       .map(async (event) => {
         if (needsDetail(settings, event.kind, event.repo)) {
@@ -111,11 +140,16 @@ export const checkInbox = async (source: InboxSource, settings: NotifySettings, 
           bot: found.bot,
           draft: drafts.get(`https://github.com/${activity.repo}/pull/${activity.number}`) ?? false,
           approvedByMe: found.myReview === 'approved',
+          team: byUrl.get(`https://github.com/${activity.repo}/pull/${activity.number}`)?.team ?? false,
+          again: false,
+          excerpt: found.excerpt,
         };
         return wants(settings, event) ? event : null;
       });
 
-    const events = (await Promise.all([...fromList, ...fromActivity])).filter((event): event is InboxEvent => event !== null);
+    const events = (await Promise.all([...fromList, ...fromActivity])).filter(
+      (event): event is InboxEvent => event !== null && !(skipTeams && event.team && QUEUE_KINDS.includes(event.kind)),
+    );
     return { snapshot, memory: { threads: rememberThreads(inbox.activity, memory?.threads ?? null), reviews }, events };
   } catch (error) {
     const problem = error instanceof InboxError ? error.problem : 'unreadable';

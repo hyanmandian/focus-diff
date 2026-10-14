@@ -569,7 +569,7 @@ let drawn = '';
 const render = () => {
   const problem = snapshot?.problem ?? null;
   // Only the repositories the reader wants here.
-  const shown = (pulls: PullRequest[] = []) => pulls.filter((pull) => inPopup(popup, pull.repo));
+  const shown = (pulls: PullRequest[] = []) => pulls.filter((pull) => inPopup(popup, pull));
   const all: Record<List, PullRequest[]> = { reviews: shown(snapshot?.reviews), mine: shown(snapshot?.mine) };
   const lists: Record<List, PullRequest[]> = {
     reviews: all.reviews.filter((pull) => !isDone(done, pull)),

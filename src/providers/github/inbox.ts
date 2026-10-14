@@ -29,6 +29,11 @@ export interface PullRequest {
    * because they were asked to review it again. Known from earlier looks, not from GitHub.
    */
   again?: boolean;
+  /**
+   * Asked of one of the reader's teams, and not of them by name. Known only on the looks that tell the two apart, which
+   * read one more list.
+   */
+  team?: boolean;
 }
 
 /** What the latest event on a notification thread was. */
@@ -60,6 +65,8 @@ export interface Detail {
   review: ReviewState | null;
   /** The reader's latest review on the pull request, or `null` when they haven't reviewed it. */
   myReview: ReviewState | null;
+  /** The start of what the event said, as plain text, or empty for one that said nothing, like a bare approval. */
+  excerpt: string;
 }
 
 export type InboxProblem = 'signed-out' | 'unreadable' | 'offline';
@@ -154,9 +161,23 @@ export const parseNotifications = (html: string): Activity[] =>
 const reviewState = (text: string): ReviewState =>
   /approved these changes/.test(text) ? 'approved' : /requested changes/.test(text) ? 'changes-requested' : 'commented';
 
-/** Reads a pull request's page for who wrote the event at `anchor`, and for the reader's own review in the sidebar. */
+/** How much of a comment a notification quotes. */
+const EXCERPT = 140;
+
+/** The text of the first comment body in an event's part of the page, cut short to fit a notification. */
+const excerptOf = (event: string) => {
+  const body = event.match(/<td\b[^>]*\bjs-comment-body\b[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? '';
+  // A quote of an earlier comment, or a block of code, says less than the words around it.
+  const text = textOf(body.replace(/<(blockquote|pre)\b[\s\S]*?<\/\1>/g, ' '));
+  return text.length > EXCERPT ? `${text.slice(0, EXCERPT - 1).trimEnd()}…` : text;
+};
+
+/** Reads a pull request's page for who wrote the event at `anchor`, what it said, and the reader's own review in the sidebar. */
 export const parseDetail = (html: string, anchor: string, me: string): Detail => {
   const start = anchor ? html.indexOf(`id="${anchor}"`) : -1;
+  // The event's part of the page, up to the next event's.
+  const next = start === -1 ? -1 : html.slice(start + anchor.length + 5).search(/id="(issuecomment|pullrequestreview)-\d+"/);
+  const event = start === -1 ? '' : html.slice(start, next === -1 ? undefined : start + anchor.length + 5 + next);
   // The event's header: its author's link, a Bot label, and for a review, what it did. The header ends at its permalink.
   const header = start === -1 ? '' : html.slice(start, html.indexOf(`id="${anchor}-permalink"`, start) + 1 || start + 4000);
   const author = header.match(/<a\b[^>]*\bclass="author\b[^>]*\bhref="\/(apps\/)?([^"/]+)"/);
@@ -168,6 +189,7 @@ export const parseDetail = (html: string, anchor: string, me: string): Detail =>
     bot: Boolean(author?.[1]) || /\bLabel\b[^>]*>\s*Bot\b/.test(header),
     review: anchor.startsWith('pullrequestreview-') && header ? reviewState(textOf(header)) : null,
     myReview: said ? reviewState(said) : null,
+    excerpt: excerptOf(event),
   };
 };
 
@@ -187,10 +209,36 @@ const get = async (path: string, accept: 'text/html' | 'application/json') => {
   return response;
 };
 
-/** The pull requests waiting for the reader's review, or the open ones they wrote. */
-export const fetchPulls = async (list: 'reviews' | 'authored'): Promise<PullRequest[]> => {
-  const response = await get(`/pulls/${list}`, 'application/json');
-  return parsePulls(await response.json().catch(() => null));
+/** How many pages of a list it reads at most, 25 pull requests each. */
+const PAGES = 4;
+
+/** The number of pages a dashboard list has, or 1 when it doesn't say. */
+export const pageCount = (data: unknown): number => {
+  const routes = Object.values(record(record(data).payload));
+  const total = routes.map((route) => record(record(route).pageInfo).totalPages).find((pages) => typeof pages === 'number');
+  return typeof total === 'number' && total > 1 ? Math.floor(total) : 1;
+};
+
+export type PullList = 'reviews' | 'authored' | 'direct';
+
+const LISTS: Record<PullList, string> = {
+  reviews: '/pulls/reviews',
+  authored: '/pulls/authored',
+  // The review requests made of the reader by name, leaving out the ones made of their teams.
+  direct: `/pulls/search?q=${encodeURIComponent('is:open is:pr user-review-requested:@me archived:false')}`,
+};
+
+/** The pull requests waiting for the reader's review, the ones asked of them by name, or the open ones they wrote. */
+export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
+  const read = async (page: number) => {
+    const path = page === 1 ? LISTS[list] : `${LISTS[list]}${LISTS[list].includes('?') ? '&' : '?'}page=${page}`;
+    return (await get(path, 'application/json')).json().catch(() => null);
+  };
+  const first = await read(1);
+  const rest = await Promise.all(Array.from({ length: Math.min(pageCount(first), PAGES) - 1 }, (_, index) => read(index + 2)));
+  // A pull request updated between two pages' reads moves up a page, and would be read twice.
+  const pulls = new Map([first, ...rest].flatMap(parsePulls).map((pull) => [pull.url, pull]));
+  return [...pulls.values()];
 };
 
 /** The notifications inbox, and who's signed in. */

@@ -7,10 +7,12 @@ import {
   EVENT_KINDS,
   isQuiet,
   freshActivity,
+  inPopup,
   isDone,
   markAgain,
   markDone,
   normalizeNotify,
+  normalizePopup,
   pruneDone,
   reviewListEvents,
   splitRepos,
@@ -50,10 +52,11 @@ const on = (events: Partial<Record<EventKind, Exception[]>>, repos: string[] = [
 
 const source = ({
   reviews = [] as PullRequest[],
+  direct = [] as PullRequest[],
   activity: threads = [] as Activity[],
-  detail = { actor: 'grace', bot: false, review: null, myReview: null } as Detail,
+  detail = { actor: 'grace', bot: false, review: null, myReview: null, excerpt: '' } as Detail,
 } = {}): InboxSource => ({
-  pulls: vi.fn(async (list) => (list === 'reviews' ? reviews : [])),
+  pulls: vi.fn(async (list) => (list === 'reviews' ? reviews : list === 'direct' ? direct : [])),
   notifications: vi.fn(async () => ({ me: 'me-too', activity: threads })),
   detail: vi.fn(async () => detail),
 });
@@ -122,6 +125,9 @@ describe('wants', () => {
     bot: true,
     draft: false,
     approvedByMe: false,
+    team: false,
+    again: false,
+    excerpt: '',
   };
 
   it('takes the event in the chosen repositories, unless an exception applies', () => {
@@ -173,6 +179,17 @@ describe('markAgain', () => {
     expect(urls(markAgain(null, [pull(1)], {}, 0).reviews)).toEqual([]);
     const history = { [pull(1).url]: { left: 0 } };
     expect(urls(markAgain([], [pull(1)], history, 100 * 86_400_000).reviews)).toEqual([]);
+  });
+});
+
+describe('inPopup', () => {
+  it('lists the repositories picked, and the reviews asked of a team unless left out', () => {
+    const settings = normalizePopup({ repos: ['octo/*'] });
+    expect(settings.teams).toBe(true);
+    expect(inPopup(settings, pull(1, { team: true }))).toBe(true);
+    expect(inPopup({ ...settings, teams: false }, pull(1, { team: true }))).toBe(false);
+    expect(inPopup({ ...settings, teams: false }, pull(1))).toBe(true);
+    expect(inPopup(settings, { repo: 'acme/api' })).toBe(false);
   });
 });
 
@@ -228,7 +245,7 @@ describe('checkInbox', () => {
     const ready = await checkInbox(source({ reviews: [pull(1)] }), on({ 'ready-for-review': ['approved'] }), before);
     expect(ready.events).toMatchObject([{ kind: 'ready-for-review', number: 1, approvedByMe: false }]);
 
-    const approved = source({ reviews: [pull(1)], detail: { actor: '', bot: false, review: null, myReview: 'approved' } });
+    const approved = source({ reviews: [pull(1)], detail: { actor: '', bot: false, review: null, myReview: 'approved', excerpt: '' } });
     expect((await checkInbox(approved, on({ 'ready-for-review': ['approved'] }), before)).events).toEqual([]);
   });
 
@@ -239,15 +256,68 @@ describe('checkInbox', () => {
       { kind: 'comment-mine', actor: 'grace', url: 'https://github.com/octo/web/pull/12#issuecomment-1' },
     ]);
 
-    const bot = source({ activity: [activity('a')], detail: { actor: 'ci', bot: true, review: null, myReview: null } });
+    const bot = source({ activity: [activity('a')], detail: { actor: 'ci', bot: true, review: null, myReview: null, excerpt: '' } });
     expect((await checkInbox(bot, on({ 'comment-mine': ['bots'] }), before)).events).toEqual([]);
 
-    const self = source({ activity: [activity('a')], detail: { actor: 'Me-Too', bot: false, review: null, myReview: null } });
+    const self = source({ activity: [activity('a')], detail: { actor: 'Me-Too', bot: false, review: null, myReview: null, excerpt: '' } });
     expect((await checkInbox(self, on({ 'comment-mine': [] }), before)).events).toEqual([]);
 
     const review = activity('a', { kind: 'review', anchor: 'pullrequestreview-2' });
-    const approval = source({ activity: [review], detail: { actor: 'grace', bot: false, review: 'approved', myReview: null } });
+    const approval = source({
+      activity: [review],
+      detail: { actor: 'grace', bot: false, review: 'approved', myReview: null, excerpt: '' },
+    });
     expect((await checkInbox(approval, on({ approved: [] }), before)).events).toMatchObject([{ kind: 'approved', actor: 'grace' }]);
+  });
+
+  it('says what a comment said', async () => {
+    const before = memory({ threads: { a: '2026-10-08T00:00:00Z' } });
+    const said = source({
+      activity: [activity('a')],
+      detail: { actor: 'grace', bot: false, review: null, myReview: null, excerpt: 'Could this cache expire?' },
+    });
+    expect((await checkInbox(said, on({ 'comment-mine': [] }), before)).events).toMatchObject([{ excerpt: 'Could this cache expire?' }]);
+  });
+
+  it('tells the reviews asked of a team from the ones asked of the reader, and leaves the team’s out with the queue', async () => {
+    const before = memory({ reviews: [], threads: { a: '2026-10-08T00:00:00Z', b: '2026-10-08T00:00:00Z' } });
+    const threads = [
+      activity('a', { reason: 'review_requested', number: 1, anchor: 'issuecomment-1' }),
+      activity('b', { reason: 'author', number: 3, anchor: 'issuecomment-3' }),
+    ];
+    const github = source({ reviews: [pull(1), pull(2)], direct: [pull(2)], activity: threads });
+    const settings = on({ 'review-requested': [], 'comment-reviewing': [], 'comment-mine': [] });
+    const told = await checkInbox(github, settings, before);
+    expect(told.events.map(({ kind, number, team }) => [kind, number, team])).toEqual([
+      ['review-requested', 1, true],
+      ['review-requested', 2, false],
+      ['comment-reviewing', 1, true],
+      ['comment-mine', 3, false],
+    ]);
+    // Left out of the queue, a team's review isn't told about, nor what's said on it; the reader's own pull requests are.
+    const skipped = await checkInbox(github, settings, before, { skipTeams: true });
+    expect(skipped.events.map(({ kind, number }) => [kind, number])).toEqual([
+      ['review-requested', 2],
+      ['comment-mine', 3],
+    ]);
+  });
+
+  it('reads the list of reviews asked of the reader only when it tells something', async () => {
+    const quiet = source({ reviews: [pull(1)] });
+    await checkInbox(quiet, on({ 'review-requested': [] }), memory({ reviews: [pull(1)] }));
+    expect(quiet.pulls).not.toHaveBeenCalledWith('direct');
+
+    const queue = source({ reviews: [pull(1), pull(2)], direct: [pull(1)] });
+    const result = await checkInbox(queue, { ...DEFAULT_NOTIFY }, null, { skipTeams: true });
+    expect(result.snapshot.reviews.map(({ team }) => team)).toEqual([false, true]);
+
+    // Unread, none is known to be a team's.
+    queue.pulls = vi.fn(async (list) => {
+      if (list === 'direct') throw new InboxError('unreadable');
+      return list === 'reviews' ? [pull(1)] : [];
+    });
+    const failed = await checkInbox(queue, { ...DEFAULT_NOTIFY }, null, { skipTeams: true });
+    expect(failed.snapshot).toMatchObject({ reviews: [pull(1)], problem: null });
   });
 
   it('reads no pull request page for events the reader didn’t ask about', async () => {
@@ -267,7 +337,7 @@ describe('checkInbox', () => {
       most = Math.max(most, open);
       await new Promise((resolve) => setTimeout(resolve, 5));
       open -= 1;
-      return { actor: 'grace', bot: false, review: null, myReview: null };
+      return { actor: 'grace', bot: false, review: null, myReview: null, excerpt: '' };
     });
     const result = await checkInbox(github, on({ 'comment-mine': [] }), before);
     expect(github.detail).toHaveBeenCalledTimes(8);

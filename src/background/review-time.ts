@@ -28,6 +28,7 @@ import {
   inboxItem,
   learnedItem,
   loadConfig,
+  loadPopup,
   loadReviewTime,
   pullFilesItem,
   reviewRunItem,
@@ -186,22 +187,23 @@ export const readQueueFiles = async (reviews: PullRequest[]): Promise<void> => {
 };
 
 /**
- * What a session would pick now, from the review queue as it stands, leaving out what the reader marked done. A pull
- * request whose files couldn't be read still counts, at a rough guess, so a change on GitHub's side doesn't silence
- * review time.
+ * What a session would pick now, from the review queue as it stands, leaving out what the reader marked done, and the
+ * reviews asked of their teams when the queue leaves those out. A pull request whose files couldn't be read still
+ * counts, at a rough guess, so a change on GitHub's side doesn't silence review time.
  */
 const planFor = async (session: ReviewSession, settings: ReviewTimeSettings): Promise<{ result: Plan; problem: InboxProblem | null }> => {
   await hooks.refreshLists();
-  const [snapshot, done, config, learned] = await Promise.all([
+  const [snapshot, done, config, learned, popup] = await Promise.all([
     inboxItem.getValue(),
     doneItem.getValue(),
     loadConfig(),
     learnedItem.getValue(),
+    loadPopup(),
   ]);
   const reviews = snapshot?.reviews ?? [];
   const waiting = candidates(
     session,
-    reviews.filter((pull) => !isDone(done, pull)),
+    reviews.filter((pull) => !isDone(done, pull) && (popup.teams || !pull.team)),
   );
   const files = await filesOf(waiting, reviews, settings.unviewedOnly);
   const estimator = createEstimator(PACES[settings.pace], settings.learn ? normalizeLearned(learned) : null);

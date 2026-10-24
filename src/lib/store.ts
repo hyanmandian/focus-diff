@@ -147,13 +147,16 @@ function apply(config: Config, me: string, found: Map<string, PullRequest[]>) {
 }
 
 function notify(fresh: ReturnType<typeof freshEvents>) {
+  // One sound for the batch, not one per notification.
+  let sound = snapshot.config?.sound ?? false;
   for (const { item, event } of fresh.slice(0, MAX_NOTIFICATIONS)) {
     const { pr } = item;
     const by = event.kind === "new" ? ` · by ${firstName(pr.author)}` : "";
-    void bridge.notify(EVENTS[event.kind].say(firstName(event.who)), `${pr.title}\n${pr.repository.nameWithOwner}#${pr.number}${by}`);
+    void bridge.notify(EVENTS[event.kind].say(firstName(event.who)), `${pr.title}\n${pr.repository.nameWithOwner}#${pr.number}${by}`, sound);
+    sound = false;
   }
   const rest = fresh.length - MAX_NOTIFICATIONS;
-  if (rest > 0) void bridge.notify(`${rest} more pull request updates`, "Open Focus Diff Pro to see them");
+  if (rest > 0) void bridge.notify(`${rest} more pull request updates`, "Open Focus Diff Pro to see them", sound);
 }
 
 export const isUnread = (item: Item, seen = snapshot.seen) => item.events.some((e) => !seen[e.key]);

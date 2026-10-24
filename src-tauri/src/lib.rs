@@ -140,8 +140,10 @@ async fn ai_ask(provider: ai::Provider, model: Option<String>, prompt: String, i
 // MARK: System
 
 #[tauri::command]
-fn notify(app: AppHandle, title: String, body: String) -> Result<(), String> {
-    app.notification().builder().title(title).body(body).show().map_err(|e| e.to_string())
+fn notify(app: AppHandle, title: String, body: String, sound: bool) -> Result<(), String> {
+    let builder = app.notification().builder().title(title).body(body);
+    let builder = if sound { builder.sound("default") } else { builder };
+    builder.show().map_err(|e| e.to_string())
 }
 
 /// Web links only, in the default browser.

@@ -60,7 +60,7 @@ export const bridge = {
   aiAsk: (provider: AiStatus["provider"], model: string, prompt: string, input: string) =>
     invoke<string>("ai_ask", { provider, model: model || null, prompt, input }),
 
-  notify: (title: string, body: string) => invoke<void>("notify", { title, body }),
+  notify: (title: string, body: string, sound = false) => invoke<void>("notify", { title, body, sound }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   trayUpdate: (count: number, animate: boolean) => invoke<void>("tray_update", { count, animate }),
   openSettings: () => invoke<void>("open_settings"),

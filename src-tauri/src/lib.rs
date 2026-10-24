@@ -207,6 +207,14 @@ fn hide_panel(app: AppHandle) {
     }
 }
 
+/// Development only: the web views' errors in the terminal that runs `tauri dev`.
+#[tauri::command]
+fn log(window: tauri::Window, message: String) {
+    if cfg!(debug_assertions) {
+        eprintln!("[{}] {}", window.label(), message.chars().take(2000).collect::<String>());
+    }
+}
+
 #[tauri::command]
 fn quit(app: AppHandle) {
     app.exit(0);
@@ -330,6 +338,7 @@ pub fn run() {
             open_settings,
             open_review,
             hide_panel,
+            log,
             quit,
         ])
         .setup(|app| {

@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { GitHubError, graphql } from "./bridge";
 import { TEMPLATES, type Queue } from "./config";
-import { freshEvents, itemsFor, searchFor, type PullRequest } from "./engine";
+import { fetchQueues, freshEvents, itemsFor, searchFor, type PullRequest } from "./engine";
+
+vi.mock("./bridge", async (original) => ({ ...(await original<typeof import("./bridge")>()), graphql: vi.fn() }));
 
 const me = "me";
 const t = (minutesAgo: number) => new Date(Date.UTC(2026, 0, 1) - minutesAgo * 60_000).toISOString();
@@ -181,5 +184,25 @@ describe("freshEvents", () => {
     const seen = Object.fromEntries(items.flatMap((i) => i.events.map((e) => [e.key, true as const])));
     expect(freshEvents(items, [review, custom], new Set(), seen)).toHaveLength(0);
     expect(freshEvents(items, [{ ...review, notify: [] }, { ...custom, notify: [] }], new Set(), {})).toHaveLength(0);
+  });
+});
+
+describe("fetchQueues", () => {
+  const page = (nodes: unknown[]) => ({ search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } });
+
+  it("asks again with smaller pages when GitHub can't do the whole search", async () => {
+    const ask = vi.mocked(graphql).mockReset();
+    const a = pr();
+    ask.mockRejectedValueOnce(new GitHubError(200, "Resource limits for this query exceeded."));
+    ask.mockResolvedValueOnce(page([a, null]));
+    ask.mockResolvedValueOnce(page([a, {}]));
+    const review = queue("review");
+    expect((await fetchQueues([review], me)).get(review.id)).toEqual([a]);
+    expect(ask.mock.calls.map(([, v]) => v?.size)).toEqual([40, 20, 10]);
+  });
+
+  it("gives up on other errors", async () => {
+    vi.mocked(graphql).mockReset().mockRejectedValueOnce(new GitHubError(401, "Bad credentials"));
+    await expect(fetchQueues([queue("review")], me)).rejects.toThrow("Bad credentials");
   });
 });

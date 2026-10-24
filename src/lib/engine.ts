@@ -3,7 +3,7 @@
 // rules can be tested without the network (engine.test.ts).
 
 import type { EventKind, Queue } from "./config";
-import { graphql } from "./bridge";
+import { GitHubError, graphql } from "./bridge";
 
 // MARK: GitHub data
 
@@ -104,43 +104,52 @@ export function searchFor(queue: Queue, me: string, now = Date.now()): string {
 
 const needsFiles = (q: Queue) => Boolean(q.includePaths || q.excludePaths);
 
-/** All open queues in one request (one search each), merged ones paged on their own: they're the
- *  slowest and change the least. Returns pull requests by queue id. */
-export async function fetchQueues(queues: Queue[], me: string): Promise<Map<string, PullRequest[]>> {
-  const result = new Map<string, PullRequest[]>();
-  const active = queues.filter((q) => q.enabled);
-  const open = active.filter((q) => q.kind !== "merged");
-  if (open.length) {
-    const searches = open
-      .map((q, i) => `q${i}: search(type: ISSUE, query: $q${i}, first: 40) { nodes { ... on PullRequest { ${fragment(needsFiles(q))} } } }`)
-      .join("\n");
-    const variables: Record<string, string> = { login: me };
-    open.forEach((q, i) => (variables[`q${i}`] = searchFor(q, me)));
-    const query = `query(${["$login: String!", ...open.map((_, i) => `$q${i}: String!`)].join(", ")}) {\n${searches}\n}`;
-    const data = await graphql<Record<string, { nodes: Array<PullRequest | Record<string, never>> }>>(query, variables);
-    open.forEach((q, i) => result.set(q.id, (data[`q${i}`]?.nodes ?? []).filter((n): n is PullRequest => "id" in n)));
+/** GitHub's search can return nulls (pull requests the token can't read) and, in a mixed search,
+ *  empty objects for issues: only real pull requests go through. */
+const isPullRequest = (n: unknown): n is PullRequest => typeof n === "object" && n !== null && "id" in n;
+
+type SearchPage = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Array<PullRequest | Record<string, never> | null> };
+
+/** One page of a search. GitHub refuses searches that would cost it too much (big pull requests,
+ *  long timelines) and then returns nulls: a smaller page is tried before giving up. */
+async function searchPage(queue: Queue, me: string, size: number, after: string | null): Promise<SearchPage> {
+  try {
+    const data = await graphql<{ search: SearchPage }>(
+      `query($login: String!, $q: String!, $size: Int!, $after: String) {
+        search(type: ISSUE, query: $q, first: $size, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes { ... on PullRequest { ${fragment(needsFiles(queue) || queue.kind === "merged")} } }
+        }
+      }`,
+      { login: me, q: searchFor(queue, me), size, after },
+    );
+    const incomplete = !data.search || data.search.nodes.some((n) => n === null);
+    if (incomplete && size > 5) return searchPage(queue, me, Math.ceil(size / 2), after);
+    if (!data.search) throw new GitHubError(200, `GitHub couldn't run the search for ${queue.name}`);
+    return data.search;
+  } catch (error) {
+    if (size > 5 && error instanceof GitHubError && /resource limits|timeout|timed out/i.test(error.message)) return searchPage(queue, me, Math.ceil(size / 2), after);
+    throw error;
   }
-  return result;
+}
+
+/** The open queues, a request each and all at once: together they'd be one search too costly for
+ *  GitHub. Merged queues are paged on their own (fetchMerged). Returns pull requests by queue id. */
+export async function fetchQueues(queues: Queue[], me: string): Promise<Map<string, PullRequest[]>> {
+  const open = queues.filter((q) => q.enabled && q.kind !== "merged");
+  const pages = await Promise.all(open.map((q) => searchPage(q, me, 40, null)));
+  return new Map(open.map((q, i) => [q.id, (pages[i]?.nodes ?? []).filter(isPullRequest)]));
 }
 
 export async function fetchMerged(queue: Queue, me: string): Promise<PullRequest[]> {
   const prs: PullRequest[] = [];
   let after: string | null = null;
   // Small pages: GitHub times out on big ones with files and timelines.
-  for (let page = 0; page < 6; page++) {
-    const data: { search: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Array<PullRequest | Record<string, never>> } } =
-      await graphql(
-        `query($login: String!, $q: String!, $after: String) {
-          search(type: ISSUE, query: $q, first: 50, after: $after) {
-            pageInfo { hasNextPage endCursor }
-            nodes { ... on PullRequest { ${fragment(true)} } }
-          }
-        }`,
-        { login: me, q: searchFor(queue, me), after },
-      );
-    prs.push(...data.search.nodes.filter((n): n is PullRequest => "id" in n));
-    if (!data.search.pageInfo.hasNextPage) break;
-    after = data.search.pageInfo.endCursor;
+  for (let page = 0; page < 8; page++) {
+    const search = await searchPage(queue, me, 40, after);
+    prs.push(...search.nodes.filter(isPullRequest));
+    if (!search.pageInfo.hasNextPage) break;
+    after = search.pageInfo.endCursor;
   }
   return prs;
 }

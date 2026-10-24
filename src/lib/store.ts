@@ -106,6 +106,7 @@ export function refresh(force = false): Promise<void> {
       set({ status: { phase: "idle", updatedAt: Date.now() } });
     } catch (error) {
       const message = error instanceof GitHubError && error.status === 401 ? "GitHub signed you out" : error instanceof Error ? error.message : String(error);
+      console.error("Refreshing failed:", error);
       set({ status: { ...snapshot.status, phase: "error", error: message } });
     } finally {
       polling = null;

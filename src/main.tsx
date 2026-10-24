@@ -9,6 +9,7 @@ import "./index.css";
 document.documentElement.classList.add("panel");
 // In a plain browser during development, sample data stands in for the app (src/dev/mock.ts).
 if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) (await import("./dev/mock")).installMock();
+else if (import.meta.env.DEV) (await import("./dev/log")).forwardErrors();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -121,6 +121,15 @@ const config = {
   sound: false,
   theme: "system",
   ai: { provider: "claude", model: "" },
+  actions: [
+    {
+      id: "handoff-dana",
+      name: "Hand off to Dana",
+      confirm: true,
+      steps: [{ kind: "request", reviewers: ["dana"] }, { kind: "unrequestMe" }, { kind: "comment", body: "@dana could you take this one? Thanks!" }],
+    },
+    { id: "slack", name: "Ask the team", confirm: false, steps: [{ kind: "run", command: 'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"' }] },
+  ],
   queues: [
     { id: "review", name: "Review", tone: "blue", kind: "review", notify: ["new", "rerequest"] },
     { id: "updates", name: "Updates", tone: "purple", kind: "involved", drafts: "show", notify: ["commits", "reply", "mention"] },
@@ -248,11 +257,9 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
       const body = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, string> };
       if (body.query?.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (body.query?.includes("squashMergeAllowed")) return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
-      const variables = body.variables ?? {};
-      if ("q" in variables) return { status: 200, body: JSON.stringify({ data: { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: merged } } }) };
-      const lists = [review, involved, authored];
-      const data = Object.fromEntries(Object.keys(variables).filter((k) => /^q\d+$/.test(k)).map((k, i) => [k, { nodes: lists[i] ?? [] }]));
-      return { status: 200, body: JSON.stringify({ data }) };
+      const q = body.variables?.q ?? "";
+      const nodes = q.includes("is:merged") ? merged : q.includes("review-requested:") ? review : q.includes("involves:") ? involved : authored;
+      return { status: 200, body: JSON.stringify({ data: { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } } }) };
     }
     case "ai_statuses":
       return [
@@ -263,6 +270,9 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
     case "ai_ask":
       await new Promise((r) => setTimeout(r, 400));
       return "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.";
+    case "run_action":
+      await new Promise((r) => setTimeout(r, 400));
+      return "ok";
     case "plugin:event|listen":
       listeners.set(++callbackId, args.event as string);
       return callbackId;

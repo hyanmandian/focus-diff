@@ -31,6 +31,9 @@ export type AiStatus = {
   login_command: string;
 };
 
+/** The pull request an action runs on. */
+export type ActionContext = { number: number; repo: string; title: string; url: string; author: string; me: string };
+
 export class GitHubError extends Error {
   constructor(
     readonly status: number,
@@ -59,6 +62,9 @@ export const bridge = {
   aiStatuses: () => invoke<AiStatus[]>("ai_statuses"),
   aiAsk: (provider: AiStatus["provider"], model: string, prompt: string, input: string) =>
     invoke<string>("ai_ask", { provider, model: model || null, prompt, input }),
+
+  /** Runs a "run" step of a saved action: Rust reads the command from the config and asks first. */
+  runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) => invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),
 
   notify: (title: string, body: string, sound = false) => invoke<void>("notify", { title, body, sound }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),

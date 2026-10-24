@@ -4,6 +4,7 @@
 //! the work (queues, events, notifications) and call in here for what needs the system: GitHub with
 //! the keychain's token, files in the app's config folder, notifications, the tray, opening links.
 
+mod actions;
 mod ai;
 mod github;
 mod tray;
@@ -133,6 +134,17 @@ async fn ai_statuses() -> Result<Vec<ai::Status>, String> {
 #[tauri::command]
 async fn ai_ask(provider: ai::Provider, model: Option<String>, prompt: String, input: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || ai::ask(provider, model.as_deref(), &prompt, &input))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+// MARK: Actions
+
+#[tauri::command]
+async fn run_action(app: AppHandle, action: String, name: String, step: usize, pr: actions::Context) -> Result<String, String> {
+    let config = file_path(&app, "config")?;
+    let trusted = config.with_file_name("allowed-commands.json");
+    tauri::async_runtime::spawn_blocking(move || actions::run(&app, config, trusted, &action, &name, step, pr))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -318,6 +330,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(github::Auth::default())
         .manage(Tray(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
@@ -332,6 +345,7 @@ pub fn run() {
             auth_sign_out,
             ai_statuses,
             ai_ask,
+            run_action,
             notify,
             open_url,
             tray_update,

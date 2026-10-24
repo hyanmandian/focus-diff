@@ -44,7 +44,7 @@ function pr(overrides: Partial<PullRequest> = {}): PullRequest {
     ...overrides,
   };
 }
-const queue = (kind: Queue["kind"], patch: Partial<Queue> = {}): Queue => ({ ...TEMPLATES[kind].make(), ...patch });
+const queue = (kind: Queue["kind"], patch: Partial<Queue> = {}): Queue => ({ ...TEMPLATES[kind].make(), ...(kind === "merged" ? { requestedOnly: false, skipIfI: "tookPart" as const } : {}), ...patch });
 const kinds = (items: ReturnType<typeof itemsFor>) => items.flatMap((i) => i.events.map((e) => e.kind));
 const comment = (login: string, minutesAgo: number, body = "ok", url = `https://x/${login}/${minutesAgo}`) => ({ author: user(login), createdAt: t(minutesAgo), body, url });
 
@@ -204,5 +204,36 @@ describe("fetchQueues", () => {
   it("gives up on other errors", async () => {
     vi.mocked(graphql).mockReset().mockRejectedValueOnce(new GitHubError(401, "Bad credentials"));
     await expect(fetchQueues([queue("review")], me)).rejects.toThrow("Bad credentials");
+  });
+});
+
+describe("merged queue options", () => {
+  const merged = (patch: Partial<PullRequest> = {}) => pr({ state: "MERGED", mergedAt: t(30), mergedBy: user("rui"), ...patch });
+  const asked = (r: NonNullable<PullRequest["requested"]>["nodes"][number]["requestedReviewer"]) => ({ requested: { nodes: [{ requestedReviewer: r }] } });
+  const frontend = { __typename: "Team" as const, slug: "frontend", organization: { login: "acme" }, members: { nodes: [{ login: me }] } };
+  const other = { __typename: "Team" as const, slug: "data", organization: { login: "acme" }, members: { nodes: [] } };
+
+  it("can keep only those your review was asked on", () => {
+    const q = queue("merged", { requestedOnly: true });
+    const prs = [merged(asked({ __typename: "User", login: me })), merged(asked(frontend)), merged(asked(other)), merged()];
+    expect(itemsFor(q, prs, me)).toHaveLength(2);
+    expect(itemsFor({ ...q, directOnly: true }, prs, me)).toHaveLength(1);
+    expect(itemsFor({ ...q, teams: ["acme/data"] }, prs, me)).toHaveLength(2);
+  });
+
+  it("leaves out what you approved, or any review, or any part", () => {
+    const commented = merged({ mine: { nodes: [{ state: "COMMENTED", submittedAt: t(40), commit: null }] }, participants: { nodes: [{ login: me }] } });
+    const approved = merged({ mine: { nodes: [{ state: "APPROVED", submittedAt: t(40), commit: null }] } });
+    const talked = merged({ participants: { nodes: [{ login: me }] } });
+    expect(itemsFor(queue("merged", { skipIfI: "approved" }), [commented, approved, talked], me)).toHaveLength(2);
+    expect(itemsFor(queue("merged", { skipIfI: "reviewed" }), [commented, approved, talked], me)).toHaveLength(1);
+    expect(itemsFor(queue("merged", { skipIfI: "tookPart" }), [commented, approved, talked], me)).toHaveLength(0);
+    expect(searchFor(queue("merged", { skipIfI: "approved" }), me)).not.toContain("reviewed-by");
+  });
+
+  it("leaves out who merged or approved it", () => {
+    const byDana = merged({ mergedBy: user("dana") });
+    const okByEli = merged({ latestOpinionatedReviews: { nodes: [{ author: user("eli"), state: "APPROVED", submittedAt: t(40), url: "u" }] } });
+    expect(itemsFor(queue("merged", { skipMergedBy: ["dana"], skipApprovedBy: ["eli"] }), [byDana, okByEli, merged()], me)).toHaveLength(1);
   });
 });

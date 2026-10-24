@@ -27,7 +27,7 @@ const KIND_LABELS: Record<QueueKind, string> = {
   review: "My review is requested",
   involved: "I reviewed, commented or was mentioned",
   authored: "I opened them",
-  merged: "They were merged without me",
+  merged: "They were merged",
   custom: "They match a GitHub search",
 };
 
@@ -47,6 +47,12 @@ const TONE_CLASS: Record<Queue["tone"], string> = {
   amber: "bg-warning",
   red: "bg-destructive",
   gray: "bg-muted-foreground",
+};
+
+const SKIP_LABELS: Record<Queue["skipIfI"], string> = {
+  approved: "approved",
+  reviewed: "reviewed in any way",
+  tookPart: "took any part in",
 };
 
 const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(v) ? null : "Use owner/name, or owner/* for all of an owner's repositories");
@@ -142,22 +148,60 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             <SwitchRow checked={queue.onlyNews} onChange={(v) => set("onlyNews", v)} label="Only with something new since my last word" />
           ) : null}
           {queue.kind === "merged" ? (
-            <div className="flex items-center gap-2 text-[13px]">
-              <span>In the last</span>
-              <Select value={String(queue.mergedDays)} onValueChange={(v) => set("mergedDays", Number(v))}>
-                <SelectTrigger className="w-24" aria-label="Days">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 3, 7, 14, 30].map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      {d} {d === 1 ? "day" : "days"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-muted-foreground">· leaves out those you took part in or passed on</span>
-            </div>
+            <>
+              <div className="flex items-center gap-2 text-[13px]">
+                <span>In the last</span>
+                <Select value={String(queue.mergedDays)} onValueChange={(v) => set("mergedDays", Number(v))}>
+                  <SelectTrigger className="w-28" aria-label="Days">
+                    <SelectValue>{(v: string) => `${v} ${v === "1" ? "day" : "days"}`}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 3, 7, 14, 30].map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {d} {d === 1 ? "day" : "days"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[13px]">
+                <span>Leave out those I</span>
+                <Select value={queue.skipIfI} onValueChange={(v) => set("skipIfI", v as Queue["skipIfI"])}>
+                  <SelectTrigger className="w-56" aria-label="Leave out those I">
+                    <SelectValue>{(v: Queue["skipIfI"]) => SKIP_LABELS[v]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(SKIP_LABELS) as Array<Queue["skipIfI"]>).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {SKIP_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="-mt-1 text-xs text-muted-foreground">And those you took yourself off the review of.</p>
+              <SwitchRow
+                checked={queue.requestedOnly}
+                onChange={(v) => set("requestedOnly", v)}
+                label="Only those my review was asked on"
+                hint="Asked of you or of one of your teams, even if someone else reviewed first."
+              />
+              {queue.requestedOnly ? (
+                <>
+                  <SwitchRow checked={queue.directOnly} onChange={(v) => set("directOnly", v)} label="Only when I was asked directly" hint="Not when one of my teams was." />
+                  {!queue.directOnly ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Count asks to these teams (empty: all my teams)</span>
+                      <TagInput label="Teams" value={queue.teams} onChange={(v) => set("teams", v)} placeholder="acme/web-platform" validate={teamError} />
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Leave out those merged by</span>
+                <TagInput label="Mergers to leave out" value={queue.skipMergedBy} onChange={(v) => set("skipMergedBy", v)} placeholder="username" validate={userError} />
+              </div>
+            </>
           ) : null}
           {queue.kind === "custom" ? (
             <div className="flex flex-col gap-1">
@@ -246,6 +290,10 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">Opened by</span>
             <TagInput label="Authors to leave out" value={queue.excludeAuthors} onChange={(v) => set("excludeAuthors", v)} placeholder="username" validate={userError} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Approved by</span>
+            <TagInput label="Approvers to leave out" value={queue.skipApprovedBy} onChange={(v) => set("skipApprovedBy", v)} placeholder="username" validate={userError} />
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex flex-col gap-1">

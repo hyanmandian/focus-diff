@@ -1,0 +1,141 @@
+//! The "run a command" step of the person's own actions. The web views can only name an action
+//! and a step: the command itself is read here, from the saved config, and runs only once the
+//! person has allowed that exact command in a native dialog, which no web page can click. So
+//! nothing shown in a web view (a pull request's text, say) can get a command run.
+
+use std::collections::HashSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::Duration;
+
+use serde::Deserialize;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+
+use crate::ai;
+
+const TIME_LIMIT: Duration = Duration::from_secs(120);
+
+/// The pull request the action runs on, given to the command as environment variables. Checked,
+/// though it's only ever data: nothing is put into the command's text.
+#[derive(Deserialize)]
+pub struct Context {
+    number: u64,
+    repo: String,
+    title: String,
+    url: String,
+    author: String,
+    me: String,
+}
+
+impl Context {
+    fn check(&self) -> Result<(), String> {
+        let login = |s: &str| s.len() <= 60 && s.chars().all(|c| c.is_ascii_alphanumeric() || "-[]".contains(c));
+        let repo = self.repo.split_once('/').is_some_and(|(o, n)| [o, n].iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))));
+        if repo && login(&self.author) && login(&self.me) && self.url.starts_with("https://github.com/") && self.title.len() <= 1000 {
+            Ok(())
+        } else {
+            Err("That isn't a pull request".into())
+        }
+    }
+}
+
+fn command_of(config: &Path, action: &str, step: usize) -> Result<String, String> {
+    let text = fs::read_to_string(config).map_err(|_| "Actions are set up in Settings".to_string())?;
+    let config: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let action = config["actions"]
+        .as_array()
+        .and_then(|actions| actions.iter().find(|a| a["id"].as_str() == Some(action)))
+        .ok_or("That action is gone")?;
+    let step = &action["steps"][step];
+    match (step["kind"].as_str(), step["command"].as_str()) {
+        (Some("run"), Some(command)) if !command.trim().is_empty() => Ok(command.to_string()),
+        _ => Err("That step has no command".into()),
+    }
+}
+
+/// Commands the person has allowed, kept apart from the config, in a file the web views can't
+/// write.
+fn allowed(path: &Path) -> HashSet<String> {
+    fs::read_to_string(path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+fn ask<R: tauri::Runtime>(app: &tauri::AppHandle<R>, name: &str, command: &str) -> bool {
+    let shown: String = command.chars().take(600).collect();
+    app.dialog()
+        .message(format!("“{name}” wants to run this command, as you:\n\n{shown}\n\nIt gets the pull request's number, title, link, repository and author. Allow it from now on?"))
+        .title("Run a command?")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom("Allow and run".into(), "Cancel".into()))
+        .blocking_show()
+}
+
+/// Runs step `step` of action `action`. Blocking: call it off the main thread.
+pub fn run<R: tauri::Runtime>(app: &tauri::AppHandle<R>, config: PathBuf, trusted: PathBuf, action: &str, name: &str, step: usize, pr: Context) -> Result<String, String> {
+    pr.check()?;
+    let command = command_of(&config, action, step)?;
+    let mut allowed = allowed(&trusted);
+    if !allowed.contains(&command) {
+        if !ask(app, name, &command) {
+            return Err("Not run".into());
+        }
+        allowed.insert(command.clone());
+        let json = serde_json::to_string_pretty(&allowed).map_err(|e| e.to_string())?;
+        fs::write(&trusted, json).map_err(|e| e.to_string())?;
+    }
+
+    let mut shell = if cfg!(windows) {
+        let mut c = Command::new("cmd");
+        c.arg("/C").arg(&command);
+        c
+    } else {
+        let mut c = Command::new("/bin/sh");
+        c.arg("-c").arg(&command);
+        c
+    };
+    shell
+        .env("PATH", ai::search_path())
+        .env("PR_NUMBER", pr.number.to_string())
+        .env("PR_REPO", &pr.repo)
+        .env("PR_TITLE", &pr.title)
+        .env("PR_URL", &pr.url)
+        .env("PR_AUTHOR", &pr.author)
+        .env("GITHUB_LOGIN", &pr.me);
+    if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
+        shell.current_dir(home);
+    }
+    let output = ai::run_with_limit(&mut shell, None, TIME_LIMIT)?;
+    let said = |s: &str| s.trim().lines().last().unwrap_or_default().chars().take(300).collect::<String>();
+    if output.status_ok {
+        Ok(said(&output.stdout))
+    } else {
+        let message = said(&output.stderr);
+        Err(if message.is_empty() { "The command failed".into() } else { message })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_only_run_steps_of_saved_actions() {
+        let dir = std::env::temp_dir().join(format!("fdp-actions-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let config = dir.join("config.json");
+        fs::write(&config, r#"{"actions":[{"id":"a1","steps":[{"kind":"comment","body":"hi"},{"kind":"run","command":"echo ok"}]}]}"#).unwrap();
+        assert_eq!(command_of(&config, "a1", 1).as_deref(), Ok("echo ok"));
+        assert!(command_of(&config, "a1", 0).is_err());
+        assert!(command_of(&config, "a1", 5).is_err());
+        assert!(command_of(&config, "nope", 1).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn checks_the_pull_request() {
+        let pr = |repo: &str, url: &str| Context { number: 1, repo: repo.into(), title: "x".into(), url: url.into(), author: "ana".into(), me: "me".into() };
+        assert!(pr("acme/web", "https://github.com/acme/web/pull/1").check().is_ok());
+        assert!(pr("acme/web;rm", "https://github.com/acme/web/pull/1").check().is_err());
+        assert!(pr("acme/web", "https://evil.example/").check().is_err());
+    }
+}

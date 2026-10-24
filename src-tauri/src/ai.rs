@@ -60,7 +60,7 @@ pub struct Status {
 
 /// The PATH of the person's login shell: apps opened from the Finder or a launcher don't get it, and
 /// these CLIs usually live in ~/.local/bin, Homebrew or a Node version manager.
-fn search_path() -> &'static str {
+pub(crate) fn search_path() -> &'static str {
     static PATH: OnceLock<String> = OnceLock::new();
     PATH.get_or_init(|| {
         let mut path = std::env::var("PATH").unwrap_or_default();
@@ -99,15 +99,15 @@ fn find(provider: Provider) -> Option<PathBuf> {
     None
 }
 
-struct Output {
-    status_ok: bool,
-    stdout: String,
-    stderr: String,
+pub(crate) struct Output {
+    pub status_ok: bool,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 /// Runs a command with its own environment's PATH, optional input on stdin, and a time limit after
 /// which it's killed.
-fn run_with_limit(command: &mut Command, input: Option<&str>, limit: Duration) -> Result<Output, String> {
+pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: Duration) -> Result<Output, String> {
     command.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|e| e.to_string())?;
     if let (Some(input), Some(mut stdin)) = (input, child.stdin.take()) {

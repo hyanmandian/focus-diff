@@ -22,6 +22,7 @@ import { firstName } from "@/lib/copy";
 import { loadDetails, merge, type Details } from "@/lib/details";
 import { commentNow, loadFiles, loadThreads, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
+import { ActionButtons } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
 import { Diffs, type DiffsHandle } from "./Diffs";
 
@@ -171,6 +172,7 @@ export function Review() {
   useTheme(config?.theme);
   const dark = useDark(config);
   const diffs = useRef<DiffsHandle>(null);
+  const [me, setMe] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -187,6 +189,7 @@ export function Review() {
 
   useEffect(() => {
     void loadConfig().then(setConfig);
+    void bridge.authStatus().then((a) => setMe(a.login));
     void load();
   }, [load]);
 
@@ -266,6 +269,17 @@ export function Review() {
           </TooltipTrigger>
           <TooltipContent>Open on GitHub</TooltipContent>
         </Tooltip>
+        <ActionButtons
+          actions={config?.actions ?? []}
+          pr={details && me ? { number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me } : null}
+          onResult={(message, ok) => {
+            say(message);
+            if (ok) {
+              void emit("prs-changed");
+              void load();
+            }
+          }}
+        />
         {canMerge ? (
           <Button
             size="sm"

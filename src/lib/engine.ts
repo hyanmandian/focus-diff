@@ -41,13 +41,19 @@ export type PullRequest = {
   participants: { nodes: Array<{ login: string }> };
   removed: { nodes: Array<{ actor: { login: string } | null }> };
   files?: { nodes: Array<{ path: string }> };
+  /** merged queues: everyone ever asked to review, and whether you're in the teams asked. */
+  requested?: {
+    nodes: Array<{
+      requestedReviewer?: null | { __typename: "User"; login: string } | { __typename: "Team"; slug: string; organization: { login: string }; members: { nodes: Array<{ login: string }> } } | { __typename: string };
+    }>;
+  };
 };
 
 export type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED";
 
 const ACTOR = "__typename login avatarUrl(size: 64) ... on User { name }";
 const COMMENT = `author { ${ACTOR} } createdAt body url`;
-const fragment = (withFiles: boolean) => `
+const fragment = (withFiles: boolean, withRequests: boolean) => `
   id number title url isDraft state createdAt updatedAt mergedAt headRefOid mergeable additions deletions changedFiles
   repository { nameWithOwner }
   author { ${ACTOR} }
@@ -62,7 +68,8 @@ const fragment = (withFiles: boolean) => `
   commits(last: 1) { nodes { commit { committedDate statusCheckRollup { state } } } }
   participants(first: 50) { nodes { login } }
   removed: timelineItems(first: 20, itemTypes: [REVIEW_REQUEST_REMOVED_EVENT]) { nodes { ... on ReviewRequestRemovedEvent { actor { login } } } }
-  ${withFiles ? "files(first: 100) { nodes { path } }" : ""}`;
+  ${withFiles ? "files(first: 100) { nodes { path } }" : ""}
+  ${withRequests ? "requested: timelineItems(first: 30, itemTypes: [REVIEW_REQUESTED_EVENT]) { nodes { ... on ReviewRequestedEvent { requestedReviewer { __typename ... on User { login } ... on Team { slug organization { login } members(query: $login, first: 10) { nodes { login } } } } } } }" : ""}`;
 
 // MARK: Searches
 
@@ -83,7 +90,8 @@ export function searchFor(queue: Queue, me: string, now = Date.now()): string {
       break;
     case "merged": {
       const since = new Date(now - queue.mergedDays * 864e5).toISOString().slice(0, 10);
-      parts.push("is:merged", `merged:>=${since}`, `-author:${me}`, `-reviewed-by:${me}`);
+      parts.push("is:merged", `merged:>=${since}`, `-author:${me}`);
+      if (queue.skipIfI !== "approved") parts.push(`-reviewed-by:${me}`);
       break;
     }
     case "custom":
@@ -118,7 +126,7 @@ async function searchPage(queue: Queue, me: string, size: number, after: string 
       `query($login: String!, $q: String!, $size: Int!, $after: String) {
         search(type: ISSUE, query: $q, first: $size, after: $after) {
           pageInfo { hasNextPage endCursor }
-          nodes { ... on PullRequest { ${fragment(needsFiles(queue) || queue.kind === "merged")} } }
+          nodes { ... on PullRequest { ${fragment(needsFiles(queue) || queue.kind === "merged", queue.kind === "merged" && queue.requestedOnly)} } }
         }
       }`,
       { login: me, q: searchFor(queue, me), size, after },
@@ -212,6 +220,17 @@ function matchesPaths(pr: PullRequest, queue: Queue): boolean {
   return (pr.files?.nodes ?? []).some((f) => (!include || include.test(f.path)) && !(exclude?.test(f.path) ?? false));
 }
 
+/** Whether your review was ever asked on it: you, or (unless only direct asks count) a team of
+ *  yours, or one of the queue's teams. */
+function wasAsked(pr: PullRequest, me: string, queue: Queue): boolean {
+  return (pr.requested?.nodes ?? []).some(({ requestedReviewer: r }) => {
+    if (!r) return false;
+    if ("login" in r) return r.login === me;
+    if (queue.directOnly || !("slug" in r)) return false;
+    return queue.teams.length ? queue.teams.includes(`${r.organization.login}/${r.slug}`) : r.members.nodes.some((m) => m.login === me);
+  });
+}
+
 const event = (pr: PullRequest, kind: EventKind, id: string, at: number, who: Actor): Event => ({ key: `${pr.id}:${kind}:${id}`, kind, at, who });
 
 /** The items of one queue, from what its search found. `previousCi` is each PR's CI state last
@@ -224,6 +243,7 @@ export function itemsFor(queue: Queue, prs: PullRequest[], me: string, previousC
   for (const pr of prs) {
     if (queue.hideBots && isBot(pr.author)) continue;
     if (queue.excludeAuthors.includes(pr.author?.login ?? "")) continue;
+    if (queue.skipApprovedBy.length && pr.latestOpinionatedReviews.nodes.some((r) => r.state === "APPROVED" && queue.skipApprovedBy.includes(r.author?.login ?? ""))) continue;
     if (!matchesPaths(pr, queue)) continue;
     const act = myActivity(pr, me);
     const req = requests(pr, me);
@@ -241,7 +261,10 @@ export function itemsFor(queue: Queue, prs: PullRequest[], me: string, previousC
     }
 
     if (queue.kind === "merged") {
-      if (pr.participants.nodes.some((p) => p.login === me)) continue;
+      if (queue.skipIfI === "tookPart" && pr.participants.nodes.some((p) => p.login === me)) continue;
+      if (pr.mine.nodes.some((r) => r.state === "APPROVED" || (queue.skipIfI !== "approved" && r.state !== "PENDING"))) continue;
+      if (queue.skipMergedBy.includes(pr.mergedBy?.login ?? "")) continue;
+      if (queue.requestedOnly && !wasAsked(pr, me, queue)) continue;
       // Passed on: you took yourself (or your team) off its review, here or on GitHub.
       if (pr.removed.nodes.some((e) => e.actor?.login === me)) continue;
       items.push({ queueId: queue.id, pr, ci, events: [{ ...arrived, at: time(pr.mergedAt) }] });

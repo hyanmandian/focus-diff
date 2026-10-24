@@ -38,6 +38,7 @@ import type { Actor, Item } from "@/lib/engine";
 import { sanitize } from "@/lib/sanitize";
 import { refresh } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { ActionButtons } from "@/shared/Actions";
 import { AiAnswer } from "@/shared/AiAnswer";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
@@ -319,6 +320,16 @@ export function Details({ item, queue, me, config, onBack, onOpenDiff }: Props) 
             ) : null}
             {failing ? <span className="text-destructive">{failing} failing</span> : running ? <span className="text-warning">{running} running</span> : details?.checks.length ? <span className="text-success">Checks passed</span> : null}
           </div>
+          {config?.actions.length ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <ActionButtons
+                actions={config.actions}
+                size="xs"
+                pr={{ number: pr.number, repo: pr.repository.nameWithOwner, title: pr.title, url: pr.url, author: pr.author?.login ?? "", me }}
+                onResult={(message, ok) => (ok ? done(message) : setNotice(message))}
+              />
+            </div>
+          ) : null}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="More" />}>

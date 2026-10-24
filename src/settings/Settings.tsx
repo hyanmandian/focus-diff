@@ -16,6 +16,7 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
+import { Actions } from "./Actions";
 import { Ai } from "./Ai";
 import { QueueEditor } from "./QueueEditor";
 
@@ -227,6 +228,7 @@ export function Settings() {
         <h1 className="text-sm font-semibold">Settings</h1>
         <TabsList className="ml-auto">
           <TabsTrigger value="queues">Queues</TabsTrigger>
+          <TabsTrigger value="actions">Actions</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
@@ -234,6 +236,9 @@ export function Settings() {
       </header>
       <TabsContent value="queues" className="min-h-0 flex-1">
         <Queues config={config} onChange={setConfig} />
+      </TabsContent>
+      <TabsContent value="actions" className="min-h-0 flex-1">
+        <Actions config={config} onChange={setConfig} />
       </TabsContent>
       <TabsContent value="ai" className="min-h-0 flex-1 overflow-y-auto">
         <Ai config={config} onChange={setConfig} />

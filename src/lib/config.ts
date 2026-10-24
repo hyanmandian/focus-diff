@@ -62,12 +62,16 @@ export type Queue = {
   notify: EventKind[];
 };
 
+export type AiProvider = "claude" | "codex" | "cursor";
+
 export type Config = {
   version: 1;
   queues: Queue[];
   pollSeconds: number;
   sound: boolean;
   theme: "system" | "light" | "dark";
+  /** Optional: the coding agent CLI to ask, on the person's own subscription. */
+  ai: { provider: AiProvider | null; model: string };
 };
 
 let counter = 0;
@@ -151,6 +155,7 @@ export const defaultConfig = (): Config => ({
   pollSeconds: 90,
   sound: false,
   theme: "system",
+  ai: { provider: null, model: "" },
 });
 
 // MARK: Reading what's on disk
@@ -222,6 +227,13 @@ export function normalize(raw: unknown): Config {
     pollSeconds: int(r.pollSeconds, fallback.pollSeconds, 60, 900),
     sound: bool(r.sound, fallback.sound),
     theme: pick(r.theme, ["system", "light", "dark"] as const, fallback.theme),
+    ai: (() => {
+      const ai = r.ai && typeof r.ai === "object" ? (r.ai as Record<string, unknown>) : {};
+      return {
+        provider: (["claude", "codex", "cursor"] as const).includes(ai.provider as AiProvider) ? (ai.provider as AiProvider) : null,
+        model: isString(ai.model) ? ai.model.trim().slice(0, 80) : "",
+      };
+    })(),
   };
 }
 

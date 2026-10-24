@@ -23,6 +23,14 @@ export type DeviceCode = {
 
 export type StoredFile = "config" | "state";
 
+export type AiStatus = {
+  provider: "claude" | "codex" | "cursor";
+  installed: boolean;
+  signed_in: boolean;
+  version: string | null;
+  login_command: string;
+};
+
 export class GitHubError extends Error {
   constructor(
     readonly status: number,
@@ -47,6 +55,10 @@ export const bridge = {
       expiresIn: code.expires_in,
     }),
   authSignOut: () => invoke<void>("auth_sign_out"),
+
+  aiStatuses: () => invoke<AiStatus[]>("ai_statuses"),
+  aiAsk: (provider: AiStatus["provider"], model: string, prompt: string, input: string) =>
+    invoke<string>("ai_ask", { provider, model: model || null, prompt, input }),
 
   notify: (title: string, body: string) => invoke<void>("notify", { title, body }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),

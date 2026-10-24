@@ -4,6 +4,7 @@
 //! the work (queues, events, notifications) and call in here for what needs the system: GitHub with
 //! the keychain's token, files in the app's config folder, notifications, the tray, opening links.
 
+mod ai;
 mod github;
 mod tray;
 
@@ -120,6 +121,20 @@ async fn auth_device_finish(app: AppHandle, auth: State<'_, github::Auth>, devic
 async fn auth_sign_out(app: AppHandle, auth: State<'_, github::Auth>) -> Result<(), String> {
     auth.sign_out()?;
     remember_source(&app, None)
+}
+
+// MARK: AI (optional)
+
+#[tauri::command]
+async fn ai_statuses() -> Result<Vec<ai::Status>, String> {
+    tauri::async_runtime::spawn_blocking(ai::statuses).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn ai_ask(provider: ai::Provider, model: Option<String>, prompt: String, input: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || ai::ask(provider, model.as_deref(), &prompt, &input))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 // MARK: System
@@ -305,6 +320,8 @@ pub fn run() {
             auth_device_start,
             auth_device_finish,
             auth_sign_out,
+            ai_statuses,
+            ai_ask,
             notify,
             open_url,
             tray_update,

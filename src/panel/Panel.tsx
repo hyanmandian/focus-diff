@@ -114,6 +114,7 @@ export function Panel() {
           item={selected}
           queue={config?.queues.find((q) => q.id === selected.queueId)}
           me={me ?? ""}
+          config={config}
           onBack={() => setSelected(null)}
           onOpenDiff={openDiff}
         />

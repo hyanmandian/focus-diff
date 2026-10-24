@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "focus-diff-pro",
+  "productName": "Focus Diff Pro",
   "version": "0.1.0",
   "identifier": "com.focusdiff.pro",
   "build": {
@@ -10,15 +10,10 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "focus-diff-pro",
-        "width": 800,
-        "height": 600
-      }
-    ],
+    "windows": [],
+    "macOSPrivateApi": true,
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' https://avatars.githubusercontent.com data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {
@@ -30,6 +25,8 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Your pull request reviews, from the menu bar."
   }
 }

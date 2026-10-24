@@ -1,9 +1,20 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App";
+// The panel under the tray icon.
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { start } from "@/lib/store";
+import { Panel } from "@/panel/Panel";
+import "./index.css";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+document.documentElement.classList.add("panel");
+// In a plain browser during development, sample data stands in for the app (src/dev/mock.ts).
+if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) (await import("./dev/mock")).installMock();
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <TooltipProvider delay={400}>
+      <Panel />
+    </TooltipProvider>
+  </StrictMode>,
 );
+void start();

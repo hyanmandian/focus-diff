@@ -1,0 +1,174 @@
+// The pull request's files as one virtualized list (@pierre/diffs' CodeView): sticky file headers
+// with the size and a Viewed box, conversations and pending comments between the lines, and the
+// "+" beside a line to comment on it. Viewed files fold away, as on GitHub.
+
+import { getSingularPatch, type CodeViewDiffItem, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
+import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
+import { FileWarning } from "lucide-react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Draft, ReviewFile, Thread } from "@/lib/review";
+import { DraftView, NewComment, ThreadView } from "./Thread";
+
+type Annotation = { kind: "thread"; thread: Thread } | { kind: "draft"; draft: Draft } | { kind: "new"; path: string; range: SelectedLineRange };
+
+export type DiffsHandle = { scrollToFile: (path: string) => void };
+
+type Props = {
+  files: ReviewFile[];
+  threads: Map<string, Thread[]>;
+  drafts: Draft[];
+  isViewed: (file: ReviewFile) => boolean;
+  diffStyle: "split" | "unified";
+  wrap: boolean;
+  dark: boolean;
+  onViewed: (file: ReviewFile, viewed: boolean) => void;
+  onAddDraft: (draft: Omit<Draft, "key">) => void;
+  onEditDraft: (key: string, body: string) => void;
+  onRemoveDraft: (key: string) => void;
+  onCommentNow: (draft: Omit<Draft, "key">) => Promise<void>;
+  onReply: (thread: Thread, body: string) => Promise<void>;
+  onResolve: (thread: Thread, resolved: boolean) => Promise<void>;
+};
+
+/** A small, stable number for a string: an item's version must change whenever what it shows does. */
+const version = (s: string) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+};
+
+const describe = (range: SelectedLineRange) => {
+  const [a, b] = [Math.min(range.start, range.end), Math.max(range.start, range.end)];
+  return a === b ? `line ${b}` : `lines ${a}–${b}`;
+};
+
+const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Draft, "key"> => ({
+  path,
+  side: range.endSide ?? range.side ?? "additions",
+  line: Math.max(range.start, range.end),
+  ...(range.start !== range.end ? { startLine: Math.min(range.start, range.end) } : {}),
+  body,
+});
+
+export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
+  const { files, threads, drafts, isViewed, diffStyle, wrap, dark } = props;
+  const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
+  const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange } | null>(null);
+  // Parsing a patch is the costly part: once per file and patch.
+  const parsed = useRef(new Map<string, { patch: string; diff: FileDiffMetadata }>());
+
+  useImperativeHandle(ref, () => ({
+    scrollToFile: (path) => viewer.current?.scrollTo({ type: "item", id: path, align: "start" } as never),
+  }));
+
+  const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
+  const items = useMemo<Array<CodeViewDiffItem<Annotation>>>(() => {
+    return files
+      .filter((f) => f.patch)
+      .map((f) => {
+        let entry = parsed.current.get(f.path);
+        if (!entry || entry.patch !== f.patch) {
+          entry = { patch: f.patch, diff: getSingularPatch(f.patch) };
+          parsed.current.set(f.path, entry);
+        }
+        const fileThreads = threads.get(f.path) ?? [];
+        const fileDrafts = drafts.filter((d) => d.path === f.path);
+        const annotations: Array<DiffLineAnnotation<Annotation>> = [
+          ...fileThreads.map((thread) => ({ side: thread.side, lineNumber: thread.line, metadata: { kind: "thread" as const, thread } })),
+          ...fileDrafts.map((draft) => ({ side: draft.side, lineNumber: draft.line, metadata: { kind: "draft" as const, draft } })),
+          ...(composing?.path === f.path
+            ? [{ side: composing.range.endSide ?? composing.range.side ?? "additions", lineNumber: Math.max(composing.range.start, composing.range.end), metadata: { kind: "new" as const, path: f.path, range: composing.range } }]
+            : []),
+        ];
+        const viewed = isViewed(f);
+        return {
+          id: f.path,
+          type: "diff" as const,
+          fileDiff: entry.diff,
+          annotations,
+          collapsed: viewed,
+          version: version(
+            JSON.stringify([
+              viewed,
+              fileThreads.map((t) => [t.id, t.resolved, t.comments.length]),
+              fileDrafts.map((d) => [d.key, d.body]),
+              composing?.path === f.path ? composing.range : null,
+            ]),
+          ),
+        };
+      });
+  }, [files, threads, drafts, composing, isViewed]);
+
+  const options = useMemo(
+    () => ({
+      diffStyle,
+      overflow: wrap ? ("wrap" as const) : ("scroll" as const),
+      theme: { dark: "pierre-dark", light: "pierre-light" },
+      themeType: dark ? ("dark" as const) : ("light" as const),
+      lineDiffType: "word" as const,
+      stickyHeaders: true,
+      enableGutterUtility: true,
+      layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
+      onGutterUtilityClick: (range: SelectedLineRange, item: { id: string }) => setComposing({ path: item.id, range }),
+    }),
+    [diffStyle, wrap, dark],
+  );
+
+  const binary = files.filter((f) => !f.patch);
+
+  return (
+    <div className="flex h-full flex-col">
+      <CodeView<Annotation, undefined>
+        ref={viewer}
+        items={items}
+        disableWorkerPool
+        className="min-h-0 flex-1"
+        style={{ height: "100%", overflow: "auto" }}
+        options={options as never}
+        renderHeaderMetadata={(item) => {
+          const file = byPath.get(item.id);
+          if (!file) return null;
+          return (
+            <span className="flex items-center font-sans text-foreground">
+              <label className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={`Viewed ${file.path}`} />
+                Viewed
+              </label>
+            </span>
+          );
+        }}
+        renderAnnotation={(...[annotation]) => {
+          const a = annotation.metadata as Annotation;
+          if (a.kind === "thread") return <ThreadView thread={a.thread} onReply={(body) => props.onReply(a.thread, body)} onResolve={(resolved) => props.onResolve(a.thread, resolved)} />;
+          if (a.kind === "draft") return <DraftView draft={a.draft} onEdit={(body) => props.onEditDraft(a.draft.key, body)} onRemove={() => props.onRemoveDraft(a.draft.key)} />;
+          return (
+            <NewComment
+              lines={describe(a.range)}
+              onAdd={(body) => {
+                props.onAddDraft(toDraft(a.path, a.range, body));
+                setComposing(null);
+              }}
+              onSendNow={async (body) => {
+                await props.onCommentNow(toDraft(a.path, a.range, body));
+                setComposing(null);
+              }}
+              onCancel={() => setComposing(null)}
+            />
+          );
+        }}
+        renderCodeViewFooter={() =>
+          binary.length ? (
+            <div className="flex flex-col gap-1 px-3 pb-6 font-sans text-sm text-muted-foreground">
+              {binary.map((f) => (
+                <p key={f.path} className="flex items-center gap-2">
+                  <FileWarning className="size-4" /> <span className="font-mono text-xs">{f.path}</span> isn't shown here (binary, or too large for GitHub's diff).
+                </p>
+              ))}
+            </div>
+          ) : null
+        }
+      />
+    </div>
+  );
+});

@@ -1,7 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The app's own windows: Tauri's core (events, windows) and the app's commands. Plugins are used from Rust only, so none are exposed to the web views.",
-  "windows": ["panel", "settings", "review-*"],
-  "permissions": ["core:default"]
+  "description": "The app's own windows: Tauri's core (events, windows), dragging a window by its custom title bar, and the app's commands. Plugins are used from Rust only, so none are exposed to the web views.",
+  "windows": [
+    "panel",
+    "settings",
+    "review-*"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
 }

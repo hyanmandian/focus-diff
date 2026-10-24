@@ -52,6 +52,14 @@ export const bridge = {
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   trayUpdate: (count: number, animate: boolean) => invoke<void>("tray_update", { count, animate }),
   openSettings: () => invoke<void>("open_settings"),
+  /** A pull request's diff in Codiff's review view, in a window of its own. */
+  openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }) =>
+    invoke<void>("open_review", {
+      id: pr.id,
+      repo: pr.repository.nameWithOwner,
+      number: pr.number,
+      title: `#${pr.number} · ${pr.title} · ${pr.author?.name?.trim().split(/\s+/)[0] || pr.author?.login || ""}`,
+    }),
   hidePanel: () => invoke<void>("hide_panel"),
   quit: () => invoke<void>("quit"),
 

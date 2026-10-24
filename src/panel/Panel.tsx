@@ -14,6 +14,7 @@ import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, relo
 import { useTheme } from "@/lib/theme";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
+import { Details } from "./Details";
 import { QueueSection } from "./QueueSection";
 
 /** Whether the panel is on screen: arrivals play only then, so they're seen. */
@@ -36,19 +37,21 @@ export function Panel() {
   const shown = useShown();
   useTheme(config?.theme);
 
-  // Esc closes the panel, like a menu.
+  // Esc closes the panel, like a menu (a pull request's details take it first, to go back).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !document.querySelector("[data-popup-open]")) void bridge.hidePanel();
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) void bridge.hidePanel();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const [selected, setSelected] = useState<Item | null>(null);
   const open = useCallback((item: Item) => {
     markSeen(item);
-    void bridge.openUrl(item.pr.url);
+    setSelected(item);
   }, []);
+  const openDiff = useCallback((item: Item) => void bridge.openReview(item.pr), []);
   const unread = useCallback((item: Item) => isUnread(item, seen), [seen]);
 
   const queues = config?.queues.filter((q) => q.enabled) ?? [];
@@ -106,6 +109,14 @@ export function Panel() {
           </div>
           <Connect auth={auth} onConnected={() => void reloadAuth()} />
         </div>
+      ) : selected ? (
+        <Details
+          item={selected}
+          queue={config?.queues.find((q) => q.id === selected.queueId)}
+          me={me ?? ""}
+          onBack={() => setSelected(null)}
+          onOpenDiff={openDiff}
+        />
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex flex-col py-1">

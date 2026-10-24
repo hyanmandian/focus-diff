@@ -128,6 +128,106 @@ const config = {
   ],
 };
 
+const details = {
+  squashMergeAllowed: true,
+  mergeCommitAllowed: true,
+  rebaseMergeAllowed: false,
+  pullRequest: {
+    id: "PR_1807",
+    number: 1807,
+    title: "Checkout: keep the promo code when the cart changes",
+    url: "https://github.com/acme/web/pull/1807",
+    bodyHTML:
+      "<p>Changing the cart used to drop the promo code, so people had to type it again. Now the code stays and is checked against the new total.</p><ul><li>Re-validates the code when items change</li><li>Shows why a code stopped applying</li></ul><p>Closes <a href=\"https://github.com/acme/web/issues/1790\">#1790</a>.</p>",
+    isDraft: false,
+    state: "OPEN",
+    mergeable: "MERGEABLE",
+    mergeStateStatus: "CLEAN",
+    viewerDidAuthor: false,
+    viewerCanUpdate: true,
+    baseRefName: "main",
+    headRefName: "ana/keep-promo-code",
+    headRefOid: "abc123",
+    additions: 48,
+    deletions: 12,
+    changedFiles: 3,
+    createdAt: iso(25),
+    reviewDecision: "REVIEW_REQUIRED",
+    author: people.ana,
+    reviewRequests: { nodes: [{ requestedReviewer: { ...people.me } }, { requestedReviewer: { __typename: "Team", name: "Payments", slug: "payments" } }] },
+    latestOpinionatedReviews: { nodes: [{ author: people.bruno, state: "APPROVED" }] },
+    commits: {
+      nodes: [
+        {
+          commit: {
+            statusCheckRollup: {
+              contexts: {
+                nodes: [
+                  { __typename: "CheckRun", name: "Unit tests", conclusion: "SUCCESS", status: "COMPLETED", detailsUrl: "https://github.com/acme/web/actions/runs/1" },
+                  { __typename: "CheckRun", name: "End-to-end", conclusion: null, status: "IN_PROGRESS", detailsUrl: "https://github.com/acme/web/actions/runs/2" },
+                  { __typename: "CheckRun", name: "Lint", conclusion: "SUCCESS", status: "COMPLETED", detailsUrl: null },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
+    files: {
+      nodes: [
+        { path: "src/checkout/cart.ts", additions: 30, deletions: 8, changeType: "MODIFIED" },
+        { path: "src/checkout/promo.ts", additions: 14, deletions: 4, changeType: "MODIFIED" },
+        { path: "src/checkout/promo.test.ts", additions: 4, deletions: 0, changeType: "ADDED" },
+      ],
+    },
+    timelineItems: {
+      nodes: [
+        { __typename: "IssueComment", id: "c1", author: people.bruno, bodyHTML: "<p>Nice, this was bugging support for weeks.</p>", createdAt: iso(15), url: "https://github.com/acme/web/pull/1807#c1" },
+        { __typename: "PullRequestReview", id: "r1", author: people.bruno, state: "APPROVED", bodyHTML: "", createdAt: iso(10), url: "https://github.com/acme/web/pull/1807#r1", comments: { nodes: [] } },
+      ],
+    },
+  },
+};
+
+const reviewFiles = [
+  {
+    filename: "src/checkout/cart.ts",
+    status: "modified",
+    additions: 6,
+    deletions: 2,
+    patch: "@@ -10,6 +10,11 @@ export function updateCart(cart: Cart, items: Item[]) {\n   const next = { ...cart, items };\n-  next.promo = null;\n-  return recalculate(next);\n+  const total = recalculate(next);\n+  if (cart.promo) {\n+    const check = validatePromo(cart.promo, total);\n+    next.promo = check.ok ? cart.promo : null;\n+    next.promoError = check.ok ? null : check.reason;\n+  }\n+  return total;\n }\n \n export function clearCart(cart: Cart) {",
+  },
+  {
+    filename: "src/checkout/promo.test.ts",
+    status: "added",
+    additions: 4,
+    deletions: 0,
+    patch: "@@ -0,0 +1,4 @@\n+test(\"keeps a valid code when the cart changes\", () => {\n+  const cart = updateCart(withPromo(\"SAVE10\"), [item(50)]);\n+  expect(cart.promo).toBe(\"SAVE10\");\n+});",
+  },
+];
+
+const threads = {
+  repository: {
+    pullRequest: {
+      reviewThreads: {
+        pageInfo: { hasNextPage: false, endCursor: null },
+        nodes: [
+          {
+            id: "t1",
+            isResolved: false,
+            isOutdated: false,
+            path: "src/checkout/cart.ts",
+            line: 15,
+            originalLine: 15,
+            diffSide: "RIGHT",
+            comments: { nodes: [{ id: "tc1", databaseId: 1, author: people.bruno, bodyHTML: "<p>Should <code>promoError</code> be cleared when the code is removed by hand?</p>", createdAt: iso(9), url: "https://github.com/acme/web/pull/1807#tc1" }] },
+          },
+        ],
+      },
+    },
+  },
+};
+
 const files: Record<string, string | null> = { config: JSON.stringify(config), state: null };
 const listeners = new Map<number, string>();
 let callbackId = 0;
@@ -142,7 +242,11 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
     case "auth_status":
       return { signed_in: true, source: "gh", login: "you", device_flow: true, gh_available: true };
     case "github": {
-      const body = JSON.parse((args.body as string | null) ?? "{}") as { variables?: Record<string, string> };
+      const path = args.path as string;
+      if (path.includes("/files?")) return { status: 200, body: JSON.stringify(reviewFiles) };
+      const body = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, string> };
+      if (body.query?.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
+      if (body.query?.includes("squashMergeAllowed")) return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       const variables = body.variables ?? {};
       if ("q" in variables) return { status: 200, body: JSON.stringify({ data: { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: merged } } }) };
       const lists = [review, involved, authored];

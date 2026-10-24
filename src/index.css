@@ -176,3 +176,14 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
   .arrive::after { animation: none; background: none; }
   .arrive [data-dot] { animation: arrive-ping 1.2s ease-out 1; }
 }
+
+/* Diffs (@pierre/diffs, in shadow roots, themed through its variables): the system's monospace
+   without ligatures (so != reads as != and -> as ->), and no hatching on the empty side of a change. */
+:root {
+  --diffs-font-family: var(--font-mono);
+  --diffs-header-font-family: var(--font-sans);
+  --diffs-font-size: 12.5px;
+  --diffs-line-height: 21px;
+  --diffs-font-features: "liga" 0, "calt" 0;
+  --diffs-bg-buffer-override: transparent;
+}

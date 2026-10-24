@@ -6,7 +6,7 @@ import { defineConfig } from "vite";
 
 const host = process.env.TAURI_DEV_HOST;
 
-// Two pages: the panel under the tray icon (index.html) and the settings window.
+// Three pages: the panel under the tray icon (index.html), settings, and a pull request's review.
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -18,6 +18,7 @@ export default defineConfig(() => ({
       input: {
         panel: fileURLToPath(new URL("./index.html", import.meta.url)),
         settings: fileURLToPath(new URL("./settings.html", import.meta.url)),
+        review: fileURLToPath(new URL("./review.html", import.meta.url)),
       },
     },
   },

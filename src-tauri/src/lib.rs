@@ -150,6 +150,39 @@ fn open_settings(app: AppHandle) -> Result<(), String> {
     show_settings(&app).map_err(|e| e.to_string())
 }
 
+/// A pull request's diff in its own window, one per pull request, filling the main screen's usable
+/// area (not full screen). Opening one that's already open brings it back.
+#[tauri::command]
+fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String) -> Result<(), String> {
+    // Window labels allow letters, digits and a few separators; GitHub node ids are safe as they are.
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !repo.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c)) {
+        return Err("Bad pull request".into());
+    }
+    let label = format!("review-{id}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.unminimize();
+        window.show().map_err(|e| e.to_string())?;
+        return window.set_focus().map_err(|e| e.to_string());
+    }
+    let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
+    let url = format!("review.html?id={}&repo={}&number={number}", encode(&id), encode(&repo));
+    let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
+        .title(&title)
+        .min_inner_size(720.0, 480.0);
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::LogicalPosition::new(16.0, 22.0));
+    let window = builder.build().map_err(|e| e.to_string())?;
+    if let Some(monitor) = app.primary_monitor().map_err(|e| e.to_string())? {
+        let area = monitor.work_area();
+        let _ = window.set_position(area.position);
+        let _ = window.set_size(area.size);
+    }
+    window.set_focus().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn hide_panel(app: AppHandle) {
     if let Some(panel) = app.get_webview_window(PANEL) {
@@ -276,6 +309,7 @@ pub fn run() {
             open_url,
             tray_update,
             open_settings,
+            open_review,
             hide_panel,
             quit,
         ])

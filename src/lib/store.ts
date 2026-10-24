@@ -228,6 +228,8 @@ export async function start() {
   void refresh(true);
   void bridge.on("tick", () => void refresh());
   void bridge.on("panel-shown", () => void refresh());
+  // A review window approved, commented, merged…
+  void bridge.on("prs-changed", () => void refresh(true));
   void bridge.on<string>("file-changed", (name) => {
     if (name === "config") void reloadConfig();
     if (name === "auth") void reloadAuth();

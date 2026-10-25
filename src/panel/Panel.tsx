@@ -91,6 +91,13 @@ export function Panel() {
   const queue = queues.find((q) => q.id === tab) ?? queues.find((q) => (items[q.id] ?? []).some(unread)) ?? queues[0];
   const [repo, setRepo] = useState("");
   const [draftsOpen, setDraftsOpen] = useState(false);
+  const [update, setUpdate] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
+  useEffect(() => {
+    void bridge.updateOffered().then(setUpdate);
+    const off = bridge.on<string>("update-available", setUpdate);
+    return () => void off.then((f) => f());
+  }, []);
   const choose = (id: string) => {
     setTab(id);
     setRepo("");
@@ -281,7 +288,21 @@ export function Panel() {
           </main>
 
           <footer className="flex h-10 shrink-0 items-center gap-2 px-4 text-xs text-muted-foreground">
-            <p role="status">{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : status.phase === "loading" ? "Checking GitHub…" : ""}</p>
+            {update ? (
+              <button
+                type="button"
+                disabled={updating}
+                className="flex items-center gap-1.5 rounded font-medium text-success outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => {
+                  setUpdating(true);
+                  void bridge.installUpdate().catch(() => setUpdating(false));
+                }}
+              >
+                {updating ? <Loader2 className="size-3 animate-spin" /> : null}
+                {updating ? "Updating…" : `Update to ${update} and restart`}
+              </button>
+            ) : null}
+            <p role="status" className={cn(update && "sr-only")}>{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : status.phase === "loading" ? "Checking GitHub…" : ""}</p>
             {unreadHere ? (
               <button type="button" className="ml-auto rounded font-medium text-unread outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" onClick={() => markQueueSeen(queue.id)}>
                 Mark all as read

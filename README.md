@@ -4,19 +4,21 @@ Your pull request reviews from the menu bar (system tray on Windows and Linux): 
 
 ## What it does
 
-- **Queues you set up.** Each queue is a recipe: pull requests where your review is requested (you or your teams), where you took part, that you opened, that were merged without you, or any GitHub search; in some repositories; changing some files (regular expressions, like Focus Diff's filters); leaving out drafts, bots, authors or labels. Starts with Review, Updates and My PRs.
-- **It tells you.** A notification for what each queue cares about (a new review request, new commits, a reply, a mention, an approval, CI failing or passing again, a conflict), the tray icon's focus animation, and the cards that changed lighting up when you open the panel. Cards stay highlighted until you've clicked them.
-- **Review without GitHub.** A pull request's description, reviewers, checks, conversation and files in the panel; approve, request changes, comment, mark ready, merge. The diff in its own window, with line comments, a pending review, replies, resolving and viewed files.
-- **Your own buttons.** Actions that comment, request or drop reviewers, label, open a link or run a script (asked for once, in a native dialog), on any pull request.
-- **Optional AI, on your own plan.** Your prompts as buttons (summary, problems, explain, missing tests to start), or any question about a pull request, from the coding agent you already use — Claude Code, Codex, Cursor or OpenCode — run on your computer through its own CLI and your own login, with your model, effort and review guidelines. Text only: it can't edit files or run commands. Off by default.
-- **A minute to set up.** First run walks through GitHub, queues, notifications and AI.
+- **Queues you set up.** Each queue is a recipe: pull requests where your review is requested (you or your teams), where you took part, that you opened, that were merged without you, or any GitHub search; in some repositories; changing some files; leaving out drafts, bots, authors or labels. The panel shows them like Focus Diff's popup: a tab per queue, repository chips, rows grouped by repository, and how long a review has been waiting on you.
+- **It tells you.** A notification for what each queue cares about (a new review request, new commits, a reply, a mention, an approval, CI failing or passing again, a conflict), the tray icon's animation, and the rows that changed lighting up when you open the panel.
+- **Review without GitHub.** A click opens the pull request's review window: the diff with line comments, a pending review, replies, resolving and viewed files; the description, reviewers, checks and conversation beside it; approve, request changes, merge, mark ready, leave the review.
+- **Review one part at a time.** Diff filters like Focus Diff's (frontend, backend, code then tests, no generated files…), as chips over the diff.
+- **Your own buttons.** Actions that comment, request or drop reviewers, label, open a link or run a script (asked for once, in a native dialog).
+- **Optional AI, on your own plan.** Claude Code or Cursor, through their own CLIs and your login, read-only. It can read the pull request's whole project, to see where the changed code is used and what it could break, with the repository's own rules. Your prompts as buttons, any question, and an AI review whose comments land on the diff's lines for you to add to your review or dismiss.
+- **A minute to set up**, and updates you choose when to install.
 
 ## Privacy and security
 
 - GitHub's token stays in the system keychain (or with the GitHub CLI) and is only ever sent to `api.github.com`, by the app's Rust side. The web views never see it.
-- Nothing goes anywhere but GitHub — and, when you ask for it, your own AI CLI on your computer.
+- Nothing goes anywhere but GitHub — and, when you ask for it, your own AI CLI on your computer. For the AI to read a project, the pull request's code is fetched into the app's cache folder with git, without your git config (no credential helpers or hooks), and the agent settings in it that would run things (hooks, MCP servers) are deleted first. Checkouts unused for two weeks are removed.
+- Updates are signed: the app installs only what the release key signed, and only when you say so.
 - HTML from GitHub is sanitized with an allowlist on top of a strict Content-Security-Policy. Links open in your browser.
-- Few dependencies, each well known: Tauri and its official plugins, serde, ureq and keyring in Rust; React, Base UI (through shadcn/ui), lucide and @pierre/diffs on the web side. `npm audit` is clean; of the Rust crates, the [OSV](https://osv.dev) database lists only "unmaintained" notices and one unsoundness in `glib` 0.18, all from Tauri's own Linux (GTK) stack and in code paths the app doesn't use.
+- Few dependencies, each well known: Tauri and its official plugins (notifications, opener, dialog, updater), serde, regex, ureq and keyring in Rust; React, Base UI (through shadcn/ui), lucide and @pierre/diffs on the web side. `npm audit` is clean; of the Rust crates, the [OSV](https://osv.dev) database lists only "unmaintained" notices and one unsoundness in `glib` 0.18, all from Tauri's own Linux (GTK) stack and in code paths the app doesn't use.
 
 ## Fast and light
 
@@ -38,9 +40,13 @@ npm run tauri build     # a release build
 
 Signing in with GitHub (device flow) needs an OAuth app's client id at build time: `FOCUS_DIFF_GITHUB_CLIENT_ID=… npm run tauri build`. Without it, the app offers the GitHub CLI's login or a personal access token.
 
+## Releasing
+
+Push a `v*` tag: `.github/workflows/release.yml` builds macOS (one app for Apple Silicon and Intel), Windows and Linux into a draft release with the updater's `latest.json`; publishing the draft ships it. The workflow lists the secrets it needs: the updater's signing key (made with `tauri signer generate`, kept outside the repository), the OAuth client id, and Apple's signing and notarization. The updater reads `https://github.com/hyanmandian/focus-diff/releases/latest/download/latest.json`, where releases will live.
+
 ## Layout
 
-- `src-tauri/src/` — Rust: windows and commands (`lib.rs`), the queue engine and its cache (`engine.rs`, with tests), the refresh loop, notifications and seen state (`watch.rs`), the tray icon (`tray.rs`), GitHub access (`github.rs`), the AI adapters (`ai.rs`), custom actions' commands (`actions.rs`).
+- `src-tauri/src/` — Rust: windows and commands (`lib.rs`), the queue engine and its cache (`engine.rs`, with tests), the refresh loop, notifications and seen state (`watch.rs`), the tray icon (`tray.rs`), GitHub access (`github.rs`), the AI adapters (`ai.rs`) and the project checkouts they read (`checkout.rs`), custom actions' commands (`actions.rs`), updates (`update.rs`).
 - `src/lib/` — config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer.
 - `src/panel/`, `src/settings/`, `src/setup/`, `src/review/` — the four pages.
 - `src/dev/mock.ts` — sample data for working on the pages in a browser; never part of a build.

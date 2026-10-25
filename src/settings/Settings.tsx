@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getVersion } from "@tauri-apps/api/app";
 import { bridge, type AuthStatus } from "@/lib/bridge";
 import { loadConfig, saveConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
@@ -168,9 +169,60 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   );
 }
 
+function Updates() {
+  const [version, setVersion] = useState("");
+  const [state, setState] = useState<{ phase: "idle" | "checking" | "installing" } | { phase: "found"; version: string } | { phase: "latest" | "error"; message?: string }>({ phase: "idle" });
+  useEffect(() => {
+    void getVersion().then(setVersion);
+    void bridge.updateOffered().then((v) => v && setState({ phase: "found", version: v }));
+  }, []);
+  const check = async () => {
+    setState({ phase: "checking" });
+    try {
+      const found = await bridge.checkUpdate();
+      setState(found ? { phase: "found", version: found } : { phase: "latest" });
+    } catch (e) {
+      setState({ phase: "error", message: typeof e === "string" ? e : String(e) });
+    }
+  };
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <Label className="text-[13px]">Focus Diff {version}</Label>
+        <p className="text-xs text-muted-foreground">
+          {state.phase === "found"
+            ? `Version ${state.version} is out.`
+            : state.phase === "latest"
+              ? "You have the latest version."
+              : state.phase === "error"
+                ? `Couldn't check: ${state.message}`
+                : "Checks for updates on its own; you choose when to install."}
+        </p>
+      </div>
+      {state.phase === "found" || state.phase === "installing" ? (
+        <Button
+          size="sm"
+          disabled={state.phase === "installing"}
+          onClick={() => {
+            setState({ phase: "installing" });
+            void bridge.installUpdate().catch((e: unknown) => setState({ phase: "error", message: String(e) }));
+          }}
+        >
+          {state.phase === "installing" ? <Loader2 className="animate-spin" /> : null} Update and restart
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" disabled={state.phase === "checking"} onClick={() => void check()}>
+          {state.phase === "checking" ? <Loader2 className="animate-spin" /> : null} Check for updates
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function General({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   return (
     <div className="flex max-w-lg flex-col gap-6 p-6">
+      <Updates />
       <div className="flex items-center justify-between gap-4">
         <div>
           <Label className="text-[13px]">Check GitHub every</Label>

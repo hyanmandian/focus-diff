@@ -12,6 +12,7 @@ mod config;
 mod engine;
 mod github;
 mod tray;
+mod update;
 mod watch;
 
 use std::fs;
@@ -318,6 +319,21 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
 }
 
 #[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
+    update::check(&app).await
+}
+
+#[tauri::command]
+fn update_offered(app: AppHandle) -> Option<String> {
+    update::offered(&app)
+}
+
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    update::install(&app).await
+}
+
+#[tauri::command]
 fn hide_panel(app: AppHandle) {
     hide(&app);
 }
@@ -488,6 +504,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(update::Pending::default())
         .manage(github::Auth::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
@@ -514,6 +532,9 @@ pub fn run() {
             open_settings,
             open_setup,
             open_panel,
+            check_update,
+            update_offered,
+            install_update,
             open_review,
             hide_panel,
             log,
@@ -538,6 +559,7 @@ pub fn run() {
             let icon = create_tray(&handle)?;
             *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
+            update::watch(&handle);
             if let Ok(cache) = handle.path().app_cache_dir() {
                 thread::spawn(move || checkout::sweep(&cache));
             }

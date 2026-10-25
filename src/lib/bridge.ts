@@ -95,6 +95,12 @@ export const bridge = {
       teams,
       title: `#${pr.number} · ${pr.title} · ${pr.author?.name?.trim().split(/\s+/)[0] || pr.author?.login || ""}`,
     }),
+  /** A newer version, if there is one (checking GitHub's releases now). */
+  checkUpdate: () => invoke<string | null>("check_update"),
+  /** The newer version found by the last check, if any. */
+  updateOffered: () => invoke<string | null>("update_offered"),
+  /** Downloads and installs it, then restarts. */
+  installUpdate: () => invoke<void>("install_update"),
   hidePanel: () => invoke<void>("hide_panel"),
   quit: () => invoke<void>("quit"),
 

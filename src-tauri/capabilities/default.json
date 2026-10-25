@@ -5,6 +5,7 @@
   "windows": [
     "panel",
     "settings",
+    "setup",
     "review-*"
   ],
   "permissions": [

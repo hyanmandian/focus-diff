@@ -241,7 +241,7 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
             <div className="flex max-w-sm flex-col items-center gap-2">
               <Zap className="size-5 text-muted-foreground" aria-hidden />
               <p className="text-sm font-medium">Your own buttons on pull requests</p>
-              <p className="text-sm text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in the panel and the review window.</p>
+              <p className="text-sm text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
             </div>
           </div>
         )}

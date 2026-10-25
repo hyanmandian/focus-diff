@@ -260,8 +260,10 @@ export const FILTER_RECIPES: Array<{ title: string; description: string; filters
   { title: "Docs", description: "Markdown and documentation.", filters: [{ name: "Docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }] },
 ];
 
+/** Fixed ids: until the person changes them, the defaults are made again each time the file is
+ *  read, and the review window remembers a repository's filter by id. */
 export function defaultFilters(): DiffFilter[] {
-  return [...FILTER_RECIPES[0]!.filters, ...FILTER_RECIPES[2]!.filters].map((f) => ({ ...f, id: newId() }));
+  return [...FILTER_RECIPES[0]!.filters, ...FILTER_RECIPES[2]!.filters].map((f) => ({ ...f, id: f.name.toLowerCase().replace(/\W+/g, "-") }));
 }
 
 /** Whether a file is in a filter. */

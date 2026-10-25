@@ -6,6 +6,7 @@ import { memo, useEffect, useRef, type ReactNode } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bridge } from "@/lib/bridge";
 import type { Queue } from "@/lib/config";
+import { avatar } from "@/lib/avatar";
 import { ago, EVENTS, firstName, STATUS } from "@/lib/copy";
 import type { Actor, Item } from "@/lib/engine";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ function Avatar({ actor }: { actor: Actor }) {
   return (
     <span className="relative grid size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-muted text-[11px] font-bold text-muted-foreground" aria-hidden>
       {(actor?.login ?? "?").charAt(0).toUpperCase()}
-      {actor?.avatarUrl ? <img src={actor.avatarUrl} alt="" className="absolute inset-0 size-full" referrerPolicy="no-referrer" /> : null}
+      {actor?.avatarUrl ? <img src={avatar(actor.avatarUrl)} alt="" width={24} height={24} decoding="async" className="absolute inset-0 size-full" referrerPolicy="no-referrer" /> : null}
     </span>
   );
 }

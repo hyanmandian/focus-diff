@@ -162,7 +162,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               {PROVIDERS[selected].efforts.length ? (
                 <Select value={ai.effort} onValueChange={(v) => setAi({ effort: (v ?? "") as Effort | "" })} items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: EFFORT_LABELS[e] }))}>
                   <SelectTrigger id={effortId} className="w-full">
-                    <SelectValue />
+                    <SelectValue>{(v: Effort | "") => EFFORT_LABELS[v]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {PROVIDERS[selected].efforts.map((e) => (

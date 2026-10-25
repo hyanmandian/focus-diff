@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PROVIDERS, type AiReview } from "@/lib/ai";
+import { avatar } from "@/lib/avatar";
 import { bridge } from "@/lib/bridge";
 import type { Config } from "@/lib/config";
 import { ago, firstName } from "@/lib/copy";
@@ -19,7 +20,7 @@ import { AskAi } from "@/shared/AskAi";
 function Person({ actor, className }: { actor: Actor; className?: string }) {
   return (
     <Avatar className={cn("size-5", className)}>
-      {actor?.avatarUrl ? <AvatarImage src={actor.avatarUrl} alt="" /> : null}
+      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
       <AvatarFallback className="text-[9px]">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
   );

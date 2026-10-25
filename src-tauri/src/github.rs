@@ -92,7 +92,7 @@ pub struct Status {
 
 /// One client for the app's life, so connections to GitHub are kept open and reused instead of
 /// a new TLS handshake per request.
-fn agent() -> &'static ureq::Agent {
+pub(crate) fn agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
     AGENT.get_or_init(|| {
         ureq::Agent::config_builder()

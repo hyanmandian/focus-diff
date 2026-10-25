@@ -7,8 +7,11 @@
 
 mod actions;
 mod ai;
+mod avatars;
 mod checkout;
 mod config;
+#[cfg(any(debug_assertions, feature = "devctl"))]
+mod devctl;
 mod engine;
 mod github;
 mod tray;
@@ -40,7 +43,7 @@ const PANEL_SIZE: (f64, f64) = (420.0, 600.0);
 /// and its memory given back, and the next click makes a new one.
 const PANEL_KEEP: Duration = Duration::from_secs(3 * 60);
 
-struct Tray<R: Runtime>(Mutex<Option<TrayIcon<R>>>);
+pub(crate) struct Tray<R: Runtime>(pub(crate) Mutex<Option<TrayIcon<R>>>);
 
 // MARK: Files
 
@@ -243,12 +246,18 @@ async fn run_action(app: AppHandle, action: String, name: String, step: usize, p
 // MARK: System
 
 pub(crate) fn show_notification<R: Runtime>(app: &AppHandle<R>, title: String, body: String, sound: bool) {
+    if cfg!(any(debug_assertions, feature = "devctl")) {
+        eprintln!("[notify] {title} | {} | sound {sound}", body.replace('\n', " / "));
+    }
     let builder = app.notification().builder().title(title).body(body);
     let builder = if sound { builder.sound("default") } else { builder };
     let _ = builder.show();
 }
 
 pub(crate) fn update_tray<R: Runtime>(app: &AppHandle<R>, count: u32, animate: bool) {
+    if cfg!(any(debug_assertions, feature = "devctl")) {
+        eprintln!("[tray] {count} waiting, animate {animate}");
+    }
     if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
         tray::update(app, icon, count, animate);
     }
@@ -341,7 +350,7 @@ fn hide_panel(app: AppHandle) {
 /// Development only: the web views' errors in the terminal that runs `tauri dev`.
 #[tauri::command]
 fn log(window: tauri::Window, message: String) {
-    if cfg!(debug_assertions) {
+    if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[{}] {}", window.label(), message.chars().take(2000).collect::<String>());
     }
 }
@@ -353,7 +362,7 @@ fn quit(app: AppHandle) {
 
 // MARK: Windows
 
-fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETTINGS) {
         window.show()?;
         return window.set_focus();
@@ -368,7 +377,7 @@ fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 /// First run (or "Run setup again"): connect GitHub, pick queues, notifications, AI.
-fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETUP) {
         window.show()?;
         return window.set_focus();
@@ -408,7 +417,7 @@ fn place_panel<R: Runtime>(panel: &tauri::WebviewWindow<R>, rect: &Rect) -> taur
 /// Bumped whenever the panel shows or hides, so only the latest hide closes it.
 static PANEL_GENERATION: AtomicU64 = AtomicU64::new(0);
 
-fn hide<R: Runtime>(app: &AppHandle<R>) {
+pub(crate) fn hide<R: Runtime>(app: &AppHandle<R>) {
     let Some(panel) = app.get_webview_window(PANEL) else { return };
     let _ = panel.hide();
     let generation = PANEL_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
@@ -425,7 +434,7 @@ fn hide<R: Runtime>(app: &AppHandle<R>) {
     });
 }
 
-fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri::Result<()> {
+pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri::Result<()> {
     let panel = match app.get_webview_window(PANEL) {
         Some(panel) if panel.is_visible()? => {
             hide(app);
@@ -505,6 +514,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .register_asynchronous_uri_scheme_protocol("avatar", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            thread::spawn(move || responder.respond(avatars::serve(&app, &request)));
+        })
         .manage(update::Pending::default())
         .manage(github::Auth::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
@@ -560,8 +573,14 @@ pub fn run() {
             *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
             update::watch(&handle);
+            #[cfg(any(debug_assertions, feature = "devctl"))]
+            devctl::start(&handle);
             if let Ok(cache) = handle.path().app_cache_dir() {
-                thread::spawn(move || checkout::sweep(&cache));
+                let app = handle.clone();
+                thread::spawn(move || {
+                    checkout::sweep(&cache);
+                    avatars::sweep(&app);
+                });
             }
             // No setup yet: the first thing to see is how to start.
             if file_path(&handle, "config").is_ok_and(|p| !p.exists()) {
@@ -576,6 +595,13 @@ pub fn run() {
                     hide(window.app_handle());
                 }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Focus Diff");
+        .build(tauri::generate_context!())
+        .expect("error while running Focus Diff")
+        .run(|_, event| {
+            // A tray app lives on with no window open (the panel's web view is closed when it's
+            // not in use): only Quit, which exits with a code, ends it.
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+                api.prevent_exit();
+            }
+        });
 }

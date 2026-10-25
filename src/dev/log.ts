@@ -9,6 +9,10 @@ export function forwardErrors() {
     original(...args);
     send(args.map((a) => (a instanceof Error ? `${a.message}\n${a.stack}` : typeof a === "string" ? a : JSON.stringify(a))).join(" "));
   };
-  window.addEventListener("error", (e) => send(`${e.message} at ${e.filename}:${e.lineno}`));
+  // The browser's note that a ResizeObserver callback resized something again (the virtualized
+  // diff does, as comments open); harmless, and not an error in the page.
+  window.addEventListener("error", (e) => {
+    if (!e.message.startsWith("ResizeObserver loop")) send(`${e.message} at ${e.filename}:${e.lineno}`);
+  });
   window.addEventListener("unhandledrejection", (e) => send(`Unhandled: ${e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack}` : String(e.reason)}`));
 }

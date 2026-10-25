@@ -43,6 +43,9 @@ export const STATUS: Record<NonNullable<Item["status"]>, { tag: string; long: st
   MENTIONED: { tag: "Mention", long: "You were mentioned", tone: "blue" },
 };
 
+/** "30 seconds", "3 minutes": a refresh interval. */
+export const interval = (seconds: number) => (seconds < 120 ? `${seconds} seconds` : `${seconds / 60} minutes`);
+
 export function ago(t: number, now = Date.now()): string {
   const s = Math.max(0, (now - t) / 1000);
   if (s < 60) return "now";

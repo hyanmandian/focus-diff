@@ -30,6 +30,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls"] }
 tokio = { version = "1", default-features = false, features = ["time"] }
 
+[features]
+# Development only: the devctl test driver in a release build, to measure it (never shipped).
+devctl = []
+
 [profile.release]
 codegen-units = 1
 lto = true

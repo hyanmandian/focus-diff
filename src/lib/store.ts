@@ -106,4 +106,6 @@ export async function start() {
   const [config, live] = await Promise.all([loadConfig(), bridge.snapshot<Live>()]);
   set({ config });
   await follow(live);
+  // When the panel had its queues to show, for measuring how fast it opens.
+  performance.mark("ready");
 }

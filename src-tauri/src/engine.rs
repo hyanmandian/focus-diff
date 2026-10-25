@@ -337,7 +337,9 @@ fn quote(s: &str) -> String {
 }
 
 /// The GitHub search for a queue. What search can't express (paths, teams…) is filtered after.
-pub fn search_for(queue: &Queue, me: &str, now: i64) -> String {
+/// `orgs`: the person's organizations, where a merged queue with no repositories looks (merged
+/// pull requests anywhere on GitHub would be millions).
+pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String {
     let mut parts: Vec<String> = vec!["is:pr".into(), "archived:false".into()];
     match queue.kind {
         Kind::Review => parts.extend(["is:open".into(), format!("review-requested:{me}")]),
@@ -365,6 +367,10 @@ pub fn search_for(queue: &Queue, me: &str, now: i64) -> String {
             None => format!("repo:{repo}"),
         });
     }
+    if queue.kind == Kind::Merged && queue.repos.is_empty() {
+        parts.push(format!("user:{me}"));
+        parts.extend(orgs.iter().map(|o| format!("org:{o}")));
+    }
     if queue.drafts == Drafts::Hide && queue.kind != Kind::Merged {
         parts.push("draft:false".into());
     }
@@ -387,6 +393,12 @@ pub struct Failure {
 }
 
 impl Failure {
+    /// GitHub asking to slow down (its secondary rate limits, or the hourly one run out).
+    pub fn rate_limited(&self) -> bool {
+        let m = self.message.to_lowercase();
+        self.status == 429 || m.contains("rate limit")
+    }
+
     /// GitHub refuses queries that would cost it too much: a smaller one may still go through.
     fn too_big(&self) -> bool {
         let m = self.message.to_lowercase();
@@ -400,12 +412,14 @@ pub trait Gql: Sync {
     fn query(&self, query: &str, variables: Value) -> Result<Value, Failure>;
 }
 
-const OPEN_PAGE: usize = 50;
-const MERGED_PAGE: usize = 100;
-const MERGED_PAGES: usize = 4;
+/// Light searches are cheap: whole queues, a hundred at a time, up to a few hundred.
+const PAGE: usize = 100;
+const OPEN_PAGES: usize = 3;
+const MERGED_PAGES: usize = 2;
 /// Full pull requests per request, and requests at once.
 const BATCH: usize = 10;
-const PARALLEL: usize = 6;
+/// GitHub's secondary rate limits are about bursts: full pull requests are costly to it.
+const PARALLEL: usize = 3;
 
 /// One page of a light search: (pull requests, next page's cursor).
 fn search_page(gql: &dyn Gql, q: &str, checks: bool, size: usize, after: Option<&str>) -> Result<(Vec<Light>, Option<String>), Failure> {
@@ -432,15 +446,13 @@ fn search_page(gql: &dyn Gql, q: &str, checks: bool, size: usize, after: Option<
     Ok((prs, next))
 }
 
-fn search(gql: &dyn Gql, queue: &Queue, me: &str, now: i64) -> Result<Vec<Light>, Failure> {
-    let q = search_for(queue, me, now);
-    if queue.kind != Kind::Merged {
-        return Ok(search_page(gql, &q, queue.kind == Kind::Authored, OPEN_PAGE, None)?.0);
-    }
+fn search(gql: &dyn Gql, queue: &Queue, me: &str, now: i64, orgs: &[String]) -> Result<Vec<Light>, Failure> {
+    let q = search_for(queue, me, now, orgs);
+    let pages = if queue.kind == Kind::Merged { MERGED_PAGES } else { OPEN_PAGES };
     let mut found = Vec::new();
     let mut after: Option<String> = None;
-    for _ in 0..MERGED_PAGES {
-        let (prs, next) = search_page(gql, &q, false, MERGED_PAGE, after.as_deref())?;
+    for _ in 0..pages {
+        let (prs, next) = search_page(gql, &q, queue.kind == Kind::Authored, PAGE, after.as_deref())?;
         found.extend(prs);
         match next {
             Some(cursor) => after = Some(cursor),
@@ -506,6 +518,19 @@ pub struct Cache {
     /// When every pull request was last fetched in full (ms).
     #[serde(default)]
     pub full_at: i64,
+    /// The person's organizations, for merged queues with no repositories, and when they were read.
+    #[serde(default)]
+    pub orgs: Vec<String>,
+    #[serde(default)]
+    pub orgs_at: i64,
+}
+
+const ORGS_EVERY: i64 = 24 * 3600 * 1000;
+
+/// The organizations the person belongs to (needs the read:org scope; none without it).
+fn organizations(gql: &dyn Gql) -> Result<Vec<String>, Failure> {
+    let data = gql.query("query { viewer { organizations(first: 100) { nodes { login } } } }", json!({}))?;
+    Ok(data["viewer"]["organizations"]["nodes"].as_array().map(|n| n.iter().filter_map(|o| o["login"].as_str().map(String::from)).collect()).unwrap_or_default())
 }
 
 pub const MERGED_EVERY: i64 = 5 * 60_000;
@@ -518,6 +543,14 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     if cache.me != me || cache.version != CACHE_VERSION {
         *cache = Cache { version: CACHE_VERSION, me: me.to_string(), ..Cache::default() };
     }
+    if queues.iter().any(|q| q.kind == Kind::Merged && q.repos.is_empty()) && now - cache.orgs_at > ORGS_EVERY {
+        // Kept as they were if GitHub can't say now.
+        if let Ok(orgs) = organizations(gql) {
+            cache.orgs = orgs;
+            cache.orgs_at = now;
+        }
+    }
+    let orgs = cache.orgs.clone();
     // 1. The light searches, all at once.
     let due: Vec<&Queue> = queues
         .iter()
@@ -527,11 +560,12 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
                 return true;
             }
             let list = cache.lists.get(&q.id);
-            list.is_none_or(|l| l.search != search_for(q, me, now) || now - l.at > MERGED_EVERY)
+            list.is_none_or(|l| l.search != search_for(q, me, now, &orgs) || now - l.at > MERGED_EVERY)
         })
         .collect();
     let results: Vec<Result<Vec<Light>, Failure>> = std::thread::scope(|s| {
-        let handles: Vec<_> = due.iter().map(|q| s.spawn(move || search(gql, q, me, now))).collect();
+        let orgs = &orgs;
+        let handles: Vec<_> = due.iter().map(|q| s.spawn(move || search(gql, q, me, now, orgs))).collect();
         handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(Failure { status: 0, message: "Searching failed".into() }))).collect()
     });
     let mut fresh: HashMap<String, String> = HashMap::new();
@@ -544,7 +578,7 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
                 fresh.insert(light.id.clone(), fingerprint);
             }
         }
-        cache.lists.insert(queue.id.clone(), List { search: search_for(queue, me, now), ids: found.into_iter().map(|l| l.id).collect(), at: now });
+        cache.lists.insert(queue.id.clone(), List { search: search_for(queue, me, now, &orgs), ids: found.into_iter().map(|l| l.id).collect(), at: now });
     }
     let wanted: HashSet<&str> = queues.iter().map(|q| q.id.as_str()).collect();
     cache.lists.retain(|id, _| wanted.contains(id.as_str()));
@@ -552,6 +586,11 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     // 2. What each pull request needs: files for path filters (and merged queues, to show them),
     //    review requests for merged queues that ask.
     let mut needs: HashMap<String, (bool, bool)> = HashMap::new();
+    // The full pass is for open pull requests: merged ones don't change in ways the rules read.
+    let mut open: HashSet<&str> = HashSet::new();
+    for queue in queues.iter().filter(|q| q.kind != Kind::Merged) {
+        open.extend(cache.lists.get(&queue.id).map(|l| l.ids.iter().map(String::as_str).collect::<Vec<_>>()).unwrap_or_default());
+    }
     for queue in queues {
         let files = queue.needs_files() || queue.kind == Kind::Merged;
         let requests = queue.kind == Kind::Review || (queue.kind == Kind::Merged && queue.requested_only);
@@ -567,7 +606,7 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     for (id, &(files, requests)) in &needs {
         let changed = match cache.prs.get(id) {
             None => true,
-            Some(c) => (full && fresh.contains_key(id)) || fresh.get(id).is_some_and(|f| *f != c.fingerprint) || (files && !c.files) || (requests && !c.requests),
+            Some(c) => (full && open.contains(id.as_str()) && fresh.contains_key(id)) || fresh.get(id).is_some_and(|f| *f != c.fingerprint) || (files && !c.files) || (requests && !c.requests),
         };
         if changed {
             stale.entry((files, requests)).or_default().push(id.clone());
@@ -1069,22 +1108,30 @@ mod tests {
     }
 
     #[test]
+    fn merged_queues_without_repositories_look_in_your_organizations() {
+        let q = search_for(&queue(Kind::Merged, json!({})), ME, T0, &["acme".into(), "labs".into()]);
+        assert!(q.contains("user:me org:acme org:labs"), "{q}");
+        assert!(!search_for(&queue(Kind::Merged, json!({ "repos": ["acme/web"] })), ME, T0, &["acme".into()]).contains("org:"));
+    }
+
+    #[test]
     fn searches() {
-        assert!(search_for(&queue(Kind::Review, json!({})), ME, T0).contains("review-requested:me"));
-        assert!(search_for(&queue(Kind::Involved, json!({})), ME, T0).contains("involves:me -author:me"));
-        assert!(search_for(&queue(Kind::Authored, json!({})), ME, T0).contains("author:me"));
-        let merged = search_for(&queue(Kind::Merged, json!({ "mergedDays": 7 })), ME, T0 + 7 * 86_400_000);
+        assert!(search_for(&queue(Kind::Review, json!({})), ME, T0, &[]).contains("review-requested:me"));
+        assert!(search_for(&queue(Kind::Involved, json!({})), ME, T0, &[]).contains("involves:me -author:me"));
+        assert!(search_for(&queue(Kind::Authored, json!({})), ME, T0, &[]).contains("author:me"));
+        let merged = search_for(&queue(Kind::Merged, json!({ "mergedDays": 7 })), ME, T0 + 7 * 86_400_000, &[]);
         assert!(merged.contains("is:merged merged:>=2026-01-01 -author:me -reviewed-by:me"), "{merged}");
-        assert!(!search_for(&queue(Kind::Merged, json!({ "skipIfI": "approved" })), ME, T0).contains("reviewed-by"));
+        assert!(!search_for(&queue(Kind::Merged, json!({ "skipIfI": "approved" })), ME, T0, &[]).contains("reviewed-by"));
         let q = search_for(
             &queue(Kind::Review, json!({ "repos": ["acme/web", "acme/*"], "drafts": "hide", "includeLabels": ["needs review"], "excludeLabels": ["wip"], "excludeAuthors": ["dependabot"] })),
             ME,
             T0,
+            &[],
         );
         for part in ["repo:acme/web", "user:acme", "draft:false", "label:\"needs review\"", "-label:wip", "-author:dependabot"] {
             assert!(q.contains(part), "{q} has {part}");
         }
-        assert!(search_for(&queue(Kind::Custom, json!({ "query": "is:issue label:bug" })), ME, T0).starts_with("is:pr archived:false label:bug"));
+        assert!(search_for(&queue(Kind::Custom, json!({ "query": "is:issue label:bug" })), ME, T0, &[]).starts_with("is:pr archived:false label:bug"));
     }
 
     #[test]
@@ -1268,13 +1315,13 @@ mod tests {
             ]),
             calls: Mutex::new(vec![]),
         };
-        let found = search(&script, &queue(Kind::Review, json!({})), ME, T0).unwrap();
+        let found = search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap();
         assert_eq!(found.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(), ["PR_A"]);
         let sizes: Vec<u64> = script.calls.lock().unwrap().iter().map(|v| v["size"].as_u64().unwrap()).collect();
-        assert_eq!(sizes, [50, 25, 12]);
+        assert_eq!(sizes, [100, 50, 25]);
 
         let script = Script { replies: Mutex::new(vec![Err(Failure { status: 401, message: "Bad credentials".into() })]), calls: Mutex::new(vec![]) };
-        assert_eq!(search(&script, &queue(Kind::Review, json!({})), ME, T0).unwrap_err().status, 401);
+        assert_eq!(search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap_err().status, 401);
     }
 
     #[test]

@@ -119,7 +119,10 @@ export function Panel() {
   }, []);
 
   const list = queue ? (items[queue.id] ?? []) : [];
-  const repos = [...new Set(list.map((i) => i.pr.repository.nameWithOwner))];
+  // The busiest repositories first.
+  const repos = [...new Set(list.map((i) => i.pr.repository.nameWithOwner))].sort(
+    (a, b) => list.filter((i) => i.pr.repository.nameWithOwner === b).length - list.filter((i) => i.pr.repository.nameWithOwner === a).length || a.localeCompare(b),
+  );
   const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
   // Within a repository: asked again first, then news, then the most recently active; drafts apart.
   const at = (i: Item) => Math.max(...i.events.map((e) => e.at), Date.parse(i.pr.updatedAt));

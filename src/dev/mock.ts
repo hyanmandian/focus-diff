@@ -327,6 +327,8 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
 }
 
 export function installMock() {
+  // Pictures come straight from GitHub here: there's no app to keep them (lib/avatar.ts).
+  (window as unknown as { __mock: boolean }).__mock = true;
   (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
     invoke,
     transformCallback: () => ++callbackId,

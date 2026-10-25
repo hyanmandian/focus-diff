@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Finding } from "@/lib/ai";
+import { avatar } from "@/lib/avatar";
 import { bridge } from "@/lib/bridge";
 import { ago, firstName } from "@/lib/copy";
 import type { Actor } from "@/lib/engine";
@@ -18,7 +19,7 @@ import { AiAnswer } from "@/shared/AiAnswer";
 function Person({ actor }: { actor: Actor }) {
   return (
     <Avatar className="size-5">
-      {actor?.avatarUrl ? <AvatarImage src={actor.avatarUrl} alt="" /> : null}
+      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
       <AvatarFallback className="text-[9px]">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
   );

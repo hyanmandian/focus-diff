@@ -3,6 +3,7 @@
 // can be changed later in Settings; the choices here are saved when you finish.
 
 import { ArrowLeft, Check, ExternalLink, Loader2 } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { PROVIDERS } from "@/lib/ai";
 import { bridge, type AiStatus, type AuthStatus } from "@/lib/bridge";
 import { AI_PROVIDERS, loadConfig, saveConfig, TEMPLATES, type AiProvider, type Config, type QueueKind } from "@/lib/config";
+import { interval } from "@/lib/copy";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { TagInput } from "@/settings/TagInput";
@@ -90,7 +92,7 @@ export function Setup() {
     setSaving(true);
     await saveConfig(finalConfig());
     await bridge.openPanel();
-    window.close();
+    await getCurrentWindow().close();
   };
 
   const canContinue = step === 0 ? Boolean(auth?.signed_in) : step === 1 ? kinds.size > 0 : true;
@@ -171,12 +173,12 @@ export function Setup() {
               </div>
               <Select value={String(config.pollSeconds)} onValueChange={(v) => setConfig({ ...config, pollSeconds: Number(v) })}>
                 <SelectTrigger className="w-36" aria-label="Check GitHub every">
-                  <SelectValue />
+                  <SelectValue>{(v: string) => interval(Number(v))}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {[30, 60, 90, 180, 300, 600].map((s) => (
                     <SelectItem key={s} value={String(s)}>
-                      {s < 120 ? `${s} seconds` : `${s / 60} minutes`}
+                      {interval(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>

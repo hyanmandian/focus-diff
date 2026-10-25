@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getVersion } from "@tauri-apps/api/app";
 import { bridge, type AuthStatus } from "@/lib/bridge";
 import { loadConfig, saveConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/lib/config";
+import { interval } from "@/lib/copy";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Connect } from "@/shared/Connect";
@@ -169,6 +170,8 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   );
 }
 
+const THEMES: Record<Config["theme"], string> = { system: "Like the system", light: "Light", dark: "Dark" };
+
 function Updates() {
   const [version, setVersion] = useState("");
   const [state, setState] = useState<{ phase: "idle" | "checking" | "installing" } | { phase: "found"; version: string } | { phase: "latest" | "error"; message?: string }>({ phase: "idle" });
@@ -182,7 +185,9 @@ function Updates() {
       const found = await bridge.checkUpdate();
       setState(found ? { phase: "found", version: found } : { phase: "latest" });
     } catch (e) {
-      setState({ phase: "error", message: typeof e === "string" ? e : String(e) });
+      // The updater's own words are technical; the gist is enough.
+      const detail = typeof e === "string" ? e : String(e);
+      setState({ phase: "error", message: /release JSON|fetch|network|connect/i.test(detail) ? "no published release could be reached" : detail });
     }
   };
   return (
@@ -230,12 +235,12 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
         </div>
         <Select value={String(config.pollSeconds)} onValueChange={(v) => onChange({ ...config, pollSeconds: Number(v) })}>
           <SelectTrigger className="w-36" aria-label="Refresh interval">
-            <SelectValue />
+            <SelectValue>{(v: string) => interval(Number(v))}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {[30, 60, 90, 180, 300, 600].map((s) => (
               <SelectItem key={s} value={String(s)}>
-                {s < 120 ? `${s} seconds` : `${s / 60} minutes`}
+                {interval(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -245,12 +250,14 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
         <Label className="text-[13px]">Appearance</Label>
         <Select value={config.theme} onValueChange={(v) => onChange({ ...config, theme: v as Config["theme"] })}>
           <SelectTrigger className="w-36" aria-label="Appearance">
-            <SelectValue />
+            <SelectValue>{(v: string) => THEMES[v as Config["theme"]]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="system">Like the system</SelectItem>
-            <SelectItem value="light">Light</SelectItem>
-            <SelectItem value="dark">Dark</SelectItem>
+            {(Object.keys(THEMES) as Array<Config["theme"]>).map((t) => (
+              <SelectItem key={t} value={t}>
+                {THEMES[t]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

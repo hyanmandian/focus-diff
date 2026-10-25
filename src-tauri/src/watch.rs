@@ -41,6 +41,14 @@ struct Persisted {
     ci: HashMap<String, CiMemo>,
     /// "queueId:prId" taken off a queue by hand: merged ones marked as seen, others ignored.
     dismissed: HashMap<String, bool>,
+    /// Each queue's search last time: a queue that's new or searches differently starts quietly,
+    /// its first results the baseline rather than a burst of notifications.
+    searches: HashMap<String, String>,
+}
+
+/// A queue's search without the date a merged queue moves along each day.
+fn search_key(search: &str) -> String {
+    search.split(' ').filter(|p| !p.starts_with("merged:>=")).collect::<Vec<_>>().join(" ")
 }
 
 #[derive(Clone, Serialize)]
@@ -65,7 +73,13 @@ struct State {
     last_count: Option<usize>,
     /// GitHub couldn't be reached to tell who's signed in: asked again before the next refresh.
     auth_unknown: bool,
+    /// GitHub asked to slow down: no refresh before this (ms), and how long the last wait was.
+    retry_at: i64,
+    backoff: i64,
 }
+
+const FIRST_BACKOFF: i64 = 5 * 60_000;
+const LONGEST_BACKOFF: i64 = 30 * 60_000;
 
 pub struct Watch {
     sender: Sender<Message>,
@@ -188,6 +202,8 @@ impl Watch {
             arrivals: HashSet::new(),
             last_count: None,
             auth_unknown: false,
+            retry_at: 0,
+            backoff: 0,
         }));
         let watch = Watch { sender, state: state.clone() };
         let app = app.clone();
@@ -280,6 +296,27 @@ impl Watch {
         });
     }
 
+    /// Development only (devctl): forgets having seen the latest events of `n` pull requests, so
+    /// the next refresh finds them new.
+    #[cfg(any(debug_assertions, feature = "devctl"))]
+    pub fn forget(&self, n: usize) -> Vec<String> {
+        let mut state = self.state.lock().unwrap();
+        let picked: Vec<(String, Vec<String>)> = state
+            .items
+            .iter()
+            .flat_map(|(_, items)| items.iter())
+            .filter(|i| i.events.iter().any(|e| e.kind != engine::NEW))
+            .take(n)
+            .map(|i| (i.pr.title.clone(), i.events.iter().filter(|e| e.kind != engine::NEW).map(|e| e.key.clone()).collect()))
+            .collect();
+        let forget: HashSet<String> = picked.iter().flat_map(|(_, keys)| keys.iter().cloned()).collect();
+        if let Some(keys) = &mut state.persisted.keys {
+            keys.retain(|k| !forget.contains(k));
+        }
+        state.persisted.seen.retain(|k, _| !forget.contains(k));
+        picked.into_iter().map(|(title, _)| title).collect()
+    }
+
     pub fn clear_arrival<R: Runtime>(&self, app: &AppHandle<R>, pr_id: &str) {
         let removed = self.state.lock().unwrap().arrivals.remove(pr_id);
         if removed {
@@ -357,7 +394,7 @@ impl<R: Runtime> Worker<R> {
         let (config, me, mut cache, full) = {
             let mut state = self.state.lock().unwrap();
             let (Some(config), Some(me)) = (state.config.clone(), state.me.clone()) else { return };
-            if state.auth_unknown {
+            if state.auth_unknown || now() < state.retry_at {
                 return;
             }
             let fresh = now() - state.status.updated_at < (config.poll_seconds * 1000) as i64 - 5_000;
@@ -374,7 +411,7 @@ impl<R: Runtime> Worker<R> {
         let queues: Vec<&crate::config::Queue> = config.enabled().collect();
         let started = std::time::Instant::now();
         let result = engine::sync(&Github(&auth), &queues, &me, &mut cache, force, full, now());
-        if cfg!(debug_assertions) {
+        if cfg!(any(debug_assertions, feature = "devctl")) {
             let fetched = result.as_ref().map(|n| n.to_string()).unwrap_or_else(|e| e.message.clone());
             eprintln!("[watch] refresh (force {force}, full {full}) in {:?}: {fetched} fetched in full, {} known", started.elapsed(), cache.prs.len());
         }
@@ -383,6 +420,7 @@ impl<R: Runtime> Worker<R> {
         state.cache = cache;
         match result {
             Ok(_) => {
+                state.backoff = 0;
                 if full {
                     state.cache.full_at = now();
                 }
@@ -391,7 +429,18 @@ impl<R: Runtime> Worker<R> {
                 write(cache_file(&self.app), &serde_json::to_string(&state.cache).unwrap_or_default());
             }
             Err(failure) => {
-                let message = if failure.status == 401 { "GitHub signed you out".to_string() } else { failure.message };
+                // What came in before GitHub refused is kept (the cache was updated as it went).
+                write(cache_file(&self.app), &serde_json::to_string(&state.cache).unwrap_or_default());
+                let message = if failure.status == 401 {
+                    "GitHub signed you out".to_string()
+                } else if failure.rate_limited() {
+                    // Waiting longer each time it asks again, up to half an hour.
+                    state.backoff = (state.backoff * 2).clamp(FIRST_BACKOFF, LONGEST_BACKOFF);
+                    state.retry_at = now() + state.backoff;
+                    format!("GitHub asked Focus Diff to slow down: trying again in {} minutes", state.backoff / 60_000)
+                } else {
+                    failure.message
+                };
                 eprintln!("Refreshing failed: {message}");
                 state.status = Status { phase: "error", error: Some(message), updated_at: state.status.updated_at };
                 if failure.status == 401 {
@@ -427,15 +476,22 @@ impl<R: Runtime> Worker<R> {
         }
         let all: Vec<Item> = items.iter().flat_map(|(_, i)| i.iter().cloned()).collect();
         let keys: HashSet<String> = all.iter().flat_map(|i| i.events.iter().map(|e| e.key.clone())).collect();
+        let searches: HashMap<String, String> = queues.iter().filter_map(|q| state.cache.lists.get(&q.id).map(|l| (q.id.clone(), search_key(&l.search)))).collect();
+        let settled = |id: &str| searches.get(id).is_some_and(|s| state.persisted.searches.get(id) == Some(s));
         let mut animate = false;
         if let Some(previous) = &state.persisted.keys {
             let previous: HashSet<String> = previous.iter().cloned().collect();
-            let fresh = engine::fresh_events(&all, &queues, &previous, &state.persisted.seen, now());
+            let audible: Vec<Item> = all.iter().filter(|i| settled(&i.queue_id)).cloned().collect();
+            let fresh = engine::fresh_events(&audible, &queues, &previous, &state.persisted.seen, now());
             self.notify(&fresh, config.sound);
             for f in &fresh {
                 state.arrivals.insert(f.item.pr.id.clone());
             }
             animate = !fresh.is_empty();
+        }
+        // Only once GitHub answered for them: before that a queue has no results to start from.
+        if !searches.is_empty() {
+            state.persisted.searches = searches;
         }
         // The first refresh notifies about nothing: it's all old news. Cards still show as unclicked.
         state.persisted.keys = Some(keys.iter().cloned().collect());

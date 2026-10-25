@@ -1,4 +1,4 @@
-//! The menu bar / system tray icon: Focus Diff's magnifying glass in focus brackets, drawn here
+//! The menu bar / system tray icon: the app icon's rounded square with Focus Diff's magnifying glass cut out, drawn here
 //! rather than shipped as images so every frame of the attention animation is exact at any scale.
 //!
 //! On macOS it's a template image (black + alpha), which the system tints for light and dark menu
@@ -27,34 +27,18 @@ fn to_segment(x: f32, y: f32, (ax, ay): (f32, f32), (bx, by): (f32, f32)) -> f32
     ((x - ax - t * dx).powi(2) + (y - ay - t * dy).powi(2)).sqrt()
 }
 
-/// One frame, drawn on an 18-point grid like an SF Symbol: a magnifying glass in focus brackets
-/// with rounded corners, Focus Diff's logo as a menu bar glyph. `focus` 0..1 pulls the brackets in
-/// on the glass (0 at rest, 1 fully focused); `dot` puts the unread mark where the top right
-/// bracket is.
+/// One frame, on an 18-point grid like the menu bar's own symbols: a filled rounded square (the
+/// app icon's shape) with the magnifying glass cut out of it, solid enough to sit with the other
+/// menu bar icons. `focus` 0..1 zooms the glass in a little (0 at rest); `dot` adds the unread
+/// badge on the top right corner, with a gap cut around it.
 pub fn frame(focus: f32, dot: bool) -> Image<'static> {
     let scale = SIZE as f32 / 18.0;
-    let stroke = 0.75; // half of a 1.5pt line, the menu bar's weight
-    let inset = 0.9 * focus;
-    let (lo, hi) = (2.0 + inset, 16.0 - inset);
-    let (radius, arm) = (2.0, 3.5); // a bracket's rounded corner, and how far each arm reaches
-    // Straight strokes (ends, half width) and quarter circles (center, which quadrant).
-    type Line = ((f32, f32), (f32, f32), f32);
-    let mut lines: Vec<Line> = Vec::new();
-    let mut corners: Vec<(f32, f32, f32, f32)> = Vec::new();
-    for (x, dx) in [(lo, 1.0), (hi, -1.0)] {
-        for (y, dy) in [(lo, 1.0), (hi, -1.0)] {
-            if dot && dx < 0.0 && dy > 0.0 {
-                continue;
-            }
-            let (cx, cy) = (x + dx * radius, y + dy * radius);
-            corners.push((cx, cy, -dx, -dy));
-            lines.push(((x, cy), (x, y + dy * arm), stroke));
-            lines.push(((cx, y), (x + dx * arm, y), stroke));
-        }
-    }
-    // The glass: a ring and a slightly heavier handle.
-    let (gx, gy, ring) = (8.25, 8.25, 3.25);
-    lines.push(((10.6, 10.6), (13.0, 13.0), 0.875));
+    let zoom = 1.0 + 0.14 * focus;
+    // The glass, around the square's center, so zooming keeps it in place.
+    let at = |v: f32| 9.0 + (v - 9.0) * zoom;
+    let (gx, gy, ring, rim) = (at(8.0), at(8.0), 3.4 * zoom, 0.95 * zoom);
+    let handle = ((at(10.6), at(10.6)), (at(13.5), at(13.5)), 1.15 * zoom);
+    let badge = (15.0, 3.0);
 
     let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
     let n = SUPERSAMPLE * SUPERSAMPLE;
@@ -65,13 +49,13 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
                 for sx in 0..SUPERSAMPLE {
                     let x = (px as f32 + (sx as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
                     let y = (py as f32 + (sy as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
-                    let glass = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - ring).abs() <= stroke;
-                    let line = lines.iter().any(|&(a, b, half)| to_segment(x, y, a, b) <= half);
-                    let corner = corners.iter().any(|&(cx, cy, qx, qy)| {
-                        (x - cx) * qx >= 0.0 && (y - cy) * qy >= 0.0 && (((x - cx).powi(2) + (y - cy).powi(2)).sqrt() - radius).abs() <= stroke
-                    });
-                    let mark = dot && (x - 14.5).powi(2) + (y - 3.5).powi(2) <= 2.4 * 2.4;
-                    hits += (glass || line || corner || mark) as u32;
+                    // The square: 16pt with 4.5pt corners.
+                    let (qx, qy) = ((x - 9.0).abs() - 3.5, (y - 9.0).abs() - 3.5);
+                    let square = (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) <= 4.5;
+                    let glass = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - ring).abs() <= rim || to_segment(x, y, handle.0, handle.1) <= handle.2;
+                    let near = |r: f32| (x - badge.0).powi(2) + (y - badge.1).powi(2) <= r * r;
+                    let on = if dot { near(2.6) || (square && !glass && !near(4.1)) } else { square && !glass };
+                    hits += on as u32;
                 }
             }
             let i = ((py * SIZE + px) * 4) as usize;
@@ -94,7 +78,7 @@ fn show<R: Runtime>(tray: &TrayIcon<R>, image: Image<'static>) {
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// Shows how many pull requests wait on you, and, when something new came in, plays the focus
-/// animation: the brackets close in on the lines three times, then rest with the unread dot.
+/// animation: the glass zooms in three times, then rest with the unread dot.
 pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, animate: bool) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let dot = count > 0;

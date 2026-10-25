@@ -27,29 +27,34 @@ fn to_segment(x: f32, y: f32, (ax, ay): (f32, f32), (bx, by): (f32, f32)) -> f32
     ((x - ax - t * dx).powi(2) + (y - ay - t * dy).powi(2)).sqrt()
 }
 
-/// One frame: a magnifying glass inside focus brackets, like Focus Diff's logo. `focus` 0..1 pulls
-/// the brackets in on the glass (0 at rest, 1 fully focused); `dot` puts the unread mark in the top
-/// right corner, in place of that bracket.
+/// One frame, drawn on an 18-point grid like an SF Symbol: a magnifying glass in focus brackets
+/// with rounded corners, Focus Diff's logo as a menu bar glyph. `focus` 0..1 pulls the brackets in
+/// on the glass (0 at rest, 1 fully focused); `dot` puts the unread mark where the top right
+/// bracket is.
 pub fn frame(focus: f32, dot: bool) -> Image<'static> {
-    let s = SIZE as f32;
-    let half = 1.6; // half the stroke: 3.2px at 2x, a little over the menu bar's 1.5pt
-    // The brackets sit near the edges at rest and close in as they focus.
-    let lo = 4.5 + 3.5 * focus;
-    let hi = s - lo;
-    let arm = 7.0;
-    let mut strokes: Vec<((f32, f32), (f32, f32))> = Vec::new();
-    for (cx, dx) in [(lo, 1.0), (hi, -1.0)] {
-        for (cy, dy) in [(lo, 1.0), (hi, -1.0)] {
+    let scale = SIZE as f32 / 18.0;
+    let stroke = 0.75; // half of a 1.5pt line, the menu bar's weight
+    let inset = 0.9 * focus;
+    let (lo, hi) = (2.0 + inset, 16.0 - inset);
+    let (radius, arm) = (2.0, 3.5); // a bracket's rounded corner, and how far each arm reaches
+    // Straight strokes (ends, half width) and quarter circles (center, which quadrant).
+    type Line = ((f32, f32), (f32, f32), f32);
+    let mut lines: Vec<Line> = Vec::new();
+    let mut corners: Vec<(f32, f32, f32, f32)> = Vec::new();
+    for (x, dx) in [(lo, 1.0), (hi, -1.0)] {
+        for (y, dy) in [(lo, 1.0), (hi, -1.0)] {
             if dot && dx < 0.0 && dy > 0.0 {
                 continue;
             }
-            strokes.push(((cx, cy), (cx + dx * arm, cy)));
-            strokes.push(((cx, cy), (cx, cy + dy * arm)));
+            let (cx, cy) = (x + dx * radius, y + dy * radius);
+            corners.push((cx, cy, -dx, -dy));
+            lines.push(((x, cy), (x, y + dy * arm), stroke));
+            lines.push(((cx, y), (x + dx * arm, y), stroke));
         }
     }
-    // The glass: a ring and its handle, centered a little up and left so the whole sits centered.
-    let (gx, gy, radius) = (16.6, 16.6, 5.4);
-    strokes.push(((gx + 4.6, gy + 4.6), (24.2, 24.2)));
+    // The glass: a ring and a slightly heavier handle.
+    let (gx, gy, ring) = (8.25, 8.25, 3.25);
+    lines.push(((10.6, 10.6), (13.0, 13.0), 0.875));
 
     let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
     let n = SUPERSAMPLE * SUPERSAMPLE;
@@ -58,12 +63,15 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
             let mut hits = 0u32;
             for sy in 0..SUPERSAMPLE {
                 for sx in 0..SUPERSAMPLE {
-                    let x = px as f32 + (sx as f32 + 0.5) / SUPERSAMPLE as f32;
-                    let y = py as f32 + (sy as f32 + 0.5) / SUPERSAMPLE as f32;
-                    let ring = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - radius).abs() <= half;
-                    let line = strokes.iter().any(|&(a, b)| to_segment(x, y, a, b) <= half);
-                    let mark = dot && (x - (s - 7.0)).powi(2) + (y - 7.0).powi(2) <= 4.6 * 4.6;
-                    hits += (ring || line || mark) as u32;
+                    let x = (px as f32 + (sx as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    let y = (py as f32 + (sy as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    let glass = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - ring).abs() <= stroke;
+                    let line = lines.iter().any(|&(a, b, half)| to_segment(x, y, a, b) <= half);
+                    let corner = corners.iter().any(|&(cx, cy, qx, qy)| {
+                        (x - cx) * qx >= 0.0 && (y - cy) * qy >= 0.0 && (((x - cx).powi(2) + (y - cy).powi(2)).sqrt() - radius).abs() <= stroke
+                    });
+                    let mark = dot && (x - 14.5).powi(2) + (y - 3.5).powi(2) <= 2.4 * 2.4;
+                    hits += (glass || line || corner || mark) as u32;
                 }
             }
             let i = ((py * SIZE + px) * 4) as usize;

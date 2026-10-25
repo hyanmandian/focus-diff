@@ -19,7 +19,7 @@ mod tray;
 mod update;
 mod watch;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -301,6 +301,15 @@ fn open_panel(app: AppHandle, tray: State<'_, Tray<tauri::Wry>>) -> Result<(), S
 pub(crate) struct Reviews {
     open: Mutex<HashMap<String, String>>,
     spare: Mutex<Option<String>>,
+    /// Spares whose page is loaded and listening for which pull request to show: one asked of
+    /// before that would miss being told.
+    ready: Mutex<HashSet<String>>,
+}
+
+/// A spare's page saying it's ready to be told which pull request to show.
+#[tauri::command]
+fn spare_ready(app: AppHandle, window: tauri::WebviewWindow) {
+    app.state::<Reviews>().ready.lock().unwrap().insert(window.label().to_string());
 }
 
 static REVIEW_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -387,7 +396,13 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         return window.set_focus().map_err(|e| e.to_string());
     }
     let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone() };
-    let spare = reviews.spare.lock().unwrap().take().and_then(|label| app.get_webview_window(&label));
+    // Only a spare that's listening; one still loading stays for the next click.
+    let spare = {
+        let mut spare = reviews.spare.lock().unwrap();
+        let ready = spare.as_ref().is_some_and(|label| reviews.ready.lock().unwrap().remove(label));
+        if ready { spare.take() } else { None }
+    }
+    .and_then(|label| app.get_webview_window(&label));
     let window = match spare {
         // The spare, already loaded: told which pull request it is now.
         Some(window) => {
@@ -549,6 +564,9 @@ fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewW
         .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
         .resizable(false)
         .decorations(false)
+        // A click on a row opens it even while the app isn't the active one, instead of only
+        // activating it.
+        .accept_first_mouse(true)
         .transparent(true)
         .shadow(true)
         .always_on_top(true)
@@ -628,6 +646,7 @@ pub fn run() {
             dismiss,
             clear_arrival,
             github,
+            spare_ready,
             auth_status,
             auth_use_gh,
             auth_use_token,
@@ -696,6 +715,7 @@ pub fn run() {
                 let app = window.app_handle();
                 let label = window.label().to_string();
                 app.state::<Reviews>().open.lock().unwrap().retain(|_, l| *l != label);
+                app.state::<Reviews>().ready.lock().unwrap().remove(&label);
                 {
                     let reviews = app.state::<Reviews>();
                     let mut spare = reviews.spare.lock().unwrap();

@@ -1,5 +1,6 @@
 // A pull request's review window. Made ahead of time as a spare (no pull request in its address),
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -36,4 +37,6 @@ if (params.get("id")) {
     history.replaceState(null, "", `?${query}`);
     show(payload);
   });
+  // Only now can it be told: until this, a click opens a fresh window instead.
+  void invoke("spare_ready").catch(() => {});
 }

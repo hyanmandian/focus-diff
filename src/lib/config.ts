@@ -70,7 +70,13 @@ export type Queue = {
   notify: EventKind[];
 };
 
-export type AiProvider = "claude" | "codex" | "cursor";
+export const AI_PROVIDERS = ["claude", "codex", "cursor", "opencode"] as const;
+export type AiProvider = (typeof AI_PROVIDERS)[number];
+export const EFFORTS = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export type Effort = (typeof EFFORTS)[number];
+
+/** Something to ask the AI about a pull request, offered as a button by it. */
+export type Prompt = { id: string; name: string; prompt: string };
 
 /** One thing an action does. Text and links can use {number} {title} {url} {repo} {author} {me};
  *  commands get them as environment variables instead (PR_NUMBER, PR_TITLE, …). */
@@ -100,7 +106,15 @@ export type Config = {
   sound: boolean;
   theme: "system" | "light" | "dark";
   /** Optional: the coding agent CLI to ask, on the person's own subscription. */
-  ai: { provider: AiProvider | null; model: string };
+  ai: {
+    provider: AiProvider | null;
+    /** Empty: the CLI's own default. */
+    model: string;
+    effort: Effort | "";
+    /** The person's own review guidelines, added to every question. */
+    instructions: string;
+    prompts: Prompt[];
+  };
   actions: Action[];
 };
 
@@ -189,9 +203,37 @@ export const defaultConfig = (): Config => ({
   pollSeconds: 90,
   sound: false,
   theme: "system",
-  ai: { provider: null, model: "" },
+  ai: { provider: null, model: "", effort: "", instructions: "", prompts: defaultPrompts() },
   actions: [],
 });
+
+export function defaultPrompts(): Prompt[] {
+  return [
+    {
+      id: "summary",
+      name: "Summary",
+      prompt: `From its description and diff, write:
+1. What it changes, in two or three plain sentences.
+2. "Worth a closer look:" then up to five short points: risks, edge cases, missing tests, or anything surprising, each naming the file.
+Be concrete and brief. Don't repeat the description back.`,
+    },
+    {
+      id: "risks",
+      name: "Find problems",
+      prompt: `Review it like a careful senior engineer. List only real problems: bugs, unhandled edge cases, security or data risks, breaking changes, performance traps. For each: the file, what goes wrong and when, and a one-line fix. If there's nothing worth raising, say so in one sentence.`,
+    },
+    {
+      id: "explain",
+      name: "Explain",
+      prompt: `Walk me through it as if I'd never seen this part of the codebase: why it exists, the main flow it changes, and the order to read the files in.`,
+    },
+    {
+      id: "tests",
+      name: "Missing tests",
+      prompt: `Which tests would catch a regression in this change? List the missing cases, each with the file it belongs in and what it should check. Leave out what the diff already tests.`,
+    },
+  ];
+}
 
 /** Starting points for actions. */
 export const ACTION_TEMPLATES: Array<{ name: string; description: string; make: () => Action }> = [
@@ -261,6 +303,17 @@ function normalizeStep(raw: unknown): ActionStep | null {
     default:
       return null;
   }
+}
+
+function normalizePrompt(raw: unknown): Prompt | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (!isString(r.prompt) || !r.prompt.trim()) return null;
+  return {
+    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : "Ask",
+    prompt: r.prompt.slice(0, 8000),
+  };
 }
 
 function normalizeAction(raw: unknown): Action | null {
@@ -333,8 +386,11 @@ export function normalize(raw: unknown): Config {
     ai: (() => {
       const ai = r.ai && typeof r.ai === "object" ? (r.ai as Record<string, unknown>) : {};
       return {
-        provider: (["claude", "codex", "cursor"] as const).includes(ai.provider as AiProvider) ? (ai.provider as AiProvider) : null,
-        model: isString(ai.model) ? ai.model.trim().slice(0, 80) : "",
+        provider: AI_PROVIDERS.includes(ai.provider as AiProvider) ? (ai.provider as AiProvider) : null,
+        model: isString(ai.model) ? ai.model.trim().slice(0, 120) : "",
+        effort: pick(ai.effort, ["", ...EFFORTS] as const, ""),
+        instructions: isString(ai.instructions) ? ai.instructions.slice(0, 4000) : "",
+        prompts: Array.isArray(ai.prompts) ? ai.prompts.map(normalizePrompt).filter((p): p is Prompt => p !== null).slice(0, 12) : defaultPrompts(),
       };
     })(),
     actions,

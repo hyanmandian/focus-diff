@@ -15,7 +15,6 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
-  Sparkles,
   UserMinus,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -30,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { bridge } from "@/lib/bridge";
-import { PROVIDERS, summarize } from "@/lib/ai";
 import type { Config, Queue } from "@/lib/config";
 import { ago, firstName } from "@/lib/copy";
 import { comment, leaveReview, loadDetails, markReady, merge, review, type Details as PullDetails } from "@/lib/details";
@@ -39,7 +37,7 @@ import { sanitize } from "@/lib/sanitize";
 import { refresh } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { ActionButtons } from "@/shared/Actions";
-import { AiAnswer } from "@/shared/AiAnswer";
+import { AskAi } from "@/shared/AskAi";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
   return (
@@ -177,49 +175,6 @@ function Composer({ details, initial, onDone, onCancel }: { details: PullDetails
 }
 
 type Props = { item: Item; queue: Queue | undefined; me: string; config: Config | null; onBack: () => void; onOpenDiff: (item: Item) => void };
-
-function Summary({ config, details }: { config: Config; details: PullDetails }) {
-  const [state, setState] = useState<{ phase: "idle" | "busy" | "done" | "error"; text?: string }>({ phase: "idle" });
-  const provider = config.ai.provider;
-  if (!provider) return null;
-  const run = async () => {
-    setState({ phase: "busy" });
-    try {
-      setState({ phase: "done", text: await summarize(config, details) });
-    } catch (e) {
-      setState({ phase: "error", text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
-    }
-  };
-  return (
-    <section aria-labelledby="summary" className="rounded-xl border bg-muted/40 p-3" aria-busy={state.phase === "busy"}>
-      <div className="flex items-center gap-2">
-        <Sparkles className="size-3.5 text-violet" aria-hidden />
-        <h3 id="summary" className="text-xs font-semibold">
-          Summary
-        </h3>
-        <span className="text-[11px] text-muted-foreground">by {PROVIDERS[provider].name}</span>
-        {state.phase !== "busy" ? (
-          <Button variant="ghost" size="xs" className="ml-auto" onClick={() => void run()}>
-            {state.phase === "idle" ? "Summarize" : "Again"}
-          </Button>
-        ) : (
-          <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label="Thinking" />
-        )}
-      </div>
-      {state.phase === "done" && state.text ? (
-        <div className="mt-2">
-          <AiAnswer text={state.text} />
-        </div>
-      ) : state.phase === "error" ? (
-        <p className="mt-2 text-xs text-destructive" role="alert">
-          {state.text}
-        </p>
-      ) : state.phase === "busy" ? (
-        <p className="mt-2 text-xs text-muted-foreground">Reading the diff… this can take a minute.</p>
-      ) : null}
-    </section>
-  );
-}
 
 export function Details({ item, queue, me, config, onBack, onOpenDiff }: Props) {
   const { pr } = item;
@@ -372,7 +327,7 @@ export function Details({ item, queue, me, config, onBack, onOpenDiff }: Props) 
           </TabsList>
           <ScrollArea className="min-h-0 flex-1">
             <TabsContent value="overview" className="flex flex-col gap-5 p-4">
-              {config ? <Summary config={config} details={details} /> : null}
+              {config ? <AskAi config={config} details={details} /> : null}
               <Html html={details.html} />
               <section aria-labelledby="reviewers" className="flex flex-col gap-2">
                 <h3 id="reviewers" className="text-xs font-semibold text-muted-foreground">

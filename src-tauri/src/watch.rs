@@ -63,7 +63,6 @@ struct State {
     /// Pull request ids with something new to call out, until the panel shows them.
     arrivals: HashSet<String>,
     last_count: Option<usize>,
-    full_at: i64,
     /// GitHub couldn't be reached to tell who's signed in: asked again before the next refresh.
     auth_unknown: bool,
 }
@@ -188,7 +187,6 @@ impl Watch {
             status: Status { phase: "idle", error: None, updated_at: 0 },
             arrivals: HashSet::new(),
             last_count: None,
-            full_at: 0,
             auth_unknown: false,
         }));
         let watch = Watch { sender, state: state.clone() };
@@ -367,7 +365,7 @@ impl<R: Runtime> Worker<R> {
                 return;
             }
             state.status.phase = "loading";
-            let full = now() - state.full_at > FULL_EVERY;
+            let full = now() - state.cache.full_at > FULL_EVERY;
             (config, me, std::mem::take(&mut state.cache), full)
         };
         self.publish();
@@ -386,7 +384,7 @@ impl<R: Runtime> Worker<R> {
         match result {
             Ok(_) => {
                 if full {
-                    state.full_at = now();
+                    state.cache.full_at = now();
                 }
                 state.status = Status { phase: "idle", error: None, updated_at: now() };
                 self.apply(&mut state);

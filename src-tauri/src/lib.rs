@@ -32,6 +32,7 @@ use tauri_plugin_opener::OpenerExt;
 
 pub(crate) const PANEL: &str = "panel";
 const SETTINGS: &str = "settings";
+const SETUP: &str = "setup";
 const PANEL_SIZE: (f64, f64) = (420.0, 600.0);
 /// How long a hidden panel's web view is kept, to open again instantly; after that it's closed
 /// and its memory given back, and the next click makes a new one.
@@ -174,8 +175,13 @@ async fn ai_statuses() -> Result<Vec<ai::Status>, String> {
 }
 
 #[tauri::command]
-async fn ai_ask(provider: ai::Provider, model: Option<String>, prompt: String, input: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || ai::ask(provider, model.as_deref(), &prompt, &input))
+async fn ai_models(provider: ai::Provider) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || ai::models(provider)).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn ai_ask(provider: ai::Provider, model: Option<String>, effort: Option<String>, prompt: String, input: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || ai::ask(provider, model.as_deref(), effort.as_deref(), &prompt, &input))
         .await
         .map_err(|e| e.to_string())?
 }
@@ -217,6 +223,22 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
 #[tauri::command]
 fn open_settings(app: AppHandle) -> Result<(), String> {
     show_settings(&app).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_setup(app: AppHandle) -> Result<(), String> {
+    show_setup(&app).map_err(|e| e.to_string())
+}
+
+/// The panel under the tray icon, as a click on it would show it (from setup's last step).
+#[tauri::command]
+fn open_panel(app: AppHandle, tray: State<'_, Tray<tauri::Wry>>) -> Result<(), String> {
+    let rect = tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
+    let Some(rect) = rect else { return Ok(()) };
+    if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
+        return Ok(());
+    }
+    toggle_panel(&app, &rect).map_err(|e| e.to_string())
 }
 
 /// A pull request's diff in its own window, one per pull request, filling the main screen's usable
@@ -281,6 +303,21 @@ fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .title("Focus Diff Settings")
         .inner_size(760.0, 620.0)
         .min_inner_size(620.0, 480.0)
+        .center()
+        .build()?;
+    window.set_focus()
+}
+
+/// First run (or "Run setup again"): connect GitHub, pick queues, notifications, AI.
+fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+    if let Some(window) = app.get_webview_window(SETUP) {
+        window.show()?;
+        return window.set_focus();
+    }
+    let window = WebviewWindowBuilder::new(app, SETUP, WebviewUrl::App("setup.html".into()))
+        .title("Welcome to Focus Diff")
+        .inner_size(600.0, 640.0)
+        .min_inner_size(520.0, 560.0)
         .center()
         .build()?;
     window.set_focus()
@@ -427,10 +464,13 @@ pub fn run() {
             auth_device_finish,
             auth_sign_out,
             ai_statuses,
+            ai_models,
             ai_ask,
             run_action,
             open_url,
             open_settings,
+            open_setup,
+            open_panel,
             open_review,
             hide_panel,
             log,
@@ -455,6 +495,10 @@ pub fn run() {
             let icon = create_tray(&handle)?;
             *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
+            // No setup yet: the first thing to see is how to start.
+            if file_path(&handle, "config").is_ok_and(|p| !p.exists()) {
+                show_setup(&handle)?;
+            }
             Ok(())
         })
         .on_window_event(|window, event| {

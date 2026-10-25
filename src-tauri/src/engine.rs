@@ -484,6 +484,9 @@ pub struct Cache {
     pub me: String,
     pub lists: HashMap<String, List>,
     pub prs: HashMap<String, Cached>,
+    /// When every pull request was last fetched in full (ms).
+    #[serde(default)]
+    pub full_at: i64,
 }
 
 pub const MERGED_EVERY: i64 = 5 * 60_000;
@@ -939,7 +942,7 @@ pub fn fresh_events<'a>(items: &'a [Item], queues: &[&Queue], previous: &HashSet
             }
         }
     }
-    out.sort_by(|a, b| b.event.at.cmp(&a.event.at));
+    out.sort_by_key(|f| std::cmp::Reverse(f.event.at));
     out
 }
 

@@ -120,7 +120,7 @@ const config = {
   pollSeconds: 90,
   sound: false,
   theme: "system",
-  ai: { provider: "claude", model: "" },
+  ai: { provider: "claude", model: "", effort: "high", instructions: "We use React Query: point out missing loading and error states." },
   actions: [
     {
       id: "handoff-dana",
@@ -294,7 +294,10 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
         { provider: "claude", installed: true, signed_in: true, version: "2.1.310 (Claude Code)", login_command: "claude auth login" },
         { provider: "codex", installed: true, signed_in: false, version: "codex-cli 0.144.5", login_command: "codex login" },
         { provider: "cursor", installed: false, signed_in: false, version: null, login_command: "agent login" },
+        { provider: "opencode", installed: true, signed_in: true, version: "1.18.3", login_command: "opencode auth login" },
       ];
+    case "ai_models":
+      return ["fable", "opus", "sonnet", "haiku"];
     case "ai_ask":
       await new Promise((r) => setTimeout(r, 400));
       return "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.";

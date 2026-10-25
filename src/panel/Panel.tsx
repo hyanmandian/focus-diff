@@ -87,6 +87,7 @@ export function Panel() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>Settings…</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void bridge.openSetup()}>Run setup again…</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => void bridge.quit()}>Quit Focus Diff</DropdownMenuItem>
             </DropdownMenuContent>

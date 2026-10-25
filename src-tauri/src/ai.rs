@@ -1,5 +1,5 @@
 //! Optional AI, on the person's own subscription: it runs the coding agent CLI they already have
-//! installed and signed in (Claude Code, Codex or Cursor), never a login or key of ours.
+//! installed and signed in (Claude Code, Codex, Cursor or OpenCode), never a login or key of ours.
 //!
 //! How it's run follows each tool's rules for this:
 //! - their own, unmodified binary, signed in by them in their terminal; this app never reads or
@@ -27,16 +27,18 @@ pub enum Provider {
     Claude,
     Codex,
     Cursor,
+    Opencode,
 }
 
 impl Provider {
-    const ALL: [Provider; 3] = [Provider::Claude, Provider::Codex, Provider::Cursor];
+    const ALL: [Provider; 4] = [Provider::Claude, Provider::Codex, Provider::Cursor, Provider::Opencode];
 
     fn binaries(self) -> &'static [&'static str] {
         match self {
             Provider::Claude => &["claude"],
             Provider::Codex => &["codex"],
             Provider::Cursor => &["agent", "cursor-agent"],
+            Provider::Opencode => &["opencode"],
         }
     }
 
@@ -45,7 +47,21 @@ impl Provider {
             Provider::Claude => "claude auth login",
             Provider::Codex => "codex login",
             Provider::Cursor => "agent login",
+            Provider::Opencode => "opencode auth login",
         }
+    }
+
+    /// How hard it thinks, in each CLI's own words; anything else is left to the CLI's default.
+    fn effort(self, effort: Option<&str>) -> Option<&'static str> {
+        let allowed: &[&'static str] = match self {
+            Provider::Claude => &["low", "medium", "high", "xhigh", "max"],
+            Provider::Codex => &["minimal", "low", "medium", "high", "xhigh"],
+            Provider::Opencode => &["minimal", "low", "medium", "high", "max"],
+            // Cursor's effort is part of the model's name.
+            Provider::Cursor => &[],
+        };
+        let effort = effort?.trim();
+        allowed.iter().copied().find(|a| *a == effort)
     }
 }
 
@@ -161,6 +177,8 @@ pub fn status(provider: Provider) -> Status {
         Provider::Claude => &["auth", "status"],
         Provider::Codex => &["login", "status"],
         Provider::Cursor => &["status"],
+        // OpenCode has free models that need no account: installed is enough.
+        Provider::Opencode => &["--version"],
     };
     let signed_in = run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
         .map(|o| {
@@ -178,22 +196,46 @@ pub fn status(provider: Provider) -> Status {
 }
 
 pub fn statuses() -> Vec<Status> {
-    Provider::ALL.into_iter().map(status).collect()
+    std::thread::scope(|s| {
+        let checks: Vec<_> = Provider::ALL.into_iter().map(|p| s.spawn(move || status(p))).collect();
+        checks.into_iter().filter_map(|c| c.join().ok()).collect()
+    })
+}
+
+/// The models the CLI offers on this account, to suggest; empty when it can't list them.
+pub fn models(provider: Provider) -> Vec<String> {
+    let args: &[&str] = match provider {
+        // Aliases for the latest of each, as Claude Code takes them.
+        Provider::Claude => return ["fable", "opus", "sonnet", "haiku"].map(String::from).to_vec(),
+        Provider::Codex => return vec![],
+        Provider::Cursor => &["--list-models"],
+        Provider::Opencode => &["models"],
+    };
+    let Some(binary) = find(provider) else { return vec![] };
+    let Ok(output) = run_with_limit(command(&binary).args(args), None, Duration::from_secs(20)) else { return vec![] };
+    if !output.status_ok {
+        return vec![];
+    }
+    let id = |s: &str| !s.is_empty() && s.len() <= 80 && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:[]=,".contains(c)) && s.chars().any(|c| c.is_ascii_digit() || c == '/' || c == '-');
+    let mut found: Vec<String> = output.stdout.lines().filter_map(|l| l.split_whitespace().next()).filter(|t| id(t)).map(String::from).collect();
+    found.dedup();
+    found.truncate(200);
+    found
 }
 
 /// Asks the person's agent CLI and returns its answer. Blocking: run it off the main thread.
-pub fn ask(provider: Provider, model: Option<&str>, prompt: &str, input: &str) -> Result<String, String> {
+pub fn ask(provider: Provider, model: Option<&str>, effort: Option<&str>, prompt: &str, input: &str) -> Result<String, String> {
     let binary = find(provider).ok_or("It isn't installed")?;
     static RUNS: AtomicU64 = AtomicU64::new(0);
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
     let workspace = std::env::temp_dir().join(format!("focus-diff-{}-{stamp}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
     std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
-    let result = ask_in(provider, &binary, &workspace, model, prompt, input);
+    let result = ask_in(provider, &binary, &workspace, model, provider.effort(effort), prompt, input);
     let _ = std::fs::remove_dir_all(&workspace);
     result
 }
 
-fn ask_in(provider: Provider, binary: &Path, workspace: &Path, model: Option<&str>, prompt: &str, input: &str) -> Result<String, String> {
+fn ask_in(provider: Provider, binary: &Path, workspace: &Path, model: Option<&str>, effort: Option<&str>, prompt: &str, input: &str) -> Result<String, String> {
     let mut material: String = input.chars().take(MAX_INPUT).collect();
     if material.len() < input.len() {
         material.push_str("\n\n[The rest was cut to fit.]");
@@ -208,6 +250,9 @@ fn ask_in(provider: Provider, binary: &Path, workspace: &Path, model: Option<&st
             if let Some(model) = model {
                 cmd.args(["--model", model]);
             }
+            if let Some(effort) = effort {
+                cmd.args(["--effort", effort]);
+            }
             let output = run_with_limit(&mut cmd, Some(&message), TIME_LIMIT)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             if reply["is_error"].as_bool() == Some(true) {
@@ -220,6 +265,9 @@ fn ask_in(provider: Provider, binary: &Path, workspace: &Path, model: Option<&st
             cmd.args(["exec", "--sandbox", "read-only", "--ephemeral", "--skip-git-repo-check", "--color", "never", "-o"]).arg(&answer);
             if let Some(model) = model {
                 cmd.args(["-m", model]);
+            }
+            if let Some(effort) = effort {
+                cmd.args(["-c", &format!("model_reasoning_effort=\"{effort}\"")]);
             }
             cmd.arg("-");
             let output = run_with_limit(&mut cmd, Some(&message), TIME_LIMIT)?;
@@ -239,6 +287,31 @@ fn ask_in(provider: Provider, binary: &Path, workspace: &Path, model: Option<&st
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?
         }
+        Provider::Opencode => {
+            // Its read-only "plan" agent, with every tool denied on top, and no plugins.
+            cmd.args(["run", "--pure", "--agent", "plan", "--format", "json"]);
+            cmd.env("OPENCODE_CONFIG_CONTENT", r#"{"permission":{"edit":"deny","bash":"deny","webfetch":"deny"}}"#);
+            if let Some(model) = model {
+                cmd.args(["--model", model]);
+            }
+            if let Some(effort) = effort {
+                cmd.args(["--variant", effort]);
+            }
+            let output = run_with_limit(&mut cmd, Some(&message), TIME_LIMIT)?;
+            // One JSON event a line; the answer is the text parts.
+            let text: String = output
+                .stdout
+                .lines()
+                .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+                .filter(|e| e["type"] == "text")
+                .filter_map(|e| e["part"]["text"].as_str().map(String::from))
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            if text.trim().is_empty() {
+                return Err(failure(&output));
+            }
+            text
+        }
     };
     Ok(output.trim().to_string())
 }
@@ -254,12 +327,13 @@ fn failure(output: &Output) -> String {
         .find(|l| !l.is_empty())
         .unwrap_or("It didn't answer")
         .to_string();
-    // Codex prints JSON errors; their message is what matters.
-    if let Some(json) = line.strip_prefix("ERROR: ")
-        && let Ok(v) = serde_json::from_str::<serde_json::Value>(json)
-            && let Some(message) = v["error"]["message"].as_str() {
-                return message.to_string();
-            }
+    // Codex ("ERROR: {…}") and OpenCode print JSON errors; their message is what matters.
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(line.strip_prefix("ERROR: ").unwrap_or(&line)) {
+        let error = &v["error"];
+        if let Some(message) = error["message"].as_str().or_else(|| error["data"]["message"].as_str()) {
+            return message.chars().take(400).collect();
+        }
+    }
     line.chars().take(400).collect()
 }
 
@@ -274,10 +348,12 @@ mod tests {
         for status in statuses() {
             println!("{:?}: installed {}, signed in {}, {:?}", status.provider, status.installed, status.signed_in, status.version);
         }
-        let answer = ask(Provider::Claude, None, "Reply with exactly the word in the material.", "PONG");
+        let answer = ask(Provider::Claude, None, Some("low"), "Reply with exactly the word in the material.", "PONG");
         println!("Claude: {answer:?}");
         assert_eq!(answer.as_deref(), Ok("PONG"));
-        println!("Codex: {:?}", ask(Provider::Codex, None, "Reply with exactly: OK", ""));
-        println!("Cursor: {:?}", ask(Provider::Cursor, None, "Reply with exactly: OK", ""));
+        println!("Codex: {:?}", ask(Provider::Codex, None, Some("low"), "Reply with exactly: OK", ""));
+        println!("Cursor: {:?}", ask(Provider::Cursor, None, None, "Reply with exactly: OK", ""));
+        println!("OpenCode: {:?}", ask(Provider::Opencode, None, None, "Reply with exactly: OK", ""));
+        println!("OpenCode models: {:?}", models(Provider::Opencode).len());
     }
 }

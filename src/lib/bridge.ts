@@ -24,7 +24,7 @@ export type DeviceCode = {
 export type StoredFile = "config";
 
 export type AiStatus = {
-  provider: "claude" | "codex" | "cursor";
+  provider: "claude" | "codex" | "cursor" | "opencode";
   installed: boolean;
   signed_in: boolean;
   version: string | null;
@@ -60,8 +60,9 @@ export const bridge = {
   authSignOut: () => invoke<void>("auth_sign_out"),
 
   aiStatuses: () => invoke<AiStatus[]>("ai_statuses"),
-  aiAsk: (provider: AiStatus["provider"], model: string, prompt: string, input: string) =>
-    invoke<string>("ai_ask", { provider, model: model || null, prompt, input }),
+  aiModels: (provider: AiStatus["provider"]) => invoke<string[]>("ai_models", { provider }),
+  aiAsk: (provider: AiStatus["provider"], model: string, effort: string, prompt: string, input: string) =>
+    invoke<string>("ai_ask", { provider, model: model || null, effort: effort || null, prompt, input }),
 
   /** Runs a "run" step of a saved action: Rust reads the command from the config and asks first. */
   runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) => invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),
@@ -77,6 +78,9 @@ export const bridge = {
 
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   openSettings: () => invoke<void>("open_settings"),
+  openSetup: () => invoke<void>("open_setup"),
+  /** Shows the panel under the tray icon, as a click on it would. */
+  openPanel: () => invoke<void>("open_panel"),
   /** A pull request's diff in Codiff's review view, in a window of its own. */
   openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }) =>
     invoke<void>("open_review", {

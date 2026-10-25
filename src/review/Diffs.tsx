@@ -8,12 +8,13 @@ import { FileWarning } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Finding } from "@/lib/ai";
+import type { AiAnswer } from "@/lib/bridge";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
 import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
 
 type Annotation = { kind: "thread"; thread: Thread } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange };
 
-export type DiffsHandle = { scrollToFile: (path: string) => void };
+export type DiffsHandle = { scrollToFile: (path: string) => void; scrollToLine: (path: string, line: number) => void };
 
 type Props = {
   files: ReviewFile[];
@@ -23,6 +24,8 @@ type Props = {
   findings: Finding[];
   findingsBy: string;
   onAcceptFinding: (finding: Finding) => void;
+  /** Asks the AI about selected lines; null when there's no AI. */
+  onAsk: ((path: string, range: SelectedLineRange, question: string) => Promise<AiAnswer>) | null;
   onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
   diffStyle: "split" | "unified";
@@ -66,6 +69,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
 
   useImperativeHandle(ref, () => ({
     scrollToFile: (path) => viewer.current?.scrollTo({ type: "item", id: path, align: "start" } as never),
+    scrollToLine: (path, line) => viewer.current?.scrollTo({ type: "line", id: path, lineNumber: line, side: "additions", align: "center", behavior: "smooth" } as never),
   }));
 
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
@@ -113,13 +117,20 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     () => ({
       diffStyle,
       overflow: wrap ? ("wrap" as const) : ("scroll" as const),
-      theme: { dark: "pierre-dark", light: "pierre-light" },
+      // GitHub's own themes: every token readable (WCAG AA) on its background; Pierre's light one
+      // has some below 3:1.
+      theme: { dark: "github-dark-default", light: "github-light-default" },
       themeType: dark ? ("dark" as const) : ("light" as const),
       lineDiffType: "word" as const,
       stickyHeaders: true,
       enableGutterUtility: true,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
       onGutterUtilityClick: (range: SelectedLineRange, item: { id: string }) => setComposing({ path: item.id, range }),
+      // Selecting lines (dragging over their numbers) opens the same box: comment or ask.
+      enableLineSelection: true,
+      onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
+        if (range && latest?.item) setComposing({ path: latest.item.id, range });
+      },
     }),
     [diffStyle, wrap, dark],
   );
@@ -127,7 +138,20 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const binary = files.filter((f) => !f.patch);
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="flex h-full flex-col"
+      // The line counts in file headers in the app's own green and red, which pass contrast,
+      // and a lighter highlight on changed words, so code colored on it stays readable (4.5:1).
+      style={
+        {
+          "--diffs-addition-color-override": "var(--success)",
+          "--diffs-deletion-color-override": "var(--destructive)",
+          "--diffs-bg-addition-emphasis-override": dark ? "#183323" : "#e0f8e6",
+          "--diffs-bg-deletion-emphasis-override": dark ? "#4a2326" : "#fff0ee",
+          ...(dark ? {} : { "--diffs-bg-addition-override": "#f3fcf5", "--diffs-bg-deletion-override": "#fff6f5" }),
+        } as React.CSSProperties
+      }
+    >
       <CodeView<Annotation, undefined>
         ref={viewer}
         items={items}
@@ -165,6 +189,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                 setComposing(null);
               }}
               onCancel={() => setComposing(null)}
+              ask={props.onAsk ? (question) => props.onAsk!(a.path, a.range, question) : null}
+              askName={props.findingsBy}
             />
           );
         }}

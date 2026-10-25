@@ -17,8 +17,10 @@ import type { Item } from "@/lib/engine";
 import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, useStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { tabKeys } from "@/lib/keys";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
+import { SlidingPill } from "@/shared/SlidingPill";
 import { PullRow } from "./PullRow";
 
 const EMPTY: Record<Queue["kind"], string> = {
@@ -64,7 +66,7 @@ function Count({ n, unread, selected }: { n: number; unread: number; selected?: 
     <span
       className={cn(
         "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] font-semibold tabular-nums",
-        selected ? "bg-black/16 text-white" : unread ? "bg-unread text-white" : "bg-muted text-muted-foreground",
+        selected ? "bg-black/16 text-selected-foreground" : unread ? "bg-selected text-selected-foreground" : "bg-muted text-muted-foreground",
       )}
     >
       {n}
@@ -98,7 +100,10 @@ export function Panel() {
     const off = bridge.on<string>("update-available", setUpdate);
     return () => void off.then((f) => f());
   }, []);
+  // Which way a new list comes in: from the right when the pick moved right.
+  const [direction, setDirection] = useState(0);
   const choose = (id: string) => {
+    setDirection(Math.sign(queues.findIndex((q) => q.id === id) - queues.findIndex((q) => q.id === queue?.id)));
     setTab(id);
     setRepo("");
     remember("tab", id);
@@ -147,7 +152,7 @@ export function Panel() {
     ) : null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-background/92 text-foreground shadow-2xl">
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-background/92 text-foreground shadow-2xl animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
       <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
         <h1 className="text-[15px] font-bold tracking-tight">Focus Diff</h1>
@@ -184,9 +189,21 @@ export function Panel() {
       </header>
 
       {!ready ? (
-        <div className="flex flex-col gap-3 px-3 pt-1" aria-busy="true" aria-label="Loading">
-          <Skeleton className="h-10 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+        // The shape of what's coming, at its size: nothing moves when it arrives.
+        <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading">
+          <Skeleton className="mx-3 h-[42px] shrink-0 rounded-xl" />
+          <div className="mx-3 mt-2.5 flex min-h-0 flex-1 flex-col gap-1 overflow-hidden rounded-xl border bg-card p-1 shadow-sm">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-start gap-2.5 py-2 pr-2.5 pl-3.5" style={{ opacity: 1 - i * 0.18 }}>
+                <Skeleton className="size-6 shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-1.5 pt-0.5">
+                  <Skeleton className="h-3.5 w-4/5" />
+                  <Skeleton className="h-3 w-2/5" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="h-10 shrink-0" />
         </div>
       ) : !signedIn ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
@@ -205,9 +222,10 @@ export function Panel() {
           </Button>
         </div>
       ) : (
-        <>
+        <main className="flex min-h-0 flex-1 flex-col">
           {/* The queues, like the popup's two lists: the chosen one on a filled pill. */}
-          <div role="tablist" aria-label="Queues" className="mx-3 flex shrink-0 gap-0.5 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm [scrollbar-width:none]">
+          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-3 flex shrink-0 gap-0.5 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm [scrollbar-width:none]">
+            <SlidingPill selected={queue.id} />
             {queues.map((q) => {
               const its = items[q.id] ?? [];
               const selected = q.id === queue.id;
@@ -216,11 +234,13 @@ export function Panel() {
                   key={q.id}
                   type="button"
                   role="tab"
+                  tabIndex={selected ? 0 : -1}
                   aria-selected={selected}
+                  data-pill={q.id}
                   onClick={() => choose(q.id)}
                   className={cn(
-                    "flex h-8 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-lg pr-2 pl-3 text-[13px] font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                    selected ? "bg-unread text-white" : "hover:bg-foreground/6",
+                    "flex h-8 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-lg pr-2 pl-3 text-[13px] font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                    selected ? "text-selected-foreground" : "hover:bg-foreground/6",
                   )}
                 >
                   <span className="truncate">{q.name}</span>
@@ -230,9 +250,10 @@ export function Panel() {
             })}
           </div>
 
-          <main role="tabpanel" aria-label={queue.name} className="mx-3 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div role="tabpanel" aria-label={queue.name} className="mx-3 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
             {repos.length > 1 ? (
-              <div role="group" aria-label="Repositories" className="flex shrink-0 gap-0.5 overflow-x-auto border-b p-1.5 [scrollbar-width:none]">
+              <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto border-b p-1.5 [scrollbar-width:none]">
+                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} />
                 {[["", "All", list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
                   const pressed = (repo && repos.includes(repo) ? repo : "") === value;
                   return (
@@ -241,10 +262,15 @@ export function Panel() {
                       type="button"
                       aria-pressed={pressed}
                       title={value || undefined}
-                      onClick={() => setRepo(value)}
+                      data-pill={value || "all"}
+                      onClick={() => {
+                        const order = ["", ...repos];
+                        setDirection(Math.sign(order.indexOf(value) - order.indexOf(repo && repos.includes(repo) ? repo : "")));
+                        setRepo(value);
+                      }}
                       className={cn(
-                        "flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                        pressed ? "bg-unread text-white" : "hover:bg-foreground/6",
+                        "flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                        pressed ? "text-selected-foreground" : "hover:bg-foreground/6",
                       )}
                     >
                       <span className="truncate">{label}</span>
@@ -255,7 +281,14 @@ export function Panel() {
               </div>
             ) : null}
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1">
+            {/* Each queue's list, and each repository's, slides in from the side it was picked on. */}
+            <div
+              key={`${queue.id}:${repo}`}
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1 animate-in fade-in-0 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none",
+                direction > 0 ? "slide-in-from-right-3" : direction < 0 ? "slide-in-from-left-3" : "",
+              )}
+            >
               {groups.length || drafts.length ? (
                 <>
                   {groups.map((g, i) => (
@@ -288,7 +321,7 @@ export function Panel() {
                 <p className="px-4 py-10 text-center text-sm text-muted-foreground">{EMPTY[queue.kind]}</p>
               )}
             </div>
-          </main>
+          </div>
 
           <footer className="flex h-10 shrink-0 items-center gap-2 px-4 text-xs text-muted-foreground">
             {update ? (
@@ -312,7 +345,7 @@ export function Panel() {
               </button>
             ) : null}
           </footer>
-        </>
+        </main>
       )}
     </div>
   );

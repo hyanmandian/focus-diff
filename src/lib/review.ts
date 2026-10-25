@@ -40,7 +40,10 @@ const header = (f: { filename: string; previous_filename?: string; status: strin
   ].join("\n");
 };
 
-export async function loadFiles(d: Details): Promise<ReviewFile[]> {
+/** What finds a pull request: enough to load its files and conversations before its details. */
+export type PullRef = Pick<Details, "owner" | "repo" | "number">;
+
+export async function loadFiles(d: PullRef): Promise<ReviewFile[]> {
   type Raw = { filename: string; previous_filename?: string; status: ReviewFile["status"]; additions: number; deletions: number; patch?: string };
   const files: ReviewFile[] = [];
   // GitHub lists at most 3,000 files, 100 a page.
@@ -63,7 +66,7 @@ export async function loadFiles(d: Details): Promise<ReviewFile[]> {
 
 const ACTOR = "__typename login avatarUrl(size: 64) ... on User { name }";
 
-export async function loadThreads(d: Details): Promise<Thread[]> {
+export async function loadThreads(d: PullRef): Promise<Thread[]> {
   type Raw = {
     repository: {
       pullRequest: {

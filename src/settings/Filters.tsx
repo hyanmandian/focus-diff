@@ -66,7 +66,7 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           {FILTER_RECIPES.map((recipe) => (
-            <DropdownMenuItem key={recipe.title} onClick={() => add(recipe.filters)} className="flex-col items-start gap-0.5">
+            <DropdownMenuItem key={recipe.title} onClick={() => add(recipe.filters)} className="flex-col items-start gap-0.5 whitespace-normal">
               <span className="font-medium">{recipe.title}</span>
               <span className="text-xs text-muted-foreground">{recipe.description}</span>
             </DropdownMenuItem>

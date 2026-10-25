@@ -17,7 +17,8 @@ function PopoverContent({
   align = "center",
   alignOffset = 0,
   side = "bottom",
-  sideOffset = 4,
+  sideOffset = 8,
+  children,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
@@ -40,7 +41,11 @@ function PopoverContent({
             className
           )}
           {...props}
-        />
+        >
+          {/* The arrow points at what opened it. */}
+          <PopoverPrimitive.Arrow className={"z-50 size-2.5 rotate-45 rounded-[2px] border-foreground/10 bg-popover data-[side=bottom]:-top-[5px] data-[side=bottom]:border-t data-[side=bottom]:border-l data-[side=top]:-bottom-[5px] data-[side=top]:border-r data-[side=top]:border-b data-[side=left]:-right-[5px] data-[side=left]:border-t data-[side=left]:border-r data-[side=right]:-left-[5px] data-[side=right]:border-b data-[side=right]:border-l data-[side=inline-start]:-right-[5px] data-[side=inline-start]:border-t data-[side=inline-start]:border-r data-[side=inline-end]:-left-[5px] data-[side=inline-end]:border-b data-[side=inline-end]:border-l"} />
+          {children}
+        </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>
   )

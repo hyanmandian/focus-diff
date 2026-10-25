@@ -295,24 +295,26 @@ export function Settings() {
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
       </header>
-      <TabsContent value="queues" className="min-h-0 flex-1">
-        <Queues config={config} onChange={setConfig} />
-      </TabsContent>
-      <TabsContent value="actions" className="min-h-0 flex-1">
-        <Actions config={config} onChange={setConfig} />
-      </TabsContent>
-      <TabsContent value="filters" className="min-h-0 flex-1 overflow-y-auto">
-        <Filters config={config} onChange={setConfig} />
-      </TabsContent>
-      <TabsContent value="ai" className="min-h-0 flex-1 overflow-y-auto">
-        <Ai config={config} onChange={setConfig} />
-      </TabsContent>
-      <TabsContent value="account" className="min-h-0 flex-1">
-        <Account auth={auth} onChange={loadAuth} />
-      </TabsContent>
-      <TabsContent value="general" className="min-h-0 flex-1">
-        <General config={config} onChange={setConfig} />
-      </TabsContent>
+      <main className="flex min-h-0 flex-1 flex-col">
+        <TabsContent value="queues" className="min-h-0 flex-1">
+          <Queues config={config} onChange={setConfig} />
+        </TabsContent>
+        <TabsContent value="actions" className="min-h-0 flex-1">
+          <Actions config={config} onChange={setConfig} />
+        </TabsContent>
+        <TabsContent value="filters" className="min-h-0 flex-1 overflow-y-auto">
+          <Filters config={config} onChange={setConfig} />
+        </TabsContent>
+        <TabsContent value="ai" className="min-h-0 flex-1 overflow-y-auto">
+          <Ai config={config} onChange={setConfig} />
+        </TabsContent>
+        <TabsContent value="account" className="min-h-0 flex-1">
+          <Account auth={auth} onChange={loadAuth} />
+        </TabsContent>
+        <TabsContent value="general" className="min-h-0 flex-1">
+          <General config={config} onChange={setConfig} />
+        </TabsContent>
+      </main>
     </Tabs>
   );
 }

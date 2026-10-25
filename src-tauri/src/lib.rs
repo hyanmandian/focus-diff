@@ -14,10 +14,12 @@ mod config;
 mod devctl;
 mod engine;
 mod github;
+mod media;
 mod tray;
 mod update;
 mod watch;
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -129,7 +131,7 @@ struct Response {
 
 #[tauri::command]
 async fn github(auth: State<'_, github::Auth>, method: String, path: String, body: Option<String>, accept: Option<String>) -> Result<Response, String> {
-    let (status, body) = auth.request(&method, &path, body.as_deref(), accept.as_deref())?;
+    let (status, body) = auth.request_for_page(&method, &path, body.as_deref(), accept.as_deref())?;
     Ok(Response { status, body })
 }
 
@@ -293,39 +295,125 @@ fn open_panel(app: AppHandle, tray: State<'_, Tray<tauri::Wry>>) -> Result<(), S
     toggle_panel(&app, &rect).map_err(|e| e.to_string())
 }
 
-/// A pull request's diff in its own window, one per pull request, filling the main screen's usable
-/// area (not full screen). Opening one that's already open brings it back.
-#[tauri::command]
-fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>) -> Result<(), String> {
-    // Window labels allow letters, digits and a few separators; GitHub node ids are safe as they are.
-    let name = |s: &String| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !name(&repo) || !teams.iter().all(name) {
-        return Err("Bad pull request".into());
-    }
-    let label = format!("review-{id}");
-    if let Some(window) = app.get_webview_window(&label) {
-        let _ = window.unminimize();
-        window.show().map_err(|e| e.to_string())?;
-        return window.set_focus().map_err(|e| e.to_string());
-    }
-    let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
-    let url = format!("review.html?id={}&repo={}&number={number}&teams={}", encode(&id), encode(&repo), encode(&teams.join(",")));
-    let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
-        .title(&title)
-        .min_inner_size(720.0, 480.0);
+/// Review windows: which pull request each shows, and the one made ahead of time, loaded and
+/// hidden, so a click shows a pull request at once instead of starting a web view.
+#[derive(Default)]
+pub(crate) struct Reviews {
+    open: Mutex<HashMap<String, String>>,
+    spare: Mutex<Option<String>>,
+}
+
+static REVIEW_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn review_builder<'a, R: Runtime>(app: &'a AppHandle<R>, label: &str, url: String, title: &str) -> WebviewWindowBuilder<'a, R, AppHandle<R>> {
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into())).title(title).min_inner_size(720.0, 480.0);
     #[cfg(target_os = "macos")]
-    let builder = builder
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(16.0, 22.0));
-    let window = builder.build().map_err(|e| e.to_string())?;
-    if let Some(monitor) = app.primary_monitor().map_err(|e| e.to_string())? {
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true).traffic_light_position(tauri::LogicalPosition::new(16.0, 22.0));
+    builder
+}
+
+/// Fills the main screen's usable area (not full screen).
+fn fill_screen<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>) {
+    if let Ok(Some(monitor)) = app.primary_monitor() {
         let area = monitor.work_area();
         let _ = window.set_position(area.position);
         let _ = window.set_size(area.size);
     }
+}
+
+/// Makes the spare review window, hidden, if there isn't one. Main thread.
+fn prepare_spare<R: Runtime>(app: &AppHandle<R>) {
+    let reviews = app.state::<Reviews>();
+    if reviews.spare.lock().unwrap().is_some() {
+        return;
+    }
+    let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
+    if let Ok(window) = review_builder(app, &label, "review.html".into(), "Focus Diff").visible(false).build() {
+        fill_screen(app, &window);
+        *reviews.spare.lock().unwrap() = Some(label);
+    }
+}
+
+/// Soon, off the click that asked: making a web view takes the main thread for a moment.
+fn prepare_spare_soon<R: Runtime>(app: &AppHandle<R>) {
+    let app = app.clone();
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(400));
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || prepare_spare(&handle));
+    });
+}
+
+fn drop_spare<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(label) = app.state::<Reviews>().spare.lock().unwrap().take()
+        && let Some(window) = app.get_webview_window(&label) {
+            let _ = window.destroy();
+        }
+}
+
+/// In the Dock and the app switcher while a window of its own is open (a review, settings, setup);
+/// only in the menu bar otherwise.
+fn update_presence<R: Runtime>(app: &AppHandle<R>) {
+    #[cfg(target_os = "macos")]
+    {
+        let spare = app.state::<Reviews>().spare.lock().unwrap().clone();
+        let windowed = app.webview_windows().into_iter().any(|(label, w)| label != PANEL && Some(&label) != spare.as_ref() && w.is_visible().unwrap_or(false));
+        let _ = app.set_activation_policy(if windowed { tauri::ActivationPolicy::Regular } else { tauri::ActivationPolicy::Accessory });
+    }
+}
+
+#[derive(Clone, Serialize)]
+struct ReviewTarget {
+    id: String,
+    repo: String,
+    number: u64,
+    teams: Vec<String>,
+}
+
+/// A pull request in its own window, one per pull request; opening one that's already open brings
+/// it back.
+#[tauri::command]
+fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>) -> Result<(), String> {
+    let name = |s: &String| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !name(&repo) || !teams.iter().all(name) {
+        return Err("Bad pull request".into());
+    }
+    let reviews = app.state::<Reviews>();
+    let existing = reviews.open.lock().unwrap().get(&id).cloned();
+    if let Some(window) = existing.and_then(|label| app.get_webview_window(&label)) {
+        let _ = window.unminimize();
+        window.show().map_err(|e| e.to_string())?;
+        update_presence(&app);
+        return window.set_focus().map_err(|e| e.to_string());
+    }
+    let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone() };
+    let spare = reviews.spare.lock().unwrap().take().and_then(|label| app.get_webview_window(&label));
+    let window = match spare {
+        // The spare, already loaded: told which pull request it is now.
+        Some(window) => {
+            window.emit_to(window.label(), "review-open", target).map_err(|e| e.to_string())?;
+            let _ = window.set_title(&title);
+            window
+        }
+        None => {
+            let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
+            let url = format!("review.html?id={}&repo={}&number={number}&teams={}", encode(&id), encode(&repo), encode(&teams.join(",")));
+            let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
+            let window = review_builder(&app, &label, url, &title).build().map_err(|e| e.to_string())?;
+            fill_screen(&app, &window);
+            window
+        }
+    };
+    reviews.open.lock().unwrap().insert(id, window.label().to_string());
+    window.show().map_err(|e| e.to_string())?;
+    update_presence(&app);
+    // The next one ready too, while the panel's in use.
+    if app.get_webview_window(PANEL).is_some() {
+        prepare_spare_soon(&app);
+    }
     window.set_focus().map_err(|e| e.to_string())
 }
+
 
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
@@ -373,6 +461,7 @@ pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()>
         .min_inner_size(620.0, 480.0)
         .center()
         .build()?;
+    update_presence(app);
     window.set_focus()
 }
 
@@ -388,6 +477,7 @@ pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .min_inner_size(520.0, 560.0)
         .center()
         .build()?;
+    update_presence(app);
     window.set_focus()
 }
 
@@ -430,6 +520,7 @@ pub(crate) fn hide<R: Runtime>(app: &AppHandle<R>) {
         if let Some(panel) = app.get_webview_window(PANEL)
             && !panel.is_visible().unwrap_or(true) {
                 let _ = panel.destroy();
+                drop_spare(&app);
             }
     });
 }
@@ -448,6 +539,7 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri
     panel.show()?;
     panel.set_focus()?;
     let _ = panel.emit("panel-shown", ());
+    prepare_spare_soon(app);
     Ok(())
 }
 
@@ -518,9 +610,14 @@ pub fn run() {
             let app = ctx.app_handle().clone();
             thread::spawn(move || responder.respond(avatars::serve(&app, &request)));
         })
+        .register_asynchronous_uri_scheme_protocol("media", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            thread::spawn(move || responder.respond(media::serve(&app, &request)));
+        })
         .manage(update::Pending::default())
         .manage(github::Auth::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
+        .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
             read_file,
             write_file,
@@ -580,6 +677,7 @@ pub fn run() {
                 thread::spawn(move || {
                     checkout::sweep(&cache);
                     avatars::sweep(&app);
+                    media::sweep(&app);
                 });
             }
             // No setup yet: the first thing to see is how to start.
@@ -594,6 +692,19 @@ pub fn run() {
                 && let WindowEvent::Focused(false) = event {
                     hide(window.app_handle());
                 }
+            if let WindowEvent::Destroyed = event {
+                let app = window.app_handle();
+                let label = window.label().to_string();
+                app.state::<Reviews>().open.lock().unwrap().retain(|_, l| *l != label);
+                {
+                    let reviews = app.state::<Reviews>();
+                    let mut spare = reviews.spare.lock().unwrap();
+                    if spare.as_deref() == Some(label.as_str()) {
+                        *spare = None;
+                    }
+                }
+                update_presence(app);
+            }
         })
         .build(tauri::generate_context!())
         .expect("error while running Focus Diff")

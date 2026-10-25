@@ -155,7 +155,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-72">
             {STEP_KINDS.map((kind) => (
-              <DropdownMenuItem key={kind} className="flex-col items-start gap-0.5" onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
+              <DropdownMenuItem key={kind} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
                 <span className="font-medium">{STEP_LABELS[kind]}</span>
                 <span className="text-xs text-muted-foreground">{STEP_HINTS[kind]}</span>
               </DropdownMenuItem>
@@ -201,7 +201,7 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
             {ACTION_TEMPLATES.map((template) => (
               <DropdownMenuItem
                 key={template.name}
-                className="flex-col items-start gap-0.5"
+                className="flex-col items-start gap-0.5 whitespace-normal"
                 onClick={() => {
                   const action = template.make();
                   setActions([...config.actions, action]);

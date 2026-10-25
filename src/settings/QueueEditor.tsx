@@ -120,7 +120,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
 
       <Field label="Pull requests where" hint="What puts a pull request in this queue.">
         <Select value={queue.kind} onValueChange={(v) => set("kind", v as QueueKind)}>
-          <SelectTrigger className="w-full max-w-80">
+          <SelectTrigger className="w-full max-w-80" aria-label="Pull requests where">
             <SelectValue>{(v: QueueKind) => KIND_LABELS[v]}</SelectValue>
           </SelectTrigger>
           <SelectContent>

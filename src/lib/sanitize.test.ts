@@ -23,3 +23,13 @@ describe("sanitize", () => {
     expect(sanitize('<input type="checkbox" checked>')).toBe('<input type="checkbox" checked="" disabled="">');
   });
 });
+
+describe("media", () => {
+  it("plays GitHub video links and keeps pictures from GitHub only", () => {
+    const html = sanitize('<p><a href="https://github.com/acme/web/releases/download/v1/demo.mp4">https://github.com/acme/web/releases/download/v1/demo.mp4</a></p><img src="https://evil.com/x.png"><img src="https://github.com/acme/web/releases/download/v1/a.png">');
+    expect(html).toContain('<video src="https://github.com/acme/web/releases/download/v1/demo.mp4"');
+    expect(html).toContain("controls");
+    expect(html).not.toContain("evil.com");
+    expect(html).toContain('loading="lazy"');
+  });
+});

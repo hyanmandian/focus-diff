@@ -1,4 +1,4 @@
-//! The menu bar / system tray icon: Focus Diff's focus brackets around two diff lines, drawn here
+//! The menu bar / system tray icon: Focus Diff's magnifying glass in focus brackets, drawn here
 //! rather than shipped as images so every frame of the attention animation is exact at any scale.
 //!
 //! On macOS it's a template image (black + alpha), which the system tints for light and dark menu
@@ -20,43 +20,36 @@ const INK: [u8; 3] = [0, 0, 0];
 #[cfg(not(target_os = "macos"))]
 const INK: [u8; 3] = [46, 160, 67];
 
-/// Coverage of a rounded rectangle (x0, y0)-(x1, y1) with corner radius r at sample point (x, y).
-fn in_round_rect(x: f32, y: f32, x0: f32, y0: f32, x1: f32, y1: f32, r: f32) -> bool {
-    if x < x0 || x > x1 || y < y0 || y > y1 {
-        return false;
-    }
-    let cx = x.clamp(x0 + r, x1 - r);
-    let cy = y.clamp(y0 + r, y1 - r);
-    (x - cx).powi(2) + (y - cy).powi(2) <= r * r
+/// Distance from (x, y) to the segment a–b.
+fn to_segment(x: f32, y: f32, (ax, ay): (f32, f32), (bx, by): (f32, f32)) -> f32 {
+    let (dx, dy) = (bx - ax, by - ay);
+    let t = (((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy).max(f32::EPSILON)).clamp(0.0, 1.0);
+    ((x - ax - t * dx).powi(2) + (y - ay - t * dy).powi(2)).sqrt()
 }
 
-/// One frame. `focus` 0..1 pulls the brackets in (0 at rest, 1 fully focused); `dot` adds the
-/// unread mark in the top right corner.
+/// One frame: a magnifying glass inside focus brackets, like Focus Diff's logo. `focus` 0..1 pulls
+/// the brackets in on the glass (0 at rest, 1 fully focused); `dot` puts the unread mark in the top
+/// right corner, in place of that bracket.
 pub fn frame(focus: f32, dot: bool) -> Image<'static> {
     let s = SIZE as f32;
-    let stroke = 3.0;
-    let arm = 8.0;
-    // The brackets sit at the edges at rest and close in as they focus.
-    let inset = 3.0 + 4.0 * focus;
-    let (lo, hi) = (inset, s - inset);
-    let mut shapes: Vec<(f32, f32, f32, f32, f32)> = Vec::new();
+    let half = 1.6; // half the stroke: 3.2px at 2x, a little over the menu bar's 1.5pt
+    // The brackets sit near the edges at rest and close in as they focus.
+    let lo = 4.5 + 3.5 * focus;
+    let hi = s - lo;
+    let arm = 7.0;
+    let mut strokes: Vec<((f32, f32), (f32, f32))> = Vec::new();
     for (cx, dx) in [(lo, 1.0), (hi, -1.0)] {
         for (cy, dy) in [(lo, 1.0), (hi, -1.0)] {
-            // With something unread, the top right corner becomes the dot.
             if dot && dx < 0.0 && dy > 0.0 {
                 continue;
             }
-            let (hx0, hx1) = if dx > 0.0 { (cx, cx + arm) } else { (cx - arm, cx) };
-            let (vy0, vy1) = if dy > 0.0 { (cy, cy + arm) } else { (cy - arm, cy) };
-            let (hy0, hy1) = if dy > 0.0 { (cy, cy + stroke) } else { (cy - stroke, cy) };
-            let (vx0, vx1) = if dx > 0.0 { (cx, cx + stroke) } else { (cx - stroke, cx) };
-            shapes.push((hx0, hy0, hx1, hy1, 1.2));
-            shapes.push((vx0, vy0, vx1, vy1, 1.2));
+            strokes.push(((cx, cy), (cx + dx * arm, cy)));
+            strokes.push(((cx, cy), (cx, cy + dy * arm)));
         }
     }
-    // Two diff lines, the second shorter.
-    shapes.push((11.0, 13.5, 25.0, 16.5, 1.5));
-    shapes.push((11.0, 19.5, 21.0, 22.5, 1.5));
+    // The glass: a ring and its handle, centered a little up and left so the whole sits centered.
+    let (gx, gy, radius) = (16.6, 16.6, 5.4);
+    strokes.push(((gx + 4.6, gy + 4.6), (24.2, 24.2)));
 
     let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
     let n = SUPERSAMPLE * SUPERSAMPLE;
@@ -67,12 +60,10 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
                 for sx in 0..SUPERSAMPLE {
                     let x = px as f32 + (sx as f32 + 0.5) / SUPERSAMPLE as f32;
                     let y = py as f32 + (sy as f32 + 0.5) / SUPERSAMPLE as f32;
-                    let mut inside = shapes.iter().any(|&(x0, y0, x1, y1, r)| in_round_rect(x, y, x0, y0, x1, y1, r));
-                    if dot && !inside {
-                        let (dx, dy) = (x - (hi - 4.0), y - (lo + 4.0));
-                        inside = dx * dx + dy * dy <= 4.5 * 4.5;
-                    }
-                    hits += inside as u32;
+                    let ring = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - radius).abs() <= half;
+                    let line = strokes.iter().any(|&(a, b)| to_segment(x, y, a, b) <= half);
+                    let mark = dot && (x - (s - 7.0)).powi(2) + (y - 7.0).powi(2) <= 4.6 * 4.6;
+                    hits += (ring || line || mark) as u32;
                 }
             }
             let i = ((py * SIZE + px) * 4) as usize;
@@ -97,8 +88,10 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
         n => format!("Focus Diff: {n} pull requests waiting on you"),
     };
     let _ = tray.set_tooltip(Some(&tooltip));
+    // No number beside it: the dot says there's something, the panel says what (a count of every
+    // unread pull request in every queue is noise in a menu bar).
     #[cfg(target_os = "macos")]
-    let _ = tray.set_title(if dot { Some(count.to_string()) } else { None });
+    let _ = tray.set_title(None::<&str>);
     let rest = frame(0.0, dot);
     if !animate {
         let _ = tray.set_icon(Some(rest));

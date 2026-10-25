@@ -5,6 +5,7 @@ import { EllipsisVertical, ExternalLink, EyeOff, GitPullRequest, MessageSquare }
 import { memo, useEffect, useRef, type ReactNode } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bridge } from "@/lib/bridge";
+import { prefetch } from "@/lib/prefetch";
 import type { Queue } from "@/lib/config";
 import { avatar } from "@/lib/avatar";
 import { ago, EVENTS, firstName, STATUS } from "@/lib/copy";
@@ -22,7 +23,7 @@ const TAG: Record<string, string> = {
 
 function Tag({ tone = "gray", children, title }: { tone?: string; children: ReactNode; title?: string }) {
   return (
-    <span title={title} className={cn("inline-flex h-4 shrink-0 items-center rounded-full border px-1.5 text-[11px] leading-4", TAG[tone])}>
+    <span title={title} className={cn("block h-4 max-w-40 min-w-0 shrink truncate rounded-full border px-1.5 text-[11px] leading-[14px]", TAG[tone])}>
       {children}
     </span>
   );
@@ -56,6 +57,9 @@ type Props = {
 export const PullRow = memo(function PullRow({ item, queue, unread, arriving, onOpen, onDismiss, onArrived }: Props) {
   const { pr } = item;
   const ref = useRef<HTMLDivElement>(null);
+  const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Resting on a row, not passing over it: then its pull request is fetched ahead of a click.
+  const ahead = () => prefetch(pr.repository.nameWithOwner, pr.number);
 
   // Something new plays the arrival once, while the panel shows it.
   useEffect(() => {
@@ -80,22 +84,23 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
   const late = queue.kind === "review" && queue.staleHours > 0 && waiting > queue.staleHours * 3_600_000;
   const mine = queue.kind === "authored";
   const when = queue.kind === "merged" && pr.mergedAt ? Date.parse(pr.mergedAt) : (latest?.at ?? Date.parse(pr.updatedAt));
-  const label = [pr.title, `${pr.repository.nameWithOwner} #${pr.number}`, mine ? null : `by ${firstName(pr.author)}`, unread ? "unread" : null, late ? `waiting ${waited(waiting)}` : null]
-    .filter(Boolean)
-    .join(", ");
 
   return (
     <div ref={ref} className="group relative isolate rounded-lg">
       <button
         type="button"
-        aria-label={label}
         onClick={() => onOpen(item)}
+        onPointerEnter={() => (intent.current = setTimeout(ahead, 120))}
+        onPointerLeave={() => clearTimeout(intent.current)}
+        onFocus={ahead}
         className={cn(
-          "relative flex w-full items-start gap-2.5 rounded-lg py-2 pr-2.5 pl-3.5 text-left outline-none transition-colors hover:bg-foreground/6 focus-visible:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          "relative flex w-full items-start gap-2.5 rounded-lg py-2 pr-2.5 pl-3.5 text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.99] motion-reduce:active:scale-100 focus-visible:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           pr.isDraft && "text-muted-foreground",
         )}
       >
         {unread ? <span data-dot className="absolute top-[15px] left-1 size-1.5 rounded-full bg-unread" aria-hidden /> : null}
+        {/* Its name is what it shows; what only shows as a dot is said too. */}
+        {unread ? <span className="sr-only">Unread: </span> : null}
         {mine ? (
           <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground" aria-hidden>
             <GitPullRequest className="size-3.5" />
@@ -105,25 +110,31 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
         )}
         <span className="grid min-w-0 flex-1 gap-1">
           <span className={cn("line-clamp-2 text-[13px] leading-[1.35] [overflow-wrap:anywhere]", unread ? "font-semibold" : "font-medium")}>{pr.title}</span>
+          {/* The number never gives way; the name shortens; tags take what's left, and clip. */}
           <span className="flex min-w-0 items-center gap-1.5 text-xs leading-[18px] text-muted-foreground">
-            <span className="flex min-w-0 items-center whitespace-nowrap">
-              <span className="shrink-0 tabular-nums">#{pr.number}</span>
-              {!mine && pr.author ? <span className="truncate before:mx-1.5 before:content-['·']">{firstName(pr.author)}</span> : null}
-              {queue.kind === "merged" && pr.mergedBy ? <span className="truncate before:mx-1.5 before:content-['·']">merged by {firstName(pr.mergedBy)}</span> : null}
+            <span className="shrink-0 tabular-nums">#{pr.number}</span>
+            {!mine && pr.author ? <span className="max-w-[12ch] shrink-0 truncate before:mr-1.5 before:content-['·']">{firstName(pr.author)}</span> : null}
+            {queue.kind === "merged" && pr.mergedBy ? <span className="min-w-[3ch] truncate before:mr-1.5 before:content-['·']">merged by {firstName(pr.mergedBy)}</span> : null}
+            <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+              {late ? (
+                <Tag tone="amber" title={`Waiting on you for ${waited(waiting)}`}>
+                  {waited(waiting)} waiting
+                </Tag>
+              ) : null}
+              {kinds.slice(0, 2).map((k) => (
+                <Tag key={k} tone={EVENTS[k].tone} title={EVENTS[k].long}>
+                  {EVENTS[k].tag}
+                </Tag>
+              ))}
+              {item.status && item.status !== "MENTIONED" && !kinds.length ? <Tag tone={STATUS[item.status].tone}>{STATUS[item.status].tag}</Tag> : null}
+              {item.viaTeams?.length && !kinds.length ? (
+                <Tag title={`Asked of ${item.viaTeams.join(", ")}`}>
+                  via {item.viaTeams[0]!.split("/")[1]}
+                  {item.viaTeams.length > 1 ? ` +${item.viaTeams.length - 1}` : ""}
+                </Tag>
+              ) : null}
+              {(item.ci === "FAILURE" || item.ci === "ERROR") && !kinds.includes("ci-failed") ? <Tag tone="red">CI failed</Tag> : null}
             </span>
-            {late ? (
-              <Tag tone="amber" title={`Waiting on you for ${waited(waiting)}`}>
-                {waited(waiting)} waiting
-              </Tag>
-            ) : null}
-            {kinds.slice(0, 2).map((k) => (
-              <Tag key={k} tone={EVENTS[k].tone} title={EVENTS[k].long}>
-                {EVENTS[k].tag}
-              </Tag>
-            ))}
-            {item.status && item.status !== "MENTIONED" && !kinds.length ? <Tag tone={STATUS[item.status].tone}>{STATUS[item.status].tag}</Tag> : null}
-            {item.viaTeams?.length && !kinds.length ? <Tag title="Asked of your team">via {item.viaTeams.map((t) => t.split("/")[1]).join(", ")}</Tag> : null}
-            {item.ci === "FAILURE" || item.ci === "ERROR" ? kinds.includes("ci-failed") ? null : <Tag tone="red">CI failed</Tag> : null}
           </span>
         </span>
         <span className="grid shrink-0 justify-items-end gap-1 text-xs leading-[18px] whitespace-nowrap text-muted-foreground tabular-nums group-focus-within:invisible group-hover:invisible">

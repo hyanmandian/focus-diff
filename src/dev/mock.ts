@@ -257,7 +257,7 @@ const [history, onboarding] = authored as [Sample, Sample];
 const items = {
   review: [
     item("review", promo, [], { viaTeams: [], waitingSince: now - 25 * 60_000 }),
-    item("review", invoices, [], { viaTeams: ["acme/payments"], waitingSince: now - 26 * 3_600_000 }),
+    item("review", invoices, [], { viaTeams: ["acme/core-team", "acme/maintainers"], waitingSince: now - 26 * 3_600_000 }),
     item("review", flaky, [["rerequest", 90, null]], { viaTeams: [], waitingSince: now - 50 * 3_600_000 }),
   ],
   updates: [

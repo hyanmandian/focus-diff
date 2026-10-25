@@ -129,3 +129,37 @@ export async function review(config: Config, details: Details, files: ReviewFile
   });
   return { summary: typeof parsed.summary === "string" ? parsed.summary : "", findings, project: answer.project, note: answer.note, at: Date.now() };
 }
+
+/** The lines start–end of the new version (or the old, for deletions) as the patch shows them. */
+export function linesFromPatch(patch: string, start: number, end: number, side: "additions" | "deletions" = "additions"): string {
+  const out: string[] = [];
+  let old = 0;
+  let now = 0;
+  for (const text of patch.split("\n")) {
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
+    if (hunk) {
+      old = Number(hunk[1]);
+      now = Number(hunk[2]);
+      continue;
+    }
+    if (!now || text.startsWith("\\")) continue;
+    const kind = text[0];
+    const line = side === "additions" ? now : old;
+    if (kind !== (side === "additions" ? "-" : "+") && line >= start && line <= end) out.push(text);
+    if (kind === "+") now++;
+    else if (kind === "-") old++;
+    else {
+      now++;
+      old++;
+    }
+  }
+  return out.join("\n");
+}
+
+/** A question about some lines of a file in the pull request. */
+export async function askAboutLines(config: Config, details: Details, files: ReviewFile[], path: string, start: number, end: number, side: "additions" | "deletions", question: string): Promise<AiAnswer> {
+  const file = files.find((f) => f.path === path);
+  const lines = file ? linesFromPatch(file.patch, start, end, side) : "";
+  const where = `${path}, ${start === end ? `line ${start}` : `lines ${start}–${end}`} of the ${side === "additions" ? "new" : "old"} version`;
+  return run(config, details, files, `The reviewer selected ${where}:\n\n${lines}\n\nTheir question about it: ${question}\n\n${FORMAT}`);
+}

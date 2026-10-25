@@ -40,6 +40,8 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
     --color-unread: var(--unread);
+    --color-selected: var(--selected);
+    --color-selected-foreground: var(--selected-foreground);
     --color-success: var(--success);
     --color-warning: var(--warning);
     --color-violet: var(--violet);
@@ -62,8 +64,11 @@
     --primary: oklch(0.53 0.14 150);
     --primary-foreground: oklch(0.99 0 0);
     --unread: oklch(0.55 0.19 255);
+    /* A chosen tab or chip, filled, with white on it: 5:1 in both themes. */
+    --selected: oklch(0.55 0.18 258);
+    --selected-foreground: oklch(1 0 0);
     --success: oklch(0.53 0.14 150);
-    --warning: oklch(0.6 0.13 70);
+    --warning: oklch(0.53 0.12 70); /* 5.4:1 on white */
     --violet: oklch(0.52 0.2 295);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
@@ -101,6 +106,8 @@
     --primary: oklch(0.74 0.16 150);
     --primary-foreground: oklch(0.2 0.04 150);
     --unread: oklch(0.72 0.14 250);
+    --selected: oklch(0.55 0.18 258);
+    --selected-foreground: oklch(1 0 0);
     --success: oklch(0.74 0.16 150);
     --warning: oklch(0.82 0.14 80);
     --violet: oklch(0.74 0.15 295);

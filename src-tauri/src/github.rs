@@ -32,6 +32,52 @@ pub struct Auth {
     /// Who the token belongs to, once GitHub said.
     login: Mutex<Option<String>>,
     etags: Mutex<Etags>,
+    recent: Mutex<Recent>,
+}
+
+/// The pages' read requests answered in the last two minutes, kept whole: what the panel fetched
+/// ahead (a pull request under the pointer) the review window then gets at once, with no request.
+/// Any write clears it, so nothing shown is older than what the person just did.
+#[derive(Default)]
+struct Recent {
+    entries: HashMap<String, (Instant, u16, String)>,
+    bytes: usize,
+}
+
+impl Recent {
+    const FOR: Duration = Duration::from_secs(120);
+    const BUDGET: usize = 32 * 1024 * 1024;
+
+    fn get(&mut self, key: &str) -> Option<(u16, String)> {
+        let (at, status, body) = self.entries.get(key)?;
+        if at.elapsed() < Self::FOR {
+            return Some((*status, body.clone()));
+        }
+        let (_, _, body) = self.entries.remove(key)?;
+        self.bytes -= body.len();
+        None
+    }
+
+    fn put(&mut self, key: String, status: u16, body: String) {
+        self.entries.retain(|_, (at, _, _)| at.elapsed() < Self::FOR);
+        self.bytes = self.entries.values().map(|(_, _, b)| b.len()).sum();
+        if self.bytes + body.len() > Self::BUDGET {
+            return;
+        }
+        self.bytes += body.len();
+        self.entries.insert(key, (Instant::now(), status, body));
+    }
+
+    fn clear(&mut self) {
+        *self = Recent::default();
+    }
+}
+
+/// A GraphQL request that only reads: a query, not a mutation.
+fn is_query(body: Option<&str>) -> bool {
+    body.and_then(|b| serde_json::from_str::<Value>(b).ok())
+        .and_then(|v| v["query"].as_str().map(|q| q.trim_start().to_string()))
+        .is_some_and(|q| q.starts_with("query") || q.starts_with('{'))
 }
 
 /// GET responses GitHub tagged, by path: asked again with the tag, GitHub answers 304 Not Modified
@@ -171,6 +217,7 @@ impl Auth {
         *self.token.lock().unwrap() = None;
         *self.login.lock().unwrap() = None;
         *self.etags.lock().unwrap() = Etags::default();
+        self.recent.lock().unwrap().clear();
     }
 
     /// Who's signed in: None when no one is (no token, or GitHub refused it); an error when GitHub
@@ -233,6 +280,25 @@ impl Auth {
         }
         self.set_source(None);
         Ok(())
+    }
+
+    /// A page's call: reads answered in the last two minutes come from memory; writes go through
+    /// and clear that memory.
+    pub fn request_for_page(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
+        let read = method == "GET" || (method == "POST" && path == "/graphql" && is_query(body));
+        if !read {
+            self.recent.lock().unwrap().clear();
+            return self.request(method, path, body, accept);
+        }
+        let key = format!("{method} {path} {} {}", accept.unwrap_or(""), body.unwrap_or(""));
+        if let Some(hit) = self.recent.lock().unwrap().get(&key) {
+            return Ok(hit);
+        }
+        let (status, text) = self.request(method, path, body, accept)?;
+        if status == 200 {
+            self.recent.lock().unwrap().put(key, status, text.clone());
+        }
+        Ok((status, text))
     }
 
     /// Calls the REST or GraphQL API. Returns the status and body for the web view to read.

@@ -74,6 +74,14 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
     Image::new_owned(rgba, SIZE, SIZE)
 }
 
+/// Sets a frame. On macOS replacing the image drops its template flag, which leaves it black on a
+/// dark menu bar, so it's set again each time.
+fn show<R: Runtime>(tray: &TrayIcon<R>, image: Image<'static>) {
+    let _ = tray.set_icon(Some(image));
+    #[cfg(target_os = "macos")]
+    let _ = tray.set_icon_as_template(true);
+}
+
 /// Bumped by every new animation, so an older one still running stops drawing.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
@@ -94,7 +102,7 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
     let _ = tray.set_title(None::<&str>);
     let rest = frame(0.0, dot);
     if !animate {
-        let _ = tray.set_icon(Some(rest));
+        show(tray, rest);
         return;
     }
     let tray = tray.clone();
@@ -111,14 +119,14 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
                 let image = frame(t, dot);
                 let tray = tray.clone();
                 let _ = app.run_on_main_thread(move || {
-                    let _ = tray.set_icon(Some(image));
+                    show(&tray, image);
                 });
                 thread::sleep(Duration::from_millis(33));
             }
             thread::sleep(Duration::from_millis(120));
         }
         let _ = app.run_on_main_thread(move || {
-            let _ = tray.set_icon(Some(rest));
+            show(&tray, rest);
         });
     });
 }

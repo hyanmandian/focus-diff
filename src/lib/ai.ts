@@ -156,10 +156,14 @@ export function linesFromPatch(patch: string, start: number, end: number, side: 
   return out.join("\n");
 }
 
-/** A question about some lines of a file in the pull request. */
-export async function askAboutLines(config: Config, details: Details, files: ReviewFile[], path: string, start: number, end: number, side: "additions" | "deletions", question: string): Promise<AiAnswer> {
+/** One earlier question about the same lines, and its answer. */
+export type Exchange = { question: string; answer: string };
+
+/** A question about some lines of a file in the pull request, following the earlier ones. */
+export async function askAboutLines(config: Config, details: Details, files: ReviewFile[], path: string, start: number, end: number, side: "additions" | "deletions", question: string, earlier: Exchange[] = []): Promise<AiAnswer> {
   const file = files.find((f) => f.path === path);
   const lines = file ? linesFromPatch(file.patch, start, end, side) : "";
   const where = `${path}, ${start === end ? `line ${start}` : `lines ${start}–${end}`} of the ${side === "additions" ? "new" : "old"} version`;
-  return run(config, details, files, `The reviewer selected ${where}:\n\n${lines}\n\nTheir question about it: ${question}\n\n${FORMAT}`);
+  const before = earlier.length ? `\n\nWhat they asked about it before, and your answers:\n\n${earlier.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")}` : "";
+  return run(config, details, files, `The reviewer selected ${where}:\n\n${lines}${before}\n\nTheir question about it now: ${question}\n\n${FORMAT}`);
 }

@@ -7,7 +7,7 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { FileWarning } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Finding } from "@/lib/ai";
+import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer } from "@/lib/bridge";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
 import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
@@ -25,7 +25,7 @@ type Props = {
   findingsBy: string;
   onAcceptFinding: (finding: Finding) => void;
   /** Asks the AI about selected lines; null when there's no AI. */
-  onAsk: ((path: string, range: SelectedLineRange, question: string) => Promise<AiAnswer>) | null;
+  onAsk: ((path: string, range: SelectedLineRange, question: string, earlier: Exchange[]) => Promise<AiAnswer>) | null;
   onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
   diffStyle: "split" | "unified";
@@ -189,7 +189,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                 setComposing(null);
               }}
               onCancel={() => setComposing(null)}
-              ask={props.onAsk ? (question) => props.onAsk!(a.path, a.range, question) : null}
+              ask={props.onAsk ? (question, earlier) => props.onAsk!(a.path, a.range, question, earlier) : null}
               askName={props.findingsBy}
             />
           );

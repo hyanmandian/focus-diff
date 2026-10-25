@@ -596,8 +596,8 @@ export function Review({ target }: { target: Target }) {
                   onDismissFinding={dropFinding}
                   onAsk={
                     ai && details && files
-                      ? (path, range, question) =>
-                          askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question)
+                      ? (path, range, question, earlier) =>
+                          askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question, earlier)
                       : null
                   }
                   isViewed={isViewed}

@@ -5,9 +5,8 @@ import { Check, CornerDownRight, Loader2, MessageSquare, Pencil, Sparkles, Trash
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Finding } from "@/lib/ai";
+import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer as Answer } from "@/lib/bridge";
 import { avatar } from "@/lib/avatar";
 import { bridge } from "@/lib/bridge";
@@ -18,6 +17,7 @@ import { sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { tabKeys } from "@/lib/keys";
 import { openViewer } from "@/shared/Viewer";
+import { SlidingPill } from "@/shared/SlidingPill";
 import { AiAnswer } from "@/shared/AiAnswer";
 
 function Person({ actor }: { actor: Actor }) {
@@ -236,6 +236,25 @@ export function DraftView({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (
 
 /** What opens on selected lines: a comment for the author (to your review, or posted now: either
  *  way it's on GitHub), or a question for your AI about what the code does. */
+// The tab picked last is the one the next selection opens on.
+const TAB = "selection-tab";
+type Mode = "comment" | "ask";
+function lastMode(): Mode {
+  try {
+    return localStorage.getItem(TAB) === "ask" ? "ask" : "comment";
+  } catch {
+    return "comment";
+  }
+}
+
+/** One question about the selected lines, and what came back. */
+type Turn = { question: string; answer?: string; note?: string };
+
+const isMac = navigator.userAgent.includes("Mac");
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** The box for selected lines: a comment for the author (into your review, or posted now), or a
+ *  conversation with the AI about them that you can keep going and turn into a comment. */
 export function NewComment({
   lines,
   onAdd,
@@ -249,28 +268,84 @@ export function NewComment({
   onSendNow: (body: string) => Promise<void>;
   onCancel: () => void;
   /** Null when no AI is set up. */
-  ask: ((question: string) => Promise<Answer>) | null;
+  ask: ((question: string, earlier: Exchange[]) => Promise<Answer>) | null;
   askName: string;
 }) {
-  const [mode, setMode] = useState<"comment" | "ask">("comment");
-  const [draft, setDraft] = useState("");
+  const [mode, setModeState] = useState<Mode>(lastMode);
+  const [body, setBody] = useState("");
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<{ phase: "busy" } | { phase: "done"; text: string; note?: string } | { phase: "error"; text: string } | null>(null);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const latest = useRef<HTMLLIElement>(null);
   const tabs = useId();
-  const run = async (q: string) => {
-    if (!ask || !q.trim()) return;
-    setAnswer({ phase: "busy" });
+  const asking = mode === "ask";
+
+  const setMode = (next: Mode) => {
+    setModeState(next);
+    setError(null);
     try {
-      const a: Answer = await ask(q.trim());
-      setAnswer({ phase: "done", text: a.text, note: a.note });
-    } catch (e) {
-      setAnswer({ phase: "error", text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
+      localStorage.setItem(TAB, next);
+    } catch {
+      // Still switches for this box.
     }
   };
+
+  useEffect(() => {
+    field.current?.focus();
+  }, [mode]);
+  // The newest question and answer in view as they come (in braces: scrolling may return a promise).
+  useEffect(() => {
+    latest.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [turns]);
+
+  const fail = (e: unknown) => setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+
+  const comment = async (now: boolean) => {
+    const text = body.trim();
+    if (!text) return setError("Write something first.");
+    setBusy(true);
+    setError(null);
+    try {
+      if (now) await onSendNow(text);
+      else onAdd(text);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const send = async () => {
+    const q = question.trim();
+    if (!ask || !q || busy) return;
+    const earlier = turns.flatMap((t) => (t.answer ? [{ question: t.question, answer: t.answer }] : []));
+    setBusy(true);
+    setError(null);
+    setQuestion("");
+    setTurns((list) => [...list, { question: q }]);
+    try {
+      const a = await ask(q, earlier);
+      setTurns((list) => list.map((t, i) => (i === list.length - 1 ? { ...t, answer: a.text, note: a.note } : t)));
+    } catch (e) {
+      // The question goes back in the box to try again.
+      setTurns((list) => list.slice(0, -1));
+      setQuestion(q);
+      fail(e);
+    } finally {
+      setBusy(false);
+      field.current?.focus();
+    }
+  };
+
+  const submit = () => void (asking ? send() : comment(false));
+
   return (
-    <Box>
-      <div className="mb-2 flex items-center gap-3">
-        <div role="tablist" onKeyDown={tabKeys} aria-label={`On ${lines}`} className="flex gap-1 rounded-lg bg-muted p-0.5">
+    <Box className="p-0">
+      <div className="flex items-center gap-3 px-3 pt-3">
+        <div role="tablist" onKeyDown={tabKeys} aria-label={`On ${lines}`} className="relative isolate flex gap-1 rounded-lg bg-muted p-0.5">
+          <SlidingPill selected={mode} className="bg-background shadow-sm" />
           {(
             [
               ["comment", "Comment", MessageSquare],
@@ -281,13 +356,15 @@ export function NewComment({
               key={value}
               type="button"
               role="tab"
+              data-pill={value}
               tabIndex={mode === value ? 0 : -1}
               id={`${tabs}-${value}`}
               aria-selected={mode === value}
+              aria-controls={`${tabs}-panel`}
               onClick={() => setMode(value)}
               className={cn(
                 "flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                mode === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                mode === value ? "text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="size-3.5" aria-hidden /> {label}
@@ -296,85 +373,118 @@ export function NewComment({
         </div>
         <span className="text-xs text-muted-foreground">{lines}</span>
       </div>
-      {mode === "comment" ? (
-        <div role="tabpanel" aria-labelledby={`${tabs}-comment`}>
-          <Composer
-            key={draft}
-            placeholder="Comment for the author: what to change, or a question"
-            submitLabel="Add to review"
-            initial={draft}
-            onSubmit={onAdd}
-            onCancel={onCancel}
-            secondary={{ label: "Comment now", onClick: onSendNow }}
-          />
-        </div>
-      ) : (
-        <div role="tabpanel" aria-labelledby={`${tabs}-ask`} className="flex flex-col gap-2">
-          {ask ? (
-            <>
-              <div className="flex flex-wrap gap-1.5">
-                {["What does this do?", "Could this break anything?", "Is there a simpler way?"].map((q) => (
-                  <Button key={q} variant="outline" size="xs" disabled={answer?.phase === "busy"} onClick={() => void run(q)}>
-                    {q}
-                  </Button>
-                ))}
-              </div>
-              <form
-                className="flex items-center gap-1.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(question);
-                }}
-              >
-                <Input autoFocus value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about these lines…" aria-label="Your question about these lines" className="h-8 text-[13px]" onKeyDown={(e) => e.key === "Escape" && onCancel()} />
-                <Button type="submit" size="sm" variant="secondary" disabled={!question.trim() || answer?.phase === "busy"}>
-                  Ask
-                </Button>
-              </form>
-              <div aria-live="polite">
-                {answer?.phase === "busy" ? (
-                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden /> Reading the code…
-                  </p>
-                ) : answer?.phase === "error" ? (
-                  <p className="text-xs text-destructive" role="alert">
-                    {answer.text}
-                  </p>
-                ) : answer?.phase === "done" ? (
-                  <div className="flex flex-col gap-2 rounded-lg border border-violet/30 bg-violet/5 p-3 animate-in fade-in-0 slide-in-from-top-1 duration-200 motion-reduce:animate-none">
-                    <AiAnswer text={answer.text} />
-                    {answer.note ? <p className="text-[11px] text-muted-foreground">{answer.note}</p> : null}
-                    <div>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() => {
-                          setDraft(answer.text);
-                          setMode("comment");
-                        }}
-                      >
-                        <MessageSquare /> Turn into a comment
-                      </Button>
+
+      <div role="tabpanel" id={`${tabs}-panel`} aria-labelledby={`${tabs}-${mode}`} className="flex flex-col gap-2 px-3 pt-2.5">
+        {asking && turns.length ? (
+          <ol aria-label={`Conversation with ${askName}`} className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1">
+            {turns.map((t, i) => (
+              <li key={i} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
+                <p className="max-w-[85%] self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-[13px] whitespace-pre-wrap animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none">
+                  <span className="sr-only">You: </span>
+                  {t.question}
+                </p>
+                <div className="flex gap-2.5">
+                  <span aria-hidden className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet/15 text-violet">
+                    <Sparkles className="size-3" />
+                  </span>
+                  {t.answer ? (
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5 animate-in fade-in-0 duration-300 motion-reduce:animate-none">
+                      <span className="sr-only">{askName}: </span>
+                      <AiAnswer text={t.answer} />
+                      {t.note ? <p className="text-[11px] text-muted-foreground">{t.note}</p> : null}
+                      <div>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="-ml-2 text-muted-foreground"
+                          onClick={() => {
+                            setBody(t.answer ?? "");
+                            setMode("comment");
+                          }}
+                        >
+                          <MessageSquare /> Turn into a comment
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex justify-end">
-                <Button variant="ghost" size="sm" onClick={onCancel}>
-                  Close
-                </Button>
-              </div>
-            </>
+                  ) : (
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1" role="status">
+                      <span className="sr-only">{askName} is reading the code…</span>
+                      <span aria-hidden className="h-3 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                      <span aria-hidden className="h-3 w-3/4 animate-pulse rounded bg-muted [animation-delay:150ms] motion-reduce:animate-none" />
+                      <span aria-hidden className="h-3 w-1/2 animate-pulse rounded bg-muted [animation-delay:300ms] motion-reduce:animate-none" />
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
+        {asking && !ask ? (
+          <p className="py-2 text-[13px] text-muted-foreground">Set up Claude Code or Cursor in Settings to ask about code here.</p>
+        ) : (
+          <>
+            <label htmlFor={`${tabs}-field`} className="sr-only">
+              {asking ? "Your question about these lines" : "Your comment for the author"}
+            </label>
+            <Textarea
+              id={`${tabs}-field`}
+              ref={field}
+              rows={asking ? 2 : 3}
+              value={asking ? question : body}
+              placeholder={asking ? (turns.length ? "Ask a follow-up…" : "Ask about these lines…") : "Comment for the author: what to change, or a question"}
+              onChange={(e) => (asking ? setQuestion(e.target.value) : setBody(e.target.value))}
+              onKeyDown={(e) => {
+                // Asking is a chat: Enter sends, Shift+Enter breaks the line. A comment, like GitHub's: ⌘/Ctrl+Enter.
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (asking && !e.shiftKey && !e.nativeEvent.isComposing))) {
+                  e.preventDefault();
+                  submit();
+                } else if (e.key === "Escape") {
+                  e.stopPropagation();
+                  onCancel();
+                }
+              }}
+              className="resize-y text-[13px]"
+            />
+          </>
+        )}
+        {error ? (
+          <p className="text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-2 p-3">
+        <p className="mr-auto text-[11px] text-muted-foreground">
+          {asking ? (ask ? <>Enter to ask · Shift+Enter for a new line</> : null) : <>Goes into your review · {isMac ? "⌘" : "Ctrl+"}Enter</>}
+        </p>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy && !asking}>
+          Close
+        </Button>
+        {asking ? (
+          ask ? (
+            <Button size="sm" onClick={submit} disabled={busy || !question.trim()}>
+              {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+              Ask
+            </Button>
           ) : (
-            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>Set up Claude Code or Cursor to ask about code here.</span>
-              <Button size="xs" variant="outline" onClick={() => void bridge.openSettings()}>
-                Open Settings
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+            <Button size="sm" onClick={() => void bridge.openSettings()}>
+              Open Settings
+            </Button>
+          )
+        ) : (
+          <>
+            <Button variant="outline" size="sm" onClick={() => void comment(true)} disabled={busy}>
+              Post now
+            </Button>
+            <Button size="sm" onClick={submit} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : <MessageSquare />}
+              Comment
+            </Button>
+          </>
+        )}
+      </div>
     </Box>
   );
 }

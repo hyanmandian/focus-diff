@@ -195,7 +195,7 @@ impl Watch {
             let worker = Worker { app, state };
             worker.boot();
             loop {
-                let wait = Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(90, |c| c.poll_seconds));
+                let wait = Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(60, |c| c.poll_seconds));
                 let first = match receiver.recv_timeout(wait) {
                     Ok(message) => message,
                     Err(RecvTimeoutError::Timeout) => Message::Refresh { force: false },
@@ -302,7 +302,7 @@ impl<R: Runtime> Worker<R> {
             let mut state = self.state.lock().unwrap();
             state.persisted = read(config_dir(&self.app).map(|d| d.join("state.json"))).unwrap_or_default();
             state.config = read_config(&self.app);
-            if let Some(cache) = read::<Cache>(cache_file(&self.app)) {
+            if let Some(cache) = read::<Cache>(cache_file(&self.app)).filter(|c| c.version == engine::CACHE_VERSION) {
                 if !cache.me.is_empty() {
                     state.me = Some(cache.me.clone());
                 }

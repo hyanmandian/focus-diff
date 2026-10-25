@@ -29,6 +29,8 @@ export type PullRequest = {
     nodes: Array<{ requestedReviewer: null | { __typename: "User"; login: string; avatarUrl?: string } | { __typename: "Team"; slug: string; organization: { login: string } } | { __typename: string } }>;
   };
   latestOpinionatedReviews: { nodes: Array<{ author: Actor; state: string; submittedAt: string; url: string }> };
+  /** Comments and review conversations. */
+  comments: number;
 };
 
 export type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED";
@@ -46,6 +48,8 @@ export type Item = {
   ci: CiState | null;
   /** CI went green again on the same commit since last time: worth a notification only. */
   passed?: boolean;
+  /** review queues: since when it's been waiting on you (ms). */
+  waitingSince?: number;
 };
 
 export const isBot = (a: Actor) => !a || a.__typename === "Bot" || /\[bot\]$/.test(a.login);

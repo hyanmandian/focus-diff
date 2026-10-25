@@ -174,7 +174,7 @@ export function Setup() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[60, 90, 180, 300, 600].map((s) => (
+                  {[30, 60, 90, 180, 300, 600].map((s) => (
                     <SelectItem key={s} value={String(s)}>
                       {s < 120 ? `${s} seconds` : `${s / 60} minutes`}
                     </SelectItem>

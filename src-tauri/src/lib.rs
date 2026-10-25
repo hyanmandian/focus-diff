@@ -7,6 +7,7 @@
 
 mod actions;
 mod ai;
+mod checkout;
 mod config;
 mod engine;
 mod github;
@@ -179,11 +180,52 @@ async fn ai_models(provider: ai::Provider) -> Result<Vec<String>, String> {
     tauri::async_runtime::spawn_blocking(move || ai::models(provider)).await.map_err(|e| e.to_string())
 }
 
+/// The pull request whose code the AI may read.
+#[derive(serde::Deserialize)]
+struct Project {
+    repo: String,
+    number: u64,
+    head: String,
+}
+
+#[derive(Serialize)]
+struct Answer {
+    text: String,
+    /// Whether it could read the project, or only the diff, and why not.
+    project: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
+}
+
 #[tauri::command]
-async fn ai_ask(provider: ai::Provider, model: Option<String>, effort: Option<String>, prompt: String, input: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || ai::ask(provider, model.as_deref(), effort.as_deref(), &prompt, &input))
-        .await
-        .map_err(|e| e.to_string())?
+#[allow(clippy::too_many_arguments)]
+async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, effort: Option<String>, prompt: String, input: String, project: Option<Project>, schema: Option<String>) -> Result<Answer, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        // The project's code when asked for; the diff alone if it can't be had.
+        let (folder, note) = match project {
+            None => (None, None),
+            Some(p) => {
+                let token = app.state::<github::Auth>().token_for_git();
+                let cache = app.path().app_cache_dir().map_err(|e| e.to_string());
+                match token.and_then(|t| cache.and_then(|c| checkout::prepare(&c, &t, &p.repo, p.number, &p.head))) {
+                    Ok(folder) => (Some(folder), None),
+                    Err(e) => (None, Some(format!("Read the diff only: couldn't get the project's code ({e})"))),
+                }
+            }
+        };
+        let text = ai::ask(ai::Question {
+            provider,
+            model: model.as_deref(),
+            effort: effort.as_deref(),
+            prompt: &prompt,
+            input: &input,
+            project: folder.as_deref(),
+            schema: schema.as_deref(),
+        })?;
+        Ok(Answer { text, project: folder.is_some(), note })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 // MARK: Actions
@@ -244,9 +286,10 @@ fn open_panel(app: AppHandle, tray: State<'_, Tray<tauri::Wry>>) -> Result<(), S
 /// A pull request's diff in its own window, one per pull request, filling the main screen's usable
 /// area (not full screen). Opening one that's already open brings it back.
 #[tauri::command]
-fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String) -> Result<(), String> {
+fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>) -> Result<(), String> {
     // Window labels allow letters, digits and a few separators; GitHub node ids are safe as they are.
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !repo.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c)) {
+    let name = |s: &String| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !name(&repo) || !teams.iter().all(name) {
         return Err("Bad pull request".into());
     }
     let label = format!("review-{id}");
@@ -256,7 +299,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         return window.set_focus().map_err(|e| e.to_string());
     }
     let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
-    let url = format!("review.html?id={}&repo={}&number={number}", encode(&id), encode(&repo));
+    let url = format!("review.html?id={}&repo={}&number={number}&teams={}", encode(&id), encode(&repo), encode(&teams.join(",")));
     let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
         .title(&title)
         .min_inner_size(720.0, 480.0);
@@ -495,6 +538,9 @@ pub fn run() {
             let icon = create_tray(&handle)?;
             *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
+            if let Ok(cache) = handle.path().app_cache_dir() {
+                thread::spawn(move || checkout::sweep(&cache));
+            }
             // No setup yet: the first thing to see is how to start.
             if file_path(&handle, "config").is_ok_and(|p| !p.exists()) {
                 show_setup(&handle)?;

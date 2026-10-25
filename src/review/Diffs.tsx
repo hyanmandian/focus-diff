@@ -7,10 +7,11 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { FileWarning } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { Finding } from "@/lib/ai";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
-import { DraftView, NewComment, ThreadView } from "./Thread";
+import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
 
-type Annotation = { kind: "thread"; thread: Thread } | { kind: "draft"; draft: Draft } | { kind: "new"; path: string; range: SelectedLineRange };
+type Annotation = { kind: "thread"; thread: Thread } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange };
 
 export type DiffsHandle = { scrollToFile: (path: string) => void };
 
@@ -18,6 +19,11 @@ type Props = {
   files: ReviewFile[];
   threads: Map<string, Thread[]>;
   drafts: Draft[];
+  /** The AI review's comments on the diff's lines, and who made them. */
+  findings: Finding[];
+  findingsBy: string;
+  onAcceptFinding: (finding: Finding) => void;
+  onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
   diffStyle: "split" | "unified";
   wrap: boolean;
@@ -52,7 +58,7 @@ const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Dra
 });
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
-  const { files, threads, drafts, isViewed, diffStyle, wrap, dark } = props;
+  const { files, threads, drafts, findings, isViewed, diffStyle, wrap, dark } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
   const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange } | null>(null);
   // Parsing a patch is the costly part: once per file and patch.
@@ -74,9 +80,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         }
         const fileThreads = threads.get(f.path) ?? [];
         const fileDrafts = drafts.filter((d) => d.path === f.path);
+        const fileFindings = findings.filter((x) => x.path === f.path && x.inDiff);
         const annotations: Array<DiffLineAnnotation<Annotation>> = [
           ...fileThreads.map((thread) => ({ side: thread.side, lineNumber: thread.line, metadata: { kind: "thread" as const, thread } })),
           ...fileDrafts.map((draft) => ({ side: draft.side, lineNumber: draft.line, metadata: { kind: "draft" as const, draft } })),
+          ...fileFindings.map((finding) => ({ side: "additions" as const, lineNumber: finding.line, metadata: { kind: "finding" as const, finding } })),
           ...(composing?.path === f.path
             ? [{ side: composing.range.endSide ?? composing.range.side ?? "additions", lineNumber: Math.max(composing.range.start, composing.range.end), metadata: { kind: "new" as const, path: f.path, range: composing.range } }]
             : []),
@@ -93,12 +101,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               viewed,
               fileThreads.map((t) => [t.id, t.resolved, t.comments.length]),
               fileDrafts.map((d) => [d.key, d.body]),
+              fileFindings.map((x) => [x.line, x.body]),
               composing?.path === f.path ? composing.range : null,
             ]),
           ),
         };
       });
-  }, [files, threads, drafts, composing, isViewed]);
+  }, [files, threads, drafts, findings, composing, isViewed]);
 
   const options = useMemo(
     () => ({
@@ -124,7 +133,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         items={items}
         disableWorkerPool
         className="min-h-0 flex-1"
-        style={{ height: "100%", overflow: "auto" }}
+        // Room at the end for the filter bar that floats over it.
+        style={{ height: "100%", overflow: "auto", paddingBottom: 72 }}
         options={options as never}
         renderHeaderMetadata={(item) => {
           const file = byPath.get(item.id);
@@ -142,6 +152,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           const a = annotation.metadata as Annotation;
           if (a.kind === "thread") return <ThreadView thread={a.thread} onReply={(body) => props.onReply(a.thread, body)} onResolve={(resolved) => props.onResolve(a.thread, resolved)} />;
           if (a.kind === "draft") return <DraftView draft={a.draft} onEdit={(body) => props.onEditDraft(a.draft.key, body)} onRemove={() => props.onRemoveDraft(a.draft.key)} />;
+          if (a.kind === "finding") return <FindingView finding={a.finding} by={props.findingsBy} onAdd={() => props.onAcceptFinding(a.finding)} onDismiss={() => props.onDismissFinding(a.finding)} />;
           return (
             <NewComment
               lines={describe(a.range)}

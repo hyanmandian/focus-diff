@@ -1,12 +1,13 @@
-// The review window: a pull request's files and diffs, its conversations, and the review itself.
-// Pending comments and what's been viewed are kept on this machine, so closing the window loses
-// nothing.
+// The review window, where a pull request is reviewed: its files and diffs with their
+// conversations, the overview and conversation in a side pane, and the review itself. Pending
+// comments and what's been viewed are kept on this machine, so closing the window loses nothing.
 
-import { Columns2, ExternalLink, GitMerge, Loader2, Rows2, Search, Send, WrapText } from "lucide-react";
+import { Columns2, ExternalLink, GitMerge, Loader2, MoreHorizontal, PanelRight, Rows2, Search, Send, Sparkles, UserMinus, WrapText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
@@ -15,20 +16,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/lib/ai";
 import { bridge } from "@/lib/bridge";
-import { loadConfig, type Config } from "@/lib/config";
+import { inFilter, loadConfig, type Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
-import { loadDetails, merge, type Details } from "@/lib/details";
+import { leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
 import { commentNow, loadFiles, loadThreads, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
 import { ActionButtons } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
 import { Diffs, type DiffsHandle } from "./Diffs";
+import { Inspector } from "./Inspector";
 
 const params = new URLSearchParams(location.search);
 const prId = params.get("id") ?? "";
 const repo = params.get("repo") ?? "";
 const number = Number(params.get("number"));
+/** The teams its review was asked of on your behalf ("org/slug"), for leaving the review. */
+const teams = (params.get("teams") ?? "").split(",").filter(Boolean);
 const isMac = navigator.userAgent.includes("Mac");
 
 // MARK: Kept on this machine
@@ -168,6 +173,13 @@ export function Review() {
   const [wrap, setWrap] = usePersisted("diff-wrap", false);
   const [drafts, setDrafts] = usePersisted<Draft[]>(`drafts:${prId}`, []);
   const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {});
+  const [inspector, setInspector] = usePersisted("inspector", true);
+  // The part being reviewed, remembered per repository: its files are what shows.
+  const [part, setPart] = usePersisted(`filter:${repo}`, "");
+  // The AI review of this pull request's current head, kept until it changes.
+  const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(`ai-review:${prId}`, null);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   useTheme(config?.theme);
   const dark = useDark(config);
   const diffs = useRef<DiffsHandle>(null);
@@ -192,6 +204,27 @@ export function Review() {
     void load();
   }, [load]);
 
+  const ai = config?.ai.provider ? config : null;
+  const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;
+  const runReview = useCallback(async () => {
+    if (!ai || !details || !files) return;
+    setReviewing(details.headRefOid);
+    setReviewError(null);
+    try {
+      setReviewed({ head: details.headRefOid, review: await aiReview(ai, details, files) });
+    } catch (e) {
+      setReviewError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+    } finally {
+      setReviewing(null);
+    }
+  }, [ai, details, files, setReviewed]);
+  // On its own when the person asked for that, once per head commit.
+  useEffect(() => {
+    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN") void runReview();
+  }, [ai, details, files, current, reviewing, reviewError, runReview]);
+  const dropFinding = (finding: Finding) =>
+    setReviewed((r) => (r ? { ...r, review: { ...r.review, findings: r.review.findings.filter((f) => f !== finding && !(f.path === finding.path && f.line === finding.line && f.body === finding.body)) } } : r));
+
   const say = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
@@ -203,11 +236,13 @@ export function Review() {
   }, [details]);
 
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === hash(f.patch), [viewed]);
+  const active = config?.filters.find((f) => f.id === part) ?? null;
+  const inPart = useMemo(() => (files ?? []).filter((f) => !active || inFilter(active, f.path)), [files, active]);
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return (files ?? []).filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || viewed[f.path] !== hash(f.patch)));
-  }, [files, filter, hideViewed, viewed]);
-  const viewedCount = (files ?? []).filter(isViewed).length;
+    return inPart.filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || viewed[f.path] !== hash(f.patch)));
+  }, [inPart, filter, hideViewed, viewed]);
+  const viewedCount = inPart.filter(isViewed).length;
 
   const threadsByPath = useMemo(() => {
     const map = new Map<string, Thread[]>();
@@ -263,11 +298,35 @@ export function Review() {
           <TooltipContent>Wrap long lines</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Open on GitHub" onClick={() => details && void bridge.openUrl(details.url)} />}>
-            <ExternalLink />
+          <TooltipTrigger render={<Button variant={inspector ? "secondary" : "ghost"} size="icon-sm" aria-pressed={inspector} aria-label="Overview and conversation" onClick={() => setInspector(!inspector)} />}>
+            <PanelRight />
           </TooltipTrigger>
-          <TooltipContent>Open on GitHub</TooltipContent>
+          <TooltipContent>Overview and conversation</TooltipContent>
         </Tooltip>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="More" />}>
+            <MoreHorizontal />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>
+              <ExternalLink /> Open on GitHub
+            </DropdownMenuItem>
+            {details && me && !details.viewerDidAuthor && details.state === "OPEN" ? (
+              <DropdownMenuItem
+                onClick={() =>
+                  void leaveReview(details, me, teams)
+                    .then(() => {
+                      say("You left the review");
+                      void bridge.refresh(true);
+                    })
+                    .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
+                }
+              >
+                <UserMinus /> Leave this review
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ActionButtons
           actions={config?.actions ?? []}
           pr={details && me ? { number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me } : null}
@@ -279,6 +338,28 @@ export function Review() {
             }
           }}
         />
+        {ai && details ? (
+          <Button size="sm" variant="outline" onClick={() => void runReview()} disabled={Boolean(reviewing) || !files}>
+            {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />} {current ? "Review again" : "AI review"}
+          </Button>
+        ) : null}
+        {details && details.viewerDidAuthor && details.state === "OPEN" && details.isDraft ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              void markReady(details)
+                .then(() => {
+                  say("Ready for review");
+                  void bridge.refresh(true);
+                  void load();
+                })
+                .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
+            }
+          >
+            Ready for review
+          </Button>
+        ) : null}
         {canMerge ? (
           <Button
             size="sm"
@@ -317,9 +398,9 @@ export function Review() {
               <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter files" aria-label="Filter files" className="h-8 pl-8 text-[13px]" />
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Progress value={files?.length ? (viewedCount / files.length) * 100 : 0} className="flex-1" aria-label="Files viewed" />
+              <Progress value={inPart.length ? (viewedCount / inPart.length) * 100 : 0} className="flex-1" aria-label="Files viewed" />
               <span className="tabular-nums">
-                {viewedCount}/{files?.length ?? 0} viewed
+                {viewedCount}/{inPart.length} viewed
               </span>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
@@ -355,7 +436,7 @@ export function Review() {
           </ScrollArea>
         </aside>
 
-        <main className="min-w-0 flex-1 bg-muted/30">
+        <main className="relative min-w-0 flex-1 bg-muted/30">
           {files ? (
             visible.length ? (
               <Diffs
@@ -363,6 +444,13 @@ export function Review() {
                 files={visible}
                 threads={threadsByPath}
                 drafts={drafts}
+                findings={current?.findings ?? []}
+                findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : "AI"}
+                onAcceptFinding={(f) => {
+                  setDrafts((list) => [...list, { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, path: f.path, side: "additions", line: f.line, body: f.body }]);
+                  dropFinding(f);
+                }}
+                onDismissFinding={dropFinding}
                 isViewed={isViewed}
                 diffStyle={diffStyle}
                 wrap={wrap}
@@ -388,7 +476,7 @@ export function Review() {
                 }}
               />
             ) : (
-              <p className="p-10 text-center text-sm text-muted-foreground">No files match.</p>
+              <p className="p-10 text-center text-sm text-muted-foreground">{active && !inPart.length ? `No files in ${active.name}.` : "No files match."}</p>
             )
           ) : (
             <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label="Loading files">
@@ -397,7 +485,45 @@ export function Review() {
               ))}
             </div>
           )}
+          {files && config?.filters.length ? (
+            // Focus Diff's bar: the parts of the pull request, and how much of it is in view.
+            <div role="group" aria-label="Review one part" className="absolute inset-x-4 bottom-4 z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-xl border bg-popover/95 p-1 shadow-xl backdrop-blur [scrollbar-width:none]">
+              {[{ id: "", name: "All", count: files.length }, ...config.filters.map((f) => ({ id: f.id, name: f.name, count: files.filter((x) => inFilter(f, x.path)).length }))].map((chip) => (
+                <button
+                  key={chip.id || "all"}
+                  type="button"
+                  aria-pressed={(active?.id ?? "") === chip.id}
+                  onClick={() => setPart(chip.id)}
+                  className={cn(
+                    "flex h-7 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                    (active?.id ?? "") === chip.id ? "bg-unread text-white" : "hover:bg-foreground/6",
+                    chip.count === 0 && (active?.id ?? "") !== chip.id && "text-muted-foreground",
+                  )}
+                >
+                  {chip.name}
+                  <span className={cn("rounded-full px-1.5 text-[11px] leading-[18px] tabular-nums", (active?.id ?? "") === chip.id ? "bg-black/16" : "bg-muted text-muted-foreground")}>{chip.count}</span>
+                </button>
+              ))}
+              <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
+              <span className="shrink-0 pr-2 font-mono text-[11px] whitespace-nowrap tabular-nums" aria-label="Lines in view">
+                <span className="text-success">+{inPart.reduce((n, f) => n + f.additions, 0)}</span> <span className="text-destructive">−{inPart.reduce((n, f) => n + f.deletions, 0)}</span>
+              </span>
+            </div>
+          ) : null}
         </main>
+
+        {inspector ? (
+          <aside className="flex w-[380px] shrink-0 flex-col border-l" aria-label="Overview and conversation">
+            {details ? (
+              <Inspector config={config} details={details} review={current} reviewing={Boolean(reviewing)} reviewError={reviewError} />
+            ) : (
+              <div className="flex flex-col gap-3 p-4" aria-busy="true">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-24" />
+              </div>
+            )}
+          </aside>
+        ) : null}
       </div>
 
       {notice ? (

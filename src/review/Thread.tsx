@@ -1,17 +1,19 @@
 // What sits between a file's lines: a conversation (with replies and resolving), a comment written
 // for this review, or the box to write one.
 
-import { Check, CornerDownRight, Loader2, Pencil, Trash2, Undo2 } from "lucide-react";
+import { Check, CornerDownRight, Loader2, Pencil, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { Finding } from "@/lib/ai";
 import { bridge } from "@/lib/bridge";
 import { ago, firstName } from "@/lib/copy";
 import type { Actor } from "@/lib/engine";
 import type { Draft, Thread as ThreadData } from "@/lib/review";
 import { sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
+import { AiAnswer } from "@/shared/AiAnswer";
 
 function Person({ actor }: { actor: Actor }) {
   return (
@@ -225,6 +227,30 @@ export function NewComment({ lines, onAdd, onSendNow, onCancel }: { lines: strin
     <Box>
       <p className="mb-2 text-xs text-muted-foreground">Comment on {lines}</p>
       <Composer placeholder="Leave a comment" submitLabel="Add to review" onSubmit={onAdd} onCancel={onCancel} secondary={{ label: "Comment now", onClick: onSendNow }} />
+    </Box>
+  );
+}
+
+const SEVERITY = { issue: "Issue", suggestion: "Suggestion", question: "Question" } as const;
+
+/** A comment the AI suggests on a line: added to your review (where you can still edit it) or dismissed. */
+export function FindingView({ finding, by, onAdd, onDismiss }: { finding: Finding; by: string; onAdd: () => void; onDismiss: () => void }) {
+  return (
+    <Box className="border-violet/40 bg-violet/5">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-violet">
+        <Sparkles className="size-3.5" aria-hidden /> {by} · {SEVERITY[finding.severity]}
+      </p>
+      <div className="mt-1.5">
+        <AiAnswer text={finding.body} />
+      </div>
+      <div className="mt-2.5 flex items-center gap-2">
+        <Button size="xs" variant="outline" onClick={onAdd}>
+          Add to my review
+        </Button>
+        <Button size="xs" variant="ghost" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
     </Box>
   );
 }

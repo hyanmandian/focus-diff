@@ -24,12 +24,15 @@ export type DeviceCode = {
 export type StoredFile = "config";
 
 export type AiStatus = {
-  provider: "claude" | "codex" | "cursor" | "opencode";
+  provider: "claude" | "cursor";
   installed: boolean;
   signed_in: boolean;
   version: string | null;
   login_command: string;
 };
+
+/** What the AI said, and whether it could read the project or only the diff (and why). */
+export type AiAnswer = { text: string; project: boolean; note?: string };
 
 /** The pull request an action runs on. */
 export type ActionContext = { number: number; repo: string; title: string; url: string; author: string; me: string };
@@ -61,8 +64,9 @@ export const bridge = {
 
   aiStatuses: () => invoke<AiStatus[]>("ai_statuses"),
   aiModels: (provider: AiStatus["provider"]) => invoke<string[]>("ai_models", { provider }),
-  aiAsk: (provider: AiStatus["provider"], model: string, effort: string, prompt: string, input: string) =>
-    invoke<string>("ai_ask", { provider, model: model || null, effort: effort || null, prompt, input }),
+  /** `project`: the pull request whose code it may read; `schema`: a JSON Schema the answer follows. */
+  aiAsk: (q: { provider: AiStatus["provider"]; model: string; effort: string; prompt: string; input: string; project: { repo: string; number: number; head: string } | null; schema: string | null }) =>
+    invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null }),
 
   /** Runs a "run" step of a saved action: Rust reads the command from the config and asks first. */
   runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) => invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),
@@ -81,12 +85,14 @@ export const bridge = {
   openSetup: () => invoke<void>("open_setup"),
   /** Shows the panel under the tray icon, as a click on it would. */
   openPanel: () => invoke<void>("open_panel"),
-  /** A pull request's diff in Codiff's review view, in a window of its own. */
-  openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }) =>
+  /** A pull request's review window: its overview, conversation and diff. `teams`: the ones its
+   *  review was asked of on your behalf, for leaving the review. */
+  openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }, teams: string[] = []) =>
     invoke<void>("open_review", {
       id: pr.id,
       repo: pr.repository.nameWithOwner,
       number: pr.number,
+      teams,
       title: `#${pr.number} · ${pr.title} · ${pr.author?.name?.trim().split(/\s+/)[0] || pr.author?.login || ""}`,
     }),
   hidePanel: () => invoke<void>("hide_panel"),

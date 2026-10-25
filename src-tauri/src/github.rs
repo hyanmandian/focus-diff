@@ -161,6 +161,11 @@ impl Auth {
         Ok(token)
     }
 
+    /// For git, which fetches a pull request's code for the AI (checkout.rs) from github.com.
+    pub fn token_for_git(&self) -> Result<String, String> {
+        self.token()
+    }
+
     pub fn set_source(&self, source: Option<Source>) {
         *self.source.lock().unwrap() = source;
         *self.token.lock().unwrap() = None;

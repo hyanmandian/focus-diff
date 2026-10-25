@@ -1,21 +1,48 @@
-// The floating panel under the tray icon: connect GitHub on first run, then the person's queues.
+// The floating panel under the tray icon, laid out like Focus Diff's popup: the queues as tabs, the
+// chosen one's pull requests on a raised pane, narrowed to a repository with chips and grouped by
+// repository, drafts folded at the end. A click opens the pull request's review window, where the
+// reviewing happens.
 
-import { AlertCircle, Loader2, RefreshCw, Settings } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bridge } from "@/lib/bridge";
+import type { Queue } from "@/lib/config";
 import { ago } from "@/lib/copy";
 import type { Item } from "@/lib/engine";
 import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, useStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
-import { Details } from "./Details";
-import { QueueSection } from "./QueueSection";
+import { PullRow } from "./PullRow";
+
+const EMPTY: Record<Queue["kind"], string> = {
+  review: "Nothing waiting on your review.",
+  involved: "Nothing new where you took part.",
+  authored: "You have no open pull requests.",
+  merged: "Nothing merged without you lately.",
+  custom: "Nothing matches this search.",
+};
+
+function remembered(key: string) {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+function remember(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Kept for this session only.
+  }
+}
 
 /** Whether the panel is on screen: arrivals play only then, so they're seen. */
 function useShown() {
@@ -32,12 +59,45 @@ function useShown() {
   return shown;
 }
 
+function Count({ n, unread, selected }: { n: number; unread: number; selected?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] font-semibold tabular-nums",
+        selected ? "bg-black/16 text-white" : unread ? "bg-unread text-white" : "bg-muted text-muted-foreground",
+      )}
+    >
+      {n}
+    </span>
+  );
+}
+
+/** A repository by its name alone, unless two owners have one by that name. */
+const shortName = (repo: string, all: string[]) => {
+  const name = repo.slice(repo.indexOf("/") + 1);
+  return all.filter((r) => r.endsWith(`/${name}`)).length > 1 ? repo : name;
+};
+
+type Group = { repo: string; items: Item[] };
+
 export function Panel() {
-  const { ready, signedIn, auth, config, me, items, status, arrivals, seen } = useStore();
+  const { ready, signedIn, auth, config, items, status, arrivals, seen } = useStore();
   const shown = useShown();
   useTheme(config?.theme);
+  const queues = useMemo(() => config?.queues.filter((q) => q.enabled) ?? [], [config]);
+  const unread = useCallback((item: Item) => isUnread(item, seen), [seen]);
 
-  // Esc closes the panel, like a menu (a pull request's details take it first, to go back).
+  const [tab, setTab] = useState(() => remembered("tab"));
+  const queue = queues.find((q) => q.id === tab) ?? queues.find((q) => (items[q.id] ?? []).some(unread)) ?? queues[0];
+  const [repo, setRepo] = useState("");
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const choose = (id: string) => {
+    setTab(id);
+    setRepo("");
+    remember("tab", id);
+  };
+
+  // Esc closes the panel, like a menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) void bridge.hidePanel();
@@ -46,40 +106,58 @@ export function Panel() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const [selected, setSelected] = useState<Item | null>(null);
   const open = useCallback((item: Item) => {
     markSeen(item);
-    setSelected(item);
+    void bridge.openReview(item.pr, item.viaTeams ?? []);
   }, []);
-  const openDiff = useCallback((item: Item) => void bridge.openReview(item.pr), []);
-  const unread = useCallback((item: Item) => isUnread(item, seen), [seen]);
 
-  const queues = config?.queues.filter((q) => q.enabled) ?? [];
+  const list = queue ? (items[queue.id] ?? []) : [];
+  const repos = [...new Set(list.map((i) => i.pr.repository.nameWithOwner))];
+  const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
+  // Within a repository: asked again first, then news, then the most recently active; drafts apart.
+  const at = (i: Item) => Math.max(...i.events.map((e) => e.at), Date.parse(i.pr.updatedAt));
+  const order = (a: Item, b: Item) =>
+    Number(b.events.some((e) => e.kind === "rerequest")) - Number(a.events.some((e) => e.kind === "rerequest")) || Number(unread(b)) - Number(unread(a)) || at(b) - at(a);
+  const groups: Group[] = [];
+  for (const item of narrowed.filter((i) => !i.pr.isDraft)) {
+    const name = item.pr.repository.nameWithOwner;
+    const group = groups.find((g) => g.repo === name) ?? groups[groups.push({ repo: name, items: [] }) - 1]!;
+    group.items.push(item);
+  }
+  for (const g of groups) g.items.sort(order);
+  groups.sort((a, b) => b.items.filter(unread).length - a.items.filter(unread).length || Math.max(...b.items.map(at)) - Math.max(...a.items.map(at)));
+  const drafts = narrowed.filter((i) => i.pr.isDraft).sort(order);
+  const unreadHere = list.filter(unread).length;
+
+  const row = (item: Item) =>
+    queue ? (
+      <li key={item.pr.id}>
+        <PullRow item={item} queue={queue} unread={unread(item)} arriving={shown && arrivals.has(item.pr.id)} onOpen={open} onDismiss={dismiss} onArrived={clearArrival} />
+      </li>
+    ) : null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-background/92 text-foreground shadow-2xl">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3" data-tauri-drag-region>
+      <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
-        <h1 className="text-[13px] font-semibold">Focus Diff</h1>
+        <h1 className="text-[15px] font-bold tracking-tight">Focus Diff</h1>
         <div className="ml-auto flex items-center gap-0.5">
           {signedIn ? (
-            <>
-              {status.phase === "error" ? (
-                <Tooltip>
-                  <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
-                    <AlertCircle className="text-destructive" />
-                  </TooltipTrigger>
-                  <TooltipContent>{status.error} · click to try again</TooltipContent>
-                </Tooltip>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
-                    {status.phase === "loading" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-                  </TooltipTrigger>
-                  <TooltipContent>{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : "Refresh"}</TooltipContent>
-                </Tooltip>
-              )}
-            </>
+            status.phase === "error" ? (
+              <Tooltip>
+                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
+                  <AlertCircle className="text-destructive" />
+                </TooltipTrigger>
+                <TooltipContent>{status.error} · click to try again</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
+                  {status.phase === "loading" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                </TooltipTrigger>
+                <TooltipContent>Refresh</TooltipContent>
+              </Tooltip>
+            )
           ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Menu" />}>
@@ -96,10 +174,9 @@ export function Panel() {
       </header>
 
       {!ready ? (
-        <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" style={{ opacity: 1 - i * 0.3 }} />
-          ))}
+        <div className="flex flex-col gap-3 px-3 pt-1" aria-busy="true" aria-label="Loading">
+          <Skeleton className="h-10 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       ) : !signedIn ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
@@ -110,43 +187,108 @@ export function Panel() {
           </div>
           <Connect auth={auth} onConnected={() => void refresh(true)} />
         </div>
-      ) : selected ? (
-        <Details
-          item={selected}
-          queue={config?.queues.find((q) => q.id === selected.queueId)}
-          me={me ?? ""}
-          config={config}
-          onBack={() => setSelected(null)}
-          onOpenDiff={openDiff}
-        />
+      ) : !queue ? (
+        <div className="flex flex-col items-center gap-3 px-8 py-16 text-center">
+          <p className="text-sm text-muted-foreground">You have no queues turned on.</p>
+          <Button variant="outline" onClick={() => void bridge.openSettings()}>
+            Set up queues
+          </Button>
+        </div>
       ) : (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="flex flex-col py-1">
-            {queues.length ? (
-              queues.map((queue) => (
-                <QueueSection
-                  key={queue.id}
-                  queue={queue}
-                  items={items[queue.id] ?? []}
-                  me={me ?? ""}
-                  isUnread={unread}
-                  arrivals={shown ? arrivals : new Set()}
-                  onOpen={open}
-                  onDismiss={dismiss}
-                  onArrived={clearArrival}
-                  onMarkSeen={markQueueSeen}
-                />
-              ))
-            ) : (
-              <div className="flex flex-col items-center gap-3 px-8 py-16 text-center">
-                <p className="text-sm text-muted-foreground">You have no queues turned on.</p>
-                <Button variant="outline" onClick={() => void bridge.openSettings()}>
-                  Set up queues
-                </Button>
-              </div>
-            )}
+        <>
+          {/* The queues, like the popup's two lists: the chosen one on a filled pill. */}
+          <div role="tablist" aria-label="Queues" className="mx-3 flex shrink-0 gap-0.5 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm [scrollbar-width:none]">
+            {queues.map((q) => {
+              const its = items[q.id] ?? [];
+              const selected = q.id === queue.id;
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => choose(q.id)}
+                  className={cn(
+                    "flex h-8 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-lg pr-2 pl-3 text-[13px] font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                    selected ? "bg-unread text-white" : "hover:bg-foreground/6",
+                  )}
+                >
+                  <span className="truncate">{q.name}</span>
+                  <Count n={its.length} unread={its.filter(unread).length} selected={selected} />
+                </button>
+              );
+            })}
           </div>
-        </ScrollArea>
+
+          <main role="tabpanel" aria-label={queue.name} className="mx-3 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+            {repos.length > 1 ? (
+              <div role="group" aria-label="Repositories" className="flex shrink-0 gap-0.5 overflow-x-auto border-b p-1.5 [scrollbar-width:none]">
+                {[["", "All", list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
+                  const pressed = (repo && repos.includes(repo) ? repo : "") === value;
+                  return (
+                    <button
+                      key={value || "all"}
+                      type="button"
+                      aria-pressed={pressed}
+                      title={value || undefined}
+                      onClick={() => setRepo(value)}
+                      className={cn(
+                        "flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                        pressed ? "bg-unread text-white" : "hover:bg-foreground/6",
+                      )}
+                    >
+                      <span className="truncate">{label}</span>
+                      <Count n={n} unread={0} selected={pressed} />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1">
+              {groups.length || drafts.length ? (
+                <>
+                  {groups.map((g, i) => (
+                    <section key={g.repo} aria-label={g.repo} className={cn(i > 0 && "mt-1 border-t pt-1", groups.length === 1 && repos.length <= 1 && "pt-1")}>
+                      {groups.length > 1 || repos.length > 1 ? (
+                        <h2 className="sticky top-0 z-10 flex items-center gap-2 bg-card px-2.5 pt-2.5 pb-1.5 text-[13px] leading-[18px] font-semibold">
+                          <span className="min-w-0 truncate">
+                            <span className="font-normal text-muted-foreground">{g.repo.slice(0, g.repo.indexOf("/") + 1)}</span>
+                            {g.repo.slice(g.repo.indexOf("/") + 1)}
+                          </span>
+                          <span className="text-xs font-normal text-muted-foreground tabular-nums">{g.items.length}</span>
+                        </h2>
+                      ) : null}
+                      <ul>{g.items.map(row)}</ul>
+                    </section>
+                  ))}
+                  {drafts.length ? (
+                    <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-1 border-t pt-1")}>
+                      <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                        <ChevronRight className={cn("size-3.5 transition-transform duration-200", draftsOpen && "rotate-90")} aria-hidden />
+                        Drafts <span className="text-xs tabular-nums">{drafts.length}</span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <ul>{drafts.map(row)}</ul>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : null}
+                </>
+              ) : (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">{EMPTY[queue.kind]}</p>
+              )}
+            </div>
+          </main>
+
+          <footer className="flex h-10 shrink-0 items-center gap-2 px-4 text-xs text-muted-foreground">
+            <p role="status">{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : status.phase === "loading" ? "Checking GitHub…" : ""}</p>
+            {unreadHere ? (
+              <button type="button" className="ml-auto rounded font-medium text-unread outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" onClick={() => markQueueSeen(queue.id)}>
+                Mark all as read
+              </button>
+            ) : null}
+          </footer>
+        </>
       )}
     </div>
   );

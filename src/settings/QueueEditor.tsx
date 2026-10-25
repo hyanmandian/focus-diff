@@ -142,6 +142,24 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                   <TagInput label="Teams" value={queue.teams} onChange={(v) => set("teams", v)} placeholder="acme/web-platform" validate={teamError} />
                 </div>
               ) : null}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-[13px]">Call out pull requests waiting on me for</span>
+                  <p className="text-xs text-muted-foreground">Counted from when you (or your team) were last asked.</p>
+                </div>
+                <Select value={String(queue.staleHours)} onValueChange={(v) => set("staleHours", Number(v))}>
+                  <SelectTrigger className="w-32" aria-label="Waiting long after">
+                    <SelectValue>{(v: string) => (v === "0" ? "Never" : Number(v) < 24 ? `${v} hours` : `${Number(v) / 24} day${v === "24" ? "" : "s"}`)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[4, 8, 24, 48, 72, 0].map((h) => (
+                      <SelectItem key={h} value={String(h)}>
+                        {h === 0 ? "Never" : h < 24 ? `${h} hours` : `${h / 24} day${h === 24 ? "" : "s"}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </>
           ) : null}
           {queue.kind === "involved" ? (

@@ -138,6 +138,12 @@ pub struct Name {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct Count {
+    pub total_count: u32,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Repository {
     pub name_with_owner: String,
 }
@@ -164,6 +170,9 @@ pub struct Reviewer {
 #[serde(rename_all = "camelCase", default)]
 pub struct ReviewRequest {
     pub requested_reviewer: Option<Reviewer>,
+    /// On review request events: when it was asked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -196,9 +205,12 @@ pub struct PullRequest {
     pub commits: Nodes<CommitNode>,
     pub participants: Nodes<Login>,
     pub removed: Nodes<Removed>,
+    pub comment_count: Count,
+    pub thread_count: Count,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Nodes<Path>>,
-    /// Merged queues: everyone ever asked to review, and whether you're in the teams asked.
+    /// Review and merged queues: everyone ever asked to review and when, and whether you're in the
+    /// teams asked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested: Option<Nodes<ReviewRequest>>,
 }
@@ -226,6 +238,8 @@ struct PanelPr<'a> {
     labels: &'a Nodes<Name>,
     review_requests: &'a Nodes<ReviewRequest>,
     latest_opinionated_reviews: &'a Nodes<Review>,
+    /// Comments and review conversations.
+    comments: u32,
 }
 
 const ACTOR: &str = "__typename login avatarUrl(size: 64) ... on User { name }";
@@ -246,13 +260,15 @@ fn fragment(files: bool, requests: bool) -> String {
         reviewThreads(last: 20) {{ nodes {{ comments(last: 5) {{ nodes {{ {comment} }} }} }} }}
         commits(last: 1) {{ nodes {{ commit {{ committedDate statusCheckRollup {{ state }} }} }} }}
         participants(first: 50) {{ nodes {{ login }} }}
+        commentCount: comments {{ totalCount }}
+        threadCount: reviewThreads {{ totalCount }}
         removed: timelineItems(first: 20, itemTypes: [REVIEW_REQUEST_REMOVED_EVENT]) {{ nodes {{ ... on ReviewRequestRemovedEvent {{ actor {{ login }} }} }} }}"
     );
     if files {
         f.push_str(" files(first: 100) { nodes { path } }");
     }
     if requests {
-        f.push_str(" requested: timelineItems(first: 30, itemTypes: [REVIEW_REQUESTED_EVENT]) { nodes { ... on ReviewRequestedEvent { requestedReviewer { __typename ... on User { login } ... on Team { slug organization { login } members(query: $login, first: 10) { nodes { login } } } } } } }");
+        f.push_str(" requested: timelineItems(last: 30, itemTypes: [REVIEW_REQUESTED_EVENT]) { nodes { ... on ReviewRequestedEvent { createdAt requestedReviewer { __typename ... on User { login } ... on Team { slug organization { login } members(query: $login, first: 10) { nodes { login } } } } } } }");
     }
     f
 }
@@ -481,6 +497,9 @@ pub struct List {
 /// launches (cache.json), for the signed-in login only.
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Cache {
+    /// What's cached changes shape with the app: an older cache starts over.
+    #[serde(default)]
+    pub version: u32,
     pub me: String,
     pub lists: HashMap<String, List>,
     pub prs: HashMap<String, Cached>,
@@ -490,13 +509,14 @@ pub struct Cache {
 }
 
 pub const MERGED_EVERY: i64 = 5 * 60_000;
+pub const CACHE_VERSION: u32 = 2;
 
 /// Brings the cache up to date with GitHub. `force` searches merged queues again too; `full`
 /// fetches every pull request in full, changed or not (a periodic safety net for what GitHub
 /// doesn't count as an update, like team membership). Returns how many were fetched in full.
 pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force: bool, full: bool, now: i64) -> Result<usize, Failure> {
-    if cache.me != me {
-        *cache = Cache { me: me.to_string(), ..Cache::default() };
+    if cache.me != me || cache.version != CACHE_VERSION {
+        *cache = Cache { version: CACHE_VERSION, me: me.to_string(), ..Cache::default() };
     }
     // 1. The light searches, all at once.
     let due: Vec<&Queue> = queues
@@ -534,7 +554,7 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     let mut needs: HashMap<String, (bool, bool)> = HashMap::new();
     for queue in queues {
         let files = queue.needs_files() || queue.kind == Kind::Merged;
-        let requests = queue.kind == Kind::Merged && queue.requested_only;
+        let requests = queue.kind == Kind::Review || (queue.kind == Kind::Merged && queue.requested_only);
         for id in cache.lists.get(&queue.id).map(|l| l.ids.as_slice()).unwrap_or_default() {
             let need = needs.entry(id.clone()).or_default();
             need.0 |= files;
@@ -600,6 +620,9 @@ pub struct Item {
     pub ci: Option<String>,
     /// CI went green again on the same commit since last time: worth a notification only.
     pub passed: bool,
+    /// Review queues: since when it's been waiting on you (ms), from the last time you (or your
+    /// team) were asked.
+    pub waiting_since: Option<i64>,
 }
 
 impl Serialize for Item {
@@ -617,6 +640,8 @@ impl Serialize for Item {
             ci: &'a Option<String>,
             #[serde(skip_serializing_if = "std::ops::Not::not")]
             passed: bool,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            waiting_since: Option<i64>,
         }
         let pr = &self.pr;
         Out {
@@ -641,12 +666,14 @@ impl Serialize for Item {
                 labels: &pr.labels,
                 review_requests: &pr.review_requests,
                 latest_opinionated_reviews: &pr.latest_opinionated_reviews,
+                comments: pr.comment_count.total_count + pr.thread_count.total_count,
             },
             events: &self.events,
             status: self.status,
             via_teams: &self.via_teams,
             ci: &self.ci,
             passed: self.passed,
+            waiting_since: self.waiting_since,
         }
         .serialize(serializer)
     }
@@ -744,6 +771,19 @@ fn was_asked(pr: &PullRequest, me: &str, queue: &Queue) -> bool {
     })
 }
 
+/// When you were last asked to review: directly, or through one of these teams ("org/slug").
+fn asked_at(pr: &PullRequest, me: &str, teams: &[String]) -> Option<i64> {
+    pr.requested.as_ref()?.nodes.iter().filter_map(|n| {
+        let r = n.requested_reviewer.as_ref()?;
+        let yours = match (&r.login, &r.slug, &r.organization) {
+            (Some(login), _, _) => login == me,
+            (_, Some(slug), Some(org)) => teams.contains(&format!("{}/{slug}", org.login)),
+            _ => false,
+        };
+        yours.then(|| time(n.created_at.as_deref()))
+    }).max()
+}
+
 fn event(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&Actor>) -> Event {
     Event { key: format!("{}:{kind}:{id}", pr.id), kind, at, who: who.cloned() }
 }
@@ -789,7 +829,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
         let pushed = time(pr.commits.nodes.first().and_then(|c| c.commit.committed_date.as_deref()));
         // Entering the queue is an event of its own, per queue.
         let arrived = Event { key: format!("{}:{}:new", queue.id, pr.id), kind: NEW, at: time(Some(&pr.created_at)), who: pr.author.clone() };
-        let item = |events: Vec<Event>| Item { queue_id: queue.id.clone(), pr: pr.clone(), events, status: None, via_teams: None, ci: ci.clone(), passed: false };
+        let item = |events: Vec<Event>| Item { queue_id: queue.id.clone(), pr: pr.clone(), events, status: None, via_teams: None, ci: ci.clone(), passed: false, waiting_since: None };
 
         match queue.kind {
             Kind::Review => {
@@ -800,7 +840,8 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 if queue.hide_once_reviewed && act.any {
                     continue;
                 }
-                items.push(Item { via_teams: Some(if direct { vec![] } else { via }), ..item(vec![arrived]) });
+                let waiting = asked_at(pr, me, if direct { &[] } else { &via }).unwrap_or_else(|| time(Some(&pr.created_at)));
+                items.push(Item { via_teams: Some(if direct { vec![] } else { via }), waiting_since: Some(waiting), ..item(vec![arrived]) });
             }
             Kind::Merged => {
                 if queue.skip_if_i == SkipIfI::TookPart && pr.participants.nodes.iter().any(|p| p.login == me) {
@@ -1068,6 +1109,20 @@ mod tests {
             pr(json!({ "reviewRequests": direct, "files": { "nodes": [{ "path": "docs/a.md" }] } })),
         ];
         assert_eq!(items(&queue(Kind::Review, json!({ "excludeAuthors": ["noisy"], "includePaths": "\\.tsx?$" })), &prs).len(), 0);
+    }
+
+    #[test]
+    fn waiting_since_the_last_ask() {
+        let asked = |who: Value, minutes_ago: i64| json!({ "requestedReviewer": who, "createdAt": t(minutes_ago) });
+        let me = json!({ "__typename": "User", "login": ME });
+        let found = items(
+            &queue(Kind::Review, json!({})),
+            &[pr(json!({
+                "reviewRequests": { "nodes": [{ "requestedReviewer": me }] },
+                "requested": { "nodes": [asked(me.clone(), 300), asked(json!({ "__typename": "User", "login": "ana" }), 10), asked(me.clone(), 60)] },
+            }))],
+        );
+        assert_eq!(found[0].waiting_since, Some(T0 - 60 * 60_000));
     }
 
     #[test]

@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { EFFORT_LABELS, PROVIDERS } from "@/lib/ai";
 import { bridge, type AiStatus } from "@/lib/bridge";
-import { AI_PROVIDERS, defaultPrompts, newId, type AiProvider, type Config, type Effort, type Prompt } from "@/lib/config";
+import { AI_PROVIDERS, defaultPrompts, newId, REVIEW_PROMPT, type AiProvider, type Config, type Effort, type Prompt } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
 function CopyCommand({ command }: { command: string }) {
@@ -37,6 +38,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   const modelId = useId();
   const effortId = useId();
   const guidelinesId = useId();
+  const projectId = useId();
+  const autoId = useId();
+  const reviewPromptId = useId();
   const [models, setModels] = useState<string[]>([]);
   const check = useCallback(async () => {
     setChecking(true);
@@ -73,7 +77,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
         <h2 className="text-base font-semibold">AI</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on
-          this computer with the pull request's description and diff, without tools: it answers, it can't change files or run commands. Nothing goes through us.
+          this computer, read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.
         </p>
       </div>
 
@@ -175,6 +179,44 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
             </div>
           </div>
 
+          <div className="flex items-start justify-between gap-4 rounded-xl border p-3">
+            <div>
+              <Label htmlFor={projectId} className="text-[13px]">
+                Read the whole project, not just the diff
+              </Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is
+                downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan.
+              </p>
+            </div>
+            <Switch id={projectId} checked={ai.project} onCheckedChange={(project) => setAi({ project })} />
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-xl border p-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label htmlFor={autoId} className="text-[13px]">
+                  AI review when a pull request opens
+                </Label>
+                <p className="mt-0.5 text-xs text-muted-foreground">Its comments show on the diff's lines, for you to add to your review or dismiss. Off: an "AI review" button in the review window.</p>
+              </div>
+              <Switch id={autoId} checked={ai.review.auto} onCheckedChange={(auto) => setAi({ review: { ...ai.review, auto } })} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <Label htmlFor={reviewPromptId} className="text-xs text-muted-foreground">
+                  What the review looks for
+                </Label>
+                {ai.review.prompt !== REVIEW_PROMPT ? (
+                  <Button variant="link" size="xs" className="ml-auto" onClick={() => setAi({ review: { ...ai.review, prompt: REVIEW_PROMPT } })}>
+                    Restore the default
+                  </Button>
+                ) : null}
+              </div>
+              <Textarea id={reviewPromptId} className="min-h-20 text-[13px]" maxLength={8000} value={ai.review.prompt} onChange={(e) => setAi({ review: { ...ai.review, prompt: e.target.value } })} />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={guidelinesId} className="text-[13px]">
               Your review guidelines
@@ -185,7 +227,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               value={ai.instructions}
               maxLength={4000}
               onChange={(e) => setAi({ instructions: e.target.value })}
-              placeholder="Added to every question. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it."
+              placeholder="Added to every question and review. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it."
             />
           </div>
 

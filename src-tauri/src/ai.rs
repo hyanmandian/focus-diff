@@ -1,13 +1,16 @@
 //! Optional AI, on the person's own subscription: it runs the coding agent CLI they already have
-//! installed and signed in (Claude Code, Codex, Cursor or OpenCode), never a login or key of ours.
+//! installed and signed in (Claude Code or Cursor), never a login or key of ours.
 //!
 //! How it's run follows each tool's rules for this:
 //! - their own, unmodified binary, signed in by them in their terminal; this app never reads or
 //!   stores their credentials;
-//! - text answers only: no tools, read-only sandbox or "ask" mode, so it can't edit or run
-//!   anything;
-//! - in an empty temporary folder, so no repository's hooks, MCP servers or rules files load;
-//! - the material (a diff, a description) on standard input, with a time limit.
+//! - read-only: Claude Code gets only its Read, Grep and Glob tools, Cursor runs in "ask" mode, so
+//!   neither can edit files or run commands;
+//! - in the pull request's own code (checkout.rs), so it can look at where the changed code is used
+//!   and what it affects, with the repository's rules (CLAUDE.md, AGENTS.md, .cursor/rules); but
+//!   with no project settings, hooks or MCP servers, which a pull request's author controls. Without
+//!   that checkout, in an empty folder with no tools at all;
+//! - the material (the diff, the description) on standard input, with a time limit.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -19,44 +22,39 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 const TIME_LIMIT: Duration = Duration::from_secs(180);
+/// Reading around a project takes longer than reading a diff.
+const PROJECT_TIME_LIMIT: Duration = Duration::from_secs(600);
 const MAX_INPUT: usize = 400_000; // characters; more is cut, with a note
+const READ_ONLY_TOOLS: &str = "Read,Grep,Glob";
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     Claude,
-    Codex,
     Cursor,
-    Opencode,
 }
 
 impl Provider {
-    const ALL: [Provider; 4] = [Provider::Claude, Provider::Codex, Provider::Cursor, Provider::Opencode];
+    const ALL: [Provider; 2] = [Provider::Claude, Provider::Cursor];
 
     fn binaries(self) -> &'static [&'static str] {
         match self {
             Provider::Claude => &["claude"],
-            Provider::Codex => &["codex"],
             Provider::Cursor => &["agent", "cursor-agent"],
-            Provider::Opencode => &["opencode"],
         }
     }
 
     fn login_command(self) -> &'static str {
         match self {
             Provider::Claude => "claude auth login",
-            Provider::Codex => "codex login",
             Provider::Cursor => "agent login",
-            Provider::Opencode => "opencode auth login",
         }
     }
 
-    /// How hard it thinks, in each CLI's own words; anything else is left to the CLI's default.
+    /// How hard it thinks, in the CLI's own words; anything else is left to its default.
     fn effort(self, effort: Option<&str>) -> Option<&'static str> {
         let allowed: &[&'static str] = match self {
             Provider::Claude => &["low", "medium", "high", "xhigh", "max"],
-            Provider::Codex => &["minimal", "low", "medium", "high", "xhigh"],
-            Provider::Opencode => &["minimal", "low", "medium", "high", "max"],
             // Cursor's effort is part of the model's name.
             Provider::Cursor => &[],
         };
@@ -175,10 +173,7 @@ pub fn status(provider: Provider) -> Status {
         .map(|o| o.stdout.lines().next().unwrap_or_default().trim().to_string());
     let args: &[&str] = match provider {
         Provider::Claude => &["auth", "status"],
-        Provider::Codex => &["login", "status"],
         Provider::Cursor => &["status"],
-        // OpenCode has free models that need no account: installed is enough.
-        Provider::Opencode => &["--version"],
     };
     let signed_in = run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
         .map(|o| {
@@ -204,142 +199,136 @@ pub fn statuses() -> Vec<Status> {
 
 /// The models the CLI offers on this account, to suggest; empty when it can't list them.
 pub fn models(provider: Provider) -> Vec<String> {
-    let args: &[&str] = match provider {
+    match provider {
         // Aliases for the latest of each, as Claude Code takes them.
-        Provider::Claude => return ["fable", "opus", "sonnet", "haiku"].map(String::from).to_vec(),
-        Provider::Codex => return vec![],
-        Provider::Cursor => &["--list-models"],
-        Provider::Opencode => &["models"],
-    };
-    let Some(binary) = find(provider) else { return vec![] };
-    let Ok(output) = run_with_limit(command(&binary).args(args), None, Duration::from_secs(20)) else { return vec![] };
-    if !output.status_ok {
-        return vec![];
+        Provider::Claude => ["fable", "opus", "sonnet", "haiku"].map(String::from).to_vec(),
+        Provider::Cursor => {
+            let Some(binary) = find(provider) else { return vec![] };
+            let Ok(output) = run_with_limit(command(&binary).arg("--list-models"), None, Duration::from_secs(20)) else { return vec![] };
+            if !output.status_ok {
+                return vec![];
+            }
+            let id = |s: &str| !s.is_empty() && s.len() <= 80 && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:[]=,".contains(c)) && s.chars().any(|c| c.is_ascii_digit() || c == '-');
+            let mut found: Vec<String> = output.stdout.lines().filter_map(|l| l.split_whitespace().next()).filter(|t| id(t)).map(String::from).collect();
+            found.dedup();
+            found.truncate(200);
+            found
+        }
     }
-    let id = |s: &str| !s.is_empty() && s.len() <= 80 && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./:[]=,".contains(c)) && s.chars().any(|c| c.is_ascii_digit() || c == '/' || c == '-');
-    let mut found: Vec<String> = output.stdout.lines().filter_map(|l| l.split_whitespace().next()).filter(|t| id(t)).map(String::from).collect();
-    found.dedup();
-    found.truncate(200);
-    found
+}
+
+/// A question for the person's AI.
+pub struct Question<'a> {
+    pub provider: Provider,
+    pub model: Option<&'a str>,
+    pub effort: Option<&'a str>,
+    pub prompt: &'a str,
+    /// The material: description and diff.
+    pub input: &'a str,
+    /// The pull request's code, to read around in; None for the diff alone.
+    pub project: Option<&'a Path>,
+    /// A JSON Schema the answer must follow; the answer is then that JSON.
+    pub schema: Option<&'a str>,
 }
 
 /// Asks the person's agent CLI and returns its answer. Blocking: run it off the main thread.
-pub fn ask(provider: Provider, model: Option<&str>, effort: Option<&str>, prompt: &str, input: &str) -> Result<String, String> {
-    let binary = find(provider).ok_or("It isn't installed")?;
+pub fn ask(q: Question) -> Result<String, String> {
+    let binary = find(q.provider).ok_or("It isn't installed")?;
+    if let Some(project) = q.project {
+        return ask_in(&q, &binary, project);
+    }
     static RUNS: AtomicU64 = AtomicU64::new(0);
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
     let workspace = std::env::temp_dir().join(format!("focus-diff-{}-{stamp}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
     std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
-    let result = ask_in(provider, &binary, &workspace, model, provider.effort(effort), prompt, input);
+    let result = ask_in(&q, &binary, &workspace);
     let _ = std::fs::remove_dir_all(&workspace);
     result
 }
 
-fn ask_in(provider: Provider, binary: &Path, workspace: &Path, model: Option<&str>, effort: Option<&str>, prompt: &str, input: &str) -> Result<String, String> {
-    let mut material: String = input.chars().take(MAX_INPUT).collect();
-    if material.len() < input.len() {
+fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, String> {
+    let mut material: String = q.input.chars().take(MAX_INPUT).collect();
+    if material.len() < q.input.len() {
         material.push_str("\n\n[The rest was cut to fit.]");
     }
+    let mut prompt = q.prompt.to_string();
+    if let (Provider::Cursor, Some(schema)) = (q.provider, q.schema) {
+        prompt.push_str(&format!("\n\nReply with only a JSON object, no other text, following this JSON Schema:\n{schema}"));
+    }
     let message = format!("{prompt}\n\n---\n\n{material}");
-    let model = model.map(str::trim).filter(|m| !m.is_empty());
+    let model = q.model.map(str::trim).filter(|m| !m.is_empty());
+    let limit = if q.project.is_some() { PROJECT_TIME_LIMIT } else { TIME_LIMIT };
     let mut cmd = command(binary);
     cmd.current_dir(workspace);
-    let output = match provider {
+    let answer = match q.provider {
         Provider::Claude => {
-            cmd.args(["-p", "--output-format", "json", "--tools", "", "--permission-mode", "dontAsk", "--no-session-persistence", "--strict-mcp-config"]);
+            let tools = if q.project.is_some() { READ_ONLY_TOOLS } else { "" };
+            cmd.args(["-p", "--output-format", "json", "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk", "--no-session-persistence", "--strict-mcp-config"]);
+            // The user's own settings only: a repository's .claude/settings.json (hooks,
+            // permissions) is its author's, not the reviewer's.
+            cmd.args(["--setting-sources", "user"]);
             if let Some(model) = model {
                 cmd.args(["--model", model]);
             }
-            if let Some(effort) = effort {
+            if let Some(effort) = q.provider.effort(q.effort) {
                 cmd.args(["--effort", effort]);
             }
-            let output = run_with_limit(&mut cmd, Some(&message), TIME_LIMIT)?;
+            if let Some(schema) = q.schema {
+                cmd.args(["--json-schema", schema]);
+            }
+            let output = run_with_limit(&mut cmd, Some(&message), limit)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             if reply["is_error"].as_bool() == Some(true) {
                 return Err(reply["result"].as_str().unwrap_or("Claude Code returned an error").to_string());
             }
-            reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?
-        }
-        Provider::Codex => {
-            let answer = workspace.join("answer.md");
-            cmd.args(["exec", "--sandbox", "read-only", "--ephemeral", "--skip-git-repo-check", "--color", "never", "-o"]).arg(&answer);
-            if let Some(model) = model {
-                cmd.args(["-m", model]);
-            }
-            if let Some(effort) = effort {
-                cmd.args(["-c", &format!("model_reasoning_effort=\"{effort}\"")]);
-            }
-            cmd.arg("-");
-            let output = run_with_limit(&mut cmd, Some(&message), TIME_LIMIT)?;
-            match std::fs::read_to_string(&answer) {
-                Ok(text) if output.status_ok && !text.trim().is_empty() => text,
-                _ => return Err(failure(&output)),
+            if q.schema.is_some() && reply["structured_output"].is_object() {
+                reply["structured_output"].to_string()
+            } else {
+                reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?
             }
         }
         Provider::Cursor => {
-            cmd.args(["-p", "--output-format", "json", "--mode", "ask", "--trust", "--workspace"]).arg(workspace);
+            // "ask" mode reads and answers, nothing else; MCP servers stay off without --approve-mcps.
+            cmd.args(["-p", "--output-format", "json", "--mode", "ask", "--sandbox", "enabled", "--trust", "--workspace"]).arg(workspace);
             if let Some(model) = model {
                 cmd.args(["--model", model]);
             }
             // Cursor's CLI takes the whole prompt as an argument.
             cmd.arg(&message);
-            let output = run_with_limit(&mut cmd, None, TIME_LIMIT)?;
+            let output = run_with_limit(&mut cmd, None, limit)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
-            reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?
-        }
-        Provider::Opencode => {
-            // Its read-only "plan" agent, with every tool denied on top, and no plugins.
-            cmd.args(["run", "--pure", "--agent", "plan", "--format", "json"]);
-            cmd.env("OPENCODE_CONFIG_CONTENT", r#"{"permission":{"edit":"deny","bash":"deny","webfetch":"deny"}}"#);
-            if let Some(model) = model {
-                cmd.args(["--model", model]);
-            }
-            if let Some(effort) = effort {
-                cmd.args(["--variant", effort]);
-            }
-            let output = run_with_limit(&mut cmd, Some(&message), TIME_LIMIT)?;
-            // One JSON event a line; the answer is the text parts.
-            let text: String = output
-                .stdout
-                .lines()
-                .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
-                .filter(|e| e["type"] == "text")
-                .filter_map(|e| e["part"]["text"].as_str().map(String::from))
-                .collect::<Vec<_>>()
-                .join("\n\n");
-            if text.trim().is_empty() {
-                return Err(failure(&output));
-            }
-            text
+            let text = reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?;
+            if q.schema.is_some() { json_object(&text).ok_or("The answer wasn't in the expected form")? } else { text }
         }
     };
-    Ok(output.trim().to_string())
+    Ok(answer.trim().to_string())
+}
+
+/// The JSON object in a reply that may wrap it in prose or a code fence.
+fn json_object(text: &str) -> Option<String> {
+    let start = text.find('{')?;
+    let end = text.rfind('}')?;
+    let candidate = text.get(start..=end)?;
+    serde_json::from_str::<serde_json::Value>(candidate).ok().filter(|v| v.is_object()).map(|v| v.to_string())
 }
 
 /// The most useful line of what a CLI said when it failed: its last error line, or the start of
 /// what it printed.
 fn failure(output: &Output) -> String {
     let text = format!("{}\n{}", output.stderr, output.stdout);
-    let line = text
-        .lines()
-        .rev()
-        .map(str::trim)
-        .find(|l| !l.is_empty())
-        .unwrap_or("It didn't answer")
-        .to_string();
-    // Codex ("ERROR: {…}") and OpenCode print JSON errors; their message is what matters.
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(line.strip_prefix("ERROR: ").unwrap_or(&line)) {
-        let error = &v["error"];
-        if let Some(message) = error["message"].as_str().or_else(|| error["data"]["message"].as_str()) {
-            return message.chars().take(400).collect();
-        }
-    }
+    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).unwrap_or("It didn't answer").to_string();
     line.chars().take(400).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_json_in_prose() {
+        assert_eq!(json_object("Sure:\n```json\n{\"findings\": []}\n```").as_deref(), Some("{\"findings\":[]}"));
+        assert_eq!(json_object("no json here"), None);
+    }
 
     /// Talks to the CLIs installed on this machine, so it's opt-in: `cargo test -- --ignored ai`.
     #[test]
@@ -348,12 +337,8 @@ mod tests {
         for status in statuses() {
             println!("{:?}: installed {}, signed in {}, {:?}", status.provider, status.installed, status.signed_in, status.version);
         }
-        let answer = ask(Provider::Claude, None, Some("low"), "Reply with exactly the word in the material.", "PONG");
-        println!("Claude: {answer:?}");
-        assert_eq!(answer.as_deref(), Ok("PONG"));
-        println!("Codex: {:?}", ask(Provider::Codex, None, Some("low"), "Reply with exactly: OK", ""));
-        println!("Cursor: {:?}", ask(Provider::Cursor, None, None, "Reply with exactly: OK", ""));
-        println!("OpenCode: {:?}", ask(Provider::Opencode, None, None, "Reply with exactly: OK", ""));
-        println!("OpenCode models: {:?}", models(Provider::Opencode).len());
+        let ask_claude = |project| ask(Question { provider: Provider::Claude, model: Some("haiku"), effort: Some("low"), prompt: "Reply with exactly the word in the material.", input: "PONG", project, schema: None });
+        assert_eq!(ask_claude(None).as_deref(), Ok("PONG"));
+        println!("Cursor: {:?}", ask(Question { provider: Provider::Cursor, model: None, effort: None, prompt: "Reply with exactly: OK", input: "", project: None, schema: None }));
     }
 }

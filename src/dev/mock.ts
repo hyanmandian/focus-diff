@@ -46,12 +46,12 @@ function pr(overrides: Record<string, unknown>) {
     latestOpinionatedReviews: { nodes: [] },
     mine: { nodes: [] },
     reviewComments: { nodes: [] },
-    comments: { nodes: [] },
     reviewThreads: { nodes: [] },
     commits: { nodes: [{ commit: { committedDate: iso(40), statusCheckRollup: { state: "SUCCESS" } } }] },
     participants: { nodes: [] },
     removed: { nodes: [] },
     files: { nodes: [{ path: "src/app/checkout.tsx" }] },
+    comments: 3,
     ...overrides,
   };
 }
@@ -242,7 +242,8 @@ const threads = {
 type Sample = ReturnType<typeof pr>;
 const item = (queueId: string, p: Sample, events: Array<[kind: string, minutesAgo: number, who?: object | null]> = [], extra: object = {}) => ({
   queueId,
-  pr: p,
+  // Rust sends the panel a count, not the comments.
+  pr: { ...p, comments: typeof p.comments === "number" ? p.comments : (p.comments as { nodes: unknown[] }).nodes.length },
   ci: p.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,
   events: [
     { key: `${queueId}:${p.id}:new`, kind: "new", at: queueId === "merged" ? Date.parse(String(p.mergedAt)) : Date.parse(p.createdAt), who: p.author },
@@ -254,7 +255,11 @@ const [promo, invoices, flaky] = review as [Sample, Sample, Sample];
 const [billing, search, upgrade] = involved as [Sample, Sample, Sample];
 const [history, onboarding] = authored as [Sample, Sample];
 const items = {
-  review: [item("review", promo, [], { viaTeams: [] }), item("review", invoices, [], { viaTeams: ["acme/payments"] }), item("review", flaky, [], { viaTeams: [] })],
+  review: [
+    item("review", promo, [], { viaTeams: [], waitingSince: now - 25 * 60_000 }),
+    item("review", invoices, [], { viaTeams: ["acme/payments"], waitingSince: now - 26 * 3_600_000 }),
+    item("review", flaky, [["rerequest", 90, null]], { viaTeams: [], waitingSince: now - 50 * 3_600_000 }),
+  ],
   updates: [
     item("updates", billing, [["commits", 50], ["reply", 45, people.carla]], { status: "APPROVED" }),
     item("updates", search, [["mention", 12, people.bruno]], { status: "MENTIONED" }),
@@ -292,15 +297,24 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
     case "ai_statuses":
       return [
         { provider: "claude", installed: true, signed_in: true, version: "2.1.310 (Claude Code)", login_command: "claude auth login" },
-        { provider: "codex", installed: true, signed_in: false, version: "codex-cli 0.144.5", login_command: "codex login" },
         { provider: "cursor", installed: false, signed_in: false, version: null, login_command: "agent login" },
-        { provider: "opencode", installed: true, signed_in: true, version: "1.18.3", login_command: "opencode auth login" },
       ];
     case "ai_models":
       return ["fable", "opus", "sonnet", "haiku"];
     case "ai_ask":
       await new Promise((r) => setTimeout(r, 400));
-      return "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.";
+      if (args.schema)
+        return {
+          project: true,
+          text: JSON.stringify({
+            summary: "Keeps the promo code when the cart changes and re-checks it against the new total. One real gap: the error isn't cleared.",
+            findings: [
+              { path: "src/checkout/cart.ts", line: 15, severity: "issue", body: "`promoError` stays set after the code is removed by hand: `removePromo` in `src/checkout/promo.ts` only clears `promo`, so the old error keeps showing." },
+              { path: "src/checkout/promo.ts", line: 40, severity: "suggestion", body: "`validatePromo` is also called from `OrderSummary.tsx`, which doesn't pass the new total." },
+            ],
+          }),
+        };
+      return { project: true, text: "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed." };
     case "run_action":
       await new Promise((r) => setTimeout(r, 400));
       return "ok";

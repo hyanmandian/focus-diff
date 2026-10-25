@@ -111,14 +111,14 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Config { queues: vec![], poll_seconds: 90, sound: false }
+        Config { queues: vec![], poll_seconds: 60, sound: false }
     }
 }
 
 impl Config {
     pub fn parse(text: &str) -> Option<Config> {
         let mut config: Config = serde_json::from_str(text).ok()?;
-        config.poll_seconds = config.poll_seconds.clamp(60, 900);
+        config.poll_seconds = config.poll_seconds.clamp(30, 900);
         config.queues.retain(|q| !q.id.is_empty());
         Some(config)
     }

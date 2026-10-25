@@ -10,7 +10,7 @@ import type { Config } from "@/lib/config";
 import type { Details } from "@/lib/details";
 import { AiAnswer } from "./AiAnswer";
 
-type State = { phase: "idle" } | { phase: "busy"; asked: string } | { phase: "done" | "error"; asked: string; text: string };
+type State = { phase: "idle" } | { phase: "busy"; asked: string } | { phase: "done" | "error"; asked: string; text: string; note?: string };
 
 export function AskAi({ config, details }: { config: Config; details: Details }) {
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -23,7 +23,8 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   const run = async (asked: string, prompt: string) => {
     setState({ phase: "busy", asked });
     try {
-      setState({ phase: "done", asked, text: await ask(config, details, prompt) });
+      const answer = await ask(config, details, prompt);
+      setState({ phase: "done", asked, text: answer.text, note: answer.note });
     } catch (e) {
       setState({ phase: "error", asked, text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
     }
@@ -71,13 +72,16 @@ export function AskAi({ config, details }: { config: Config; details: Details })
         <div className="flex flex-col gap-1.5 border-t pt-2.5" aria-live="polite">
           <p className="line-clamp-2 text-[11px] font-medium text-muted-foreground">{state.asked}</p>
           {state.phase === "done" ? (
-            <AiAnswer text={state.text} />
+            <>
+              <AiAnswer text={state.text} />
+              {state.note ? <p className="text-[11px] text-muted-foreground">{state.note}</p> : null}
+            </>
           ) : state.phase === "error" ? (
             <p className="text-xs text-destructive" role="alert">
               {state.text}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">Reading the diff… this can take a minute.</p>
+            <p className="text-xs text-muted-foreground">{config.ai.project ? "Reading the project… this can take a few minutes." : "Reading the diff… this can take a minute."}</p>
           )}
         </div>
       ) : null}

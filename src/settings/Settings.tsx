@@ -18,6 +18,7 @@ import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
 import { Actions } from "./Actions";
 import { Ai } from "./Ai";
+import { Filters } from "./Filters";
 import { QueueEditor } from "./QueueEditor";
 
 const DOT: Record<Queue["tone"], string> = {
@@ -180,7 +181,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {[60, 90, 180, 300, 600].map((s) => (
+            {[30, 60, 90, 180, 300, 600].map((s) => (
               <SelectItem key={s} value={String(s)}>
                 {s < 120 ? `${s} seconds` : `${s / 60} minutes`}
               </SelectItem>
@@ -228,6 +229,7 @@ export function Settings() {
         <h1 className="text-sm font-semibold">Settings</h1>
         <TabsList className="ml-auto">
           <TabsTrigger value="queues">Queues</TabsTrigger>
+          <TabsTrigger value="filters">Filters</TabsTrigger>
           <TabsTrigger value="actions">Actions</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
@@ -239,6 +241,9 @@ export function Settings() {
       </TabsContent>
       <TabsContent value="actions" className="min-h-0 flex-1">
         <Actions config={config} onChange={setConfig} />
+      </TabsContent>
+      <TabsContent value="filters" className="min-h-0 flex-1 overflow-y-auto">
+        <Filters config={config} onChange={setConfig} />
       </TabsContent>
       <TabsContent value="ai" className="min-h-0 flex-1 overflow-y-auto">
         <Ai config={config} onChange={setConfig} />

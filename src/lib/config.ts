@@ -64,15 +64,17 @@ export type Queue = {
   skipApprovedBy: string[];
   /** merged: leave out pull requests one of these people merged. */
   skipMergedBy: string[];
+  /** review: hours waiting on you before a pull request is called out as waiting long. 0: never. */
+  staleHours: number;
   /** custom: GitHub search qualifiers, e.g. "repo:acme/web label:urgent". */
   query: string;
   /** What's worth a notification. */
   notify: EventKind[];
 };
 
-export const AI_PROVIDERS = ["claude", "codex", "cursor", "opencode"] as const;
+export const AI_PROVIDERS = ["claude", "cursor"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
-export const EFFORTS = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type Effort = (typeof EFFORTS)[number];
 
 /** Something to ask the AI about a pull request, offered as a button by it. */
@@ -99,6 +101,10 @@ export type Action = {
   steps: ActionStep[];
 };
 
+/** A part of a pull request to review on its own: the files whose paths match `include` and not
+ *  `exclude` (regular expressions; empty matches all, or none). Like Focus Diff's filters. */
+export type DiffFilter = { id: string; name: string; include: string; exclude: string };
+
 export type Config = {
   version: 1;
   queues: Queue[];
@@ -114,8 +120,14 @@ export type Config = {
     /** The person's own review guidelines, added to every question. */
     instructions: string;
     prompts: Prompt[];
+    /** Let it read the pull request's whole project (checked out in the app's cache), not just the diff. */
+    project: boolean;
+    /** The AI review: comments on the diff's lines, to add to your review or dismiss. */
+    review: { auto: boolean; prompt: string };
   };
   actions: Action[];
+  /** The diff's filters, offered as chips in the review window. */
+  filters: DiffFilter[];
 };
 
 let counter = 0;
@@ -140,6 +152,7 @@ const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify"> => ({
   skipIfI: "tookPart",
   skipApprovedBy: [],
   skipMergedBy: [],
+  staleHours: 24,
   query: "",
 });
 
@@ -200,12 +213,67 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
 export const defaultConfig = (): Config => ({
   version: 1,
   queues: [TEMPLATES.review.make(), TEMPLATES.involved.make(), TEMPLATES.authored.make()],
-  pollSeconds: 90,
+  pollSeconds: 60,
   sound: false,
   theme: "system",
-  ai: { provider: null, model: "", effort: "", instructions: "", prompts: defaultPrompts() },
+  ai: { provider: null, model: "", effort: "", instructions: "", prompts: defaultPrompts(), project: true, review: { auto: false, prompt: REVIEW_PROMPT } },
   actions: [],
+  filters: defaultFilters(),
 });
+
+/** Starting points for filters, from Focus Diff's recipes. */
+export const FILTER_RECIPES: Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id">> }> = [
+  {
+    title: "Frontend and backend",
+    description: "Review each side of a full-stack change on its own.",
+    filters: [
+      { name: "Frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
+      { name: "Backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
+    ],
+  },
+  {
+    title: "Code, then tests",
+    description: "The change first, its tests after.",
+    filters: [
+      { name: "Code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
+      { name: "Tests", include: "\\.(test|spec)\\.|(^|/)(tests?|__tests__)/", exclude: "" },
+    ],
+  },
+  {
+    title: "Without generated files",
+    description: "Lockfiles, snapshots, builds and generated code left out.",
+    filters: [
+      {
+        name: "No generated",
+        include: "",
+        exclude: "(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/",
+      },
+    ],
+  },
+  { title: "One area", description: "A folder you own, like a team's package.", filters: [{ name: "Payments", include: "^(apps|packages|services)/payments/", exclude: "" }] },
+  {
+    title: "Infrastructure",
+    description: "CI, Docker, Terraform, Kubernetes.",
+    filters: [{ name: "Infra", include: "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$", exclude: "" }],
+  },
+  { title: "Database", description: "Migrations and schemas.", filters: [{ name: "Database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" }] },
+  { title: "Docs", description: "Markdown and documentation.", filters: [{ name: "Docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }] },
+];
+
+export function defaultFilters(): DiffFilter[] {
+  return [...FILTER_RECIPES[0]!.filters, ...FILTER_RECIPES[2]!.filters].map((f) => ({ ...f, id: newId() }));
+}
+
+/** Whether a file is in a filter. */
+export function inFilter(filter: Pick<DiffFilter, "include" | "exclude">, path: string): boolean {
+  try {
+    return (!filter.include || new RegExp(filter.include).test(path)) && !(filter.exclude && new RegExp(filter.exclude).test(path));
+  } catch {
+    return true;
+  }
+}
+
+export const REVIEW_PROMPT = `Review it like a careful senior engineer. Comment only on what matters: bugs, unhandled edge cases, callers or features this change breaks, security or data risks, performance traps, missing tests for risky logic. No praise, no style nitpicks, no comments on what's fine.`;
 
 export function defaultPrompts(): Prompt[] {
   return [
@@ -316,6 +384,18 @@ function normalizePrompt(raw: unknown): Prompt | null {
   };
 }
 
+function normalizeFilter(raw: unknown): DiffFilter | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const pattern = (v: unknown) => (isString(v) && validPattern(v) ? v.slice(0, 1000) : "");
+  return {
+    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : "Filter",
+    include: pattern(r.include),
+    exclude: pattern(r.exclude),
+  };
+}
+
 function normalizeAction(raw: unknown): Action | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
@@ -356,6 +436,7 @@ function normalizeQueue(raw: unknown): Queue | null {
     skipIfI: pick(r.skipIfI, ["approved", "reviewed", "tookPart"] as const, fallback.skipIfI),
     skipApprovedBy: strings(r.skipApprovedBy).filter(isLogin),
     skipMergedBy: strings(r.skipMergedBy).filter(isLogin),
+    staleHours: int(r.staleHours, fallback.staleHours, 0, 24 * 30),
     query: isString(r.query) ? r.query.slice(0, 500) : fallback.query,
     notify: strings(r.notify).filter((k): k is EventKind => (EVENT_KINDS as readonly string[]).includes(k)),
   };
@@ -380,7 +461,7 @@ export function normalize(raw: unknown): Config {
   return {
     version: 1,
     queues: queues.slice(0, 12),
-    pollSeconds: int(r.pollSeconds, fallback.pollSeconds, 60, 900),
+    pollSeconds: int(r.pollSeconds, fallback.pollSeconds, 30, 900),
     sound: bool(r.sound, fallback.sound),
     theme: pick(r.theme, ["system", "light", "dark"] as const, fallback.theme),
     ai: (() => {
@@ -391,9 +472,15 @@ export function normalize(raw: unknown): Config {
         effort: pick(ai.effort, ["", ...EFFORTS] as const, ""),
         instructions: isString(ai.instructions) ? ai.instructions.slice(0, 4000) : "",
         prompts: Array.isArray(ai.prompts) ? ai.prompts.map(normalizePrompt).filter((p): p is Prompt => p !== null).slice(0, 12) : defaultPrompts(),
+        project: bool(ai.project, true),
+        review: (() => {
+          const review = ai.review && typeof ai.review === "object" ? (ai.review as Record<string, unknown>) : {};
+          return { auto: bool(review.auto, false), prompt: isString(review.prompt) && review.prompt.trim() ? review.prompt.slice(0, 8000) : REVIEW_PROMPT };
+        })(),
       };
     })(),
     actions,
+    filters: Array.isArray(r.filters) ? r.filters.map(normalizeFilter).filter((f): f is DiffFilter => f !== null).slice(0, 12) : fallback.filters,
   };
 }
 

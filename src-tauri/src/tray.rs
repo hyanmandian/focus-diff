@@ -1,9 +1,12 @@
-//! The menu bar / system tray icon: the app icon's rounded square with Focus Diff's magnifying glass cut out, drawn here
-//! rather than shipped as images so every frame of the attention animation is exact at any scale.
+//! The menu bar / system tray icon. On macOS it's the system's own SF Symbol for reading text
+//! under a magnifying glass, drawn by AppKit, so it has the weight and shape of the menu bar's
+//! other icons. Elsewhere (and if the symbol were missing) it's drawn here: a rounded square with
+//! the glass cut out.
 //!
 //! On macOS it's a template image (black + alpha), which the system tints for light and dark menu
 //! bars. Elsewhere trays don't tint, so it's drawn in Focus Diff's green.
 
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -27,11 +30,104 @@ fn to_segment(x: f32, y: f32, (ax, ay): (f32, f32), (bx, by): (f32, f32)) -> f32
     ((x - ax - t * dx).powi(2) + (y - ay - t * dy).powi(2)).sqrt()
 }
 
-/// One frame, on an 18-point grid like the menu bar's own symbols: a filled rounded square (the
-/// app icon's shape) with the magnifying glass cut out of it, solid enough to sit with the other
-/// menu bar icons. `focus` 0..1 zooms the glass in a little (0 at rest); `dot` adds the unread
-/// badge on the top right corner, with a gap cut around it.
+/// How many sizes the glass grows through in the attention animation.
+const STEPS: usize = 8;
+
+/// The symbol's coverage (alpha) at each step of the animation, rendered once.
+static SYMBOL: OnceLock<Option<Vec<Vec<u8>>>> = OnceLock::new();
+
+/// Renders the symbol's frames. On the main thread, at startup: AppKit draws them.
+pub fn prepare() {
+    SYMBOL.get_or_init(|| {
+        #[cfg(target_os = "macos")]
+        {
+            (0..=STEPS).map(|i| symbol::render(15.0 + 2.0 * i as f64 / STEPS as f64)).collect()
+        }
+        #[cfg(not(target_os = "macos"))]
+        None
+    });
+}
+
+#[cfg(target_os = "macos")]
+mod symbol {
+    use objc2::AnyThread;
+    use objc2_app_kit::{NSBitmapImageRep, NSDeviceRGBColorSpace, NSFontWeightRegular, NSGraphicsContext, NSImage, NSImageSymbolConfiguration};
+    use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+
+    use super::SIZE;
+
+    /// The symbol at `points`, centered in an 18pt square, as alpha at 2x.
+    pub fn render(points: f64) -> Option<Vec<u8>> {
+        let px = SIZE as isize;
+        let image = NSImage::imageWithSystemSymbolName_accessibilityDescription(&NSString::from_str("text.magnifyingglass"), None)?;
+        let image = image.imageWithSymbolConfiguration(&NSImageSymbolConfiguration::configurationWithPointSize_weight(points, unsafe { NSFontWeightRegular }))?;
+        // SAFETY: a null planes pointer makes the rep allocate its own buffer.
+        let rep = unsafe {
+            NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
+                NSBitmapImageRep::alloc(),
+                std::ptr::null_mut(),
+                px,
+                px,
+                8,
+                4,
+                true,
+                false,
+                NSDeviceRGBColorSpace,
+                0,
+                32,
+            )
+        }?;
+        rep.setSize(NSSize::new(18.0, 18.0));
+        let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&rep)?;
+        NSGraphicsContext::saveGraphicsState_class();
+        NSGraphicsContext::setCurrentContext(Some(&context));
+        let size = image.size();
+        image.drawInRect(NSRect::new(NSPoint::new((18.0 - size.width) / 2.0, (18.0 - size.height) / 2.0), size));
+        context.flushGraphics();
+        NSGraphicsContext::restoreGraphicsState_class();
+        let (row, data) = (rep.bytesPerRow() as usize, rep.bitmapData());
+        if data.is_null() {
+            return None;
+        }
+        let side = SIZE as usize;
+        // SAFETY: the rep's buffer is bytesPerRow × height, 4 bytes a pixel, alpha last.
+        Some((0..side * side).map(|i| unsafe { *data.add((i / side) * row + (i % side) * 4 + 3) }).collect())
+    }
+}
+
+/// One frame. `focus` 0..1 is how far into the attention animation (0 at rest); `dot` adds the
+/// unread badge on the top right corner, with a gap cut around it.
 pub fn frame(focus: f32, dot: bool) -> Image<'static> {
+    let Some(Some(steps)) = SYMBOL.get() else { return drawn(focus, dot) };
+    let Some(alpha) = steps.get((focus.clamp(0.0, 1.0) * STEPS as f32).round() as usize) else { return drawn(focus, dot) };
+    let scale = SIZE as f32 / 18.0;
+    let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
+    for (i, &a) in alpha.iter().enumerate() {
+        let (px, py) = ((i as u32 % SIZE) as f32, (i as u32 / SIZE) as f32);
+        let a = if dot {
+            // How much of the pixel the badge, and the gap around it, cover.
+            let cover = |r: f32| {
+                let mut hits = 0;
+                for s in 0..SUPERSAMPLE * SUPERSAMPLE {
+                    let x = (px + ((s % SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    let y = (py + ((s / SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    hits += ((x - 15.0).powi(2) + (y - 3.0).powi(2) <= r * r) as u32;
+                }
+                hits as f32 / (SUPERSAMPLE * SUPERSAMPLE) as f32
+            };
+            (cover(2.6) * 255.0).max(a as f32 * (1.0 - cover(4.1))) as u8
+        } else {
+            a
+        };
+        rgba[i * 4..i * 4 + 3].copy_from_slice(&INK);
+        rgba[i * 4 + 3] = a;
+    }
+    Image::new_owned(rgba, SIZE, SIZE)
+}
+
+/// The drawn fallback, on an 18-point grid: a filled rounded square (the app icon's shape) with
+/// the magnifying glass cut out.
+fn drawn(focus: f32, dot: bool) -> Image<'static> {
     let scale = SIZE as f32 / 18.0;
     let zoom = 1.0 + 0.14 * focus;
     // The glass, around the square's center, so zooming keeps it in place.
@@ -132,6 +228,7 @@ mod tests {
     #[test]
     fn preview_frames() {
         let Ok(dir) = std::env::var("TRAY_PREVIEW_DIR") else { return };
+        prepare();
         for (name, image) in [("rest", frame(0.0, false)), ("focus", frame(1.0, false)), ("unread", frame(0.0, true))] {
             let (w, h) = (image.width(), image.height());
             let mut bmp = Vec::new();

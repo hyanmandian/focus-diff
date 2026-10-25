@@ -26,6 +26,7 @@ export type Details = {
   baseRefName: string;
   headRefName: string;
   headRefOid: string;
+  updatedAt: string;
   additions: number;
   deletions: number;
   changedFiles: number;
@@ -46,7 +47,7 @@ const QUERY = `query($owner: String!, $name: String!, $number: Int!) {
     squashMergeAllowed mergeCommitAllowed rebaseMergeAllowed
     pullRequest(number: $number) {
       id number title url bodyHTML isDraft state mergeable mergeStateStatus viewerDidAuthor viewerCanUpdate
-      baseRefName headRefName headRefOid additions deletions changedFiles createdAt reviewDecision
+      baseRefName headRefName headRefOid additions deletions changedFiles createdAt updatedAt reviewDecision
       author { ${ACTOR} }
       reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { ${ACTOR} } ... on Team { name slug } } } }
       latestOpinionatedReviews(first: 20) { nodes { author { ${ACTOR} } state } }

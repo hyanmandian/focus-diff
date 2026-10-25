@@ -59,7 +59,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
   const ref = useRef<HTMLDivElement>(null);
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Resting on a row, not passing over it: then its pull request is fetched ahead of a click.
-  const ahead = () => prefetch(pr.repository.nameWithOwner, pr.number);
+  const ahead = () => void prefetch(pr.id, pr.repository.nameWithOwner, pr.number, pr.updatedAt);
 
   // Something new plays the arrival once, while the panel shows it.
   useEffect(() => {
@@ -86,15 +86,16 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
   const when = queue.kind === "merged" && pr.mergedAt ? Date.parse(pr.mergedAt) : (latest?.at ?? Date.parse(pr.updatedAt));
 
   return (
-    <div ref={ref} className="group relative isolate rounded-lg">
+    <div ref={ref} className="group relative isolate rounded-md">
       <button
         type="button"
+        data-row
         onClick={() => onOpen(item)}
         onPointerEnter={() => (intent.current = setTimeout(ahead, 120))}
         onPointerLeave={() => clearTimeout(intent.current)}
         onFocus={ahead}
         className={cn(
-          "relative flex w-full items-start gap-2.5 rounded-lg py-2 pr-2.5 pl-3.5 text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.99] motion-reduce:active:scale-100 focus-visible:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          "relative flex w-full items-start gap-2.5 rounded-md py-2 pr-2.5 pl-3.5 text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.99] motion-reduce:active:scale-100 focus-visible:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           pr.isDraft && "text-muted-foreground",
         )}
       >

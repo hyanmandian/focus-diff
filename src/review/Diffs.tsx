@@ -4,7 +4,7 @@
 
 import { getSingularPatch, type CodeViewDiffItem, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { FileWarning } from "lucide-react";
+import { FileWarning, Plus } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Exchange, Finding } from "@/lib/ai";
@@ -125,7 +125,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       stickyHeaders: true,
       enableGutterUtility: true,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
-      onGutterUtilityClick: (range: SelectedLineRange, item: { id: string }) => setComposing({ path: item.id, range }),
       // Selecting lines (dragging over their numbers) opens the same box: comment or ask.
       enableLineSelection: true,
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
@@ -149,6 +148,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           "--diffs-bg-addition-emphasis-override": dark ? "#183323" : "#e0f8e6",
           "--diffs-bg-deletion-emphasis-override": dark ? "#4a2326" : "#fff0ee",
           ...(dark ? {} : { "--diffs-bg-addition-override": "#f3fcf5", "--diffs-bg-deletion-override": "#fff6f5" }),
+          // Selected lines in a pale blue (dark: deep blue) every syntax color stays readable on;
+          // the default amber took some below 4.5:1.
+          "--diffs-bg-selection-override": dark ? "#1b2c47" : "#dcebff",
         } as React.CSSProperties
       }
     >
@@ -160,6 +162,23 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         // Room at the end for the filter bar that floats over it.
         style={{ height: "100%", overflow: "auto", paddingBottom: 72 }}
         options={options as never}
+        // The "+" beside a line: the library's own has no name for a screen reader; this one says
+        // what it does. (Several lines: drag over their numbers.)
+        renderGutterUtility={(getHovered, item) => (
+          <button
+            type="button"
+            aria-label="Comment on this line"
+            onClick={() => {
+              const line = getHovered();
+              if (!line) return;
+              const side = ("side" in line ? line.side : "additions") as SelectedLineRange["side"];
+              setComposing({ path: item.id, range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side } });
+            }}
+            className="flex size-[21px] items-center justify-center rounded bg-warning text-background"
+          >
+            <Plus className="size-3.5" strokeWidth={2.5} aria-hidden />
+          </button>
+        )}
         renderHeaderMetadata={(item) => {
           const file = byPath.get(item.id);
           if (!file) return null;

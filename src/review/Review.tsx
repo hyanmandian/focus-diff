@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { keep, readKept } from "@/lib/kept";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/lib/ai";
 import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
@@ -195,18 +196,33 @@ export function Review({ target }: { target: Target }) {
   const ref = useMemo(() => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }), [repo, number]);
   // All three at once: each needs only the pull request's address. What the panel fetched ahead of
   // a click comes back from memory (github.rs).
+  // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
+  const shownOnce = useRef(false);
   const load = useCallback(async () => {
+    const fresh = { details: false, files: false, threads: false };
+    // Only for the first showing: a reload after you did something already has newer on screen.
+    if (!shownOnce.current)
+      void readKept(prId).then((kept) => {
+        if (!kept || shownOnce.current) return;
+        if (!fresh.details) setDetails(kept.details);
+        if (!fresh.files) setFiles(kept.files);
+        if (!fresh.threads) setThreads(kept.threads);
+        performance.mark("kept");
+      });
     try {
-      const [d, f, t] = await Promise.all([loadDetails(repo, number).then((d) => (setDetails(d), d)), loadFiles(ref).then((f) => (setFiles(f), f)), loadThreads(ref)]);
-      setDetails(d);
-      setFiles(f);
-      setThreads(t);
+      const [d, f, t] = await Promise.all([
+        loadDetails(repo, number).then((d) => ((fresh.details = true), setDetails(d), d)),
+        loadFiles(ref).then((f) => ((fresh.files = true), setFiles(f), f)),
+        loadThreads(ref).then((t) => ((fresh.threads = true), setThreads(t), t)),
+      ]);
+      shownOnce.current = true;
       setError(null);
       performance.mark("loaded");
+      void keep(prId, { details: d, files: f, threads: t }, d.updatedAt);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [repo, number, ref]);
+  }, [prId, repo, number, ref]);
 
   useEffect(() => {
     void loadConfig().then(setConfig);

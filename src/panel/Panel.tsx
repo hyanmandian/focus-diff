@@ -4,7 +4,7 @@
 // reviewing happens.
 
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -21,6 +21,7 @@ import { tabKeys } from "@/lib/keys";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
 import { SlidingPill } from "@/shared/SlidingPill";
+import { prefetchSome } from "@/lib/prefetch";
 import { PullRow } from "./PullRow";
 
 const EMPTY: Record<Queue["kind"], string> = {
@@ -85,6 +86,12 @@ type Group = { repo: string; items: Item[] };
 export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen } = useStore();
   const shown = useShown();
+  // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
+  // right away and VoiceOver reads where you are.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (shown && ready) requestAnimationFrame(() => listRef.current?.focus({ preventScroll: true }));
+  }, [shown, ready]);
   useTheme(config?.theme);
   const queues = useMemo(() => config?.queues.filter((q) => q.enabled) ?? [], [config]);
   const unread = useCallback((item: Item) => isUnread(item, seen), [seen]);
@@ -113,6 +120,19 @@ export function Panel() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) void bridge.hidePanel();
+      // Like a menu: ↑↓ walk the pull requests (from anywhere but a field or a tab row), Home/End
+      // jump to the ends, Return opens the one focused.
+      else if (/^(ArrowDown|ArrowUp|Home|End)$/.test(e.key) && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
+        const target = e.target as HTMLElement;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.closest("[role=tablist]") || (e.key.startsWith("Arrow") && target.closest("[role=group]"))) return;
+        const rows = [...document.querySelectorAll<HTMLElement>("[data-row]")].filter((r) => r.offsetParent);
+        if (!rows.length) return;
+        const at = rows.indexOf(target);
+        const next = e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1 : at < 0 ? (e.key === "ArrowDown" ? 0 : rows.length - 1) : Math.min(rows.length - 1, Math.max(0, at + (e.key === "ArrowDown" ? 1 : -1)));
+        e.preventDefault();
+        rows[next]?.focus();
+        rows[next]?.scrollIntoView({ block: "nearest" });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -144,6 +164,17 @@ export function Panel() {
   const drafts = narrowed.filter((i) => i.pr.isDraft).sort(order);
   const unreadHere = list.filter(unread).length;
 
+  // The top of the list on screen, fetched ahead a moment after the panel opens (not competing with
+  // its first paint), so a click on any of them opens at once. Only ones changed since last kept.
+  const top = groups.flatMap((g) => g.items).slice(0, 5).map((i) => i.pr);
+  const topRef = useRef(top);
+  topRef.current = top;
+  useEffect(() => {
+    if (!shown || !ready) return;
+    const timer = setTimeout(() => void prefetchSome(topRef.current), 700);
+    return () => clearTimeout(timer);
+  }, [shown, ready, queue?.id, repo]);
+
   const row = (item: Item) =>
     queue ? (
       <li key={item.pr.id}>
@@ -152,8 +183,8 @@ export function Panel() {
     ) : null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-background/92 text-foreground shadow-2xl animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
-      <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-4" data-tauri-drag-region>
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] border bg-background/92 text-foreground shadow-2xl [@media(prefers-reduced-transparency:reduce)]:bg-background animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
+      <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-3.5" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
         <h1 className="text-[15px] font-bold tracking-tight">Focus Diff</h1>
         <div className="ml-auto flex items-center gap-0.5">
@@ -191,8 +222,8 @@ export function Panel() {
       {!ready ? (
         // The shape of what's coming, at its size: nothing moves when it arrives.
         <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading">
-          <Skeleton className="mx-3 h-[42px] shrink-0 rounded-xl" />
-          <div className="mx-3 mt-2.5 flex min-h-0 flex-1 flex-col gap-1 overflow-hidden rounded-xl border bg-card p-1 shadow-sm">
+          <Skeleton className="mx-2 h-[42px] shrink-0 rounded-[10px]" />
+          <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-hidden rounded-[10px] border bg-card p-1 shadow-sm">
             {[0, 1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-start gap-2.5 py-2 pr-2.5 pl-3.5" style={{ opacity: 1 - i * 0.18 }}>
                 <Skeleton className="size-6 shrink-0 rounded-full" />
@@ -224,8 +255,8 @@ export function Panel() {
       ) : (
         <main className="flex min-h-0 flex-1 flex-col">
           {/* The queues, like the popup's two lists: the chosen one on a filled pill. */}
-          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-3 flex shrink-0 gap-0.5 overflow-x-auto rounded-xl border bg-card p-1 shadow-sm [scrollbar-width:none]">
-            <SlidingPill selected={queue.id} />
+          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-2 flex shrink-0 gap-0.5 overflow-x-auto rounded-[10px] border bg-card p-1 shadow-sm [scrollbar-width:none]">
+            <SlidingPill selected={queue.id} className="rounded-md" />
             {queues.map((q) => {
               const its = items[q.id] ?? [];
               const selected = q.id === queue.id;
@@ -239,7 +270,7 @@ export function Panel() {
                   data-pill={q.id}
                   onClick={() => choose(q.id)}
                   className={cn(
-                    "flex h-8 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-lg pr-2 pl-3 text-[13px] font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex h-8 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-md pr-2 pl-3 text-[13px] font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
                     selected ? "text-selected-foreground" : "hover:bg-foreground/6",
                   )}
                 >
@@ -250,10 +281,10 @@ export function Panel() {
             })}
           </div>
 
-          <div role="tabpanel" aria-label={queue.name} className="mx-3 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div role="tabpanel" aria-label={queue.name} className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border bg-card shadow-sm">
             {repos.length > 1 ? (
               <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto border-b p-1.5 [scrollbar-width:none]">
-                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} />
+                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-md" />
                 {[["", "All", list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
                   const pressed = (repo && repos.includes(repo) ? repo : "") === value;
                   return (
@@ -269,7 +300,7 @@ export function Panel() {
                         setRepo(value);
                       }}
                       className={cn(
-                        "flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                        "flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-md pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                         pressed ? "text-selected-foreground" : "hover:bg-foreground/6",
                       )}
                     >
@@ -284,7 +315,11 @@ export function Panel() {
             {/* Each queue's list, and each repository's, slides in from the side it was picked on. */}
             <div
               key={`${queue.id}:${repo}`}
+              ref={listRef}
+              tabIndex={-1}
+              aria-label={`${queue.name} pull requests`}
               className={cn(
+                "outline-none",
                 "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1 animate-in fade-in-0 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none",
                 direction > 0 ? "slide-in-from-right-3" : direction < 0 ? "slide-in-from-left-3" : "",
               )}

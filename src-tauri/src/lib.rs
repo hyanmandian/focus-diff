@@ -14,6 +14,7 @@ mod config;
 mod devctl;
 mod engine;
 mod github;
+mod kept;
 mod media;
 mod tray;
 mod update;
@@ -41,6 +42,8 @@ pub(crate) const PANEL: &str = "panel";
 const SETTINGS: &str = "settings";
 const SETUP: &str = "setup";
 const PANEL_SIZE: (f64, f64) = (420.0, 600.0);
+/// The panel's corners, as the page draws them (Panel.tsx); what's inside follows them in.
+const PANEL_RADIUS: f64 = 18.0;
 /// How long a hidden panel's web view is kept, to open again instantly; after that it's closed
 /// and its memory given back, and the next click makes a new one.
 const PANEL_KEEP: Duration = Duration::from_secs(3 * 60);
@@ -306,6 +309,17 @@ pub(crate) struct Reviews {
     ready: Mutex<HashSet<String>>,
 }
 
+/// The last copy kept of a pull request's review (kept.rs).
+#[tauri::command]
+async fn kept_read(app: AppHandle, id: String) -> Result<Option<String>, String> {
+    kept::read(&app, &id)
+}
+
+#[tauri::command]
+async fn kept_write(app: AppHandle, id: String, contents: String) -> Result<(), String> {
+    kept::write(&app, &id, &contents)
+}
+
 /// A spare's page saying it's ready to be told which pull request to show.
 #[tauri::command]
 fn spare_ready(app: AppHandle, window: tauri::WebviewWindow) {
@@ -393,6 +407,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         let _ = window.unminimize();
         window.show().map_err(|e| e.to_string())?;
         update_presence(&app);
+        activate();
         return window.set_focus().map_err(|e| e.to_string());
     }
     let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone() };
@@ -426,6 +441,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     if app.get_webview_window(PANEL).is_some() {
         prepare_spare_soon(&app);
     }
+    activate();
     window.set_focus().map_err(|e| e.to_string())
 }
 
@@ -552,10 +568,45 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri
     PANEL_GENERATION.fetch_add(1, Ordering::SeqCst);
     place_panel(&panel, rect)?;
     panel.show()?;
+    activate();
     panel.set_focus()?;
     let _ = panel.emit("panel-shown", ());
+    reshadow(app, &panel);
     prepare_spare_soon(app);
     Ok(())
+}
+
+/// Makes Focus Diff the active app, so the panel takes the keyboard and closes when you click
+/// elsewhere. The older call Tauri makes is only a request on current macOS and is often ignored
+/// for an app without a Dock icon.
+fn activate() {
+    #[cfg(target_os = "macos")]
+    if let Some(main) = objc2::MainThreadMarker::new() {
+        objc2_app_kit::NSApplication::sharedApplication(main).activate();
+    }
+}
+
+/// The shadow of a see-through window follows what was drawn when it was worked out; worked out
+/// before the page drew its rounded corners, it's a rectangle that squares them off. Worked out
+/// again now and once the page has drawn.
+fn reshadow<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>) {
+    #[cfg(target_os = "macos")]
+    {
+        let now = |window: &tauri::WebviewWindow<R>| {
+            if let Ok(pointer) = window.ns_window() {
+                // SAFETY: Tauri hands out its live NSWindow; this runs on the main thread.
+                unsafe { (*(pointer as *const objc2_app_kit::NSWindow)).invalidateShadow() };
+            }
+        };
+        now(window);
+        let (app, window) = (app.clone(), window.clone());
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(150));
+            let _ = app.run_on_main_thread(move || now(&window));
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, window);
 }
 
 fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewWindow<R>> {
@@ -581,7 +632,7 @@ fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewW
                 Effect::Acrylic,
             ],
             state: Some(EffectState::Active),
-            radius: Some(12.0),
+            radius: Some(PANEL_RADIUS),
             color: None,
             interactive: false,
         });
@@ -589,6 +640,7 @@ fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewW
 }
 
 fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
+    tray::prepare();
     let builder = TrayIconBuilder::with_id("main")
         .icon(tray::frame(0.0, false))
         .tooltip("Focus Diff")
@@ -647,6 +699,8 @@ pub fn run() {
             clear_arrival,
             github,
             spare_ready,
+            kept_read,
+            kept_write,
             auth_status,
             auth_use_gh,
             auth_use_token,
@@ -697,6 +751,7 @@ pub fn run() {
                     checkout::sweep(&cache);
                     avatars::sweep(&app);
                     media::sweep(&app);
+                    kept::sweep(&app);
                 });
             }
             // No setup yet: the first thing to see is how to start.

@@ -1148,6 +1148,9 @@ name = "focus-diff"
 version = "0.1.0"
 dependencies = [
  "keyring",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "regex",
  "serde",
  "serde_json",

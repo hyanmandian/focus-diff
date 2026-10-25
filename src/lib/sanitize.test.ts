@@ -33,3 +33,12 @@ describe("media", () => {
     expect(html).toContain('loading="lazy"');
   });
 });
+
+describe("diagrams", () => {
+  it("keeps a mermaid block's source, marked to draw, without GitHub's loading placeholder", () => {
+    const html = sanitize(
+      '<section class="js-render-needs-enrichment" data-type="mermaid" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid"><div data-plain="x"><div><pre lang="mermaid">flowchart LR\n  A --&gt; B</pre></div></div><span><span>Loading</span></span></section>',
+    );
+    expect(html).toBe("<pre data-mermaid=\"\">flowchart LR\n  A --&gt; B</pre>");
+  });
+});

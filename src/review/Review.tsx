@@ -22,7 +22,7 @@ import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Findi
 import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
-import { leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
+import { comment, leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
 import { commentNow, loadFiles, loadThreads, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
 import { ActionButtons } from "@/shared/Actions";
@@ -258,8 +258,10 @@ export function Review({ target }: { target: Target }) {
   // The panel's lists catch up right away.
   const changed = useCallback(async () => {
     void bridge.refresh(true);
-    setThreads(await loadThreads(ref));
-  }, [ref]);
+    const [t, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
+    setThreads(t);
+    setDetails(d);
+  }, [ref, repo, number]);
 
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === hash(f.patch), [viewed]);
   const active = config?.filters.find((f) => f.id === part) ?? null;
@@ -281,7 +283,7 @@ export function Review({ target }: { target: Target }) {
   const stops = useMemo<Stop[]>(() => {
     const order = new Map((files ?? []).map((f, i) => [f.path, i]));
     const all: Stop[] = [
-      ...threads.filter((t) => !t.resolved && t.line).map((t) => ({ path: t.path, line: t.line!, kind: "conversation" as const })),
+      ...threads.filter((t) => !t.resolved).map((t) => ({ path: t.path, line: t.line, kind: "conversation" as const })),
       ...drafts.map((d) => ({ path: d.path, line: d.line, kind: "pending" as const })),
       ...(current?.findings.filter((f) => f.inDiff).map((f) => ({ path: f.path, line: f.line, kind: "ai" as const })) ?? []),
     ];
@@ -342,7 +344,7 @@ export function Review({ target }: { target: Target }) {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header data-tauri-drag-region className={cn("flex h-11 shrink-0 items-center gap-3 border-b pr-3", isMac ? "pl-[84px]" : "pl-3")}>
+      <header data-tauri-drag-region className={cn("flex shrink-0 items-center gap-3 border-b pr-3", isMac ? "h-[52px] pl-[84px]" : "h-11 pl-3")}>
         <div data-tauri-drag-region className="min-w-0 flex-1">
           {details ? (
             <h1 data-tauri-drag-region className="truncate text-[13px] font-normal">
@@ -522,7 +524,28 @@ export function Review({ target }: { target: Target }) {
 
         <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" hidden={tab !== "overview"} className="min-h-0 flex-1 overflow-y-auto bg-muted/30 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
           {details ? (
-            <Overview config={config} details={details} review={current} reviewing={Boolean(reviewing)} reviewError={reviewError} onJump={jump} />
+            <Overview
+              config={config}
+              details={details}
+              threads={threads}
+              review={current}
+              reviewing={Boolean(reviewing)}
+              reviewError={reviewError}
+              onJump={jump}
+              onReply={async (thread, body) => {
+                await reply(details, thread, body);
+                await changed();
+              }}
+              onResolve={async (thread, resolved) => {
+                await setResolved(thread, resolved);
+                await changed();
+              }}
+              onComment={async (body) => {
+                await comment(details, body);
+                say("Comment posted");
+                await changed();
+              }}
+            />
           ) : (
             // The Overview's own layout, empty: nothing moves when it fills in.
             <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]" aria-busy="true" aria-label="Loading">
@@ -546,7 +569,10 @@ export function Review({ target }: { target: Target }) {
             <div className="flex flex-col gap-2 border-b p-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter files" aria-label="Filter files" className="h-8 pl-8 text-[13px]" />
+                <Input value={filter} onChange={(e) => {
+                    setFilter(e.target.value);
+                    requestAnimationFrame(() => diffs.current?.scrollToTop());
+                  }} placeholder="Filter files" aria-label="Filter files" className="h-8 pl-8 text-[13px]" />
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Progress value={inPart.length ? (viewedCount / inPart.length) * 100 : 0} className="flex-1" aria-label="Files viewed" />
@@ -660,7 +686,11 @@ export function Review({ target }: { target: Target }) {
                     type="button"
                     aria-pressed={(active?.id ?? "") === chip.id}
                     data-pill={chip.id || "all"}
-                    onClick={() => setPart(chip.id)}
+                    onClick={() => {
+                      setPart(chip.id);
+                      // Another part starts at its top, not wherever the last one was scrolled to.
+                      requestAnimationFrame(() => diffs.current?.scrollToTop());
+                    }}
                     className={cn(
                       "flex h-7 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                       (active?.id ?? "") === chip.id ? "text-selected-foreground" : "hover:bg-foreground/6",

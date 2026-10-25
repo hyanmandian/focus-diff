@@ -1,7 +1,8 @@
 // The review window's Overview tab: the pull request's description and conversation, with the AI,
 // reviewers and checks beside them.
 
-import { ArrowDownToLine, CircleCheck, CircleDot, CircleMinus, CircleX, Loader2, Sparkles } from "lucide-react";
+import { ArrowDownToLine, CircleCheck, CircleDot, CircleMinus, CircleX, Loader2, MessageSquarePlus, Sparkles } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PROVIDERS, type AiReview } from "@/lib/ai";
@@ -11,11 +12,14 @@ import type { Config } from "@/lib/config";
 import { ago, firstName } from "@/lib/copy";
 import type { Details } from "@/lib/details";
 import type { Actor } from "@/lib/engine";
+import type { Thread } from "@/lib/review";
+import { useDiagrams } from "@/lib/diagrams";
 import { sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { openViewer } from "@/shared/Viewer";
 import { AiAnswer } from "@/shared/AiAnswer";
 import { AskAi } from "@/shared/AskAi";
+import { Composer, ThreadView } from "./Thread";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
   return (
@@ -29,9 +33,12 @@ function Person({ actor, className }: { actor: Actor; className?: string }) {
 /** GitHub's HTML, cleaned (sanitize.ts); links open in the browser. */
 function Html({ html, className }: { html: string; className?: string }) {
   const clean = sanitize(html);
+  const ref = useRef<HTMLDivElement>(null);
+  useDiagrams(ref, clean);
   if (!clean.trim()) return <p className="text-sm text-muted-foreground italic">No description.</p>;
   return (
     <div
+      ref={ref}
       className={cn(
         "prose-sm text-[13px] leading-relaxed break-words",
         "[&_a]:text-unread [&_a]:underline [&_a]:decoration-unread/40 [&_a]:underline-offset-2 hover:[&_a]:decoration-unread [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
@@ -130,9 +137,53 @@ type Props = {
   reviewError: string | null;
   /** Shows a file (at a line, when there is one) in the diff. */
   onJump: (path: string, line: number | null) => void;
+  /** The conversations on lines, answered and resolved here as in the diff. */
+  threads: Thread[];
+  onReply: (thread: Thread, body: string) => Promise<void>;
+  onResolve: (thread: Thread, resolved: boolean) => Promise<void>;
+  /** A comment on the pull request itself, at the end of the conversation. */
+  onComment: (body: string) => Promise<void>;
 };
 
-export function Overview({ config, details, review, reviewing, reviewError, onJump }: Props) {
+/** Where a conversation on a line is, with a way to it in the diff. */
+function Where({ path, line, onJump }: { path: string; line: number | null; onJump: Props["onJump"] }) {
+  return (
+    <div className="mb-1.5 flex items-center gap-2">
+      <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+        {path}
+        {line ? `:${line}` : ""}
+      </p>
+      <Button variant="ghost" size="xs" className="h-6 shrink-0 text-[11px]" onClick={() => onJump(path, line)} aria-label={`Show ${path}${line ? ` line ${line}` : ""} in the diff`}>
+        <ArrowDownToLine /> {line ? "Go to line" : "Go to file"}
+      </Button>
+    </div>
+  );
+}
+
+/** The comment box at the end of the conversation, closed until it's wanted. */
+function AddComment({ onComment }: { onComment: Props["onComment"] }) {
+  const [open, setOpen] = useState(false);
+  return open ? (
+    <Composer
+      placeholder="Comment on this pull request"
+      submitLabel="Comment"
+      onSubmit={async (body) => {
+        await onComment(body);
+        setOpen(false);
+      }}
+      onCancel={() => setOpen(false)}
+    />
+  ) : (
+    <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
+      <MessageSquarePlus /> Add a comment
+    </Button>
+  );
+}
+
+export function Overview({ config, details, review, reviewing, reviewError, onJump, threads, onReply, onResolve, onComment }: Props) {
+  // Each conversation on a line shows once, under the review that started it (as on GitHub); the
+  // replies, which GitHub keeps as reviews of their own, are in it.
+  const byComment = useMemo(() => new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const))), [threads]);
   // A page to read: the description and the conversation in a column, and beside them what's at a
   // glance (the AI, reviewers, checks).
   return (
@@ -156,37 +207,47 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
             Conversation <span className="font-normal text-muted-foreground tabular-nums">{details.entries.length}</span>
           </h2>
               {details.entries.length ? (
-                details.entries.map((entry) => (
-                  <article key={entry.id} className="flex gap-2.5">
-                    <Person actor={entry.author} className="mt-0.5 size-6" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{firstName(entry.author)}</span>
-                        {entry.kind === "review" ? <span className={cn(" ml-1", REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.className)}>{REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.label.toLowerCase()}</span> : null} · {ago(Date.parse(entry.at))}
-                      </p>
-                      {entry.html.trim() ? <Html html={entry.html} className="mt-1" /> : null}
-                      {entry.kind === "review"
-                        ? entry.comments.map((c) => (
-                            <div key={c.id} className="mt-2 rounded-lg border p-2">
-                              <div className="flex items-center gap-2">
-                                <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
-                                  {c.path}
-                                  {c.line ? `:${c.line}` : ""}
-                                </p>
-                                <Button variant="ghost" size="xs" className="h-6 shrink-0 text-[11px]" onClick={() => onJump(c.path, c.line)} aria-label={`Show ${c.path}${c.line ? ` line ${c.line}` : ""} in the diff`}>
-                                  <ArrowDownToLine /> {c.line ? "Go to line" : "Go to file"}
-                                </Button>
-                              </div>
-                              <Html html={c.html} className="mt-1" />
+                details.entries.map((entry) => {
+                  const parts =
+                    entry.kind === "review"
+                      ? entry.comments.flatMap((c): Array<{ key: string; comment: typeof c; thread: Thread | null }> => {
+                          const thread = byComment.get(c.id);
+                          if (!thread) return [{ key: c.id, comment: c, thread: null }];
+                          return thread.comments[0]?.id === c.id ? [{ key: c.id, comment: c, thread }] : [];
+                        })
+                      : [];
+                  // A review that's only replies to conversations shown above has nothing of its own.
+                  if (entry.kind === "review" && !entry.html.trim() && !parts.length && entry.state === "COMMENTED") return null;
+                  return (
+                    <article key={entry.id} className="flex gap-2.5">
+                      <Person actor={entry.author} className="mt-0.5 size-6" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{firstName(entry.author)}</span>
+                          {entry.kind === "review" ? <span className={cn(" ml-1", REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.className)}>{REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.label.toLowerCase()}</span> : null} · {ago(Date.parse(entry.at))}
+                        </p>
+                        {entry.html.trim() ? <Html html={entry.html} className="mt-1" /> : null}
+                        {parts.map(({ key, comment: c, thread }) =>
+                          thread ? (
+                            <div key={key} className="mt-2">
+                              <Where path={thread.path} line={thread.line || null} onJump={onJump} />
+                              <ThreadView thread={thread} className="mx-0 my-0 max-w-none" onReply={(body) => onReply(thread, body)} onResolve={(resolved) => onResolve(thread, resolved)} />
                             </div>
-                          ))
-                        : null}
-                    </div>
-                  </article>
-                ))
+                          ) : (
+                            <div key={key} className="mt-2 rounded-lg border p-2">
+                              <Where path={c.path} line={c.line} onJump={onJump} />
+                              <Html html={c.html} />
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </article>
+                  );
+                })
               ) : (
                 <p className="text-sm text-muted-foreground">No conversation yet.</p>
               )}
+              <AddComment onComment={onComment} />
         </section>
       </div>
       <aside className="flex min-w-0 flex-col gap-6" aria-label="At a glance">

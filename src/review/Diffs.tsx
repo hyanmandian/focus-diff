@@ -12,9 +12,9 @@ import type { AiAnswer } from "@/lib/bridge";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
 import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
 
-type Annotation = { kind: "thread"; thread: Thread } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange };
+type Annotation = { kind: "thread"; thread: Thread; moved: boolean } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange };
 
-export type DiffsHandle = { scrollToFile: (path: string) => void; scrollToLine: (path: string, line: number) => void };
+export type DiffsHandle = { scrollToFile: (path: string) => void; scrollToLine: (path: string, line: number) => void; scrollToTop: () => void };
 
 type Props = {
   files: ReviewFile[];
@@ -60,6 +60,18 @@ const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Dra
   body,
 });
 
+/** Whether a line is one the diff shows (in a hunk) on that side. */
+function shows(diff: FileDiffMetadata, side: Thread["side"], line: number) {
+  return diff.hunks.some((h) => (side === "additions" ? line >= h.additionStart && line < h.additionStart + h.additionCount : line >= h.deletionStart && line < h.deletionStart + h.deletionCount));
+}
+
+/** The first line the diff shows. */
+function firstLine(diff: FileDiffMetadata): { side: Thread["side"]; line: number } | null {
+  const h = diff.hunks[0];
+  if (!h) return null;
+  return h.additionCount > 0 ? { side: "additions", line: h.additionStart } : { side: "deletions", line: h.deletionStart };
+}
+
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const { files, threads, drafts, findings, isViewed, diffStyle, wrap, dark } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
@@ -70,6 +82,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   useImperativeHandle(ref, () => ({
     scrollToFile: (path) => viewer.current?.scrollTo({ type: "item", id: path, align: "start" } as never),
     scrollToLine: (path, line) => viewer.current?.scrollTo({ type: "line", id: path, lineNumber: line, side: "additions", align: "center", behavior: "smooth" } as never),
+    scrollToTop: () => viewer.current?.scrollTo({ type: "position", position: 0 }),
   }));
 
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
@@ -86,7 +99,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         const fileDrafts = drafts.filter((d) => d.path === f.path);
         const fileFindings = findings.filter((x) => x.path === f.path && x.inDiff);
         const annotations: Array<DiffLineAnnotation<Annotation>> = [
-          ...fileThreads.map((thread) => ({ side: thread.side, lineNumber: thread.line, metadata: { kind: "thread" as const, thread } })),
+          ...fileThreads.map((thread) => {
+            // A comment on the file, or on a line this diff no longer shows (outdated), goes at
+            // the top of the file, saying where it was, rather than nowhere.
+            const here = thread.line > 0 && shows(entry.diff, thread.side, thread.line);
+            const top = here ? null : firstLine(entry.diff);
+            return { side: top?.side ?? thread.side, lineNumber: top?.line ?? thread.line, metadata: { kind: "thread" as const, thread, moved: !here } };
+          }),
           ...fileDrafts.map((draft) => ({ side: draft.side, lineNumber: draft.line, metadata: { kind: "draft" as const, draft } })),
           ...fileFindings.map((finding) => ({ side: "additions" as const, lineNumber: finding.line, metadata: { kind: "finding" as const, finding } })),
           ...(composing?.path === f.path
@@ -157,7 +176,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       <CodeView<Annotation, undefined>
         ref={viewer}
         items={items}
-        disableWorkerPool
         className="min-h-0 flex-1"
         // Room at the end for the filter bar that floats over it.
         style={{ height: "100%", overflow: "auto", paddingBottom: 72 }}
@@ -193,7 +211,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         }}
         renderAnnotation={(...[annotation]) => {
           const a = annotation.metadata as Annotation;
-          if (a.kind === "thread") return <ThreadView thread={a.thread} onReply={(body) => props.onReply(a.thread, body)} onResolve={(resolved) => props.onResolve(a.thread, resolved)} />;
+          if (a.kind === "thread") return <ThreadView thread={a.thread} moved={a.moved} onReply={(body) => props.onReply(a.thread, body)} onResolve={(resolved) => props.onResolve(a.thread, resolved)} />;
           if (a.kind === "draft") return <DraftView draft={a.draft} onEdit={(body) => props.onEditDraft(a.draft.key, body)} onRemove={() => props.onRemoveDraft(a.draft.key)} />;
           if (a.kind === "finding") return <FindingView finding={a.finding} by={props.findingsBy} onAdd={() => props.onAcceptFinding(a.finding)} onDismiss={() => props.onDismissFinding(a.finding)} />;
           return (

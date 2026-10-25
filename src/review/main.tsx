@@ -2,6 +2,9 @@
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { WorkerPoolContextProvider } from "@pierre/diffs/react";
+import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
+import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,14 +16,22 @@ import "../index.css";
 if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) (await import("../dev/mock")).installMock();
 else if (import.meta.env.DEV) (await import("../dev/log")).forwardErrors();
 
+// Syntax colouring off the main thread, so scrolling never waits on it. Started with the page (a
+// spare window warms them up before it's needed); the themes are the ones Diffs.tsx shows.
+const POOL = { workerFactory: () => new DiffsWorker(), poolSize: Math.min(4, Math.max(2, (navigator.hardwareConcurrency || 4) >> 1)) };
+const HIGHLIGHTER = { theme: { dark: "github-dark-default", light: "github-light-default" }, lineDiffType: "word" as const };
+getOrCreateWorkerPoolSingleton({ poolOptions: POOL, highlighterOptions: HIGHLIGHTER });
+
 const root = createRoot(document.getElementById("root")!);
 const show = (target: Target) =>
   root.render(
     <StrictMode>
-      <TooltipProvider delay={400}>
-        <Review target={target} />
-        <Viewer />
-      </TooltipProvider>
+      <WorkerPoolContextProvider poolOptions={POOL} highlighterOptions={HIGHLIGHTER}>
+        <TooltipProvider delay={400}>
+          <Review target={target} />
+          <Viewer />
+        </TooltipProvider>
+      </WorkerPoolContextProvider>
     </StrictMode>,
   );
 

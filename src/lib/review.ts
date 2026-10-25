@@ -22,6 +22,7 @@ export type Thread = {
   id: string;
   path: string;
   side: "additions" | "deletions";
+  /** 0: on the file as a whole, not a line. */
   line: number;
   resolved: boolean;
   outdated: boolean;
@@ -103,8 +104,8 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
     );
     const page_ = data.repository.pullRequest.reviewThreads;
     for (const t of page_.nodes) {
-      const line = t.line ?? t.originalLine;
-      if (line === null) continue;
+      // A comment on the file as a whole has no line; it's kept, at the top of the file.
+      const line = t.line ?? t.originalLine ?? 0;
       threads.push({
         id: t.id,
         path: t.path,

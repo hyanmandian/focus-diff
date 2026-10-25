@@ -32,14 +32,15 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
   return (
     <div className="flex flex-col gap-1">
       <div
+        data-slot="tag-input"
         className={cn(
-          "flex min-h-9 flex-wrap items-center gap-1 rounded-lg border bg-transparent px-1.5 py-1 transition-colors",
+          "flex min-h-8 flex-wrap items-center gap-1 rounded-lg border bg-transparent px-1 py-[3px] transition-colors",
           "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/40 dark:bg-input/30",
           error && "border-destructive",
         )}
       >
         {value.map((v) => (
-          <span key={v} className="inline-flex h-6 items-center gap-1 rounded-md bg-muted pr-0.5 pl-2 font-mono text-xs">
+          <span key={v} className="inline-flex h-[22px] items-center gap-1 rounded-md bg-muted pr-0.5 pl-2 font-mono text-xs">
             {v}
             <button
               type="button"
@@ -55,7 +56,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
           aria-label={label}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className="h-6 min-w-32 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+          className="h-6 min-w-32 flex-1 bg-transparent px-1 text-[13px] outline-none placeholder:text-muted-foreground"
           placeholder={value.length ? "" : placeholder}
           value={draft}
           spellCheck={false}

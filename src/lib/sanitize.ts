@@ -21,6 +21,7 @@ const ATTRIBUTES: Record<string, Set<string>> = {
   th: new Set(["align", "colspan", "rowspan"]),
   ol: new Set(["start"]),
   details: new Set(["open"]),
+  pre: new Set(["data-mermaid"]),
 };
 const IMAGE_HOSTS = /^https:\/\/(?:[\w-]+\.)*(?:githubusercontent\.com|github\.com|githubassets\.com)\//;
 
@@ -33,6 +34,16 @@ function clean(node: Node) {
     if (child.nodeType !== Node.ELEMENT_NODE) continue;
     const element = child as Element;
     const tag = element.tagName.toLowerCase();
+    // GitHub's diagrams (mermaid, maps, 3D) come as their source plus a "Loading" placeholder its
+    // own page swaps for the drawing. Here: the source alone, marked for lib/diagrams.ts to draw.
+    if (tag === "section" && element.hasAttribute("data-type")) {
+      const source = element.querySelector("pre")?.textContent ?? "";
+      const pre = element.ownerDocument.createElement("pre");
+      pre.textContent = source;
+      if (element.getAttribute("data-type") === "mermaid") pre.setAttribute("data-mermaid", "");
+      element.replaceWith(pre);
+      continue;
+    }
     if (DROP.has(tag)) {
       element.remove();
       continue;

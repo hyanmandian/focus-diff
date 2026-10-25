@@ -1,0 +1,63 @@
+/* The settings window's own surfaces, after macOS System Settings: a window background, grouped
+   sections a step off it (darker in light mode, lighter in dark), hairline separators inside them.
+   All opaque, so Reduce Transparency has nothing to take away. */
+:root {
+  --settings-window: oklch(0.975 0 0);
+  --settings-group: oklch(0 0 0 / 3.5%);
+  --settings-group-edge: oklch(0 0 0 / 6%);
+  --settings-separator: oklch(0 0 0 / 8%);
+  --settings-sidebar: oklch(0 0 0 / 2.5%);
+  --settings-selection: oklch(0 0 0 / 8%);
+}
+
+.dark {
+  --settings-window: oklch(0.2 0 0);
+  --settings-group: oklch(1 0 0 / 4.5%);
+  --settings-group-edge: oklch(1 0 0 / 7%);
+  --settings-separator: oklch(1 0 0 / 9%);
+  --settings-sidebar: oklch(0 0 0 / 18%);
+  --settings-selection: oklch(1 0 0 / 10%);
+}
+
+html.settings,
+html.settings body {
+  background: var(--settings-window);
+}
+
+/* Hairlines between a group's rows, inset from its edges like the system's; rows can sit in a
+   display: contents wrapper (a list, a radio group) and still get them. */
+.settings-group > * + *,
+.settings-group > .contents > * + * {
+  position: relative;
+}
+.settings-group > * + *::before,
+.settings-group > .contents > * + *::before {
+  content: "";
+  position: absolute;
+  inset-inline: 10px;
+  top: 0;
+  height: 1px;
+  background: var(--settings-separator);
+}
+.settings-group > .contents::before { content: none; }
+
+/* Fields and pop-up buttons read as white wells on the gray groups in light mode, as the system's
+   do, and an off switch keeps a visible track. */
+html.settings:not(.dark) .settings-group :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"], [data-slot="tag-input"]) {
+  background: var(--background);
+}
+html.settings:not(.dark) [data-slot="switch"][data-unchecked] {
+  background: oklch(0 0 0 / 13%);
+}
+
+/* With Increase Contrast, the groups and separators get a firmer edge. */
+@media (prefers-contrast: more) {
+  :root {
+    --settings-group-edge: oklch(0 0 0 / 25%);
+    --settings-separator: oklch(0 0 0 / 22%);
+  }
+  .dark {
+    --settings-group-edge: oklch(1 0 0 / 30%);
+    --settings-separator: oklch(1 0 0 / 25%);
+  }
+}

@@ -13,6 +13,7 @@ import { bridge } from "@/lib/bridge";
 import { ago, firstName } from "@/lib/copy";
 import type { Actor } from "@/lib/engine";
 import type { Draft, Thread as ThreadData } from "@/lib/review";
+import { useDiagrams } from "@/lib/diagrams";
 import { sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { tabKeys } from "@/lib/keys";
@@ -30,8 +31,12 @@ function Person({ actor }: { actor: Actor }) {
 }
 
 function Html({ html }: { html: string }) {
+  const clean = sanitize(html);
+  const ref = useRef<HTMLDivElement>(null);
+  useDiagrams(ref, clean);
   return (
     <div
+      ref={ref}
       className="text-[13px] leading-relaxed break-words [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[60vh] [&_video]:max-w-full [&_video]:rounded-lg [&_a]:text-unread [&_a]:underline [&_a]:decoration-unread/40 [&_a]:underline-offset-2 hover:[&_a]:decoration-unread [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
       onClick={(e) => {
         // A picture opens in the viewer (even one GitHub wrapped in a link to itself).
@@ -48,7 +53,7 @@ function Html({ html }: { html: string }) {
         }
       }}
       // Sanitized: an allowlist of tags and attributes, https links and GitHub images only.
-      dangerouslySetInnerHTML={{ __html: sanitize(html) }}
+      dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
 }
@@ -137,7 +142,20 @@ const Box = ({ children, className }: { children: React.ReactNode; className?: s
   <div className={cn("mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-card-foreground shadow-sm", className)}>{children}</div>
 );
 
-export function ThreadView({ thread, onReply, onResolve }: { thread: ThreadData; onReply: (body: string) => Promise<void>; onResolve: (resolved: boolean) => Promise<void> }) {
+export function ThreadView({
+  thread,
+  moved = false,
+  className,
+  onReply,
+  onResolve,
+}: {
+  thread: ThreadData;
+  className?: string;
+  /** Shown at the top of the file rather than at its line (on the file, or a line no longer here). */
+  moved?: boolean;
+  onReply: (body: string) => Promise<void>;
+  onResolve: (resolved: boolean) => Promise<void>;
+}) {
   const [replying, setReplying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
@@ -151,7 +169,7 @@ export function ThreadView({ thread, onReply, onResolve }: { thread: ThreadData;
   };
   if (!open) {
     return (
-      <Box className="py-2">
+      <Box className={cn("py-2", className)}>
         <button type="button" className="flex w-full items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:underline" onClick={() => setOpen(true)}>
           <Check className="size-3.5 text-success" /> Resolved conversation · {thread.comments.length} {thread.comments.length === 1 ? "comment" : "comments"} · show
         </button>
@@ -159,7 +177,8 @@ export function ThreadView({ thread, onReply, onResolve }: { thread: ThreadData;
     );
   }
   return (
-    <Box>
+    <Box className={className}>
+      {moved ? <p className="mb-2 text-xs text-muted-foreground">{thread.line ? `On line ${thread.line}, which this diff no longer shows` : "On the file"}</p> : null}
       <div className="flex flex-col gap-3">
         {thread.comments.map((c) => (
           <div key={c.id} className="flex gap-2">

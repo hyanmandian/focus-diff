@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { STEP_LABELS } from "@/lib/actions";
 import { ACTION_TEMPLATES, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import { Group, Page, Row, SideList, sideItem } from "./Form";
 import { TagInput } from "./TagInput";
 
 const STEP_HINTS: Record<ActionStep["kind"], string> = {
@@ -50,8 +50,8 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
     case "comment":
       return (
         <div className="flex flex-col gap-1">
-          <Textarea aria-label="Comment" rows={3} value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder="@dana could you take this one?" />
-          <p className="text-xs text-muted-foreground">Markdown. Fills in {PLACEHOLDERS}.</p>
+          <Textarea aria-label="Comment" rows={3} className="text-[13px]" value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder="@dana could you take this one?" />
+          <p className="text-[11px] text-muted-foreground">Markdown. Fills in {PLACEHOLDERS}.</p>
         </div>
       );
     case "request":
@@ -64,7 +64,7 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
       return (
         <div className="flex flex-col gap-1">
           <Input aria-label="Link" className="font-mono text-xs" spellCheck={false} value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value })} />
-          <p className="text-xs text-muted-foreground">An https link. Fills in {PLACEHOLDERS}.</p>
+          <p className="text-[11px] text-muted-foreground">An https link. Fills in {PLACEHOLDERS}.</p>
         </div>
       );
     case "run":
@@ -82,7 +82,7 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
             onChange={(e) => onChange({ ...step, command: e.target.value })}
             placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             Runs with <code className="font-mono">sh</code> in your home folder, for up to two minutes. Gets <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>. Its last line of output is shown. The first time a command runs, or after it changes, you're asked to allow it.
           </p>
         </div>
@@ -106,64 +106,59 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-1.5 sm:grid-cols-[180px_1fr] sm:gap-4">
-        <Label htmlFor={nameId} className="pt-1.5 text-[13px]">
-          Button
-        </Label>
-        <Input id={nameId} value={action.name} maxLength={30} onChange={(e) => onChange({ ...action, name: e.target.value })} className="max-w-60" />
-      </div>
-      <div className="grid gap-1.5 sm:grid-cols-[180px_1fr] sm:gap-4">
-        <span className="pt-1.5 text-[13px] font-medium">Before running</span>
-        <div className="flex items-center gap-3">
+    <>
+      <Group>
+        <Row label="Button" htmlFor={nameId}>
+          <Input id={nameId} value={action.name} maxLength={30} onChange={(e) => onChange({ ...action, name: e.target.value })} className="h-7 w-56 text-[13px]" />
+        </Row>
+        <Row label="Ask me to confirm" description="Before running." htmlFor={`${nameId}-confirm`}>
           <Switch id={`${nameId}-confirm`} checked={action.confirm} onCheckedChange={(confirm) => onChange({ ...action, confirm })} />
-          <Label htmlFor={`${nameId}-confirm`} className="text-[13px] font-normal">
-            Ask me to confirm
-          </Label>
-        </div>
-      </div>
+        </Row>
+      </Group>
 
-      <div className="flex flex-col gap-2">
-        <h3 className="text-[13px] font-medium">Steps</h3>
-        <p className="text-xs text-muted-foreground">In order. If one fails, the rest don't run.</p>
-        <ol className="flex flex-col gap-2">
-          {action.steps.map((step, i) => (
-            <li key={i} className="flex flex-col gap-2 rounded-xl border p-3">
-              <div className="flex items-center gap-2">
-                <span className="grid size-5 place-items-center rounded-full bg-muted text-[11px] font-medium tabular-nums">{i + 1}</span>
-                <span className="text-[13px] font-medium">{STEP_LABELS[step.kind]}</span>
-                <span className="hidden truncate text-xs text-muted-foreground sm:inline">{STEP_HINTS[step.kind]}</span>
-                <div className="ml-auto flex">
-                  <Button variant="ghost" size="icon-xs" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
-                    <ArrowUp />
-                  </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label="Move down" disabled={i === action.steps.length - 1} onClick={() => move(i, 1)}>
-                    <ArrowDown />
-                  </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label={`Remove step ${i + 1}`} onClick={() => setStep(i, null)}>
-                    <X />
-                  </Button>
+      <Group title="Steps" footer="In order. If one fails, the rest don't run.">
+        {action.steps.length ? (
+          <ol className="contents">
+            {action.steps.map((step, i) => (
+              <li key={i} className="flex flex-col gap-2 px-2.5 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/[0.08] text-[11px] font-medium tabular-nums">{i + 1}</span>
+                  <span className="shrink-0 text-[13px]">{STEP_LABELS[step.kind]}</span>
+                  <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">{STEP_HINTS[step.kind]}</span>
+                  <div className="ml-auto flex shrink-0">
+                    <Button variant="ghost" size="icon-xs" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
+                      <ArrowUp />
+                    </Button>
+                    <Button variant="ghost" size="icon-xs" aria-label="Move down" disabled={i === action.steps.length - 1} onClick={() => move(i, 1)}>
+                      <ArrowDown />
+                    </Button>
+                    <Button variant="ghost" size="icon-xs" aria-label={`Remove step ${i + 1}`} onClick={() => setStep(i, null)}>
+                      <X />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <StepEditor step={step} onChange={(next) => setStep(i, next)} />
-            </li>
-          ))}
-        </ol>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="self-start" disabled={action.steps.length >= 10} />}>
-            <Plus /> Add step
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-72">
-            {STEP_KINDS.map((kind) => (
-              <DropdownMenuItem key={kind} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
-                <span className="font-medium">{STEP_LABELS[kind]}</span>
-                <span className="text-xs text-muted-foreground">{STEP_HINTS[kind]}</span>
-              </DropdownMenuItem>
+                <StepEditor step={step} onChange={(next) => setStep(i, next)} />
+              </li>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
+          </ol>
+        ) : null}
+        <div className="px-1.5 py-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="text-[12px] font-normal" disabled={action.steps.length >= 10} />}>
+              <Plus /> Add step
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-72">
+              {STEP_KINDS.map((kind) => (
+                <DropdownMenuItem key={kind} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
+                  <span className="font-medium">{STEP_LABELS[kind]}</span>
+                  <span className="text-[11px] text-muted-foreground">{STEP_HINTS[kind]}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </Group>
+    </>
   );
 }
 
@@ -173,79 +168,76 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
   const setActions = (actions: Action[]) => onChange({ ...config, actions });
 
   return (
-    <div className="grid h-full grid-cols-[220px_1fr]">
-      <aside className="flex flex-col gap-2 border-r p-3">
-        <ul className="flex flex-col gap-0.5" aria-label="Actions">
-          {config.actions.map((action) => (
-            <li key={action.id}>
-              <button
-                type="button"
-                onClick={() => setSelectedId(action.id)}
-                aria-current={selected?.id === action.id}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected?.id === action.id ? "bg-accent text-accent-foreground" : "hover:bg-foreground/5",
-                )}
-              >
-                <Zap className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="truncate">{action.name}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="justify-start" disabled={config.actions.length >= 12} />}>
-            <Plus /> Add action
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-72">
-            {ACTION_TEMPLATES.map((template) => (
-              <DropdownMenuItem
-                key={template.name}
-                className="flex-col items-start gap-0.5 whitespace-normal"
-                onClick={() => {
-                  const action = template.make();
-                  setActions([...config.actions, action]);
-                  setSelectedId(action.id);
-                }}
-              >
-                <span className="font-medium">{template.name}</span>
-                <span className="text-xs text-muted-foreground">{template.description}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </aside>
-      <ScrollArea className="min-h-0">
-        {selected ? (
-          <div className="flex flex-col gap-6 p-6">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold">{selected.name || "Untitled action"}</h2>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="ml-auto"
-                aria-label={`Delete ${selected.name}`}
-                onClick={() => {
-                  const rest = config.actions.filter((a) => a.id !== selected.id);
-                  setActions(rest);
-                  setSelectedId(rest[0]?.id ?? null);
-                }}
-              >
-                <Trash2 />
-              </Button>
-            </div>
-            <ActionEditor key={selected.id} action={selected} onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))} />
+    <div className="grid h-full grid-cols-[208px_1fr]">
+      <SideList
+        label="Actions"
+        footer={
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="text-[12px] font-normal" disabled={config.actions.length >= 12} />}>
+              <Plus /> Add action
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-72">
+              {ACTION_TEMPLATES.map((template) => (
+                <DropdownMenuItem
+                  key={template.name}
+                  className="flex-col items-start gap-0.5 whitespace-normal"
+                  onClick={() => {
+                    const action = template.make();
+                    setActions([...config.actions, action]);
+                    setSelectedId(action.id);
+                  }}
+                >
+                  <span className="font-medium">{template.name}</span>
+                  <span className="text-[11px] text-muted-foreground">{template.description}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      >
+        {config.actions.map((action) => (
+          <li key={action.id}>
+            <button
+              type="button"
+              onClick={() => setSelectedId(action.id)}
+              aria-current={selected?.id === action.id}
+              className={cn(sideItem(selected?.id === action.id), "w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+            >
+              <Zap className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="truncate">{action.name}</span>
+            </button>
+          </li>
+        ))}
+      </SideList>
+      {selected ? (
+        <Page>
+          <div className="flex items-center gap-2 px-2.5">
+            <h2 className="truncate text-[15px] font-semibold">{selected.name || "Untitled action"}</h2>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="ml-auto"
+              aria-label={`Delete ${selected.name}`}
+              onClick={() => {
+                const rest = config.actions.filter((a) => a.id !== selected.id);
+                setActions(rest);
+                setSelectedId(rest[0]?.id ?? null);
+              }}
+            >
+              <Trash2 />
+            </Button>
           </div>
-        ) : (
-          <div className="grid h-full place-items-center p-10 text-center">
-            <div className="flex max-w-sm flex-col items-center gap-2">
-              <Zap className="size-5 text-muted-foreground" aria-hidden />
-              <p className="text-sm font-medium">Your own buttons on pull requests</p>
-              <p className="text-sm text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
-            </div>
+          <ActionEditor key={selected.id} action={selected} onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))} />
+        </Page>
+      ) : (
+        <div className="grid h-full place-items-center p-10 text-center">
+          <div className="flex max-w-sm flex-col items-center gap-2">
+            <Zap className="size-5 text-muted-foreground" aria-hidden />
+            <p className="text-[13px] font-medium">Your own buttons on pull requests</p>
+            <p className="text-[12px] text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
           </div>
-        )}
-      </ScrollArea>
+        </div>
+      )}
     </div>
   );
 }

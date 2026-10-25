@@ -60,9 +60,13 @@ fn run(app: &AppHandle, command: &str) {
             } else {
                 let started = std::time::Instant::now();
                 let fresh = app.get_webview_window(crate::PANEL).is_none();
-                let result = crate::toggle_panel(app, &rect).map_err(|e| e.to_string());
-                eprintln!("[devctl] panel shown in {:?} ({})", started.elapsed(), if fresh { "new web view" } else { "kept" });
-                result
+                // On the main thread, as a click on the tray icon is.
+                let handle = app.clone();
+                app.run_on_main_thread(move || {
+                    let result = crate::toggle_panel(&handle, &rect);
+                    eprintln!("[devctl] panel shown in {:?} ({}) {result:?}", started.elapsed(), if fresh { "new web view" } else { "kept" });
+                })
+                .map_err(|e| e.to_string())
             }
         }
         (Some("close"), Some(label), _) => match app.get_webview_window(label) {
@@ -95,6 +99,55 @@ fn run(app: &AppHandle, command: &str) {
             eprintln!("[devctl] forgot: {}", titles.join(" ; "));
             Ok(())
         }
+        (Some("focus"), _, _) => {
+            let panel = app.get_webview_window(crate::PANEL);
+            app.run_on_main_thread(move || {
+                let key = panel.as_ref().map(|p| p.is_focused().unwrap_or(false));
+                eprintln!("[devctl] focus: app active {}, panel key {key:?}", crate::is_active());
+            })
+            .map_err(|e| e.to_string())
+        }
+        (Some("tray"), _, _) => {
+            let rect = app.state::<crate::Tray<tauri::Wry>>().0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
+            eprintln!("[devctl] tray: {rect:?}");
+            Ok(())
+        }
+        #[cfg(target_os = "macos")]
+        (Some("lights"), Some(label), _) => match app.get_webview_window(label) {
+            Some(window) => app
+                .run_on_main_thread(move || {
+                    use objc2_app_kit::{NSWindow, NSWindowButton};
+                    let Ok(pointer) = window.ns_window() else { return };
+                    // SAFETY: Tauri's live NSWindow, on the main thread.
+                    let window = unsafe { &*(pointer as *const NSWindow) };
+                    let height = window.frame().size.height;
+                    if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
+                        let frame = close.convertRect_toView(close.bounds(), None);
+                        eprintln!("[devctl] lights: close top {} height {} center {} (window {height})", height - frame.origin.y - frame.size.height, frame.size.height, height - frame.origin.y - frame.size.height / 2.0);
+                    }
+                })
+                .map_err(|e| e.to_string()),
+            None => Err(format!("no window {label}")),
+        },
+        // Which view a click at x, y (from the top left, in points) would reach.
+        #[cfg(target_os = "macos")]
+        (Some("hit"), Some(label), Some(at)) => match (app.get_webview_window(label), at.split_once(' ')) {
+            (Some(window), Some((x, y))) => {
+                let (x, y): (f64, f64) = (x.parse().unwrap_or(0.0), y.parse().unwrap_or(0.0));
+                app.run_on_main_thread(move || {
+                    use objc2_app_kit::NSWindow;
+                    let Ok(pointer) = window.ns_window() else { return };
+                    // SAFETY: Tauri's live NSWindow, on the main thread.
+                    let ns = unsafe { &*(pointer as *const NSWindow) };
+                    let Some(frame_view) = ns.contentView().and_then(|v| unsafe { v.superview() }) else { return };
+                    let height = ns.frame().size.height;
+                    let hit = frame_view.hitTest(objc2_foundation::NSPoint::new(x, height - y));
+                    eprintln!("[devctl] hit: {:?}", hit.map(|v| v.class().name().to_string_lossy().into_owned()));
+                })
+                .map_err(|e| e.to_string())
+            }
+            _ => Err("hit <label> <x> <y>".into()),
+        },
         (Some("windows"), _, _) => {
             let labels: Vec<String> = app.webview_windows().into_iter().map(|(label, w)| format!("{label}{}", if w.is_visible().unwrap_or(false) { "" } else { " (hidden)" })).collect();
             eprintln!("[devctl] windows: {}", labels.join(", "));

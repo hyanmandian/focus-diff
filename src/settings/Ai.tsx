@@ -6,7 +6,6 @@ import { ArrowDown, ArrowUp, Check, Copy, ExternalLink, Loader2, Plus, RefreshCw
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +13,7 @@ import { EFFORT_LABELS, PROVIDERS } from "@/lib/ai";
 import { bridge, type AiStatus } from "@/lib/bridge";
 import { AI_PROVIDERS, defaultPrompts, newId, REVIEW_PROMPT, type AiProvider, type Config, type Effort, type Prompt } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import { Group, Intro, Page, Row } from "./Form";
 
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
@@ -72,76 +72,73 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   };
 
   return (
-    <div className="flex max-w-xl flex-col gap-6 p-6">
-      <div>
-        <h2 className="text-base font-semibold">AI</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on
-          this computer, read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.
-        </p>
-      </div>
+    <Page>
+      <Intro>
+        Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer,
+        read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.
+      </Intro>
 
-      <div role="radiogroup" aria-label="AI" className="flex flex-col gap-2">
-        {[null, ...AI_PROVIDERS].map((provider) => {
-          const status = provider ? statuses?.find((s) => s.provider === provider) : null;
-          const active = selected === provider;
-          return (
-            <div key={provider ?? "none"} className={cn("rounded-xl border transition-colors", active ? "border-primary bg-primary/5" : "hover:bg-foreground/5")}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => choose(provider)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 pt-3 pb-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border", active && "border-primary")} aria-hidden>
-                  {active ? <span className="size-2 rounded-full bg-primary" /> : null}
-                </span>
-                <span className="text-sm font-medium">{provider ? PROVIDERS[provider].name : "No AI"}</span>
-              </button>
-              <p className="px-3 pb-3 pl-10 text-xs text-muted-foreground">
-                {!provider ? (
-                  "Everything works without it."
-                ) : !statuses ? (
-                  "Checking…"
-                ) : !status?.installed ? (
-                  <>
-                    Not installed on this computer.{" "}
-                    <Button variant="link" size="xs" className="h-auto p-0 text-xs" onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}>
-                      Get it <ExternalLink />
-                    </Button>
-                  </>
-                ) : status.signed_in ? (
-                  <span className="text-success">Ready · {status.version}</span>
-                ) : (
-                  <>
-                    Installed, not signed in. In a terminal, run <CopyCommand command={status.login_command} />
-                  </>
-                )}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => void check()} disabled={checking}>
-          {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check again
-        </Button>
-        <span className="text-xs text-muted-foreground">After installing or signing in.</span>
-      </div>
+      <Group
+        title="Coding agent"
+        accessory={
+          <Button variant="ghost" size="xs" className="text-[12px] font-normal" onClick={() => void check()} disabled={checking}>
+            {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check again
+          </Button>
+        }
+        footer="Check again after installing or signing in."
+      >
+        <div role="radiogroup" aria-label="AI" className="contents">
+          {[null, ...AI_PROVIDERS].map((provider) => {
+            const status = provider ? statuses?.find((s) => s.provider === provider) : null;
+            const active = selected === provider;
+            return (
+              <div key={provider ?? "none"} className="flex items-start gap-2.5 px-2.5 py-2">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => choose(provider)}
+                  className="group flex min-w-0 flex-1 items-start gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className={cn("mt-px grid size-4 shrink-0 place-items-center rounded-full border border-foreground/25 bg-background", active && "border-transparent bg-unread")} aria-hidden>
+                    {active ? <span className="size-1.5 rounded-full bg-white" /> : null}
+                  </span>
+                  <span className="text-[13px] leading-[18px]">{provider ? PROVIDERS[provider].name : "No AI"}</span>
+                </button>
+                <p className="max-w-[60%] pt-px text-right text-[11px] leading-snug text-muted-foreground">
+                  {!provider ? (
+                    "Everything works without it."
+                  ) : !statuses ? (
+                    "Checking…"
+                  ) : !status?.installed ? (
+                    <>
+                      Not installed on this computer.{" "}
+                      <Button variant="link" size="xs" className="h-auto p-0 text-[11px]" onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}>
+                        Get it <ExternalLink />
+                      </Button>
+                    </>
+                  ) : status.signed_in ? (
+                    <span className="text-success">Ready · {status.version}</span>
+                  ) : (
+                    <>
+                      Installed, not signed in. In a terminal, run <CopyCommand command={status.login_command} />
+                    </>
+                  )}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </Group>
 
       {selected ? (
         <>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex min-w-60 flex-1 flex-col gap-1.5">
-              <Label htmlFor={modelId} className="text-[13px]">
-                Model
-              </Label>
+          <Group>
+            <Row label="Model" htmlFor={modelId} description={`Empty uses what you've set in ${PROVIDERS[selected].name}. Some plans only allow some models.`}>
               <Input
                 id={modelId}
                 list={`${modelId}-list`}
-                className="font-mono text-xs"
+                className="h-7 w-60 font-mono text-xs"
                 spellCheck={false}
                 autoComplete="off"
                 value={ai.model}
@@ -153,15 +150,11 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   <option key={m} value={m} />
                 ))}
               </datalist>
-              <p className="text-xs text-muted-foreground">Empty uses what you've set in {PROVIDERS[selected].name}. Some plans only allow some models.</p>
-            </div>
-            <div className="flex w-40 flex-col gap-1.5">
-              <Label htmlFor={effortId} className="text-[13px]">
-                Effort
-              </Label>
-              {PROVIDERS[selected].efforts.length ? (
+            </Row>
+            {PROVIDERS[selected].efforts.length ? (
+              <Row label="Effort" htmlFor={effortId} description="Higher is slower and uses more of your plan.">
                 <Select value={ai.effort} onValueChange={(v) => setAi({ effort: (v ?? "") as Effort | "" })} items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: EFFORT_LABELS[e] }))}>
-                  <SelectTrigger id={effortId} className="w-full">
+                  <SelectTrigger id={effortId} size="sm" className="w-40">
                     <SelectValue>{(v: Effort | "") => EFFORT_LABELS[v]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -172,75 +165,69 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
-                <p className="pt-1.5 text-xs text-muted-foreground">Part of the model you pick (a thinking model thinks harder).</p>
-              )}
-              {PROVIDERS[selected].efforts.length ? <p className="text-xs text-muted-foreground">Higher is slower and uses more of your plan.</p> : null}
-            </div>
-          </div>
+              </Row>
+            ) : (
+              <Row label="Effort" description="Part of the model you pick (a thinking model thinks harder)." />
+            )}
+          </Group>
 
-          <div className="flex items-start justify-between gap-4 rounded-xl border p-3">
-            <div>
-              <Label htmlFor={projectId} className="text-[13px]">
-                Read the whole project, not just the diff
-              </Label>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is
-                downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan.
-              </p>
-            </div>
-            <Switch id={projectId} checked={ai.project} onCheckedChange={(project) => setAi({ project })} />
-          </div>
+          <Group>
+            <Row
+              label="Read the whole project, not just the diff"
+              htmlFor={projectId}
+              description="So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan."
+            >
+              <Switch id={projectId} checked={ai.project} onCheckedChange={(project) => setAi({ project })} />
+            </Row>
+          </Group>
 
-          <div className="flex flex-col gap-3 rounded-xl border p-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <Label htmlFor={autoId} className="text-[13px]">
-                  AI review when a pull request opens
-                </Label>
-                <p className="mt-0.5 text-xs text-muted-foreground">Its comments show on the diff's lines, for you to add to your review or dismiss. Off: an "AI review" button in the review window.</p>
-              </div>
+          <Group>
+            <Row
+              label="AI review when a pull request opens"
+              htmlFor={autoId}
+              description={'Its comments show on the diff\'s lines, for you to add to your review or dismiss. Off: an "AI review" button in the review window.'}
+            >
               <Switch id={autoId} checked={ai.review.auto} onCheckedChange={(auto) => setAi({ review: { ...ai.review, auto } })} />
-            </div>
-            <div className="flex flex-col gap-1.5">
+            </Row>
+            <Row stacked>
               <div className="flex items-center gap-2">
-                <Label htmlFor={reviewPromptId} className="text-xs text-muted-foreground">
+                <label htmlFor={reviewPromptId} className="text-[13px]">
                   What the review looks for
-                </Label>
+                </label>
                 {ai.review.prompt !== REVIEW_PROMPT ? (
-                  <Button variant="link" size="xs" className="ml-auto" onClick={() => setAi({ review: { ...ai.review, prompt: REVIEW_PROMPT } })}>
+                  <Button variant="link" size="xs" className="ml-auto h-auto p-0" onClick={() => setAi({ review: { ...ai.review, prompt: REVIEW_PROMPT } })}>
                     Restore the default
                   </Button>
                 ) : null}
               </div>
               <Textarea id={reviewPromptId} className="min-h-20 text-[13px]" maxLength={8000} value={ai.review.prompt} onChange={(e) => setAi({ review: { ...ai.review, prompt: e.target.value } })} />
-            </div>
-          </div>
+            </Row>
+          </Group>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={guidelinesId} className="text-[13px]">
-              Your review guidelines
-            </Label>
-            <Textarea
-              id={guidelinesId}
-              className="min-h-20 text-[13px]"
-              value={ai.instructions}
-              maxLength={4000}
-              onChange={(e) => setAi({ instructions: e.target.value })}
-              placeholder="Added to every question and review. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it."
-            />
-          </div>
+          <Group title={<label htmlFor={guidelinesId}>Your review guidelines</label>}>
+            <Row stacked>
+              <Textarea
+                id={guidelinesId}
+                className="min-h-20 text-[13px]"
+                value={ai.instructions}
+                maxLength={4000}
+                onChange={(e) => setAi({ instructions: e.target.value })}
+                placeholder="Added to every question and review. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it."
+              />
+            </Row>
+          </Group>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <h3 className="text-[13px] font-medium">Prompts</h3>
-              <span className="text-xs text-muted-foreground">Buttons on each pull request.</span>
-              <Button variant="link" size="xs" className="ml-auto" onClick={() => setPrompts(defaultPrompts())}>
+          <Group
+            title="Prompts"
+            accessory={
+              <Button variant="link" size="xs" className="h-auto p-0" onClick={() => setPrompts(defaultPrompts())}>
                 Restore the defaults
               </Button>
-            </div>
+            }
+            footer="Buttons on each pull request. Each one gets the pull request's description and diff, and your guidelines. You can also ask anything from the pull request itself."
+          >
             {ai.prompts.map((p, i) => (
-              <div key={p.id} className="flex flex-col gap-2 rounded-xl border p-3">
+              <Row stacked key={p.id}>
                 <div className="flex items-center gap-1">
                   <Input aria-label="Button name" className="h-7 max-w-52 text-[13px] font-medium" maxLength={30} value={p.name} onChange={(e) => updatePrompt(p.id, { name: e.target.value })} />
                   <Button variant="ghost" size="icon-xs" className="ml-auto" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => movePrompt(i, -1)}>
@@ -254,21 +241,22 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   </Button>
                 </div>
                 <Textarea aria-label={`What ${p.name} asks`} className="min-h-16 text-[13px]" maxLength={8000} value={p.prompt} onChange={(e) => updatePrompt(p.id, { prompt: e.target.value })} />
-              </div>
+              </Row>
             ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={ai.prompts.length >= 12}
-              onClick={() => setPrompts([...ai.prompts, { id: newId(), name: "New prompt", prompt: "What should I ask the author before approving?" }])}
-            >
-              <Plus /> Add a prompt
-            </Button>
-            <p className="text-xs text-muted-foreground">Each one gets the pull request's description and diff, and your guidelines. You can also ask anything from the pull request itself.</p>
-          </div>
+            <div className="px-1.5 py-1">
+              <Button
+                variant="ghost"
+                size="xs"
+                className="text-[12px] font-normal"
+                disabled={ai.prompts.length >= 12}
+                onClick={() => setPrompts([...ai.prompts, { id: newId(), name: "New prompt", prompt: "What should I ask the author before approving?" }])}
+              >
+                <Plus /> Add a prompt
+              </Button>
+            </div>
+          </Group>
         </>
       ) : null}
-    </div>
+    </Page>
   );
 }

@@ -86,7 +86,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
   const when = queue.kind === "merged" && pr.mergedAt ? Date.parse(pr.mergedAt) : (latest?.at ?? Date.parse(pr.updatedAt));
 
   return (
-    <div ref={ref} className="group relative isolate rounded-md">
+    <div ref={ref} className="group relative isolate rounded-[6px]">
       <button
         type="button"
         data-row
@@ -95,11 +95,13 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
         onPointerLeave={() => clearTimeout(intent.current)}
         onFocus={ahead}
         className={cn(
-          "relative flex w-full items-start gap-2.5 rounded-md py-2 pr-2.5 pl-3.5 text-left outline-none transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.99] motion-reduce:active:scale-100 focus-visible:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          // Like a native list row: a rounded, quiet highlight on hover, a touch deeper when pressed, and
+          // the accent focus ring for the keyboard.
+          "relative flex w-full items-start gap-3 rounded-[6px] py-2 pr-3 pl-4 text-left outline-none transition-colors duration-150 hover:bg-foreground/5 active:bg-foreground/9 focus-visible:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           pr.isDraft && "text-muted-foreground",
         )}
       >
-        {unread ? <span data-dot className="absolute top-[15px] left-1 size-1.5 rounded-full bg-unread" aria-hidden /> : null}
+        {unread ? <span data-dot className="absolute top-[13px] left-1.5 size-2 rounded-full bg-unread" aria-hidden /> : null}
         {/* Its name is what it shows; what only shows as a dot is said too. */}
         {unread ? <span className="sr-only">Unread: </span> : null}
         {mine ? (
@@ -110,9 +112,9 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
           <Avatar actor={pr.author} />
         )}
         <span className="grid min-w-0 flex-1 gap-1">
-          <span className={cn("line-clamp-2 text-[13px] leading-[1.35] [overflow-wrap:anywhere]", unread ? "font-semibold" : "font-medium")}>{pr.title}</span>
+          <span className={cn("line-clamp-2 text-[13px] leading-[18px] [overflow-wrap:anywhere]", unread ? "font-semibold" : "font-medium")}>{pr.title}</span>
           {/* The number never gives way; the name shortens; tags take what's left, and clip. */}
-          <span className="flex min-w-0 items-center gap-1.5 text-xs leading-[18px] text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1.5 text-[11px] leading-[18px] text-muted-foreground">
             <span className="shrink-0 tabular-nums">#{pr.number}</span>
             {!mine && pr.author ? <span className="max-w-[12ch] shrink-0 truncate before:mr-1.5 before:content-['·']">{firstName(pr.author)}</span> : null}
             {queue.kind === "merged" && pr.mergedBy ? <span className="min-w-[3ch] truncate before:mr-1.5 before:content-['·']">merged by {firstName(pr.mergedBy)}</span> : null}
@@ -138,7 +140,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
             </span>
           </span>
         </span>
-        <span className="grid shrink-0 justify-items-end gap-1 text-xs leading-[18px] whitespace-nowrap text-muted-foreground tabular-nums group-focus-within:invisible group-hover:invisible">
+        <span className="grid shrink-0 justify-items-end gap-1 text-[11px] leading-[18px] whitespace-nowrap text-muted-foreground tabular-nums group-focus-within:invisible group-hover:invisible">
           <span>{ago(when)}</span>
           {pr.comments ? (
             <span className="inline-flex items-center gap-1" aria-label={`${pr.comments} comments`}>
@@ -150,7 +152,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="absolute top-2 right-1.5 grid size-7 place-items-center rounded-md text-muted-foreground opacity-0 outline-none group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:opacity-100"
+          className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-[6px] text-muted-foreground opacity-0 outline-none group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:opacity-100"
           aria-label={`More for ${pr.title}`}
         >
           <EllipsisVertical className="size-4" />

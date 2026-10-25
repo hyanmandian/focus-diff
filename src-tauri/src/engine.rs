@@ -1226,7 +1226,7 @@ mod tests {
         let passing = pr(json!({ "author": user(ME) }));
         let memo = |oid: &str| HashMap::from([(passing.id.clone(), CiMemo { oid: oid.into(), state: Some("FAILURE".into()) })]);
         assert!(items_for(&queue(Kind::Authored, json!({})), std::slice::from_ref(&passing), ME, &memo("head")).unwrap()[0].passed);
-        assert!(!items_for(&queue(Kind::Authored, json!({})), &[passing.clone()], ME, &memo("other")).unwrap()[0].passed);
+        assert!(!items_for(&queue(Kind::Authored, json!({})), std::slice::from_ref(&passing), ME, &memo("other")).unwrap()[0].passed);
     }
 
     #[test]

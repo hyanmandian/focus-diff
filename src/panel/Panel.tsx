@@ -66,8 +66,9 @@ function Count({ n, unread, selected }: { n: number; unread: number; selected?: 
   return (
     <span
       className={cn(
-        "min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] font-semibold tabular-nums",
-        selected ? "bg-black/16 text-selected-foreground" : unread ? "bg-selected text-selected-foreground" : "bg-muted text-muted-foreground",
+        "min-w-[18px] rounded-full px-1.5 text-center text-[11px] leading-4 font-semibold tabular-nums",
+        // Unread is the one thing in accent; otherwise a quiet count, full strength on the chosen option.
+        unread ? "bg-selected text-selected-foreground" : selected ? "bg-foreground/8 text-foreground" : "bg-foreground/6 text-muted-foreground",
       )}
     >
       {n}
@@ -82,6 +83,9 @@ const shortName = (repo: string, all: string[]) => {
 };
 
 type Group = { repo: string; items: Item[] };
+
+/** The header's toolbar buttons: 28pt, a 16pt glyph in the secondary label color, a quiet hover. */
+const TOOL = "rounded-[8px] text-muted-foreground hover:bg-foreground/8 hover:text-foreground aria-expanded:bg-foreground/8 aria-expanded:text-foreground dark:hover:bg-foreground/10";
 
 export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen } = useStore();
@@ -183,22 +187,22 @@ export function Panel() {
     ) : null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[18px] border bg-background/92 text-foreground shadow-2xl [@media(prefers-reduced-transparency:reduce)]:bg-background animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
-      <header className="flex h-12 shrink-0 items-center gap-2 pr-2 pl-3.5" data-tauri-drag-region>
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] border border-(--panel-edge) bg-(--panel-tint) text-foreground animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
+      <header className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-4" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
-        <h1 className="text-[15px] font-bold tracking-tight">Focus Diff</h1>
+        <h1 className="text-[13px] leading-4 font-semibold">Focus Diff</h1>
         <div className="ml-auto flex items-center gap-0.5">
           {signedIn ? (
             status.phase === "error" ? (
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" className={TOOL} aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
                   <AlertCircle className="text-destructive" />
                 </TooltipTrigger>
                 <TooltipContent>{status.error} · click to try again</TooltipContent>
               </Tooltip>
             ) : (
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" className={TOOL} aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
                   {status.phase === "loading" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                 </TooltipTrigger>
                 <TooltipContent>Refresh</TooltipContent>
@@ -206,7 +210,7 @@ export function Panel() {
             )
           ) : null}
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Menu" />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className={TOOL} aria-label="Menu" />}>
               <Settings />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -222,10 +226,10 @@ export function Panel() {
       {!ready ? (
         // The shape of what's coming, at its size: nothing moves when it arrives.
         <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading">
-          <Skeleton className="mx-2 h-[42px] shrink-0 rounded-[10px]" />
-          <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-hidden rounded-[10px] border bg-card p-1 shadow-sm">
+          <Skeleton className="mx-2 h-8 shrink-0 rounded-[10px] bg-(--panel-fill)" />
+          <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-hidden rounded-[10px] border border-(--panel-pane-edge) bg-(--panel-pane) p-1">
             {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-start gap-2.5 py-2 pr-2.5 pl-3.5" style={{ opacity: 1 - i * 0.18 }}>
+              <div key={i} className="flex items-start gap-3 py-2 pr-3 pl-4" style={{ opacity: 1 - i * 0.18 }}>
                 <Skeleton className="size-6 shrink-0 rounded-full" />
                 <div className="flex flex-1 flex-col gap-1.5 pt-0.5">
                   <Skeleton className="h-3.5 w-4/5" />
@@ -234,29 +238,30 @@ export function Panel() {
               </div>
             ))}
           </div>
-          <div className="h-10 shrink-0" />
+          <div className="h-9 shrink-0" />
         </div>
       ) : !signedIn ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
           <Mark className="size-10 text-primary" />
           <div className="flex flex-col gap-1.5">
-            <h2 className="text-base font-semibold">Your reviews, without opening GitHub</h2>
-            <p className="text-sm text-balance text-muted-foreground">Connect GitHub to see what's waiting on you, and hear about it as it happens.</p>
+            <h2 className="text-[15px] leading-5 font-semibold">Your reviews, without opening GitHub</h2>
+            <p className="text-[13px] leading-[18px] text-balance text-muted-foreground">Connect GitHub to see what's waiting on you, and hear about it as it happens.</p>
           </div>
           <Connect auth={auth} onConnected={() => void refresh(true)} />
         </div>
       ) : !queue ? (
         <div className="flex flex-col items-center gap-3 px-8 py-16 text-center">
-          <p className="text-sm text-muted-foreground">You have no queues turned on.</p>
+          <p className="text-[13px] text-muted-foreground">You have no queues turned on.</p>
           <Button variant="outline" onClick={() => void bridge.openSettings()}>
             Set up queues
           </Button>
         </div>
       ) : (
         <main className="flex min-h-0 flex-1 flex-col">
-          {/* The queues, like the popup's two lists: the chosen one on a filled pill. */}
-          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-2 flex shrink-0 gap-0.5 overflow-x-auto rounded-[10px] border bg-card p-1 shadow-sm [scrollbar-width:none]">
-            <SlidingPill selected={queue.id} className="rounded-md" />
+          {/* The queues, like the popup's two lists, as a segmented control: the chosen one on a raised
+              knob (concentric: 10px track, 2px in, 8px knob). */}
+          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-2 flex shrink-0 gap-0.5 overflow-x-auto rounded-[10px] bg-(--panel-fill) p-0.5 [scrollbar-width:none]">
+            <SlidingPill selected={queue.id} className="rounded-[8px] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.14),0_0_0_0.5px_rgb(0_0_0/0.06)] dark:bg-white/18 dark:shadow-[0_1px_2px_rgb(0_0_0/0.3)]" />
             {queues.map((q) => {
               const its = items[q.id] ?? [];
               const selected = q.id === queue.id;
@@ -270,8 +275,8 @@ export function Panel() {
                   data-pill={q.id}
                   onClick={() => choose(q.id)}
                   className={cn(
-                    "flex h-8 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-md pr-2 pl-3 text-[13px] font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
-                    selected ? "text-selected-foreground" : "hover:bg-foreground/6",
+                    "flex h-7 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-[8px] pr-1.5 pl-2.5 text-[13px] leading-4 font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                    !selected && "hover:bg-foreground/6",
                   )}
                 >
                   <span className="truncate">{q.name}</span>
@@ -281,10 +286,10 @@ export function Panel() {
             })}
           </div>
 
-          <div role="tabpanel" aria-label={queue.name} className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border bg-card shadow-sm">
+          <div role="tabpanel" aria-label={queue.name} className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-(--panel-pane-edge) bg-(--panel-pane)">
             {repos.length > 1 ? (
-              <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto border-b p-1.5 [scrollbar-width:none]">
-                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-md" />
+              <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto border-b border-foreground/8 p-1 [scrollbar-width:none]">
+                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-[6px] bg-foreground/9" />
                 {[["", "All", list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
                   const pressed = (repo && repos.includes(repo) ? repo : "") === value;
                   return (
@@ -300,8 +305,8 @@ export function Panel() {
                         setRepo(value);
                       }}
                       className={cn(
-                        "flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-md pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                        pressed ? "text-selected-foreground" : "hover:bg-foreground/6",
+                        "flex h-6 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] pr-1 pl-2 text-xs leading-4 font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                        pressed ? "text-foreground" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
                       )}
                     >
                       <span className="truncate">{label}</span>
@@ -327,24 +332,24 @@ export function Panel() {
               {groups.length || drafts.length ? (
                 <>
                   {groups.map((g, i) => (
-                    <section key={g.repo} aria-label={g.repo} className={cn(i > 0 && "mt-1 border-t pt-1", groups.length === 1 && repos.length <= 1 && "pt-1")}>
+                    <section key={g.repo} aria-label={g.repo} className={cn(i > 0 && "mt-1", groups.length === 1 && repos.length <= 1 && "pt-1")}>
                       {groups.length > 1 || repos.length > 1 ? (
-                        <h2 className="sticky top-0 z-10 flex items-center gap-2 bg-card px-2.5 pt-2.5 pb-1.5 text-[13px] leading-[18px] font-semibold">
+                        <h2 className="sticky top-0 z-10 flex items-center gap-1.5 bg-(--panel-pane) pt-2.5 pr-3 pb-1 pl-4 text-xs leading-4 font-semibold backdrop-blur-md">
                           <span className="min-w-0 truncate">
                             <span className="font-normal text-muted-foreground">{g.repo.slice(0, g.repo.indexOf("/") + 1)}</span>
                             {g.repo.slice(g.repo.indexOf("/") + 1)}
                           </span>
-                          <span className="text-xs font-normal text-muted-foreground tabular-nums">{g.items.length}</span>
+                          <span className="font-normal text-muted-foreground tabular-nums">{g.items.length}</span>
                         </h2>
                       ) : null}
                       <ul>{g.items.map(row)}</ul>
                     </section>
                   ))}
                   {drafts.length ? (
-                    <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-1 border-t pt-1")}>
-                      <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-                        <ChevronRight className={cn("size-3.5 transition-transform duration-200", draftsOpen && "rotate-90")} aria-hidden />
-                        Drafts <span className="text-xs tabular-nums">{drafts.length}</span>
+                    <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-1")}>
+                      <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-[6px] py-2 pr-3 pl-4 text-xs leading-4 font-semibold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                        <ChevronRight className={cn("-ml-0.5 size-3.5 transition-transform duration-200 motion-reduce:transition-none", draftsOpen && "rotate-90")} aria-hidden />
+                        Drafts <span className="font-normal tabular-nums">{drafts.length}</span>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <ul>{drafts.map(row)}</ul>
@@ -353,17 +358,17 @@ export function Panel() {
                   ) : null}
                 </>
               ) : (
-                <p className="px-4 py-10 text-center text-sm text-muted-foreground">{EMPTY[queue.kind]}</p>
+                <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">{EMPTY[queue.kind]}</p>
               )}
             </div>
           </div>
 
-          <footer className="flex h-10 shrink-0 items-center gap-2 px-4 text-xs text-muted-foreground">
+          <footer className="flex h-9 shrink-0 items-center gap-2 px-4 text-[11px] leading-4 text-muted-foreground">
             {update ? (
               <button
                 type="button"
                 disabled={updating}
-                className="flex items-center gap-1.5 rounded font-medium text-success outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex items-center gap-1.5 rounded-sm font-medium text-success outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => {
                   setUpdating(true);
                   void bridge.installUpdate().catch(() => setUpdating(false));
@@ -375,7 +380,7 @@ export function Panel() {
             ) : null}
             <p role="status" className={cn(update && "sr-only")}>{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : status.phase === "loading" ? "Checking GitHub…" : ""}</p>
             {unreadHere ? (
-              <button type="button" className="ml-auto rounded font-medium text-unread outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" onClick={() => markQueueSeen(queue.id)}>
+              <button type="button" className="ml-auto rounded-sm font-medium text-(--panel-link) outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" onClick={() => markQueueSeen(queue.id)}>
                 Mark all as read
               </button>
             ) : null}

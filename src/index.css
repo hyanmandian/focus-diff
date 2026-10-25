@@ -152,13 +152,46 @@
 /* The panel window is transparent with the system's popover material behind it (lib.rs): the page
    stays clear so that material shows, and draws its own rounded edge. */
 html.panel, html.panel body { background: transparent; }
+
+/* The panel's surfaces, as a menu bar extra's window: a light tint over the system material (so it
+   shows, as in a popover) carries the chrome; the list sits on a near-opaque pane so its sticky
+   repository headings stay legible. Text contrast is AA on both against a mid-gray material. Under
+   Reduce Transparency or Increase Contrast everything goes opaque, and Increase Contrast adds edges. */
+html.panel {
+  --panel-tint: color-mix(in oklch, var(--background) 55%, transparent);
+  --panel-edge: oklch(0 0 0 / 0.1);
+  --panel-pane: color-mix(in oklch, var(--card) 92%, transparent);
+  --panel-pane-edge: transparent;
+  --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, hover */
+  --panel-link: oklch(0.48 0.18 255); /* the accent, deepened to stay AA on the tinted material */
+}
+html.panel.dark {
+  --panel-tint: color-mix(in oklch, var(--background) 45%, transparent);
+  --panel-edge: oklch(1 0 0 / 0.14);
+  --panel-pane: oklch(0.24 0 0 / 0.92);
+  --panel-pane-edge: oklch(1 0 0 / 0.07);
+  --panel-fill: oklch(1 0 0 / 0.07);
+  --panel-link: var(--unread);
+}
+@media (prefers-reduced-transparency: reduce) {
+  html.panel, html.panel.dark { --panel-tint: var(--background); --panel-pane: var(--card); }
+}
+@media (prefers-contrast: more) {
+  html.panel, html.panel.dark {
+    --panel-tint: var(--background);
+    --panel-pane: var(--card);
+    --panel-edge: color-mix(in oklch, var(--foreground) 45%, transparent);
+    --panel-pane-edge: color-mix(in oklch, var(--foreground) 35%, transparent);
+    --panel-fill: color-mix(in oklch, var(--foreground) 12%, transparent);
+  }
+}
 html, body, #root { height: 100%; }
 body { -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; cursor: default; }
 input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; cursor: text; }
 ::selection { background: color-mix(in oklch, var(--unread) 30%, transparent); }
 
 /* Arrival: something new on a pull request, played when the panel opens. A band of light crosses
-   the card, its dot pings three times, and the tint stays until it's clicked. */
+   the row, its dot pings three times, and the tint stays until it's clicked. */
 @keyframes arrive-settle {
   0% { background-color: color-mix(in oklch, var(--unread) 26%, transparent); transform: translateY(-3px); }
   20% { transform: none; }
@@ -194,3 +227,9 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
   --diffs-font-features: "liga" 0, "calt" 0;
   --diffs-bg-buffer-override: transparent;
 }
+
+/* Mermaid diagrams in descriptions and comments (lib/diagrams.ts). */
+figure.diagram { margin: 0.5rem 0; }
+figure.diagram > [role="img"] { overflow-x: auto; padding: 12px; border-radius: 8px; background: var(--muted); }
+figure.diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+figure.diagram > details > summary { cursor: pointer; width: fit-content; margin-top: 4px; font-size: 12px; color: var(--muted-foreground); }

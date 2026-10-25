@@ -331,7 +331,7 @@ static REVIEW_COUNTER: AtomicU64 = AtomicU64::new(0);
 fn review_builder<'a, R: Runtime>(app: &'a AppHandle<R>, label: &str, url: String, title: &str) -> WebviewWindowBuilder<'a, R, AppHandle<R>> {
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into())).title(title).min_inner_size(720.0, 480.0);
     #[cfg(target_os = "macos")]
-    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true).traffic_light_position(tauri::LogicalPosition::new(16.0, 22.0));
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     builder
 }
 
@@ -352,6 +352,7 @@ fn prepare_spare<R: Runtime>(app: &AppHandle<R>) {
     }
     let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
     if let Ok(window) = review_builder(app, &label, "review.html".into(), "Focus Diff").visible(false).build() {
+        native_toolbar(&window);
         fill_screen(app, &window);
         *reviews.spare.lock().unwrap() = Some(label);
     }
@@ -430,6 +431,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
             let url = format!("review.html?id={}&repo={}&number={number}&teams={}", encode(&id), encode(&repo), encode(&teams.join(",")));
             let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
             let window = review_builder(&app, &label, url, &title).build().map_err(|e| e.to_string())?;
+            native_toolbar(&window);
             fill_screen(&app, &window);
             window
         }
@@ -486,12 +488,15 @@ pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()>
         window.show()?;
         return window.set_focus();
     }
-    let window = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
+    let builder = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
         .title("Focus Diff Settings")
         .inner_size(760.0, 620.0)
         .min_inner_size(620.0, 480.0)
-        .center()
-        .build()?;
+        .center();
+    #[cfg(target_os = "macos")]
+    let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    let window = builder.build()?;
+    native_toolbar(&window);
     update_presence(app);
     window.set_focus()
 }
@@ -572,6 +577,7 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri
     panel.set_focus()?;
     let _ = panel.emit("panel-shown", ());
     reshadow(app, &panel);
+    keep_focus(app, &panel);
     prepare_spare_soon(app);
     Ok(())
 }
@@ -584,6 +590,55 @@ fn activate() {
     if let Some(main) = objc2::MainThreadMarker::new() {
         objc2_app_kit::NSApplication::sharedApplication(main).activate();
     }
+}
+
+/// The page draws the window's toolbar under a see-through title bar. An empty native toolbar
+/// makes that bar the toolbar's height, so macOS itself centres the window buttons in it (as in
+/// Finder or Mail) rather than leaving them up at the top; the page's bar is TOOLBAR tall.
+fn native_toolbar<R: Runtime>(window: &tauri::WebviewWindow<R>) {
+    #[cfg(target_os = "macos")]
+    {
+        let window = window.clone();
+        let _ = window.clone().run_on_main_thread(move || {
+            let Some(main) = objc2::MainThreadMarker::new() else { return };
+            let Ok(pointer) = window.ns_window() else { return };
+            // SAFETY: Tauri's live NSWindow, on the main thread.
+            let ns = unsafe { &*(pointer as *const objc2_app_kit::NSWindow) };
+            ns.setToolbar(Some(&objc2_app_kit::NSToolbar::new(main)));
+            ns.setToolbarStyle(objc2_app_kit::NSWindowToolbarStyle::Unified);
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
+}
+
+/// macOS can turn an activation down, or finish it only after the panel was shown, leaving the
+/// panel up but not taking the keyboard or the pointer's hover until it's clicked. Asked once more,
+/// shortly after, if that's what happened.
+fn keep_focus<R: Runtime>(app: &AppHandle<R>, panel: &tauri::WebviewWindow<R>) {
+    let (app, panel) = (app.clone(), panel.clone());
+    thread::spawn(move || {
+        for wait in [60, 200] {
+            thread::sleep(Duration::from_millis(wait));
+            let panel = panel.clone();
+            let _ = app.run_on_main_thread(move || {
+                if panel.is_visible().unwrap_or(false) && !panel.is_focused().unwrap_or(true) {
+                    activate();
+                    let _ = panel.set_focus();
+                }
+            });
+        }
+    });
+}
+
+/// Whether Focus Diff is the active app (for devctl).
+#[cfg(any(debug_assertions, feature = "devctl"))]
+pub(crate) fn is_active() -> bool {
+    #[cfg(target_os = "macos")]
+    if let Some(main) = objc2::MainThreadMarker::new() {
+        return objc2_app_kit::NSApplication::sharedApplication(main).isActive();
+    }
+    false
 }
 
 /// The shadow of a see-through window follows what was drawn when it was worked out; worked out

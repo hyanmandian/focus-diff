@@ -4,6 +4,9 @@ import { createRoot } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Settings } from "./Settings";
 import "../index.css";
+import "./settings.css";
+
+document.documentElement.classList.add("settings");
 
 // In a plain browser during development, sample data stands in for the app (src/dev/mock.ts).
 if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) (await import("../dev/mock")).installMock();

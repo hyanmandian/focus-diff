@@ -238,7 +238,35 @@ const threads = {
   },
 };
 
-const files: Record<string, string | null> = { config: JSON.stringify(config), state: null };
+// What Rust's queue engine would make of the pull requests above (src-tauri/src/engine.rs).
+type Sample = ReturnType<typeof pr>;
+const item = (queueId: string, p: Sample, events: Array<[kind: string, minutesAgo: number, who?: object | null]> = [], extra: object = {}) => ({
+  queueId,
+  pr: p,
+  ci: p.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,
+  events: [
+    { key: `${queueId}:${p.id}:new`, kind: "new", at: queueId === "merged" ? Date.parse(String(p.mergedAt)) : Date.parse(p.createdAt), who: p.author },
+    ...events.map(([kind, minutesAgo, who]) => ({ key: `${p.id}:${kind}:${minutesAgo}`, kind, at: now - minutesAgo * 60_000, who: who === undefined ? p.author : who })),
+  ],
+  ...extra,
+});
+const [promo, invoices, flaky] = review as [Sample, Sample, Sample];
+const [billing, search, upgrade] = involved as [Sample, Sample, Sample];
+const [history, onboarding] = authored as [Sample, Sample];
+const items = {
+  review: [item("review", promo, [], { viaTeams: [] }), item("review", invoices, [], { viaTeams: ["acme/payments"] }), item("review", flaky, [], { viaTeams: [] })],
+  updates: [
+    item("updates", billing, [["commits", 50], ["reply", 45, people.carla]], { status: "APPROVED" }),
+    item("updates", search, [["mention", 12, people.bruno]], { status: "MENTIONED" }),
+    item("updates", upgrade, [], { status: "COMMENTED" }),
+  ],
+  mine: [item("mine", history, [["approved", 8, people.ana]]), item("mine", onboarding, [["ci-failed", 20, null]])],
+  merged: merged.map((p) => item("merged", p)),
+};
+const seen = Object.fromEntries([...items.review.slice(2), ...items.updates.slice(2), ...items.merged].flatMap((i) => i.events.map((e) => [e.key, true])));
+const snapshot = { ready: true, signedIn: true, me: "you", items, status: { phase: "idle", updatedAt: now }, arrivals: [promo.id], seen, dismissed: {} };
+
+const files: Record<string, string | null> = { config: JSON.stringify(config) };
 const listeners = new Map<number, string>();
 let callbackId = 0;
 
@@ -257,10 +285,10 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
       const body = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, string> };
       if (body.query?.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (body.query?.includes("squashMergeAllowed")) return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
-      const q = body.variables?.q ?? "";
-      const nodes = q.includes("is:merged") ? merged : q.includes("review-requested:") ? review : q.includes("involves:") ? involved : authored;
-      return { status: 200, body: JSON.stringify({ data: { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } } }) };
+      return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };
     }
+    case "snapshot":
+      return snapshot;
     case "ai_statuses":
       return [
         { provider: "claude", installed: true, signed_in: true, version: "2.1.310 (Claude Code)", login_command: "claude auth login" },

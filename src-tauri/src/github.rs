@@ -5,15 +5,16 @@
 //! Signing in uses GitHub's device flow (no server of ours, no redirect): the app shows a code, the
 //! person enters it on github.com, and the app picks up the token.
 
+use std::collections::{HashMap, VecDeque};
 use std::io::Read;
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::Value;
 
-const KEYCHAIN_SERVICE: &str = "com.focusdiff.pro";
+const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github";
 const API: &str = "https://api.github.com";
 /// Read pull requests, comment and review on them, and read team membership (for team review
@@ -21,13 +22,54 @@ const API: &str = "https://api.github.com";
 const SCOPES: &str = "repo read:org";
 /// The OAuth app's client id, set at build time. Without it the device flow is off and the app
 /// offers the GitHub CLI or a token instead.
-const CLIENT_ID: Option<&str> = option_env!("FOCUS_DIFF_PRO_GITHUB_CLIENT_ID");
+const CLIENT_ID: Option<&str> = option_env!("FOCUS_DIFF_GITHUB_CLIENT_ID");
 
 #[derive(Default)]
 pub struct Auth {
     /// The token in use, kept in memory once read. Never serialized.
     token: Mutex<Option<String>>,
     source: Mutex<Option<Source>>,
+    /// Who the token belongs to, once GitHub said.
+    login: Mutex<Option<String>>,
+    etags: Mutex<Etags>,
+}
+
+/// GET responses GitHub tagged, by path: asked again with the tag, GitHub answers 304 Not Modified
+/// without the body (faster, and free against the rate limit), and the kept body is used.
+#[derive(Default)]
+struct Etags {
+    entries: HashMap<String, (String, String)>,
+    order: VecDeque<String>,
+    bytes: usize,
+}
+
+impl Etags {
+    const BUDGET: usize = 16 * 1024 * 1024;
+    const LARGEST: usize = 4 * 1024 * 1024;
+
+    fn get(&self, key: &str) -> Option<&(String, String)> {
+        self.entries.get(key)
+    }
+
+    fn put(&mut self, key: String, etag: String, body: String) {
+        if body.len() > Self::LARGEST {
+            return;
+        }
+        if let Some((_, old)) = self.entries.remove(&key) {
+            self.bytes -= old.len();
+            self.order.retain(|k| *k != key);
+        }
+        self.bytes += body.len();
+        self.order.push_back(key.clone());
+        self.entries.insert(key, (etag, body));
+        // The oldest go first.
+        while self.bytes > Self::BUDGET {
+            let Some(oldest) = self.order.pop_front() else { break };
+            if let Some((_, body)) = self.entries.remove(&oldest) {
+                self.bytes -= body.len();
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Serialize, serde::Deserialize)]
@@ -48,13 +90,18 @@ pub struct Status {
     pub gh_available: bool,
 }
 
-fn agent() -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
-        .http_status_as_error(false)
-        .user_agent(concat!("FocusDiffPro/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .into()
+/// One client for the app's life, so connections to GitHub are kept open and reused instead of
+/// a new TLS handshake per request.
+fn agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(30)))
+            .http_status_as_error(false)
+            .user_agent(concat!("FocusDiff/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .into()
+    })
 }
 
 fn keychain() -> Result<keyring::Entry, String> {
@@ -117,15 +164,33 @@ impl Auth {
     pub fn set_source(&self, source: Option<Source>) {
         *self.source.lock().unwrap() = source;
         *self.token.lock().unwrap() = None;
+        *self.login.lock().unwrap() = None;
+        *self.etags.lock().unwrap() = Etags::default();
+    }
+
+    /// Who's signed in: None when no one is (no token, or GitHub refused it); an error when GitHub
+    /// couldn't be reached to tell.
+    pub fn login(&self) -> Result<Option<String>, String> {
+        if let Some(login) = self.login.lock().unwrap().clone() {
+            return Ok(Some(login));
+        }
+        if self.token().is_err() {
+            return Ok(None);
+        }
+        let (status, body) = self.request("GET", "/user", None, None)?;
+        match status {
+            200 => {
+                let login = serde_json::from_str::<Value>(&body).ok().and_then(|v| v["login"].as_str().map(String::from));
+                login.clone_into(&mut self.login.lock().unwrap());
+                Ok(login)
+            }
+            401 => Ok(None),
+            _ => Err(format!("GitHub returned {status}")),
+        }
     }
 
     pub fn status(&self) -> Status {
-        let login = self.request("GET", "/user", None, None).ok().and_then(|(status, body)| {
-            (status == 200)
-                .then(|| serde_json::from_str::<Value>(&body).ok())
-                .flatten()
-                .and_then(|v| v["login"].as_str().map(String::from))
-        });
+        let login = self.login().ok().flatten();
         Status {
             signed_in: login.is_some(),
             source: if login.is_some() { *self.source.lock().unwrap() } else { None },
@@ -147,7 +212,7 @@ impl Auth {
         if token.is_empty() || token.chars().any(char::is_whitespace) {
             return Err("That doesn't look like a token".into());
         }
-        let (status, _) = call(token, "GET", "/user", None, None)?;
+        let (status, _, _) = call(token, "GET", "/user", None, None, None)?;
         if status != 200 {
             return Err("GitHub didn't accept that token".into());
         }
@@ -168,17 +233,35 @@ impl Auth {
     /// Calls the REST or GraphQL API. Returns the status and body for the web view to read.
     pub fn request(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
         let token = self.token()?;
-        let (status, text) = call(&token, method, path, body, accept)?;
+        let (status, text) = self.call_tagged(&token, method, path, body, accept)?;
         if status == 401 && *self.source.lock().unwrap() == Some(Source::Gh) {
             // gh may have been signed in again since: read its token once more.
             *self.token.lock().unwrap() = None;
-            return call(&self.token()?, method, path, body, accept);
+            return self.call_tagged(&self.token()?, method, path, body, accept);
+        }
+        Ok((status, text))
+    }
+
+    /// `call`, with GET responses revalidated by their ETag.
+    fn call_tagged(&self, token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
+        if method != "GET" {
+            return call(token, method, path, body, accept, None).map(|(status, text, _)| (status, text));
+        }
+        let key = format!("{}\n{path}", accept.unwrap_or(""));
+        let known = self.etags.lock().unwrap().get(&key).cloned();
+        let (status, text, etag) = call(token, method, path, None, accept, known.as_ref().map(|(etag, _)| etag.as_str()))?;
+        if status == 304
+            && let Some((_, body)) = known {
+                return Ok((200, body));
+            }
+        if let (200, Some(etag)) = (status, etag) {
+            self.etags.lock().unwrap().put(key, etag, text.clone());
         }
         Ok((status, text))
     }
 }
 
-fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
+fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>, if_none_match: Option<&str>) -> Result<(u16, String, Option<String>), String> {
     // Only ever the API, whatever path a page sends: no other host, no scheme tricks.
     if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
         return Err("Bad request".into());
@@ -188,7 +271,13 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
     let agent = agent();
     let auth = format!("Bearer {token}");
     let response = match (method, body) {
-        ("GET", _) => agent.get(&url).header("Authorization", &auth).header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28").call(),
+        ("GET", _) => {
+            let request = agent.get(&url).header("Authorization", &auth).header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28");
+            match if_none_match {
+                Some(etag) => request.header("If-None-Match", etag).call(),
+                None => request.call(),
+            }
+        }
         ("DELETE", None) => agent.delete(&url).header("Authorization", &auth).header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28").call(),
         (_, body) => {
             let request = match method {
@@ -208,6 +297,7 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
     }
     .map_err(|e| format!("Couldn't reach GitHub: {e}"))?;
     let status = response.status().as_u16();
+    let etag = response.headers().get("etag").and_then(|v| v.to_str().ok()).map(String::from);
     let mut text = String::new();
     response
         .into_body()
@@ -215,7 +305,7 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
         .take(64 * 1024 * 1024) // a sane ceiling for one response
         .read_to_string(&mut text)
         .map_err(|e| e.to_string())?;
-    Ok((status, text))
+    Ok((status, text, etag))
 }
 
 #[derive(Serialize)]

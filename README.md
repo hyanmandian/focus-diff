@@ -1,4 +1,4 @@
-# Focus Diff Pro
+# Focus Diff
 
 Your pull request reviews from the menu bar (system tray on Windows and Linux): queues you set up, a notification and an animated tray icon when something happens, and the pull request itself — description, checks, conversation, diff, review — without opening GitHub. The paid sibling of [Focus Diff](https://focus-diff.com).
 
@@ -28,7 +28,7 @@ npm run check           # TypeScript and tests
 npm run tauri build     # a release build
 ```
 
-Signing in with GitHub (device flow) needs an OAuth app's client id at build time: `FOCUS_DIFF_PRO_GITHUB_CLIENT_ID=… npm run tauri build`. Without it, the app offers the GitHub CLI's login or a personal access token.
+Signing in with GitHub (device flow) needs an OAuth app's client id at build time: `FOCUS_DIFF_GITHUB_CLIENT_ID=… npm run tauri build`. Without it, the app offers the GitHub CLI's login or a personal access token.
 
 ## Layout
 

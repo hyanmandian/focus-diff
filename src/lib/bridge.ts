@@ -21,7 +21,7 @@ export type DeviceCode = {
   expires_in: number;
 };
 
-export type StoredFile = "config" | "state";
+export type StoredFile = "config";
 
 export type AiStatus = {
   provider: "claude" | "codex" | "cursor";
@@ -66,9 +66,16 @@ export const bridge = {
   /** Runs a "run" step of a saved action: Rust reads the command from the config and asks first. */
   runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) => invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),
 
-  notify: (title: string, body: string, sound = false) => invoke<void>("notify", { title, body, sound }),
+  /** The queues' live state, kept by Rust (src-tauri/src/watch.rs); changes come as "snapshot" events. */
+  snapshot: <T>() => invoke<T>("snapshot"),
+  /** Without `force`, only if the last refresh is older than the configured rhythm. */
+  refresh: (force = false) => invoke<void>("refresh", { force }),
+  markSeen: (queueId: string, prId: string) => invoke<void>("mark_seen", { queueId, prId }),
+  markQueueSeen: (queueId: string) => invoke<void>("mark_queue_seen", { queueId }),
+  dismiss: (queueId: string, prId: string) => invoke<void>("dismiss", { queueId, prId }),
+  clearArrival: (prId: string) => invoke<void>("clear_arrival", { prId }),
+
   openUrl: (url: string) => invoke<void>("open_url", { url }),
-  trayUpdate: (count: number, animate: boolean) => invoke<void>("tray_update", { count, animate }),
   openSettings: () => invoke<void>("open_settings"),
   /** A pull request's diff in Codiff's review view, in a window of its own. */
   openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }) =>

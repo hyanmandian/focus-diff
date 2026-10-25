@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { bridge } from "@/lib/bridge";
 import { ago } from "@/lib/copy";
 import type { Item } from "@/lib/engine";
-import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, reloadAuth, useStore } from "@/lib/store";
+import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, useStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
@@ -33,7 +33,7 @@ function useShown() {
 }
 
 export function Panel() {
-  const { ready, auth, config, me, items, status, arrivals, seen } = useStore();
+  const { ready, signedIn, auth, config, me, items, status, arrivals, seen } = useStore();
   const shown = useShown();
   useTheme(config?.theme);
 
@@ -60,9 +60,9 @@ export function Panel() {
     <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-background/92 text-foreground shadow-2xl">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
-        <h1 className="text-[13px] font-semibold">Focus Diff Pro</h1>
+        <h1 className="text-[13px] font-semibold">Focus Diff</h1>
         <div className="ml-auto flex items-center gap-0.5">
-          {auth?.signed_in ? (
+          {signedIn ? (
             <>
               {status.phase === "error" ? (
                 <Tooltip>
@@ -88,7 +88,7 @@ export function Panel() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>Settings…</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void bridge.quit()}>Quit Focus Diff Pro</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void bridge.quit()}>Quit Focus Diff</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -100,14 +100,14 @@ export function Panel() {
             <Skeleton key={i} className="h-16 rounded-xl" style={{ opacity: 1 - i * 0.3 }} />
           ))}
         </div>
-      ) : !auth?.signed_in ? (
+      ) : !signedIn ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
           <Mark className="size-10 text-primary" />
           <div className="flex flex-col gap-1.5">
             <h2 className="text-base font-semibold">Your reviews, without opening GitHub</h2>
             <p className="text-sm text-balance text-muted-foreground">Connect GitHub to see what's waiting on you, and hear about it as it happens.</p>
           </div>
-          <Connect auth={auth} onConnected={() => void reloadAuth()} />
+          <Connect auth={auth} onConnected={() => void refresh(true)} />
         </div>
       ) : selected ? (
         <Details

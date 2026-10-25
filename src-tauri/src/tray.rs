@@ -92,9 +92,9 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let dot = count > 0;
     let tooltip = match count {
-        0 => "Focus Diff Pro: nothing waiting on you".to_string(),
-        1 => "Focus Diff Pro: 1 pull request waiting on you".to_string(),
-        n => format!("Focus Diff Pro: {n} pull requests waiting on you"),
+        0 => "Focus Diff: nothing waiting on you".to_string(),
+        1 => "Focus Diff: 1 pull request waiting on you".to_string(),
+        n => format!("Focus Diff: {n} pull requests waiting on you"),
     };
     let _ = tray.set_tooltip(Some(&tooltip));
     #[cfg(target_os = "macos")]

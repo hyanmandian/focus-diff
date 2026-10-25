@@ -2,7 +2,6 @@
 // Pending comments and what's been viewed are kept on this machine, so closing the window loses
 // nothing.
 
-import { emit } from "@tauri-apps/api/event";
 import { Columns2, ExternalLink, GitMerge, Loader2, Rows2, Search, Send, WrapText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -199,7 +198,7 @@ export function Review() {
   };
   // The panel's lists catch up right away.
   const changed = useCallback(async () => {
-    void emit("prs-changed");
+    void bridge.refresh(true);
     if (details) setThreads(await loadThreads(details));
   }, [details]);
 
@@ -275,7 +274,7 @@ export function Review() {
           onResult={(message, ok) => {
             say(message);
             if (ok) {
-              void emit("prs-changed");
+              void bridge.refresh(true);
               void load();
             }
           }}
@@ -288,7 +287,7 @@ export function Review() {
               void merge(details, details.mergeMethods[0]!)
                 .then(() => {
                   say("Merged");
-                  void emit("prs-changed");
+                  void bridge.refresh(true);
                   void load();
                 })
                 .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))

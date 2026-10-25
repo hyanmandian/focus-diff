@@ -50,7 +50,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
       <div>
         <h2 className="text-base font-semibold">AI</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff Pro runs it on
+          Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on
           this computer with the pull request's description and diff, without tools: it answers, it can't change files or run commands. Nothing goes through us.
         </p>
       </div>

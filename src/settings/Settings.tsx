@@ -142,7 +142,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
     <div className="flex max-w-md flex-col gap-6 p-6">
       <div>
         <h2 className="text-base font-semibold">GitHub</h2>
-        <p className="text-sm text-muted-foreground">Focus Diff Pro reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.</p>
+        <p className="text-sm text-muted-foreground">Focus Diff reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.</p>
       </div>
       {auth.signed_in ? (
         <div className="flex items-center gap-3 rounded-xl border p-4">

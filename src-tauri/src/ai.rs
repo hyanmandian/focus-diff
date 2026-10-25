@@ -67,11 +67,10 @@ pub(crate) fn search_path() -> &'static str {
         #[cfg(unix)]
         {
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-            if let Ok(output) = run_with_limit(Command::new(shell).args(["-l", "-c", "printf %s \"$PATH\""]), None, Duration::from_secs(5)) {
-                if output.status_ok && !output.stdout.trim().is_empty() {
+            if let Ok(output) = run_with_limit(Command::new(shell).args(["-l", "-c", "printf %s \"$PATH\""]), None, Duration::from_secs(5))
+                && output.status_ok && !output.stdout.trim().is_empty() {
                     path = format!("{}:{path}", output.stdout.trim());
                 }
-            }
             if let Some(home) = std::env::var_os("HOME") {
                 let home = PathBuf::from(home);
                 for dir in [".local/bin", ".claude/local", ".npm-global/bin", ".bun/bin", ".cargo/bin"] {
@@ -187,7 +186,7 @@ pub fn ask(provider: Provider, model: Option<&str>, prompt: &str, input: &str) -
     let binary = find(provider).ok_or("It isn't installed")?;
     static RUNS: AtomicU64 = AtomicU64::new(0);
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
-    let workspace = std::env::temp_dir().join(format!("focus-diff-pro-{}-{stamp}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
+    let workspace = std::env::temp_dir().join(format!("focus-diff-{}-{stamp}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
     std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
     let result = ask_in(provider, &binary, &workspace, model, prompt, input);
     let _ = std::fs::remove_dir_all(&workspace);
@@ -256,13 +255,11 @@ fn failure(output: &Output) -> String {
         .unwrap_or("It didn't answer")
         .to_string();
     // Codex prints JSON errors; their message is what matters.
-    if let Some(json) = line.strip_prefix("ERROR: ") {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(json) {
-            if let Some(message) = v["error"]["message"].as_str() {
+    if let Some(json) = line.strip_prefix("ERROR: ")
+        && let Ok(v) = serde_json::from_str::<serde_json::Value>(json)
+            && let Some(message) = v["error"]["message"].as_str() {
                 return message.to_string();
             }
-        }
-    }
     line.chars().take(400).collect()
 }
 

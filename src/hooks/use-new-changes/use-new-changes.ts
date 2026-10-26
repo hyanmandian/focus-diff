@@ -35,7 +35,7 @@ export function useNewChanges(
     activity.current = onActivity;
   });
 
-  useEffect((): void | (() => void) => {
+  useEffect(() => {
     if (!head) return;
     let live = true;
     let busy = false;

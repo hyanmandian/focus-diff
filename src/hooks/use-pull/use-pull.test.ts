@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { GitHubError } from "@/utils/bridge/bridge";
 import type { CheckItem } from "@/utils/checks/checks";
-import type { Commits } from "@/utils/commits/commits";
+import type { Commit, Commits } from "@/utils/commits/commits";
 import type { Details } from "@/utils/details/details";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
@@ -28,7 +28,7 @@ const u = vi.hoisted(() => ({
   commits: null as unknown,
   checks: null as unknown,
   reloadManage: vi.fn<(again?: boolean) => Promise<void>>(),
-  patch: vi.fn<(change: (m: never) => unknown) => void>(),
+  patch: vi.fn<(change: (m: Manage) => Manage) => void>(),
   loadMergeState: vi.fn<(ref: unknown) => Promise<object>>(),
   mergeView: vi.fn<(input: { failing: number; pending: number; unresolved: number }) => unknown>(),
   awaitingApproval: vi.fn<(ref: unknown, head: string) => Promise<Array<{ id: number; name: string }>>>(),
@@ -181,14 +181,18 @@ const thread = (id: string, resolved: boolean): Thread => ({
   comments: [],
 });
 
-const COMMITS: Commits = {
-  commits: [
-    { oid: "c1", headline: "First", author: null, at: "" },
-    { oid: "c2", headline: "Second", author: null, at: "" },
-  ],
-  forcePushes: [],
-  reviewed: "c1",
-} as unknown as Commits;
+const commit = (oid: string, parent: string | null): Commit => ({
+  oid,
+  short: oid,
+  headline: oid,
+  body: "",
+  at: "",
+  author: { login: "mona", name: "Mona", avatarUrl: null },
+  verified: null,
+  ci: null,
+  parent,
+});
+const COMMITS: Commits = { commits: [commit("c1", null), commit("c2", "c1")], forcePushes: [], reviewed: "c1" };
 
 /** The manage state as `patch` leaves it. */
 let manageNow: Manage = MANAGE;
@@ -198,16 +202,17 @@ const ipc: Array<[string, unknown]> = [];
 
 function setChecks(checks: CheckItem[], running = false) {
   checksNow = checks;
-  u.checks = {
+  const made: Checks = {
     checks,
     loaded: true,
     running,
     reload: vi.fn<Checks["reload"]>().mockResolvedValue(),
-    setChecks: (update: (list: CheckItem[] | null) => CheckItem[] | null) => {
+    setChecks: (update) => {
       checksNow = update(checksNow);
     },
-  } satisfies Checks;
-  return u.checks as Checks;
+  };
+  u.checks = made;
+  return made;
 }
 
 type Props = { details: Details | null; threads?: Thread[] };
@@ -238,6 +243,13 @@ function setup(initial: Details | null = DETAILS, threads: Thread[] = []) {
   return { ...view, say, reloadAll };
 }
 
+/** Lets the clock run on 2.5 seconds at a time, rendering in between. */
+async function wait2500(times: number): Promise<void> {
+  if (times === 0) return;
+  await act(() => vi.advanceTimersByTimeAsync(2500));
+  await wait2500(times - 1);
+}
+
 const settle = () => act(() => Promise.resolve());
 
 beforeEach(() => {
@@ -253,7 +265,7 @@ beforeEach(() => {
   setChecks([]);
   u.reloadManage.mockReset().mockResolvedValue();
   u.patch.mockReset().mockImplementation((change) => {
-    manageNow = change(manageNow as never) as Manage;
+    manageNow = change(manageNow);
   });
   u.loadMergeState.mockReset().mockResolvedValue({ mergeStateStatus: "CLEAN" });
   u.mergeView.mockReset().mockReturnValue(VIEW);
@@ -314,9 +326,7 @@ describe("usePull", () => {
     let n = 0;
     u.loadMergeState.mockImplementation(() => Promise.resolve({ updatedAt: `t${++n}` }));
     const { rerender } = setup({ ...DETAILS, mergeable: "UNKNOWN" });
-    for (const _ of Array.from({ length: 8 })) {
-      await act(() => vi.advanceTimersByTimeAsync(2500));
-    }
+    await wait2500(8);
     expect(u.loadMergeState).toHaveBeenCalledTimes(6);
     // Known again: counting starts over.
     rerender({ details: { ...DETAILS, mergeStateStatus: "CLEAN" } });
@@ -364,6 +374,8 @@ describe("usePull", () => {
   it("doesn't look for runs waiting without the right, an open pull request or a head", async () => {
     u.manage = { ...MANAGE, viewerPermission: "READ" };
     setup();
+    await settle();
+    expect(u.awaitingApproval).not.toHaveBeenCalled();
     u.manage = MANAGE;
     setup({ ...DETAILS, state: "CLOSED" });
     setup({ ...DETAILS, headRefOid: "" });
@@ -465,10 +477,11 @@ describe("usePull", () => {
 
     it("leaves a newer head's state alone", async () => {
       const { result } = setup();
-      u.call.mockImplementation(async () => {
+      u.call.mockImplementation(() => {
         act(() => {
           result.current.setDetails({ ...DETAILS, headRefOid: "newer" });
         });
+        return Promise.resolve();
       });
       await act(() => result.current.pull.actions.merge("squash"));
       expect(result.current.details?.state).toBe("OPEN");
@@ -482,6 +495,18 @@ describe("usePull", () => {
       const none = setup(null);
       await act(() => none.result.current.pull.actions.merge("squash"));
       expect(ipc.filter(([cmd]) => cmd === "confirm")).toHaveLength(1);
+    });
+
+    it("leaves the details alone once they're gone", async () => {
+      const { result } = setup();
+      u.call.mockImplementation(() => {
+        act(() => {
+          result.current.setDetails(null);
+        });
+        return Promise.resolve();
+      });
+      await act(() => result.current.pull.actions.merge("squash"));
+      expect(result.current.details).toBeNull();
     });
 
     it("is busy while merging", async () => {
@@ -577,6 +602,19 @@ describe("usePull", () => {
     expect(u.call.mock.calls.map(([name]) => name)).toEqual(["markReady", "convertToDraft", "closePull", "reopenPull"]);
   });
 
+  it("changes nothing once the details are gone", async () => {
+    const { result } = setup();
+    const { actions, revalidate } = result.current.pull;
+    for (const action of [actions.ready, actions.draft, actions.close, actions.reopen, revalidate]) {
+      act(() => {
+        result.current.setDetails(null);
+        void action();
+      });
+    }
+    await settle();
+    expect(result.current.details).toBeNull();
+  });
+
   it("does none of those without the details", () => {
     const { result } = setup(null);
     const { actions } = result.current.pull;
@@ -613,9 +651,11 @@ describe("usePull", () => {
 
   it("doesn't delete the branch without the details or the state", async () => {
     u.manage = null;
-    await act(() => setup().result.current.pull.actions.deleteBranch());
+    const noState = setup();
+    await act(() => noState.result.current.pull.actions.deleteBranch());
     u.manage = MANAGE;
-    await act(() => setup(null).result.current.pull.actions.deleteBranch());
+    const noDetails = setup(null);
+    await act(() => noDetails.result.current.pull.actions.deleteBranch());
     expect(ipc.filter(([cmd]) => cmd === "confirm")).toEqual([]);
   });
 
@@ -730,6 +770,7 @@ describe("usePull", () => {
 
     it("allow nothing that needs the details or the state without them", () => {
       u.manage = null;
+      u.commits = null;
       const { result } = setup(null);
       expect(Object.values(result.current.pull.allowed).filter(Boolean)).toEqual([]);
     });

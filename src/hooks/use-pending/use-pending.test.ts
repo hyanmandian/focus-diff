@@ -1,7 +1,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { published, usePending } from "@/hooks/use-pending/use-pending";
 import type { DraftsState } from "@/utils/bridge/bridge";
@@ -125,12 +125,6 @@ const draft = (key: string, body: string, over: Partial<Draft> = {}): Draft => (
 const NOTHING = () => {};
 /** Lets what's pending (promises, effects) run. */
 const settle = () => act(() => Promise.resolve());
-
-// Unmounted here first, so the event listeners are let go of before the IPC mock is cleared.
-afterEach(async () => {
-  cleanup();
-  await settle();
-});
 
 describe("usePending", () => {
   it("opens with the comments kept from last time, then shows GitHub's", async () => {

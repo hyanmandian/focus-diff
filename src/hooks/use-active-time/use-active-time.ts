@@ -31,7 +31,7 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
       spent.current.set(path, (spent.current.get(path) ?? 0) + part);
   }, []);
 
-  useEffect((): void | (() => void) => {
+  useEffect(() => {
     if (!on) return;
     const sample = () => {
       const now = Date.now();

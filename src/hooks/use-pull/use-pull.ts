@@ -89,7 +89,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   const unknown =
     details?.state === "OPEN" && (details.mergeable === "UNKNOWN" || details.mergeStateStatus === "UNKNOWN");
   const tries = useRef(0);
-  useEffect((): void | (() => void) => {
+  useEffect(() => {
     if (!unknown) {
       tries.current = 0;
       return;
@@ -116,7 +116,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   const [awaiting, setAwaiting] = useState<Array<{ id: number; name: string }>>([]);
   const write = canWrite(manage);
   const head = details?.headRefOid;
-  useEffect((): void | (() => void) => {
+  useEffect(() => {
     if (!write || !head || details?.state !== "OPEN") return;
     let live = true;
     const look = async () => {
@@ -136,7 +136,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   // The timeline: the newest page, again when the pull request changes; older pages on request.
   const [pages, setPages] = useState<TimelinePage[]>([]);
   const updatedAt = details?.updatedAt;
-  useEffect((): void | (() => void) => {
+  useEffect(() => {
     if (!updatedAt) return;
     let live = true;
     const look = async () => {
@@ -183,12 +183,17 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       : null;
 
   /** Runs an action: `optimistic` shows its result at once, GitHub's answer replaces it after. */
-  const act = async (name: string, call: () => Promise<unknown>, optimistic?: () => void, done?: string) => {
+  const act = async (
+    name: string,
+    call: () => Promise<unknown>,
+    optimistic: (() => void) | undefined,
+    done: string,
+  ) => {
     setBusy(name);
     optimistic?.();
     try {
       await call();
-      if (done) say(done);
+      say(done);
     } catch (e) {
       // A head that moved since it was looked at: what's new is loaded, to look at first.
       if (e instanceof GitHubError && e.status === 409) {

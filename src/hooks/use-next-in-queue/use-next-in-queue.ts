@@ -44,7 +44,7 @@ async function find(queue: string, current: string) {
 export function useNextInQueue(queue: string | null | undefined, current: string, here: Visit | null) {
   const [next, setNext] = useState<Item | null>(null);
   const [previous] = useState(() => visits().at(-1) ?? null);
-  useEffect((): void | (() => void) => {
+  useEffect(() => {
     if (!queue) return;
     let live = true;
     const ask = async () => {

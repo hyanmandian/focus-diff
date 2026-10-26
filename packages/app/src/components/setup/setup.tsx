@@ -32,7 +32,7 @@ import {
 import { interval } from "../../utils/copy/copy";
 import { i18n, useT } from "../../utils/i18n/i18n";
 import { isMac } from "../../utils/os/os";
-import { platform } from "../../utils/platform/platform";
+import { platform, supports } from "../../utils/platform/platform";
 import { useTheme } from "../../utils/theme/theme";
 import { Connect } from "../connect/connect";
 import { TagInput } from "../tag-input/tag-input";
@@ -144,7 +144,10 @@ export function Setup() {
     await platform().closeWindow();
   };
 
-  const canContinue = step === 0 ? Boolean(auth?.signed_in) : step === 1 ? kinds.size > 0 : true;
+  // Without the AI tools (the browser extension), there's no AI to pick.
+  const steps = supports("ai") ? STEPS : STEPS.filter((s) => s !== "ai");
+  const at = steps[step];
+  const canContinue = at === "github" ? Boolean(auth?.signed_in) : at === "queues" ? kinds.size > 0 : true;
   // Return is the default button's (Continue, or Open Focus Diff at the end), unless a field or
   // another button has it.
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -155,7 +158,7 @@ export function Setup() {
     )
       return;
     e.preventDefault();
-    if (step === STEPS.length - 1) void finish();
+    if (step === steps.length - 1) void finish();
     else if (canContinue) setStep(step + 1);
   };
 
@@ -166,7 +169,7 @@ export function Setup() {
         <Mark className="size-4 text-primary" />
         <span className="text-body font-semibold">Focus Diff</span>
         <ol className="ml-auto flex items-center gap-1.5" aria-label={t("setup.steps")}>
-          {STEPS.map((name, i) => (
+          {steps.map((name, i) => (
             <li
               key={name}
               aria-current={i === step ? "step" : undefined}
@@ -183,7 +186,7 @@ export function Setup() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 pt-4 pb-6">
-        {step === 0 ? (
+        {at === "github" ? (
           <section className="flex flex-col gap-6" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
               <h1 id="step-title" className="text-title1 font-bold text-balance">
@@ -216,7 +219,7 @@ export function Setup() {
             )}
             <p className="text-callout text-muted-foreground">{t("setup.tokenNote")}</p>
           </section>
-        ) : step === 1 ? (
+        ) : at === "queues" ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
               <h1 id="step-title" className="text-title1 font-bold">
@@ -250,7 +253,7 @@ export function Setup() {
               <p className="text-callout text-muted-foreground">{t("setup.reposEmpty")}</p>
             </div>
           </section>
-        ) : step === 2 ? (
+        ) : at === "notifications" ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
               <h1 id="step-title" className="text-title1 font-bold">
@@ -297,7 +300,7 @@ export function Setup() {
               </div>
             </div>
           </section>
-        ) : step === 3 ? (
+        ) : at === "ai" ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
               <h1 id="step-title" className="text-title1 font-bold">
@@ -390,7 +393,11 @@ export function Setup() {
               {t("setup.doneTitle")}
             </h1>
             <p className="text-body text-muted-foreground">
-              {isMac ? t("setup.doneBodyMac") : t("setup.doneBodyTray")}
+              {supports("tray")
+                ? isMac
+                  ? t("setup.doneBodyMac")
+                  : t("setup.doneBodyTray")
+                : t("setup.doneBodyBrowser")}
             </p>
           </section>
         )}
@@ -400,7 +407,7 @@ export function Setup() {
           default button. */}
       <footer className="flex h-14 shrink-0 items-center gap-2 border-t px-5">
         <div className="ml-auto flex items-center gap-2">
-          {step === 3 && !config.ai.provider ? (
+          {at === "ai" && !config.ai.provider ? (
             <span className="text-callout text-muted-foreground">{t("setup.laterAi")}</span>
           ) : null}
           {step > 0 ? (
@@ -414,7 +421,7 @@ export function Setup() {
               {t("setup.back")}
             </Button>
           ) : null}
-          {step < STEPS.length - 1 ? (
+          {step < steps.length - 1 ? (
             <Button
               className="min-w-20"
               onClick={() => {

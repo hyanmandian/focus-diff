@@ -41,6 +41,8 @@ export const setup: Dictionary["setup"] = {
   getIt: "Instalar",
   readyVersion: "Pronto · {version}",
   doneTitle: "Tudo pronto",
+  doneBodyBrowser:
+    "O Focus Diff fica na barra de ferramentas do navegador. Clique no botão para ver suas filas; o número nele mostra o que precisa de você. Seus filtros, review time e botões ficam nos Ajustes.",
   doneBodyMac:
     "O Focus Diff fica na barra de menus. Clique no ícone para ver suas filas; ele se acende quando algo precisa de você. Modelo, esforço, seus prompts e botões ficam nos Ajustes.",
   doneBodyTray:

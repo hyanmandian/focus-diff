@@ -176,6 +176,7 @@ export const settings: Dictionary["settings"] = {
   latest: "Você tem a versão mais recente.",
   checkFailed: "Não foi possível checar: {message}",
   noRelease: "nenhuma versão publicada pôde ser encontrada",
+  updatedByStore: "Seu navegador o mantém atualizado pela loja de extensões.",
   checksOnItsOwn: "Busca atualizações sozinho; você escolhe quando instalar.",
   updateRestart: "Atualizar e reiniciar",
   checkUpdates: "Buscar atualizações",

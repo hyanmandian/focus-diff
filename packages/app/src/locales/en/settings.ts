@@ -182,6 +182,7 @@ export const settings = {
   latest: "You have the latest version.",
   checkFailed: "Couldn't check: {message}",
   noRelease: "no published release could be reached",
+  updatedByStore: "Your browser keeps it up to date from its extension store.",
   checksOnItsOwn: "Checks for updates on its own; you choose when to install.",
   updateRestart: "Update and Restart",
   checkUpdates: "Check for Updates",

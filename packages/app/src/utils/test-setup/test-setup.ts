@@ -17,6 +17,8 @@ afterEach(async () => {
     setTimeout(resolve, 0);
   });
   clearMocks();
+  // A test that plugs in an app without some features (Platform.features) gets the full one back.
+  setPlatform(fakePlatform);
   localStorage.clear();
   sessionStorage.clear();
   vi.restoreAllMocks();

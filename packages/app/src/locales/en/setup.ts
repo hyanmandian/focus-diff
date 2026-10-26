@@ -40,6 +40,8 @@ export const setup = {
   getIt: "Get it",
   readyVersion: "Ready · {version}",
   doneTitle: "You're set",
+  doneBodyBrowser:
+    "Focus Diff lives in your browser's toolbar. Click its button for your queues; its count shows what needs you. Your filters, review time and buttons are in Settings.",
   doneBodyMac:
     "Focus Diff lives in your menu bar. Click its icon for your queues; it'll light up when something needs you. Model, effort, your own prompts and buttons are in Settings.",
   doneBodyTray:

@@ -159,6 +159,7 @@ describe("FilterBar", () => {
     it("splits the pull request across the filters", async () => {
       bar({ chosen: ["code"] });
       await open();
+      expect(screen.getByRole("dialog", { name: "Breakdown by Filter" })).toBeTruthy();
       expect(rows().map((r) => r.getAttribute("aria-label"))).toEqual([
         "All: 3 files, 1 viewed, 60 lines added, 10 removed. ~30 min left to review",
         "Code: 2 files, 1 viewed, 60 lines added, 10 removed. ~30 min left to review",

@@ -137,14 +137,23 @@ export type ActionStep =
 
 export const STEP_KINDS = ["comment", "request", "unrequestMe", "label", "open", "run"] as const satisfies ReadonlyArray<ActionStep["kind"]>;
 
-/** A button of the person's own on a pull request: its steps run in order, stopping at a failure. */
+/** One of a menu action's choices: its own name and steps. */
+export type ActionChoice = { id: string; name: string; steps: ActionStep[] };
+
+/** A button of the person's own on a pull request: its steps run in order, stopping at a failure.
+ *  With choices, it's a pull-down button instead ("Delegate" → each person), and a choice's steps
+ *  run, not its own. */
 export type Action = {
   id: string;
   name: string;
   /** Ask before running. */
   confirm: boolean;
   steps: ActionStep[];
+  choices: ActionChoice[];
 };
+
+/** A menu action's choice, as an action of its own to run. */
+export const choiceAction = (action: Action, choice: ActionChoice): Action => ({ id: choice.id, name: `${action.name} · ${choice.name}`, confirm: action.confirm, steps: choice.steps, choices: [] });
 
 /** A part of a pull request to review on its own: the files whose paths match `include` and not
  *  `exclude` (regular expressions; empty matches all, or none). Like Focus Diff's filters.
@@ -402,7 +411,7 @@ Be concrete and brief. Don't repeat the description back.`,
 
 /** Starting points for actions, in words for Settings; what they make is named in the language in use. */
 /** A new action: a script, which can do anything a terminal can; more steps are added in it. */
-export const newAction = (t: T): Action => ({ id: newId(), name: t("config.action.script.name"), confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }] });
+export const newAction = (t: T): Action => ({ id: newId(), name: t("config.action.script.name"), confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }], choices: [] });
 
 // MARK: Reading what's on disk
 
@@ -483,7 +492,20 @@ function normalizeAction(raw: unknown): Action | null {
     id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.action.untitled"),
     confirm: bool(r.confirm, false),
-    steps: Array.isArray(r.steps) ? r.steps.map(normalizeStep).filter((x): x is ActionStep => x !== null).slice(0, 10) : [],
+    steps: normalizeSteps(r.steps),
+    choices: Array.isArray(r.choices) ? r.choices.map(normalizeChoice).filter((c): c is ActionChoice => c !== null).slice(0, 12) : [],
+  };
+}
+
+const normalizeSteps = (v: unknown) => (Array.isArray(v) ? v.map(normalizeStep).filter((x): x is ActionStep => x !== null).slice(0, 10) : []);
+
+function normalizeChoice(raw: unknown): ActionChoice | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.action.untitled"),
+    steps: normalizeSteps(r.steps),
   };
 }
 

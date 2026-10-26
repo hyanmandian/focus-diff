@@ -2,13 +2,14 @@
 // buttons while there's room, as items of a pull-down menu once there isn't. One that asks first
 // asks with a native alert, as the Mac does before something that can't be taken back.
 
-import { Loader2, Zap } from "lucide-react";
+import { ChevronDown, Loader2, Zap } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { runAction } from "@/lib/actions";
 import { bridge, type ActionContext } from "@/lib/bridge";
-import type { Action } from "@/lib/config";
+import { choiceAction, type Action } from "@/lib/config";
+import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
 type Result = (message: string, ok: boolean) => void;
@@ -36,8 +37,34 @@ function useRun(action: Action, pr: ActionContext, onResult: Result) {
   return { busy, run };
 }
 
+/** A menu action: a pull-down button of its choices, as Mail's Move to. */
+function ActionPullDown({ action, pr, className, onResult }: { action: Action; pr: ActionContext; className?: string; onResult: Result }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="ghost" className={cn(className, "gap-1")} />}>
+        <Zap /> {action.name}
+        <ChevronDown className="size-3 opacity-70" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <ChoiceItems action={action} pr={pr} onResult={onResult} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ChoiceItems({ action, pr, onResult }: { action: Action; pr: ActionContext; onResult: Result }) {
+  return (
+    <>
+      {action.choices.map((choice) => (
+        <ActionItem key={choice.id} action={choiceAction(action, choice)} label={choice.name} pr={pr} onResult={onResult} />
+      ))}
+    </>
+  );
+}
+
 function ActionButton({ action, pr, className, onResult }: { action: Action; pr: ActionContext; className?: string; onResult: Result }) {
   const { busy, run } = useRun(action, pr, onResult);
+  if (action.choices.length) return <ActionPullDown action={action} pr={pr} className={className} onResult={onResult} />;
   return (
     <Button variant="ghost" className={className} disabled={busy || !action.steps.length} onClick={() => void run()}>
       {busy ? <Loader2 className="animate-spin" /> : <Zap />} {action.name}
@@ -46,11 +73,11 @@ function ActionButton({ action, pr, className, onResult }: { action: Action; pr:
   );
 }
 
-function ActionItem({ action, pr, onResult }: { action: Action; pr: ActionContext; onResult: Result }) {
+function ActionItem({ action, label = action.name, pr, onResult }: { action: Action; label?: string; pr: ActionContext; onResult: Result }) {
   const { busy, run } = useRun(action, pr, onResult);
   return (
     <DropdownMenuItem disabled={busy || !action.steps.length} onClick={() => void run()}>
-      {action.name}
+      {label}
       {action.confirm ? "…" : ""}
     </DropdownMenuItem>
   );
@@ -72,9 +99,19 @@ export function ActionMenuItems({ actions, pr, onResult }: { actions: Action[]; 
   if (!pr || !actions.length) return null;
   return (
     <>
-      {actions.map((action) => (
-        <ActionItem key={action.id} action={action} pr={pr} onResult={onResult} />
-      ))}
+      {actions.map((action) =>
+        // In a menu already, a menu action's choices are a submenu.
+        action.choices.length ? (
+          <DropdownMenuSub key={action.id}>
+            <DropdownMenuSubTrigger>{action.name}</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <ChoiceItems action={action} pr={pr} onResult={onResult} />
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : (
+          <ActionItem key={action.id} action={action} pr={pr} onResult={onResult} />
+        ),
+      )}
     </>
   );
 }

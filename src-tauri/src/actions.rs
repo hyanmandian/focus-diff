@@ -44,9 +44,13 @@ impl Context {
 fn command_of(config: &Path, action: &str, step: usize) -> Result<String, String> {
     let text = fs::read_to_string(config).map_err(|_| tr!("Actions are set up in Settings", "As ações são configuradas nos Ajustes"))?;
     let config: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    // An action, or one of a menu action's choices: they have steps of their own.
     let action = config["actions"]
         .as_array()
-        .and_then(|actions| actions.iter().find(|a| a["id"].as_str() == Some(action)))
+        .into_iter()
+        .flatten()
+        .flat_map(|a| std::iter::once(a).chain(a["choices"].as_array().into_iter().flatten()))
+        .find(|a| a["id"].as_str() == Some(action))
         .ok_or_else(|| tr!("That action is gone", "Essa ação não existe mais"))?;
     let step = &action["steps"][step];
     match (step["kind"].as_str(), step["command"].as_str()) {
@@ -132,6 +136,8 @@ mod tests {
         assert!(command_of(&config, "a1", 0).is_err());
         assert!(command_of(&config, "a1", 5).is_err());
         assert!(command_of(&config, "nope", 1).is_err());
+        fs::write(&config, r#"{"actions":[{"id":"a1","steps":[],"choices":[{"id":"c1","steps":[{"kind":"run","command":"echo dana"}]}]}]}"#).unwrap();
+        assert_eq!(command_of(&config, "c1", 0).as_deref(), Ok("echo dana"));
         let _ = fs::remove_dir_all(dir);
     }
 

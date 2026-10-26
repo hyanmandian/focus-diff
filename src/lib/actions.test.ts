@@ -22,6 +22,7 @@ describe("runAction", () => {
       id: "a",
       name: "Hand off",
       confirm: false,
+      choices: [],
       steps: [
         { kind: "request", reviewers: ["dana", "acme/frontend"] },
         { kind: "unrequestMe" },

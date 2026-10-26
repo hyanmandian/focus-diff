@@ -156,6 +156,7 @@ function CommentView({
   const api = useConversationApi();
   const [editing, setEditing] = useState(false);
   const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
+  const { body } = comment;
   return (
     <div className="group/said flex gap-2">
       <Person actor={comment.author} />
@@ -173,14 +174,14 @@ function CommentView({
               <CommentMenu
                 url={comment.url}
                 onQuote={
-                  comment.body === undefined
+                  body === undefined
                     ? undefined
                     : () => {
-                        onQuote(comment.body ?? "");
+                        onQuote(body);
                       }
                 }
                 onEdit={
-                  comment.canEdit && comment.body !== undefined
+                  comment.canEdit && body !== undefined
                     ? () => {
                         setEditing(true);
                       }
@@ -196,9 +197,9 @@ function CommentView({
             <Composer
               placeholder={t("review.commentPlaceholder")}
               submitLabel={t("review.save")}
-              initial={comment.body}
-              onSubmit={async (body) => {
-                await api.editComment(comment, body);
+              initial={body}
+              onSubmit={async (text) => {
+                await api.editComment(comment, text);
                 setEditing(false);
               }}
               onCancel={() => {
@@ -541,7 +542,9 @@ export function NewComment({
   const send = async () => {
     const q = question.trim();
     if (!ask || !q || busy) return;
-    const earlier = turns.flatMap((turn) => (turn.answer ? [{ question: turn.question, answer: turn.answer }] : []));
+    const earlier = turns
+      .filter((turn): turn is Turn & { answer: string } => Boolean(turn.answer))
+      .map((turn) => ({ question: turn.question, answer: turn.answer }));
     setBusy(true);
     setError(null);
     setQuestion("");
@@ -563,9 +566,6 @@ export function NewComment({
       setBusy(false);
       field.current?.focus();
     }
-  };
-  const stop = () => {
-    if (asked) void bridge.aiCancel(asked.run);
   };
 
   const submit = () => void (asking ? send() : comment(false));
@@ -623,11 +623,11 @@ export function NewComment({
             aria-label={t("review.conversationWith", { name: askName })}
             className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1"
           >
-            {turns.map((turn, i) => (
-              <li key={turn.id} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
+            {turns.map(({ id, question: text, answer, note }, i) => (
+              <li key={id} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
                 <p className="selectable max-w-[85%] animate-in self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   <span className="sr-only">{t("review.you")}</span>
-                  {turn.question}
+                  {text}
                 </p>
                 <div className="flex gap-2.5">
                   <span
@@ -636,17 +636,17 @@ export function NewComment({
                   >
                     <Sparkles className="size-3" />
                   </span>
-                  {turn.answer ? (
+                  {answer ? (
                     <div className="flex min-w-0 flex-1 animate-in flex-col gap-1.5 duration-300 fade-in-0 motion-reduce:animate-none">
                       <span className="sr-only">{askName}: </span>
-                      <AiAnswer text={turn.answer} />
-                      {turn.note ? <p className="text-subheadline text-muted-foreground">{turn.note}</p> : null}
+                      <AiAnswer text={answer} />
+                      {note ? <p className="text-subheadline text-muted-foreground">{note}</p> : null}
                       <div>
                         <Button
                           variant="ghost"
                           className="-ml-2.5 text-muted-foreground"
                           onClick={() => {
-                            setBody(turn.answer ?? "");
+                            setBody(answer);
                             setMode("comment");
                           }}
                         >
@@ -744,7 +744,7 @@ export function NewComment({
         {asking ? (
           ask ? (
             asked ? (
-              <Button variant="outline" onClick={stop}>
+              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.run)}>
                 <Square className="size-3 fill-current" />
                 {t("review.stop")}
               </Button>

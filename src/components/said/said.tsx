@@ -29,15 +29,15 @@ export function useReactions(subject: string, given: Reaction[]) {
     const on = !reactions.find((r) => r.content === content)?.mine;
     const after = toggled(reactions, content, api.me);
     setMine(after);
-    api.react(subject, content, on, after).then(
-      // GitHub's copy has it now: back to following it.
-      () => {
-        setMine(null);
-      },
-      () => {
-        setMine(null);
-      },
-    );
+    void (async () => {
+      try {
+        await api.react(subject, content, on, after);
+      } catch {
+        // Refused: GitHub's copy, without it, is what shows again.
+      }
+      // GitHub's copy has it now (or never will): back to following it.
+      setMine(null);
+    })();
   };
   return [reactions, toggle] as const;
 }

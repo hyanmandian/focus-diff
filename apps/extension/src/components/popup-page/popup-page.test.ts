@@ -1,3 +1,4 @@
+import { normalizeLearned } from "@focus-diff/core/estimate";
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
@@ -10,7 +11,6 @@ import type { PullRequest } from "@/utils/github-inbox/github-inbox";
 import { DEFAULT_NOTIFY, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
 import { DEFAULT_REVIEW_TIME, type ReviewRun } from "@/utils/review-sessions/review-sessions";
-import { normalizeLearned } from "@/utils/review-time/review-time";
 import {
   appearanceItem,
   doneItem,

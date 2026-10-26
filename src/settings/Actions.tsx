@@ -135,7 +135,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
         ) : null}
         <div className="px-3 py-2">
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={action.steps.length >= 10} />}>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={action.steps.length >= 10} />}>
               <Plus /> {t("settings.addStep")}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72">
@@ -158,7 +158,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
 function AddAction({ config, onAdd, small = false }: { config: Config; onAdd: (action: Action) => void; small?: boolean }) {
   const t = useT();
   return (
-    <Button variant="outline" size={small ? "xs" : "default"} disabled={config.actions.length >= 12} aria-label={t("settings.addActionLabel")} onClick={() => onAdd(newAction(t))}>
+    <Button variant="outline" size={small ? "sm" : "default"} disabled={config.actions.length >= 12} aria-label={t("settings.addActionLabel")} onClick={() => onAdd(newAction(t))}>
       <Plus /> {t("settings.add")}
     </Button>
   );

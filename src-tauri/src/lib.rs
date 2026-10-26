@@ -28,7 +28,9 @@ mod review;
 mod sound;
 mod tray;
 mod update;
+mod uploads;
 mod watch;
+mod web;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -261,6 +263,39 @@ async fn auth_device_finish(app: AppHandle, auth: State<'_, github::Auth>, devic
 async fn auth_sign_out(app: AppHandle, auth: State<'_, github::Auth>) -> Result<(), String> {
     auth.sign_out()?;
     remember_source(&app, None)
+}
+
+// MARK: Attachments
+
+/// Who's signed in on github.com for uploads (web.rs), if anyone.
+#[tauri::command]
+async fn github_web_session(web: State<'_, web::WebSession>) -> Result<Option<String>, String> {
+    Ok(web.login())
+}
+
+/// Opens github.com's sign-in page in a window of its own; a "web-session" event says when it's done.
+#[tauri::command]
+fn sign_in_web(app: AppHandle) -> Result<(), String> {
+    web::sign_in(&app).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn sign_out_web(app: AppHandle) {
+    web::sign_out(&app);
+}
+
+/// A picture or video for a comment, uploaded as github.com does (uploads.rs). The file's bytes
+/// are the request's body; which pull request and its name come in its headers.
+#[tauri::command]
+async fn upload_attachment(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<uploads::Uploaded, uploads::Error> {
+    let bad = || uploads::Error::Failed { message: "Bad request".into() };
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err(bad()) };
+    let header = |name: &str| request.headers().get(name).and_then(|v| v.to_str().ok()).map(String::from);
+    let (Some(repo), Some(number), Some(name)) = (header("x-repo"), header("x-number").and_then(|n| n.parse::<u64>().ok()), header("x-name")) else { return Err(bad()) };
+    let Some((owner, repo)) = repo.split_once('/').map(|(o, r)| (o.to_string(), r.to_string())) else { return Err(bad()) };
+    let name = media::decode(&name);
+    let bytes = bytes.clone();
+    tauri::async_runtime::spawn_blocking(move || uploads::upload(&app, &owner, &repo, number, &name, &bytes)).await.map_err(|e| uploads::Error::Failed { message: e.to_string() })?
 }
 
 // MARK: AI (optional)
@@ -501,7 +536,7 @@ fn drop_spare<R: Runtime>(app: &AppHandle<R>) {
 
 /// In the Dock and the app switcher while a window of its own is open (a review, settings, setup);
 /// only in the menu bar otherwise.
-fn update_presence<R: Runtime>(app: &AppHandle<R>) {
+pub(crate) fn update_presence<R: Runtime>(app: &AppHandle<R>) {
     #[cfg(target_os = "macos")]
     {
         let spare = app.state::<Reviews>().spare.lock().unwrap().clone();
@@ -972,6 +1007,7 @@ pub fn run() {
         .manage(update::Pending::default())
         .manage(github::Auth::default())
         .manage(logs::Logs::default())
+        .manage(web::WebSession::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
@@ -1005,6 +1041,10 @@ pub fn run() {
             auth_device_start,
             auth_device_finish,
             auth_sign_out,
+            github_web_session,
+            sign_in_web,
+            sign_out_web,
+            upload_attachment,
             ai_statuses,
             ai_models,
             ai_ask,

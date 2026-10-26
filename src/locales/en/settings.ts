@@ -15,7 +15,7 @@ export const settings = {
   "keywords.actions": "Buttons|Steps|Post a comment|Request review|Labels|Open a link|Run a command|Ask me to confirm",
   "keywords.ai": "Coding agent|Model|Effort|Read the whole project|AI review|Review guidelines|Prompts",
   "keywords.general": "Software update|Check for updates|Version|Check GitHub every|Refresh interval|Appearance|Theme|Dark|Light|Language|English|Português|Play a sound with notifications",
-  "keywords.account": "Account|GitHub|Sign in|Disconnect|Sign out|Token|Login",
+  "keywords.account": "Account|GitHub|Sign in|Disconnect|Sign out|Token|Login|Attachments|Upload|Pictures|Videos|github.com",
   search: "Search settings",
   searchPlaceholder: "Search settings…",
   clear: "Clear",
@@ -150,6 +150,12 @@ export const settings = {
   usingGh: "Using the GitHub CLI's login",
   signedIn: "Signed in with GitHub",
   disconnect: "Disconnect",
+  attachments: "Attachments",
+  attachmentsFooter: "GitHub has no way for apps to upload pictures and videos, so Focus Diff attaches them as github.com does, signed in there. You sign in on GitHub's own page; the session stays in your system keychain and is only ever sent to github.com.",
+  webSignedIn: "Signed in on github.com, to attach pictures and videos",
+  webSignedOut: "Sign in to attach pictures and videos to comments.",
+  webSignIn: "Sign in to github.com",
+  webSignOut: "Sign Out",
 
   // General
   softwareUpdate: "Software update",

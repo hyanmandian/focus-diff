@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The app's own windows: Tauri's core (events, windows), dragging a window by its custom title bar, closing setup when it's done, and the app's commands. Plugins are used from Rust only, so none are exposed to the web views.",
+  "description": "The app's own windows: Tauri's core (events, windows), dragging a window by its custom title bar, closing setup when it's done, and the app's commands. Plugins are used from Rust only, so none are exposed to the web views. github.com's sign-in window (web.rs) is named in none: it can't reach the app.",
   "windows": [
     "panel",
     "settings",

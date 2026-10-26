@@ -26,7 +26,7 @@ import { i18n, useT } from "@/lib/i18n";
 import { comment, leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
 import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/estimate";
 import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
-import { commentNow, loadFiles, loadThreads, loadViewed, markViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
+import { commentNow, loadFiles, loadThreads, loadViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
 import { ActionButtons, ActionMenuItems } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
@@ -81,7 +81,6 @@ const hash = (s: string) => {
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return h.toString(36);
 };
-const without = (m: Record<string, string>, path: string) => (path in m ? Object.fromEntries(Object.entries(m).filter(([p]) => p !== path)) : m);
 
 /** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
 const MIN_REVIEW_SECONDS = 2;
@@ -208,8 +207,6 @@ export function Review({ target }: { target: Target }) {
   const [kept, setKept] = usePersisted<unknown>(`filter:${repo}`, []);
   // Viewed files opened anyway, to show a comment in one: they don't fold until marked again.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
-  // Viewed marks on their way to GitHub, by path: what GitHub said before they land doesn't undo them.
-  const sending = useRef(new Map<string, number>());
   const learned = useLearned();
   const minutesOf = useMemo(() => createEstimator(learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
@@ -234,20 +231,25 @@ export function Review({ target }: { target: Target }) {
   // a click comes back from memory (github.rs).
   // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
   const shownOnce = useRef(false);
-  /** What you've viewed on github.com wins over what was kept here, but for marks still on their way. */
+  /** What you've viewed on github.com, for the files not marked here; what's marked here goes to GitHub. */
   const followGitHub = useCallback(
-    (list: ReviewFile[], states: Map<string, ViewedState>) =>
+    (list: ReviewFile[], states: Map<string, ViewedState>, queued: Record<string, boolean>) =>
       setViewed((m) => {
         const next = { ...m };
         for (const f of list) {
           const state = states.get(f.path);
-          if (!state || sending.current.has(f.path)) continue;
-          if (state === "VIEWED") next[f.path] = hash(f.patch);
+          const mine = m[f.path];
+          if (!state || f.path in queued) continue;
+          // Marked here (viewed, at these changes, or unmarked): the app's mark wins and goes to
+          // GitHub if it says otherwise. Untouched here, or marked before the file changed: GitHub's.
+          if (mine === "" || mine === hash(f.patch)) {
+            if ((state === "VIEWED") !== (mine !== "")) void bridge.queueViewed(prId, f.path, mine !== "");
+          } else if (state === "VIEWED") next[f.path] = hash(f.patch);
           else delete next[f.path];
         }
         return next;
       }),
-    [setViewed],
+    [setViewed, prId],
   );
   const load = useCallback(async () => {
     const fresh = { details: false, files: false, threads: false };
@@ -272,8 +274,8 @@ export function Review({ target }: { target: Target }) {
       setError(null);
       performance.mark("loaded");
       void keep(prId, { details: d, files: f, threads: t }, d.updatedAt);
-      const states = await onGitHub;
-      if (states) followGitHub(f, states);
+      const [states, queued] = await Promise.all([onGitHub, bridge.queuedViewed(prId).catch(() => ({}))]);
+      if (states) followGitHub(f, states, queued);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -367,24 +369,15 @@ export function Review({ target }: { target: Target }) {
   const take = useActiveTime(() => diffs.current?.onScreen() ?? [], tab === "diff");
   /** Marks a file viewed or not, here at once and on github.com after; if GitHub refuses, it goes back. */
   const setFileViewed = (f: ReviewFile, v: boolean) => {
-    const before = viewed[f.path];
-    setViewed((m) => (v ? { ...m, [f.path]: hash(f.patch) } : without(m, f.path)));
+    // Unmarked stays as "", so GitHub's older mark doesn't come back over it.
+    setViewed((m) => ({ ...m, [f.path]: v ? hash(f.patch) : "" }));
     if (v) {
       setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));
       const seconds = take(f.path);
       if (seconds >= MIN_REVIEW_SECONDS) void learnFiles([{ path: f.path, expected: reviewMinutes(f.path, f), actual: seconds / 60 }]);
     }
-    sending.current.set(f.path, (sending.current.get(f.path) ?? 0) + 1);
-    void markViewed(prId, f.path, v)
-      .catch(() => {
-        setViewed((m) => (before ? { ...m, [f.path]: before } : without(m, f.path)));
-        say(i18n()(v ? "review.couldntMark" : "review.couldntUnmark", { file: f.path.slice(f.path.lastIndexOf("/") + 1) }));
-      })
-      .finally(() => {
-        const left = (sending.current.get(f.path) ?? 1) - 1;
-        if (left) sending.current.set(f.path, left);
-        else sending.current.delete(f.path);
-      });
+    // Rust keeps it until GitHub takes it (outbox.rs), so it's never undone here.
+    void bridge.queueViewed(prId, f.path, v);
   };
 
   const threadsByPath = useMemo(() => {

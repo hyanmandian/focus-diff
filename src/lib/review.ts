@@ -149,14 +149,6 @@ export async function loadViewed(d: PullRef): Promise<Map<string, ViewedState>> 
   return states;
 }
 
-/** Marks a file viewed, or not, on github.com. `pullId`: the pull request's node id. */
-export async function markViewed(pullId: string, path: string, viewed: boolean) {
-  const field = viewed ? "markFileAsViewed" : "unmarkFileAsViewed";
-  const data = await graphql<Record<string, unknown>>(`mutation($id: ID!, $path: String!) { ${field}(input: { pullRequestId: $id, path: $path }) { clientMutationId } }`, { id: pullId, path });
-  // A refusal still comes back with data, empty.
-  if (!data[field]) throw new Error("GitHub didn't mark it");
-}
-
 // MARK: Actions
 
 const base = (d: Details) => `/repos/${d.owner}/${d.repo}/pulls/${d.number}`;

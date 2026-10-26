@@ -58,8 +58,6 @@ export const review = {
   sendsPending: { one: "Sends {count} pending comment with it.", other: "Sends {count} pending comments with it." },
   reviewSent: "Review sent",
   commentPosted: "Comment posted",
-  couldntMark: "Couldn't mark {file} as viewed on GitHub",
-  couldntUnmark: "Couldn't unmark {file} as viewed on GitHub",
 
   // The files list
   loading: "Loading",

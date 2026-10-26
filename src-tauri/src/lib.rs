@@ -20,6 +20,7 @@ mod i18n;
 mod kept;
 mod media;
 mod menu;
+mod outbox;
 mod review;
 mod sound;
 mod tray;
@@ -154,6 +155,17 @@ struct Response {
 async fn github(auth: State<'_, github::Auth>, method: String, path: String, body: Option<String>, accept: Option<String>) -> Result<Response, String> {
     let (status, body) = auth.request_for_page(&method, &path, body.as_deref(), accept.as_deref())?;
     Ok(Response { status, body })
+}
+
+/// Marks a file viewed, or not, on github.com, through the outbox: kept until GitHub takes it.
+#[tauri::command]
+fn queue_viewed(outbox: State<'_, outbox::Outbox>, pull: String, path: String, viewed: bool) {
+    outbox.add(pull, path, viewed);
+}
+
+#[tauri::command]
+fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> std::collections::HashMap<String, bool> {
+    outbox.pending(&pull)
 }
 
 #[tauri::command]
@@ -847,6 +859,8 @@ pub fn run() {
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
+            queue_viewed,
+            queued_viewed,
             read_file,
             write_file,
             snapshot,
@@ -917,6 +931,7 @@ pub fn run() {
             let icon = create_tray(&handle)?;
             *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
+            app.manage(outbox::Outbox::start(&handle));
             update::watch(&handle);
             #[cfg(any(debug_assertions, feature = "devctl"))]
             devctl::start(&handle);

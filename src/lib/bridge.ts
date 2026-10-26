@@ -49,6 +49,12 @@ export class GitHubError extends Error {
 }
 
 export const bridge = {
+  /** Marks a file viewed, or not, on github.com: Rust keeps it until GitHub takes it (outbox.rs).
+   *  `pull`: the pull request's node id. */
+  queueViewed: (pull: string, path: string, viewed: boolean) => invoke<void>("queue_viewed", { pull, path, viewed }),
+  /** The marks still on their way for a pull request, by path. */
+  queuedViewed: (pull: string) => invoke<Record<string, boolean>>("queued_viewed", { pull }),
+
   readFile: (name: StoredFile) => invoke<string | null>("read_file", { name }),
   writeFile: (name: StoredFile, contents: string) => invoke<void>("write_file", { name, contents }),
 

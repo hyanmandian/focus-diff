@@ -56,8 +56,6 @@ export const review: Dictionary["review"] = {
   sendsPending: { one: "Envia junto {count} comentário pendente.", other: "Envia junto {count} comentários pendentes." },
   reviewSent: "Revisão enviada",
   commentPosted: "Comentário publicado",
-  couldntMark: "Não foi possível marcar {file} como visualizado no GitHub",
-  couldntUnmark: "Não foi possível desmarcar {file} como visualizado no GitHub",
 
   loading: "Carregando",
   loadingFiles: "Carregando arquivos",

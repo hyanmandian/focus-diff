@@ -325,16 +325,13 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
       const body = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, string> };
       if (body.query?.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (body.query?.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
-      const mark = body.query?.match(/(markFileAsViewed|unmarkFileAsViewed)/)?.[1];
-      if (mark) {
-        await new Promise((r) => setTimeout(r, 300));
-        // Unmarking the lockfile fails, to see the mark go back.
-        if (mark === "unmarkFileAsViewed" && body.variables?.path === "package-lock.json") return { status: 200, body: JSON.stringify({ data: { [mark]: null }, errors: [{ message: "Something went wrong" }] }) };
-        return { status: 200, body: JSON.stringify({ data: { [mark]: { clientMutationId: null } } }) };
-      }
       if (body.query?.includes("squashMergeAllowed")) return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };
     }
+    case "queue_viewed":
+      return;
+    case "queued_viewed":
+      return {};
     case "snapshot":
       return snapshot;
     case "ai_statuses":

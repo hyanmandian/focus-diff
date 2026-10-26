@@ -11,7 +11,9 @@ const connect = (name: string) => browser.runtime.connect({ name });
 /** What a page's port hears. */
 const heard = (port: Browser.runtime.Port) => {
   const messages: BackgroundMessage[] = [];
-  port.onMessage.addListener((message: BackgroundMessage) => messages.push(message));
+  port.onMessage.addListener((message: BackgroundMessage) => {
+    messages.push(message);
+  });
   return messages;
 };
 
@@ -34,7 +36,11 @@ describe("the background's command server", () => {
       broken: () => {
         throw new Error("GitHub returned 500");
       },
-      refused: () => Promise.reject({ kind: "not_signed_in" }),
+      refused: async () => {
+        await Promise.resolve();
+        // oxlint-disable-next-line typescript/only-throw-error -- the app's upload errors are plain objects
+        throw { kind: "not_signed_in" };
+      },
       odd: () => {
         // oxlint-disable-next-line typescript/only-throw-error -- Tauri's commands reject with strings, and so may these
         throw "absent";
@@ -61,11 +67,12 @@ describe("the background's command server", () => {
     ]);
   });
 
-  it("knows the pages open, and the tab each is in", async () => {
+  it("knows the pages open, and the tab each is in", () => {
     const { ports, server } = start();
     const opened = vi.fn();
     server.onConnect(opened);
     connect("focus-diff:panel");
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the browser's tab, with only what's read
     ports.inTab({ id: 7, windowId: 2 } as Browser.tabs.Tab);
     const review = connect("focus-diff:review-1");
     connect("someone-else");

@@ -101,7 +101,7 @@ describe("the browser as the screens' platform", () => {
     vi.spyOn(fakeBrowser.runtime, "getManifest").mockReturnValue({ version: "2.0.0" } as Browser.runtime.Manifest);
     expect(await app.version()).toBe("2.0.0");
     const remove = vi.spyOn(fakeBrowser.tabs, "remove").mockResolvedValue();
-    const current = vi.spyOn(fakeBrowser.tabs, "getCurrent").mockResolvedValue({ id: 4 } as Browser.tabs.Tab);
+    const current = vi.spyOn(fakeBrowser.tabs, "getCurrent").mockResolvedValue({ id: 4 } as never);
     await app.closeWindow();
     expect(remove).toHaveBeenCalledWith(4);
     current.mockResolvedValue(undefined);

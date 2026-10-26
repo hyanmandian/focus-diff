@@ -58,7 +58,7 @@ export const reviewUrl = (target: Target) =>
 
 /** Brings a tab forward, and its window. */
 const focus = async (page: Sender) => {
-  await browser.tabs.update(page.tabId!, { active: true });
+  await browser.tabs.update(page.tabId, { active: true });
   if (page.windowId !== undefined) await browser.windows.update(page.windowId, { focused: true });
 };
 

@@ -12,12 +12,13 @@ const browsers = (): Language => (browser.i18n.getUILanguage().toLowerCase().sta
 
 /** The language Settings picked ("system" for the browser's), from config.json's contents. */
 export const followConfig = (config: string | null) => {
-  let language: unknown;
+  let parsed: unknown = null;
   try {
-    language = (JSON.parse(config ?? "{}") as { language?: unknown }).language;
+    parsed = JSON.parse(config ?? "{}");
   } catch {
-    language = null;
+    // A broken setup: the browser's language.
   }
+  const language = typeof parsed === "object" && parsed !== null && "language" in parsed ? parsed.language : null;
   picked = language === "en" || language === "pt-BR" ? language : null;
 };
 

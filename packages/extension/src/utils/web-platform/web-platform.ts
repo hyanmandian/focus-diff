@@ -12,6 +12,7 @@ import {
   toBytes,
   type BackgroundMessage,
   type PageMessage,
+  type PageRequest,
 } from "@/utils/port-protocol/port-protocol";
 
 /** What the screens leave out in a browser: there's nothing to quit or update (the store does it), no AI tools, no
@@ -87,12 +88,11 @@ export const createWebPlatform = (name: string): Platform => {
     return opened;
   };
 
-  const request = (message: Omit<Extract<PageMessage, { id: number }>, "id">) =>
+  const request = (message: PageRequest) =>
     new Promise<unknown>((resolve, reject) => {
       const id = ++next;
       pending.set(id, { resolve, reject });
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the request with its id is one of PageMessage
-      connect().postMessage({ ...message, id } as PageMessage);
+      connect().postMessage({ ...message, id } satisfies PageMessage);
     });
 
   const addListener = (event: string, handler: (payload: unknown) => void, own: boolean): Promise<Unlisten> => {

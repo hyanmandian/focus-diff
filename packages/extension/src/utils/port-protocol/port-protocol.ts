@@ -5,10 +5,14 @@
 /** The port's name: which window a page is, as the app names its windows ("panel", "settings", "review-3"). */
 export const PORT_PREFIX = "focus-diff:";
 
-/** A page's request: one of the app's commands, or an event for another window. */
+/** What a page asks: one of the app's commands, or an event for another window. */
+export type PageRequest =
+  | { type: "invoke"; command: string; args: unknown }
+  | { type: "emit"; window: string; event: string; payload: unknown };
+
+/** A page's message: a request, numbered for its answer, or a ping. */
 export type PageMessage =
-  | { type: "invoke"; id: number; command: string; args: unknown }
-  | { type: "emit"; id: number; window: string; event: string; payload: unknown }
+  | (PageRequest & { id: number })
   /** Keeps the background awake while a page is open; it needs no answer. */
   | { type: "ping" };
 

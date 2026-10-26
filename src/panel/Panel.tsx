@@ -4,7 +4,7 @@
 // reviewing happens.
 
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -62,18 +62,10 @@ function useShown() {
   return shown;
 }
 
-function Count({ n, unread, selected }: { n: number; unread: number; selected?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "min-w-[18px] rounded-full px-1.5 text-center text-[11px] leading-4 font-semibold tabular-nums",
-        // Unread is the one thing in accent; otherwise a quiet count, full strength on the chosen option.
-        unread ? "bg-selected text-selected-foreground" : selected ? "bg-foreground/8 text-foreground" : "bg-foreground/6 text-muted-foreground",
-      )}
-    >
-      {n}
-    </span>
-  );
+/** A count beside a label, as Mail's sidebar has it: plain secondary text, no badge. Unread puts it in
+    the accent (deepened to stay AA on the material). */
+function Count({ n, unread }: { n: number; unread?: number }) {
+  return <span className={cn("tabular-nums", unread ? "font-semibold text-(--panel-link)" : "font-normal text-muted-foreground")}>{n}</span>;
 }
 
 /** A repository by its name alone, unless two owners have one by that name. */
@@ -179,6 +171,13 @@ export function Panel() {
     return () => clearTimeout(timer);
   }, [shown, ready, queue?.id, repo]);
 
+  // A repository's heading takes a backing only while it floats over rows; at rest it's plain text on
+  // the material, so no band shows.
+  const stick = (e: UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.getBoundingClientRect().top;
+    for (const h of e.currentTarget.querySelectorAll("section > h2")) h.toggleAttribute("data-stuck", h.parentElement!.getBoundingClientRect().top < top - 0.5);
+  };
+
   const row = (item: Item) =>
     queue ? (
       <li key={item.pr.id}>
@@ -187,8 +186,8 @@ export function Panel() {
     ) : null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[18px] border border-(--panel-edge) bg-(--panel-tint) text-foreground animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
-      <header className="flex h-11 shrink-0 items-center gap-2 pr-2 pl-4" data-tauri-drag-region>
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
+      <header className="flex h-12 shrink-0 items-center gap-2 pr-2.5 pl-4" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
         <h1 className="text-[13px] leading-4 font-semibold">Focus Diff</h1>
         <div className="ml-auto flex items-center gap-0.5">
@@ -226,18 +225,20 @@ export function Panel() {
       {!ready ? (
         // The shape of what's coming, at its size: nothing moves when it arrives.
         <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading">
-          <Skeleton className="mx-2 h-8 shrink-0 rounded-[10px] bg-(--panel-fill)" />
-          <div className="mx-2 mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-hidden rounded-[10px] border border-(--panel-pane-edge) bg-(--panel-pane) p-1">
+          <Skeleton className="mx-4 h-7 shrink-0 rounded-[8px] bg-(--panel-fill)" />
+          <div className="mx-4 mt-3 h-px shrink-0 bg-(--panel-separator)" />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pt-1">
             {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-start gap-3 py-2 pr-3 pl-4" style={{ opacity: 1 - i * 0.18 }}>
-                <Skeleton className="size-6 shrink-0 rounded-full" />
+              <div key={i} className="flex items-start gap-2.5 py-2 pr-3 pl-3" style={{ opacity: 1 - i * 0.18 }}>
+                <Skeleton className="size-5 shrink-0 rounded-full bg-(--panel-fill)" />
                 <div className="flex flex-1 flex-col gap-1.5 pt-0.5">
-                  <Skeleton className="h-3.5 w-4/5" />
-                  <Skeleton className="h-3 w-2/5" />
+                  <Skeleton className="h-3.5 w-4/5 bg-(--panel-fill)" />
+                  <Skeleton className="h-3 w-2/5 bg-(--panel-fill)" />
                 </div>
               </div>
             ))}
           </div>
+          <div className="mx-4 h-px shrink-0 bg-(--panel-separator)" />
           <div className="h-9 shrink-0" />
         </div>
       ) : !signedIn ? (
@@ -258,10 +259,10 @@ export function Panel() {
         </div>
       ) : (
         <main className="flex min-h-0 flex-1 flex-col">
-          {/* The queues, like the popup's two lists, as a segmented control: the chosen one on a raised
-              knob (concentric: 10px track, 2px in, 8px knob). */}
-          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-2 flex shrink-0 gap-0.5 overflow-x-auto rounded-[10px] bg-(--panel-fill) p-0.5 [scrollbar-width:none]">
-            <SlidingPill selected={queue.id} className="rounded-[8px] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.14),0_0_0_0.5px_rgb(0_0_0/0.06)] dark:bg-white/18 dark:shadow-[0_1px_2px_rgb(0_0_0/0.3)]" />
+          {/* The queues as a segmented control on the 16pt inset: the chosen one on a raised knob
+              (concentric: 8px track, 2px in, 6px knob). */}
+          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-4 flex shrink-0 gap-0.5 overflow-x-auto rounded-[8px] bg-(--panel-fill) p-0.5 [scrollbar-width:none]">
+            <SlidingPill selected={queue.id} className="rounded-[6px] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.14),0_0_0_0.5px_rgb(0_0_0/0.06)] dark:bg-white/18 dark:shadow-[0_1px_2px_rgb(0_0_0/0.3)]" />
             {queues.map((q) => {
               const its = items[q.id] ?? [];
               const selected = q.id === queue.id;
@@ -275,21 +276,21 @@ export function Panel() {
                   data-pill={q.id}
                   onClick={() => choose(q.id)}
                   className={cn(
-                    "flex h-7 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-[8px] pr-1.5 pl-2.5 text-[13px] leading-4 font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                    "flex h-6 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-[6px] px-2.5 text-[13px] leading-4 font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                     !selected && "hover:bg-foreground/6",
                   )}
                 >
                   <span className="truncate">{q.name}</span>
-                  <Count n={its.length} unread={its.filter(unread).length} selected={selected} />
+                  <Count n={its.length} unread={its.filter(unread).length} />
                 </button>
               );
             })}
           </div>
 
-          <div role="tabpanel" aria-label={queue.name} className="mx-2 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-(--panel-pane-edge) bg-(--panel-pane)">
+          <div role="tabpanel" aria-label={queue.name} className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden">
             {repos.length > 1 ? (
-              <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto border-b border-foreground/8 p-1 [scrollbar-width:none]">
-                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-[6px] bg-foreground/9" />
+              <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto px-2 pb-2 [scrollbar-width:none]">
+                <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-[6px] bg-(--panel-fill)" />
                 {[["", "All", list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
                   const pressed = (repo && repos.includes(repo) ? repo : "") === value;
                   return (
@@ -305,50 +306,52 @@ export function Panel() {
                         setRepo(value);
                       }}
                       className={cn(
-                        "flex h-6 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] pr-1 pl-2 text-xs leading-4 font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                        "flex h-6 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-2 text-[12px] leading-4 font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                         pressed ? "text-foreground" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
                       )}
                     >
                       <span className="truncate">{label}</span>
-                      <Count n={n} unread={0} selected={pressed} />
+                      <Count n={n} />
                     </button>
                   );
                 })}
               </div>
             ) : null}
 
+            <div className="mx-4 h-px shrink-0 bg-(--panel-separator)" />
             {/* Each queue's list, and each repository's, slides in from the side it was picked on. */}
             <div
               key={`${queue.id}:${repo}`}
               ref={listRef}
               tabIndex={-1}
               aria-label={`${queue.name} pull requests`}
+              onScroll={stick}
               className={cn(
                 "outline-none",
-                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1 animate-in fade-in-0 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none",
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-2 animate-in fade-in-0 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none",
                 direction > 0 ? "slide-in-from-right-3" : direction < 0 ? "slide-in-from-left-3" : "",
               )}
             >
               {groups.length || drafts.length ? (
                 <>
                   {groups.map((g, i) => (
-                    <section key={g.repo} aria-label={g.repo} className={cn(i > 0 && "mt-1", groups.length === 1 && repos.length <= 1 && "pt-1")}>
+                    <section key={g.repo} aria-label={g.repo} className={cn(i > 0 && "mt-2", groups.length === 1 && repos.length <= 1 && "pt-1")}>
                       {groups.length > 1 || repos.length > 1 ? (
-                        <h2 className="sticky top-0 z-10 flex items-center gap-1.5 bg-(--panel-pane) pt-2.5 pr-3 pb-1 pl-4 text-xs leading-4 font-semibold backdrop-blur-md">
+                        <h2 className="sticky top-0 z-10 -mx-1 flex items-center gap-1.5 px-4 pt-2 pb-1 text-[11px] leading-4 font-semibold text-muted-foreground data-stuck:bg-(--panel-sticky) data-stuck:backdrop-blur-xl">
                           <span className="min-w-0 truncate">
-                            <span className="font-normal text-muted-foreground">{g.repo.slice(0, g.repo.indexOf("/") + 1)}</span>
-                            {g.repo.slice(g.repo.indexOf("/") + 1)}
+                            <span className="font-normal">{g.repo.slice(0, g.repo.indexOf("/") + 1)}</span>
+                            <span className="text-foreground/85">{g.repo.slice(g.repo.indexOf("/") + 1)}</span>
                           </span>
-                          <span className="font-normal text-muted-foreground tabular-nums">{g.items.length}</span>
+                          <span className="font-normal tabular-nums">{g.items.length}</span>
                         </h2>
                       ) : null}
                       <ul>{g.items.map(row)}</ul>
                     </section>
                   ))}
                   {drafts.length ? (
-                    <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-1")}>
-                      <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-[6px] py-2 pr-3 pl-4 text-xs leading-4 font-semibold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-                        <ChevronRight className={cn("-ml-0.5 size-3.5 transition-transform duration-200 motion-reduce:transition-none", draftsOpen && "rotate-90")} aria-hidden />
+                    <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-2")}>
+                      <CollapsibleTrigger className="flex w-full items-center gap-1 rounded-[6px] py-2 pr-3 pl-3 text-[11px] leading-4 font-semibold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                        <ChevronRight className={cn("size-3 transition-transform duration-200 motion-reduce:transition-none", draftsOpen && "rotate-90")} aria-hidden />
                         Drafts <span className="font-normal tabular-nums">{drafts.length}</span>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
@@ -363,6 +366,7 @@ export function Panel() {
             </div>
           </div>
 
+          <div className="mx-4 h-px shrink-0 bg-(--panel-separator)" />
           <footer className="flex h-9 shrink-0 items-center gap-2 px-4 text-[11px] leading-4 text-muted-foreground">
             {update ? (
               <button

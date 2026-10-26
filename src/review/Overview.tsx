@@ -14,7 +14,7 @@ import type { Details } from "@/lib/details";
 import type { Actor } from "@/lib/engine";
 import type { Thread } from "@/lib/review";
 import { useDiagrams } from "@/lib/diagrams";
-import { sanitize } from "@/lib/sanitize";
+import { leadsElsewhere, sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { openViewer } from "@/shared/Viewer";
 import { AiAnswer } from "@/shared/AiAnswer";
@@ -50,7 +50,7 @@ function Html({ html, className }: { html: string; className?: string }) {
       onClick={(e) => {
         // A picture opens in the viewer (even one GitHub wrapped in a link to itself).
         const picture = (e.target as Element).closest("img");
-        if (picture) {
+        if (picture && !leadsElsewhere(picture)) {
           e.preventDefault();
           openViewer({ src: picture.src, alt: picture.alt });
           return;

@@ -42,3 +42,16 @@ describe("diagrams", () => {
     expect(html).toBe("<pre data-mermaid=\"\">flowchart LR\n  A --&gt; B</pre>");
   });
 });
+
+describe("picture buttons", () => {
+  it("turns a link around a small labelled picture into a button with its words", () => {
+    const html = sanitize(
+      '<a href="https://cursor.com/agents/1?x=1" rel="nofollow"><themed-picture><picture><source media="(prefers-color-scheme: dark)" srcset="https://camo.githubusercontent.com/d"><img alt="Open in Web" width="114" height="28" src="https://camo.githubusercontent.com/d"></picture></themed-picture></a>',
+    );
+    expect(html).toBe('<a href="https://cursor.com/agents/1?x=1" data-button="">Open in Web</a>');
+  });
+  it("leaves a screenshot wrapped in a link to itself a picture", () => {
+    const html = sanitize('<a href="https://github.com/user-attachments/assets/a.png"><img alt="shot" height="400" src="https://github.com/user-attachments/assets/a.png"></a>');
+    expect(html).toContain("<img");
+  });
+});

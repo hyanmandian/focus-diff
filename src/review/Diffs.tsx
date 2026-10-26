@@ -192,7 +192,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               const side = ("side" in line ? line.side : "additions") as SelectedLineRange["side"];
               setComposing({ path: item.id, range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side } });
             }}
-            className="flex size-[21px] items-center justify-center rounded bg-warning text-background"
+            className="flex size-5 items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] transition-transform hover:scale-110 motion-reduce:transition-none"
           >
             <Plus className="size-3.5" strokeWidth={2.5} aria-hidden />
           </button>

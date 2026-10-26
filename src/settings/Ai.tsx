@@ -13,7 +13,7 @@ import { EFFORT_LABELS, PROVIDERS } from "@/lib/ai";
 import { bridge, type AiStatus } from "@/lib/bridge";
 import { AI_PROVIDERS, defaultPrompts, newId, REVIEW_PROMPT, type AiProvider, type Config, type Effort, type Prompt } from "@/lib/config";
 import { cn } from "@/lib/utils";
-import { Group, Intro, Page, Row } from "./Form";
+import { Group, Intro, Pane, radioKeys, Row } from "./Form";
 
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
@@ -72,7 +72,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   };
 
   return (
-    <Page>
+    <Pane title="AI">
       <Intro>
         Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer,
         read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.
@@ -87,21 +87,22 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
         }
         footer="Check again after installing or signing in."
       >
-        <div role="radiogroup" aria-label="AI" className="contents">
+        <div role="radiogroup" aria-label="AI" className="contents" onKeyDown={radioKeys}>
           {[null, ...AI_PROVIDERS].map((provider) => {
             const status = provider ? statuses?.find((s) => s.provider === provider) : null;
             const active = selected === provider;
             return (
-              <div key={provider ?? "none"} className="flex items-start gap-2.5 px-2.5 py-2">
+              <div key={provider ?? "none"} className="flex items-start gap-2.5 px-3 py-2.5">
                 <button
                   type="button"
                   role="radio"
                   aria-checked={active}
+                  tabIndex={active ? 0 : -1}
                   onClick={() => choose(provider)}
                   className="group flex min-w-0 flex-1 items-start gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className={cn("mt-px grid size-4 shrink-0 place-items-center rounded-full border border-foreground/25 bg-background", active && "border-transparent bg-unread")} aria-hidden>
-                    {active ? <span className="size-1.5 rounded-full bg-white" /> : null}
+                  <span className={cn("mt-px grid size-4 shrink-0 place-items-center rounded-full border border-foreground/25 bg-background", active && "border-transparent bg-primary")} aria-hidden>
+                    {active ? <span className="size-1.5 rounded-full bg-primary-foreground" /> : null}
                   </span>
                   <span className="text-[13px] leading-[18px]">{provider ? PROVIDERS[provider].name : "No AI"}</span>
                 </button>
@@ -257,6 +258,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
           </Group>
         </>
       ) : null}
-    </Page>
+    </Pane>
   );
 }

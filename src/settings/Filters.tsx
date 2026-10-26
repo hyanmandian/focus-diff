@@ -6,7 +6,7 @@ import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Group, Intro, Page, Row } from "./Form";
+import { Group, Intro, Pane, Row } from "./Form";
 import { FILTER_RECIPES, newId, validPattern, type Config, type DiffFilter } from "@/lib/config";
 
 function Pattern({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
@@ -33,7 +33,7 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
   const add = (list: Array<Omit<DiffFilter, "id">>) => set([...filters, ...list.map((f) => ({ ...f, id: newId() }))].slice(0, 12));
 
   return (
-    <Page>
+    <Pane title="Filters">
       <Intro>
         Review one part of a pull request at a time. Each filter keeps the files whose path matches what to include and not what to leave out (regular expressions; empty includes
         everything). They're chips at the bottom of the review window.
@@ -73,6 +73,6 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
           <DropdownMenuItem onClick={() => add([{ name: "New filter", include: "", exclude: "" }])}>Blank</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </Page>
+    </Pane>
   );
 }

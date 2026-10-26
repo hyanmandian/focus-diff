@@ -61,11 +61,13 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.53 0.14 150);
-    --primary-foreground: oklch(0.99 0 0);
-    --unread: oklch(0.55 0.19 255);
-    /* A chosen tab or chip, filled, with white on it: 5:1 in both themes. */
-    --selected: oklch(0.55 0.18 258);
+    /* The Mac's accent colour (System Settings › Appearance), as AppKit's own controls use it;
+       systemBlue where the engine can't say (a plain browser in development). */
+    --accent-color: #007aff;
+    --primary: var(--accent-color);
+    --primary-foreground: oklch(1 0 0);
+    --unread: var(--accent-color);
+    --selected: var(--accent-color);
     --selected-foreground: oklch(1 0 0);
     --success: oklch(0.53 0.14 150);
     --warning: oklch(0.53 0.12 70); /* 5.4:1 on white */
@@ -79,7 +81,7 @@
     --destructive: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.55 0.19 255);
+    --ring: var(--accent-color);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -97,16 +99,18 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
+    /* A Mac window's greys in dark mode (window #1e1e1e, controls a step lighter), not black. */
+    --background: oklch(0.235 0 0);
     --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
+    --card: oklch(0.275 0 0);
     --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
+    --popover: oklch(0.29 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.74 0.16 150);
-    --primary-foreground: oklch(0.2 0.04 150);
-    --unread: oklch(0.72 0.14 250);
-    --selected: oklch(0.55 0.18 258);
+    --accent-color: #0a84ff;
+    --primary: var(--accent-color);
+    --primary-foreground: oklch(1 0 0);
+    --unread: var(--accent-color);
+    --selected: var(--accent-color);
     --selected-foreground: oklch(1 0 0);
     --success: oklch(0.74 0.16 150);
     --warning: oklch(0.82 0.14 80);
@@ -120,7 +124,7 @@
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.72 0.14 250);
+    --ring: var(--accent-color);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -134,6 +138,10 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+}
+
+@supports (color: -apple-system-control-accent) {
+  :root, .dark { --accent-color: -apple-system-control-accent; }
 }
 
 @layer base {
@@ -153,40 +161,44 @@
    stays clear so that material shows, and draws its own rounded edge. */
 html.panel, html.panel body { background: transparent; }
 
-/* The panel's surfaces, as a menu bar extra's window: a light tint over the system material (so it
-   shows, as in a popover) carries the chrome; the list sits on a near-opaque pane so its sticky
-   repository headings stay legible. Text contrast is AA on both against a mid-gray material. Under
-   Reduce Transparency or Increase Contrast everything goes opaque, and Increase Contrast adds edges. */
+/* The panel's surfaces, as a menu bar extra's window: one light tint over the system material (so it
+   shows, as in a popover), no card inside it; inset hairline separators split chrome from the list,
+   and the edge is only the inner highlight macOS menus have (inset, so nothing leaves the window,
+   whose shadow macOS draws). Text contrast is AA against a mid-gray material. Under Reduce
+   Transparency or Increase Contrast everything goes opaque, and Increase Contrast firms the edges. */
 html.panel {
-  --panel-tint: color-mix(in oklch, var(--background) 55%, transparent);
-  --panel-edge: oklch(0 0 0 / 0.1);
-  --panel-pane: color-mix(in oklch, var(--card) 92%, transparent);
-  --panel-pane-edge: transparent;
-  --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, hover */
-  --panel-link: oklch(0.48 0.18 255); /* the accent, deepened to stay AA on the tinted material */
+  --panel-tint: color-mix(in oklch, var(--background) 50%, transparent);
+  --panel-sticky: color-mix(in oklch, var(--background) 85%, transparent); /* a heading floating over rows, over a blur */
+  --panel-edge: oklch(0 0 0 / 0.09);
+  --panel-separator: oklch(0 0 0 / 0.09);
+  --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, chip knob, skeleton */
+  --panel-link: color-mix(in oklch, var(--primary) 80%, black); /* the accent, deepened to stay AA on the tinted material */
 }
 html.panel.dark {
-  --panel-tint: color-mix(in oklch, var(--background) 45%, transparent);
-  --panel-edge: oklch(1 0 0 / 0.14);
-  --panel-pane: oklch(0.24 0 0 / 0.92);
-  --panel-pane-edge: oklch(1 0 0 / 0.07);
+  --panel-tint: color-mix(in oklch, var(--background) 40%, transparent);
+  --panel-sticky: color-mix(in oklch, var(--background) 82%, transparent);
+  --panel-edge: oklch(1 0 0 / 0.12);
+  --panel-separator: oklch(1 0 0 / 0.09);
   --panel-fill: oklch(1 0 0 / 0.07);
-  --panel-link: var(--unread);
+  --panel-link: color-mix(in oklch, var(--primary) 75%, white);
 }
 @media (prefers-reduced-transparency: reduce) {
-  html.panel, html.panel.dark { --panel-tint: var(--background); --panel-pane: var(--card); }
+  html.panel, html.panel.dark { --panel-tint: var(--background); --panel-sticky: var(--background); }
 }
 @media (prefers-contrast: more) {
   html.panel, html.panel.dark {
     --panel-tint: var(--background);
-    --panel-pane: var(--card);
+    --panel-sticky: var(--background);
     --panel-edge: color-mix(in oklch, var(--foreground) 45%, transparent);
-    --panel-pane-edge: color-mix(in oklch, var(--foreground) 35%, transparent);
+    --panel-separator: color-mix(in oklch, var(--foreground) 35%, transparent);
     --panel-fill: color-mix(in oklch, var(--foreground) 12%, transparent);
   }
 }
 html, body, #root { height: 100%; }
-body { -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; cursor: default; }
+/* Text drawn as AppKit draws it: no `-webkit-font-smoothing: antialiased`, which turns off the
+   stem darkening macOS gives native text and leaves the web view's text thinner and greyer than
+   the apps beside it (most of all on a non-Retina display). */
+body { -webkit-user-select: none; user-select: none; cursor: default; }
 input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; cursor: text; }
 ::selection { background: color-mix(in oklch, var(--unread) 30%, transparent); }
 
@@ -233,3 +245,28 @@ figure.diagram { margin: 0.5rem 0; }
 figure.diagram > [role="img"] { overflow-x: auto; padding: 12px; border-radius: 8px; background: var(--muted); }
 figure.diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 figure.diagram > details > summary { cursor: pointer; width: fit-content; margin-top: 4px; font-size: 12px; color: var(--muted-foreground); }
+
+/* Menus and pop-up menus as AppKit draws them: a translucent material with a hairline edge and a
+   soft, deep shadow; the highlighted item in the accent colour (components/ui/select, dropdown). */
+.mac-menu {
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--popover) 80%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.14), 0 2px 6px rgb(0 0 0 / 0.08), 0 12px 32px rgb(0 0 0 / 0.16);
+}
+.dark .mac-menu {
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.7), 0 12px 32px rgb(0 0 0 / 0.45);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mac-menu { background: var(--popover); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* A button GitHub drew as a picture in a link (lib/sanitize.ts), as one of the app's own. */
+div a[data-button] {
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; margin: 2px 4px 2px 0; padding: 0 10px;
+  border-radius: 6px; border: 0.5px solid var(--border); background: var(--secondary); color: var(--secondary-foreground);
+  font-size: 12px; font-weight: 500; text-decoration: none; vertical-align: middle; transition: background-color 120ms;
+}
+div a[data-button]::after { content: "↗"; font-size: 11px; opacity: 0.6; }
+div a[data-button]:hover { background: color-mix(in oklab, var(--secondary) 80%, var(--foreground)); text-decoration: none; }

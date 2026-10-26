@@ -13,7 +13,7 @@ const TAGS = new Set([
 ]);
 const DROP = new Set(["script", "style", "iframe", "object", "embed", "form", "button", "textarea", "select", "svg", "math", "link", "meta", "base", "template", "audio", "source", "track"]);
 const ATTRIBUTES: Record<string, Set<string>> = {
-  a: new Set(["href", "title"]),
+  a: new Set(["href", "title", "data-button"]),
   img: new Set(["src", "alt", "title", "width", "height"]),
   video: new Set(["src", "width", "height"]),
   input: new Set(["type", "checked", "disabled"]),
@@ -24,6 +24,20 @@ const ATTRIBUTES: Record<string, Set<string>> = {
   pre: new Set(["data-mermaid"]),
 };
 const IMAGE_HOSTS = /^https:\/\/(?:[\w-]+\.)*(?:githubusercontent\.com|github\.com|githubassets\.com)\//;
+
+const isDark = () => typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
+/** A link whose only content is one small picture with words in its alt text, pointing somewhere
+ *  other than the picture itself. */
+function isPictureButton(link: Element) {
+  const images = link.querySelectorAll("img");
+  if (images.length !== 1 || link.textContent?.trim()) return false;
+  const img = images[0]!;
+  const alt = img.getAttribute("alt")?.trim() ?? "";
+  const height = Number(img.getAttribute("height") ?? "0");
+  const href = link.getAttribute("href") ?? "";
+  return alt.length > 1 && alt.length <= 40 && height > 0 && height <= 40 && !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(href);
+}
 
 function clean(node: Node) {
   for (const child of [...node.childNodes]) {
@@ -42,6 +56,25 @@ function clean(node: Node) {
       pre.textContent = source;
       if (element.getAttribute("data-type") === "mermaid") pre.setAttribute("data-mermaid", "");
       element.replaceWith(pre);
+      continue;
+    }
+    // A picture with light and dark versions: the one for the theme showing, as GitHub picks.
+    if (tag === "picture") {
+      const dark = isDark();
+      const source = [...element.querySelectorAll("source")].find((s) => (s.getAttribute("media") ?? "").includes(dark ? "dark" : "light"));
+      const img = element.querySelector("img");
+      const url = source?.getAttribute("srcset")?.trim().split(/\s+/)[0];
+      if (img && url) img.setAttribute("src", url);
+    }
+    // A button drawn as a picture in a link ("Open in Web", "Fix in Cursor", CI badges with a
+    // label): a real button with its words, which reads, themes and clicks like the app's own.
+    if (tag === "a" && isPictureButton(element)) {
+      const href = element.getAttribute("href") ?? "";
+      const label = element.querySelector("img")?.getAttribute("alt")?.trim() ?? "";
+      for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
+      if (/^https:\/\//.test(href)) element.setAttribute("href", href);
+      element.setAttribute("data-button", "");
+      element.textContent = label;
       continue;
     }
     if (DROP.has(tag)) {
@@ -107,4 +140,11 @@ export function sanitize(html: string): string {
   if (!root) return "";
   clean(root);
   return root.innerHTML;
+}
+
+/** Whether a picture is in a link to somewhere else (a page, not the picture at full size): a
+ *  click follows the link rather than opening the viewer. */
+export function leadsElsewhere(img: Element) {
+  const href = img.closest("a[href]")?.getAttribute("href");
+  return Boolean(href) && !IMAGE_HOSTS.test(href!) && !/\.(png|jpe?g|gif|webp)(\?|$)/i.test(href!);
 }

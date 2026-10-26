@@ -103,7 +103,16 @@ fn run(app: &AppHandle, command: &str) {
             let panel = app.get_webview_window(crate::PANEL);
             app.run_on_main_thread(move || {
                 let key = panel.as_ref().map(|p| p.is_focused().unwrap_or(false));
-                eprintln!("[devctl] focus: app active {}, panel key {key:?}", crate::is_active());
+                // What gets the keys in the panel: its web view, or (unfocused page) something else.
+                #[cfg(target_os = "macos")]
+                let responder = panel.as_ref().and_then(|p| p.ns_window().ok()).and_then(|pointer| {
+                    // SAFETY: Tauri's live NSWindow, on the main thread.
+                    let ns = unsafe { &*(pointer as *const objc2_app_kit::NSWindow) };
+                    ns.firstResponder().map(|r| r.class().name().to_string_lossy().into_owned())
+                });
+                #[cfg(not(target_os = "macos"))]
+                let responder: Option<String> = None;
+                eprintln!("[devctl] focus: app active {}, panel key {key:?}, first responder {responder:?}", crate::is_active());
             })
             .map_err(|e| e.to_string())
         }

@@ -13,6 +13,8 @@ mod config;
 #[cfg(any(debug_assertions, feature = "devctl"))]
 mod devctl;
 mod engine;
+#[cfg(target_os = "macos")]
+mod floating;
 mod github;
 mod kept;
 mod media;
@@ -31,7 +33,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, Rect, Runtime, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+    AppHandle, Emitter, Manager, Rect, Runtime, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri::utils::config::WindowEffectsConfig;
 use tauri::window::{Effect, EffectState};
@@ -490,8 +492,8 @@ pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()>
     }
     let builder = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
         .title("Focus Diff Settings")
-        .inner_size(760.0, 620.0)
-        .min_inner_size(620.0, 480.0)
+        .inner_size(860.0, 620.0)
+        .min_inner_size(760.0, 540.0)
         .center();
     #[cfg(target_os = "macos")]
     let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
@@ -520,24 +522,42 @@ pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 /// The panel floats under the tray icon (over it, when the taskbar is at the bottom of the screen),
 /// kept inside the screen it's on.
 fn place_panel<R: Runtime>(panel: &tauri::WebviewWindow<R>, rect: &Rect) -> tauri::Result<()> {
-    let scale = panel.scale_factor()?;
-    let position = rect.position.to_physical::<f64>(scale);
-    let size = rect.size.to_physical::<f64>(scale);
-    let (width, height) = (PANEL_SIZE.0 * scale, PANEL_SIZE.1 * scale);
-    let gap = 6.0 * scale;
-    let monitor = panel
-        .monitor_from_point(position.x, position.y)?
-        .or(panel.primary_monitor()?);
-    let (mx, my, mw, mh) = monitor
+    // In points: with screens of different scales (a 1x display beside a Retina one) each screen's
+    // "physical" coordinates use its own scale, so mixing them puts the panel off the icon. The
+    // icon's rect comes scaled by its own screen's factor; the screen it's on is the one that
+    // contains it once divided back.
+    let (rx, ry, rw, rh) = match (rect.position, rect.size) {
+        (tauri::Position::Physical(p), tauri::Size::Physical(s)) => (p.x as f64, p.y as f64, s.width as f64, s.height as f64),
+        (position, size) => {
+            let scale = panel.scale_factor()?;
+            let (p, s) = (position.to_physical::<f64>(scale), size.to_physical::<f64>(scale));
+            (p.x, p.y, s.width, s.height)
+        }
+    };
+    let screens: Vec<(f64, f64, f64, f64, f64)> = panel
+        .available_monitors()?
+        .iter()
         .map(|m| {
-            let (p, s) = (m.position(), m.size());
-            (p.x as f64, p.y as f64, s.width as f64, s.height as f64)
+            let (f, p, s) = (m.scale_factor(), m.position(), m.size());
+            (f, p.x as f64 / f, p.y as f64 / f, s.width as f64 / f, s.height as f64 / f)
         })
-        .unwrap_or((0.0, 0.0, f64::MAX, f64::MAX));
-    let below = position.y < my + mh / 2.0;
-    let x = (position.x + size.width / 2.0 - width / 2.0).clamp(mx + gap, mx + mw - width - gap);
-    let y = if below { position.y + size.height + gap } else { position.y - height - gap };
-    panel.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
+        .collect();
+    let (scale, mx, my, mw, mh) = screens
+        .iter()
+        .copied()
+        .find(|&(f, x, y, w, h)| {
+            let (cx, cy) = ((rx + rw / 2.0) / f, (ry + rh / 2.0) / f);
+            cx >= x && cx < x + w && cy >= y - 50.0 && cy < y + h
+        })
+        .or_else(|| screens.first().copied())
+        .unwrap_or((1.0, 0.0, 0.0, f64::MAX, f64::MAX));
+    let (ix, iy, iw, ih) = (rx / scale, ry / scale, rw / scale, rh / scale);
+    let (width, height) = PANEL_SIZE;
+    let gap = 6.0;
+    let below = iy < my + mh / 2.0;
+    let x = (ix + iw / 2.0 - width / 2.0).clamp(mx + gap, mx + mw - width - gap);
+    let y = if below { iy + ih + gap } else { iy - height - gap };
+    panel.set_position(tauri::LogicalPosition::new(x.round(), y.round()))
 }
 
 /// Bumped whenever the panel shows or hides, so only the latest hide closes it.
@@ -555,7 +575,13 @@ pub(crate) fn hide<R: Runtime>(app: &AppHandle<R>) {
         }
         if let Some(panel) = app.get_webview_window(PANEL)
             && !panel.is_visible().unwrap_or(true) {
-                let _ = panel.destroy();
+                // Back to the window Tauri made before it's taken apart (floating.rs).
+                let _ = app.run_on_main_thread(move || {
+                    #[cfg(target_os = "macos")]
+                    // SAFETY: the live panel window, on the main thread.
+                    with_ns_window(&panel, |ns| unsafe { floating::unmake(ns) });
+                    let _ = panel.destroy();
+                });
                 drop_spare(&app);
             }
     });
@@ -573,7 +599,11 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri
     PANEL_GENERATION.fetch_add(1, Ordering::SeqCst);
     place_panel(&panel, rect)?;
     panel.show()?;
-    activate();
+    // A non-activating panel takes the keyboard without the app being made active, which macOS
+    // won't do from a tray click (floating.rs).
+    #[cfg(target_os = "macos")]
+    with_ns_window(&panel, floating::show);
+    #[cfg(not(target_os = "macos"))]
     panel.set_focus()?;
     let _ = panel.emit("panel-shown", ());
     reshadow(app, &panel);
@@ -623,12 +653,26 @@ fn keep_focus<R: Runtime>(app: &AppHandle<R>, panel: &tauri::WebviewWindow<R>) {
             let panel = panel.clone();
             let _ = app.run_on_main_thread(move || {
                 if panel.is_visible().unwrap_or(false) && !panel.is_focused().unwrap_or(true) {
-                    activate();
+                    #[cfg(target_os = "macos")]
+                    with_ns_window(&panel, floating::show);
+                    #[cfg(not(target_os = "macos"))]
                     let _ = panel.set_focus();
                 }
             });
         }
     });
+}
+
+/// The panel's NSWindow, for what Tauri doesn't do (floating.rs). On the main thread only.
+#[cfg(target_os = "macos")]
+fn with_ns_window<R: Runtime>(window: &tauri::WebviewWindow<R>, f: impl FnOnce(&objc2_app_kit::NSWindow)) {
+    if objc2::MainThreadMarker::new().is_none() {
+        return;
+    }
+    if let Ok(pointer) = window.ns_window() {
+        // SAFETY: Tauri's live NSWindow, on the main thread (checked above).
+        f(unsafe { &*(pointer as *const objc2_app_kit::NSWindow) });
+    }
 }
 
 /// Whether Focus Diff is the active app (for devctl).
@@ -691,7 +735,11 @@ fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewW
             color: None,
             interactive: false,
         });
-    builder.build()
+    let panel = builder.build()?;
+    #[cfg(target_os = "macos")]
+    // SAFETY: the window Tauri just made, on the main thread (with_ns_window checks).
+    with_ns_window(&panel, |ns| unsafe { floating::make(ns) });
+    Ok(panel)
 }
 
 fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {

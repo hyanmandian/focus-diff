@@ -2,7 +2,7 @@
 // review window. Commands ask for permission the first time they run (in Rust, not here).
 
 import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
-import { useId, useState } from "react";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { STEP_LABELS } from "@/lib/actions";
 import { ACTION_TEMPLATES, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
 import { cn } from "@/lib/utils";
-import { Group, Page, Row, SideList, sideItem } from "./Form";
+import { Group, Intro, LinkRow, Pane, Row, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
 
 const STEP_HINTS: Record<ActionStep["kind"], string> = {
@@ -120,7 +120,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
         {action.steps.length ? (
           <ol className="contents">
             {action.steps.map((step, i) => (
-              <li key={i} className="flex flex-col gap-2 px-2.5 py-2.5">
+              <li key={i} className="flex flex-col gap-2 px-3 py-3">
                 <div className="flex items-center gap-2">
                   <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/[0.08] text-[11px] font-medium tabular-nums">{i + 1}</span>
                   <span className="shrink-0 text-[13px]">{STEP_LABELS[step.kind]}</span>
@@ -162,82 +162,93 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   );
 }
 
-export function Actions({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
-  const [selectedId, setSelectedId] = useState(config.actions[0]?.id ?? null);
-  const selected = config.actions.find((a) => a.id === selectedId) ?? config.actions[0] ?? null;
-  const setActions = (actions: Action[]) => onChange({ ...config, actions });
-
+function AddAction({ config, onAdd, variant = "ghost" }: { config: Config; onAdd: (action: Action) => void; variant?: "ghost" | "outline" }) {
   return (
-    <div className="grid h-full grid-cols-[208px_1fr]">
-      <SideList
-        label="Actions"
-        footer={
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="text-[12px] font-normal" disabled={config.actions.length >= 12} />}>
-              <Plus /> Add action
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72">
-              {ACTION_TEMPLATES.map((template) => (
-                <DropdownMenuItem
-                  key={template.name}
-                  className="flex-col items-start gap-0.5 whitespace-normal"
-                  onClick={() => {
-                    const action = template.make();
-                    setActions([...config.actions, action]);
-                    setSelectedId(action.id);
-                  }}
-                >
-                  <span className="font-medium">{template.name}</span>
-                  <span className="text-[11px] text-muted-foreground">{template.description}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant={variant} size={variant === "ghost" ? "xs" : "sm"} className={cn(variant === "ghost" && "-mr-1.5 text-[12px] font-normal")} disabled={config.actions.length >= 12} />}
+      >
+        <Plus /> Add action
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={variant === "ghost" ? "end" : "center"} className="w-72">
+        {ACTION_TEMPLATES.map((template) => (
+          <DropdownMenuItem key={template.name} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onAdd(template.make())}>
+            <span className="font-medium">{template.name}</span>
+            <span className="text-[11px] text-muted-foreground">{template.description}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const stepsSummary = (action: Action) => (action.steps.length ? action.steps.map((s, i) => (i ? STEP_LABELS[s.kind].toLowerCase() : STEP_LABELS[s.kind])).join(", then ") : "No steps yet");
+
+export function Actions({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
+  const detail = useDetail();
+  const selected = config.actions.find((a) => a.id === detail.openId) ?? null;
+  const setActions = (actions: Action[]) => onChange({ ...config, actions });
+  const add = (action: Action) => {
+    setActions([...config.actions, action]);
+    detail.open(action.id);
+  };
+
+  if (selected)
+    return (
+      <Pane
+        title={selected.name || "Untitled action"}
+        back={{ label: "Actions", onBack: detail.close, ref: detail.backRef }}
+        tools={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Delete ${selected.name}`}
+            title="Delete action"
+            onClick={() => {
+              setActions(config.actions.filter((a) => a.id !== selected.id));
+              detail.close();
+            }}
+          >
+            <Trash2 />
+          </Button>
         }
       >
-        {config.actions.map((action) => (
-          <li key={action.id}>
-            <button
-              type="button"
-              onClick={() => setSelectedId(action.id)}
-              aria-current={selected?.id === action.id}
-              className={cn(sideItem(selected?.id === action.id), "w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring")}
-            >
-              <Zap className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="truncate">{action.name}</span>
-            </button>
-          </li>
-        ))}
-      </SideList>
-      {selected ? (
-        <Page>
-          <div className="flex items-center gap-2 px-2.5">
-            <h2 className="truncate text-[15px] font-semibold">{selected.name || "Untitled action"}</h2>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="ml-auto"
-              aria-label={`Delete ${selected.name}`}
-              onClick={() => {
-                const rest = config.actions.filter((a) => a.id !== selected.id);
-                setActions(rest);
-                setSelectedId(rest[0]?.id ?? null);
-              }}
-            >
-              <Trash2 />
-            </Button>
-          </div>
-          <ActionEditor key={selected.id} action={selected} onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))} />
-        </Page>
+        <ActionEditor key={selected.id} action={selected} onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))} />
+      </Pane>
+    );
+
+  return (
+    <Pane title="Actions">
+      {config.actions.length ? (
+        <>
+          <Intro>Your own buttons on pull requests, in each one's review window. Each runs its steps in order.</Intro>
+          <Group title="Buttons" accessory={<AddAction config={config} onAdd={add} />}>
+            {config.actions.map((action) => (
+              <LinkRow
+                key={action.id}
+                ref={detail.rowRef(action.id)}
+                leading={
+                  <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-foreground/[0.07] text-muted-foreground" aria-hidden>
+                    <Zap className="size-3" strokeWidth={2.25} />
+                  </span>
+                }
+                label={action.name || "Untitled action"}
+                description={stepsSummary(action)}
+                onOpen={() => detail.open(action.id)}
+              />
+            ))}
+          </Group>
+        </>
       ) : (
-        <div className="grid h-full place-items-center p-10 text-center">
-          <div className="flex max-w-sm flex-col items-center gap-2">
-            <Zap className="size-5 text-muted-foreground" aria-hidden />
-            <p className="text-[13px] font-medium">Your own buttons on pull requests</p>
-            <p className="text-[12px] text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
+        <div className="flex flex-col items-center gap-2 px-6 pt-20 text-center">
+          <Zap className="size-5 text-muted-foreground" aria-hidden />
+          <p className="text-[13px] font-medium">Your own buttons on pull requests</p>
+          <p className="max-w-sm text-[12px] text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
+          <div className="mt-2">
+            <AddAction config={config} onAdd={add} variant="outline" />
           </div>
         </div>
       )}
-    </div>
+    </Pane>
   );
 }

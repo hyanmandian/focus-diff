@@ -10,7 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TONES, validPattern, type EventKind, type Queue, type QueueKind } from "@/lib/config";
 import { EVENT_LABELS } from "@/lib/copy";
 import { cn } from "@/lib/utils";
-import { Group, Row } from "./Form";
+import { Group, radioKeys, Row } from "./Form";
 import { TagInput } from "./TagInput";
 
 /** Path filters to start from, the same as Focus Diff's recipes. */
@@ -82,13 +82,14 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <Input id={ids.name} value={queue.name} maxLength={40} onChange={(e) => set("name", e.target.value)} className="h-7 w-56 text-[13px]" />
         </Row>
         <Row label="Color">
-          <div className="flex gap-2" role="radiogroup" aria-label="Color">
+          <div className="flex gap-2" role="radiogroup" aria-label="Color" onKeyDown={radioKeys}>
             {TONES.map((tone) => (
               <button
                 key={tone}
                 type="button"
                 role="radio"
                 aria-checked={queue.tone === tone}
+                tabIndex={queue.tone === tone ? 0 : -1}
                 aria-label={tone}
                 onClick={() => set("tone", tone)}
                 className={cn(

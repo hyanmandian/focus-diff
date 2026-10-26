@@ -179,8 +179,8 @@ export const soundPicker = ({
   });
   play.addEventListener("click", () => {
     if (!isOwnSound(value.id)) return;
-    preview ??= new AudioContext();
-    void preview.resume().then(() => preview && isOwnSound(value.id) && playSound(preview, value.id, value.volume));
+    const context = (preview ??= new AudioContext());
+    void context.resume().then(() => isOwnSound(value.id) && playSound(context, value.id, value.volume));
   });
   sync();
   return h(

@@ -222,6 +222,10 @@ const learnedView = (learned: Learned) => {
   );
 };
 
+/** The first error saying something; found by its text, which reads the same as `:not(:empty)` everywhere. */
+const shownError = (root: ParentNode) =>
+  [...root.querySelectorAll<HTMLElement>(".error")].find((error) => error.textContent);
+
 const select = <T extends string | number>(id: string, values: readonly T[], label: (value: T) => string) => {
   const element = $<HTMLSelectElement>(`#${id}`);
   element.replaceChildren(...values.map((value) => new Option(label(value), String(value))));
@@ -708,7 +712,7 @@ export const createReviewTime = ({
       if (!ok) {
         for (const card of sessions.querySelectorAll<HTMLElement>(".session")) {
           const sessionBody = $(".session-body", card);
-          if (sessionBody.hidden && card.querySelector('.error:not(:empty), [aria-invalid="true"]')) {
+          if (sessionBody.hidden && (shownError(card) || card.querySelector('[aria-invalid="true"]'))) {
             sessionBody.hidden = false;
             card.querySelector(".session-expand")?.setAttribute("aria-expanded", "true");
           }
@@ -723,7 +727,7 @@ export const createReviewTime = ({
         field.focus();
         return;
       }
-      const error = sessions.querySelector<HTMLElement>(".error:not(:empty)");
+      const error = shownError(sessions);
       error?.previousElementSibling?.querySelector<HTMLElement>("button, input")?.focus();
     },
   };

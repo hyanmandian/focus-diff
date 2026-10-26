@@ -48,6 +48,6 @@ Push a `v*` tag: `.github/workflows/release.yml` builds macOS (one app for Apple
 ## Layout
 
 - `src-tauri/src/` — Rust: windows and commands (`lib.rs`), the queue engine and its cache (`engine.rs`, with tests), the refresh loop, notifications and seen state (`watch.rs`), the tray icon (`tray.rs`), GitHub access (`github.rs`), the AI adapters (`ai.rs`) and the project checkouts they read (`checkout.rs`), custom actions' commands (`actions.rs`), updates (`update.rs`).
-- `src/lib/` — config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer.
-- `src/panel/`, `src/settings/`, `src/setup/`, `src/review/` — the four pages.
-- `src/dev/mock.ts` — sample data for working on the pages in a browser; never part of a build.
+- `src/entries/` — the four pages (panel, settings, setup, review): each plugs in the Tauri platform (`src/utils/tauri-platform/`) and draws a screen.
+- `../app/` (`@focus-diff/app`) — the screens and their logic: config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer, and the sample data (`src/utils/mock/`) for working on the pages in a browser, never part of a build.
+- `tests/` — end-to-end tests of the pages in Chromium and WebKit, on the sample data.

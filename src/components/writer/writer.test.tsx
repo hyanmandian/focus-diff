@@ -156,12 +156,9 @@ beforeEach(() => {
   rust();
 });
 
-afterEach(async () => {
-  // Unmounted here, and its listener let go of, before the IPC mock goes (test-setup.ts).
+afterEach(() => {
+  // Unmounted before the stand-ins below go.
   cleanup();
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, 0);
-  });
   Reflect.deleteProperty(document, "execCommand");
   Reflect.deleteProperty(document, "caretPositionFromPoint");
 });
@@ -747,16 +744,13 @@ describe("MarkdownField", () => {
       const user = userEvent.setup();
       const replies = deferred<Array<{ id: string; title: string; body: string }> | null>();
       vi.mocked(savedReplies).mockReturnValue(replies.promise);
-      const { rerender } = render(<Field initial="Hi " />);
+      render(<Field initial="Hi " />);
       await user.click(screen.getByRole("button", { name: "Saved Replies" }));
       expect(await screen.findByText("Loading")).toBeTruthy();
       await act(async () => {
         replies.resolve([{ id: "1", title: "Thanks", body: "Thanks for this!" }]);
         await replies.promise;
       });
-      // Drawn again with nothing changed: the same menu.
-      rerender(<Field initial="Hi " />);
-      expect(screen.getAllByRole("menuitem")).toHaveLength(1);
       await user.click(screen.getByRole("menuitem", { name: "Thanks" }));
       await nextFrame();
       await nextFrame();

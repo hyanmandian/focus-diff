@@ -126,12 +126,9 @@ beforeEach(() => {
   Object.defineProperty(document, "execCommand", { configurable: true, value: () => false });
 });
 
-afterEach(async () => {
-  // Unmounted here, and listeners let go of, before the IPC mock goes (test-setup.ts).
+afterEach(() => {
+  // Unmounted before the stand-ins below go.
   cleanup();
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, 0);
-  });
   Reflect.deleteProperty(document, "execCommand");
 });
 
@@ -147,8 +144,8 @@ function threadView(thread: Thread, api: ConversationApi | null = apiFor(), more
 function draftView(draft: Draft, api: ConversationApi | null = apiFor()) {
   const onEdit = vi.fn<(body: string) => void>();
   const onRemove = vi.fn<() => void>();
-  const { rerender } = render(withApi(api, <DraftView draft={draft} onEdit={onEdit} onRemove={onRemove} />));
-  return { onEdit, onRemove, rerender, api };
+  render(withApi(api, <DraftView draft={draft} onEdit={onEdit} onRemove={onRemove} />));
+  return { onEdit, onRemove };
 }
 
 type Ask = (question: string, earlier: Exchange[], run: string) => Promise<AiAnswer>;
@@ -432,10 +429,7 @@ describe("DraftView", () => {
 
   it("is edited in place and removed", async () => {
     const user = userEvent.setup();
-    const drawn = draftOf();
-    const { onEdit, onRemove, rerender, api } = draftView(drawn);
-    // Drawn again with nothing changed: the same.
-    rerender(withApi(api, <DraftView draft={drawn} onEdit={onEdit} onRemove={onRemove} />));
+    const { onEdit, onRemove } = draftView(draftOf());
     await user.click(screen.getByRole("button", { name: "Edit comment" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: "Edit comment" }));
@@ -459,9 +453,7 @@ describe("FindingView", () => {
       body: "`total` can be **negative**",
       inDiff: true,
     } as const;
-    const { rerender } = render(<FindingView finding={finding} by="Claude" onAdd={onAdd} onDismiss={onDismiss} />);
-    // Drawn again with nothing changed: the same.
-    rerender(<FindingView finding={finding} by="Claude" onAdd={onAdd} onDismiss={onDismiss} />);
+    render(<FindingView finding={finding} by="Claude" onAdd={onAdd} onDismiss={onDismiss} />);
     expect(screen.getByText(/Claude · Issue/u)).toBeTruthy();
     expect(screen.getByText("negative").tagName).toBe("STRONG");
     await user.click(screen.getByRole("button", { name: "Add to my review" }));

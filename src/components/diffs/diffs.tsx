@@ -48,7 +48,7 @@ import { ignoreWhitespace } from "@/utils/whitespace/whitespace";
 type Annotation =
   | { kind: "thread"; thread: Thread; moved: boolean }
   | { kind: "draft"; draft: Draft }
-  | { kind: "finding"; finding: Finding }
+  | { kind: "finding"; finding: Finding; side: Side }
   | { kind: "new"; path: string; range: SelectedLineRange; file?: boolean }
   | { kind: "rendered"; file: ReviewFile };
 
@@ -356,7 +356,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         ...fileFindings.map((finding) => ({
           side: findingSide(diff, finding.line),
           lineNumber: finding.line,
-          metadata: { kind: "finding" as const, finding },
+          metadata: { kind: "finding" as const, finding, side: findingSide(diff, finding.line) },
         })),
         ...(composing?.path === f.path
           ? [
@@ -476,20 +476,29 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     }
     props.onSay(done);
   };
-  /** A permalink: the new version's lines at the head commit, the old's at the merge base. */
-  const copyPermalink = async (path: string, lines?: { side: Side; start: number; end: number }) => {
-    if (!link || !source) return;
+  /** A permalink: the new version's lines at the head commit, the old's at the merge base. (Offered
+   *  only once both are known.) */
+  const copyPermalink = async (
+    to: LinkTarget,
+    from: Source,
+    path: string,
+    lines?: { side: Side; start: number; end: number },
+  ) => {
     const file = filesByPath.get(path);
     try {
       const old = lines?.side === "deletions" || file?.status === "removed";
-      const sha = old ? await source.base() : link.head;
-      await copy(permalink(link, sha, old ? (file?.previousPath ?? path) : path, lines), t("diff.linkCopied"));
+      const sha = old ? await from.base() : to.head;
+      await copy(permalink(to, sha, old ? (file?.previousPath ?? path) : path, lines), t("diff.linkCopied"));
     } catch (e) {
       props.onSay(e instanceof Error ? e.message : String(e));
     }
   };
-  const copyDiffLink = async (path: string, lines?: { side: Side; start: number; end: number; startSide: Side }) => {
-    if (link) await copy(await diffLink(link, path, lines), t("diff.linkCopied"));
+  const copyDiffLink = async (
+    to: LinkTarget,
+    path: string,
+    lines?: { side: Side; start: number; end: number; startSide: Side },
+  ) => {
+    await copy(await diffLink(to, path, lines), t("diff.linkCopied"));
   };
 
   /** A pending comment thrown away, once a native alert has asked. */
@@ -526,14 +535,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         onOpenChange={(open) => {
           if (!open) return;
           const line = hovered.current;
-          if (!line) {
-            setMenuAt(null);
-            return;
-          }
-          // Lines picked in that file: the menu is about them; otherwise the line under the pointer.
-          const range = composing?.path === line.path ? lineRange(composing.range) : null;
+          // Lines picked in that file: the menu is about them; otherwise the line under the pointer
+          // (and nothing away from a line).
+          const range = line && composing?.path === line.path ? lineRange(composing.range) : null;
           setMenuAt(
-            range
+            range && line
               ? {
                   path: line.path,
                   side: range.side,
@@ -541,7 +547,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                   start: range.startLine ?? range.line,
                   startSide: range.startSide ?? range.side,
                 }
-              : { path: line.path, side: line.side, start: line.line, end: line.line, startSide: line.side },
+              : line && { path: line.path, side: line.side, start: line.line, end: line.line, startSide: line.side },
           );
         }}
       >
@@ -659,18 +665,19 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                       <DropdownMenuItem onClick={() => void copy(file.path, t("diff.pathCopied"))}>
                         {t("diff.copyPath")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem disabled={!link || !source} onClick={() => void copyPermalink(file.path)}>
+                      <DropdownMenuItem
+                        disabled={!link || !source}
+                        onClick={() => void (link && source && copyPermalink(link, source, file.path))}
+                      >
                         {t("diff.copyPermalink")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem disabled={!link} onClick={() => void copyDiffLink(file.path)}>
+                      <DropdownMenuItem disabled={!link} onClick={() => void (link && copyDiffLink(link, file.path))}>
                         {t("diff.copyDiffLink")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         disabled={!link || file.status === "removed"}
-                        onClick={() => {
-                          if (link) void bridge.openUrl(permalink(link, link.head, file.path));
-                        }}
+                        onClick={() => void (link && bridge.openUrl(permalink(link, link.head, file.path)))}
                       >
                         {t("diff.openFile")}
                       </DropdownMenuItem>
@@ -712,21 +719,19 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                     onRemove={() => void removeDraft(a.draft.key)}
                   />
                 );
-              if (a.kind === "finding") {
-                const diff = diffOf(a.finding.path);
+              if (a.kind === "finding")
                 return (
                   <FindingView
                     finding={a.finding}
                     by={props.findingsBy}
                     onAdd={() => {
-                      props.onAcceptFinding(a.finding, diff ? findingSide(diff, a.finding.line) : "additions");
+                      props.onAcceptFinding(a.finding, a.side);
                     }}
                     onDismiss={() => {
                       props.onDismissFinding(a.finding);
                     }}
                   />
                 );
-              }
               return (
                 <NewComment
                   lines={a.file ? t("review.theFile") : describe(a.range, t)}
@@ -804,12 +809,20 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               <DropdownMenuItem
                 disabled={!link || !source || menuAt.startSide !== menuAt.side}
                 onClick={() =>
-                  void copyPermalink(menuAt.path, { side: menuAt.side, start: menuAt.start, end: menuAt.end })
+                  void (
+                    link &&
+                    source &&
+                    copyPermalink(link, source, menuAt.path, {
+                      side: menuAt.side,
+                      start: menuAt.start,
+                      end: menuAt.end,
+                    })
+                  )
                 }
               >
                 {t("diff.copyPermalink")}
               </DropdownMenuItem>
-              <DropdownMenuItem disabled={!link} onClick={() => void copyDiffLink(menuAt.path, menuAt)}>
+              <DropdownMenuItem disabled={!link} onClick={() => void (link && copyDiffLink(link, menuAt.path, menuAt))}>
                 {t("diff.copyDiffLink")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void copy(menuAt.path, t("diff.pathCopied"))}>

@@ -3,7 +3,7 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
-import { ChevronDown, ChevronUp, Columns2, GitMerge, Loader2, MoreHorizontal, Pilcrow, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Columns2, GitMerge, Loader2, MoreHorizontal, Pilcrow, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
@@ -49,11 +49,13 @@ import { Overview } from "./Overview";
 import { Shortcuts } from "./Shortcuts";
 import { RangeBanner, RangePicker } from "./Commits";
 import { MergeMenuItems, PullMenuItems } from "./PullMenus";
+import { useNextInQueue } from "./next";
 import { usePull } from "./usePull";
 
 /** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
  *  ("org/slug"), for leaving the review. */
-export type Target = { id: string; repo: string; number: number; teams: string[] };
+/** `queue`: the one it was opened from, whose next pull request the toolbar offers. */
+export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
 
 const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 
@@ -260,6 +262,10 @@ export function Review({ target }: { target: Target }) {
   // Viewed files opened anyway, to show a comment in one: they don't fold until marked again.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const learned = useLearned();
+  const { next: nextPull, go: goNext } = useNextInQueue(target.queue, prId);
+  const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
+  const goNextRef = useRef(goNext);
+  goNextRef.current = goNext;
   const minutesOf = useMemo(() => createEstimator(learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(`ai-review:${prId}`, null);
@@ -571,6 +577,12 @@ export function Review({ target }: { target: Target }) {
     const onKey = (e: KeyboardEvent) => {
       // Taken already (a menu's type-to-select, the file tree's arrows): not a shortcut.
       if (e.defaultPrevented || typing(e.target) || e.metaKey || e.ctrlKey) return;
+      // ⌘] on to the next pull request of the queue, as forward is in Safari.
+      if (e.metaKey && !e.shiftKey && !e.altKey && e.key === "]") {
+        e.preventDefault();
+        void goNextRef.current();
+        return;
+      }
       if (e.altKey && e.shiftKey) {
         const keys = filterKeys.current;
         const action = { Period: () => keys.stepPart(1), Comma: () => keys.stepPart(-1), Digit0: () => keys.choose([]), KeyJ: keys.goToNextFile }[e.code];
@@ -966,6 +978,34 @@ export function Review({ target }: { target: Target }) {
                 void changed();
               }}
             />
+          ) : null}
+          {/* On to the next pull request of the queue this one was opened from, in this window: the
+              last item, where the eye goes once the review is sent, as Mail's next message. */}
+          {nextPull ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    className={cn(TOOL, "gap-1 bg-fill pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
+                    aria-label={t("review.nextPullLabel", { queue: queueName, number: String(nextPull.pr.number), title: nextPull.pr.title })}
+                    aria-keyshortcuts="Meta+]"
+                    onClick={() => void goNext()}
+                  />
+                }
+              >
+                <span className="@max-[1360px]:sr-only">{t("review.nextPull")}</span>
+                <ChevronRight />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-80">
+                <span className="block font-semibold">
+                  {t("review.nextPullIn", { queue: queueName })} <Kbd>⌘]</Kbd>
+                </span>
+                <span className="block truncate">
+                  #{nextPull.pr.number} · {nextPull.pr.title}
+                </span>
+              </TooltipContent>
+            </Tooltip>
           ) : null}
         </div>
         </div>

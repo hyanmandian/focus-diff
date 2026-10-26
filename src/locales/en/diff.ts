@@ -58,4 +58,5 @@ export const diff = {
   keyOverview: "Overview",
   keyDiff: "Diff",
   keyHelp: "Keyboard shortcuts",
+  keyNextPull: "Next pull request in the queue",
 } as const;

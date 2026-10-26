@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bridge } from "@/lib/bridge";
 import { useT } from "@/lib/i18n";
+import { arrange } from "@/lib/arrange";
 import type { Item } from "@/lib/engine";
 import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, restore, useStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
@@ -74,7 +75,6 @@ const shortName = (repo: string, all: string[]) => {
   return all.filter((r) => r.endsWith(`/${name}`)).length > 1 ? repo : name;
 };
 
-type Group = { repo: string; items: Item[] };
 
 /** The header's buttons: 28pt, a 16pt glyph in the secondary label color; a fill only while pressed
  *  or while its menu is open (controls in a popover don't light up under the pointer). */
@@ -165,7 +165,7 @@ export function Panel() {
 
   const open = useCallback((item: Item, from?: DOMRect) => {
     markSeen(item);
-    void bridge.openReview(item.pr, item.viaTeams ?? [], from);
+    void bridge.openReview(item.pr, item.viaTeams ?? [], from, item.queueId);
   }, []);
 
   const list = queue ? (items[queue.id] ?? []) : [];
@@ -174,19 +174,7 @@ export function Panel() {
     (a, b) => list.filter((i) => i.pr.repository.nameWithOwner === b).length - list.filter((i) => i.pr.repository.nameWithOwner === a).length || a.localeCompare(b),
   );
   const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
-  // Within a repository: asked again first, then news, then the most recently active; drafts apart.
-  const at = (i: Item) => Math.max(...i.events.map((e) => e.at), Date.parse(i.pr.updatedAt));
-  const order = (a: Item, b: Item) =>
-    Number(b.events.some((e) => e.kind === "rerequest")) - Number(a.events.some((e) => e.kind === "rerequest")) || Number(unread(b)) - Number(unread(a)) || at(b) - at(a);
-  const groups: Group[] = [];
-  for (const item of narrowed.filter((i) => !i.pr.isDraft)) {
-    const name = item.pr.repository.nameWithOwner;
-    const group = groups.find((g) => g.repo === name) ?? groups[groups.push({ repo: name, items: [] }) - 1]!;
-    group.items.push(item);
-  }
-  for (const g of groups) g.items.sort(order);
-  groups.sort((a, b) => b.items.filter(unread).length - a.items.filter(unread).length || Math.max(...b.items.map(at)) - Math.max(...a.items.map(at)));
-  const drafts = narrowed.filter((i) => i.pr.isDraft).sort(order);
+  const { groups, drafts } = arrange(narrowed, unread);
   const unreadHere = list.filter(unread).length;
   // What's picked and has since gone (done elsewhere, off the list) isn't picked any more.
   const pickedHere = list.filter((i) => picked.has(i.pr.id));

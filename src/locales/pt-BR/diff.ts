@@ -52,4 +52,5 @@ export const diff: Dictionary["diff"] = {
   keyOverview: "Visão geral",
   keyDiff: "Diff",
   keyHelp: "Atalhos de teclado",
+  keyNextPull: "Próximo pull request da fila",
 };

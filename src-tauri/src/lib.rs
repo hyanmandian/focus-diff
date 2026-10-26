@@ -552,14 +552,24 @@ struct ReviewTarget {
     repo: String,
     number: u64,
     teams: Vec<String>,
+    /// The queue it was opened from, whose next one the window offers.
+    queue: Option<String>,
+}
+
+/// Whether a pull request's id, repository, teams and queue are what GitHub and the app make: they
+/// go into a window's address and events.
+fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> bool {
+    let token = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    let name = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
+    token(id) && name(repo) && teams.iter().all(|t| name(t)) && queue.is_none_or(token)
 }
 
 /// A pull request in its own window, one per pull request; opening one that's already open brings
 /// it back.
 #[tauri::command]
-fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, from: Option<Card>) -> Result<(), String> {
-    let name = |s: &String| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !name(&repo) || !teams.iter().all(name) {
+#[allow(clippy::too_many_arguments)]
+fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
+    if !plausible(&id, &repo, &teams, queue.as_deref()) {
         return Err("Bad pull request".into());
     }
     let reviews = app.state::<Reviews>();
@@ -571,7 +581,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         activate();
         return window.set_focus().map_err(|e| e.to_string());
     }
-    let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone() };
+    let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone(), queue: queue.clone() };
     // Only a spare that's listening; one still loading stays for the next click.
     let spare = {
         let mut spare = reviews.spare.lock().unwrap();
@@ -588,7 +598,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         }
         None => {
             let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
-            let url = format!("review.html?id={}&repo={}&number={number}&teams={}", encode(&id), encode(&repo), encode(&teams.join(",")));
+            let url = format!("review.html?id={}&repo={}&number={number}&teams={}&queue={}", encode(&id), encode(&repo), encode(&teams.join(",")), encode(queue.as_deref().unwrap_or("")));
             let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
             let window = review_builder(&app, &label, url, &title).build().map_err(|e| e.to_string())?;
             native_toolbar(&window);
@@ -607,6 +617,32 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     window.set_focus().map_err(|e| e.to_string())
 }
 
+
+/// A review window moving on to the next pull request of its queue: the same window shows it, so
+/// going through a queue leaves one window, not one per pull request. One already open in a window
+/// of its own is brought forward instead.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>) -> Result<(), String> {
+    if !plausible(&id, &repo, &teams, queue.as_deref()) {
+        return Err("Bad pull request".into());
+    }
+    let reviews = app.state::<Reviews>();
+    let elsewhere = reviews.open.lock().unwrap().get(&id).cloned().filter(|label| label != window.label());
+    if let Some(other) = elsewhere.and_then(|label| app.get_webview_window(&label)) {
+        let _ = other.unminimize();
+        other.show().map_err(|e| e.to_string())?;
+        activate();
+        return other.set_focus().map_err(|e| e.to_string());
+    }
+    {
+        let mut open = reviews.open.lock().unwrap();
+        open.retain(|_, label| label != window.label());
+        open.insert(id.clone(), window.label().to_string());
+    }
+    let _ = window.set_title(&title);
+    window.emit_to(window.label(), "review-open", ReviewTarget { id, repo, number, teams, queue }).map_err(|e| e.to_string())
+}
 
 /// The card a review was opened from, in the panel's points from its top left.
 #[derive(Clone, Copy, serde::Deserialize)]
@@ -1121,6 +1157,7 @@ pub fn run() {
             update_offered,
             install_update,
             open_review,
+            switch_review,
             hide_panel,
             log,
             quit,

@@ -72,6 +72,17 @@ export class GitHubError extends Error {
   }
 }
 
+type ReviewPull = { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null };
+
+const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string) => ({
+  id: pr.id,
+  repo: pr.repository.nameWithOwner,
+  number: pr.number,
+  teams,
+  queue: queue ?? null,
+  title: `#${pr.number} · ${pr.title} · ${pr.author?.name?.trim().split(/\s+/)[0] || pr.author?.login || ""}`,
+});
+
 export const bridge = {
   /** Marks a file viewed, or not, on github.com: Rust keeps it until GitHub takes it (outbox.rs).
    *  `pull`: the pull request's node id. */
@@ -146,16 +157,12 @@ export const bridge = {
   openPanel: () => invoke<void>("open_panel"),
   /** A pull request's review window: its overview, conversation and diff. `teams`: the ones its
    *  review was asked of on your behalf, for leaving the review. */
-  /** `from`: the card clicked, so the window grows out of it. */
-  openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }, teams: string[] = [], from?: DOMRect) =>
-    invoke<void>("open_review", {
-      from: from && { x: from.x, y: from.y, width: from.width, height: from.height },
-      id: pr.id,
-      repo: pr.repository.nameWithOwner,
-      number: pr.number,
-      teams,
-      title: `#${pr.number} · ${pr.title} · ${pr.author?.name?.trim().split(/\s+/)[0] || pr.author?.login || ""}`,
-    }),
+  /** `from`: the card clicked, so the window grows out of it. `queue`: the queue it was opened
+   *  from, whose next one the window offers. */
+  openReview: (pr: ReviewPull, teams: string[] = [], from?: DOMRect, queue?: string) =>
+    invoke<void>("open_review", { from: from && { x: from.x, y: from.y, width: from.width, height: from.height }, ...reviewArgs(pr, teams, queue) }),
+  /** This review window, on to another pull request of its queue (or to its own window, if open). */
+  switchReview: (pr: ReviewPull, teams: string[], queue: string) => invoke<void>("switch_review", reviewArgs(pr, teams, queue)),
   /** A newer version, if there is one (checking GitHub's releases now). */
   checkUpdate: () => invoke<string | null>("check_update"),
   /** The newer version found by the last check, if any. */

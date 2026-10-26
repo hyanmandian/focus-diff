@@ -33,7 +33,8 @@ const show = (target: Target) =>
     <StrictMode>
       <WorkerPoolContext.Provider value={pool}>
         <TooltipProvider>
-          <Review target={target} />
+          {/* A pull request of its own: moving on to the next one starts afresh. */}
+          <Review key={target.id} target={target} />
           <Viewer />
         </TooltipProvider>
       </WorkerPoolContext.Provider>
@@ -41,18 +42,24 @@ const show = (target: Target) =>
   );
 
 const params = new URLSearchParams(location.search);
+// Told which pull request to show: as a spare, the first; then the next of its queue (switch_review).
+void listen<Target>("review-open", ({ payload }) => {
+  // From here to "loaded" is how long a click takes to show the pull request.
+  performance.mark("opened");
+  // In the address too, so reloading the window keeps the pull request.
+  const query = new URLSearchParams({ id: payload.id, repo: payload.repo, number: String(payload.number), teams: payload.teams.join(","), queue: payload.queue ?? "" });
+  history.replaceState(null, "", `?${query}`);
+  show(payload);
+});
 if (params.get("id")) {
-  show({ id: params.get("id")!, repo: params.get("repo") ?? "", number: Number(params.get("number")), teams: (params.get("teams") ?? "").split(",").filter(Boolean) });
-} else {
-  const stop = await listen<Target>("review-open", ({ payload }) => {
-    stop();
-    // From here to "loaded" is how long a click takes to show the pull request.
-    performance.mark("opened");
-    // In the address too, so reloading the window keeps the pull request.
-    const query = new URLSearchParams({ id: payload.id, repo: payload.repo, number: String(payload.number), teams: payload.teams.join(",") });
-    history.replaceState(null, "", `?${query}`);
-    show(payload);
+  show({
+    id: params.get("id")!,
+    repo: params.get("repo") ?? "",
+    number: Number(params.get("number")),
+    teams: (params.get("teams") ?? "").split(",").filter(Boolean),
+    queue: params.get("queue") || null,
   });
+} else {
   // Only now can it be told: until this, a click opens a fresh window instead.
   void invoke("spare_ready").catch(() => {});
 }

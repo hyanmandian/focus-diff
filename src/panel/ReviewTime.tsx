@@ -28,7 +28,7 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
       .flat()
       .find((i) => i.pr.id === pull.id);
     if (item) markSeen(item);
-    void bridge.openReview(item?.pr ?? { id: pull.id, number: pull.number, title: pull.title, repository: { nameWithOwner: pull.repo }, author: null }, item?.viaTeams ?? []);
+    void bridge.openReview(item?.pr ?? { id: pull.id, number: pull.number, title: pull.title, repository: { nameWithOwner: pull.repo }, author: null }, item?.viaTeams ?? [], undefined, item?.queueId);
   };
 
   return (

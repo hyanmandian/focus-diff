@@ -76,6 +76,16 @@ const sendMessage = () =>
   vi.spyOn(fakeBrowser.runtime, "sendMessage") as unknown as MockInstance<(message: Message) => Promise<unknown>>;
 
 /** A fresh module each time: the minutes picked and what was drawn are kept while the popup is open. */
+/** What the popup hands the review panel, each a mock; the avatar is an image named after its login. */
+const panelOptions = () => ({
+  avatar: vi.fn<(login: string) => HTMLElement>((login) =>
+    Object.assign(document.createElement("img"), { alt: login }),
+  ),
+  openOptions: vi.fn<(section: string) => void>(),
+  skip: vi.fn<(until: number) => void>(),
+  close: vi.fn<() => void>(),
+});
+
 const mount = async (initial: ReviewState, reply: unknown = true) => {
   vi.resetModules();
   const { renderReviewPanel } = await import("./popup-review-time");
@@ -87,14 +97,7 @@ const mount = async (initial: ReviewState, reply: unknown = true) => {
     sent.push(message);
     return Promise.resolve(reply);
   });
-  const options = {
-    avatar: vi.fn<(login: string) => HTMLElement>((login) =>
-      Object.assign(document.createElement("img"), { alt: login }),
-    ),
-    openOptions: vi.fn<(section: string) => void>(),
-    skip: vi.fn<(until: number) => void>(),
-    close: vi.fn<() => void>(),
-  };
+  const options = panelOptions();
   let current = initial;
   const render = () => {
     renderReviewPanel(card, current, options, render);
@@ -345,12 +348,7 @@ describe("renderReviewPanel", () => {
       card.id = "review-card";
       document.body.replaceChildren(card);
       sendMessage().mockRejectedValue(new Error("No listener"));
-      const options = {
-        avatar: vi.fn<(login: string) => HTMLElement>(),
-        openOptions: vi.fn<(section: string) => void>(),
-        skip: vi.fn<(until: number) => void>(),
-        close: vi.fn<() => void>(),
-      };
+      const options = panelOptions();
       const render = () => {
         renderReviewPanel(card, state(), options, render);
       };

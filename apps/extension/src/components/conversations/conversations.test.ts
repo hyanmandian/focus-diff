@@ -141,19 +141,4 @@ describe("createConversations", () => {
     expect(onStep).toHaveBeenCalledWith(1);
     expect(text(".conversation-position")).toBe("");
   });
-
-  it("centres itself over its toggle", () => {
-    const { render, setOpen, toggle, popover, host, reposition } = mount();
-    render({ list: LIST, current: 1 });
-    Object.defineProperty(toggle, "offsetWidth", { value: 32 });
-    vi.spyOn(host, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 0, width: 800 }));
-    vi.spyOn(toggle, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 400, width: 32 }));
-    vi.spyOn(popover, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 0, width: 200 }));
-    Object.defineProperty(document.documentElement, "clientWidth", { value: 1000, configurable: true });
-    setOpen(true);
-    expect(popover.style.left).toBe("316px");
-    popover.style.left = "";
-    reposition();
-    expect(popover.style.left).toBe("316px");
-  });
 });

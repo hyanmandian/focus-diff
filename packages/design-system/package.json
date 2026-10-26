@@ -35,6 +35,7 @@
     "./components/toggle-group": "./src/components/toggle-group/toggle-group.tsx",
     "./components/tooltip": "./src/components/tooltip/tooltip.tsx",
     "./utils/cn": "./src/utils/cn/cn.ts",
+    "./utils/portal-container": "./src/utils/portal-container/portal-container.ts",
     "./styles.css": "./src/styles/styles.css",
     "./styles/tokens.css": "./src/styles/tokens.css",
     "./styles/utilities.css": "./src/styles/utilities.css",

@@ -3,6 +3,7 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { cn } from "../../utils/cn/cn";
+import { usePortalContainer } from "../../utils/portal-container/portal-container";
 
 // AppKit's tooltip timing: one appears after the pointer rests a moment (about a second); while one
 // is showing, its neighbours open at once.
@@ -29,7 +30,7 @@ function TooltipContent({
 }: TooltipPrimitive.Popup.Props &
   Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={usePortalContainer()}>
       <TooltipPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}

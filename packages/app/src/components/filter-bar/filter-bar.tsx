@@ -342,6 +342,7 @@ export function FilterBar({
             align="center"
             sideOffset={10}
             className="w-max max-w-[min(560px,calc(100vw-2rem))] rounded-[12px] p-0"
+            aria-label={t("review.breakdownTitle")}
           >
             <Breakdown
               files={files}

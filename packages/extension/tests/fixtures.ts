@@ -4,8 +4,6 @@ import path from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium, test as base, type BrowserContext, type Locator, type Page, type Worker } from "@playwright/test";
 
-import type { Config } from "../src/utils/filters/filters";
-
 const extensionPath = path.resolve(".output/chrome-mv3");
 const pullRequestHtml = readFileSync(path.resolve("tests/fixtures/pull-request.html"), "utf8");
 const virtualizedHtml = readFileSync(path.resolve("tests/fixtures/pull-request-virtualized.html"), "utf8");
@@ -19,13 +17,34 @@ const largeHtml = pullRequestHtml
   .replace("['web/src/book-card.tsx', 40, 10", "['web/src/book-card.tsx', 12040, 1510")
   .replace("['api/books/service.py', 25, 10", "['api/books/service.py', 2525, 310");
 
+/** A filter of the app's setup (config.json's `filters`). */
+export interface Filter {
+  id: string;
+  name: string;
+  include: string;
+  exclude: string;
+  repos: string[];
+}
+
+/** The part of the app's setup the bar reads. */
+export interface Config {
+  filters: Filter[];
+  theme?: "system" | "light" | "dark";
+  language?: "system" | "en" | "pt-BR";
+}
+
 export const DEFAULT_CONFIG: Config = {
-  global: [
-    { id: "frontend", name: "Frontend", include: "\\.(ts|tsx|js|jsx)$", exclude: "\\.(test|spec|stories)\\." },
-    { id: "backend", name: "Backend", include: "\\.py$", exclude: "(^|/)tests/" },
-    { id: "docs", name: "Docs", include: "\\.mdx?$", exclude: "" },
+  filters: [
+    {
+      id: "frontend",
+      name: "Frontend",
+      include: "\\.(ts|tsx|js|jsx)$",
+      exclude: "\\.(test|spec|stories)\\.",
+      repos: [],
+    },
+    { id: "backend", name: "Backend", include: "\\.py$", exclude: "(^|/)tests/", repos: [] },
+    { id: "docs", name: "Docs", include: "\\.mdx?$", exclude: "", repos: [] },
   ],
-  repos: [],
 };
 
 /** Chrome picks its UI language, and so the extension's, from `--lang` everywhere but macOS. */
@@ -74,7 +93,8 @@ export const test = base.extend<Fixtures>({
 
   seed: async ({ background }, use) => {
     await use(async (config) => {
-      await background.evaluate((value) => chrome.storage.sync.set({ config: value }), config);
+      // The app's setup, as the background keeps config.json (src/utils/app-files).
+      await background.evaluate((text) => chrome.storage.local.set({ "file.config": text }), JSON.stringify(config));
     });
   },
 
@@ -89,9 +109,8 @@ export const test = base.extend<Fixtures>({
       page.on("pageerror", (error) => pageErrors.push(error.message));
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(url);
-      await page
-        .locator("focus-diff-panel .panel")
-        .waitFor({ state: url.endsWith("/changes") ? "visible" : "attached" });
+      if (url.endsWith("/changes")) await page.locator("focus-diff-bar [role=group]").waitFor();
+      else await page.locator("focus-diff-bar").waitFor({ state: "attached" });
       return page;
     });
   },

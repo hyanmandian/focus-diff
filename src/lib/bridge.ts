@@ -116,6 +116,7 @@ export const bridge = {
   markSeen: (queueId: string, prId: string) => invoke<void>("mark_seen", { queueId, prId }),
   markQueueSeen: (queueId: string) => invoke<void>("mark_queue_seen", { queueId }),
   dismiss: (queueId: string, prId: string) => invoke<void>("dismiss", { queueId, prId }),
+  restore: (queueId: string, prId: string) => invoke<void>("restore", { queueId, prId }),
   clearArrival: (prId: string) => invoke<void>("clear_arrival", { prId }),
   /** Ends the review time under way before its time is up. */
   endReview: () => invoke<void>("end_review"),

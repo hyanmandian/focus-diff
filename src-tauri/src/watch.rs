@@ -119,8 +119,13 @@ struct State {
     backoff: i64,
     /// What the tray shows of review time's countdown.
     countdown: Option<i64>,
+    /// Pull requests just taken off by hand, with the event keys that counted as seen then, for
+    /// Undo to put back as they were. The latest few only.
+    dismissed_now: Vec<(String, Item, Vec<String>)>,
 }
 
+/// How many pull requests taken off by hand Undo can still put back.
+const MOST_UNDONE: usize = 50;
 const FIRST_BACKOFF: i64 = 5 * 60_000;
 const LONGEST_BACKOFF: i64 = 30 * 60_000;
 
@@ -305,6 +310,7 @@ impl Watch {
             retry_at: 0,
             backoff: 0,
             countdown: None,
+            dismissed_now: vec![],
         }));
         let watch = Watch { sender: sender.clone(), state: state.clone() };
         let app = app.clone();
@@ -402,9 +408,14 @@ impl Watch {
     /// the queue's search.
     pub fn dismiss<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
-            let keys: Vec<String> = state.find(queue_id, pr_id).map(|i| i.events.iter().map(|e| e.key.clone()).collect()).unwrap_or_default();
-            for key in keys {
-                state.persisted.seen.insert(key, true);
+            if let Some(item) = state.find(queue_id, pr_id).cloned() {
+                let fresh: Vec<String> = item.events.iter().map(|e| e.key.clone()).filter(|k| !state.persisted.seen.contains_key(k)).collect();
+                for key in &fresh {
+                    state.persisted.seen.insert(key.clone(), true);
+                }
+                state.dismissed_now.push((queue_id.to_string(), item, fresh));
+                let extra = state.dismissed_now.len().saturating_sub(MOST_UNDONE);
+                state.dismissed_now.drain(..extra);
             }
             state.persisted.dismissed.insert(format!("{queue_id}:{pr_id}"), true);
             state.arrivals.remove(pr_id);
@@ -412,6 +423,23 @@ impl Watch {
                 if id == queue_id {
                     items.retain(|i| i.pr.id != pr_id);
                 }
+            }
+        });
+    }
+
+    /// Undo for `dismiss`: the pull request back on its queue, as unread as it was.
+    pub fn restore<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str, pr_id: &str) {
+        self.change(app, |state| {
+            state.persisted.dismissed.remove(&format!("{queue_id}:{pr_id}"));
+            let Some(at) = state.dismissed_now.iter().position(|(q, i, _)| q == queue_id && i.pr.id == pr_id) else { return };
+            let (_, item, fresh) = state.dismissed_now.remove(at);
+            for key in fresh {
+                state.persisted.seen.remove(&key);
+            }
+            if let Some((_, items)) = state.items.iter_mut().find(|(id, _)| id == queue_id)
+                && !items.iter().any(|i| i.pr.id == pr_id)
+            {
+                items.push(item);
             }
         });
     }

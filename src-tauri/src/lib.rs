@@ -135,6 +135,11 @@ fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_
     watch.dismiss(&app, &queue_id, &pr_id);
 }
 
+#[tauri::command]
+fn restore(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_id: String) {
+    watch.restore(&app, &queue_id, &pr_id);
+}
+
 /// The panel's End on a review time under way.
 #[tauri::command]
 fn end_review(watch: State<'_, watch::Watch>) {
@@ -985,6 +990,7 @@ pub fn run() {
             mark_seen,
             mark_queue_seen,
             dismiss,
+            restore,
             end_review,
             clear_arrival,
             github,

@@ -2,7 +2,7 @@
 // on at once; none is All), the lines in view with the time left to review them, and a breakdown of
 // what each filter holds.
 
-import { Check, ChartBarStacked, ChevronsDown } from "lucide-react";
+import { ChartBarStacked, Check, ChevronsDown, CircleCheck, Clock, FileText, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Kbd } from "@/components/ui/kbd";
@@ -56,7 +56,7 @@ function Diffstat({ additions, deletions }: { additions: number; deletions: numb
   return (
     <span className="flex gap-px" aria-hidden>
       {[0, 1, 2, 3, 4].map((i) => (
-        <span key={i} className={cn("size-[7px] rounded-[1.5px]", i < added ? "bg-success" : i < added + removed ? "bg-destructive" : "bg-muted-foreground/25")} />
+        <span key={i} className={cn("size-2 rounded-[1px]", i < added ? "bg-success" : i < added + removed ? "bg-destructive" : "bg-foreground/15")} />
       ))}
     </span>
   );
@@ -67,53 +67,61 @@ function Diffstat({ additions, deletions }: { additions: number; deletions: numb
 function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onToggle }: Pick<Props, "files" | "filters" | "chosen" | "isViewed" | "minutesOf" | "learned" | "onToggle">) {
   const t = useT();
   const rows = [{ id: "", name: t("review.all"), sums: totals(files, isViewed, minutesOf) }, ...filters.map((f) => ({ id: f.id, name: f.name, sums: totals(files.filter((x) => inFilter(f, x.path)), isViewed, minutesOf) }))];
+  // As the extension's: no title (the button says what it is), the columns over hairline-split rows,
+  // the time column explained by the (i) beside it.
   return (
-    <div className="flex flex-col gap-2">
-      <p className="px-1 text-headline font-bold">{t("review.breakdownTitle")}</p>
-      <div role="group" aria-label={t("review.filters")} className="grid grid-cols-[14px_minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 text-callout">
-        <div aria-hidden className="col-span-full grid grid-cols-subgrid px-2 pb-1 text-subheadline text-muted-foreground">
-          <span />
-          <span>{t("review.columnFilter")}</span>
-          <span className="text-right">{t("review.columnViewed")}</span>
-          <span>{t("review.columnLines")}</span>
-          <span className="text-right">{t("review.columnTime")}</span>
-        </div>
-        {rows.map(({ id, name, sums }) => {
-          const selected = id ? chosen.includes(id) : !chosen.length;
-          const complete = sums.files > 0 && sums.viewed === sums.files;
-          // A filter with nothing in this pull request can't be turned on.
-          const empty = sums.files === 0 && !selected;
-          const left = sums.minutesLeft === 0 ? "" : t.duration(sums.minutesLeft);
-          return (
-            <button
-              key={id || "all"}
-              type="button"
-              aria-pressed={selected}
-              aria-disabled={empty}
-              title={empty ? t("review.noFilesInFilter", { name }) : undefined}
-              aria-label={t("review.breakdownRow", { name, files: t("common.files", { count: sums.files }), viewed: sums.viewed, additions: sums.additions, deletions: sums.deletions, left: sums.minutesLeft === 0 ? t("review.done") : t("review.leftToReview", { time: left }) })}
-              onClick={() => !empty && onToggle(id)}
-              className={cn(
-                "col-span-full grid h-(--row-h-sm) cursor-default grid-cols-subgrid items-center rounded-(--radius-row) px-2 text-left outline-none focus-ring-inset active:bg-fill",
-                empty && "text-muted-foreground active:bg-transparent",
-              )}
-            >
-              <span aria-hidden>{selected ? <Check className="size-3.5" /> : null}</span>
-              <span className="truncate font-medium">{name}</span>
-              <span className={cn("text-right tabular-nums", complete ? "text-success" : "text-muted-foreground")}>
-                {sums.viewed}/{sums.files}
-              </span>
-              <span className="flex items-center gap-1.5 font-mono text-subheadline tabular-nums">
-                <span className="text-success">+{sums.additions}</span>
-                <span className="text-destructive">−{sums.deletions}</span>
-                <Diffstat additions={sums.additions} deletions={sums.deletions} />
-              </span>
-              <span className="text-right text-muted-foreground tabular-nums">{left}</span>
-            </button>
-          );
-        })}
+    <div role="group" aria-label={t("review.filters")} className="grid max-h-[min(52vh,420px)] grid-cols-[16px_minmax(96px,max-content)_repeat(3,max-content)] gap-x-4 overflow-y-auto overscroll-contain p-2 text-body tabular-nums">
+      <div className="col-span-full grid grid-cols-subgrid items-center border-b border-border/60 px-2 pb-1.5 text-callout leading-4 text-muted-foreground">
+        <span />
+        <span>{t("review.columnFilter")}</span>
+        <span className="-ml-1.5">{t("review.columnViewed")}</span>
+        <span className="ml-5 justify-self-end">{t("review.columnLines")}</span>
+        <span className="inline-flex items-center gap-0.5 justify-self-end">
+          {t("review.columnTime")}
+          <Tooltip>
+            <TooltipTrigger render={<button type="button" className="grid size-5 cursor-default place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-ring" aria-label={t("review.columnTime")} aria-description={timeHint(learned, t)} />}>
+              <Info className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-72">{timeHint(learned, t)}</TooltipContent>
+          </Tooltip>
+        </span>
       </div>
-      <p className="px-1 text-subheadline leading-snug text-muted-foreground">{timeHint(learned, t)}</p>
+      {rows.map(({ id, name, sums }, i) => {
+        const selected = id ? chosen.includes(id) : !chosen.length;
+        const complete = sums.files > 0 && sums.viewed === sums.files;
+        // A filter with nothing in this pull request can't be turned on.
+        const empty = sums.files === 0 && !selected;
+        const left = sums.minutesLeft === 0 ? "" : t.duration(sums.minutesLeft);
+        return (
+          <button
+            key={id || "all"}
+            type="button"
+            aria-pressed={selected}
+            aria-disabled={empty}
+            title={empty ? t("review.noFilesInFilter", { name }) : undefined}
+            aria-label={t("review.breakdownRow", { name, files: t("common.files", { count: sums.files }), viewed: sums.viewed, additions: sums.additions, deletions: sums.deletions, left: sums.minutesLeft === 0 ? t("review.done") : t("review.leftToReview", { time: left }) })}
+            onClick={() => !empty && onToggle(id)}
+            className={cn(
+              // Rows apart on a hairline that gives way under the pointer.
+              "peer relative col-span-full grid min-h-9 cursor-default grid-cols-subgrid items-center rounded-[6px] px-2 text-left outline-none transition-colors duration-100 focus-ring-inset hover:bg-foreground/6",
+              i > 0 && "before:absolute before:inset-x-2 before:-top-px before:border-t before:border-border/60 hover:before:border-transparent [.peer:hover+&]:before:border-transparent",
+              empty && "text-muted-foreground opacity-60 hover:bg-transparent",
+            )}
+          >
+            <span aria-hidden className="grid text-primary">{selected ? <Check className="size-4" /> : null}</span>
+            <span className={cn("truncate", selected && "font-semibold")}>{name}</span>
+            <span className={cn("-ml-1.5", complete ? "font-semibold text-success" : "text-muted-foreground")}>
+              {sums.viewed}/{sums.files}
+            </span>
+            <span className="ml-5 flex items-center gap-1.5 justify-self-end">
+              <span className="text-success">+{sums.additions}</span>
+              <span className="text-destructive">−{sums.deletions}</span>
+              <Diffstat additions={sums.additions} deletions={sums.deletions} />
+            </span>
+            <span className="justify-self-end font-semibold">{left}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -137,13 +145,13 @@ export function FilterBar(props: Props) {
         onClick={() => onToggle(id)}
         className={cn(
           // Toggle buttons: the ones on in the accent, no highlight under the pointer.
-          "flex h-(--toolbar-item-h) shrink-0 cursor-default items-center gap-1.5 rounded-[10px] pr-1.5 pl-2.5 text-body outline-none focus-ring",
-          pressed ? "bg-selected text-selected-foreground" : "active:bg-fill",
+          "flex h-8 shrink-0 cursor-default items-center gap-1.5 rounded-[8px] pr-2 pl-3 text-body font-medium outline-none transition-colors duration-150 focus-ring",
+          pressed ? "bg-primary text-primary-foreground" : "hover:bg-foreground/6 active:bg-fill",
           count === 0 && !pressed && "text-muted-foreground",
         )}
       >
         {name}
-        <span className={cn("rounded-full px-1.5 text-subheadline leading-[18px] tabular-nums", pressed ? "bg-black/16" : "bg-muted text-muted-foreground")}>{count}</span>
+        <span className={cn("min-w-5 rounded-full px-1.5 text-center text-subheadline leading-[18px] font-semibold tabular-nums", pressed ? "bg-black/16" : "bg-foreground/10 text-muted-foreground")}>{count}</span>
       </button>
     );
   };
@@ -154,11 +162,11 @@ export function FilterBar(props: Props) {
       aria-label={t("review.reviewOnePart")}
       aria-keyshortcuts={filters.length ? "Alt+Shift+. Alt+Shift+," : undefined}
       // Floats over the code on the system's menu material (opaque with Reduce Transparency).
-      className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-[14px] bg-(--material-menu) p-1 shadow-(--shadow-menu) backdrop-blur-xl [scrollbar-width:none]"
+      className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-[12px] border border-border bg-popover p-1.5 shadow-(--shadow-menu) [scrollbar-width:none]"
     >
       <Tooltip>
         <TooltipTrigger
-          render={<Button variant="ghost" size="icon" className="shrink-0 rounded-[10px]" aria-label={label} aria-disabled={stuck} aria-keyshortcuts="Alt+Shift+J" onClick={() => !stuck && onNextFile()} />}
+          render={<Button variant="ghost" size="icon" className="size-8 shrink-0 rounded-[8px] text-muted-foreground" aria-label={label} aria-disabled={stuck} aria-keyshortcuts="Alt+Shift+J" onClick={() => !stuck && onNextFile()} />}
         >
           <ChevronsDown className={cn(stuck && "opacity-50")} />
         </TooltipTrigger>
@@ -168,44 +176,55 @@ export function FilterBar(props: Props) {
       </Tooltip>
       {filters.length ? (
         <>
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />
+          <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
           {chip("", t("review.all"), files.length)}
           {filters.map((f) => chip(f.id, f.name, counts.get(f.id) ?? 0))}
         </>
       ) : null}
-      <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
-      <span className="shrink-0 font-mono text-subheadline whitespace-nowrap tabular-nums" aria-label={t("review.linesInView", { additions: shown.additions, deletions: shown.deletions })}>
-        <span className="text-success">+{shown.additions}</span> <span className="text-destructive">−{shown.deletions}</span>
+      {/* The files left, the lines they change and the time they take, each after its icon. */}
+      <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
+      <span className="flex shrink-0 items-center gap-3.5 px-1 text-body font-medium whitespace-nowrap text-muted-foreground tabular-nums">
+        <span className="flex items-center gap-1.5" aria-label={t("common.files", { count: shown.files - shown.viewed })}>
+          <FileText className="size-4" aria-hidden />
+          {shown.files - shown.viewed}
+        </span>
+        <span className="flex items-center gap-1.5" aria-label={t("review.linesInView", { additions: shown.additions, deletions: shown.deletions })}>
+          <span className="text-success">+{shown.additions}</span>
+          <span className="text-destructive">−{shown.deletions}</span>
+        </span>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                tabIndex={0}
+                className="flex items-center gap-1.5 rounded-md outline-none focus-ring"
+                aria-label={done ? t("review.doneLabel") : t("review.aboutLeft", { time: t.duration(shown.minutesLeft).replace(/^~/, "") })}
+              />
+            }
+          >
+            {done ? (
+              <span className="flex h-[22px] items-center gap-1 rounded-full bg-success/6 pr-2.5 pl-1.5 font-semibold text-success shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--success)_35%,transparent)] animate-in zoom-in-75 fade-in-0 duration-300 motion-reduce:animate-none">
+                <CircleCheck className="size-3.5" aria-hidden /> {t("review.done")}
+              </span>
+            ) : (
+              <>
+                <Clock className="size-4" aria-hidden />
+                {t.duration(shown.minutesLeft)}
+              </>
+            )}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-72">{timeHint(learned, t)}</TooltipContent>
+        </Tooltip>
       </span>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span
-              tabIndex={0}
-              className="shrink-0 rounded-md px-1.5 text-subheadline whitespace-nowrap text-muted-foreground tabular-nums outline-none focus-ring"
-              aria-label={done ? t("review.doneLabel") : t("review.aboutLeft", { time: t.duration(shown.minutesLeft).replace(/^~/, "") })}
-            />
-          }
-        >
-          {done ? (
-            <span className="flex items-center gap-1 text-success">
-              <Check className="size-3" aria-hidden /> {t("review.done")}
-            </span>
-          ) : (
-            t("review.timeLeft", { time: t.duration(shown.minutesLeft) })
-          )}
-        </TooltipTrigger>
-        <TooltipContent className="max-w-72">{timeHint(learned, t)}</TooltipContent>
-      </Tooltip>
       {filters.length ? (
         <Popover>
           <Tooltip>
-            <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon" className="shrink-0 rounded-[10px]" aria-label={t("review.breakdown")} />} />}>
+            <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon" className="size-8 shrink-0 rounded-[8px] text-muted-foreground aria-expanded:bg-foreground/6 aria-expanded:text-foreground" aria-label={t("review.breakdown")} />} />}>
               <ChartBarStacked />
             </TooltipTrigger>
             <TooltipContent>{t("review.breakdownTitle")}</TooltipContent>
           </Tooltip>
-          <PopoverContent side="top" align="end" className="w-auto min-w-80 max-w-[min(32rem,calc(100vw-2rem))]">
+          <PopoverContent side="top" align="center" sideOffset={10} className="w-max max-w-[min(560px,calc(100vw-2rem))] rounded-[12px] p-0">
             <Breakdown {...props} />
           </PopoverContent>
         </Popover>

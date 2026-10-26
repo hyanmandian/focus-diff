@@ -42,6 +42,12 @@ export const panel: Dictionary["panel"] = {
   openOnGitHub: "Abrir no GitHub",
   markSeen: "Marcar como visto",
   ignore: "Ignorar",
+  select: "Selecionar {title}",
+  selected: { one: "{count} selecionado", other: "{count} selecionados" },
+  clear: "Limpar",
+  markDone: "Marcar como feito",
+  marked: { one: "{count} marcado como feito", other: "{count} marcados como feitos" },
+  undo: "Desfazer",
 
   minutesLeft: "faltam {minutes} min",
   end: "Encerrar",

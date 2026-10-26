@@ -100,6 +100,13 @@ export function dismiss(item: Item) {
   void bridge.dismiss(item.queueId, item.pr.id);
 }
 
+/** Undo for `dismiss`: back on its queue, where it was in the list's order. */
+export function restore(item: Item) {
+  const list = snapshot.items[item.queueId] ?? [];
+  if (!list.some((i) => i.pr.id === item.pr.id)) set({ items: { ...snapshot.items, [item.queueId]: [...list, item] } });
+  void bridge.restore(item.queueId, item.pr.id);
+}
+
 export function clearArrival(prId: string) {
   if (!snapshot.arrivals.has(prId)) return;
   const arrivals = new Set(snapshot.arrivals);

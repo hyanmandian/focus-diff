@@ -41,6 +41,12 @@ export const panel = {
   openOnGitHub: "Open on GitHub",
   markSeen: "Mark as Seen",
   ignore: "Ignore",
+  select: "Select {title}",
+  selected: { one: "{count} selected", other: "{count} selected" },
+  clear: "Clear",
+  markDone: "Mark Done",
+  marked: { one: "{count} marked done", other: "{count} marked done" },
+  undo: "Undo",
 
   minutesLeft: "{minutes} min left",
   end: "End",

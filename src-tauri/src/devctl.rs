@@ -133,6 +133,8 @@ fn run(app: &AppHandle, command: &str) {
                     if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
                         let frame = close.convertRect_toView(close.bounds(), None);
                         eprintln!("[devctl] lights: close top {} height {} center {} (window {height})", height - frame.origin.y - frame.size.height, frame.size.height, height - frame.origin.y - frame.size.height / 2.0);
+                        let zoom = window.standardWindowButton(NSWindowButton::ZoomButton).map(|z| z.convertRect_toView(z.bounds(), None));
+                        eprintln!("[devctl] lights: close left {} zoom right {:?}", frame.origin.x, zoom.map(|z| z.origin.x + z.size.width));
                     }
                 })
                 .map_err(|e| e.to_string()),

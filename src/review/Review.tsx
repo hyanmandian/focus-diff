@@ -681,12 +681,21 @@ export function Review({ target }: { target: Target }) {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      {/* One toolbar, as in Mail or Xcode. The view switch sits right after the traffic lights so it
-          never moves; the title takes what's left and gives way first; the Diff's own controls open
-          in beside the actions when the Diff is showing (the title making room for them, never the
-          buttons). As the window narrows the branch line goes first, then the actions fold into a
-          menu, then labels turn into icons. The bar is a size container so this follows its width. */}
-      <header data-tauri-drag-region className={cn("@container relative z-10 flex shrink-0 items-center gap-2 bg-background pr-2.5 transition-shadow duration-(--duration)", isMac ? "h-(--toolbar-h) pl-(--traffic-lights-inset)" : "h-11 pl-2", scrolled && "shadow-[0_1px_0_var(--separator)]")}>
+      {/* One toolbar, as in Xcode or Safari: the view switch right after the traffic lights (and, in
+          the Diff, which changes show), the title centred in the window, the Diff's controls and the
+          actions at the trailing end. The title gives way first; as the window narrows the branch
+          line goes, then the actions fold into a menu, then labels turn into icons. The sides are
+          equal columns at least as wide as what's in them, so the title stays centred while it can.
+          The bar is a size container so this follows its width. */}
+      <header
+        data-tauri-drag-region
+        className={cn(
+          "@container relative z-10 grid shrink-0 grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-3 bg-background pr-2.5 transition-shadow duration-(--duration)",
+          isMac ? "h-(--toolbar-h) pl-(--traffic-lights-inset)" : "h-11 pl-2",
+          scrolled && "shadow-[0_1px_0_var(--separator)]",
+        )}
+      >
+        <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
         {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
         <div role="tablist" onKeyDown={tabKeys} aria-label={t("review.view")} className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5">
           <SlidingPill selected={tab} className="rounded-full bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
@@ -716,21 +725,38 @@ export function Review({ target }: { target: Target }) {
             </button>
           ))}
         </div>
+          {/* Which changes show: all, since your last review, a commit or a run of them. Drawn always,
+              opened only in the Diff, so switching tabs moves nothing else. */}
+          <div
+            aria-hidden={tab !== "diff"}
+            inert={tab !== "diff"}
+            className={cn(
+              "grid shrink-0 transition-[grid-template-columns,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+              tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
+            )}
+          >
+            <div className="flex min-w-0 overflow-hidden py-1">
+              <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+                <RangePicker pull={pull} className={TOOL} open={rangeMenu} onOpenChange={setRangeMenu} />
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <div data-tauri-drag-region className="flex min-w-48 flex-1 flex-col justify-center gap-px pl-1">
+        <div data-tauri-drag-region className="flex min-w-0 flex-col items-center justify-center gap-px text-center">
           {details ? (
             <>
-              <h1 data-tauri-drag-region className="truncate text-headline font-bold" title={details.title}>
+              <h1 data-tauri-drag-region className="max-w-full truncate text-headline font-bold" title={details.title}>
                 {details.title}
               </h1>
               {/* What just happened shows here for a moment, in place of the branch line, rather than
                   as a toast: a Mac window says it where you're looking. */}
               {notice ? (
-                <p role="status" className="truncate text-subheadline text-foreground animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
+                <p role="status" className="max-w-full truncate text-subheadline text-foreground animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
                   {notice}
                 </p>
               ) : (
-                <p data-tauri-drag-region className="truncate text-subheadline text-muted-foreground @max-[1280px]:hidden">
+                <p data-tauri-drag-region className="max-w-full truncate text-subheadline text-muted-foreground @max-[1280px]:hidden">
                   {repo} #{number} · {firstName(details.author, t)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
                 </p>
               )}
@@ -743,6 +769,7 @@ export function Review({ target }: { target: Target }) {
           )}
         </div>
 
+        <div data-tauri-drag-region className="flex min-w-0 items-center justify-end gap-1">
         {/* The Diff's controls: drawn always, opened only in the Diff, so switching tabs moves no
             button; the title's room shrinks smoothly instead (at once with reduced motion). */}
         <div
@@ -813,10 +840,6 @@ export function Review({ target }: { target: Target }) {
                 </TooltipTrigger>
                 <TooltipContent>{t("diff.hideWhitespaceTip")}</TooltipContent>
               </Tooltip>
-            </div>
-            {/* Which changes show: all, since your last review, a commit or a run of them. */}
-            <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-              <RangePicker pull={pull} className={TOOL} open={rangeMenu} onOpenChange={setRangeMenu} />
             </div>
           </div>
         </div>
@@ -917,6 +940,7 @@ export function Review({ target }: { target: Target }) {
               }}
             />
           ) : null}
+        </div>
         </div>
       </header>
 

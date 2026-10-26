@@ -20,6 +20,7 @@ import {
   type Held,
   type Note,
   type Persisted,
+  type WatchOptions,
 } from "./queue-watch";
 
 const T0 = 1_767_225_600_000; // 2026-01-01T00:00:00Z
@@ -171,7 +172,8 @@ const environment = ({
   config = { queues: [REVIEW] },
   state,
   cache,
-}: { config?: unknown; state?: unknown; cache?: unknown } = {}): Env => {
+  options = {},
+}: { config?: unknown; state?: unknown; cache?: unknown; options?: Partial<WatchOptions> } = {}): Env => {
   let now = T0;
   let login: string | null | Error = ME;
   let setup: Config | null = parseConfig(config);
@@ -234,6 +236,7 @@ const environment = ({
     badge: (count, animate) => {
       env.badges.push([count, animate]);
     },
+    ...options,
   });
   return {
     ...env,
@@ -769,6 +772,7 @@ describe("readPersisted", () => {
         overBy: 0,
       },
       reviewCheckedAt: 9,
+      refreshedAt: 7,
     };
     expect(readPersisted(JSON.parse(JSON.stringify(saved)))).toStrictEqual(saved);
     expect(readPersisted({ seen: { k: false } }).seen).toStrictEqual({ k: true });
@@ -786,6 +790,7 @@ describe("readPersisted", () => {
       held: [],
       run: null,
       reviewCheckedAt: 0,
+      refreshedAt: 0,
     });
     for (const bad of [
       null,
@@ -803,5 +808,218 @@ describe("readPersisted", () => {
 describe("searchKey", () => {
   it("leaves out the date a merged queue moves along", () => {
     expect(searchKey("is:pr is:merged merged:>=2026-01-01 -author:me")).toBe("is:pr is:merged -author:me");
+  });
+});
+
+describe("QueueWatch's review time", () => {
+  const MIN = 60_000;
+  /** A session that comes at this moment, in this computer's time zone. */
+  const comingAt = (ms: number, extra: Record<string, unknown> = {}) => {
+    const local = new Date(ms);
+    const hh = String(local.getHours()).padStart(2, "0");
+    const mm = String(local.getMinutes()).padStart(2, "0");
+    return { id: "s", name: "", days: [local.getDay()], times: [`${hh}:${mm}`], minutes: 30, ...extra };
+  };
+
+  const timed = async ({
+    session = {},
+    reviewTime = {},
+    queues = [REVIEW],
+    pace = { all: { actual: 40, expected: 20 } },
+    chime = true,
+  }: {
+    session?: Record<string, unknown>;
+    reviewTime?: Record<string, unknown>;
+    queues?: unknown[];
+    pace?: unknown;
+    chime?: boolean;
+  } = {}) => {
+    const chimes: Note[] = [];
+    const countdowns: Array<number | null> = [];
+    const env = environment({
+      config: {
+        queues,
+        sound: true,
+        reviewTime: { enabled: true, sessions: [comingAt(T0 + 60 * MIN, session)], ...reviewTime },
+      },
+      options: {
+        pace: () => Promise.resolve(pace),
+        ...(chime
+          ? {
+              chime: (note: Note) => {
+                chimes.push(note);
+              },
+            }
+          : {}),
+        countdown: (minutes) => {
+          countdowns.push(minutes);
+        },
+      },
+    });
+    env.prs.A = github("A", { additions: 500, changedFiles: 4 });
+    env.found["review-requested"] = ["A"];
+    await env.watch.boot();
+    return { env, chimes, countdowns };
+  };
+
+  it("starts when it's due with what fits, counts down, and says how far it got", async () => {
+    const { env, chimes, countdowns } = await timed();
+    // The first look only starts the clock.
+    expect(env.saved().reviewCheckedAt).toBe(T0);
+    await another(env);
+    expect(env.saved().held.map((h) => h.until)).toStrictEqual(["review"]);
+    later(env, 59);
+    await env.watch.reviewTick();
+    expect(chimes).toStrictEqual([]);
+    later(env, 60);
+    const searches = env.calls.length;
+    await env.watch.reviewTick();
+    // GitHub asked again first, for what's waiting now.
+    expect(env.calls.length).toBeGreaterThan(searches);
+    // A: (4 files · 0.25 + 500 lines / 1000 · 60) · 1.5 = 46.5; B: 0 → 1. Only B fits in 30.
+    expect(chimes).toStrictEqual([
+      {
+        title: "Review time: 1 pull request, about 1 min",
+        body: "Title B · ~1 min\n1 more waiting didn't fit.",
+        sound: true,
+      },
+    ]);
+    // What waited for it shows with it, quietly.
+    expect(env.notes).toStrictEqual([
+      { title: "Ana asked for your review", body: "Title B\nacme/web#1", sound: false },
+    ]);
+    expect(env.saved().held).toStrictEqual([]);
+    expect(env.watch.snapshot().review?.run.pulls.map((p) => p.id)).toStrictEqual(["B"]);
+    expect(countdowns).toStrictEqual([30]);
+    later(env, 75);
+    await env.watch.reviewTick();
+    later(env, 75.5);
+    await env.watch.reviewTick();
+    expect(countdowns).toStrictEqual([30, 15]);
+    // B left the queue: reviewed.
+    env.found["review-requested"] = ["A"];
+    later(env, 90);
+    await env.watch.reviewTick();
+    expect(chimes.at(-1)).toStrictEqual({
+      title: "Review time is up",
+      body: "You went through all of them.",
+      sound: true,
+    });
+    expect(env.watch.snapshot().review).toBeNull();
+    expect(countdowns.at(-1)).toBeNull();
+  });
+
+  it("is quiet with nothing to review, unless asked not to be", async () => {
+    const quiet = await timed();
+    quiet.env.found["review-requested"] = [];
+    later(quiet.env, 60);
+    await quiet.env.watch.reviewTick();
+    expect(quiet.chimes).toStrictEqual([]);
+    expect(quiet.env.watch.snapshot().review).toBeNull();
+
+    const told = await timed({ reviewTime: { skipEmpty: false }, chime: false });
+    told.env.found["review-requested"] = [];
+    later(told.env, 60);
+    await told.env.watch.reviewTick();
+    // Without a chime of its own, an ordinary notification.
+    expect(told.env.notes).toStrictEqual([
+      { title: "Review time: nothing waiting on your review", body: "", sound: true },
+    ]);
+    expect(told.env.watch.snapshot().review).toBeNull();
+  });
+
+  it("picks from the queues it names, once each, drafts only when asked", async () => {
+    const mine = { ...MINE, notify: [] };
+    const { env, chimes } = await timed({
+      session: { queues: ["a", "r"], name: " Mornings ", minutes: 120 },
+      queues: [REVIEW, mine],
+      pace: null,
+    });
+    env.prs.D = github("D", { isDraft: true });
+    env.found["review-requested"] = ["A", "D"];
+    env.found["author:"] = ["A"];
+    later(env, 60);
+    await env.watch.reviewTick();
+    expect(env.watch.snapshot().review?.run).toMatchObject({ name: "Mornings", pulls: [{ id: "A", minutes: 31 }] });
+    expect(chimes[0]?.title).toBe("Mornings: 1 pull request, about 31 min");
+  });
+
+  it("ends by hand without a word, and not before it's due again", async () => {
+    const { env, chimes, countdowns } = await timed({ reviewTime: { remindEnd: false } });
+    later(env, 60);
+    await env.watch.reviewTick();
+    expect(env.watch.snapshot().review).not.toBeNull();
+    later(env, 61);
+    await env.watch.endReview();
+    expect(env.watch.snapshot().review).toBeNull();
+    expect(countdowns).toStrictEqual([30, null]);
+    // Already looked at: it doesn't start again.
+    later(env, 62);
+    await env.watch.reviewTick();
+    expect(env.watch.snapshot().review).toBeNull();
+    expect(chimes).toHaveLength(1);
+  });
+
+  it("says nothing at the end when asked not to", async () => {
+    const { env, chimes } = await timed({ reviewTime: { remindEnd: false } });
+    later(env, 60);
+    await env.watch.reviewTick();
+    later(env, 90);
+    await env.watch.reviewTick();
+    expect(chimes).toHaveLength(1);
+    expect(env.watch.snapshot().review).toBeNull();
+  });
+
+  it("names the session it came from at the end, or says how many are left", async () => {
+    const { env, chimes } = await timed({ session: { minutes: 60 } });
+    await another(env);
+    later(env, 60);
+    await env.watch.reviewTick();
+    expect(env.watch.snapshot().review?.run.pulls.map((p) => p.id)).toStrictEqual(["A", "B"]);
+    // The session's gone from the setup: every review queue counts.
+    env.setConfig({ queues: [REVIEW], sound: false, reviewTime: { enabled: true, sessions: [] } });
+    await env.watch.configChanged();
+    later(env, 120);
+    await env.watch.reviewTick();
+    expect(chimes.at(-1)).toStrictEqual({ title: "Review time is up", body: "You reviewed 0 of 2.", sound: false });
+  });
+
+  it("doesn't start for nobody", async () => {
+    const { env, chimes } = await timed();
+    env.setLogin(null);
+    await env.watch.authChanged();
+    later(env, 60);
+    await env.watch.reviewTick();
+    expect(chimes).toStrictEqual([]);
+  });
+
+  it("reads the pace only when the app has one", async () => {
+    const env = environment({
+      config: { queues: [REVIEW], reviewTime: { enabled: true, sessions: [comingAt(T0 + 60 * MIN)] } },
+    });
+    env.prs.A = github("A");
+    env.found["review-requested"] = ["A"];
+    await env.watch.boot();
+    later(env, 60);
+    await env.watch.reviewTick();
+    expect(env.notes[0]?.title).toBe("Review time: 1 pull request, about 1 min");
+  });
+
+  it("doesn't ask GitHub again on starting when the last answer is fresh", async () => {
+    // Last time's pull requests, and who they were for.
+    const cache = { ...emptyCache(), version: CACHE_VERSION, me: ME };
+    const fresh = environment({ state: { refreshedAt: T0 - 10_000 }, cache });
+    fresh.prs.A = github("A");
+    fresh.found["review-requested"] = ["A"];
+    await fresh.watch.boot({ force: false });
+    expect(fresh.calls).toStrictEqual([]);
+    expect(fresh.watch.snapshot().status.updatedAt).toBe(T0 - 10_000);
+
+    const stale = environment({ state: { refreshedAt: T0 - 120_000 }, cache });
+    stale.prs.A = github("A");
+    stale.found["review-requested"] = ["A"];
+    await stale.watch.boot({ force: false });
+    expect(stale.calls.length).toBeGreaterThan(0);
+    expect(stale.saved().refreshedAt).toBe(T0);
   });
 });

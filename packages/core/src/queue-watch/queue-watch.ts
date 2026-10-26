@@ -6,12 +6,11 @@
  *
  * Like watch.rs's worker thread, the refreshing side (boot, sign-in, setup changes, refreshes, the clock) runs one
  * thing at a time; clicks (seen, dismiss, restore) take effect at once. Its owner calls {@link QueueWatch.refresh} on
- * its own rhythm ({@link QueueWatch.pollMs}) and {@link QueueWatch.tick} now and then.
+ * its own rhythm ({@link QueueWatch.pollMs}) and {@link QueueWatch.reviewTick} every so often (watch.rs: 15 seconds).
  *
- * Not here (desktop shell, or review.rs, still to port): the tray icon and its countdown, the panel window, the OS
- * notifications themselves, and review time's schedule — starting a review time when one is due, ending it when its
- * time is up, its own notifications and the pace it learns. What waits for review time is kept and released as in
- * watch.rs; a review time under way is only read back from storage.
+ * Review time runs here as in watch.rs (its schedule, plan and words are review-time.ts, review.rs's port): a time
+ * that's due starts with what fits, the one under way ends when its time is up, and what waited for either shows
+ * then. Not here (the app's shell): the tray icon, the panel window, the notifications and sounds themselves.
  */
 
 import type { Actor } from "../github-pulls/github-pulls";
@@ -26,7 +25,14 @@ import {
   text,
   texts,
 } from "../json-decode/json-decode";
-import { enabledQueues, isScheduled, waitsForReview, type Config, type QueueKind } from "../queue-config/queue-config";
+import {
+  enabledQueues,
+  isScheduled,
+  waitsForReview,
+  type Config,
+  type QueueKind,
+  type Session,
+} from "../queue-config/queue-config";
 import {
   isRateLimited,
   readCache,
@@ -39,6 +45,19 @@ import {
 import { freshEvents, itemsFor, type CiMemo, type Fresh } from "../queue-items/queue-items";
 import { panelItem, type EngineItem, type ReviewRun, type Snapshot, type Status } from "../queue-panel/queue-panel";
 import type { Words } from "../queue-words/queue-words";
+import {
+  candidate,
+  due,
+  endsAt,
+  endWords,
+  ENGLISH_REVIEW,
+  localOffset,
+  minutesLeft,
+  offerWords,
+  paceFactor,
+  plan,
+  type ReviewWords,
+} from "../review-time/review-time";
 
 /** Every pull request in full again this often, changed or not: a safety net for what GitHub doesn't count as an update. */
 export const FULL_EVERY = 20 * 60_000;
@@ -86,8 +105,13 @@ export interface Persisted {
   held: Held[];
   /** The review time under way. */
   run: ReviewRun["run"] | null;
-  /** When review time's schedule was last looked at (ms). Kept for review time's port. */
+  /** When review time's schedule was last looked at (ms): one that started since is due. */
   reviewCheckedAt: number;
+  /**
+   * When GitHub last answered a refresh (ms), so a watch started again soon after (a browser's background, stopped
+   * when idle) can tell its queues are still fresh. Not in watch.rs, whose process lives on.
+   */
+  refreshedAt: number;
 }
 
 export const emptyPersisted = (): Persisted => ({
@@ -100,6 +124,7 @@ export const emptyPersisted = (): Persisted => ({
   held: [],
   run: null,
   reviewCheckedAt: 0,
+  refreshedAt: 0,
 });
 
 const trues = (value: unknown): Record<string, true> => {
@@ -165,6 +190,7 @@ export const readPersisted = (value: unknown): Persisted =>
       }),
       run: maybe(o, "run", readRun),
       reviewCheckedAt: integer(o, "reviewCheckedAt"),
+      refreshedAt: integer(o, "refreshedAt"),
     };
   }) ?? emptyPersisted();
 
@@ -276,6 +302,14 @@ export interface WatchOptions {
   publish?: (snapshot: Snapshot) => void;
   /** How many pull requests have something unread, when it changes; `animate` when notifications showed. */
   badge?: (count: number, animate: boolean) => void;
+  /** The reader's pace (pace.json's contents), for what fits in a review time; nothing learned without it. */
+  pace?: () => Promise<unknown>;
+  /** Review time's own notification (its start, its end), with its own sound where the app has one; `notify` without it. */
+  chime?: (note: Note) => void;
+  /** Review time's minutes left, as they change, or null when none is under way (the desktop's tray countdown). */
+  countdown?: (minutes: number | null) => void;
+  /** What review time says, English without it. */
+  reviewWords?: ReviewWords;
 }
 
 export class QueueWatch {
@@ -301,6 +335,8 @@ export class QueueWatch {
   private work: Promise<void> = Promise.resolve();
   /** A refresh asked for while others wait: they all make this one. */
   private pending: { force: boolean; done: Promise<void> } | null = null;
+  /** The minutes left last told to `countdown`. */
+  private shownCountdown: number | null = null;
 
   public constructor(options: WatchOptions) {
     this.options = options;
@@ -332,10 +368,15 @@ export class QueueWatch {
 
   // MARK: The refreshing side
 
-  /** Last time's state and pull requests first, so the panel has something to show at once; then who's signed in, then GitHub. */
-  public boot(): Promise<void> {
+  /**
+   * Last time's state and pull requests first, so the panel has something to show at once; then who's signed in, then
+   * GitHub, then review time's clock. Unless `force` is false, GitHub is asked whatever the rhythm says; with it false,
+   * only if the last refresh is older than the rhythm (a watch started again soon after it stopped).
+   */
+  public boot({ force = true }: { force?: boolean } = {}): Promise<void> {
     return this.queue(async () => {
       this.persisted = readPersisted(await this.options.storage.loadState());
+      this.status = { phase: "idle", updatedAt: this.persisted.refreshedAt };
       this.config = await this.options.config();
       const cache = readCache(await this.options.storage.loadCache());
       if (cache) {
@@ -346,8 +387,8 @@ export class QueueWatch {
       this.ready = true;
       this.publish();
       await this.checkAuth();
-      await this.runRefresh(true);
-      await this.releaseWhenNoneIsComing();
+      await this.runRefresh(force);
+      await this.reviewClock();
     });
   }
 
@@ -387,21 +428,24 @@ export class QueueWatch {
     return pending.done;
   }
 
-  /** The clock: what was kept for review times that won't come any more shows now. */
+  /**
+   * Review time's clock: the one under way ends when its time is up, one that's due starts, and the countdown follows.
+   * What was kept for review times that won't come any more shows now.
+   */
+  public reviewTick(): Promise<void> {
+    return this.queue(() => this.reviewClock());
+  }
+
+  /** The clock (as {@link QueueWatch.reviewTick}). */
   public tick(): Promise<void> {
-    return this.queue(() => this.releaseWhenNoneIsComing());
+    return this.reviewTick();
   }
 
   /** Ends the review time under way by hand: what waited for the end of it shows now. */
   public endReview(): Promise<void> {
     return this.queue(async () => {
-      const { config } = this;
-      const { run } = this.persisted;
-      if (config && run) {
-        this.persisted.run = null;
-        this.release(this.takeHeld("end"), "cameInWhileReviewing", config.sound);
-        await this.saveState();
-      }
+      await this.endRun(false);
+      this.updateCountdown(this.options.now());
       this.publish();
     });
   }
@@ -475,6 +519,7 @@ export class QueueWatch {
       this.backoff = 0;
       if (full) this.cache.fullAt = this.options.now();
       this.status = { phase: "idle", updatedAt: this.options.now() };
+      this.persisted.refreshedAt = this.status.updatedAt;
       await this.apply();
       await this.options.storage.saveCache(this.cache);
     }
@@ -614,14 +659,122 @@ export class QueueWatch {
     return taken;
   }
 
-  /** What was kept for review times that won't come any more shows now. */
-  private async releaseWhenNoneIsComing(): Promise<void> {
+  // MARK: Review time
+
+  private get reviewWords(): ReviewWords {
+    return this.options.reviewWords ?? ENGLISH_REVIEW;
+  }
+
+  /** watch.rs's review_tick. */
+  private async reviewClock(): Promise<void> {
+    const now = this.options.now();
+    const { run } = this.persisted;
+    const over = run !== null && now >= endsAt(run);
+    if (over) {
+      // How far it got, from the queues as they are now.
+      await this.runRefresh(true);
+      await this.endRun(true);
+    }
     const { config, persisted } = this;
     if (!config) return;
     if (!isScheduled(config.reviewTime) && persisted.run === null && persisted.held.some((h) => h.until === "review")) {
       this.release(this.takeHeld("review"), "cameIn", config.sound);
-      await this.saveState();
     }
+    const last = persisted.reviewCheckedAt;
+    persisted.reviewCheckedAt = now;
+    // The first look starts the clock: nothing from before counts.
+    const session = last > 0 ? (due(config.reviewTime, last, now, localOffset)?.session ?? null) : null;
+    const starting = session !== null && persisted.run === null && this.me !== null;
+    if (starting) {
+      // What's waiting as it stands now, not as of the last refresh.
+      await this.runRefresh(true);
+      await this.startRun(session, now);
+    }
+    // Saved each time (watch.rs saves it with the next change): a background that stops when idle reads it back.
+    await this.saveState();
+    this.updateCountdown(now);
+    if (over || starting) this.publish();
+  }
+
+  /** The items of the queues a session picks from: the ones it names, or every review queue. */
+  private sessionItems(session: Session | undefined): EngineItem[] {
+    // Only while a review time starts or ends, with the setup known.
+    const { queues } = this.config!;
+    const picks = (id: string) =>
+      session && session.queues.length > 0
+        ? session.queues.includes(id)
+        : queues.some((q) => q.id === id && q.kind === "review");
+    return this.items.filter(([id]) => picks(id)).flatMap(([, list]) => list);
+  }
+
+  /** Review time's own notification. */
+  private chime(config: Config, title: string, body: string): void {
+    (this.options.chime ?? this.options.notify)({ title, body, sound: config.sound });
+  }
+
+  /** Starts a review time: picks what fits and says so, with what waited for it. */
+  private async startRun(session: Session, now: number): Promise<void> {
+    const config = this.config!;
+    const pace = paceFactor(this.options.pace ? await this.options.pace() : null);
+    const ids = new Set<string>();
+    const candidates = this.sessionItems(session)
+      .filter((i) => (session.drafts || !i.pr.isDraft) && !ids.has(i.pr.id) && Boolean(ids.add(i.pr.id)))
+      .map((i) =>
+        candidate(
+          i.pr,
+          i.events.some((e) => e.kind === "rerequest"),
+          pace,
+        ),
+      );
+    const picked = plan(candidates, session.minutes, session.order, config.reviewTime.againFirst);
+    const waited = this.takeHeld("review");
+    const run = {
+      session: session.id,
+      name: session.name.trim() || this.reviewWords.reviewTime,
+      minutes: session.minutes,
+      startedAt: now,
+      pulls: picked.picked,
+      left: picked.left,
+      overBy: picked.overBy,
+    };
+    if (run.pulls.length > 0 || !config.reviewTime.skipEmpty) {
+      const { title, body } = offerWords(run, this.reviewWords);
+      this.chime(config, title, body);
+      this.release(waited, "waitedForReview", false);
+    } else {
+      this.release(waited, "waitedForReview", config.sound);
+    }
+    // Nothing to review: nothing to count down.
+    if (run.pulls.length > 0) this.persisted.run = run;
+    await this.saveState();
+  }
+
+  /** Ends the review time under way: its time is up (said, if asked), or it was ended by hand. What waited for the
+   *  end of it shows now. */
+  private async endRun(timeUp: boolean): Promise<void> {
+    const { config } = this;
+    const { run } = this.persisted;
+    if (!config || !run) return;
+    this.persisted.run = null;
+    const waited = this.takeHeld("end");
+    const told = timeUp && config.reviewTime.remindEnd && run.pulls.length > 0;
+    if (told) {
+      const session = config.reviewTime.sessions.find((s) => s.id === run.session);
+      const waiting = new Set(this.sessionItems(session).map((i) => i.pr.id));
+      const { title, body } = endWords(run, run.pulls.filter((p) => waiting.has(p.id)).length, this.reviewWords);
+      this.chime(config, title, body);
+    }
+    this.release(waited, "cameInWhileReviewing", config.sound && !told);
+    await this.saveState();
+  }
+
+  /** The minutes left, while a review time is under way. */
+  private updateCountdown(now: number): void {
+    const { run } = this.persisted;
+    const minutes = run ? minutesLeft(run, now) : null;
+    if (minutes === this.shownCountdown) return;
+    this.shownCountdown = minutes;
+    this.options.countdown?.(minutes);
   }
 
   // MARK: Clicks

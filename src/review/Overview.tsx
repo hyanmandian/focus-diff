@@ -28,7 +28,7 @@ import { Checks } from "./Checks";
 import { CommitsSection } from "./Commits";
 import { useConversationApi } from "./conversation";
 import { MergeBox } from "./MergeBox";
-import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
+import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
 import { Sidebar } from "./Sidebar";
 import { Composer, ThreadView } from "./Thread";
 import { TimelineRow } from "./Timeline";
@@ -256,7 +256,7 @@ function EntryView({ entry, byComment, onJump, onReply, onResolve, onQuote }: { 
   // A review's words can be edited, not deleted; a comment both.
   const said = entry.kind === "comment" || entry.html.trim() || editing;
   return (
-    <article className="flex gap-2.5">
+    <article className="group/said flex gap-2.5">
       <Person actor={entry.author} className="mt-0.5 size-6" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
@@ -265,14 +265,16 @@ function EntryView({ entry, byComment, onJump, onReply, onResolve, onQuote }: { 
             {entry.kind === "review" && isReviewState(entry.state) ? <span className={cn(" ml-1", REVIEW_STATE[entry.state])}>{t(`review.did.${entry.state}`)}</span> : null} · {t.since(Date.parse(entry.at))}
             {entry.edited ? ` · ${t("review.edited")}` : ""}
           </p>
-          {api && said && entry.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
           {api ? (
-            <CommentMenu
-              url={entry.url}
-              onQuote={entry.body ? () => onQuote(quote(entry.body ?? "")) : undefined}
-              onEdit={entry.canEdit && entry.body !== undefined ? () => setEditing(true) : undefined}
-              onDelete={entry.kind === "comment" && entry.canDelete ? () => void api.deleteEntry(entry.id) : undefined}
-            />
+            <span className={ACTIONS}>
+              {said && entry.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
+              <CommentMenu
+                url={entry.url}
+                onQuote={entry.body ? () => onQuote(quote(entry.body ?? "")) : undefined}
+                onEdit={entry.canEdit && entry.body !== undefined ? () => setEditing(true) : undefined}
+                onDelete={entry.kind === "comment" && entry.canDelete ? () => void api.deleteEntry(entry.id) : undefined}
+              />
+            </span>
           ) : null}
         </div>
         <Words html={entry.html} body={entry.body} editing={editing} className="mt-1" onSave={(body) => api?.editEntry(entry.kind, entry.id, body) ?? Promise.resolve()} onDone={() => setEditing(false)} />

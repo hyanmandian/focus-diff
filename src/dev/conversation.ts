@@ -130,7 +130,7 @@ function seed({ people, threads, details, files }: Seed) {
   t1.id = first.id;
   const suggestion = comment(ana, "Shorter, and the error goes when the code does:\n```suggestion\n    next.promo = check.ok ? cart.promo : null;\n    next.promoError = check.ok ? undefined : check.reason;\n```", 7);
   suggestion.bodyHTML = `${blob(["    next.promo = check.ok ? cart.promo : null;", "    next.promoError = check.ok ? null : check.reason;"], ["    next.promo = check.ok ? cart.promo : null;", "    next.promoError = check.ok ? undefined : check.reason;"])}\n<p>Shorter, and the error goes when the code does:</p>`;
-  const t2 = thread("src/checkout/cart.ts", 12, [suggestion], { startLine: 11 });
+  const t2 = thread("src/checkout/cart.ts", 15, [suggestion], { startLine: 14 });
   const long = thread(
     "api/promo.go",
     22,
@@ -147,7 +147,7 @@ function seed({ people, threads, details, files }: Seed) {
     __typename: "IssueComment",
     id: nextId("IC"),
     author: [bruno, carla, dev, ana][i % 4],
-    ...said(`Earlier note ${40 - i}: ${["CI is green again.", "Rebased on main.", "Pinged design for the copy.", "Looks like the flaky test is unrelated."][i % 4]}`, 60 * 24 * 3 + (40 - i) * 30),
+    ...said(`Earlier note ${i + 1}: ${["CI is green again.", "Rebased on main.", "Pinged design for the copy.", "Looks like the flaky test is unrelated."][i % 4]}`, 60 * 24 * 3 + (40 - i) * 30),
   }));
   const pr = details.pullRequest as { timelineItems: { nodes: Item[] }; bodyHTML: string };
   const timeline: Item[] = [

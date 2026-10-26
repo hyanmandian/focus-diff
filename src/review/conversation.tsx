@@ -14,7 +14,7 @@ import { i18n } from "@/lib/i18n";
 import { setResolved, type Draft, type PullRef, type ReviewFile, type Thread, type ThreadComment } from "@/lib/review";
 import { SuggestionError } from "@/lib/suggestion";
 import type { Person } from "@/lib/writing";
-import type { Pending } from "./pending";
+import { published, type Pending } from "./pending";
 
 export type ConversationApi = {
   /** "owner/name", for previews and completions. */
@@ -111,7 +111,8 @@ export function useConversation({ prId, ref, details, threads, setThreads, files
     void reload().then(() => (fresh = true));
   }, [prId, reload]);
 
-  const byId = useMemo(() => new Map(threads.map((t) => [t.id, t])), [threads]);
+  // Without your pending replies: those show as your pending comments.
+  const byId = useMemo(() => new Map(published(threads).map((t) => [t.id, t])), [threads]);
   const patches = useMemo(() => new Map((files ?? []).map((f) => [f.path, f.patch])), [files]);
   const people = useMemo(() => {
     const all: Actor[] = [details?.author ?? null, ...(details?.reviewers.filter((r) => !r.team).map((r) => r.actor) ?? [])];
@@ -209,8 +210,10 @@ export function useConversation({ prId, ref, details, threads, setThreads, files
         throw new Error(message(e));
       }
       setBatch((list) => list.filter((i) => !items.some((x) => x.comment === i.comment)));
-      // Applied, so done with, as on GitHub.
-      await Promise.all([...new Set(items.map((i) => i.thread))].map((id) => byId.get(id)).flatMap((thread) => (thread && !thread.resolved ? [setResolved(thread, true).catch(() => {})] : [])));
+      // Applied, so done with, as on GitHub: resolved here at once, there after.
+      const applied = new Set(items.map((i) => i.thread));
+      setThreads((list) => list.map((t) => (applied.has(t.id) ? { ...t, resolved: true } : t)));
+      await Promise.all([...applied].map((id) => byId.get(id)).flatMap((thread) => (thread && !thread.resolved ? [setResolved(thread, true).catch(() => {})] : [])));
       say(t("review.suggestionsCommitted", { count: items.length }));
       reloadAll();
     },

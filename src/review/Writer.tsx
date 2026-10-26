@@ -7,7 +7,7 @@ import { CircleDot, FileDiff, GitPullRequest, Loader2, Reply } from "lucide-reac
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { avatar } from "@/lib/avatar";
@@ -58,22 +58,24 @@ function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
         <TooltipContent>{t("review.savedReplies")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{t("review.savedReplies")}</DropdownMenuLabel>
-        {replies === undefined ? (
-          <DropdownMenuItem disabled>
-            <Loader2 className="animate-spin" /> {t("review.loading")}
-          </DropdownMenuItem>
-        ) : replies === null ? (
-          <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.savedRepliesPermission")}</p>
-        ) : replies.length ? (
-          replies.map((r) => (
-            <DropdownMenuItem key={r.id} onClick={() => onPick(r.body)}>
-              <span className="max-w-64 truncate">{r.title}</span>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t("review.savedReplies")}</DropdownMenuLabel>
+          {replies === undefined ? (
+            <DropdownMenuItem disabled>
+              <Loader2 className="animate-spin" /> {t("review.loading")}
             </DropdownMenuItem>
-          ))
-        ) : (
-          <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.noSavedReplies")}</p>
-        )}
+          ) : replies === null ? (
+            <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.savedRepliesPermission")}</p>
+          ) : replies.length ? (
+            replies.map((r) => (
+              <DropdownMenuItem key={r.id} onClick={() => onPick(r.body)}>
+                <span className="max-w-64 truncate">{r.title}</span>
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.noSavedReplies")}</p>
+          )}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

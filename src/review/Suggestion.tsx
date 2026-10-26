@@ -110,13 +110,14 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
   );
 }
 
-/** The batch, over the diff while it has suggestions in it: commit them all, or let them go. */
+/** The batch, over the diff's bottom corner (clear of the file headers and the filter bar) while
+ *  it has suggestions in it: commit them all, or let them go. */
 export function SuggestionBatch() {
   const t = useT();
   const api = useConversationApi();
   if (!api?.batch.length) return null;
   return (
-    <div role="region" aria-label={t("review.batch")} className="absolute top-3 right-4 z-20 flex items-center gap-1 rounded-full bg-popover py-1 pr-1 pl-3 text-body shadow-(--shadow-menu)">
+    <div role="region" aria-label={t("review.batch")} className="absolute right-4 bottom-20 z-20 flex items-center gap-1 rounded-full bg-popover py-1 pr-1 pl-3 text-body shadow-(--shadow-menu)">
       <span className="text-muted-foreground tabular-nums">{t("review.inBatch", { count: api.batch.length })}</span>
       <CommitPopover items={api.batch} variant="default">
         {t("review.commitBatch", { count: api.batch.length })}

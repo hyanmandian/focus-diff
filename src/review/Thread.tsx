@@ -23,7 +23,7 @@ import { SlidingPill } from "@/shared/SlidingPill";
 import { AiAnswer } from "@/shared/AiAnswer";
 import { useConversationApi } from "./conversation";
 import { CommentHtml } from "./CommentHtml";
-import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
+import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
 import { SuggestionActions } from "./Suggestion";
 import { MarkdownField } from "./Writer";
 
@@ -115,7 +115,7 @@ function CommentView({ thread, comment, onQuote }: { thread: ThreadData; comment
   const [editing, setEditing] = useState(false);
   const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
   return (
-    <div className="flex gap-2">
+    <div className="group/said flex gap-2">
       <Person actor={comment.author} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
@@ -124,14 +124,16 @@ function CommentView({ thread, comment, onQuote }: { thread: ThreadData; comment
             {comment.edited ? ` · ${t("review.edited")}` : ""}
             {thread.outdated ? ` · ${t("review.outdated")}` : ""}
           </p>
-          {api && comment.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
           {api ? (
-            <CommentMenu
-              url={comment.url}
-              onQuote={comment.body !== undefined ? () => onQuote(comment.body ?? "") : undefined}
-              onEdit={comment.canEdit && comment.body !== undefined ? () => setEditing(true) : undefined}
-              onDelete={comment.canDelete ? () => void api.deleteComment(comment) : undefined}
-            />
+            <span className={ACTIONS}>
+              {comment.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
+              <CommentMenu
+                url={comment.url}
+                onQuote={comment.body !== undefined ? () => onQuote(comment.body ?? "") : undefined}
+                onEdit={comment.canEdit && comment.body !== undefined ? () => setEditing(true) : undefined}
+                onDelete={comment.canDelete ? () => void api.deleteComment(comment) : undefined}
+              />
+            </span>
           ) : null}
         </div>
         {editing && api ? (

@@ -107,6 +107,11 @@ export function ReactionList({ reactions, canReact, onToggle }: { reactions: Rea
   );
 }
 
+/** Where a comment's smiley and "…" sit: shown under the pointer, with the keyboard's focus, or
+ *  while one is open, so a long conversation isn't a column of buttons. Put `group/said` on the
+ *  comment. */
+export const ACTIONS = "flex items-center opacity-0 transition-opacity duration-(--duration) group-hover/said:opacity-100 group-focus-within/said:opacity-100 has-[[aria-expanded=true]]:opacity-100 motion-reduce:transition-none";
+
 /** "…" beside a comment. */
 export function CommentMenu({ url, onQuote, onEdit, onDelete }: { url: string; onQuote?: () => void; onEdit?: () => void; onDelete?: () => void }) {
   const t = useT();

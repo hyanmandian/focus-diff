@@ -14,11 +14,12 @@ packages/
   desktop/        the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
   site/           focus-diff.com, a static page
   core/           logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
-  design-system/  what makes them one product: tokens, the brand mark and the UI components both apps draw with
+  design-system/  what makes them one product: the Mac look's tokens, styles and React components (see its README)
 ```
 
 The apps import a shared package's files directly, as its `exports` name them (`@focus-diff/core/filters`), and bundle
-them; `npm run check` in `packages/core` is Oxfmt, Oxlint (as strict as the apps'), types and Vitest at 100%.
+them; `npm run check` in `packages/core` and `packages/design-system` is Oxfmt, Oxlint (as strict as the apps'), types
+and Vitest at 100%.
 
 `npm install` at the root installs everything. Run an app's commands from its folder (or with `--workspace`), and
 `npm run check`, `npm test`, `npm run build` or `npm run e2e` at the root to run them in every app.

@@ -13,7 +13,6 @@ import type { Overview } from "@/components/overview/overview";
 import { Review, type Target } from "@/components/review/review";
 import type { NewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import type { Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
-import type { Stack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import type { Range } from "@/utils/commits/commits";
@@ -35,7 +34,6 @@ import {
   type Thread,
   type ViewedState,
 } from "@/utils/review/review";
-import type { StackPull } from "@/utils/stack/stack";
 
 type OverviewProps = ComponentProps<typeof Overview>;
 type DiffsProps = Omit<ComponentProps<typeof Diffs>, "ref">;
@@ -65,7 +63,6 @@ type QueueStub = {
   next: Visit | null;
   previous: Visit | null;
   go: Mock<() => Promise<boolean>>;
-  goTo: Mock<(to: Visit) => Promise<void>>;
   back: Mock<() => Promise<void>>;
 };
 
@@ -96,7 +93,6 @@ const h = vi.hoisted(() => {
       next: null,
       previous: null,
       go: vi.fn<() => Promise<boolean>>(() => Promise.resolve(true)),
-      goTo: vi.fn<(to: Visit) => Promise<void>>(() => Promise.resolve()),
       back: vi.fn<() => Promise<void>>(() => Promise.resolve()),
       ...over,
     }),
@@ -125,7 +121,6 @@ const h = vi.hoisted(() => {
     talk: null as Options | null,
     pullOptions: null as Options | null,
     newChanges: null as NewChanges | null,
-    stack: null as Stack | null,
     onActivity: null as (() => void) | null,
     take: vi.fn<(path: string) => number>(() => 0),
     onScreen: null as (() => unknown) | null,
@@ -254,7 +249,6 @@ vi.mock("@/hooks/use-next-in-queue/use-next-in-queue", () => ({
     return h.queue;
   },
 }));
-vi.mock("@/hooks/use-stack/use-stack", () => ({ useStack: () => h.stack }));
 vi.mock("@/hooks/use-new-changes/use-new-changes", () => ({
   useNewChanges: (_repo: string, _number: number, _head: unknown, _updated: unknown, onActivity: () => void) => {
     h.see.activity(onActivity);
@@ -441,7 +435,6 @@ beforeEach(() => {
   h.banner = null;
   h.here = null;
   h.newChanges = null;
-  h.stack = null;
   h.aiProblem = null;
   h.onResult = null;
   h.ranged = { files: null, error: null };
@@ -1494,86 +1487,6 @@ describe("Review", () => {
       press("]", { metaKey: true });
       expect(h.queue.back).toHaveBeenCalledTimes(2);
       expect(h.queue.go).toHaveBeenCalledTimes(2);
-    });
-
-    it("goes up a stack first, in order, and to any of it from its menu", async () => {
-      const part = (number: number, title: string, over: Partial<StackPull> = {}): StackPull => ({
-        id: `PR_${number}`,
-        number,
-        title,
-        author: { login: "ana" },
-        isDraft: false,
-        decision: null,
-        ...over,
-      });
-      h.stack = {
-        pulls: [
-          part(5, "Bottom", { decision: "APPROVED" }),
-          part(7, "Keep the promo code"),
-          part(9, "Top", { isDraft: true }),
-        ],
-        at: 1,
-      };
-      h.queue = { ...h.queue, next: visit(8, "Next one") };
-      await openReview();
-      await userEvent.click(button("Next in the stack: #9 Top"));
-      expect(h.queue.goTo).toHaveBeenCalledWith({
-        pr: {
-          id: "PR_9",
-          number: 9,
-          title: "Top",
-          repository: { nameWithOwner: "acme/shop" },
-          author: { login: "ana" },
-        },
-        teams: [],
-        queue: "q1",
-      });
-      expect(h.queue.go).not.toHaveBeenCalled();
-      await userEvent.click(button("2 of 3 in the stack"));
-      expect(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }).getAttribute("aria-checked")).toBe(
-        "true",
-      );
-      expect(screen.getByRole("menuitemradio", { name: /#5 Bottom.*Approved/u })).toBeTruthy();
-      expect(screen.getByRole("menuitemradio", { name: /#9 Top.*Draft/u })).toBeTruthy();
-      await userEvent.click(screen.getByRole("menuitemradio", { name: /#5 Bottom/u }));
-      expect(h.queue.goTo.mock.calls.at(-1)?.[0].pr.id).toBe("PR_5");
-    });
-
-    it("goes on with the queue from the top of a stack", async () => {
-      const top: StackPull = {
-        id: "PR_7",
-        number: 7,
-        title: "Keep the promo code",
-        author: null,
-        isDraft: false,
-        decision: null,
-      };
-      h.stack = { pulls: [{ ...top, id: "PR_3", number: 3, decision: "CHANGES_REQUESTED" }, top], at: 1 };
-      h.queue = { ...h.queue, next: visit(8, "Next one") };
-      await openReview();
-      await userEvent.click(button("Next in Waiting on me: #8 Next one"));
-      expect(h.queue.go).toHaveBeenCalledTimes(1);
-      expect(h.queue.goTo).not.toHaveBeenCalled();
-      await userEvent.click(button("2 of 2 in the stack"));
-      // The one already showing isn't gone to again.
-      await userEvent.click(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }));
-      expect(h.queue.goTo).not.toHaveBeenCalled();
-      expect(screen.getByRole("menuitemradio", { name: /#3.*Changes requested/u })).toBeTruthy();
-    });
-
-    it("goes up a stack opened from outside any queue", async () => {
-      const part = (number: number): StackPull => ({
-        id: `PR_${number}`,
-        number,
-        title: `Part ${number}`,
-        author: null,
-        isDraft: false,
-        decision: null,
-      });
-      h.stack = { pulls: [part(7), part(8)], at: 0 };
-      await openReview({ ...TARGET, queue: undefined });
-      await userEvent.click(button("Next in the stack: #8 Part 8"));
-      expect(h.queue.goTo.mock.calls[0]?.[0].queue).toBeNull();
     });
 
     it("says the queue's done when there's no next", async () => {

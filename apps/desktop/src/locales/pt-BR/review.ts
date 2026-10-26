@@ -303,12 +303,4 @@ export const review: Dictionary["review"] = {
   pickEmoji: "Emoji",
   queueDone: "Nada mais esperando em {queue}",
   theQueue: "esta fila",
-  stack: "Stack",
-  stackPosition: "{index} de {total} na stack",
-  stackDraft: "Rascunho",
-  "stackStanding.APPROVED": "Aprovado",
-  "stackStanding.CHANGES_REQUESTED": "Mudanças pedidas",
-  "stackStanding.REVIEW_REQUIRED": "A revisar",
-  nextInStack: "Próximo na stack",
-  nextInStackLabel: "Próximo na stack: #{number} {title}",
 };

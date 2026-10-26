@@ -396,6 +396,11 @@ export function Review({ target }: { target: Target }) {
   const ai = config?.ai.provider ? config : null;
   const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;
   const aiProblemNow = useAiProblem(ai);
+  // The pull request's code fetched as soon as it's known, so questions can read it straight away.
+  const projectHead = ai?.ai.project && details?.state === "OPEN" ? details.headRefOid : null;
+  useEffect(() => {
+    if (projectHead && !aiProblemNow) void bridge.aiPrepare({ repo, number, head: projectHead }).catch(() => {});
+  }, [projectHead, aiProblemNow, repo, number]);
   // Asked for: says what's missing when the AI can't answer. On its own: only when it can.
   const runReview = useCallback(async (asked = true) => {
     if (!ai || !details || !files) return;
@@ -1138,9 +1143,9 @@ export function Review({ target }: { target: Target }) {
                   onDismissFinding={dropFinding}
                   onAsk={
                     ai && details && files
-                      ? async (path, range, question, earlier) => {
+                      ? async (path, range, question, earlier, run) => {
                           if (!(await ensureAi(ai))) throw new Error(i18n()("shared.aiNotReady", { provider: PROVIDERS[ai.ai.provider!].name }));
-                          return askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question, earlier);
+                          return askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question, earlier, run);
                         }
                       : null
                   }

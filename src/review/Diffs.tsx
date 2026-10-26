@@ -65,7 +65,7 @@ type Props = {
   findingsBy: string;
   onAcceptFinding: (finding: Finding, side: Side) => void;
   /** Asks the AI about selected lines; null when there's no AI. */
-  onAsk: ((path: string, range: SelectedLineRange, question: string, earlier: Exchange[]) => Promise<AiAnswer>) | null;
+  onAsk: ((path: string, range: SelectedLineRange, question: string, earlier: Exchange[], run: string) => Promise<AiAnswer>) | null;
   onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
   /** Viewed files opened anyway (to show a comment in one): they don't fold. */
@@ -513,7 +513,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                     setComposing(null);
                   }}
                   onCancel={() => setComposing(null)}
-                  ask={props.onAsk ? (question, earlier) => props.onAsk!(a.path, a.range, question, earlier) : null}
+                  ask={props.onAsk ? (question, earlier, run) => props.onAsk!(a.path, a.range, question, earlier, run) : null}
                   askName={props.findingsBy}
                 />
               );

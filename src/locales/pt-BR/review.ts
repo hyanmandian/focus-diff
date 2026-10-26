@@ -272,4 +272,6 @@ export const review: Dictionary["review"] = {
   removeDraftConfirm: "Remover este comentário?",
   removeDraftConfirmMessage: "Ele só está na sua review pendente e ainda não foi publicado.",
   removeDraftConfirmButton: "Remover",
+  stop: "Parar",
+  waitedSeconds: "{seconds}s",
 };

@@ -15,8 +15,9 @@
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::OnceLock;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -73,18 +74,31 @@ pub struct Status {
     login_command: &'static str,
 }
 
-/// The PATH of the person's login shell: apps opened from the Finder or a launcher don't get it, and
-/// these CLIs usually live in ~/.local/bin, Homebrew or a Node version manager.
-pub(crate) fn search_path() -> &'static str {
-    static PATH: OnceLock<String> = OnceLock::new();
-    PATH.get_or_init(|| {
+/// What the person's login shell has that apps opened from the Finder or a launcher don't: its
+/// PATH (these CLIs usually live in ~/.local/bin, Homebrew or a Node version manager), and which of
+/// their Claude Code accounts the terminal uses (CLAUDE_CONFIG_DIR), so the app asks the same one.
+struct LoginEnv {
+    path: String,
+    claude_config_dir: Option<String>,
+}
+
+fn login_env() -> &'static LoginEnv {
+    static ENV: OnceLock<LoginEnv> = OnceLock::new();
+    ENV.get_or_init(|| {
         let mut path = std::env::var("PATH").unwrap_or_default();
+        let mut claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok().filter(|d| !d.is_empty());
         #[cfg(unix)]
         {
             let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-            if let Ok(output) = run_with_limit(Command::new(shell).args(["-l", "-c", "printf %s \"$PATH\""]), None, Duration::from_secs(5))
-                && output.status_ok && !output.stdout.trim().is_empty() {
-                    path = format!("{}:{path}", output.stdout.trim());
+            if let Ok(output) = run_with_limit(Command::new(shell).args(["-l", "-c", "printf '%s\\n%s' \"$PATH\" \"${CLAUDE_CONFIG_DIR-}\""]), None, Duration::from_secs(5))
+                && output.status_ok {
+                    let mut lines = output.stdout.lines();
+                    if let Some(shell_path) = lines.next().map(str::trim).filter(|p| !p.is_empty()) {
+                        path = format!("{shell_path}:{path}");
+                    }
+                    if let Some(dir) = lines.next().map(str::trim).filter(|d| !d.is_empty() && Path::new(d).is_dir()) {
+                        claude_config_dir = Some(dir.to_string());
+                    }
                 }
             if let Some(home) = std::env::var_os("HOME") {
                 let home = PathBuf::from(home);
@@ -95,8 +109,12 @@ pub(crate) fn search_path() -> &'static str {
             }
             path.push_str(":/opt/homebrew/bin:/usr/local/bin");
         }
-        path
+        LoginEnv { path, claude_config_dir }
     })
+}
+
+pub(crate) fn search_path() -> &'static str {
+    &login_env().path
 }
 
 fn find(provider: Provider) -> Option<PathBuf> {
@@ -122,8 +140,23 @@ pub(crate) struct Output {
 /// Runs a command with its own environment's PATH, optional input on stdin, and a time limit after
 /// which it's killed.
 pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: Duration) -> Result<Output, String> {
+    run_until(command, input, limit, None)
+}
+
+/// `run_with_limit`, also stopped when `cancel` is set. What it started goes with it: it runs in a
+/// process group of its own, ended whole, and its output is waited for only briefly once it's done,
+/// so something it left behind holding the output can't keep us waiting.
+pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Duration, cancel: Option<&AtomicBool>) -> Result<Output, String> {
     command.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(command, 0);
     let mut child = command.spawn().map_err(|e| e.to_string())?;
+    let stop = |child: &mut std::process::Child| {
+        #[cfg(unix)]
+        let _ = Command::new("/bin/kill").args(["-TERM", &format!("-{}", child.id())]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        let _ = child.kill();
+        let _ = child.wait();
+    };
     if let (Some(input), Some(mut stdin)) = (input, child.stdin.take()) {
         let input = input.to_string();
         // Written from a thread so a full pipe can't block us while the child waits to be read.
@@ -131,37 +164,71 @@ pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: 
             let _ = stdin.write_all(input.as_bytes());
         });
     }
-    let mut stdout = child.stdout.take().ok_or("No output")?;
-    let mut stderr = child.stderr.take().ok_or("No output")?;
-    let out = std::thread::spawn(move || {
-        let mut s = String::new();
-        let _ = stdout.read_to_string(&mut s);
-        s
-    });
-    let err = std::thread::spawn(move || {
-        let mut s = String::new();
-        let _ = stderr.read_to_string(&mut s);
-        s
-    });
+    let stdout = child.stdout.take().ok_or("No output")?;
+    let stderr = child.stderr.take().ok_or("No output")?;
+    let read = |mut pipe: Box<dyn Read + Send>| {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut s = String::new();
+            let _ = pipe.read_to_string(&mut s);
+            let _ = tx.send(s);
+        });
+        rx
+    };
+    let out = read(Box::new(stdout));
+    let err = read(Box::new(stderr));
     let started = Instant::now();
     let status = loop {
         if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
             break status;
         }
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            stop(&mut child);
+            return Err(tr!("Stopped", "Interrompido"));
+        }
         if started.elapsed() > limit {
-            let _ = child.kill();
-            let _ = child.wait();
+            stop(&mut child);
             return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
         }
         std::thread::sleep(Duration::from_millis(50));
     };
-    Ok(Output { status_ok: status.success(), stdout: out.join().unwrap_or_default(), stderr: err.join().unwrap_or_default() })
+    #[cfg(unix)]
+    let _ = Command::new("/bin/kill").args(["-TERM", &format!("-{}", child.id())]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    let grace = Duration::from_secs(2);
+    Ok(Output { status_ok: status.success(), stdout: out.recv_timeout(grace).unwrap_or_default(), stderr: err.recv_timeout(grace).unwrap_or_default() })
 }
 
 fn command(binary: &Path) -> Command {
     let mut command = Command::new(binary);
     command.env("PATH", search_path());
+    if let Some(dir) = &login_env().claude_config_dir {
+        command.env("CLAUDE_CONFIG_DIR", dir);
+    }
     command
+}
+
+/// Questions being answered, by the id the window gave them, so they can be stopped.
+fn running() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    static RUNNING: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+    RUNNING.get_or_init(Default::default)
+}
+
+/// A question's stop flag, kept while it's answered.
+pub fn start_run(id: &str) -> Arc<AtomicBool> {
+    let flag = Arc::new(AtomicBool::new(false));
+    running().lock().unwrap().insert(id.to_string(), flag.clone());
+    flag
+}
+
+pub fn end_run(id: &str) {
+    running().lock().unwrap().remove(id);
+}
+
+/// Stops a question being answered (the window's Stop).
+pub fn cancel(id: &str) {
+    if let Some(flag) = running().lock().unwrap().get(id) {
+        flag.store(true, Ordering::Relaxed);
+    }
 }
 
 pub fn status(provider: Provider) -> Status {
@@ -230,6 +297,8 @@ pub struct Question<'a> {
     pub project: Option<&'a Path>,
     /// A JSON Schema the answer must follow; the answer is then that JSON.
     pub schema: Option<&'a str>,
+    /// Set to stop it.
+    pub cancel: Option<&'a AtomicBool>,
 }
 
 /// Asks the person's agent CLI and returns its answer. Blocking: run it off the main thread.
@@ -266,8 +335,9 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
             let tools = if q.project.is_some() { READ_ONLY_TOOLS } else { "" };
             cmd.args(["-p", "--output-format", "json", "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk", "--no-session-persistence", "--strict-mcp-config"]);
             // The user's own settings only: a repository's .claude/settings.json (hooks,
-            // permissions) is its author's, not the reviewer's.
-            cmd.args(["--setting-sources", "user"]);
+            // permissions) is its author's, not the reviewer's. And none of their hooks: those are
+            // for their own sessions, and would be handed the pull request (or hold the answer up).
+            cmd.args(["--setting-sources", "user", "--settings", r#"{"disableAllHooks":true}"#]);
             if let Some(model) = model {
                 cmd.args(["--model", model]);
             }
@@ -277,7 +347,7 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
             if let Some(schema) = q.schema {
                 cmd.args(["--json-schema", schema]);
             }
-            let output = run_with_limit(&mut cmd, Some(&message), limit)?;
+            let output = run_until(&mut cmd, Some(&message), limit, q.cancel)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             if reply["is_error"].as_bool() == Some(true) {
                 return Err(reply["result"].as_str().map(String::from).unwrap_or_else(|| tr!("Claude Code returned an error", "O Claude Code respondeu com um erro")));
@@ -296,7 +366,7 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
             }
             // Cursor's CLI takes the whole prompt as an argument.
             cmd.arg(&message);
-            let output = run_with_limit(&mut cmd, None, limit)?;
+            let output = run_until(&mut cmd, None, limit, q.cancel)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             let text = reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?;
             if q.schema.is_some() { json_object(&text).ok_or_else(|| tr!("The answer wasn't in the expected form", "A resposta não veio no formato esperado"))? } else { text }
@@ -338,8 +408,8 @@ mod tests {
         for status in statuses() {
             println!("{:?}: installed {}, signed in {}, {:?}", status.provider, status.installed, status.signed_in, status.version);
         }
-        let ask_claude = |project| ask(Question { provider: Provider::Claude, model: Some("haiku"), effort: Some("low"), prompt: "Reply with exactly the word in the material.", input: "PONG", project, schema: None });
+        let ask_claude = |project| ask(Question { provider: Provider::Claude, model: Some("haiku"), effort: Some("low"), prompt: "Reply with exactly the word in the material.", input: "PONG", project, schema: None, cancel: None });
         assert_eq!(ask_claude(None).as_deref(), Ok("PONG"));
-        println!("Cursor: {:?}", ask(Question { provider: Provider::Cursor, model: None, effort: None, prompt: "Reply with exactly: OK", input: "", project: None, schema: None }));
+        println!("Cursor: {:?}", ask(Question { provider: Provider::Cursor, model: None, effort: None, prompt: "Reply with exactly: OK", input: "", project: None, schema: None, cancel: None }));
     }
 }

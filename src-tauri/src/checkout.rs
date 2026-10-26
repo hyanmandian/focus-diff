@@ -159,6 +159,7 @@ mod live {
             input: "(no diff)",
             project: Some(&dir),
             schema: Some(schema),
+            cancel: None,
         });
         println!("AI: {answer:?}");
         assert!(answer.unwrap().contains("files"));

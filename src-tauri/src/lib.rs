@@ -330,33 +330,78 @@ struct Answer {
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, effort: Option<String>, prompt: String, input: String, project: Option<Project>, schema: Option<String>) -> Result<Answer, String> {
+async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, effort: Option<String>, prompt: String, input: String, project: Option<Project>, schema: Option<String>, run: Option<String>) -> Result<Answer, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        // The project's code when asked for; the diff alone if it can't be had.
+        let run = run.filter(|r| r.len() <= 64 && r.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'));
+        let cancel = run.as_deref().map(ai::start_run);
+        // The project's code when asked for, if it's ready soon (it's fetched when the pull request
+        // opens, see ai_prepare); the diff alone if it can't be had, or not yet: a big repository's
+        // new commit can take minutes, and the answer shouldn't wait on it.
         let (folder, note) = match project {
             None => (None, None),
-            Some(p) => {
-                let token = app.state::<github::Auth>().token_for_git();
-                let cache = app.path().app_cache_dir().map_err(|e| e.to_string());
-                match token.and_then(|t| cache.and_then(|c| checkout::prepare(&c, &t, &p.repo, p.number, &p.head))) {
-                    Ok(folder) => (Some(folder), None),
-                    Err(e) => (None, Some(i18n::tr!("Read the diff only: couldn't get the project's code ({e})", "Leu só o diff: não foi possível obter o código do projeto ({e})"))),
-                }
-            }
+            Some(p) => match project_soon(&app, p) {
+                Ok(folder) => (Some(folder), None),
+                Err(Some(e)) => (None, Some(i18n::tr!("Read the diff only: couldn't get the project's code ({e})", "Leu só o diff: não foi possível obter o código do projeto ({e})"))),
+                Err(None) => (None, Some(i18n::tr!("Read the diff only: the project's code is still downloading. Ask again in a moment to have it read too.", "Leu só o diff: o código do projeto ainda está baixando. Pergunte de novo daqui a pouco para ele ser lido também."))),
+            },
         };
-        let text = ai::ask(ai::Question {
-            provider,
-            model: model.as_deref(),
-            effort: effort.as_deref(),
-            prompt: &prompt,
-            input: &input,
-            project: folder.as_deref(),
-            schema: schema.as_deref(),
-        })?;
-        Ok(Answer { text, project: folder.is_some(), note })
+        let stopped = cancel.as_ref().is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed));
+        let text = if stopped {
+            Err(i18n::tr!("Stopped", "Interrompido"))
+        } else {
+            ai::ask(ai::Question {
+                provider,
+                model: model.as_deref(),
+                effort: effort.as_deref(),
+                prompt: &prompt,
+                input: &input,
+                project: folder.as_deref(),
+                schema: schema.as_deref(),
+                cancel: cancel.as_deref(),
+            })
+        };
+        if let Some(run) = &run {
+            ai::end_run(run);
+        }
+        Ok(Answer { text: text?, project: folder.is_some(), note })
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// How long a question waits for the project's code before answering from the diff.
+const PROJECT_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// The pull request's code checked out, if that's done within PROJECT_WAIT: Err(Some) when it
+/// failed, Err(None) when it's still going (it carries on, for the next question).
+fn project_soon(app: &AppHandle, p: Project) -> Result<std::path::PathBuf, Option<String>> {
+    let token = app.state::<github::Auth>().token_for_git().map_err(Some)?;
+    let cache = app.path().app_cache_dir().map_err(|e| Some(e.to_string()))?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(checkout::prepare(&cache, &token, &p.repo, p.number, &p.head));
+    });
+    match rx.recv_timeout(PROJECT_WAIT) {
+        Ok(result) => result.map_err(Some),
+        Err(_) => Err(None),
+    }
+}
+
+/// Gets a pull request's code ready for questions about it, in the background (when its review
+/// opens, with the AI set to read the project).
+#[tauri::command]
+fn ai_prepare(app: AppHandle, project: Project) {
+    let Ok(token) = app.state::<github::Auth>().token_for_git() else { return };
+    let Ok(cache) = app.path().app_cache_dir() else { return };
+    std::thread::spawn(move || {
+        let _ = checkout::prepare(&cache, &token, &project.repo, project.number, &project.head);
+    });
+}
+
+/// Stops a question (the window's Stop button).
+#[tauri::command]
+fn ai_cancel(run: String) {
+    ai::cancel(&run);
 }
 
 // MARK: Actions
@@ -1176,6 +1221,8 @@ pub fn run() {
             ai_statuses,
             ai_models,
             ai_ask,
+            ai_prepare,
+            ai_cancel,
             run_action,
             open_url,
             open_settings,

@@ -30,7 +30,10 @@ function material(details: Details, files: ReviewFile[]) {
   ].join("\n\n");
 }
 
-function run(config: Config, details: Details, files: ReviewFile[], task: string, schema?: object): Promise<AiAnswer> {
+/** An id for a question, to stop it by (bridge.aiCancel). */
+export const newRun = () => crypto.randomUUID();
+
+function run(config: Config, details: Details, files: ReviewFile[], task: string, schema?: object, runId?: string): Promise<AiAnswer> {
   const { provider, model, effort, instructions, project } = config.ai;
   if (!provider) throw new Error(i18n()("config.aiOff"));
   const guidelines = instructions.trim() ? `\n\nThe reviewer's own guidelines, to follow:\n${instructions.trim()}` : "";
@@ -43,12 +46,13 @@ function run(config: Config, details: Details, files: ReviewFile[], task: string
     input: material(details, files),
     project: project ? { repo: `${details.owner}/${details.repo}`, number: details.number, head: details.headRefOid } : null,
     schema: schema ? JSON.stringify(schema) : null,
+    run: runId,
   });
 }
 
 /** Asks the person's AI about a pull request: one of their prompts, or a question of their own. */
-export async function ask(config: Config, details: Details, question: string): Promise<AiAnswer> {
-  return run(config, details, await loadFiles(details), `${question}\n\n${FORMAT}`);
+export async function ask(config: Config, details: Details, question: string, runId?: string): Promise<AiAnswer> {
+  return run(config, details, await loadFiles(details), `${question}\n\n${FORMAT}`, undefined, runId);
 }
 
 // MARK: The AI review
@@ -152,10 +156,10 @@ export function linesFromPatch(patch: string, start: number, end: number, side: 
 export type Exchange = { question: string; answer: string };
 
 /** A question about some lines of a file in the pull request, following the earlier ones. */
-export async function askAboutLines(config: Config, details: Details, files: ReviewFile[], path: string, start: number, end: number, side: "additions" | "deletions", question: string, earlier: Exchange[] = []): Promise<AiAnswer> {
+export async function askAboutLines(config: Config, details: Details, files: ReviewFile[], path: string, start: number, end: number, side: "additions" | "deletions", question: string, earlier: Exchange[] = [], runId?: string): Promise<AiAnswer> {
   const file = files.find((f) => f.path === path);
   const lines = file ? linesFromPatch(file.patch, start, end, side) : "";
   const where = `${path}, ${start === end ? `line ${start}` : `lines ${start}–${end}`} of the ${side === "additions" ? "new" : "old"} version`;
   const before = earlier.length ? `\n\nWhat they asked about it before, and your answers:\n\n${earlier.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")}` : "";
-  return run(config, details, files, `The reviewer selected ${where}:\n\n${lines}${before}\n\nTheir question about it now: ${question}\n\n${FORMAT}`);
+  return run(config, details, files, `The reviewer selected ${where}:\n\n${lines}${before}\n\nTheir question about it now: ${question}\n\n${FORMAT}`, undefined, runId);
 }

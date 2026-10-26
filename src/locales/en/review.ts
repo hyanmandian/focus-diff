@@ -277,4 +277,6 @@ export const review = {
   removeDraftConfirm: "Remove this comment?",
   removeDraftConfirmMessage: "It's only in your pending review and hasn't been posted.",
   removeDraftConfirmButton: "Remove",
+  stop: "Stop",
+  waitedSeconds: "{seconds}s",
 } as const;

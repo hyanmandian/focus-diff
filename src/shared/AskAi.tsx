@@ -1,18 +1,20 @@
 // Asking the person's AI about a pull request: their saved prompts as buttons, or a question of
 // their own. Shown only when they've chosen an AI in Settings.
 
-import { ArrowUp, Loader2, Sparkles } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles, Square } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ask, PROVIDERS } from "@/lib/ai";
+import { ask, newRun, PROVIDERS } from "@/lib/ai";
+import { bridge } from "@/lib/bridge";
+import { useSeconds } from "./useSeconds";
 import { ensureAi, openAiSettings, useAiProblem } from "@/lib/aiReady";
 import type { Config } from "@/lib/config";
 import type { Details } from "@/lib/details";
 import { useT } from "@/lib/i18n";
 import { AiAnswer } from "./AiAnswer";
 
-type State = { phase: "idle" } | { phase: "busy"; asked: string } | { phase: "done" | "error"; asked: string; text: string; note?: string };
+type State = { phase: "idle" } | { phase: "busy"; asked: string; run: string; at: number } | { phase: "done" | "error"; asked: string; text: string; note?: string };
 
 export function AskAi({ config, details }: { config: Config; details: Details }) {
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -23,12 +25,14 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   const provider = config.ai.provider;
   if (!provider) return null;
   const busy = state.phase === "busy";
+  const waited = useSeconds(state.phase === "busy" ? state.at : null);
 
   const run = async (asked: string, prompt: string) => {
     if (!(await ensureAi(config))) return;
-    setState({ phase: "busy", asked });
+    const run = newRun();
+    setState({ phase: "busy", asked, run, at: Date.now() });
     try {
-      const answer = await ask(config, details, prompt);
+      const answer = await ask(config, details, prompt, run);
       setState({ phase: "done", asked, text: answer.text, note: answer.note });
     } catch (e) {
       setState({ phase: "error", asked, text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
@@ -53,7 +57,11 @@ export function AskAi({ config, details }: { config: Config; details: Details })
         <h3 id={headingId} className="text-headline font-bold">
           {t("shared.askTitle", { provider: PROVIDERS[provider].name })}
         </h3>
-        {busy ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("shared.askThinking")} /> : null}
+        {state.phase === "busy" ? (
+          <Button variant="outline" size="xs" className="ml-auto" onClick={() => void bridge.aiCancel(state.run)}>
+            <Square className="size-2.5 fill-current" /> {t("review.stop")}
+          </Button>
+        ) : null}
       </div>
       {/* Said before anything's asked, with the way to fix it: asking would only end in the same alert. */}
       {problem ? (
@@ -98,7 +106,11 @@ export function AskAi({ config, details }: { config: Config; details: Details })
               {state.text}
             </p>
           ) : (
-            <p className="text-callout text-muted-foreground">{config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}</p>
+            <p className="flex items-center gap-1.5 text-callout text-muted-foreground tabular-nums">
+              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+              {config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}
+              {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
+            </p>
           )}
         </div>
       ) : null}

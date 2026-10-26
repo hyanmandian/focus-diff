@@ -132,8 +132,12 @@ export const bridge = {
   aiStatuses: () => invoke<AiStatus[]>("ai_statuses"),
   aiModels: (provider: AiStatus["provider"]) => invoke<string[]>("ai_models", { provider }),
   /** `project`: the pull request whose code it may read; `schema`: a JSON Schema the answer follows. */
-  aiAsk: (q: { provider: AiStatus["provider"]; model: string; effort: string; prompt: string; input: string; project: { repo: string; number: number; head: string } | null; schema: string | null }) =>
-    invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null }),
+  /** `run`: an id to stop it by (aiCancel). */
+  aiAsk: (q: { provider: AiStatus["provider"]; model: string; effort: string; prompt: string; input: string; project: { repo: string; number: number; head: string } | null; schema: string | null; run?: string }) =>
+    invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null, run: q.run ?? null }),
+  aiCancel: (run: string) => invoke<void>("ai_cancel", { run }),
+  /** Fetches a pull request's code in the background, so questions about it can read it at once. */
+  aiPrepare: (project: { repo: string; number: number; head: string }) => invoke<void>("ai_prepare", { project }),
 
   /** Runs a "run" step of a saved action: Rust reads the command from the config and asks first. */
   runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) => invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),

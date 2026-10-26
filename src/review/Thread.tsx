@@ -1,13 +1,13 @@
 // What sits between a file's lines: a conversation (with replies and resolving), a comment written
 // for this review, or the box to write one.
 
-import { AlertCircle, Check, CloudUpload, CornerDownRight, Loader2, MessageSquare, Pencil, Sparkles, Trash2, Undo2 } from "lucide-react";
+import { AlertCircle, Check, CloudUpload, CornerDownRight, Loader2, MessageSquare, Pencil, Sparkles, Square, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Textarea } from "@/components/ui/textarea";
-import type { Exchange, Finding } from "@/lib/ai";
+import { newRun, type Exchange, type Finding } from "@/lib/ai";
 import type { AiAnswer as Answer } from "@/lib/bridge";
 import { avatar } from "@/lib/avatar";
 import { bridge } from "@/lib/bridge";
@@ -27,6 +27,7 @@ import { CommentHtml } from "./CommentHtml";
 import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
 import { SuggestionActions } from "./Suggestion";
 import { MarkdownField } from "./Writer";
+import { useSeconds } from "@/shared/useSeconds";
 
 function Person({ actor }: { actor: Actor }) {
   return (
@@ -358,7 +359,7 @@ export function NewComment({
   onSendNow: (body: string) => Promise<void>;
   onCancel: () => void;
   /** Null when no AI is set up. */
-  ask: ((question: string, earlier: Exchange[]) => Promise<Answer>) | null;
+  ask: ((question: string, earlier: Exchange[], run: string) => Promise<Answer>) | null;
   askName: string;
 }) {
   const t = useT();
@@ -375,6 +376,9 @@ export function NewComment({
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef<HTMLLIElement>(null);
+  // The question being answered, to stop it by, and since when.
+  const [asked, setAsked] = useState<{ run: string; at: number } | null>(null);
+  const waited = useSeconds(asked?.at ?? null);
   const tabs = useId();
   const asking = mode === "ask";
 
@@ -421,8 +425,10 @@ export function NewComment({
     setError(null);
     setQuestion("");
     setTurns((list) => [...list, { question: q }]);
+    const run = newRun();
+    setAsked({ run, at: Date.now() });
     try {
-      const a = await ask(q, earlier);
+      const a = await ask(q, earlier, run);
       setTurns((list) => list.map((t, i) => (i === list.length - 1 ? { ...t, answer: a.text, note: a.note } : t)));
     } catch (e) {
       // The question goes back in the box to try again.
@@ -430,10 +436,12 @@ export function NewComment({
       setQuestion(q);
       fail(e);
     } finally {
+      setAsked(null);
       setBusy(false);
       field.current?.focus();
     }
   };
+  const stop = () => asked && void bridge.aiCancel(asked.run);
 
   const submit = () => void (asking ? send() : comment(false));
 
@@ -504,10 +512,14 @@ export function NewComment({
                     </div>
                   ) : (
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1" role="status">
-                      <span className="sr-only">{t("review.readingCode", { name: askName })}</span>
-                      <span aria-hidden className="h-3 w-11/12 rounded bg-muted" />
-                      <span aria-hidden className="h-3 w-3/4 rounded bg-muted" />
-                      <span aria-hidden className="h-3 w-1/2 rounded bg-muted" />
+                      {/* What it's doing and for how long, so a long answer doesn't look stuck. */}
+                      <span className="text-subheadline text-muted-foreground tabular-nums">
+                        {t("review.readingCode", { name: askName })}
+                        {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
+                      </span>
+                      <span aria-hidden className="h-3 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                      <span aria-hidden className="h-3 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                      <span aria-hidden className="h-3 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
                     </div>
                   )}
                 </div>
@@ -571,10 +583,17 @@ export function NewComment({
         </Button>
         {asking ? (
           ask ? (
-            <Button onClick={submit} disabled={busy || !question.trim()}>
-              {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-              {t("review.ask")}
-            </Button>
+            asked ? (
+              <Button variant="outline" onClick={stop}>
+                <Square className="size-3 fill-current" />
+                {t("review.stop")}
+              </Button>
+            ) : (
+              <Button onClick={submit} disabled={busy || !question.trim()}>
+                <Sparkles />
+                {t("review.ask")}
+              </Button>
+            )
           ) : (
             <Button onClick={() => void bridge.openSettings()}>
               {t("review.openSettings")}

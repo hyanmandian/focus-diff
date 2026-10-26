@@ -33,7 +33,8 @@ export type Thread = {
 /** A comment written during this review, sent with it. */
 export type Draft = { key: string; path: string; side: "additions" | "deletions"; line: number; startLine?: number; body: string };
 
-const header = (f: { filename: string; previous_filename?: string; status: string }) => {
+/** The git headers @pierre/diffs needs above a file's patch (GitHub sends the hunks only). */
+export const header = (f: { filename: string; previous_filename?: string; status: string }) => {
   const old = f.previous_filename ?? f.filename;
   return [
     `diff --git a/${old} b/${f.filename}`,

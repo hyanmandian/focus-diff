@@ -314,6 +314,26 @@ impl Auth {
         Ok((status, text))
     }
 
+    /// Where a GET that GitHub answers with a redirect leads (a job's log, a download), without
+    /// following it: the token goes to api.github.com only, never to where it points.
+    pub fn redirect(&self, path: &str) -> Result<(u16, Option<String>), String> {
+        if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
+            return Err("Bad request".into());
+        }
+        let response = agent()
+            .get(format!("{API}{path}"))
+            .header("Authorization", &format!("Bearer {}", self.token()?))
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .config()
+            .max_redirects(0)
+            .build()
+            .call()
+            .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+        let location = response.headers().get("location").and_then(|v| v.to_str().ok()).map(String::from);
+        Ok((response.status().as_u16(), location))
+    }
+
     /// `call`, with GET responses revalidated by their ETag.
     fn call_tagged(&self, token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
         if method != "GET" {

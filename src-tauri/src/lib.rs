@@ -18,6 +18,7 @@ mod floating;
 mod github;
 mod i18n;
 mod kept;
+mod logs;
 mod media;
 mod menu;
 mod outbox;
@@ -155,6 +156,12 @@ struct Response {
 async fn github(auth: State<'_, github::Auth>, method: String, path: String, body: Option<String>, accept: Option<String>) -> Result<Response, String> {
     let (status, body) = auth.request_for_page(&method, &path, body.as_deref(), accept.as_deref())?;
     Ok(Response { status, body })
+}
+
+/// A GitHub Actions job's log (logs.rs): its end, when it's long.
+#[tauri::command]
+async fn job_log(auth: State<'_, github::Auth>, logs: State<'_, logs::Logs>, owner: String, repo: String, job: u64, done: bool) -> Result<logs::Log, String> {
+    logs::job_log(&auth, &logs, &owner, &repo, job, done)
 }
 
 /// Marks a file viewed, or not, on github.com, through the outbox: kept until GitHub takes it.
@@ -915,6 +922,7 @@ pub fn run() {
         })
         .manage(update::Pending::default())
         .manage(github::Auth::default())
+        .manage(logs::Logs::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
@@ -930,6 +938,7 @@ pub fn run() {
             end_review,
             clear_arrival,
             github,
+            job_log,
             spare_ready,
             kept_read,
             kept_write,

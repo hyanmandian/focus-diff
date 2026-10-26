@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, Runtime};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri_plugin_updater::{Error, Update, UpdaterExt};
 use crate::i18n::tr;
 
 const FIRST_CHECK: Duration = Duration::from_secs(30);
@@ -16,9 +16,25 @@ const EVERY: Duration = Duration::from_secs(6 * 3600);
 #[derive(Default)]
 pub struct Pending(Mutex<Option<Update>>);
 
-/// The version on offer, if a newer one was found. Errors when GitHub couldn't be asked.
+/// The version on offer, if a newer one was found. A release feed that isn't there (nothing published
+/// yet, or nothing for this computer) means there's nothing newer; an error, said for people, only
+/// when the feed couldn't be reached or read. The updater's own words go to the log.
 pub async fn check<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {
-    let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
+    let checked = match app.updater() {
+        Ok(updater) => updater.check().await,
+        Err(e) => Err(e),
+    };
+    let update = match checked {
+        Ok(update) => update,
+        Err(Error::ReleaseNotFound | Error::TargetNotFound(_) | Error::TargetsNotFound(..)) => None,
+        Err(e) => {
+            eprintln!("Checking for updates failed: {e}");
+            return Err(match e {
+                Error::Reqwest(_) | Error::Network(_) => tr!("Couldn't reach the update server. Check your connection and try again.", "Não foi possível falar com o servidor de atualizações. Verifique sua conexão e tente de novo."),
+                _ => tr!("The update server's answer couldn't be read. Try again later.", "Não foi possível ler a resposta do servidor de atualizações. Tente de novo mais tarde."),
+            });
+        }
+    };
     let version = update.as_ref().map(|u| u.version.clone());
     *app.state::<Pending>().0.lock().unwrap() = update;
     if let Some(version) = &version {
@@ -47,9 +63,8 @@ pub fn watch<R: Runtime>(app: &AppHandle<R>) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
-            if let Err(e) = check(&app).await {
-                eprintln!("Checking for updates failed: {e}");
-            }
+            // Quiet when it fails: check() has logged why, and the next try is in six hours.
+            let _ = check(&app).await;
             tokio::time::sleep(EVERY).await;
         }
     });

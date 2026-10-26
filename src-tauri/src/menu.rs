@@ -69,7 +69,7 @@ fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
 
     // Every item's text is given: the predefined ones' own are English whatever the language.
     let app_menu = SubmenuBuilder::new(app, &name)
-        .item(&PredefinedMenuItem::about(app, Some(&tr!("About {name}", "Sobre o {name}")), None)?)
+        .item(&item("about", &tr!("About {name}", "Sobre o {name}"), None)?)
         .item(&item("updates", &tr!("Check for Updates…", "Buscar atualizações…"), None)?)
         .separator()
         .item(&item("settings", &tr!("Settings…", "Ajustes…"), Some("CmdOrCtrl+,"))?)
@@ -186,6 +186,7 @@ pub fn on_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
         "settings" => {
             let _ = crate::show_settings(app);
         }
+        "about" => crate::about::show(app),
         "updates" => check_for_updates(app),
         _ if REVIEW.contains(&id) => {
             if let Some((label, _)) = app.webview_windows().into_iter().find(|(label, w)| label.starts_with("review-") && w.is_focused().unwrap_or(false)) {

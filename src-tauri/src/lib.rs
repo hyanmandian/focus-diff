@@ -628,42 +628,90 @@ fn show_growing<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>
             let f = p.frame();
             start = Some(NSRect::new(NSPoint::new(f.origin.x + card.x, f.origin.y + f.size.height - card.y - card.height), NSSize::new(card.width, card.height)));
         });
-        let mut target = None;
         if let Some(start) = start {
-            with_ns_window(window, |w| {
-                target = Some(w.frame());
-                w.setAlphaValue(0.0);
-                w.setFrame_display(start, false);
-            });
-        }
-        if let Some(target) = target {
+            with_ns_window(window, |w| w.setAlphaValue(0.0));
             window.show()?;
-            with_ns_window(window, |w| grow(w, target));
-            return Ok(());
+            let mut target = None;
+            with_ns_window(window, |w| target = Some(w.frame()));
+            if let Some(target) = target {
+                grow(app, window, start, target);
+                return Ok(());
+            }
         }
     }
     window.show()
 }
 
+// The stand-in that grows out of the card: a plain window-colored shape, so nothing has to lay out
+// on the way. Kept here (main thread only) until the window it stood in for has faded in over it.
 #[cfg(target_os = "macos")]
-fn grow(window: &objc2_app_kit::NSWindow, to: objc2_foundation::NSRect) {
-    use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext, NSWorkspace};
+thread_local! {
+    static STAND_IN: std::cell::RefCell<Option<objc2::rc::Retained<objc2_app_kit::NSWindow>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Grows a stand-in from the card to the review window's frame, then fades the review window in
+/// over it (drawn by then, where it'll stay) and takes the stand-in away. Resizing the review window
+/// itself would lay its page out again every frame. With Reduce Motion, only the fade.
+#[cfg(target_os = "macos")]
+fn grow<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>, from: objc2_foundation::NSRect, to: objc2_foundation::NSRect) {
+    use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext, NSAutoresizingMaskOptions, NSBackingStoreType, NSBox, NSBoxType, NSColor, NSTitlePosition, NSWindow, NSWindowStyleMask, NSWorkspace};
     use objc2_quartz_core::CAMediaTimingFunction;
-    let still = NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion();
-    if still {
-        window.setFrame_display(to, true);
+    const GROW: f64 = 0.34;
+    const FADE: f64 = 0.14;
+
+    let fade_in = |window: &tauri::WebviewWindow<R>, duration: f64| {
+        with_ns_window(window, |w| {
+            NSAnimationContext::beginGrouping();
+            NSAnimationContext::currentContext().setDuration(duration);
+            w.animator().setAlphaValue(1.0);
+            NSAnimationContext::endGrouping();
+        });
+    };
+    let Some(main) = objc2::MainThreadMarker::new() else { return fade_in(window, FADE) };
+    if NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion() {
+        return fade_in(window, 0.2);
     }
+
+    // SAFETY: a new borderless window on the main thread, kept alive by STAND_IN (not released on close).
+    let stand_in = unsafe { NSWindow::initWithContentRect_styleMask_backing_defer(main.alloc::<NSWindow>(), from, NSWindowStyleMask::Borderless, NSBackingStoreType::Buffered, false) };
+    unsafe { stand_in.setReleasedWhenClosed(false) };
+    stand_in.setOpaque(false);
+    stand_in.setBackgroundColor(Some(&NSColor::clearColor()));
+    stand_in.setHasShadow(true);
+    stand_in.setIgnoresMouseEvents(true);
+    let shape = NSBox::initWithFrame(main.alloc::<NSBox>(), objc2_foundation::NSRect::new(objc2_foundation::NSPoint::new(0.0, 0.0), from.size));
+    shape.setBoxType(NSBoxType::Custom);
+    shape.setTitlePosition(NSTitlePosition::NoTitle);
+    shape.setBorderWidth(0.0);
+    shape.setCornerRadius(14.0);
+    shape.setFillColor(&NSColor::windowBackgroundColor());
+    shape.setContentViewMargins(objc2_foundation::NSSize::new(0.0, 0.0));
+    shape.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable);
+    stand_in.setContentView(Some(&shape));
+    // Over the review window, which is up already but still clear.
+    stand_in.orderFront(None);
+
     NSAnimationContext::beginGrouping();
     let context = NSAnimationContext::currentContext();
-    context.setDuration(if still { 0.15 } else { 0.32 });
+    context.setDuration(GROW);
     // Quick out of the card, settling gently: the curve the app's own transitions use.
     context.setTimingFunction(Some(&CAMediaTimingFunction::functionWithControlPoints(0.16, 1.0, 0.3, 1.0)));
-    let animator = window.animator();
-    if !still {
-        animator.setFrame_display(to, true);
-    }
-    animator.setAlphaValue(1.0);
+    stand_in.animator().setFrame_display(to, true);
     NSAnimationContext::endGrouping();
+    STAND_IN.with(|s| {
+        if let Some(old) = s.borrow_mut().replace(stand_in) {
+            old.orderOut(None);
+        }
+    });
+
+    let (app, window) = (app.clone(), window.clone());
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs_f64(GROW * 0.85));
+        let w = window.clone();
+        let _ = app.run_on_main_thread(move || fade_in(&w, FADE));
+        thread::sleep(Duration::from_secs_f64(FADE + 0.05));
+        let _ = app.run_on_main_thread(|| STAND_IN.with(|s| s.borrow_mut().take().map(|w| w.orderOut(None))).unwrap_or_default());
+    });
 }
 
 #[tauri::command]

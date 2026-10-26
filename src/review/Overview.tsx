@@ -355,6 +355,10 @@ export function Overview({ config, details, conversation, review, reviewing, rev
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-8">
+        {/* The title heads the page, as on GitHub; the toolbar's copy of it may be cut short. */}
+        <h1 className="selectable -mb-4 text-title2 leading-tight font-bold text-balance [overflow-wrap:anywhere]">
+          {details.title} <span className="font-normal text-muted-foreground tabular-nums">#{details.number}</span>
+        </h1>
         <Description details={details} conversation={conversation} />
         <MergeBox details={details} pull={pull} />
         <Checks pr={details} pull={pull} hasFile={hasFile} onJump={onJump} say={say} />

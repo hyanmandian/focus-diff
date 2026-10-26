@@ -434,7 +434,35 @@ fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err(i18n::tr!("Only https links open", "Só links https abrem"));
     }
+    // Straight to the app the page would only hand it on to, when it's here.
+    let url = app_link(&url).filter(|link| can_open(link)).unwrap_or(url);
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// The app link behind a web page that only passes a link on to an app: Cursor Bugbot's "Fix in
+/// Cursor" (cursor.com/open), which opens Cursor at cursor://anysphere.cursor-deeplink/createchat
+/// with the same query, after a stop in the browser. Cursor checks what it's given itself.
+fn app_link(url: &str) -> Option<String> {
+    let rest = url.strip_prefix("https://cursor.com/open?").or_else(|| url.strip_prefix("https://www.cursor.com/open?"))?;
+    let query = rest.split('#').next()?;
+    let safe = query.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.~=&%+/".contains(&b));
+    let carries = query.split('&').any(|pair| pair.starts_with("link=") || pair.starts_with("data="));
+    (safe && carries).then(|| format!("cursor://anysphere.cursor-deeplink/createchat?{query}"))
+}
+
+/// Whether some app on this Mac opens links like this one.
+fn can_open(link: &str) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::NSWorkspace;
+        use objc2_foundation::{NSString, NSURL};
+        NSURL::URLWithString(&NSString::from_str(link)).is_some_and(|url| NSWorkspace::sharedWorkspace().URLForApplicationToOpenURL(&url).is_some())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = link;
+        false
+    }
 }
 
 #[tauri::command]
@@ -1252,4 +1280,24 @@ pub fn run() {
                 api.prevent_exit();
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::app_link;
+
+    #[test]
+    fn fix_in_cursor_opens_cursor() {
+        assert_eq!(app_link("https://cursor.com/open?link=eyJ2Zm9v").as_deref(), Some("cursor://anysphere.cursor-deeplink/createchat?link=eyJ2Zm9v"));
+        assert_eq!(app_link("https://www.cursor.com/open?data=a%2Bb&bugId=1").as_deref(), Some("cursor://anysphere.cursor-deeplink/createchat?data=a%2Bb&bugId=1"));
+    }
+
+    #[test]
+    fn other_links_stay_web_links() {
+        assert_eq!(app_link("https://cursor.com/agents?link=eyJ2"), None);
+        assert_eq!(app_link("https://cursor.com/open?x=1"), None);
+        assert_eq!(app_link("https://cursor.com/open?link=a\"b"), None);
+        assert_eq!(app_link("https://evil.com/open?link=a"), None);
+        assert_eq!(app_link("https://cursor.com.evil.com/open?link=a"), None);
+    }
 }

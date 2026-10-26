@@ -6,38 +6,12 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
 import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Reaction, ReactionContent } from "@/utils/comments/comments";
+import { fakeConversation } from "@/utils/mock-pull/mock-pull";
+import { later } from "@/utils/mock-render/mock-render";
 
 type React = ConversationApi["react"];
 
-/** A review window's conversation API: what these parts use is spied on, the rest does nothing. */
-function conversation(react: React = vi.fn<React>(() => Promise.resolve())): ConversationApi {
-  return {
-    repo: "acme/app",
-    url: "https://github.com/acme/app/pull/7",
-    me: "mona",
-    people: [],
-    canApplySuggestion: false,
-    branch: "feature",
-    thread: (): undefined => {},
-    patchOf: (): undefined => {},
-    draft: (): undefined => {},
-    draftError: (): undefined => {},
-    draftSending: () => false,
-    retryDrafts: () => {},
-    replyLater: () => {},
-    editComment: () => Promise.resolve(),
-    deleteComment: () => Promise.resolve(),
-    editEntry: () => Promise.resolve(),
-    deleteEntry: () => Promise.resolve(),
-    editDescription: () => Promise.resolve(),
-    react,
-    copyLink: vi.fn<(url: string) => void>(),
-    batch: [],
-    toggleBatch: () => {},
-    clearBatch: () => {},
-    commit: () => Promise.resolve(),
-  };
-}
+const conversation = (react?: React) => fakeConversation(react ? { react } : {});
 
 const withApi = (api: ConversationApi | null) =>
   function Wrapper({ children }: { children: ReactNode }) {
@@ -56,20 +30,6 @@ function Reactions({ given }: { given: Reaction[] }) {
       <ReactionPicker reactions={reactions} onToggle={toggle} />
     </>
   );
-}
-
-/** A promise that settles when the test says. */
-function later() {
-  const settle: Array<() => void> = [];
-  const promise = new Promise<void>((resolve) => {
-    settle.push(resolve);
-  });
-  return {
-    promise,
-    settle: () => {
-      settle[0]!();
-    },
-  };
 }
 
 const open = () => userEvent.click(screen.getByRole("button", { name: "More for this comment" }));

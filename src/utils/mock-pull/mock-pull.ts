@@ -1,9 +1,10 @@
-// Tests only: a pull request as the review window holds it (usePull's result and the details it
-// started from), every part typed and plain, every action a spy that resolves. Each test changes
-// only what it's about.
+// Tests only: a pull request as the review window holds it (usePull's result, the details it
+// started from, the conversation's API), every part typed and plain, every action a spy that
+// resolves. Each test changes only what it's about.
 
 import { vi } from "vite-plus/test";
 
+import type { ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { CheckItem } from "@/utils/checks/checks";
 import type { Commit } from "@/utils/commits/commits";
@@ -184,6 +185,37 @@ export function fakePull(extra: Partial<Pull> = {}): Pull {
     allowed: {},
     menu: {},
     revalidate: vi.fn<Pull["revalidate"]>(resolved),
+    ...extra,
+  };
+}
+
+/** A review window's conversation API: what's done to comments is spied on, the rest does nothing. */
+export function fakeConversation(extra: Partial<ConversationApi> = {}): ConversationApi {
+  return {
+    repo: "acme/shop",
+    url: "https://github.com/acme/shop/pull/42",
+    me: "mona",
+    people: [],
+    canApplySuggestion: false,
+    branch: "promo-keep",
+    thread: (): undefined => {},
+    patchOf: (): undefined => {},
+    draft: (): undefined => {},
+    draftError: (): undefined => {},
+    draftSending: () => false,
+    retryDrafts: vi.fn<ConversationApi["retryDrafts"]>(),
+    replyLater: vi.fn<ConversationApi["replyLater"]>(),
+    editComment: vi.fn<ConversationApi["editComment"]>(resolved),
+    deleteComment: vi.fn<ConversationApi["deleteComment"]>(resolved),
+    editEntry: vi.fn<ConversationApi["editEntry"]>(resolved),
+    deleteEntry: vi.fn<ConversationApi["deleteEntry"]>(resolved),
+    editDescription: vi.fn<ConversationApi["editDescription"]>(resolved),
+    react: vi.fn<ConversationApi["react"]>(resolved),
+    copyLink: vi.fn<ConversationApi["copyLink"]>(),
+    batch: [],
+    toggleBatch: vi.fn<ConversationApi["toggleBatch"]>(),
+    clearBatch: vi.fn<ConversationApi["clearBatch"]>(),
+    commit: vi.fn<ConversationApi["commit"]>(resolved),
     ...extra,
   };
 }

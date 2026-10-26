@@ -9,7 +9,7 @@ import { Button } from "@/components/button/button";
 import { Input } from "@/components/input/input";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Textarea } from "@/components/textarea/textarea";
-import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { useConversationApi, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { defaultHeadline, type Applied } from "@/utils/commit/commit";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread, ThreadComment } from "@/utils/review/review";
@@ -27,23 +27,23 @@ function whyNot(thread: Thread, comment: ThreadComment, count: number) {
 
 /** The commit's message, then the commit: a popover from the button that opened it. */
 function CommitPopover({
+  api,
   items,
   children,
   variant = "outline",
 }: {
+  api: ConversationApi;
   items: Applied[];
   children: React.ReactNode;
   variant?: "outline" | "default";
 }) {
   const t = useT();
-  const api = useConversationApi();
   const [open, setOpen] = useState(false);
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const commit = async () => {
-    if (!api) return;
     setBusy(true);
     setError(null);
     try {
@@ -69,7 +69,9 @@ function CommitPopover({
           }}
           placeholder={defaultHeadline(items)}
           aria-label={t("review.commitHeadline")}
-          onKeyDown={(e) => e.key === "Enter" && void commit()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void commit();
+          }}
         />
         <Textarea
           rows={3}
@@ -81,7 +83,7 @@ function CommitPopover({
           aria-label={t("review.commitBody")}
           className="resize-y"
         />
-        <p className="text-callout text-muted-foreground">{t("review.commitsTo", { branch: api?.branch ?? "" })}</p>
+        <p className="text-callout text-muted-foreground">{t("review.commitsTo", { branch: api.branch })}</p>
         {error ? (
           <p className="text-callout text-destructive" role="alert">
             {error}
@@ -117,7 +119,11 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
   const batched = api.batch.some((i) => i.comment === comment.id);
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-      {batched ? null : <CommitPopover items={[item]}>{t("review.commitSuggestion")}</CommitPopover>}
+      {batched ? null : (
+        <CommitPopover api={api} items={[item]}>
+          {t("review.commitSuggestion")}
+        </CommitPopover>
+      )}
       <Button
         variant="ghost"
         onClick={() => {
@@ -127,7 +133,7 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
         {batched ? t("review.removeFromBatch") : t("review.addToBatch")}
       </Button>
       {batched ? (
-        <CommitPopover items={api.batch} variant="default">
+        <CommitPopover api={api} items={api.batch} variant="default">
           {t("review.commitBatch", { count: api.batch.length })}
         </CommitPopover>
       ) : null}
@@ -142,18 +148,17 @@ export function SuggestionBatch() {
   const api = useConversationApi();
   if (!api?.batch.length) return null;
   return (
-    <div
-      role="region"
+    <section
       aria-label={t("review.batch")}
       className="absolute right-4 bottom-20 z-20 flex items-center gap-1 rounded-full bg-popover py-1 pr-1 pl-3 text-body shadow-(--shadow-menu)"
     >
       <span className="text-muted-foreground tabular-nums">{t("review.inBatch", { count: api.batch.length })}</span>
-      <CommitPopover items={api.batch} variant="default">
+      <CommitPopover api={api} items={api.batch} variant="default">
         {t("review.commitBatch", { count: api.batch.length })}
       </CommitPopover>
       <Button variant="ghost" size="icon-xs" aria-label={t("review.clearBatch")} onClick={api.clearBatch}>
         <X />
       </Button>
-    </div>
+    </section>
   );
 }

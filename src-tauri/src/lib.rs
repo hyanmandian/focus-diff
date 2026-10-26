@@ -22,6 +22,7 @@ mod i18n;
 mod kept;
 mod logs;
 mod media;
+mod about;
 mod menu;
 mod outbox;
 mod review;

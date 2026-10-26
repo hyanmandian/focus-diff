@@ -34,9 +34,9 @@ tokio = { version = "1", default-features = false, features = ["time"] }
 # for review time's sound, the local time zone and the Mac's preferred languages.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSApplication", "NSResponder", "NSWindow", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "NSFontDescriptor", "NSView", "NSControl", "NSButton", "NSToolbar", "NSPanel", "NSSound", "NSAnimation", "NSAnimationContext", "NSWorkspace", "NSAccessibility", "objc2-quartz-core"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSApplication", "NSResponder", "NSWindow", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "NSFontDescriptor", "NSView", "NSControl", "NSButton", "NSToolbar", "NSPanel", "NSSound", "NSAnimation", "NSAnimationContext", "NSWorkspace", "NSAccessibility", "NSAttributedString", "NSColor", "NSFont", "NSParagraphStyle", "NSText", "objc2-quartz-core"] }
 objc2-quartz-core = { version = "0.3", default-features = false, features = ["std", "CAMediaTimingFunction"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSString", "NSGeometry", "NSData", "NSDate", "NSTimeZone", "NSLocale", "NSArray"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSString", "NSGeometry", "NSData", "NSDate", "NSTimeZone", "NSLocale", "NSArray", "NSAttributedString", "NSDictionary", "NSRange", "NSURL", "NSValue"] }
 
 [features]
 # Development only: the devctl test driver in a release build, to measure it (never shipped).

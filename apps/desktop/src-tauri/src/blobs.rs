@@ -1,0 +1,147 @@
+//! A file's contents at a commit, for what the patch alone can't show: the lines between hunks
+//! (expanding context), images side by side, and files too large for GitHub's diff. What a commit
+//! holds never changes, so each answer is kept on disk for good (swept two weeks after last use)
+//! and asked of GitHub once. A file that isn't there at that commit (added or deleted) is noted
+//! too.
+
+use std::path::PathBuf;
+use std::time::Duration;
+
+use tauri::{AppHandle, Manager, Runtime};
+
+use crate::github::Auth;
+use crate::i18n::tr;
+
+const SWEEP_AFTER: Duration = Duration::from_secs(14 * 24 * 3600);
+/// Larger than this isn't worth showing or keeping.
+pub const LARGEST: usize = 20 * 1024 * 1024;
+/// What a page is told when the file isn't there at that commit.
+pub const ABSENT: &str = "absent";
+
+fn folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    let dir = app.path().app_cache_dir().ok()?.join("files");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+/// "owner/name": letters, digits, `.`, `_` and `-`.
+fn valid_repo(repo: &str) -> bool {
+    let mut parts = repo.split('/');
+    let ok = |p: Option<&str>| p.is_some_and(|p| !p.is_empty() && p.len() <= 100 && p.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')));
+    ok(parts.next()) && ok(parts.next()) && parts.next().is_none()
+}
+
+/// A full commit id (SHA-1, or SHA-256 for repositories that use it): only those never change.
+fn valid_sha(sha: &str) -> bool {
+    (sha.len() == 40 || sha.len() == 64) && sha.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+/// A path in the repository: relative, no `..`, nothing that could leave the API's path.
+fn valid_path(path: &str) -> bool {
+    !path.is_empty() && path.len() <= 4096 && !path.starts_with('/') && !path.contains('\\') && !path.contains('\0') && path.split('/').all(|s| !s.is_empty() && s != "." && s != "..")
+}
+
+/// Each byte that isn't plainly safe in a URL path, as %XX.
+fn encode(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for b in path.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~' | b'/') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// A stable name for a file on disk (FNV-1a, twice over, for 128 bits): the key itself could be
+/// any length and hold any character.
+fn name(key: &str) -> String {
+    let fnv = |seed: u64| key.bytes().fold(seed, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3));
+    format!("{:016x}{:016x}", fnv(0xcbf2_9ce4_8422_2325), fnv(0x6c62_272e_07bb_0142))
+}
+
+/// The contents of `path` at commit `sha` of `repo`; None when it isn't there.
+pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &str, path: &str) -> Result<Option<Vec<u8>>, String> {
+    if !valid_repo(repo) || !valid_sha(sha) || !valid_path(path) {
+        return Err("Bad request".into());
+    }
+    let dir = folder(app);
+    let stem = name(&format!("{repo}\n{sha}\n{path}"));
+    let (kept, absent) = match &dir {
+        Some(dir) => (Some(dir.join(&stem)), Some(dir.join(format!("{stem}.absent")))),
+        None => (None, None),
+    };
+    if let Some(kept) = &kept
+        && let Ok(bytes) = std::fs::read(kept)
+    {
+        // Used: kept from the sweep.
+        let _ = std::fs::File::options().append(true).open(kept).and_then(|f| f.set_modified(std::time::SystemTime::now()));
+        return Ok(Some(bytes));
+    }
+    if absent.as_ref().is_some_and(|a| a.exists()) {
+        return Ok(None);
+    }
+    let (status, bytes) = auth.get_bytes(&format!("/repos/{repo}/contents/{}?ref={sha}", encode(path)), "application/vnd.github.raw+json", LARGEST)?;
+    match status {
+        200 => {
+            if let Some(kept) = &kept {
+                let temporary = kept.with_extension("tmp");
+                if std::fs::write(&temporary, &bytes).is_ok() {
+                    let _ = std::fs::rename(&temporary, kept);
+                }
+            }
+            Ok(Some(bytes))
+        }
+        404 => {
+            if let Some(absent) = &absent {
+                let _ = std::fs::write(absent, b"");
+            }
+            Ok(None)
+        }
+        _ => Err(tr!("GitHub returned {status}", "O GitHub respondeu {status}")),
+    }
+}
+
+/// Removes what nobody's opened for two weeks.
+pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
+    let Some(dir) = folder(app) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a > SWEEP_AFTER);
+        if old {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn takes_only_safe_requests() {
+        assert!(valid_repo("acme/web.site"));
+        assert!(!valid_repo("acme/../x"));
+        assert!(!valid_repo("acme"));
+        assert!(valid_sha(&"a".repeat(40)));
+        assert!(!valid_sha("main"));
+        assert!(valid_path("src/a b.ts"));
+        assert!(!valid_path("../etc/passwd"));
+        assert!(!valid_path("/abs"));
+        assert!(!valid_path("a//b"));
+    }
+
+    #[test]
+    fn encodes_paths_for_the_api() {
+        assert_eq!(encode("src/a b#?.ts"), "src/a%20b%23%3F.ts");
+        assert_eq!(encode("é"), "%C3%A9");
+    }
+
+    #[test]
+    fn names_files_stably() {
+        assert_eq!(name("a"), name("a"));
+        assert_ne!(name("a"), name("b"));
+        assert_eq!(name("a").len(), 32);
+    }
+}

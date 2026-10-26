@@ -1,0 +1,1158 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn's Tailwind variants and keyframes (from the shadcn package's tailwind.css, MIT), kept here so
+   the shadcn CLI isn't a dependency of the app. Refresh with: npx shadcn@latest ... then copy dist/tailwind.css. */
+@theme inline {
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height, var(--accordion-panel-height, auto));
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height, var(--accordion-panel-height, auto));
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+/* Custom variants */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* scroll-fade */
+@property --scroll-fade-t {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-b {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-s {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-e {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-mask {
+  syntax: "*";
+  inherits: false;
+}
+
+@theme inline {
+  @keyframes scroll-fade-reveal-t {
+    from {
+      --scroll-fade-t: 0px;
+    }
+    to {
+      --scroll-fade-t: var(--_scroll-fade-size-t, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+    }
+  }
+  @keyframes scroll-fade-reveal-b {
+    from {
+      --scroll-fade-b: var(--_scroll-fade-size-b, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+    }
+    to {
+      --scroll-fade-b: 0px;
+    }
+  }
+  @keyframes scroll-fade-reveal-s {
+    from {
+      --scroll-fade-s: 0px;
+    }
+    to {
+      --scroll-fade-s: var(--_scroll-fade-size-s, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+    }
+  }
+  @keyframes scroll-fade-reveal-e {
+    from {
+      --scroll-fade-e: var(--_scroll-fade-size-e, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+    }
+    to {
+      --scroll-fade-e: 0px;
+    }
+  }
+}
+
+@utility scroll-fade {
+  --_scroll-fade-size-t: var(--scroll-fade-t-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --_scroll-fade-size-b: var(--scroll-fade-b-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-block: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-t, 0px),
+    #000 calc(100% - var(--scroll-fade-b, 0px)),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
+  mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation:
+      scroll-fade-reveal-t 1ms ease-in-out,
+      scroll-fade-reveal-b 1ms ease-in-out;
+    animation-timeline: scroll(self y), scroll(self y);
+    animation-range:
+      0 var(--scroll-fade-reveal, calc(var(--spacing) * 24)),
+      calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-t: var(--_scroll-fade-size-t);
+    --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+}
+
+@utility scroll-fade-y {
+  --_scroll-fade-size-t: var(--scroll-fade-t-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --_scroll-fade-size-b: var(--scroll-fade-b-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-block: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-t, 0px),
+    #000 calc(100% - var(--scroll-fade-b, 0px)),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
+  mask-image: var(--scroll-fade-mask, var(--scroll-fade-block));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation:
+      scroll-fade-reveal-t 1ms ease-in-out,
+      scroll-fade-reveal-b 1ms ease-in-out;
+    animation-timeline: scroll(self y), scroll(self y);
+    animation-range:
+      0 var(--scroll-fade-reveal, calc(var(--spacing) * 24)),
+      calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-t: var(--_scroll-fade-size-t);
+    --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+}
+
+@utility scroll-fade-x {
+  --_scroll-fade-size-s: var(--scroll-fade-s-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --_scroll-fade-size-e: var(--scroll-fade-e-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-inline: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--scroll-fade-s, 0px),
+    #000 calc(100% - var(--scroll-fade-e, 0px)),
+    transparent 100%
+  );
+  &:where([dir="rtl"], [dir="rtl"] *) {
+    --scroll-fade-inline: linear-gradient(
+      to left,
+      transparent 0,
+      #000 var(--scroll-fade-s, 0px),
+      #000 calc(100% - var(--scroll-fade-e, 0px)),
+      transparent 100%
+    );
+  }
+  -webkit-mask-image: var(--scroll-fade-mask, var(--scroll-fade-inline));
+  mask-image: var(--scroll-fade-mask, var(--scroll-fade-inline));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation:
+      scroll-fade-reveal-s 1ms ease-in-out,
+      scroll-fade-reveal-e 1ms ease-in-out;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range:
+      0 var(--scroll-fade-reveal, calc(var(--spacing) * 24)),
+      calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-s: var(--_scroll-fade-size-s);
+    --scroll-fade-e: var(--_scroll-fade-size-e);
+  }
+}
+
+@utility scroll-fade-t {
+  --_scroll-fade-size-t: var(--scroll-fade-t-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-mask: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-t, 0px), #000 100%);
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-t 1ms ease-in-out;
+    animation-timeline: scroll(self y);
+    animation-range: 0 var(--scroll-fade-reveal, calc(var(--spacing) * 24));
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-t: var(--_scroll-fade-size-t);
+  }
+}
+
+@utility scroll-fade-b {
+  --_scroll-fade-size-b: var(--scroll-fade-b-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-mask: linear-gradient(to bottom, #000 0, #000 calc(100% - var(--scroll-fade-b, 0px)), transparent 100%);
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-b 1ms ease-in-out;
+    animation-timeline: scroll(self y);
+    animation-range: calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+}
+
+@utility scroll-fade-l {
+  --_scroll-fade-size-s: var(--scroll-fade-s-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-mask: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-s, 0px), #000 100%);
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-s 1ms ease-in-out;
+    animation-timeline: scroll(self x);
+    animation-range: 0 var(--scroll-fade-reveal, calc(var(--spacing) * 24));
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-s: var(--_scroll-fade-size-s);
+  }
+}
+
+@utility scroll-fade-r {
+  --_scroll-fade-size-e: var(--scroll-fade-e-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-mask: linear-gradient(to right, #000 0, #000 calc(100% - var(--scroll-fade-e, 0px)), transparent 100%);
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-e 1ms ease-in-out;
+    animation-timeline: scroll(self x);
+    animation-range: calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-e: var(--_scroll-fade-size-e);
+  }
+}
+
+@utility scroll-fade-s {
+  --_scroll-fade-size-s: var(--scroll-fade-s-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-mask: linear-gradient(to right, transparent 0, #000 var(--scroll-fade-s, 0px), #000 100%);
+  &:where([dir="rtl"], [dir="rtl"] *) {
+    --scroll-fade-mask: linear-gradient(to left, transparent 0, #000 var(--scroll-fade-s, 0px), #000 100%);
+  }
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-s 1ms ease-in-out;
+    animation-timeline: scroll(self inline);
+    animation-range: 0 var(--scroll-fade-reveal, calc(var(--spacing) * 24));
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-s: var(--_scroll-fade-size-s);
+  }
+}
+
+@utility scroll-fade-e {
+  --_scroll-fade-size-e: var(--scroll-fade-e-size, var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10))));
+  --scroll-fade-mask: linear-gradient(to right, #000 0, #000 calc(100% - var(--scroll-fade-e, 0px)), transparent 100%);
+  &:where([dir="rtl"], [dir="rtl"] *) {
+    --scroll-fade-mask: linear-gradient(to left, #000 0, #000 calc(100% - var(--scroll-fade-e, 0px)), transparent 100%);
+  }
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-e 1ms ease-in-out;
+    animation-timeline: scroll(self inline);
+    animation-range: calc(100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))) 100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-e: var(--_scroll-fade-size-e);
+  }
+}
+
+@utility scroll-fade-* {
+  --scroll-fade-size: calc(var(--spacing) * --value(integer));
+  --scroll-fade-size: --value([length], [percentage]);
+}
+
+@utility scroll-fade-t-* {
+  --scroll-fade-t-size: calc(var(--spacing) * --value(integer));
+  --scroll-fade-t-size: --value([length], [percentage]);
+}
+
+@utility scroll-fade-b-* {
+  --scroll-fade-b-size: calc(var(--spacing) * --value(integer));
+  --scroll-fade-b-size: --value([length], [percentage]);
+}
+
+@utility scroll-fade-s-* {
+  --scroll-fade-s-size: calc(var(--spacing) * --value(integer));
+  --scroll-fade-s-size: --value([length], [percentage]);
+}
+
+@utility scroll-fade-e-* {
+  --scroll-fade-e-size: calc(var(--spacing) * --value(integer));
+  --scroll-fade-e-size: --value([length], [percentage]);
+}
+
+@utility scroll-fade-none {
+  --scroll-fade-mask: none;
+}
+
+/* shimmer */
+@property --shimmer-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 20deg;
+}
+@property --shimmer-image {
+  syntax: "*";
+  inherits: false;
+}
+@property --shimmer-text-fill {
+  syntax: "*";
+  inherits: false;
+}
+
+@theme inline {
+  @keyframes tw-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
+    }
+  }
+}
+
+@utility shimmer {
+  --_spread: var(--shimmer-spread, calc(3ch + 40px));
+  --_base: currentColor;
+  --_highlight: var(--shimmer-color, oklch(from currentColor l c h / calc(alpha* 0.2)));
+
+  background-image: var(
+    --shimmer-image,
+    linear-gradient(
+      calc(90deg + var(--shimmer-angle)),
+      var(--_base) calc(50% - var(--_spread)),
+      color-mix(in oklch, var(--_highlight), var(--_base) 50%) calc(50% - var(--_spread) * 0.5),
+      var(--_highlight) 50%,
+      color-mix(in oklch, var(--_highlight), var(--_base) 50%) calc(50% + var(--_spread) * 0.5),
+      var(--_base) calc(50% + var(--_spread))
+    )
+  );
+  background-repeat: no-repeat;
+  background-size: calc(200% + var(--_spread) * 2) 100%;
+  background-position: 0 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: var(--shimmer-text-fill, transparent);
+  animation: tw-shimmer var(--shimmer-duration, 2s) linear infinite;
+
+  @variant dark {
+    --_highlight: var(--shimmer-color, oklch(from currentColor max(0.8, calc(l + 0.4)) c h / calc(alpha + 0.4)));
+  }
+
+  &:where([dir="rtl"], [dir="rtl"] *) {
+    animation-direction: reverse;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+@utility shimmer-once {
+  animation-iteration-count: 1;
+}
+
+@utility shimmer-reverse {
+  animation-direction: reverse;
+}
+
+@utility shimmer-none {
+  --shimmer-image: none;
+  --shimmer-text-fill: currentColor;
+}
+
+@utility shimmer-color-* {
+  --shimmer-color: --value(--color, [color]);
+  --shimmer-color: color-mix(in oklch, --value(--color, [color]) calc(--modifier(integer) * 1%), transparent);
+}
+
+@utility shimmer-duration-* {
+  --shimmer-duration: calc(--value(integer) * 1ms);
+}
+
+@utility shimmer-spread-* {
+  --shimmer-spread: calc(var(--spacing) * --value(integer));
+  --shimmer-spread: --value([length], [percentage]);
+}
+
+@utility shimmer-angle-* {
+  --shimmer-angle: calc(--value(integer) * 1deg);
+}
+
+/* Kept for backwards compatibility. Unlayered, so it still wins over other
+   utilities on a plain .shimmer element. Variants are handled in the utility. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Ubuntu, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--label);
+  --color-accent: var(--fill-control);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-unread: var(--unread);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-violet: var(--violet);
+  --color-link: var(--link);
+  --color-separator: var(--separator);
+  --color-fill: var(--fill-control);
+  /* The platform's text styles (tokens below), as text-body, text-callout and so on: a size with its
+       line height. On the Mac, AppKit's: 13pt body, 11 for captions, nothing under 10. */
+  --text-large-title: var(--type-large-title);
+  --text-large-title--line-height: var(--type-large-title-leading);
+  --text-title1: var(--type-title1);
+  --text-title1--line-height: var(--type-title1-leading);
+  --text-title2: var(--type-title2);
+  --text-title2--line-height: var(--type-title2-leading);
+  --text-title3: var(--type-title3);
+  --text-title3--line-height: var(--type-title3-leading);
+  --text-headline: var(--type-headline);
+  --text-headline--line-height: var(--type-headline-leading);
+  --text-body: var(--type-body);
+  --text-body--line-height: var(--type-body-leading);
+  --text-callout: var(--type-callout);
+  --text-callout--line-height: var(--type-callout-leading);
+  --text-subheadline: var(--type-subheadline);
+  --text-subheadline--line-height: var(--type-subheadline-leading);
+  --text-footnote: var(--type-footnote);
+  --text-footnote--line-height: var(--type-footnote-leading);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* MARK: Platform tokens
+
+   One vocabulary for every desktop: type, control sizes, radii, spacing, colours, motion. Components
+   use only these (and the shadcn names mapped onto them further down). The Mac's values are the
+   default; <html data-platform> (utils/platform/platform.ts) picks the set, and a Windows or Linux set goes in
+   :root[data-platform="windows"] or [data-platform="linux"] blocks after these, overriding only what
+   differs. Until then those platforms get the Mac's.
+
+   macOS values: AppKit measured on macOS 27 (Tahoe metrics), the HIG's text styles and its Tahoe
+   system colours. */
+:root {
+  /* Text styles: size and line height (HIG, macOS). */
+  --type-large-title: 26px;
+  --type-large-title-leading: 32px;
+  --type-title1: 22px;
+  --type-title1-leading: 26px;
+  --type-title2: 17px;
+  --type-title2-leading: 22px;
+  --type-title3: 15px;
+  --type-title3-leading: 20px;
+  --type-headline: 13px;
+  --type-headline-leading: 16px;
+  --type-body: 13px;
+  --type-body-leading: 16px;
+  --type-callout: 12px;
+  --type-callout-leading: 15px;
+  --type-subheadline: 11px;
+  --type-subheadline-leading: 14px;
+  --type-footnote: 10px;
+  --type-footnote-leading: 13px;
+  /* Reading copy (descriptions, comments, AI answers) keeps 13pt with room between lines. */
+  --type-reading-leading: 19px;
+  --type-code: 12px;
+  --type-code-leading: 18px;
+
+  /* Control sizes (NSControl.ControlSize: mini, small, regular, large). */
+  --control-h-mini: 16px;
+  --control-h-sm: 20px;
+  --control-h: 24px;
+  --control-h-lg: 28px;
+  --field-h-sm: 22px;
+  --field-h: 24px;
+  --toolbar-h: 52px;
+  --toolbar-item-h: 28px;
+  --traffic-lights-inset: 91px;
+  --menu-item-h: 24px;
+  --menu-pad: 5px;
+  --row-h-sm: 24px;
+  --row-h: 32px;
+
+  /* Radii (fitted to AppKit's renders; capsules from the large size up). */
+  --radius-control-mini: 5px;
+  --radius-control-sm: 5.5px;
+  --radius-control: 6.5px;
+  --radius-capsule: 9999px;
+  --radius-field: 5px;
+  --radius-checkbox: 4px;
+  --radius-menu: 12px;
+  --radius-menu-item: 6px;
+  --radius-popover: 16px;
+  --radius-tooltip: 5px;
+  --radius-row: 6px;
+  --radius-group: 10px;
+
+  /* Colours, light; the dark ones below, and on the Mac the live system values after that. */
+  --accent: #007aff; /* controlAccentColor, which isn't systemBlue on Tahoe */
+  --accent-foreground: #fff;
+  --label: rgb(0 0 0 / 0.847);
+  --label-secondary: rgb(0 0 0 / 0.498);
+  --label-tertiary: rgb(0 0 0 / 0.26);
+  --link: #0068da; /* linkColor: no CSS keyword for it */
+  --separator: rgb(0 0 0 / 0.098);
+  --separator-strong: rgb(0 0 0 / 0.247);
+  --window-bg: #fff;
+  --under-page-bg: #f6f6f6;
+  --content-bg: #fff;
+  --group-bg: #fff;
+  --field-bg: #fff;
+  --field-border: rgb(0 0 0 / 0.12);
+  --fill-control: rgb(0 0 0 / 0.06); /* a push or pop-up button's flat fill */
+  --fill-control-pressed: rgb(0 0 0 / 0.12);
+  --fill-tertiary: rgb(0 0 0 / 0.047); /* a grouped form's sections, on the window */
+  --fill-quaternary: rgb(0 0 0 / 0.027);
+  --selection-bg: #0064e1; /* selectedContentBackground: a focused list's row */
+  --selection-fg: #fff;
+  --selection-bg-inactive: #dcdcdc;
+  --selection-fg-inactive: rgb(0 0 0 / 0.847);
+  --text-selection-bg: rgb(128 188 254 / 0.6);
+  --text-selection-bg-inactive: #dcdcdc;
+  --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent); /* keyboardFocusIndicator */
+  --focus-ring-width: 3px;
+  --segment-selected-bg: var(--accent); /* Tahoe draws the chosen segment in the accent */
+  --segment-selected-fg: #fff;
+  --toolbar-segment-bg: #fff; /* a neutral knob in the toolbar's view switch */
+  --switch-off: rgb(0 0 0 / 0.09);
+  --material-menu: rgb(246 246 246 / 0.8); /* CSS `Menu`, seen through */
+  --material-blur: blur(30px) saturate(1.8);
+  --shadow-menu: 0 0 0 0.5px rgb(0 0 0 / 0.14), 0 2px 6px rgb(0 0 0 / 0.08), 0 12px 32px rgb(0 0 0 / 0.16);
+  --shadow-knob: 0 1px 2px rgb(0 0 0 / 0.2), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+
+  /* System colours (HIG, Tahoe). The -ic ones (Increase Contrast's) are for small text, which the
+     plain ones fail on white. */
+  --red: #ff383c;
+  --red-ic: #e9152d;
+  --orange: #ff8d28;
+  --orange-ic: #c55300;
+  --green: #34c759;
+  --green-ic: #008932;
+  --blue: #0088ff;
+  --indigo: #6155f5; /* no CSS keyword, so never live */
+  --purple: #cb30e0;
+  --purple-ic: #b02fc2;
+  --gray: #8e8e93;
+
+  /* Motion: brief, and none under Reduce Motion (below). */
+  --duration-fast: 100ms;
+  --duration: 150ms;
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.dark {
+  --label: rgb(255 255 255 / 0.847);
+  --label-secondary: rgb(255 255 255 / 0.55);
+  --label-tertiary: rgb(255 255 255 / 0.247);
+  --link: #419cff;
+  --separator: rgb(255 255 255 / 0.098);
+  --separator-strong: rgb(255 255 255 / 0.247);
+  --window-bg: #1e1e1e;
+  --under-page-bg: #282828;
+  --content-bg: #1e1e1e;
+  --group-bg: #282828;
+  --field-bg: #161616;
+  --field-border: rgb(255 255 255 / 0.12);
+  --fill-control: rgb(255 255 255 / 0.1);
+  --fill-control-pressed: rgb(255 255 255 / 0.18);
+  --fill-tertiary: rgb(255 255 255 / 0.047);
+  --fill-quaternary: rgb(255 255 255 / 0.027);
+  --selection-bg: #0059d1;
+  --selection-bg-inactive: #464646;
+  --selection-fg-inactive: rgb(255 255 255 / 0.847);
+  --text-selection-bg: rgb(63 99 139 / 0.8);
+  --text-selection-bg-inactive: #464646;
+  --toolbar-segment-bg: rgb(255 255 255 / 0.16);
+  --switch-off: rgb(255 255 255 / 0.14);
+  --material-menu: rgb(55 55 55 / 0.8);
+  --shadow-menu: inset 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.7), 0 12px 32px rgb(0 0 0 / 0.45);
+  --red: #ff4245;
+  --red-ic: #ff6165;
+  --orange: #ff9230;
+  --orange-ic: #ffa056;
+  --green: #30d158;
+  --green-ic: #4ad968;
+  --blue: #0091ff;
+  --indigo: #6d7cff;
+  --purple: #db34f2;
+  --purple-ic: #ea8dff;
+  --gray: #98989d;
+}
+
+/* In the Mac's web view, the live system colours: they follow the window's appearance (which the
+   app sets to the theme picked, lib.rs), the accent colour and Increase Contrast. A plain browser
+   doesn't know them, so the values above stay. */
+@supports (color: -apple-system-label) {
+  :root[data-platform="macos"] {
+    --accent: -apple-system-control-accent;
+    --label: -apple-system-label;
+    --label-secondary: -apple-system-secondary-label;
+    --label-tertiary: -apple-system-tertiary-label;
+    --separator: -apple-system-separator;
+    --separator-strong: -apple-system-container-border;
+    --window-bg: -apple-system-control-background;
+    --content-bg: -apple-system-control-background;
+    --selection-bg: -apple-system-selected-content-background;
+    --selection-fg: -apple-system-alternate-selected-text;
+    --selection-bg-inactive: -apple-system-unemphasized-selected-content-background;
+    --text-selection-bg: -apple-system-selected-text-background;
+    --text-selection-bg-inactive: -apple-system-unemphasized-selected-text-background;
+    --red: -apple-system-red;
+    --orange: -apple-system-orange;
+    --green: -apple-system-green;
+    --blue: -apple-system-blue;
+    --purple: -apple-system-purple;
+    --gray: -apple-system-gray;
+  }
+  :root[data-platform="macos"]:not(.dark) {
+    --field-bg: -apple-system-text-background;
+  }
+}
+
+/* Increase Contrast: firmer edges and fills, an opaque focus ring. */
+@media (prefers-contrast: more) {
+  :root {
+    --field-border: var(--separator-strong);
+    --fill-control: color-mix(in srgb, var(--label) 14%, transparent);
+    --separator: color-mix(in srgb, var(--label) 30%, transparent);
+    --focus-ring: var(--accent);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-menu: var(--popover);
+    --material-blur: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration: 0ms;
+  }
+}
+
+/* A window that isn't the key one: selections and accent controls go gray (utils/platform/platform.ts). */
+:root[data-window-inactive] {
+  --selection-bg: var(--selection-bg-inactive);
+  --selection-fg: var(--selection-fg-inactive);
+  --segment-selected-bg: var(--fill-control-pressed);
+  --segment-selected-fg: var(--label);
+}
+
+/* shadcn's names, onto the platform's. (shadcn's --accent is a hover fill, not the system accent.) */
+:root {
+  --background: var(--window-bg);
+  --foreground: var(--label);
+  --card: var(--group-bg);
+  --card-foreground: var(--label);
+  --popover: #f6f6f6;
+  --popover-foreground: var(--label);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --unread: var(--accent);
+  --selected: var(--segment-selected-bg);
+  --selected-foreground: var(--segment-selected-fg);
+  --success: var(--green-ic);
+  --warning: var(--orange-ic);
+  --violet: var(--purple-ic);
+  --destructive: var(--red-ic);
+  --secondary: var(--fill-control);
+  --secondary-foreground: var(--label);
+  --muted: var(--fill-control);
+  --muted-foreground: var(--label-secondary);
+  --border: var(--separator);
+  --input: var(--field-border);
+  --ring: var(--accent);
+  --radius: 0.625rem;
+}
+.dark {
+  --popover: #373737;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* MARK: App */
+
+/* The panel window is transparent with the system's popover material behind it (lib.rs): the page
+   stays clear so that material shows, and draws its own rounded edge. */
+html.panel,
+html.panel body {
+  background: transparent;
+}
+
+/* The panel's surfaces, as a menu bar extra's window: one light tint over the system material (so it
+   shows, as in a popover), no card inside it; inset hairline separators split chrome from the list,
+   and the edge is only the inner highlight macOS menus have (inset, so nothing leaves the window,
+   whose shadow macOS draws). Text contrast is AA against a mid-gray material. Under Reduce
+   Transparency or Increase Contrast everything goes opaque, and Increase Contrast firms the edges. */
+html.panel {
+  --panel-tint: color-mix(in oklch, var(--background) 50%, transparent);
+  --panel-sticky: color-mix(
+    in oklch,
+    var(--background) 85%,
+    transparent
+  ); /* a heading floating over rows, over a blur */
+  --panel-edge: oklch(0 0 0 / 0.09);
+  --panel-separator: oklch(0 0 0 / 0.09);
+  --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, chip knob, skeleton */
+  --panel-link: color-mix(
+    in oklch,
+    var(--primary) 80%,
+    black
+  ); /* the accent, deepened to stay AA on the tinted material */
+  --panel-raised: var(--background); /* the panes the queues and the list sit on, as the extension's */
+}
+html.panel.dark {
+  --panel-tint: color-mix(in oklch, var(--background) 40%, transparent);
+  --panel-sticky: color-mix(in oklch, var(--background) 82%, transparent);
+  --panel-edge: oklch(1 0 0 / 0.12);
+  --panel-separator: oklch(1 0 0 / 0.09);
+  --panel-fill: oklch(1 0 0 / 0.07);
+  --panel-link: color-mix(in oklch, var(--primary) 75%, white);
+  --panel-raised: color-mix(in oklch, var(--background) 92%, white);
+}
+@media (prefers-reduced-transparency: reduce) {
+  html.panel,
+  html.panel.dark {
+    --panel-tint: var(--background);
+    --panel-sticky: var(--background);
+  }
+}
+@media (prefers-contrast: more) {
+  html.panel,
+  html.panel.dark {
+    --panel-tint: var(--background);
+    --panel-sticky: var(--background);
+    --panel-edge: color-mix(in oklch, var(--foreground) 45%, transparent);
+    --panel-separator: color-mix(in oklch, var(--foreground) 35%, transparent);
+    --panel-fill: color-mix(in oklch, var(--foreground) 12%, transparent);
+  }
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+/* Text drawn as AppKit draws it: no `-webkit-font-smoothing: antialiased`, which turns off the
+   stem darkening macOS gives native text and leaves the web view's text thinner and greyer than
+   the apps beside it (most of all on a non-Retina display). The body style is 13pt. */
+body {
+  font-size: var(--type-body);
+  line-height: var(--type-body-leading);
+}
+/* Chrome can't be selected, as in a native window, and keeps the arrow pointer (a pointing hand
+   is only for links in text). What's there to read and copy (descriptions, comments, AI answers,
+   code) is marked .selectable; fields always are. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
+}
+.selectable a[href] {
+  cursor: pointer;
+}
+::selection {
+  background: var(--text-selection-bg);
+}
+:root[data-window-inactive] ::selection {
+  background: var(--text-selection-bg-inactive);
+}
+
+/* The keyboard focus ring as AppKit draws it: outside the control, following its corners, in the
+   accent at half strength (opaque with Increase Contrast). Fields show it whenever they're focused,
+   other controls only for the keyboard (Full Keyboard Access). Lists show focus as their row
+   highlight instead. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: 0;
+  }
+}
+@utility focus-ring-inset {
+  &:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: calc(var(--focus-ring-width) * -1);
+  }
+}
+
+/* Scroll bars are the system's overlay ones: they follow "Show scroll bars", the appearance and
+   grow under the pointer. Only the horizontal strips of chips hide theirs. */
+
+/* Arrival: something new on a pull request, shown when the panel opens: the row's tint fades in
+   once and stays until it's clicked, beside its unread dot. Brief, as the HIG asks of motion seen
+   often; under Reduce Motion the tint is simply there. */
+@keyframes arrive-settle {
+  from {
+    background-color: color-mix(in oklch, var(--unread) 22%, transparent);
+  }
+  to {
+    background-color: color-mix(in oklch, var(--unread) 9%, transparent);
+  }
+}
+.arrive {
+  animation: arrive-settle 0.9s var(--ease-standard) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrive {
+    animation-duration: 1ms;
+  }
+}
+
+/* Diffs (@pierre/diffs, in shadow roots, themed through its variables): the system's monospace
+   without ligatures (so != reads as != and -> as ->), at the size Xcode and Terminal use it, and no
+   hatching on the empty side of a change. */
+:root {
+  --diffs-font-family: var(--font-mono);
+  --diffs-header-font-family: var(--font-sans);
+  --diffs-font-size: var(--type-code);
+  --diffs-line-height: var(--type-code-leading);
+  --diffs-font-features: "liga" 0, "calt" 0;
+  --diffs-bg-buffer-override: transparent;
+}
+
+/* Mermaid diagrams in descriptions and comments (utils/diagrams/diagrams.ts). */
+figure.diagram {
+  margin: 0.5rem 0;
+}
+figure.diagram > [role="img"] {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--muted);
+}
+figure.diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+figure.diagram > details > summary {
+  cursor: default;
+  width: fit-content;
+  margin-top: 4px;
+  font-size: var(--type-subheadline);
+  color: var(--muted-foreground);
+}
+
+/* Menus and pop-up menus as AppKit draws them: a translucent material with a hairline edge and a
+   soft, deep shadow (components/ui/select, dropdown-menu). They appear at once and fade out. */
+.mac-menu {
+  border-radius: var(--radius-menu);
+  background: var(--material-menu);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  box-shadow: var(--shadow-menu);
+}
+/* Popovers: the same material, larger corners (components/ui/popover). */
+.mac-popover {
+  border-radius: var(--radius-popover);
+  background: var(--material-menu);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  box-shadow: var(--shadow-menu);
+}
+
+/* A button GitHub drew as a picture in a link (utils/sanitize/sanitize.ts), as a push button. */
+div a[data-button] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--control-h);
+  margin: 2px 4px 2px 0;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--fill-control);
+  color: var(--label);
+  font-size: var(--type-body);
+  font-weight: 400;
+  text-decoration: none;
+  vertical-align: middle;
+}
+div a[data-button]::after {
+  content: "↗";
+  font-size: var(--type-subheadline);
+  opacity: 0.6;
+}
+div a[data-button]:active {
+  background: var(--fill-control-pressed);
+}
+
+/* Neighbours that are both on read as one shape, as in Focus Diff's extension: the corners between
+   them go square, the gap between them fills in, and a hairline divides them. Side by side (the
+   filter bar's chips, 4px apart) and one above the other (the panel's picked rows, touching). */
+[data-join="row"] > [aria-pressed="true"]:has(+ [aria-pressed="true"]) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  box-shadow: 4px 0 0 var(--primary);
+}
+[data-join="row"] > [aria-pressed="true"] + [aria-pressed="true"] {
+  position: relative;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+[data-join="row"] > [aria-pressed="true"] + [aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: -2.5px;
+  width: 1px;
+  background: color-mix(in srgb, var(--primary-foreground) 45%, transparent);
+}
+[data-join="column"] > li:has(> [data-picked]):has(+ li > [data-picked]) [data-row],
+[data-join="column"] > li:has(> [data-pending]):has(+ li > [data-pending]) [data-row] {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+[data-join="column"] > li:has(> [data-picked]) + li:has(> [data-picked]) [data-row],
+[data-join="column"] > li:has(> [data-pending]) + li:has(> [data-pending]) [data-row] {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+/* Going through a queue in a review window (entries/review.tsx): the page slides the way it went,
+   on to the next from the right, back from the left; the toolbar only cross-fades its title. */
+::view-transition-group(page),
+::view-transition-old(page),
+::view-transition-new(page) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+:root[data-direction="forward"]::view-transition-old(page) {
+  animation-name: page-out-left;
+}
+:root[data-direction="forward"]::view-transition-new(page) {
+  animation-name: page-in-right;
+}
+:root[data-direction="back"]::view-transition-old(page) {
+  animation-name: page-out-right;
+}
+:root[data-direction="back"]::view-transition-new(page) {
+  animation-name: page-in-left;
+}
+@keyframes page-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-12%);
+  }
+}
+@keyframes page-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(12%);
+  }
+}
+@keyframes page-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(12%);
+  }
+}
+@keyframes page-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12%);
+  }
+}

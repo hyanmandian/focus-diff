@@ -1,0 +1,50 @@
+[package]
+name = "focus-diff"
+version = "0.1.0"
+description = "Your pull request reviews, from the menu bar."
+authors = ["Hyan Mandian"]
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[lib]
+# The `_lib` suffix keeps the lib name apart from the bin name (an issue on Windows otherwise).
+name = "focus_diff_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+# Few dependencies, each well known: Tauri and its official plugins, serde, a small HTTP client
+# (ureq, rustls) for GitHub, and keyring for the system keychain.
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+regex = "1"
+ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
+keyring = "4"
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", default-features = false, features = ["time"] }
+
+# Already in the build through Tauri's window library: to activate the app the current way, and
+# for review time's sound, the local time zone and the Mac's preferred languages.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSApplication", "NSResponder", "NSWindow", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "NSFontDescriptor", "NSView", "NSControl", "NSButton", "NSToolbar", "NSPanel", "NSSound", "NSAnimation", "NSAnimationContext", "NSWorkspace", "NSAccessibility", "NSAttributedString", "NSBox", "NSColor", "NSFont", "NSParagraphStyle", "NSText", "objc2-quartz-core"] }
+objc2-quartz-core = { version = "0.3", default-features = false, features = ["std", "CAMediaTimingFunction"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSString", "NSGeometry", "NSData", "NSDate", "NSTimeZone", "NSLocale", "NSArray", "NSAttributedString", "NSDictionary", "NSRange", "NSURL", "NSValue"] }
+
+[features]
+# Development only: the devctl test driver in a release build, to measure it (never shipped).
+devctl = []
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

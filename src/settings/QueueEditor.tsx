@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { TONES, validPattern, type EventKind, type Queue, type QueueKind } from "@/lib/config";
+import { LEAVE_OUT, TONES, validPattern, type EventKind, type LeaveOut, type Queue, type QueueKind } from "@/lib/config";
 import { EVENT_LABELS } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import { Group, radioKeys, Row } from "./Form";
@@ -33,11 +33,17 @@ const KIND_LABELS: Record<QueueKind, string> = {
 
 /** The events that can happen to the pull requests of each kind of queue. */
 const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
-  review: ["new", "rerequest"],
-  involved: ["new", "commits", "reply", "mention", "comment", "rerequest"],
+  review: ["new", "rerequest", "ready", "comment", "mention"],
+  involved: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
   authored: ["approved", "changes", "comment", "mention", "ci-failed", "ci-passed", "conflict"],
   merged: ["new"],
-  custom: ["new", "commits", "reply", "mention", "comment", "rerequest"],
+  custom: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
+};
+
+const LEAVE_OUT_LABELS: Record<LeaveOut, { label: string; hint?: string }> = {
+  drafts: { label: "Drafts" },
+  bots: { label: "What bots do", hint: "Pull requests they open, comments and reviews they post." },
+  approved: { label: "Pull requests I've approved" },
 };
 
 const TONE_CLASS: Record<Queue["tone"], string> = {
@@ -297,6 +303,33 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           />
         ))}
       </Group>
+
+      {queue.notify.length ? (
+        <>
+          <Group footer="At review time, they wait for your next one and come with what to review. With no review time set, they show right away.">
+            <Row label="Tell me">
+              <ToggleGroup value={[queue.notifyAt]} onValueChange={(v: string[]) => v[0] && set("notifyAt", v[0] as Queue["notifyAt"])} variant="outline" size="sm" aria-label="When to tell me">
+                <ToggleGroupItem value="now">Right away</ToggleGroupItem>
+                <ToggleGroupItem value="review">At review time</ToggleGroupItem>
+              </ToggleGroup>
+            </Row>
+          </Group>
+          <Group title="Leave out of notifications" footer="They still show in the queue.">
+            {LEAVE_OUT.map((kind) => (
+              <SwitchRow
+                key={kind}
+                checked={queue.notifyLeaveOut.includes(kind)}
+                onChange={(on) => set("notifyLeaveOut", on ? [...queue.notifyLeaveOut, kind] : queue.notifyLeaveOut.filter((k) => k !== kind))}
+                label={LEAVE_OUT_LABELS[kind].label}
+                hint={LEAVE_OUT_LABELS[kind].hint}
+              />
+            ))}
+            <Row stacked label="Only in these repositories" description="Empty: every repository in this queue.">
+              <TagInput label="Repositories to notify about" value={queue.notifyRepos} onChange={(v) => set("notifyRepos", v)} placeholder="acme/web or acme/*" validate={repoError} />
+            </Row>
+          </Group>
+        </>
+      ) : null}
     </>
   );
 }

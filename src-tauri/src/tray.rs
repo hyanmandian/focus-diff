@@ -6,7 +6,7 @@
 //! On macOS it's a template image (black + alpha), which the system tints for light and dark menu
 //! bars. Elsewhere trays don't tint, so it's drawn in Focus Diff's green.
 
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -170,6 +170,33 @@ fn show<R: Runtime>(tray: &TrayIcon<R>, image: Image<'static>) {
     let _ = tray.set_icon_as_template(true);
 }
 
+/// While a review time is under way, the minutes left ("24m"), shown beside the icon.
+static COUNTDOWN: Mutex<Option<String>> = Mutex::new(None);
+
+/// What the icon says on hover: the countdown first, while there is one.
+fn tooltip(count: u32) -> String {
+    let waiting = match count {
+        0 => "nothing waiting on you".to_string(),
+        1 => "1 pull request waiting on you".to_string(),
+        n => format!("{n} pull requests waiting on you"),
+    };
+    match COUNTDOWN.lock().unwrap().as_deref() {
+        Some(left) => format!("Focus Diff: review time, {left} left · {waiting}"),
+        None => format!("Focus Diff: {waiting}"),
+    }
+}
+
+static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Shows (or, with None, takes away) review time's countdown beside the icon. Windows has no text
+/// beside a tray icon, so there it's in the tooltip only.
+pub fn countdown<R: Runtime>(tray: &TrayIcon<R>, text: Option<String>) {
+    *COUNTDOWN.lock().unwrap() = text;
+    #[cfg(target_os = "macos")]
+    let _ = tray.set_title(COUNTDOWN.lock().unwrap().as_deref());
+    let _ = tray.set_tooltip(Some(&tooltip(LAST_COUNT.load(Ordering::SeqCst))));
+}
+
 /// Bumped by every new animation, so an older one still running stops drawing.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
@@ -178,16 +205,12 @@ static GENERATION: AtomicU64 = AtomicU64::new(0);
 pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, animate: bool) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let dot = count > 0;
-    let tooltip = match count {
-        0 => "Focus Diff: nothing waiting on you".to_string(),
-        1 => "Focus Diff: 1 pull request waiting on you".to_string(),
-        n => format!("Focus Diff: {n} pull requests waiting on you"),
-    };
-    let _ = tray.set_tooltip(Some(&tooltip));
+    LAST_COUNT.store(count, Ordering::SeqCst);
+    let _ = tray.set_tooltip(Some(&tooltip(count)));
     // No number beside it: the dot says there's something, the panel says what (a count of every
-    // unread pull request in every queue is noise in a menu bar).
+    // unread pull request in every queue is noise in a menu bar). Only review time's countdown.
     #[cfg(target_os = "macos")]
-    let _ = tray.set_title(None::<&str>);
+    let _ = tray.set_title(COUNTDOWN.lock().unwrap().as_deref());
     let rest = frame(0.0, dot);
     if !animate {
         show(tray, rest);

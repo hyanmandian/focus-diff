@@ -18,6 +18,8 @@ mod floating;
 mod github;
 mod kept;
 mod media;
+mod review;
+mod sound;
 mod tray;
 mod update;
 mod watch;
@@ -119,6 +121,12 @@ fn mark_queue_seen(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: Str
 #[tauri::command]
 fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_id: String) {
     watch.dismiss(&app, &queue_id, &pr_id);
+}
+
+/// The panel's End on a review time under way.
+#[tauri::command]
+fn end_review(watch: State<'_, watch::Watch>) {
+    watch.end_review();
 }
 
 #[tauri::command]
@@ -267,6 +275,16 @@ pub(crate) fn update_tray<R: Runtime>(app: &AppHandle<R>, count: u32, animate: b
     }
     if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
         tray::update(app, icon, count, animate);
+    }
+}
+
+/// Review time's minutes left beside the tray icon, or none.
+pub(crate) fn update_countdown<R: Runtime>(app: &AppHandle<R>, text: Option<String>) {
+    if cfg!(any(debug_assertions, feature = "devctl")) {
+        eprintln!("[tray] countdown {text:?}");
+    }
+    if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
+        tray::countdown(icon, text);
     }
 }
 
@@ -799,6 +817,7 @@ pub fn run() {
             mark_seen,
             mark_queue_seen,
             dismiss,
+            end_review,
             clear_arrival,
             github,
             spare_ready,

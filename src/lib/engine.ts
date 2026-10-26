@@ -35,7 +35,8 @@ export type PullRequest = {
 
 export type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED";
 
-export type Event = { key: string; kind: EventKind; at: number; who: Actor };
+/** `text`: the start of what a comment or review said, for its notification. */
+export type Event = { key: string; kind: EventKind; at: number; who: Actor; text?: string };
 
 export type Item = {
   queueId: string;

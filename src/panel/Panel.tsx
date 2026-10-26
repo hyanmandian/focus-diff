@@ -23,6 +23,7 @@ import { Mark } from "@/shared/Mark";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { prefetchSome } from "@/lib/prefetch";
 import { PullRow } from "./PullRow";
+import { ReviewTime } from "./ReviewTime";
 
 const EMPTY: Record<Queue["kind"], string> = {
   review: "Nothing waiting on your review.",
@@ -80,7 +81,7 @@ type Group = { repo: string; items: Item[] };
 const TOOL = "rounded-[8px] text-muted-foreground hover:bg-foreground/8 hover:text-foreground aria-expanded:bg-foreground/8 aria-expanded:text-foreground dark:hover:bg-foreground/10";
 
 export function Panel() {
-  const { ready, signedIn, auth, config, items, status, arrivals, seen } = useStore();
+  const { ready, signedIn, auth, config, items, status, arrivals, seen, review } = useStore();
   const shown = useShown();
   // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
   // right away and VoiceOver reads where you are.
@@ -221,6 +222,8 @@ export function Panel() {
           </DropdownMenu>
         </div>
       </header>
+
+      {ready && signedIn && review ? <ReviewTime review={review} items={items} /> : null}
 
       {!ready ? (
         // The shape of what's coming, at its size: nothing moves when it arrives.

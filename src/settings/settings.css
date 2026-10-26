@@ -49,11 +49,13 @@ html.settings textarea {
 .settings-tile[data-tile="indigo"] { --tile: #5856d6; }
 .settings-tile[data-tile="orange"] { --tile: #ff9500; }
 .settings-tile[data-tile="purple"] { --tile: #af52de; }
+.settings-tile[data-tile="green"] { --tile: #34c759; }
 .settings-tile[data-tile="gray"] { --tile: #8e8e93; }
 .dark .settings-tile[data-tile="blue"] { --tile: #0a84ff; }
 .dark .settings-tile[data-tile="indigo"] { --tile: #5e5ce6; }
 .dark .settings-tile[data-tile="orange"] { --tile: #ff9f0a; }
 .dark .settings-tile[data-tile="purple"] { --tile: #bf5af2; }
+.dark .settings-tile[data-tile="green"] { --tile: #30d158; }
 .dark .settings-tile[data-tile="gray"] { --tile: #7c7c80; }
 
 /* The search field drops WebKit's own decorations; Escape clears it instead. */

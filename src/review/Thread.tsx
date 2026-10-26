@@ -1,7 +1,7 @@
 // What sits between a file's lines: a conversation (with replies and resolving), a comment written
 // for this review, or the box to write one.
 
-import { Check, CornerDownRight, Loader2, MessageSquare, Pencil, Sparkles, Trash2, Undo2 } from "lucide-react";
+import { AlertCircle, Check, CloudUpload, CornerDownRight, Loader2, MessageSquare, Pencil, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,19 @@ import { bridge } from "@/lib/bridge";
 import { firstName } from "@/lib/copy";
 import { i18n, useT } from "@/lib/i18n";
 import type { Actor } from "@/lib/engine";
-import type { Draft, Thread as ThreadData } from "@/lib/review";
-import { useDiagrams } from "@/lib/diagrams";
-import { leadsElsewhere, sanitize } from "@/lib/sanitize";
+import type { Draft, Thread as ThreadData, ThreadComment } from "@/lib/review";
+import { linesFromPatch } from "@/lib/suggestion";
+import { quote } from "@/lib/writing";
 import { cn } from "@/lib/utils";
 import { tabKeys } from "@/lib/keys";
 import { isMac } from "@/lib/platform";
-import { openViewer } from "@/shared/Viewer";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { AiAnswer } from "@/shared/AiAnswer";
+import { useConversationApi } from "./conversation";
+import { CommentHtml } from "./CommentHtml";
+import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
+import { SuggestionActions } from "./Suggestion";
+import { MarkdownField } from "./Writer";
 
 function Person({ actor }: { actor: Actor }) {
   return (
@@ -32,35 +36,7 @@ function Person({ actor }: { actor: Actor }) {
   );
 }
 
-function Html({ html }: { html: string }) {
-  const clean = sanitize(html);
-  const ref = useRef<HTMLDivElement>(null);
-  useDiagrams(ref, clean);
-  return (
-    <div
-      ref={ref}
-      className="selectable text-body leading-(--type-reading-leading) break-words [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[60vh] [&_video]:max-w-full [&_video]:rounded-lg [&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
-      onClick={(e) => {
-        // A picture opens in the viewer (even one GitHub wrapped in a link to itself).
-        const picture = (e.target as Element).closest("img");
-        if (picture && !leadsElsewhere(picture)) {
-          e.preventDefault();
-          openViewer({ src: picture.src, alt: picture.alt });
-          return;
-        }
-        const link = (e.target as Element).closest("a[href]");
-        if (link) {
-          e.preventDefault();
-          void bridge.openUrl((link as HTMLAnchorElement).href);
-        }
-      }}
-      // Sanitized: an allowlist of tags and attributes, https links and GitHub images only.
-      dangerouslySetInnerHTML={{ __html: clean }}
-    />
-  );
-}
-
-/** A box to write in: ⌘/Ctrl+Enter sends, Esc cancels. */
+/** A box to write in (Markdown, with a preview): ⌘/Ctrl+Enter sends, Esc cancels. */
 export function Composer({
   placeholder,
   submitLabel,
@@ -68,6 +44,8 @@ export function Composer({
   onSubmit,
   onCancel,
   secondary,
+  suggestion,
+  base,
 }: {
   placeholder: string;
   submitLabel: string;
@@ -75,14 +53,14 @@ export function Composer({
   onSubmit: (body: string) => Promise<void> | void;
   onCancel: () => void;
   secondary?: { label: string; onClick: (body: string) => Promise<void> | void };
+  /** The lines it's on, to suggest a change to. */
+  suggestion?: string[] | null;
+  base?: string[];
 }) {
   const t = useT();
   const [body, setBody] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const id = useId();
-  useEffect(() => ref.current?.focus(), []);
   const run = async (action: (body: string) => Promise<void> | void) => {
     if (!body.trim()) return setError(i18n()("review.writeFirst"));
     setBusy(true);
@@ -97,27 +75,7 @@ export function Composer({
   };
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="sr-only">
-        {placeholder}
-      </label>
-      <Textarea
-        id={id}
-        ref={ref}
-        rows={3}
-        value={body}
-        placeholder={placeholder}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            void run(onSubmit);
-          } else if (e.key === "Escape") {
-            e.stopPropagation();
-            onCancel();
-          }
-        }}
-        className="resize-y"
-      />
+      <MarkdownField value={body} onChange={setBody} label={placeholder} placeholder={placeholder} onSubmit={() => void run(onSubmit)} onCancel={onCancel} suggestion={suggestion} base={base} />
       {error ? (
         <p className="text-callout text-destructive" role="alert">
           {error}
@@ -146,8 +104,61 @@ const Box = ({ children, className }: { children: React.ReactNode; className?: s
   <div className={cn("mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none", className)}>{children}</div>
 );
 
+/** A conversation folds its middle once it's longer than this, as GitHub's do. */
+const LONG_THREAD = 8;
+
+/** One comment in a conversation: who and when, what they said (editable when it's yours), its
+ *  suggested change, its reactions. */
+function CommentView({ thread, comment, onQuote }: { thread: ThreadData; comment: ThreadComment; onQuote: (text: string) => void }) {
+  const t = useT();
+  const api = useConversationApi();
+  const [editing, setEditing] = useState(false);
+  const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
+  return (
+    <div className="flex gap-2">
+      <Person actor={comment.author} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-0.5">
+          <p className="min-w-0 flex-1 text-callout text-muted-foreground">
+            <span className="font-medium text-foreground">{firstName(comment.author, t)}</span> · {t.since(Date.parse(comment.at))}
+            {comment.edited ? ` · ${t("review.edited")}` : ""}
+            {thread.outdated ? ` · ${t("review.outdated")}` : ""}
+          </p>
+          {api && comment.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
+          {api ? (
+            <CommentMenu
+              url={comment.url}
+              onQuote={comment.body !== undefined ? () => onQuote(comment.body ?? "") : undefined}
+              onEdit={comment.canEdit && comment.body !== undefined ? () => setEditing(true) : undefined}
+              onDelete={comment.canDelete ? () => void api.deleteComment(comment) : undefined}
+            />
+          ) : null}
+        </div>
+        {editing && api ? (
+          <div className="mt-1">
+            <Composer
+              placeholder={t("review.commentPlaceholder")}
+              submitLabel={t("review.save")}
+              initial={comment.body}
+              onSubmit={async (body) => {
+                await api.editComment(comment, body);
+                setEditing(false);
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          </div>
+        ) : (
+          <CommentHtml html={comment.html} />
+        )}
+        <SuggestionActions thread={thread} comment={comment} />
+        <ReactionList reactions={reactions} canReact={Boolean(api && comment.canReact)} onToggle={toggle} />
+      </div>
+    </div>
+  );
+}
+
 export function ThreadView({
-  thread,
+  thread: drawn,
   moved = false,
   className,
   onReply,
@@ -161,9 +172,13 @@ export function ThreadView({
   onResolve: (resolved: boolean) => Promise<void>;
 }) {
   const t = useT();
-  const [replying, setReplying] = useState(false);
+  const api = useConversationApi();
+  // As it is now: the diff draws a conversation again only when its comments come or go.
+  const thread = api?.thread(drawn.id) ?? drawn;
+  const [replying, setReplying] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
+  const [whole, setWhole] = useState(false);
   const toggle = async () => {
     setBusy(true);
     try {
@@ -181,37 +196,51 @@ export function ThreadView({
       </Box>
     );
   }
+  // A long one: its start and its latest, the middle a click away.
+  const folded = !whole && thread.comments.length > LONG_THREAD;
+  const hidden = folded ? thread.comments.length - 4 : 0;
+  const shown = folded ? [...thread.comments.slice(0, 1), null, ...thread.comments.slice(-3)] : thread.comments;
   return (
     <Box className={className}>
       {moved ? <p className="mb-2 text-callout text-muted-foreground">{thread.line ? t("review.onGoneLine", { line: String(thread.line) }) : t("review.onFile")}</p> : null}
       <div className="flex flex-col gap-3">
-        {thread.comments.map((c) => (
-          <div key={c.id} className="flex gap-2">
-            <Person actor={c.author} />
-            <div className="min-w-0 flex-1">
-              <p className="text-callout text-muted-foreground">
-                <span className="font-medium text-foreground">{firstName(c.author, t)}</span> · {t.since(Date.parse(c.at))}
-                {thread.outdated ? ` · ${t("review.outdated")}` : ""}
-              </p>
-              <Html html={c.html} />
-            </div>
-          </div>
-        ))}
+        {shown.map((c) =>
+          c ? (
+            <CommentView key={c.id} thread={thread} comment={c} onQuote={(text) => setReplying(quote(text))} />
+          ) : (
+            <Button key="more" variant="ghost" size="xs" className="self-start text-link" onClick={() => setWhole(true)}>
+              {t("review.showMoreReplies", { count: hidden })}
+            </Button>
+          ),
+        )}
       </div>
       <div className="mt-3 border-t pt-3">
-        {replying ? (
+        {replying !== null ? (
           <Composer
             placeholder={t("review.reply")}
             submitLabel={t("review.reply")}
+            initial={replying}
             onSubmit={async (body) => {
               await onReply(body);
-              setReplying(false);
+              setReplying(null);
             }}
-            onCancel={() => setReplying(false)}
+            // Like GitHub's "Start a review": the reply waits in your pending review.
+            secondary={
+              api
+                ? {
+                    label: t("review.addToReviewShort"),
+                    onClick: (body) => {
+                      api.replyLater(thread, body);
+                      setReplying(null);
+                    },
+                  }
+                : undefined
+            }
+            onCancel={() => setReplying(null)}
           />
         ) : (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setReplying(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setReplying("")}>
               <CornerDownRight /> {t("review.reply")}
             </Button>
             <Button variant="ghost" size="sm" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
@@ -225,9 +254,13 @@ export function ThreadView({
   );
 }
 
-export function DraftView({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (body: string) => void; onRemove: () => void }) {
+export function DraftView({ draft: drawn, onEdit, onRemove }: { draft: Draft; onEdit: (body: string) => void; onRemove: () => void }) {
   const t = useT();
+  const api = useConversationApi();
+  const draft = api?.draft(drawn.key) ?? drawn;
   const [editing, setEditing] = useState(false);
+  const error = api?.draftError(draft.key);
+  const sending = api?.draftSending(draft.key);
   return (
     <Box className="border-unread/40 bg-unread/5">
       {editing ? (
@@ -244,8 +277,30 @@ export function DraftView({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (
       ) : (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-callout font-medium text-unread">{t("review.pending")}</p>
-            <p className="selectable mt-1 text-body whitespace-pre-wrap">{draft.body}</p>
+            <p className="flex items-center gap-1.5 text-callout font-medium text-unread">
+              {draft.replyTo ? t("review.pendingReply") : draft.file ? t("review.pendingOnFile") : t("review.pending")}
+              {/* Where it is: on its way to your pending review on GitHub, or there. */}
+              {error ? null : sending ? (
+                <span className="flex items-center gap-1 font-normal text-muted-foreground" role="status">
+                  <CloudUpload className="size-3.5" aria-hidden /> {t("review.savingToGitHub")}
+                </span>
+              ) : draft.id ? (
+                <span className="font-normal text-muted-foreground">· {t("review.onGitHub")}</span>
+              ) : null}
+            </p>
+            {draft.html && !sending ? (
+              <CommentHtml html={draft.html} className="mt-1" />
+            ) : (
+              <p className="selectable mt-1 text-body whitespace-pre-wrap">{draft.body}</p>
+            )}
+            {error ? (
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-callout text-destructive" role="alert">
+                <AlertCircle className="size-3.5" aria-hidden /> {t("review.githubRefused", { reason: error })}
+                <Button variant="link" size="xs" className="h-auto px-0" onClick={() => api?.retryDrafts()}>
+                  {t("review.tryAgain")}
+                </Button>
+              </p>
+            ) : null}
           </div>
           <Button variant="ghost" size="icon-sm" aria-label={t("review.editComment")} onClick={() => setEditing(true)}>
             <Pencil />
@@ -281,6 +336,9 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
  *  conversation with the AI about them that you can keep going and turn into a comment. */
 export function NewComment({
   lines,
+  path,
+  range,
+  file = false,
   onAdd,
   onSendNow,
   onCancel,
@@ -288,6 +346,11 @@ export function NewComment({
   askName,
 }: {
   lines: string;
+  /** The file and lines it's on, for a suggested change to start from them. */
+  path?: string;
+  range?: { start: number; end: number; side?: "additions" | "deletions"; endSide?: "additions" | "deletions" };
+  /** On the file as a whole. */
+  file?: boolean;
   onAdd: (body: string) => void;
   onSendNow: (body: string) => Promise<void>;
   onCancel: () => void;
@@ -296,6 +359,11 @@ export function NewComment({
   askName: string;
 }) {
   const t = useT();
+  const api = useConversationApi();
+  // A suggested change goes on the new code's lines, as GitHub has it: those lines, from the patch.
+  const patch = path ? api?.patchOf(path) : undefined;
+  const side = range?.endSide ?? range?.side ?? "additions";
+  const picked = range && patch && !file && side === "additions" ? linesFromPatch(patch, Math.min(range.start, range.end), Math.max(range.start, range.end), "additions") : null;
   const [mode, setModeState] = useState<Mode>(lastMode);
   const [body, setBody] = useState("");
   const [question, setQuestion] = useState("");
@@ -448,6 +516,17 @@ export function NewComment({
 
         {asking && !ask ? (
           <p className="py-2 text-body text-muted-foreground">{t("review.setUpAi")}</p>
+        ) : !asking ? (
+          <MarkdownField
+            value={body}
+            onChange={setBody}
+            label={t("review.commentLabel")}
+            placeholder={t("review.commentForAuthor")}
+            onSubmit={submit}
+            onCancel={onCancel}
+            suggestion={picked}
+            base={picked ?? undefined}
+          />
         ) : (
           <>
             <label htmlFor={`${tabs}-field`} className="sr-only">

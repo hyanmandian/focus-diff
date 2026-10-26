@@ -39,6 +39,24 @@ export type AiAnswer = { text: string; project: boolean; note?: string };
 /** The pull request an action runs on. */
 export type ActionContext = { number: number; repo: string; title: string; url: string; author: string; me: string };
 
+/** A comment for your pending review, as Rust keeps it until GitHub takes it (drafts.rs). */
+export type DraftPut = {
+  key: string;
+  pull: string;
+  path: string;
+  line: number;
+  side: "additions" | "deletions";
+  startLine?: number;
+  file?: boolean;
+  body: string;
+  id?: string;
+  replyTo?: string;
+};
+export type DraftChange = ({ op: "put" } & DraftPut) | { op: "remove"; key: string; pull: string; id?: string | null };
+/** A pull request's pending comments still on their way (with why GitHub refused one), and
+ *  GitHub's id for each that arrived, by key. */
+export type DraftsState = { jobs: Array<{ change: DraftChange; error: string | null }>; ids: Record<string, string> };
+
 export class GitHubError extends Error {
   constructor(
     readonly status: number,
@@ -54,6 +72,17 @@ export const bridge = {
   queueViewed: (pull: string, path: string, viewed: boolean) => invoke<void>("queue_viewed", { pull, path, viewed }),
   /** The marks still on their way for a pull request, by path. */
   queuedViewed: (pull: string) => invoke<Record<string, boolean>>("queued_viewed", { pull }),
+
+  /** Your pending review's comments go to GitHub through Rust, which keeps them until it takes
+   *  them (drafts.rs); a "drafts" event says one went. `pull`: the pull request's node id. */
+  draftPut: (put: DraftPut) => invoke<void>("drafts_put", { put }),
+  draftRemove: (pull: string, key: string, id?: string) => invoke<void>("drafts_remove", { pull, key, id: id ?? null }),
+  draftsState: (pull: string) => invoke<DraftsState>("drafts_state", { pull }),
+  draftsRetry: (pull: string) => invoke<void>("drafts_retry", { pull }),
+  /** After the review is sent or thrown away. */
+  draftsForget: (pull: string) => invoke<void>("drafts_forget", { pull }),
+  /** Resolves once every pending comment is on GitHub; rejects with what GitHub refused. */
+  draftsFlush: (pull: string) => invoke<void>("drafts_flush", { pull }),
 
   readFile: (name: StoredFile) => invoke<string | null>("read_file", { name }),
   writeFile: (name: StoredFile, contents: string) => invoke<void>("write_file", { name, contents }),

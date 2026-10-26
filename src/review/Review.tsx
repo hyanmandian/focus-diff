@@ -26,7 +26,7 @@ import { i18n, useT } from "@/lib/i18n";
 import { comment, leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
 import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/estimate";
 import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
-import { commentNow, loadFiles, loadThreads, loadViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
+import { commentNow, loadFiles, loadThreads, loadViewed, reply, setResolved, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
 import { ActionButtons, ActionMenuItems } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,9 @@ import { isMac } from "@/lib/platform";
 import { tabKeys } from "@/lib/keys";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { useActiveTime } from "./activeTime";
+import { ConversationProvider, useConversation } from "./conversation";
+import { published, usePending } from "./pending";
+import { SuggestionBatch } from "./Suggestion";
 import { Diffs, type DiffsHandle } from "./Diffs";
 import { FilterBar, type Next } from "./FilterBar";
 import { Overview } from "./Overview";
@@ -107,7 +110,25 @@ const TOOL_ICON = "size-(--toolbar-item-h) rounded-full px-0 text-muted-foregrou
 /** Submit Review…: the toolbar's one prominent action. Its popover keeps what was typed when it
  *  closes (and across closing the window), as a nonmodal popover should; sending clears it.
  *  `open`/`onOpenChange`: the menu bar's Submit Review… opens it too. */
-function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { details: Details; drafts: Draft[]; open: boolean; onOpenChange: (open: boolean) => void; onSubmitted: () => void }) {
+function SubmitReview({
+  details,
+  drafts,
+  open,
+  onOpenChange,
+  onSubmit,
+  onDiscard,
+  onSubmitted,
+}: {
+  details: Details;
+  drafts: Draft[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Sends the review with your pending comments (lib/pending.ts); throws to say why not. */
+  onSubmit: (event: Event, body: string) => Promise<void>;
+  /** Throws your pending review away, here and on GitHub. */
+  onDiscard: () => Promise<void>;
+  onSubmitted: () => void;
+}) {
   const t = useT();
   const own = details.viewerDidAuthor;
   const setOpen = onOpenChange;
@@ -119,7 +140,7 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
     setBusy(true);
     setError(null);
     try {
-      await submitReview(details, event, body, drafts);
+      await onSubmit(event, body);
       setBody("");
       setOpen(false);
       onSubmitted();
@@ -171,11 +192,37 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
               {error}
             </p>
           ) : null}
-          {/* The default button, bottom right; ⌘↩ sends from the field. */}
-          <Button className="self-end" onClick={() => void submit()} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" /> : null}
-            {event === "APPROVE" ? t("review.approve") : event === "REQUEST_CHANGES" ? t("review.requestChanges") : t("review.comment")}
-          </Button>
+          {/* The default button, bottom right; ⌘↩ sends from the field. Throwing the pending review
+              away can't be undone: a native alert asks first. */}
+          <div className="flex items-center justify-end gap-2">
+            {drafts.length ? (
+              <Button
+                variant="destructive"
+                className="mr-auto"
+                disabled={busy}
+                onClick={async () => {
+                  const t = i18n();
+                  if (!(await bridge.confirm(t("review.discardConfirm"), t("review.discardConfirmMessage", { count: drafts.length }), t("review.discardConfirmButton")))) return;
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    await onDiscard();
+                    setOpen(false);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {t("review.discardReview")}
+              </Button>
+            ) : null}
+            <Button onClick={() => void submit()} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : null}
+              {event === "APPROVE" ? t("review.approve") : event === "REQUEST_CHANGES" ? t("review.requestChanges") : t("review.comment")}
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -198,7 +245,6 @@ export function Review({ target }: { target: Target }) {
   const [hideViewed, setHideViewed] = useState(false);
   const [diffStyle, setDiffStyle] = usePersisted<"split" | "unified">("diff-style", "split");
   const [wrap, setWrap] = usePersisted("diff-wrap", false);
-  const [drafts, setDrafts] = usePersisted<Draft[]>(`drafts:${prId}`, []);
   const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {});
   const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview");
   const [stop, setStop] = useState(-1);
@@ -227,6 +273,10 @@ export function Review({ target }: { target: Target }) {
   const filterField = useRef<HTMLInputElement>(null);
 
   const ref = useMemo(() => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }), [repo, number]);
+  // Your pending review, on GitHub (pending.ts); the conversations without its comments.
+  const pending = usePending(prId, ref, threads);
+  const drafts = pending.drafts;
+  const conversations = useMemo(() => published(threads), [threads]);
   // All three at once: each needs only the pull request's address. What the panel fetched ahead of
   // a click comes back from memory (github.rs).
   // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
@@ -312,13 +362,17 @@ export function Review({ target }: { target: Target }) {
     setNotice(message);
     window.setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
   };
+  // The whole conversation, and what its comments can do wherever they're drawn (conversation.tsx).
+  const talk = useConversation({ prId, ref, details, threads, setThreads, files, me, pending, say, reloadAll: () => void load() });
+  const reloadConversation = talk.reload;
   // The panel's lists catch up right away.
   const changed = useCallback(async () => {
     void bridge.refresh(true);
+    void reloadConversation();
     const [t, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
     setThreads(t);
     setDetails(d);
-  }, [ref, repo, number]);
+  }, [ref, repo, number, reloadConversation]);
 
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === hash(f.patch), [viewed]);
   // The filters for everywhere and this repository's own; the chosen ones that have files here. The
@@ -382,21 +436,21 @@ export function Review({ target }: { target: Target }) {
 
   const threadsByPath = useMemo(() => {
     const map = new Map<string, Thread[]>();
-    for (const t of threads) map.set(t.path, [...(map.get(t.path) ?? []), t]);
+    for (const t of conversations) map.set(t.path, [...(map.get(t.path) ?? []), t]);
     return map;
-  }, [threads]);
+  }, [conversations]);
 
   // The comments to step through, in the order of the files: open conversations, your pending
   // comments, the AI's. Resolved conversations are done with.
   const stops = useMemo<Stop[]>(() => {
     const order = new Map((files ?? []).map((f, i) => [f.path, i]));
     const all: Stop[] = [
-      ...threads.filter((t) => !t.resolved).map((t) => ({ path: t.path, line: t.line, kind: "conversation" as const })),
+      ...conversations.filter((t) => !t.resolved).map((t) => ({ path: t.path, line: t.line, kind: "conversation" as const })),
       ...drafts.map((d) => ({ path: d.path, line: d.line, kind: "pending" as const })),
       ...(current?.findings.filter((f) => f.inDiff).map((f) => ({ path: f.path, line: f.line, kind: "ai" as const })) ?? []),
     ];
     return all.filter((x) => order.has(x.path)).sort((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
-  }, [files, threads, drafts, current]);
+  }, [files, conversations, drafts, current]);
 
   /** Shows a file (at a line) in the Diff tab, bringing it into view if a filter, a search or its
    *  folding as viewed hides it. */
@@ -773,8 +827,12 @@ export function Review({ target }: { target: Target }) {
               drafts={drafts}
               open={submitting}
               onOpenChange={setSubmitting}
+              onSubmit={(event, body) => pending.submit(details, event, body)}
+              onDiscard={async () => {
+                await pending.discard(details);
+                say(i18n()("review.reviewDiscarded"));
+              }}
               onSubmitted={() => {
-                setDrafts([]);
                 say(i18n()("review.reviewSent"));
                 void changed();
               }}
@@ -783,13 +841,16 @@ export function Review({ target }: { target: Target }) {
         </div>
       </header>
 
+      {/* What the comments in both tabs can do (conversation.tsx). */}
+      <ConversationProvider value={talk.api}>
       <main className="flex min-h-0 flex-1 flex-col" onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}>
         <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" hidden={tab !== "overview"} className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
           {details ? (
             <Overview
               config={config}
               details={details}
-              threads={threads}
+              conversation={talk.conversation}
+              threads={conversations}
               review={current}
               reviewing={Boolean(reviewing)}
               reviewError={reviewError}
@@ -920,7 +981,7 @@ export function Review({ target }: { target: Target }) {
                   findings={current?.findings ?? []}
                   findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}
                   onAcceptFinding={(f) => {
-                    setDrafts((list) => [...list, { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, path: f.path, side: "additions", line: f.line, body: f.body }]);
+                    pending.add({ path: f.path, side: "additions", line: f.line, body: f.body });
                     dropFinding(f);
                   }}
                   onDismissFinding={dropFinding}
@@ -936,9 +997,9 @@ export function Review({ target }: { target: Target }) {
                   dark={dark}
                   opened={opened}
                   onViewed={setFileViewed}
-                  onAddDraft={(draft) => setDrafts((list) => [...list, { ...draft, key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }])}
-                  onEditDraft={(key, body) => setDrafts((list) => list.map((d) => (d.key === key ? { ...d, body } : d)))}
-                  onRemoveDraft={(key) => setDrafts((list) => list.filter((d) => d.key !== key))}
+                  onAddDraft={pending.add}
+                  onEditDraft={pending.edit}
+                  onRemoveDraft={pending.remove}
                   onCommentNow={async (draft) => {
                     if (!details) return;
                     await commentNow(details, { ...draft, key: "now" });
@@ -965,6 +1026,7 @@ export function Review({ target }: { target: Target }) {
                 ))}
               </div>
             )}
+            <SuggestionBatch />
             {files?.length ? (
               <FilterBar
                 files={files}
@@ -982,6 +1044,7 @@ export function Review({ target }: { target: Target }) {
           </div>
         </div>
       </main>
+      </ConversationProvider>
 
     </div>
   );

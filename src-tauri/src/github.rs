@@ -19,8 +19,8 @@ const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github";
 const API: &str = "https://api.github.com";
 /// Read pull requests, comment and review on them, and read team membership (for team review
-/// requests). Nothing to do with code pushes or admin.
-const SCOPES: &str = "repo read:org";
+/// requests) and your profile (for your saved replies). Nothing to do with admin.
+const SCOPES: &str = "repo read:org read:user";
 /// The OAuth app's client id, set at build time. Without it the device flow is off and the app
 /// offers the GitHub CLI or a token instead.
 const CLIENT_ID: Option<&str> = option_env!("FOCUS_DIFF_GITHUB_CLIENT_ID");
@@ -286,7 +286,8 @@ impl Auth {
     /// A page's call: reads answered in the last two minutes come from memory; writes go through
     /// and clear that memory.
     pub fn request_for_page(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
-        let read = method == "GET" || (method == "POST" && path == "/graphql" && is_query(body));
+        // Rendering Markdown (a comment's preview) changes nothing either.
+        let read = method == "GET" || (method == "POST" && ((path == "/graphql" && is_query(body)) || path == "/markdown"));
         if !read {
             self.recent.lock().unwrap().clear();
             return self.request(method, path, body, accept);

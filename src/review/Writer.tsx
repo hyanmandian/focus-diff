@@ -1,0 +1,399 @@
+// The box comments are written in, as GitHub's: Markdown, with a preview GitHub renders, @mentions
+// and #references completed as you type, ⌘B ⌘I ⌘E ⌘K for bold, italic, code and links, a suggested
+// change for the lines picked, and your saved replies. No formatting toolbar: the keys and the
+// text are the interface.
+
+import { CircleDot, FileDiff, GitPullRequest, Loader2, Reply } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { avatar } from "@/lib/avatar";
+import { bridge } from "@/lib/bridge";
+import { useT } from "@/lib/i18n";
+import { tabKeys } from "@/lib/keys";
+import { isMac } from "@/lib/platform";
+import { cn } from "@/lib/utils";
+import { suggestionBlock } from "@/lib/suggestion";
+import { mentionable, preview, referable, savedReplies, type Reference, type SavedReply } from "@/lib/writer";
+import { complete, link, rankPeople, tokenAt, wrap, type Change, type Person, type Token } from "@/lib/writing";
+import { SlidingPill } from "@/shared/SlidingPill";
+import { useConversationApi } from "./conversation";
+import { CommentHtml } from "./CommentHtml";
+
+type Option = { kind: "person"; person: Person } | { kind: "reference"; reference: Reference };
+
+/** Where the caret is drawn in a text field, measured on a copy of it laid out the same way. */
+function caretAt(field: HTMLTextAreaElement, index: number) {
+  const style = getComputedStyle(field);
+  const copy = document.createElement("div");
+  for (const p of ["fontFamily", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth", "borderStyle", "boxSizing", "width", "tabSize"] as const)
+    copy.style[p] = style[p];
+  copy.style.position = "absolute";
+  copy.style.visibility = "hidden";
+  copy.style.whiteSpace = "pre-wrap";
+  copy.style.overflowWrap = "break-word";
+  copy.textContent = field.value.slice(0, index);
+  const mark = document.createElement("span");
+  mark.textContent = "​";
+  copy.append(mark);
+  document.body.append(copy);
+  const at = { top: mark.offsetTop - field.scrollTop, left: mark.offsetLeft, height: mark.offsetHeight };
+  copy.remove();
+  return at;
+}
+
+/** Your saved replies on GitHub, to start from. */
+function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
+  const t = useT();
+  const [replies, setReplies] = useState<SavedReply[] | null | undefined>(undefined);
+  return (
+    <DropdownMenu onOpenChange={(open) => open && replies === undefined && void savedReplies().then(setReplies)}>
+      <Tooltip>
+        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.savedReplies")} />} />}>
+          <Reply />
+        </TooltipTrigger>
+        <TooltipContent>{t("review.savedReplies")}</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{t("review.savedReplies")}</DropdownMenuLabel>
+        {replies === undefined ? (
+          <DropdownMenuItem disabled>
+            <Loader2 className="animate-spin" /> {t("review.loading")}
+          </DropdownMenuItem>
+        ) : replies === null ? (
+          <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.savedRepliesPermission")}</p>
+        ) : replies.length ? (
+          replies.map((r) => (
+            <DropdownMenuItem key={r.id} onClick={() => onPick(r.body)}>
+              <span className="max-w-64 truncate">{r.title}</span>
+            </DropdownMenuItem>
+          ))
+        ) : (
+          <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.noSavedReplies")}</p>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function MarkdownField({
+  value,
+  onChange,
+  label,
+  placeholder,
+  rows = 3,
+  onSubmit,
+  onCancel,
+  suggestion,
+  base,
+  autoFocus = true,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  placeholder: string;
+  rows?: number;
+  /** ⌘/Ctrl+Enter. */
+  onSubmit: () => void;
+  /** Esc. */
+  onCancel: () => void;
+  /** The lines a comment is on, offered as a suggested change; null when there can't be one. */
+  suggestion?: string[] | null;
+  /** The lines a suggestion in it replaces, for the preview. */
+  base?: string[];
+  autoFocus?: boolean;
+}) {
+  const t = useT();
+  const api = useConversationApi();
+  const id = useId();
+  const field = useRef<HTMLTextAreaElement>(null);
+  const [tab, setTab] = useState<"write" | "preview">("write");
+  const [rendered, setRendered] = useState<{ text: string; html: string | null; error?: string } | null>(null);
+  const [token, setToken] = useState<Token | null>(null);
+  const [options, setOptions] = useState<Option[]>([]);
+  const [active, setActive] = useState(0);
+  const [at, setAt] = useState({ top: 0, left: 0, height: 0 });
+  const [notice, setNotice] = useState(false);
+  const asked = useRef(0);
+
+  useEffect(() => {
+    if (autoFocus) field.current?.focus();
+  }, [autoFocus]);
+
+  // The preview, when it's showing: GitHub renders it (kept per text, lib/writer.ts).
+  useEffect(() => {
+    if (tab !== "preview" || !api || !value.trim()) return;
+    let current = true;
+    preview(value, api.repo).then(
+      (html) => current && setRendered({ text: value, html }),
+      (e: unknown) => current && setRendered({ text: value, html: null, error: e instanceof Error ? e.message : String(e) }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [tab, value, api]);
+
+  /** What to offer for the @mention or #reference at the caret. */
+  const lookUp = (text: string, caret: number) => {
+    const next = api ? tokenAt(text, caret) : null;
+    setToken(next);
+    if (!next || !api || !field.current) return setOptions([]);
+    setAt(caretAt(field.current, next.start));
+    const turn = ++asked.current;
+    const found: Promise<Option[]> =
+      next.kind === "mention"
+        ? mentionable(api.repo, next.query)
+            .catch(() => [])
+            .then((more) => rankPeople([...api.people, ...more], next.query).map((person) => ({ kind: "person", person })))
+        : referable(api.repo, next.query)
+            .catch(() => [])
+            .then((refs) => refs.map((reference) => ({ kind: "reference", reference })));
+    // The pull request's own people at once, the rest as they come.
+    if (next.kind === "mention") setOptions(rankPeople(api.people, next.query).map((person) => ({ kind: "person", person })));
+    void found.then((list) => {
+      if (turn !== asked.current) return;
+      setOptions(list);
+      setActive(0);
+    });
+  };
+
+  /** A change made as if typed, so ⌘Z undoes it. */
+  const apply = (change: Change) => {
+    const el = field.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(change.from, change.to);
+    const typed = change.insert ? document.execCommand("insertText", false, change.insert) : document.execCommand("delete");
+    if (!typed) onChange(value.slice(0, change.from) + change.insert + value.slice(change.to));
+    requestAnimationFrame(() => el.setSelectionRange(...change.select));
+  };
+
+  /** Text in at the caret (over what's selected), on lines of its own when it's a block. */
+  const insert = (text: string, block = false) => {
+    const el = field.current;
+    const start = el?.selectionStart ?? value.length;
+    const end = el?.selectionEnd ?? value.length;
+    setTab("write");
+    const before = block && start > 0 && value[start - 1] !== "\n" ? "\n" : "";
+    const after = block && value[end] !== "\n" ? "\n" : "";
+    const full = before + text + after;
+    requestAnimationFrame(() => apply({ from: start, to: end, insert: full, select: [start + full.length, start + full.length] }));
+  };
+
+  const pick = (option: Option | undefined) => {
+    const el = field.current;
+    if (!option || !token || !el) return;
+    const done = complete(value, token, el.selectionStart, option.kind === "person" ? option.person.login : String(option.reference.number));
+    apply({ from: token.start, to: el.selectionStart, insert: done.text.slice(token.start, done.caret), select: [done.caret, done.caret] });
+    setToken(null);
+    setOptions([]);
+  };
+
+  const open = Boolean(token && options.length && tab === "write");
+  const listId = `${id}-options`;
+  const shortcut = isMac ? "⌘" : "Ctrl+";
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1">
+        {/* A small segmented control: write, or see it as GitHub will show it. */}
+        <div role="tablist" onKeyDown={tabKeys} aria-label={label} className="relative isolate flex rounded-(--radius-control-sm) bg-fill">
+          <SlidingPill selected={tab} className="rounded-(--radius-control-sm) bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
+          {(
+            [
+              ["write", t("review.write")],
+              ["preview", t("review.preview")],
+            ] as const
+          ).map(([value_, name]) => (
+            <button
+              key={value_}
+              type="button"
+              role="tab"
+              data-pill={value_}
+              id={`${id}-${value_}`}
+              tabIndex={tab === value_ ? 0 : -1}
+              aria-selected={tab === value_}
+              aria-controls={`${id}-panel`}
+              disabled={value_ === "preview" && !api}
+              onClick={() => setTab(value_)}
+              className="flex h-(--control-h-sm) cursor-default items-center rounded-(--radius-control-sm) px-2 text-subheadline text-foreground outline-none focus-ring disabled:text-(--label-tertiary)"
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        <span className="flex-1" />
+        {suggestion ? (
+          <Tooltip>
+            <TooltipTrigger render={<Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => insert(suggestionBlock(suggestion), true)} />}>
+              <FileDiff /> {t("review.suggestChange")}
+            </TooltipTrigger>
+            <TooltipContent>{t("review.suggestChangeTip")}</TooltipContent>
+          </Tooltip>
+        ) : null}
+        {api ? <SavedReplies onPick={(body) => insert(body)} /> : null}
+      </div>
+
+      <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`}>
+        {tab === "preview" ? (
+          <div className="min-h-16 rounded-(--radius-field) border border-input bg-(--field-bg) px-2 py-1.5" aria-busy={rendered?.text !== value}>
+            {!value.trim() ? (
+              <p className="text-body text-muted-foreground">{t("review.nothingToPreview")}</p>
+            ) : rendered?.text !== value ? (
+              <p className="flex items-center gap-1.5 text-body text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("review.loadingPreview")}
+              </p>
+            ) : rendered.html !== null ? (
+              <CommentHtml html={rendered.html} base={base} />
+            ) : (
+              <p className="text-callout text-destructive" role="alert">
+                {rendered.error}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="relative">
+            <label htmlFor={`${id}-field`} className="sr-only">
+              {label}
+            </label>
+            <Textarea
+              id={`${id}-field`}
+              ref={field}
+              rows={rows}
+              value={value}
+              placeholder={placeholder}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={open}
+              aria-controls={open ? listId : undefined}
+              aria-activedescendant={open ? `${listId}-${active}` : undefined}
+              aria-describedby={`${id}-hint`}
+              onChange={(e) => {
+                onChange(e.target.value);
+                lookUp(e.target.value, e.target.selectionStart);
+              }}
+              onSelect={(e) => {
+                // The caret moved off what was being completed.
+                const caret = e.currentTarget.selectionStart;
+                if (token && (caret < token.start || caret > token.start + token.query.length + 1)) setToken(null);
+              }}
+              onBlur={() => setToken(null)}
+              onKeyDown={(e) => {
+                const mod = isMac ? e.metaKey : e.ctrlKey;
+                if (open) {
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActive((i) => (i + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length);
+                    return;
+                  }
+                  if ((e.key === "Enter" && !mod) || e.key === "Tab") {
+                    e.preventDefault();
+                    pick(options[active]);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setToken(null);
+                    return;
+                  }
+                }
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  onSubmit();
+                } else if (e.key === "Escape") {
+                  e.stopPropagation();
+                  onCancel();
+                } else if (mod && !e.shiftKey && !e.altKey && ["b", "i", "e", "k"].includes(e.key.toLowerCase())) {
+                  e.preventDefault();
+                  const { selectionStart: start, selectionEnd: end } = e.currentTarget;
+                  const key = e.key.toLowerCase();
+                  apply(key === "k" ? link(value, start, end) : wrap(value, start, end, key === "b" ? "bold" : key === "i" ? "italic" : "code"));
+                }
+              }}
+              onPaste={(e) => {
+                // GitHub has no way for an app to upload a picture or a file: said so, not faked.
+                if ([...e.clipboardData.items].some((i) => i.kind === "file")) {
+                  e.preventDefault();
+                  setNotice(true);
+                  return;
+                }
+                // A link pasted over words makes them a link, as on GitHub.
+                const pasted = e.clipboardData.getData("text/plain").trim();
+                const { selectionStart: start, selectionEnd: end } = e.currentTarget;
+                if (start !== end && /^https?:\/\/\S+$/.test(pasted) && !/^https?:\/\//.test(value.slice(start, end))) {
+                  e.preventDefault();
+                  apply(link(value, start, end, pasted));
+                }
+              }}
+              onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
+              onDrop={(e) => {
+                if (!e.dataTransfer.files.length) return;
+                e.preventDefault();
+                setNotice(true);
+              }}
+              className="resize-y"
+            />
+            {open ? (
+              <ul
+                id={listId}
+                role="listbox"
+                aria-label={token?.kind === "mention" ? t("review.mentionSomeone") : t("review.referenceIssue")}
+                className="mac-menu absolute z-50 w-72 max-w-[calc(100%-8px)] p-(--menu-pad) text-popover-foreground"
+                style={{ top: at.top + at.height + 4, left: Math.min(at.left, Math.max(0, (field.current?.clientWidth ?? 288) - 288)) }}
+                // A click picks without taking the focus from the field.
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {options.map((o, i) => (
+                  <li
+                    key={o.kind === "person" ? o.person.login : o.reference.number}
+                    id={`${listId}-${i}`}
+                    role="option"
+                    aria-selected={i === active}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => pick(o)}
+                    className={cn("flex h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-2 text-body", i === active && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)")}
+                  >
+                    {o.kind === "person" ? (
+                      <>
+                        <Avatar className="size-4">
+                          {o.person.avatarUrl ? <AvatarImage src={avatar(o.person.avatarUrl)} alt="" /> : null}
+                          <AvatarFallback className="text-footnote">{o.person.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{o.person.login}</span>
+                        {o.person.name ? <span className="truncate text-muted-foreground">{o.person.name}</span> : null}
+                      </>
+                    ) : (
+                      <>
+                        {o.reference.kind === "pull" ? <GitPullRequest className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <CircleDot className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+                        <span className="shrink-0 text-muted-foreground tabular-nums">#{o.reference.number}</span>
+                        <span className="truncate">{o.reference.title}</span>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        )}
+      </div>
+      {notice ? (
+        <p id={`${id}-hint`} role="status" className="flex flex-wrap items-center gap-x-1.5 text-callout text-muted-foreground">
+          {t("review.noUploads")}
+          {api ? (
+            <Button variant="link" size="xs" className="h-auto px-0" onClick={() => void bridge.openUrl(api.url)}>
+              {t("review.finishOnGitHub")}
+            </Button>
+          ) : null}
+        </p>
+      ) : (
+        <p id={`${id}-hint`} className="sr-only">
+          {t("review.writingShortcuts", { shortcut })}
+        </p>
+      )}
+    </div>
+  );
+}

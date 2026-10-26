@@ -4,9 +4,11 @@
 
 import { getSingularPatch, type CodeViewDiffItem, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { FileWarning, Plus } from "lucide-react";
+import { FileWarning, MessageSquarePlus, Plus } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer } from "@/lib/bridge";
 import type { OnScreen } from "@/lib/estimate";
@@ -14,7 +16,7 @@ import { useT, type T } from "@/lib/i18n";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
 import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
 
-type Annotation = { kind: "thread"; thread: Thread; moved: boolean } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange };
+type Annotation = { kind: "thread"; thread: Thread; moved: boolean } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange; file?: boolean };
 
 export type DiffsHandle = {
   scrollToFile: (path: string) => void;
@@ -88,7 +90,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const t = useT();
   const { files, threads, drafts, findings, isViewed, opened, diffStyle, wrap, dark } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
-  const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange } | null>(null);
+  // `file`: a comment on the file as a whole, written at its top.
+  const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange; file?: boolean } | null>(null);
   // Parsing a patch is the costly part: once per file and patch.
   const parsed = useRef(new Map<string, { patch: string; diff: FileDiffMetadata }>());
 
@@ -137,10 +140,18 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
             const top = here ? null : firstLine(entry.diff);
             return { side: top?.side ?? thread.side, lineNumber: top?.line ?? thread.line, metadata: { kind: "thread" as const, thread, moved: !here } };
           }),
-          ...fileDrafts.map((draft) => ({ side: draft.side, lineNumber: draft.line, metadata: { kind: "draft" as const, draft } })),
+          ...fileDrafts.map((draft) => {
+            // One on the file goes at its top, as its conversations do.
+            const top = draft.file || !draft.line ? firstLine(entry.diff) : null;
+            return { side: top?.side ?? draft.side, lineNumber: top?.line ?? draft.line, metadata: { kind: "draft" as const, draft } };
+          }),
           ...fileFindings.map((finding) => ({ side: "additions" as const, lineNumber: finding.line, metadata: { kind: "finding" as const, finding } })),
           ...(composing?.path === f.path
-            ? [{ side: composing.range.endSide ?? composing.range.side ?? "additions", lineNumber: Math.max(composing.range.start, composing.range.end), metadata: { kind: "new" as const, path: f.path, range: composing.range } }]
+            ? [
+                composing.file
+                  ? { side: firstLine(entry.diff)?.side ?? "additions", lineNumber: firstLine(entry.diff)?.line ?? 1, metadata: { kind: "new" as const, path: f.path, range: composing.range, file: true } }
+                  : { side: composing.range.endSide ?? composing.range.side ?? "additions", lineNumber: Math.max(composing.range.start, composing.range.end), metadata: { kind: "new" as const, path: f.path, range: composing.range } },
+              ]
             : []),
         ];
         const viewed = isViewed(f) && !opened.has(f.path);
@@ -158,7 +169,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               fileThreads.map((t) => [t.id, t.resolved, t.comments.length]),
               fileDrafts.map((d) => [d.key, d.body]),
               fileFindings.map((x) => [x.line, x.body]),
-              composing?.path === f.path ? composing.range : null,
+              composing?.path === f.path ? [composing.range, composing.file] : null,
             ]),
           ),
         };
@@ -236,6 +247,25 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           if (!file) return null;
           return (
             <span className="flex items-center font-sans text-foreground select-none">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-muted-foreground"
+                      aria-label={t("review.commentOnFile", { path: file.path })}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setComposing({ path: file.path, range: { start: 0, end: 0, side: "additions", endSide: "additions" }, file: true });
+                      }}
+                    />
+                  }
+                >
+                  <MessageSquarePlus />
+                </TooltipTrigger>
+                <TooltipContent>{t("review.commentOnFileTip")}</TooltipContent>
+              </Tooltip>
               <label className="flex items-center gap-1.5 px-1.5 py-1 text-body" onClick={(e) => e.stopPropagation()}>
                 <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={t("review.viewedFile", { path: file.path })} className="size-3.5" />
                 {t("review.viewed")}
@@ -250,13 +280,16 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           if (a.kind === "finding") return <FindingView finding={a.finding} by={props.findingsBy} onAdd={() => props.onAcceptFinding(a.finding)} onDismiss={() => props.onDismissFinding(a.finding)} />;
           return (
             <NewComment
-              lines={describe(a.range, t)}
+              lines={a.file ? t("review.theFile") : describe(a.range, t)}
+              path={a.path}
+              range={a.range}
+              file={a.file}
               onAdd={(body) => {
-                props.onAddDraft(toDraft(a.path, a.range, body));
+                props.onAddDraft(a.file ? { path: a.path, side: "additions", line: 0, body, file: true } : toDraft(a.path, a.range, body));
                 setComposing(null);
               }}
               onSendNow={async (body) => {
-                await props.onCommentNow(toDraft(a.path, a.range, body));
+                await props.onCommentNow(a.file ? { path: a.path, side: "additions", line: 0, body, file: true } : toDraft(a.path, a.range, body));
                 setComposing(null);
               }}
               onCancel={() => setComposing(null)}

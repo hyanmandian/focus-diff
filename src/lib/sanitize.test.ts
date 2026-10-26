@@ -55,3 +55,19 @@ describe("picture buttons", () => {
     expect(html).toContain("<img");
   });
 });
+
+describe("suggested changes", () => {
+  it("draws GitHub's suggestion as a diff of text, with only its syntax colors' names", () => {
+    const html = sanitize(
+      '<div class="my-2 border rounded-2 js-suggested-changes-blob diff-view" id=""><div class="f6 p-2">Suggested change</div><div itemprop="text" class="blob-wrapper" style="margin: 0"><table class="d-table" data-paste-markdown-skip=""><tbody><tr class="border-0"><td class="blob-num blob-num-deletion" data-line-number="·"></td><td class="border-0 blob-code-inner blob-code-deletion js-blob-code-deletion"><span class="pl-k">const</span> a = <span class="pl-c1" onclick="x()">1</span>;</td></tr><tr class="border-0"><td class="blob-num blob-num-addition" data-line-number="·"></td><td class="border-0 blob-code-inner blob-code-addition"><span class="pl-k evil">const</span> a = <img src="https://evil.example/x.png">2;</td></tr></tbody></table></div><div class="js-apply-changes"></div></div><p>Then it works.</p>',
+    );
+    expect(html).toBe(
+      '<div data-suggestion=""><p data-suggestion-head="">Suggested change</p><table><tbody><tr data-diff="deletion"><td data-sign="">−</td><td><span data-pl="k">const</span> a = <span data-pl="c1">1</span>;</td></tr><tr data-diff="addition"><td data-sign="">+</td><td><span data-pl="k">const</span> a = 2;</td></tr></tbody></table></div><p>Then it works.</p>',
+    );
+  });
+
+  it("draws a previewed suggestion under the lines it replaces", () => {
+    const html = sanitize('<pre lang="suggestion" class="notranslate"><code class="notranslate">  const a = 2;\n</code></pre>', ["  const a = 1;"]);
+    expect(html).toContain('<tr data-diff="deletion"><td data-sign="">−</td><td>  const a = 1;</td></tr><tr data-diff="addition"><td data-sign="">+</td><td>  const a = 2;</td></tr>');
+  });
+});

@@ -4,6 +4,7 @@
 // and everything else is dropped or unwrapped. The page's Content-Security-Policy blocks scripts on
 // top of that.
 
+import { i18n } from "./i18n";
 import { isVideo, media } from "./media";
 
 const TAGS = new Set([
@@ -39,7 +40,76 @@ function isPictureButton(link: Element) {
   return alt.length > 1 && alt.length <= 40 && height > 0 && height <= 40 && !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(href);
 }
 
-function clean(node: Node) {
+// MARK: Suggested changes
+
+type Row = { kind: "deletion" | "addition"; code: Node[] };
+
+/** A suggested change as a small diff the app draws itself (review/suggestion.css): GitHub's own is
+ *  styled by classes this page doesn't have. Built from scratch, so nothing of the original but its
+ *  text (and the names of its syntax colors) gets through. */
+function suggestion(doc: Document, rows: Row[]) {
+  const box = doc.createElement("div");
+  box.setAttribute("data-suggestion", "");
+  const head = doc.createElement("p");
+  head.setAttribute("data-suggestion-head", "");
+  head.textContent = i18n()("review.suggestedChange");
+  const table = doc.createElement("table");
+  const body = doc.createElement("tbody");
+  for (const row of rows) {
+    const tr = doc.createElement("tr");
+    tr.setAttribute("data-diff", row.kind);
+    const sign = doc.createElement("td");
+    sign.setAttribute("data-sign", "");
+    sign.textContent = row.kind === "deletion" ? "−" : "+";
+    const code = doc.createElement("td");
+    code.append(...row.code);
+    tr.append(sign, code);
+    body.append(tr);
+  }
+  table.append(body);
+  box.append(head, table);
+  return box;
+}
+
+/** A line of highlighted code as text, keeping only GitHub's syntax color names ("pl-k"). */
+function code(doc: Document, from: Node): Node[] {
+  return [...from.childNodes].flatMap((child): Node[] => {
+    if (child.nodeType === Node.TEXT_NODE) return [doc.createTextNode(child.textContent ?? "")];
+    if (child.nodeType !== Node.ELEMENT_NODE) return [];
+    const color = [...(child as Element).classList].find((c) => /^pl-[a-z0-9]{1,6}$/.test(c));
+    const inner = code(doc, child);
+    if (!color) return inner;
+    const span = doc.createElement("span");
+    span.setAttribute("data-pl", color.slice(3));
+    span.append(...inner);
+    return [span];
+  });
+}
+
+/** GitHub's suggested change, from a comment's HTML: its rows of removed and added lines. */
+function suggestedChange(element: Element) {
+  const doc = element.ownerDocument;
+  const rows = [...element.querySelectorAll("tr")].flatMap((tr): Row[] => {
+    const cell = tr.querySelector(".blob-code-inner, .blob-code") ?? tr.querySelectorAll("td")[1];
+    if (!cell) return [];
+    return [{ kind: cell.className.includes("deletion") ? "deletion" : "addition", code: code(doc, cell) }];
+  });
+  return suggestion(doc, rows);
+}
+
+/** A ```suggestion block as GitHub's Markdown API renders it (a preview): the lines it suggests,
+ *  under the ones they replace when those are known. */
+function previewedChange(element: Element, base: string[] | undefined) {
+  const doc = element.ownerDocument;
+  const text = (element.textContent ?? "").replace(/\n$/, "");
+  const lines = text ? text.split("\n") : [];
+  return suggestion(doc, [
+    ...(base ?? []).map((line): Row => ({ kind: "deletion", code: [doc.createTextNode(line)] })),
+    ...lines.map((line): Row => ({ kind: "addition", code: [doc.createTextNode(line)] })),
+  ]);
+}
+
+function clean(node: Node, base?: string[]) {
   for (const child of [...node.childNodes]) {
     if (child.nodeType === Node.COMMENT_NODE) {
       child.remove();
@@ -48,6 +118,14 @@ function clean(node: Node) {
     if (child.nodeType !== Node.ELEMENT_NODE) continue;
     const element = child as Element;
     const tag = element.tagName.toLowerCase();
+    if (tag === "div" && element.classList.contains("js-suggested-changes-blob")) {
+      element.replaceWith(suggestedChange(element));
+      continue;
+    }
+    if (tag === "pre" && element.getAttribute("lang") === "suggestion") {
+      element.replaceWith(previewedChange(element, base));
+      continue;
+    }
     // GitHub's diagrams (mermaid, maps, 3D) come as their source plus a "Loading" placeholder its
     // own page swaps for the drawing. Here: the source alone, marked for lib/diagrams.ts to draw.
     if (tag === "section" && element.hasAttribute("data-type")) {
@@ -83,7 +161,7 @@ function clean(node: Node) {
     }
     if (!TAGS.has(tag)) {
       // Keep the text, lose the element.
-      clean(element);
+      clean(element, base);
       element.replaceWith(...element.childNodes);
       continue;
     }
@@ -130,15 +208,16 @@ function clean(node: Node) {
       if (element.getAttribute("type") !== "checkbox") element.remove();
       else element.setAttribute("disabled", "");
     }
-    clean(element);
+    clean(element, base);
   }
 }
 
-export function sanitize(html: string): string {
+/** `base`: the lines a previewed suggestion replaces, to show them removed. */
+export function sanitize(html: string, base?: string[]): string {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
   const root = doc.body.firstElementChild;
   if (!root) return "";
-  clean(root);
+  clean(root, base);
   return root.innerHTML;
 }
 

@@ -3,6 +3,7 @@
 // review itself).
 
 import { github, graphql } from "./bridge";
+import { COMMENT_FIELDS, moreComments, toReactions, type RawComment, type Reaction } from "./comments";
 import type { Details } from "./details";
 import type { Actor } from "./engine";
 import { i18n } from "./i18n";
@@ -18,20 +19,58 @@ export type ReviewFile = {
   patch: string;
 };
 
-export type ThreadComment = { id: string; databaseId: number; author: Actor; html: string; at: string; url: string };
+export type ThreadComment = {
+  id: string;
+  databaseId: number;
+  author: Actor;
+  html: string;
+  at: string;
+  url: string;
+  /** Its Markdown, for editing it and for its suggestions. (Optional: copies kept from before.) */
+  body?: string;
+  /** In your pending review, not yet sent. */
+  pending?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canReact?: boolean;
+  edited?: boolean;
+  reactions?: Reaction[];
+  /** The author's number on GitHub, to credit them in a suggestion's commit. */
+  authorId?: number | null;
+};
 export type Thread = {
   id: string;
   path: string;
   side: "additions" | "deletions";
   /** 0: on the file as a whole, not a line. */
   line: number;
+  /** Where it starts, when it's on several lines. */
+  startLine?: number | null;
   resolved: boolean;
   outdated: boolean;
   comments: ThreadComment[];
+  /** Started in your pending review: shown as one of your pending comments, not a conversation. */
+  pending?: boolean;
 };
 
-/** A comment written during this review, sent with it. */
-export type Draft = { key: string; path: string; side: "additions" | "deletions"; line: number; startLine?: number; body: string };
+/** A comment written during this review, sent with it. It goes into your pending review on GitHub
+ *  as soon as it can (src-tauri/src/drafts.rs), so github.com has it too. */
+export type Draft = {
+  key: string;
+  path: string;
+  side: "additions" | "deletions";
+  line: number;
+  startLine?: number;
+  body: string;
+  /** Its id in your pending review on GitHub, once it's there. */
+  id?: string;
+  /** GitHub's HTML for it, once it's there. */
+  html?: string;
+  /** On the file as a whole rather than lines. */
+  file?: boolean;
+  /** A reply to this conversation, sent with the review. */
+  replyTo?: string;
+};
 
 const header = (f: { filename: string; previous_filename?: string; status: string }) => {
   const old = f.previous_filename ?? f.filename;
@@ -66,7 +105,22 @@ export async function loadFiles(d: PullRef): Promise<ReviewFile[]> {
   return files;
 }
 
-const ACTOR = "__typename login avatarUrl(size: 64) ... on User { name }";
+const toComment = (c: RawComment): ThreadComment => ({
+  id: c.id,
+  databaseId: c.databaseId,
+  author: c.author,
+  html: c.bodyHTML,
+  at: c.createdAt,
+  url: c.url,
+  body: c.body,
+  pending: c.state === "PENDING",
+  canEdit: c.viewerCanUpdate,
+  canDelete: c.viewerCanDelete,
+  canReact: c.viewerCanReact,
+  edited: Boolean(c.lastEditedAt),
+  reactions: toReactions(c.reactionGroups),
+  authorId: c.author?.databaseId ?? null,
+});
 
 export async function loadThreads(d: PullRef): Promise<Thread[]> {
   type Raw = {
@@ -81,14 +135,17 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
             path: string;
             line: number | null;
             originalLine: number | null;
+            startLine: number | null;
+            subjectType: "LINE" | "FILE" | null;
             diffSide: "LEFT" | "RIGHT";
-            comments: { nodes: Array<{ id: string; databaseId: number; author: Actor; bodyHTML: string; createdAt: string; url: string }> };
+            comments: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] };
           }>;
         };
       };
     };
   };
   const threads: Thread[] = [];
+  const longer: Array<Promise<void>> = [];
   let after: string | null = null;
   for (let page = 0; page < 10; page++) {
     const data: Raw = await graphql<Raw>(
@@ -96,8 +153,8 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
         repository(owner: $owner, name: $name) { pullRequest(number: $number) {
           reviewThreads(first: 100, after: $after) {
             pageInfo { hasNextPage endCursor }
-            nodes { id isResolved isOutdated path line originalLine diffSide
-              comments(first: 50) { nodes { id databaseId author { ${ACTOR} } bodyHTML createdAt url } } }
+            nodes { id isResolved isOutdated path line originalLine startLine subjectType diffSide
+              comments(first: 100) { pageInfo { hasNextPage endCursor } nodes { ${COMMENT_FIELDS} } } }
           }
         } }
       }`,
@@ -106,20 +163,27 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
     const page_ = data.repository.pullRequest.reviewThreads;
     for (const t of page_.nodes) {
       // A comment on the file as a whole has no line; it's kept, at the top of the file.
-      const line = t.line ?? t.originalLine ?? 0;
-      threads.push({
+      const line = t.subjectType === "FILE" ? 0 : (t.line ?? t.originalLine ?? 0);
+      const thread: Thread = {
         id: t.id,
         path: t.path,
         side: t.diffSide === "LEFT" ? "deletions" : "additions",
         line,
+        startLine: t.startLine,
         resolved: t.isResolved,
         outdated: t.isOutdated,
-        comments: t.comments.nodes.map((c) => ({ id: c.id, databaseId: c.databaseId, author: c.author, html: c.bodyHTML, at: c.createdAt, url: c.url })),
-      });
+        comments: t.comments.nodes.map(toComment),
+        pending: t.comments.nodes[0]?.state === "PENDING",
+      };
+      threads.push(thread);
+      // A long conversation: the rest of it, alongside the other pages.
+      const cursor = t.comments.pageInfo.hasNextPage ? t.comments.pageInfo.endCursor : null;
+      if (cursor) longer.push(moreComments(t.id, cursor).then((rest) => void thread.comments.push(...rest.map(toComment))));
     }
     if (!page_.pageInfo.hasNextPage) break;
     after = page_.pageInfo.endCursor;
   }
+  await Promise.all(longer);
   return threads;
 }
 
@@ -154,19 +218,16 @@ export async function loadViewed(d: PullRef): Promise<Map<string, ViewedState>> 
 const base = (d: Details) => `/repos/${d.owner}/${d.repo}/pulls/${d.number}`;
 const toSide = (side: Draft["side"]) => (side === "deletions" ? "LEFT" : "RIGHT");
 
-const draftPayload = (draft: Draft) => ({
-  path: draft.path,
-  body: draft.body,
-  line: draft.line,
-  side: toSide(draft.side),
-  ...(draft.startLine !== undefined && draft.startLine !== draft.line ? { start_line: draft.startLine, start_side: toSide(draft.side) } : {}),
-});
-
-/** The review, with the comments written during it. */
-export function submitReview(d: Details, event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT", body: string, drafts: Draft[]) {
-  if (event === "COMMENT" && !body.trim() && !drafts.length) throw new Error(i18n()("config.reviewEmpty"));
-  return github("POST", `${base(d)}/reviews`, { event, body: body.trim(), comments: drafts.map(draftPayload) });
-}
+const draftPayload = (draft: Draft) =>
+  draft.file
+    ? { path: draft.path, body: draft.body, subject_type: "file" }
+    : {
+        path: draft.path,
+        body: draft.body,
+        line: draft.line,
+        side: toSide(draft.side),
+        ...(draft.startLine !== undefined && draft.startLine !== draft.line ? { start_line: draft.startLine, start_side: toSide(draft.side) } : {}),
+      };
 
 /** A single comment, posted right away rather than with the review. */
 export const commentNow = (d: Details, draft: Draft) => github("POST", `${base(d)}/comments`, { ...draftPayload(draft), commit_id: d.headRefOid });

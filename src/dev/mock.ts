@@ -2,6 +2,8 @@
 // (npm run dev, then open http://localhost:1420), with sample pull requests, so the interface can
 // be worked on and screenshotted without GitHub. Never part of a build (see main.tsx).
 
+import { conversationMock, setEmitter } from "./conversation";
+
 type Args = Record<string, unknown>;
 
 const now = Date.now();
@@ -308,9 +310,17 @@ const snapshot = { ready: true, signedIn: true, me: "you", items, status: { phas
 
 const files: Record<string, string | null> = { config: JSON.stringify(config), pace: JSON.stringify(pace) };
 const listeners = new Map<number, string>();
+const callbacks = new Map<number, (event: unknown) => void>();
 let callbackId = 0;
+// Events from the sample's side (dev/conversation.ts) reach the page's listeners.
+setEmitter((event, payload) => {
+  for (const [handler, name] of listeners) if (name === event) callbacks.get(handler)?.({ event, id: handler, payload });
+});
 
 async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
+  // Commenting (suggestions, the pending review, reactions…) answers first.
+  const answered = await conversationMock(cmd, args, () => ({ people, threads: threads.repository.pullRequest.reviewThreads.nodes, details, files: reviewFiles }));
+  if (answered !== undefined) return answered;
   switch (cmd) {
     case "read_file":
       return files[args.name as string] ?? null;
@@ -361,8 +371,8 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
     case "confirm":
       return window.confirm(`${args.title as string}\n\n${args.message as string}`);
     case "plugin:event|listen":
-      listeners.set(++callbackId, args.event as string);
-      return callbackId;
+      listeners.set(args.handler as number, args.event as string);
+      return args.handler;
     default:
       return null;
   }
@@ -373,7 +383,10 @@ export function installMock() {
   (window as unknown as { __mock: boolean }).__mock = true;
   (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
     invoke,
-    transformCallback: () => ++callbackId,
+    transformCallback: (callback: (event: unknown) => void) => {
+      callbacks.set(++callbackId, callback);
+      return callbackId;
+    },
     unregisterCallback: () => {},
     metadata: { currentWindow: { label: "panel" }, currentWebview: { label: "panel", windowLabel: "panel" } },
   };

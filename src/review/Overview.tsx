@@ -1,7 +1,7 @@
 // The review window's Overview tab: the pull request's description and conversation, with the AI,
 // reviewers and checks beside them.
 
-import { ArrowDownToLine, CircleCheck, CircleDot, CircleMinus, CircleX, Loader2, MessageSquarePlus, Sparkles } from "lucide-react";
+import { ArrowDownToLine, CircleCheck, CircleDot, CircleMinus, CircleX, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ import { bridge } from "@/lib/bridge";
 import type { Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
 import { useT } from "@/lib/i18n";
-import type { Details } from "@/lib/details";
+import type { Conversation, ConversationEntry } from "@/lib/conversation";
+import type { Details, Entry } from "@/lib/details";
 import type { Actor } from "@/lib/engine";
 import type { Thread } from "@/lib/review";
 import { useDiagrams } from "@/lib/diagrams";
@@ -20,6 +21,9 @@ import { cn } from "@/lib/utils";
 import { openViewer } from "@/shared/Viewer";
 import { AiAnswer } from "@/shared/AiAnswer";
 import { AskAi } from "@/shared/AskAi";
+import { quote } from "@/lib/writing";
+import { useConversationApi } from "./conversation";
+import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
 import { Composer, ThreadView } from "./Thread";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
@@ -144,6 +148,9 @@ function ReviewSummary({ config, review, reviewing, error, onJump }: { config: C
 type Props = {
   config: Config | null;
   details: Details;
+  /** The whole conversation, with what you may do to each part of it; the details' latest until
+   *  it's loaded (lib/conversation.ts). */
+  conversation?: Conversation | null;
   review: AiReview | null;
   reviewing: boolean;
   reviewError: string | null;
@@ -173,19 +180,25 @@ function Where({ path, line, onJump }: { path: string; line: number | null; onJu
   );
 }
 
-/** The comment box at the end of the conversation, closed until it's wanted. */
-function AddComment({ onComment }: { onComment: Props["onComment"] }) {
+/** The comment box at the end of the conversation, closed until it's wanted (or a quote opens it). */
+function AddComment({ onComment, quoted, onQuoted }: { onComment: Props["onComment"]; quoted: string | null; onQuoted: () => void }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  return open ? (
+  return open || quoted !== null ? (
     <Composer
+      key={quoted ?? ""}
       placeholder={t("review.commentOnPull")}
       submitLabel={t("review.comment")}
+      initial={quoted ?? ""}
       onSubmit={async (body) => {
         await onComment(body);
         setOpen(false);
+        onQuoted();
       }}
-      onCancel={() => setOpen(false)}
+      onCancel={() => {
+        setOpen(false);
+        onQuoted();
+      }}
     />
   ) : (
     <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
@@ -194,10 +207,134 @@ function AddComment({ onComment }: { onComment: Props["onComment"] }) {
   );
 }
 
-export function Overview({ config, details, review, reviewing, reviewError, onJump, threads, onReply, onResolve, onComment }: Props) {
+/** What someone said, editable when it's yours: the description, a comment, a review's own words. */
+function Words({ html, body, editing, onSave, onDone, className }: { html: string; body?: string; editing: boolean; onSave: (body: string) => Promise<void>; onDone: () => void; className?: string }) {
   const t = useT();
+  if (editing && body !== undefined)
+    return (
+      <div className={cn("mt-1", className)}>
+        <Composer
+          placeholder={t("review.commentPlaceholder")}
+          submitLabel={t("review.save")}
+          initial={body}
+          onSubmit={async (text) => {
+            await onSave(text);
+            onDone();
+          }}
+          onCancel={onDone}
+        />
+      </div>
+    );
+  return html.trim() ? <Html html={html} className={className} /> : null;
+}
+
+/** One entry in the conversation: a comment on the pull request or a review, with the conversations
+ *  it started on lines. */
+function EntryView({ entry, byComment, onJump, onReply, onResolve, onQuote }: { entry: Entry & Partial<ConversationEntry>; byComment: Map<string, Thread>; onQuote: (text: string) => void } & Pick<Props, "onJump" | "onReply" | "onResolve">) {
+  const t = useT();
+  const api = useConversationApi();
+  const [editing, setEditing] = useState(false);
+  const [reactions, toggle] = useReactions(entry.id, entry.reactions ?? []);
+  const parts =
+    entry.kind === "review"
+      ? entry.comments.flatMap((c): Array<{ key: string; comment: typeof c; thread: Thread | null }> => {
+          const thread = byComment.get(c.id);
+          if (!thread) return [{ key: c.id, comment: c, thread: null }];
+          return thread.comments[0]?.id === c.id ? [{ key: c.id, comment: c, thread }] : [];
+        })
+      : [];
+  // A review that's only replies to conversations shown above has nothing of its own.
+  if (entry.kind === "review" && !entry.html.trim() && !parts.length && entry.state === "COMMENTED") return null;
+  // A review's words can be edited, not deleted; a comment both.
+  const said = entry.kind === "comment" || entry.html.trim() || editing;
+  return (
+    <article className="flex gap-2.5">
+      <Person actor={entry.author} className="mt-0.5 size-6" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-0.5">
+          <p className="min-w-0 flex-1 text-callout text-muted-foreground">
+            <span className="font-medium text-foreground">{firstName(entry.author, t)}</span>
+            {entry.kind === "review" && isReviewState(entry.state) ? <span className={cn(" ml-1", REVIEW_STATE[entry.state])}>{t(`review.did.${entry.state}`)}</span> : null} · {t.since(Date.parse(entry.at))}
+            {entry.edited ? ` · ${t("review.edited")}` : ""}
+          </p>
+          {api && said && entry.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
+          {api ? (
+            <CommentMenu
+              url={entry.url}
+              onQuote={entry.body ? () => onQuote(quote(entry.body ?? "")) : undefined}
+              onEdit={entry.canEdit && entry.body !== undefined ? () => setEditing(true) : undefined}
+              onDelete={entry.kind === "comment" && entry.canDelete ? () => void api.deleteEntry(entry.id) : undefined}
+            />
+          ) : null}
+        </div>
+        <Words html={entry.html} body={entry.body} editing={editing} className="mt-1" onSave={(body) => api?.editEntry(entry.kind, entry.id, body) ?? Promise.resolve()} onDone={() => setEditing(false)} />
+        {said ? <ReactionList reactions={reactions} canReact={Boolean(api && entry.canReact)} onToggle={toggle} /> : null}
+        {parts.map(({ key, comment: c, thread }) =>
+          thread ? (
+            <div key={key} className="mt-2">
+              <Where path={thread.path} line={thread.line || null} onJump={onJump} />
+              <ThreadView thread={thread} className="mx-0 my-0 max-w-none" onReply={(body) => onReply(thread, body)} onResolve={(resolved) => onResolve(thread, resolved)} />
+            </div>
+          ) : (
+            <div key={key} className="mt-2 rounded-lg border p-2">
+              <Where path={c.path} line={c.line} onJump={onJump} />
+              <Html html={c.html} />
+            </div>
+          ),
+        )}
+      </div>
+    </article>
+  );
+}
+
+/** The newest this many show first; older ones a page at a time, so a long conversation opens as
+ *  fast as a short one. */
+const PAGE = 30;
+
+/** The description: the author's words, editable when you may, with its reactions. */
+function Description({ details, conversation }: { details: Details; conversation: Conversation | null | undefined }) {
+  const t = useT();
+  const api = useConversationApi();
+  const [editing, setEditing] = useState(false);
+  const [reactions, toggle] = useReactions(details.id, conversation?.reactions ?? []);
   // "{who} opened it {ago}", with the name set apart.
   const [beforeWho, afterWho] = t("review.openedBy", { who: "\u0000", ago: t.ago(Date.parse(details.createdAt)) }).split("\u0000");
+  const html = conversation?.html ?? details.html;
+  return (
+    <section aria-labelledby="description" className="rounded-xl border bg-card p-5">
+      <h2 id="description" className="sr-only">
+        {t("review.description")}
+      </h2>
+      <div className="mb-3 flex items-center gap-2 text-callout text-muted-foreground">
+        <Person actor={details.author} />
+        <span className="min-w-0 flex-1">
+          {beforeWho}
+          <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
+          {afterWho} ·{" "}
+          <span className="font-mono">{details.headRefName}</span> → <span className="font-mono">{details.baseRefName}</span>
+        </span>
+        {api && conversation?.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
+        {api && conversation?.canEdit && !editing ? (
+          <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.editDescription")} onClick={() => setEditing(true)}>
+            <Pencil />
+          </Button>
+        ) : null}
+      </div>
+      {editing || html.trim() ? (
+        <Words html={html} body={conversation?.body} editing={editing} onSave={(body) => api?.editDescription(body) ?? Promise.resolve()} onDone={() => setEditing(false)} />
+      ) : (
+        <Html html={html} />
+      )}
+      <ReactionList reactions={reactions} canReact={Boolean(api && conversation?.canReact)} onToggle={toggle} />
+    </section>
+  );
+}
+
+export function Overview({ config, details, conversation, review, reviewing, reviewError, onJump, threads, onReply, onResolve, onComment }: Props) {
+  const t = useT();
+  const [shown, setShown] = useState(PAGE);
+  const [quoted, setQuoted] = useState<string | null>(null);
+  const entries: Array<Entry & Partial<ConversationEntry>> = conversation?.entries ?? details.entries;
   // Each conversation on a line shows once, under the review that started it (as on GitHub); the
   // replies, which GitHub keeps as reviews of their own, are in it.
   const byComment = useMemo(() => new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const))), [threads]);
@@ -206,67 +343,22 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-8">
-        <section aria-labelledby="description" className="rounded-xl border bg-card p-5">
-          <h2 id="description" className="sr-only">
-            {t("review.description")}
-          </h2>
-          <div className="mb-3 flex items-center gap-2 text-callout text-muted-foreground">
-            <Person actor={details.author} />
-            <span>
-              {beforeWho}
-              <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
-              {afterWho} ·{" "}
-              <span className="font-mono">{details.headRefName}</span> → <span className="font-mono">{details.baseRefName}</span>
-            </span>
-          </div>
-          <Html html={details.html} />
-        </section>
+        <Description details={details} conversation={conversation} />
         <section aria-labelledby="conversation" className="flex flex-col gap-5">
           <h2 id="conversation" className="text-headline font-bold">
-            {t("review.conversation")} <span className="font-normal text-muted-foreground tabular-nums">{details.entries.length}</span>
+            {t("review.conversation")} <span className="font-normal text-muted-foreground tabular-nums">{entries.length}</span>
           </h2>
-              {details.entries.length ? (
-                details.entries.map((entry) => {
-                  const parts =
-                    entry.kind === "review"
-                      ? entry.comments.flatMap((c): Array<{ key: string; comment: typeof c; thread: Thread | null }> => {
-                          const thread = byComment.get(c.id);
-                          if (!thread) return [{ key: c.id, comment: c, thread: null }];
-                          return thread.comments[0]?.id === c.id ? [{ key: c.id, comment: c, thread }] : [];
-                        })
-                      : [];
-                  // A review that's only replies to conversations shown above has nothing of its own.
-                  if (entry.kind === "review" && !entry.html.trim() && !parts.length && entry.state === "COMMENTED") return null;
-                  return (
-                    <article key={entry.id} className="flex gap-2.5">
-                      <Person actor={entry.author} className="mt-0.5 size-6" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-callout text-muted-foreground">
-                          <span className="font-medium text-foreground">{firstName(entry.author, t)}</span>
-                          {entry.kind === "review" && isReviewState(entry.state) ? <span className={cn(" ml-1", REVIEW_STATE[entry.state])}>{t(`review.did.${entry.state}`)}</span> : null} · {t.since(Date.parse(entry.at))}
-                        </p>
-                        {entry.html.trim() ? <Html html={entry.html} className="mt-1" /> : null}
-                        {parts.map(({ key, comment: c, thread }) =>
-                          thread ? (
-                            <div key={key} className="mt-2">
-                              <Where path={thread.path} line={thread.line || null} onJump={onJump} />
-                              <ThreadView thread={thread} className="mx-0 my-0 max-w-none" onReply={(body) => onReply(thread, body)} onResolve={(resolved) => onResolve(thread, resolved)} />
-                            </div>
-                          ) : (
-                            <div key={key} className="mt-2 rounded-lg border p-2">
-                              <Where path={c.path} line={c.line} onJump={onJump} />
-                              <Html html={c.html} />
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    </article>
-                  );
-                })
+              {entries.length ? (
+                entries.slice(0, shown).map((entry) => <EntryView key={entry.id} entry={entry} byComment={byComment} onJump={onJump} onReply={onReply} onResolve={onResolve} onQuote={setQuoted} />)
               ) : (
                 <p className="text-body text-muted-foreground">{t("review.noConversation")}</p>
               )}
-              <AddComment onComment={onComment} />
+              {entries.length > shown ? (
+                <Button variant="ghost" size="sm" className="self-start text-link" onClick={() => setShown((n) => n + PAGE * 3)}>
+                  {t("review.showOlder", { count: Math.min(entries.length - shown, PAGE * 3) })}
+                </Button>
+              ) : null}
+              <AddComment onComment={onComment} quoted={quoted} onQuoted={() => setQuoted(null)} />
         </section>
       </div>
       <aside className="flex min-w-0 flex-col gap-6" aria-label={t("review.atAGlance")}>

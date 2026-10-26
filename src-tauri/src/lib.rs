@@ -12,6 +12,7 @@ mod checkout;
 mod config;
 #[cfg(any(debug_assertions, feature = "devctl"))]
 mod devctl;
+mod drafts;
 mod engine;
 #[cfg(target_os = "macos")]
 mod floating;
@@ -166,6 +167,39 @@ fn queue_viewed(outbox: State<'_, outbox::Outbox>, pull: String, path: String, v
 #[tauri::command]
 fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> std::collections::HashMap<String, bool> {
     outbox.pending(&pull)
+}
+
+/// A comment written or edited for your pending review: kept until GitHub takes it (drafts.rs).
+#[tauri::command]
+fn drafts_put(drafts: State<'_, drafts::Drafts>, put: drafts::Put) {
+    drafts.put(put);
+}
+
+#[tauri::command]
+fn drafts_remove(drafts: State<'_, drafts::Drafts>, pull: String, key: String, id: Option<String>) {
+    drafts.remove(pull, key, id);
+}
+
+/// A pull request's pending comments still on their way, and the ids of those that arrived.
+#[tauri::command]
+fn drafts_state(drafts: State<'_, drafts::Drafts>, pull: String) -> drafts::Pending {
+    drafts.pending(&pull)
+}
+
+#[tauri::command]
+fn drafts_retry(drafts: State<'_, drafts::Drafts>, pull: String) {
+    drafts.retry(&pull);
+}
+
+#[tauri::command]
+fn drafts_forget(drafts: State<'_, drafts::Drafts>, pull: String) {
+    drafts.forget(&pull);
+}
+
+/// Waits for every pending comment to reach GitHub, before the review is submitted.
+#[tauri::command]
+async fn drafts_flush(app: AppHandle, pull: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<drafts::Drafts>().flush(&pull)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -920,6 +954,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             queue_viewed,
             queued_viewed,
+            drafts_put,
+            drafts_remove,
+            drafts_state,
+            drafts_retry,
+            drafts_forget,
+            drafts_flush,
             read_file,
             write_file,
             snapshot,
@@ -991,6 +1031,7 @@ pub fn run() {
             *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
             app.manage(outbox::Outbox::start(&handle));
+            app.manage(drafts::Drafts::start(&handle));
             update::watch(&handle);
             #[cfg(any(debug_assertions, feature = "devctl"))]
             devctl::start(&handle);

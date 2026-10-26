@@ -80,8 +80,8 @@ const BY_NAME: Record<string, Tile> = {
   ".env": ["ENV", "#ecd53f", true],
 };
 
-const PICTURE = /\.(png|jpe?g|gif|webp|avif|ico|bmp|heic)$/i;
-const LOCK = /(\.lock|-lock\.json|-lock\.yaml|\.lockb)$/i;
+const PICTURE = /\.(png|jpe?g|gif|webp|avif|ico|bmp|heic)$/iu;
+const LOCK = /(\.lock|-lock\.json|-lock\.yaml|\.lockb)$/iu;
 
 function tileOf(path: string): Tile | LucideIcon {
   const name = path.slice(path.lastIndexOf("/") + 1).toLowerCase();
@@ -90,13 +90,15 @@ function tileOf(path: string): Tile | LucideIcon {
   const known = BY_NAME[name] ?? (name.startsWith(".env") ? BY_NAME[".env"] : undefined);
   if (known) return known;
   const dot = name.lastIndexOf(".");
-  return (dot > 0 && BY_EXTENSION[name.slice(dot + 1)]) || File;
+  return (dot > 0 ? BY_EXTENSION[name.slice(dot + 1)] : undefined) ?? File;
 }
 
 export function FileIcon({ path, className }: { path: string; className?: string }) {
   const tile = tileOf(path);
   if (!Array.isArray(tile)) {
     const Icon = tile;
+    // One of the three icons above, not a component made here.
+    // oxlint-disable-next-line react/static-components
     return <Icon aria-hidden className={cn("mx-0.5 size-3.5 shrink-0 text-muted-foreground", className)} />;
   }
   const [label, color, light] = tile;

@@ -20,6 +20,7 @@ import {
   loadConversation,
   readKeptConversation,
   type Conversation,
+  type ConversationEntry,
 } from "@/utils/conversation/conversation";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";
@@ -88,12 +89,19 @@ export async function copyText(text: string) {
     field.style.opacity = "0";
     document.body.append(field);
     field.select();
+    // Deprecated, and the only way left when the clipboard API isn't there.
+    // oxlint-disable-next-line typescript/no-deprecated
     document.execCommand("copy");
     field.remove();
   }
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+const confirmDelete = () => {
+  const t = i18n();
+  return bridge.confirm(t("review.deleteConfirm"), t("review.deleteConfirmMessage"), t("review.deleteConfirmButton"));
+};
 
 type Options = {
   prId: string;
@@ -136,9 +144,18 @@ export function useConversation({
   }, [prId, ref]);
 
   useEffect(() => {
+    // What was kept shows until GitHub answers, unless GitHub answers first.
     let fresh = false;
-    void readKeptConversation(prId).then((kept) => !fresh && kept && setConversation(kept));
-    void reload().then(() => (fresh = true));
+    const fromDisk = async () => {
+      const kept = await readKeptConversation(prId);
+      if (!fresh && kept) setConversation(kept);
+    };
+    const fromGitHub = async () => {
+      await reload();
+      fresh = true;
+    };
+    void fromDisk();
+    void fromGitHub();
   }, [prId, reload]);
 
   // Without your pending replies: those show as your pending comments.
@@ -167,21 +184,16 @@ export function useConversation({
       }),
     );
   };
-  const patchEntry = (id: string, patch: Partial<Conversation["entries"][number]> | null) => {
+  const patchEntry = (id: string, patch: Pick<ConversationEntry, "body" | "html" | "edited"> | null) => {
     setConversation(
       (c) =>
         c && {
           ...c,
           entries: patch
-            ? c.entries.map((e) => (e.id === id ? ({ ...e, ...patch } as typeof e) : e))
+            ? c.entries.map((e) => (e.id === id ? { ...e, ...patch } : e))
             : c.entries.filter((e) => e.id !== id),
         },
     );
-  };
-
-  const confirmDelete = () => {
-    const t = i18n();
-    return bridge.confirm(t("review.deleteConfirm"), t("review.deleteConfirmMessage"), t("review.deleteConfirmButton"));
   };
 
   const api: ConversationApi = {
@@ -242,10 +254,13 @@ export function useConversation({
           : c;
       });
     },
-    copyLink: (url) =>
-      void copyText(url).then(() => {
+    copyLink: (url) => {
+      const copy = async () => {
+        await copyText(url);
         say(i18n()("review.linkCopied"));
-      }),
+      };
+      void copy();
+    },
     batch,
     toggleBatch: (item) => {
       setBatch((list) =>
@@ -275,13 +290,15 @@ export function useConversation({
           throw new Error(t("review.branchMoved"), { cause: e });
         }
         if (e instanceof SuggestionError)
-          throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"));
-        throw new Error(message(e));
+          throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"), {
+            cause: e,
+          });
+        throw new Error(message(e), { cause: e });
       }
       setBatch((list) => list.filter((i) => !items.some((x) => x.comment === i.comment)));
       // Applied, so done with, as on GitHub: resolved here at once, there after.
       const applied = new Set(items.map((i) => i.thread));
-      setThreads((list) => list.map((t) => (applied.has(t.id) ? { ...t, resolved: true } : t)));
+      setThreads((list) => list.map((thread) => (applied.has(thread.id) ? { ...thread, resolved: true } : thread)));
       await Promise.all(
         [...applied]
           .map((id) => byId.get(id))

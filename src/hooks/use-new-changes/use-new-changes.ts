@@ -4,7 +4,7 @@
 // the rate limit. New commits wait for the person (the diff doesn't change under them); new
 // comments and the like come in on their own.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { github } from "@/utils/bridge/bridge";
 
@@ -22,15 +22,21 @@ export function useNewChanges(
   onActivity: () => void,
 ) {
   const [found, setFound] = useState<NewChanges | null>(null);
+  // Up to date again (after Update, or another reload): nothing to say.
+  const [shown, setShown] = useState(head);
+  if (shown !== head) {
+    setShown(head);
+    if (found && found.head === head) setFound(null);
+  }
   const known = useRef({ head, updatedAt });
-  known.current = { head, updatedAt };
   const activity = useRef(onActivity);
-  activity.current = onActivity;
+  useLayoutEffect(() => {
+    known.current = { head, updatedAt };
+    activity.current = onActivity;
+  });
 
-  useEffect(() => {
+  useEffect((): void | (() => void) => {
     if (!head) return;
-    // Up to date again (after Update, or another reload): nothing to say.
-    setFound((f) => (f && f.head === head ? null : f));
     let live = true;
     let busy = false;
     const look = async () => {

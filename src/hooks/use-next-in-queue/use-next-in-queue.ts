@@ -18,10 +18,12 @@ export type Visit = { pr: ReviewPull; teams: string[]; queue: string | null };
 const BACK = "review-back";
 /** Which way the window is going, for the page to slide that way (entries/review.tsx). */
 export const DIRECTION = "review-direction";
+/** Written by this window (keepVisits), so a list is taken as one of visits. */
+const isVisits = (value: unknown): value is Visit[] => Array.isArray(value);
 function visits(): Visit[] {
   try {
     const list: unknown = JSON.parse(sessionStorage.getItem(BACK) ?? "[]");
-    return Array.isArray(list) ? (list as Visit[]) : [];
+    return isVisits(list) ? list : [];
   } catch {
     return [];
   }
@@ -42,14 +44,18 @@ async function find(queue: string, current: string) {
 export function useNextInQueue(queue: string | null | undefined, current: string, here: Visit | null) {
   const [next, setNext] = useState<Item | null>(null);
   const [previous] = useState(() => visits().at(-1) ?? null);
-  useEffect(() => {
+  useEffect((): void | (() => void) => {
     if (!queue) return;
     let live = true;
-    const look = () =>
-      void find(queue, current).then(
-        (item) => live && setNext(item),
-        () => {},
-      );
+    const ask = async () => {
+      try {
+        const item = await find(queue, current);
+        if (live) setNext(item);
+      } catch {
+        // What it was stays; the next look asks again.
+      }
+    };
+    const look = () => void ask();
     look();
     window.addEventListener("focus", look);
     return () => {

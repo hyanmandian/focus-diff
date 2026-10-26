@@ -23,7 +23,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
   const t = useT();
 
   const add = (raw: string) => {
-    const next = raw.trim().replace(/,$/, "");
+    const next = raw.trim().replace(/,$/u, "");
     if (!next) return;
     const problem = validate?.(next) ?? (value.includes(next) ? t("settings.alreadyAdded") : null);
     if (problem) {

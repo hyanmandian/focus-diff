@@ -14,7 +14,13 @@ type Picture = { src: string; alt: string };
 let current: Picture | null = null;
 const listeners = new Set<() => void>();
 const emit = () => {
-  listeners.forEach((l) => l());
+  for (const l of listeners) l();
+};
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
 };
 
 export function openViewer(picture: Picture) {
@@ -31,29 +37,28 @@ const MIN = 0.5;
 const MAX = 8;
 
 export function Viewer() {
+  const picture = useSyncExternalStore(subscribe, () => current);
+  // Fresh for each picture: at its own size, in the middle.
+  return picture ? createPortal(<Shown key={picture.src} picture={picture} />, document.body) : null;
+}
+
+function Shown({ picture }: { picture: Picture }) {
   const t = useT();
-  const picture = useSyncExternalStore(
-    (l) => (listeners.add(l), () => listeners.delete(l)),
-    () => current,
-  );
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
-  const opener = useRef<Element | null>(null);
 
   const zoom = useCallback((by: number) => {
     setScale((s) => Math.min(MAX, Math.max(MIN, s * by)));
   }, []);
-  const reset = () => {
+  const reset = useCallback(() => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
-  };
+  }, []);
 
   useEffect(() => {
-    if (!picture) return;
-    opener.current = document.activeElement;
-    reset();
+    const opener = document.activeElement;
     closeButton.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
@@ -65,18 +70,23 @@ export function Viewer() {
     return () => {
       window.removeEventListener("keydown", onKey);
       // Back where the person was.
-      (opener.current as HTMLElement | null)?.focus?.();
+      if (opener instanceof HTMLElement || opener instanceof SVGElement) opener.focus();
     };
-  }, [picture, zoom]);
+  }, [zoom, reset]);
 
-  if (!picture) return null;
-  return createPortal(
+  return (
+    // Esc closes it from the keyboard (the window's keydown above), as a click outside does.
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
+      // A view over the page drawn by hand; a <dialog> brings its own box and top layer.
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="dialog"
       aria-modal="true"
       aria-label={picture.alt || t("shared.pictureLabel")}
       className="fixed inset-0 z-50 flex animate-in flex-col bg-black/85 backdrop-blur-sm duration-150 fade-in-0 motion-reduce:animate-none"
-      onClick={(e) => e.target === e.currentTarget && close()}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
       onWheel={(e) => {
         // A pinch on a trackpad comes as a wheel with Ctrl.
         e.preventDefault();
@@ -130,9 +140,13 @@ export function Viewer() {
           <X />
         </Button>
       </div>
+      {/* Dragged with the pointer; the keys zoom and Esc closes, as around it. */}
+      {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="flex min-h-0 flex-1 cursor-grab items-center justify-center overflow-hidden active:cursor-grabbing"
-        onClick={(e) => e.target === e.currentTarget && close()}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) close();
+        }}
         onPointerDown={(e) => {
           drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -141,8 +155,12 @@ export function Viewer() {
           const d = drag.current;
           if (d) setOffset({ x: d.ox + e.clientX - d.x, y: d.oy + e.clientY - d.y });
         }}
-        onPointerUp={() => (drag.current = null)}
+        onPointerUp={() => {
+          drag.current = null;
+        }}
       >
+        {/* A double click zooms in or back, as the keys and buttons do. */}
+        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <img
           src={picture.src}
           alt={picture.alt}
@@ -150,11 +168,11 @@ export function Viewer() {
           className="max-h-full max-w-full transition-transform duration-100 ease-out select-none motion-reduce:transition-none"
           style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
           onDoubleClick={() => {
-            scale === 1 ? zoom(2) : reset();
+            if (scale === 1) zoom(2);
+            else reset();
           }}
         />
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

@@ -7,6 +7,8 @@ import { cn } from "@/utils/cn/cn";
 function ButtonGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
+      // A group of buttons, not a form's fieldset (which brings its own border, padding and disabling).
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="group"
       data-slot="button-group"
       className={cn(

@@ -1,12 +1,12 @@
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
 import { type VariantProps } from "class-variance-authority";
-import * as React from "react";
+import { createContext, useContext, type CSSProperties } from "react";
 
 import { toggleVariants } from "@/components/toggle/toggle";
 import { cn } from "@/utils/cn/cn";
 
-const ToggleGroupContext = React.createContext<
+const ToggleGroupContext = createContext<
   VariantProps<typeof toggleVariants> & {
     spacing?: number;
     orientation?: "horizontal" | "vertical";
@@ -33,6 +33,7 @@ function ToggleGroup({
     spacing?: number;
     orientation?: "horizontal" | "vertical";
   }) {
+  const gap: CSSProperties & Record<"--gap", number> = { "--gap": spacing };
   return (
     <ToggleGroupPrimitive
       data-slot="toggle-group"
@@ -40,13 +41,15 @@ function ToggleGroup({
       data-size={size}
       data-spacing={spacing}
       data-orientation={orientation}
-      style={{ "--gap": spacing } as React.CSSProperties}
+      style={gap}
       className={cn(
         "group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-(--radius-control) data-[variant=outline]:grid data-[variant=outline]:auto-cols-fr data-[variant=outline]:grid-flow-col data-[variant=outline]:gap-0 data-[variant=outline]:bg-fill data-vertical:flex-col data-vertical:items-stretch",
         className,
       )}
       {...props}
     >
+      {/* The React Compiler keeps this object the same between renders. */}
+      {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
       <ToggleGroupContext.Provider value={{ variant, size, spacing, orientation }}>
         {children}
       </ToggleGroupContext.Provider>
@@ -61,19 +64,19 @@ function ToggleGroupItem({
   size = "default",
   ...props
 }: TogglePrimitive.Props & VariantProps<typeof toggleVariants>) {
-  const context = React.useContext(ToggleGroupContext);
+  const context = useContext(ToggleGroupContext);
 
   return (
     <TogglePrimitive
       data-slot="toggle-group-item"
-      data-variant={context.variant || variant}
-      data-size={context.size || size}
+      data-variant={context.variant ?? variant}
+      data-size={context.size ?? size}
       data-spacing={context.spacing}
       className={cn(
         "shrink-0 focus-visible:z-10",
         toggleVariants({
-          variant: context.variant || variant,
-          size: context.size || size,
+          variant: context.variant ?? variant,
+          size: context.size ?? size,
         }),
         className,
       )}

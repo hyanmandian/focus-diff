@@ -19,9 +19,13 @@ import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const keptKey = (prId: string) => `drafts:${prId}`;
 
+/** Written by this window (the effect below), so a list is taken as one of drafts. */
+const isDrafts = (value: unknown): value is Draft[] => Array.isArray(value);
+
 function readKept(prId: string): Draft[] {
   try {
-    return JSON.parse(localStorage.getItem(keptKey(prId)) ?? "[]") as Draft[];
+    const kept: unknown = JSON.parse(localStorage.getItem(keptKey(prId)) ?? "[]");
+    return isDrafts(kept) ? kept : [];
   } catch {
     return [];
   }
@@ -30,9 +34,13 @@ function readKept(prId: string): Draft[] {
 /** Without the pending ones: a thread you started in your pending review is one of your pending
  *  comments, as is a pending reply in someone's conversation. */
 export function published(threads: Thread[]): Thread[] {
-  return threads
-    .filter((t) => !t.pending)
-    .map((t) => (t.comments.some((c) => c.pending) ? { ...t, comments: t.comments.filter((c) => !c.pending) } : t));
+  return (
+    threads
+      .filter((t) => !t.pending)
+      // A copy, not a change: threads are React state.
+      // oxlint-disable-next-line oxc/no-map-spread
+      .map((t) => (t.comments.some((c) => c.pending) ? { ...t, comments: t.comments.filter((c) => !c.pending) } : t))
+  );
 }
 
 const newKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -78,16 +86,22 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   );
 
   useEffect(() => {
-    void refresh().then((now) => {
+    const catchUp = async () => {
+      const now = await refresh();
       // Comments written before pending reviews lived on GitHub (or whose sending was lost) go now.
       if (!now?.queued || now.onGitHub === undefined) return;
       for (const draft of unsent(readKept(prId), now.onGitHub, now.queued)) send(draft);
+    };
+    void catchUp();
+    const off = bridge.on<string>("drafts", (pull) => {
+      if (pull === prId) void refresh();
     });
-    const off = bridge.on<string>("drafts", (pull) => pull === prId && void refresh());
-    return () =>
-      void off.then((f) => {
-        f();
-      });
+    const stop = async () => {
+      (await off)();
+    };
+    return () => {
+      void stop();
+    };
   }, [prId, refresh, send]);
 
   const add = (draft: Omit<Draft, "key">) => {

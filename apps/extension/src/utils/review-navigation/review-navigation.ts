@@ -54,8 +54,8 @@ export const createNavigation = (provider: Provider, panel: Panel, schedule: () 
    * from the page go from the middle of the screen.
    */
   const step = (shown: FileInfo[], complete: boolean, direction: 1 | -1) => {
+    // With none, goTo finds no target and does nothing.
     const targets = provider.conversations(shown, complete);
-    if (targets.length === 0) return;
     if (complete) return goTo(targets, stepFrom(commentIndex, direction, targets.length));
     const middle = innerHeight / 2;
     const index =

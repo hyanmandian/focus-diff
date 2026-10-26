@@ -1,8 +1,8 @@
 // The review window's Overview tab: the pull request's description and conversation, with the AI,
 // reviewers and checks beside them.
 
-import { ArrowDownToLine, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PROVIDERS, type AiReview } from "@/lib/ai";
@@ -26,7 +26,7 @@ import { byTime } from "@/lib/timeline";
 import { quote } from "@/lib/writing";
 import { Checks } from "./Checks";
 import { CommitsSection } from "./Commits";
-import { useConversationApi } from "./conversation";
+import { copyText, useConversationApi } from "./conversation";
 import { MergeBox } from "./MergeBox";
 import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "./Said";
 import { Sidebar } from "./Sidebar";
@@ -302,27 +302,78 @@ function EntryView({ entry, byComment, onJump, onReply, onResolve, onQuote }: { 
 const PAGE = 30;
 
 /** The description: the author's words, editable when you may, with its reactions. */
+/** A branch's name, with a button to copy it. */
+function Branch({ name }: { name: string }) {
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <span className="inline-flex max-w-full min-w-0 items-center rounded-[6px] bg-fill pl-1.5 text-foreground">
+      <span className="selectable truncate font-mono text-subheadline" title={name}>
+        {name}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="shrink-0 text-muted-foreground"
+        aria-label={copied ? t("review.branchCopied") : t("review.copyBranch", { name })}
+        onClick={() => void copyText(name).then(() => setCopied(true))}
+      >
+        {copied ? <Check className="text-success" /> : <Copy />}
+      </Button>
+    </span>
+  );
+}
+
+/** The page's heading, as on GitHub: who opened it beside the title, then when, and which branch
+ *  goes into which. The toolbar's copy of the title may be cut short; this one never is. */
+function Heading({ details }: { details: Details }) {
+  const t = useT();
+  // "{who} opened it {ago}", with the name set apart.
+  const [beforeWho, afterWho] = t("review.openedBy", { who: "\u0000", ago: t.ago(Date.parse(details.createdAt)) }).split("\u0000");
+  return (
+    <header className="-mb-3 flex gap-3">
+      <Person actor={details.author} className="mt-0.5 size-8" />
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <h1 className="selectable text-title2 leading-tight font-bold text-balance [overflow-wrap:anywhere]">
+          {details.title} <span className="font-normal text-muted-foreground tabular-nums">#{details.number}</span>
+        </h1>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-muted-foreground">
+          <span>
+            {beforeWho}
+            <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
+            {afterWho}
+          </span>
+          <span aria-hidden>·</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Branch name={details.baseRefName} />
+            <ArrowLeft className="size-3.5 shrink-0" aria-label={t("review.from")} />
+            <Branch name={details.headRefName} />
+          </span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 function Description({ details, conversation }: { details: Details; conversation: Conversation | null | undefined }) {
   const t = useT();
   const api = useConversationApi();
   const [editing, setEditing] = useState(false);
   const [reactions, toggle] = useReactions(details.id, conversation?.reactions ?? []);
-  // "{who} opened it {ago}", with the name set apart.
-  const [beforeWho, afterWho] = t("review.openedBy", { who: "\u0000", ago: t.ago(Date.parse(details.createdAt)) }).split("\u0000");
   const html = conversation?.html ?? details.html;
   return (
     <section aria-labelledby="description" className="rounded-xl border bg-card p-5">
       <h2 id="description" className="sr-only">
         {t("review.description")}
       </h2>
-      <div className="mb-3 flex items-center gap-2 text-callout text-muted-foreground">
-        <Person actor={details.author} />
-        <span className="min-w-0 flex-1">
-          {beforeWho}
-          <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
-          {afterWho} ·{" "}
-          <span className="font-mono">{details.headRefName}</span> → <span className="font-mono">{details.baseRefName}</span>
-        </span>
+      {/* Who and where are in the page's heading; the description keeps its own buttons, the text
+          flowing round them. */}
+      <div className="float-right -mt-2 -mr-2 ml-2 flex items-center">
         {api && conversation?.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
         {api && conversation?.canEdit && !editing ? (
           <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.editDescription")} onClick={() => setEditing(true)}>
@@ -355,10 +406,7 @@ export function Overview({ config, details, conversation, review, reviewing, rev
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-8">
-        {/* The title heads the page, as on GitHub; the toolbar's copy of it may be cut short. */}
-        <h1 className="selectable -mb-4 text-title2 leading-tight font-bold text-balance [overflow-wrap:anywhere]">
-          {details.title} <span className="font-normal text-muted-foreground tabular-nums">#{details.number}</span>
-        </h1>
+        <Heading details={details} />
         <Description details={details} conversation={conversation} />
         <MergeBox details={details} pull={pull} />
         <Checks pr={details} pull={pull} hasFile={hasFile} onJump={onJump} say={say} />

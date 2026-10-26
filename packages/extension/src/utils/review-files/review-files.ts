@@ -1,7 +1,11 @@
-import type { Provider, ThreadSummary } from "@/utils/provider/provider";
-import type { FileList, ReviewFile } from "@/utils/review/review";
+import type { FileStats, Provider, ThreadSummary } from "@/utils/provider/provider";
 
-export interface FileInfo extends ReviewFile {
+/** A changed file as the page shows it. */
+export interface FileInfo {
+  path: string;
+  /** Its line counts, or `null` while the site hasn't shown them. */
+  stats: FileStats | null;
+  viewed: boolean;
   /** How the site points to the file, for its links and its tree; empty when unknown. */
   anchor: string;
   /** The drawn diff, when the site has it on the page. */
@@ -10,7 +14,11 @@ export interface FileInfo extends ReviewFile {
   threads: ThreadSummary[];
 }
 
-export type Files = FileList<FileInfo>;
+export interface Files {
+  list: FileInfo[];
+  /** True when the list covers every changed file, not only the rendered ones. */
+  complete: boolean;
+}
 
 const viewedByPath = new Map<string, boolean>();
 let viewedPathname = "";

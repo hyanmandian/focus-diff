@@ -78,6 +78,8 @@ type Props = {
   /** Both versions of the files, to expand context and load what GitHub sent no patch for; null
    *  until the pull request's head is known. */
   source: Source | null;
+  /** False for an older range of commits: its lines aren't the head's, so no new comments on them. */
+  commentable: boolean;
   link: LinkTarget | null;
   /** Says something for a moment (the toolbar's notice): "Link copied". */
   onSay: (message: string) => void;
@@ -135,7 +137,7 @@ type Loaded = { state: "loading" } | { state: "error"; message: string } | { sta
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const t = useT();
-  const { files, threads, drafts, findings, isViewed, opened, diffStyle, wrap, whitespace, dark, source, link } = props;
+  const { files, threads, drafts, findings, isViewed, opened, diffStyle, wrap, whitespace, dark, source, link, commentable } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
   // `file`: a comment on the file as a whole, written at its top.
   const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange; file?: boolean } | null>(null);
@@ -284,11 +286,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       themeType: dark ? ("dark" as const) : ("light" as const),
       lineDiffType: "word" as const,
       stickyHeaders: true,
-      enableGutterUtility: true,
+      enableGutterUtility: commentable,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
       unsafeCSS: RENDERED_CSS,
       // Selecting lines (dragging over their numbers) opens the same box: comment or ask.
-      enableLineSelection: true,
+      enableLineSelection: commentable,
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
         if (range && latest?.item) setComposing({ path: latest.item.id, range });
       },
@@ -312,7 +314,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           }
         : {}),
     }),
-    [diffStyle, wrap, dark, source, filesByPath],
+    [diffStyle, wrap, dark, source, filesByPath, commentable],
   );
 
   /** Loads a file GitHub sent no patch for, from both its versions. */

@@ -400,8 +400,10 @@ export function Review({ target }: { target: Target }) {
   // Viewed marks belong to the pull request's version of a file, whichever range shows it.
   const pullFiles = useMemo(() => new Map((files ?? []).map((f) => [f.path, f])), [files]);
   const pullFileOf = useCallback((f: ReviewFile) => pullFiles.get(f.path) ?? f, [pullFiles]);
-  // The two versions the expanded lines come from: the range's ends when it's a range.
   const range = pull.range;
+  // Conversations sit on the head's lines: an older version's lines aren't those.
+  const olderRange = Boolean(range && details && range.to !== details.headRefOid);
+  // The two versions the expanded lines come from: the range's ends when it's a range.
   const diffSource = useMemo<Source | null>(() => (range ? { repo, head: range.to, base: () => Promise.resolve(range.from) } : source), [range, repo, source]);
 
   // The panel's lists catch up right away.
@@ -715,7 +717,7 @@ export function Review({ target }: { target: Target }) {
           ))}
         </div>
 
-        <div data-tauri-drag-region className="flex min-w-0 flex-1 flex-col justify-center gap-px pl-1">
+        <div data-tauri-drag-region className="flex min-w-48 flex-1 flex-col justify-center gap-px pl-1">
           {details ? (
             <>
               <h1 data-tauri-drag-region className="truncate text-headline font-bold" title={details.title}>
@@ -728,7 +730,7 @@ export function Review({ target }: { target: Target }) {
                   {notice}
                 </p>
               ) : (
-                <p data-tauri-drag-region className="truncate text-subheadline text-muted-foreground @max-[1180px]:hidden">
+                <p data-tauri-drag-region className="truncate text-subheadline text-muted-foreground @max-[1280px]:hidden">
                   {repo} #{number} · {firstName(details.author, t)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
                 </p>
               )}
@@ -736,7 +738,7 @@ export function Review({ target }: { target: Target }) {
           ) : (
             <>
               <Skeleton className="h-3.5 w-64 max-w-full" />
-              <Skeleton className="h-2.5 w-40 max-w-full @max-[1180px]:hidden" />
+              <Skeleton className="h-2.5 w-40 max-w-full @max-[1280px]:hidden" />
             </>
           )}
         </div>
@@ -764,10 +766,10 @@ export function Review({ target }: { target: Target }) {
                 </TooltipContent>
               </Tooltip>
               <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
-                <span className="inline-block min-w-[6.5rem] @max-[960px]:sr-only">
+                <span className="inline-block min-w-[6.5rem] @max-[1180px]:sr-only">
                   {stops.length ? (stop >= 0 ? t("review.commentOf", { index: stop + 1, total: stops.length }) : t("common.comments", { count: stops.length })) : t("review.noOpenComments")}
                 </span>
-                <span aria-hidden className="hidden min-w-5 @max-[960px]:inline-block">
+                <span aria-hidden className="hidden min-w-5 @max-[1180px]:inline-block">
                   {stops.length ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
                 </span>
               </span>
@@ -826,7 +828,7 @@ export function Review({ target }: { target: Target }) {
             <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
               {config?.actions.length && details && me ? (
                 <>
-                  <div className="contents @max-[1100px]:hidden">
+                  <div className="contents @max-[1360px]:hidden">
                     <ActionButtons
                       actions={config.actions}
                       className={TOOL}
@@ -836,7 +838,7 @@ export function Review({ target }: { target: Target }) {
                   </div>
                   <DropdownMenu>
                     <Tooltip>
-                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1100px]:inline-flex")} aria-label={t("review.actions")} />} />}>
+                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1360px]:inline-flex")} aria-label={t("review.actions")} />} />}>
                         <Zap />
                       </TooltipTrigger>
                       <TooltipContent>{t("review.actions")}</TooltipContent>
@@ -853,9 +855,9 @@ export function Review({ target }: { target: Target }) {
               ) : null}
               {ai && details ? (
                 <Tooltip>
-                  <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[960px]:w-(--toolbar-item-h) @max-[960px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
+                  <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[1180px]:w-(--toolbar-item-h) @max-[1180px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
                     {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                    <span className="@max-[960px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
+                    <span className="@max-[1180px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
                   </TooltipTrigger>
                   <TooltipContent>{current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
                 </Tooltip>
@@ -868,8 +870,8 @@ export function Review({ target }: { target: Target }) {
               {canMerge && details ? (
                 // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
                 <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
-                  <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[960px]:px-2")} />}>
-                    <GitMerge /> <span className="@max-[960px]:sr-only">{t("review.merge")}</span>
+                  <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[1180px]:px-2")} />}>
+                    <GitMerge /> <span className="@max-[1180px]:sr-only">{t("review.merge")}</span>
                     <ChevronDown className="size-3 opacity-70" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -1028,8 +1030,8 @@ export function Review({ target }: { target: Target }) {
                 <Diffs
                   ref={diffs}
                   files={visible}
-                  // Conversations sit on the head's lines: an older version's lines aren't those.
-                  threads={pull.range && details && pull.range.to !== details.headRefOid ? new Map() : threadsByPath}
+                  threads={olderRange ? new Map() : threadsByPath}
+                  commentable={!olderRange}
                   drafts={drafts}
                   findings={current?.findings ?? []}
                   findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}

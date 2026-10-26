@@ -24,7 +24,7 @@ const services = vi.hoisted(() => ({
     login: () => Promise<unknown>;
   },
   github: Promise.withResolvers<Record<string, () => unknown>>(),
-  migrated: false,
+  migrated: false as boolean | "broken",
 }));
 
 vi.mock("@/utils/github-api/github-api", () => ({
@@ -37,7 +37,10 @@ vi.mock("@/utils/github-api/github-api", () => ({
 vi.mock("@/utils/github-commands/github-commands", () => ({ startGitHubCommands: () => services.github.promise }));
 vi.mock("@/utils/migration/migration", async (real) => ({
   ...(await real<Record<string, unknown>>()),
-  migrate: () => Promise.resolve({ migrated: services.migrated, dropped: [] }),
+  migrate: () =>
+    services.migrated === "broken"
+      ? Promise.reject(new Error("broken"))
+      : Promise.resolve({ migrated: services.migrated, dropped: [] }),
 }));
 vi.mock("@/utils/queue-service/queue-service", () => ({
   startQueues: (options: {
@@ -73,6 +76,16 @@ const page = (name: string) => {
     heard.push(message);
   });
   return { port, heard };
+};
+
+/** What a page hears once it asks for the queues' snapshot. */
+const snapshotAnswer = async () => {
+  const { port, heard } = page("panel");
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a runtime port, not a window
+  port.postMessage({ type: "invoke", id: 1, command: "snapshot", args: {} });
+  await settle();
+  await settle();
+  return heard;
 };
 
 const snapshot = (over: object = {}) => ({
@@ -128,13 +141,8 @@ describe("the background", () => {
   it("answers what it can even when the GitHub commands couldn't start", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     startBackground();
-    const { port, heard } = page("panel");
     services.github.reject(new Error("storage"));
-    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a runtime port, not a window
-    port.postMessage({ type: "invoke", id: 1, command: "snapshot", args: {} });
-    await settle();
-    await settle();
-    expect(heard).toContainEqual({ type: "reply", id: 1, ok: true, value: { ready: true } });
+    expect(await snapshotAnswer()).toContainEqual({ type: "reply", id: 1, ok: true, value: { ready: true } });
     expect(logged).toHaveBeenCalledWith(new Error("storage"));
   });
 
@@ -177,23 +185,37 @@ describe("the background", () => {
     expect(sent).toHaveBeenCalledTimes(2);
   });
 
-  it("opens setup on install, and on the first update to the app (the old settings moved first)", async () => {
-    startBackground();
+  it("opens setup on install, and on an update that moved the old settings over", async () => {
     const created = vi.fn<(info: { url: string }) => Promise<object>>(() => Promise.resolve({}));
     Object.assign(fakeBrowser.tabs, { create: created });
+    startBackground();
     await fakeBrowser.runtime.onInstalled.trigger({ reason: "install" });
     await settle();
     expect(created).toHaveBeenCalledWith({ url: "chrome-extension://test-extension-id/setup.html" });
+    // Nothing to move: an update of the app itself opens nothing.
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", previousVersion: "2.0.0" });
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: "chrome_update" });
+    await settle();
+    expect(created).toHaveBeenCalledOnce();
+  });
+
+  it("moves the old settings over as it starts, then opens setup for the update", async () => {
+    const created = vi.fn<(info: { url: string }) => Promise<object>>(() => Promise.resolve({}));
+    Object.assign(fakeBrowser.tabs, { create: created });
+    services.migrated = true;
+    startBackground();
     await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", previousVersion: "1.2.0" });
     await settle();
     expect(created).toHaveBeenCalledOnce();
-    services.migrated = true;
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", previousVersion: "1.2.0" });
-    await settle();
-    expect(created).toHaveBeenCalledTimes(2);
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: "chrome_update" });
-    await settle();
-    expect(created).toHaveBeenCalledTimes(2);
+  });
+
+  it("starts even when the old settings couldn't be moved", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    services.migrated = "broken";
+    startBackground();
+    services.github.resolve({});
+    expect(await snapshotAnswer()).toContainEqual({ type: "reply", id: 1, ok: true, value: { ready: true } });
+    expect(logged).toHaveBeenCalledWith(new Error("broken"));
   });
 
   it("passes the queues' snapshots on, and takes the old popup's done pull requests off once GitHub answered", async () => {

@@ -11,11 +11,15 @@
    so the page paints its own, the colour of a Mac popover or sidebar. */
 :root {
   --material: #e8e8ea;
+  /* The Mac's secondary label is a shade too light for WCAG AA's 4.5:1 on white; a browser has no system colours to
+     follow, so it's darkened to pass. */
+  --label-secondary: rgb(0 0 0 / 0.6);
   /* No traffic lights to keep clear of in a tab: the review's toolbar starts at its own edge. */
   --traffic-lights-inset: 12px;
 }
 :root.dark {
   --material: #2b2b2e;
+  --label-secondary: rgb(255 255 255 / 0.55);
 }
 html.panel,
 html.panel body,

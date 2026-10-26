@@ -60,6 +60,8 @@ interface Fixtures {
   seed: (config: Config) => Promise<void>;
   openPullRequest: (url?: string) => Promise<Page>;
   openExtensionPage: (file: string) => Promise<Page>;
+  /** Signs in to GitHub with a token, as Settings does, from one of the extension's pages. */
+  signIn: (page: Page) => Promise<void>;
   pageErrors: string[];
 }
 
@@ -124,13 +126,20 @@ export const test = base.extend<Fixtures>({
       return page;
     });
   },
+
+  signIn: async ({}, use) => {
+    await use(async (page) => {
+      await page.evaluate(() => window.focusDiffPlatform!.invoke("auth_use_token", { token: "ghp_sample" }));
+    });
+  },
 });
 
 export const expect = test.expect;
 
-export const accessibilityViolations = async (page: Page, include?: string) => {
+export const accessibilityViolations = async (page: Page, include?: string, skip: string[] = []) => {
   const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "best-practice"]);
   if (include) builder.include(include);
+  if (skip.length > 0) builder.disableRules(skip);
   const { violations } = await builder.analyze();
   return violations.map(
     (violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
@@ -146,13 +155,15 @@ export const PAGE_VIEWS = [
 /** A page in a theme and width has no accessibility violations and doesn't scroll sideways, once `ready` is there. */
 export const expectSoundPage = async (
   page: Page,
-  [colorScheme, width]: (typeof PAGE_VIEWS)[number],
+  [colorScheme, width]: readonly ["light" | "dark", number],
   ready: Locator,
+  skip: string[] = [],
 ) => {
   await page.setViewportSize({ width, height: 900 });
   await page.emulateMedia({ colorScheme });
   await expect(ready).not.toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  // Polled: right after a resize, the page may not have laid itself out at the new width yet.
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   // Contrast is checked as the page rests, not halfway through a fade, like the bar's as it comes in.
   await page.evaluate(() => {
     const roots: (Document | ShadowRoot)[] = [document];
@@ -161,5 +172,5 @@ export const expectSoundPage = async (
     const animations = roots.flatMap((root) => root.getAnimations());
     return Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
   });
-  expect(await accessibilityViolations(page)).toEqual([]);
+  expect(await accessibilityViolations(page, undefined, skip)).toEqual([]);
 };

@@ -47,7 +47,13 @@ export const applyLegacyDone = async (
 export const startBackground = () => {
   const commands: Commands = {};
   const ready = Promise.withResolvers<null>();
-  const server = startCommandServer(commands, ready.promise);
+  // An earlier version's settings move over first, whenever the background starts (once: migrate() leaves a mark), so
+  // no page reads the setup before they're in it.
+  const moved = migrate().catch((error: unknown) => {
+    console.error(error);
+    return { migrated: false };
+  });
+  const server = startCommandServer(commands, Promise.all([ready.promise, moved]));
   const api = createGitHubApi();
   let applying = false;
   const queues = startQueues({
@@ -96,8 +102,8 @@ export const startBackground = () => {
   browser.commands.onCommand.addListener((command) => void forwardCommand(command));
   browser.runtime.onInstalled.addListener(({ reason }) => {
     void (async () => {
-      if (reason === "update" && !(await migrate()).migrated) return;
-      if (reason !== "install" && reason !== "update") return;
+      const { migrated } = await moved;
+      if (reason !== "install" && !(reason === "update" && migrated)) return;
       // First run, or the first since the extension became the app: connect GitHub, pick queues.
       await browser.tabs.create({ url: browser.runtime.getURL("/setup.html") });
     })();

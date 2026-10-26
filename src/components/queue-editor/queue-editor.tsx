@@ -1,7 +1,7 @@
 // Editing one queue: what puts a pull request in it, where, what to leave out, and what's worth a
 // notification. Every change applies right away (Settings saves it).
 
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
 import { Input } from "@/components/input/input";
@@ -15,6 +15,7 @@ import {
   LEAVE_OUT,
   PARTS,
   sourceOf,
+  STATES,
   TONES,
   validPattern,
   withSource,
@@ -23,7 +24,6 @@ import {
   type Queue,
   type QueueKind,
   type QueuePart,
-  type QueueState,
 } from "@/utils/config/config";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
@@ -61,11 +61,16 @@ const LEAVE_OUT_HINTS: Partial<Record<LeaveOut, "settings.leaveOut.bots.hint">> 
 };
 
 const SKIPS: Array<Queue["skipIfI"]> = ["approved", "reviewed", "tookPart"];
+const DRAFTS: Array<Queue["drafts"]> = ["show", "hide", "only"];
+const NOTIFY_AT: Array<Queue["notifyAt"]> = ["now", "review"];
+
+/** Whether a value the controls hand back is one of a list's. */
+const oneOf = <V extends string>(list: readonly V[], v: unknown): v is V => list.some((x) => x === v);
 
 // Called as a value is added, so they read the words then.
-const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(v) ? null : i18n()("settings.repoError"));
-const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/.test(v) ? null : i18n()("settings.teamError"));
-const userError = (v: string) => (/^[\w-]+(\[bot\])?$/.test(v) ? null : i18n()("settings.userError"));
+const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(v) ? null : i18n()("settings.repoError"));
+const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/u.test(v) ? null : i18n()("settings.teamError"));
+const userError = (v: string) => (/^[\w-]+(\[bot\])?$/u.test(v) ? null : i18n()("settings.userError"));
 
 const hours = (h: number, t: T) =>
   h === 0 ? t("settings.never") : h < 24 ? t("settings.hours", { count: h }) : t("settings.days", { count: h / 24 });
@@ -78,6 +83,19 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
   const events = KIND_EVENTS[queue.kind];
   const source = sourceOf(queue);
   const t = useT();
+
+  const notifySwitches: ReactNode[] = [];
+  for (const kind of events)
+    notifySwitches.push(
+      <SwitchRow
+        key={kind}
+        checked={queue.notify.includes(kind)}
+        onChange={(on) => {
+          set("notify", on ? [...queue.notify, kind] : queue.notify.filter((k) => k !== kind));
+        }}
+        label={t(`events.label.${kind}`)}
+      />,
+    );
 
   return (
     <>
@@ -94,11 +112,15 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           />
         </Row>
         <Row label={t("settings.color")}>
+          {/* Roving focus: the picked swatch takes Tab and the arrows move between them (radioKeys), so
+              the group itself needs no focus. */}
+          {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- see above */}
           <div className="flex gap-2" role="radiogroup" aria-label={t("settings.color")} onKeyDown={radioKeys}>
             {TONES.map((tone) => (
               <button
                 key={tone}
                 type="button"
+                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a colour swatch drawn on a button, with the roving focus above
                 role="radio"
                 aria-checked={queue.tone === tone}
                 tabIndex={queue.tone === tone ? 0 : -1}
@@ -123,7 +145,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         <Row label={t("settings.showState")}>
           <ToggleGroup
             value={[source.state]}
-            onValueChange={(v: string[]) => v[0] && onChange(withSource(queue, v[0] as QueueState, source.part))}
+            onValueChange={(v: string[]) => {
+              if (oneOf(STATES, v[0])) onChange(withSource(queue, v[0], source.part));
+            }}
             variant="outline"
             size="sm"
             aria-label={t("settings.showState")}
@@ -135,8 +159,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         <Row label={t("settings.myPart")} description={t("settings.myPartHint")}>
           <Select
             value={source.part}
+            // Never null here: it's only for a select that can be left empty.
             onValueChange={(v) => {
-              onChange(withSource(queue, source.state, v as QueuePart));
+              onChange(withSource(queue, source.state, v!));
             }}
           >
             <SelectTrigger className="min-w-64" aria-label={t("settings.myPart")}>
@@ -236,8 +261,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             <Row label={t("settings.skipIfI")} description={t("settings.skipIfIHint")}>
               <Select
                 value={queue.skipIfI}
+                // Never null here, as above.
                 onValueChange={(v) => {
-                  set("skipIfI", v as Queue["skipIfI"]);
+                  set("skipIfI", v!);
                 }}
               >
                 <SelectTrigger className="min-w-48" aria-label={t("settings.skipIfI")}>
@@ -390,7 +416,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         <Row label={t("settings.drafts")}>
           <ToggleGroup
             value={[queue.drafts]}
-            onValueChange={(v: string[]) => v[0] && set("drafts", v[0] as Queue["drafts"])}
+            onValueChange={(v: string[]) => {
+              if (oneOf(DRAFTS, v[0])) set("drafts", v[0]);
+            }}
             variant="outline"
             size="sm"
             aria-label={t("settings.drafts")}
@@ -456,16 +484,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
       </Group>
 
       <Group title={t("settings.notifyWhen")} footer={t("settings.notifyWhenFooter")}>
-        {events.map((kind) => (
-          <SwitchRow
-            key={kind}
-            checked={queue.notify.includes(kind)}
-            onChange={(on) => {
-              set("notify", on ? [...queue.notify, kind] : queue.notify.filter((k) => k !== kind));
-            }}
-            label={t(`events.label.${kind}`)}
-          />
-        ))}
+        {notifySwitches}
       </Group>
 
       {queue.notify.length > 0 ? (
@@ -474,7 +493,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             <Row label={t("settings.tellMe")}>
               <ToggleGroup
                 value={[queue.notifyAt]}
-                onValueChange={(v: string[]) => v[0] && set("notifyAt", v[0] as Queue["notifyAt"])}
+                onValueChange={(v: string[]) => {
+                  if (oneOf(NOTIFY_AT, v[0])) set("notifyAt", v[0]);
+                }}
                 variant="outline"
                 size="sm"
                 aria-label={t("settings.whenToTellMe")}

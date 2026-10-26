@@ -12,26 +12,26 @@ const TRIGGERS = { "@": "mention", "#": "reference", ":": "emoji" } as const;
  *  code. */
 export function tokenAt(text: string, caret: number): Token | null {
   let i = caret;
-  while (i > 0 && /[\w+-]/.test(text[i - 1]!)) i--;
+  while (i > 0 && /[\w+-]/u.test(text[i - 1]!)) i--;
   const trigger = text[i - 1];
   if (trigger !== "@" && trigger !== "#" && trigger !== ":") return null;
   const before = text[i - 2];
-  if (before !== undefined && !/[\s([{]/.test(before)) return null;
+  if (before !== undefined && !/[\s([{]/u.test(before)) return null;
   const query = text.slice(i, caret);
   // GitHub's logins are 39 characters at most. An emoji after two letters, as GitHub offers them
   // (so a time like 10:30 or a "Note:" isn't one).
   if (query.length > 39 || inCode(text, i - 1)) return null;
-  if (trigger === ":" ? !/^[a-z0-9_+-]{2,}$/i.test(query) : query.includes("\+")) return null;
+  if (trigger === ":" ? !/^[a-z0-9_+-]{2,}$/iu.test(query) : query.includes("+")) return null;
   return { kind: TRIGGERS[trigger], query, start: i - 1 };
 }
 
 /** Whether a place in the text is inside `code` or a fenced block. */
 function inCode(text: string, at: number) {
   const before = text.slice(0, at);
-  const fences = before.match(/^ {0,3}(```|~~~)/gm)?.length ?? 0;
+  const fences = before.match(/^ {0,3}(```|~~~)/gmu)?.length ?? 0;
   if (fences % 2 === 1) return true;
   const line = before.slice(before.lastIndexOf("\n") + 1);
-  return (line.match(/`/g)?.length ?? 0) % 2 === 1;
+  return (line.match(/`/gu)?.length ?? 0) % 2 === 1;
 }
 
 /** The text with the token replaced by what was picked (and a space after), and where the caret goes. */
@@ -57,7 +57,7 @@ export function rankPeople<P extends Person>(people: P[], query: string, most = 
   if (!q) return unique.slice(0, most);
   const score = (p: P) => {
     const login = p.login.toLowerCase();
-    const names = (p.name ?? "").toLowerCase().split(/\s+/);
+    const names = (p.name ?? "").toLowerCase().split(/\s+/u);
     if (login.startsWith(q)) return 0;
     if (names.some((n) => n.startsWith(q))) return 1;
     if (login.includes(q) || (p.name ?? "").toLowerCase().includes(q)) return 2;
@@ -66,7 +66,7 @@ export function rankPeople<P extends Person>(people: P[], query: string, most = 
   return unique
     .map((p, i) => ({ p, i, s: score(p) }))
     .filter((x) => x.s < 3)
-    .sort((a, b) => a.s - b.s || a.i - b.i)
+    .toSorted((a, b) => a.s - b.s || a.i - b.i)
     .slice(0, most)
     .map((x) => x.p);
 }
@@ -104,7 +104,7 @@ export function wrap(text: string, start: number, end: number, kind: "bold" | "i
  *  the address); pasting a link over selected words does the same with it. */
 export function link(text: string, start: number, end: number, url = ""): Change {
   const selected = text.slice(start, end);
-  if (!url && /^https?:\/\/\S+$/.test(selected)) {
+  if (!url && /^https?:\/\/\S+$/u.test(selected)) {
     const insert = `[](${selected})`;
     return { from: start, to: end, insert, select: [start + 1, start + 1] };
   }
@@ -131,7 +131,7 @@ export type Emoji = { name: string; char: string };
 export function emojiList(pictures: Record<string, string>): Emoji[] {
   const list: Emoji[] = [];
   for (const [name, url] of Object.entries(pictures)) {
-    const code = /\/unicode\/([0-9a-f-]+)\.png/i.exec(url)?.[1];
+    const code = /\/unicode\/([0-9a-f-]+)\.png/iu.exec(url)?.[1];
     if (!code) continue;
     try {
       list.push({ name, char: String.fromCodePoint(...code.split("-").map((h) => parseInt(h, 16))) });
@@ -149,5 +149,5 @@ export function rankEmoji(list: Emoji[], query: string, limit = 8): Emoji[] {
   const starts = list.filter((e) => e.name.startsWith(q));
   const within = list.filter((e) => !e.name.startsWith(q) && e.name.includes(q));
   const byLength = (a: Emoji, b: Emoji) => a.name.length - b.name.length || a.name.localeCompare(b.name);
-  return [...starts.sort(byLength), ...within.sort(byLength)].slice(0, limit);
+  return [...starts.toSorted(byLength), ...within.toSorted(byLength)].slice(0, limit);
 }

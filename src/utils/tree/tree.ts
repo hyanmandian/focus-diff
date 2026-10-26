@@ -11,6 +11,13 @@ export type TreeRow<F> = { node: TreeNode<F>; depth: number; parent: string | nu
 
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
+/** The folder alone in a folder (with nothing else beside it), to show as one row with it. */
+function alone<F>(folder: TreeFolder<F>): TreeFolder<F> | null {
+  if (folder.path === "" || folder.children.length !== 1) return null;
+  const only = folder.children[0]!;
+  return only.kind === "folder" ? only : null;
+}
+
 export function buildTree<F extends { path: string }>(files: F[]): Array<TreeNode<F>> {
   const root: TreeFolder<F> = { kind: "folder", path: "", name: "", children: [], files: [] };
   const folders = new Map<string, TreeFolder<F>>([["", root]]);
@@ -34,13 +41,10 @@ export function buildTree<F extends { path: string }>(files: F[]): Array<TreeNod
   const tidy = (folder: TreeFolder<F>): TreeFolder<F> => {
     let f = folder;
     // One folder in a folder (and nothing else): one row.
-    while (f.children.length === 1 && f.children[0]!.kind === "folder" && f.path !== "") {
-      const only = f.children[0] as TreeFolder<F>;
-      f = { ...only, name: `${f.name}/${only.name}` };
-    }
+    for (let only = alone(f); only; only = alone(f)) f = { ...only, name: `${f.name}/${only.name}` };
     f.children = f.children
       .map((c) => (c.kind === "folder" ? tidy(c) : c))
-      .sort((a, b) => (a.kind === b.kind ? byName(a.name, b.name) : a.kind === "folder" ? -1 : 1));
+      .toSorted((a, b) => (a.kind === b.kind ? byName(a.name, b.name) : a.kind === "folder" ? -1 : 1));
     return f;
   };
   return tidy(root).children;

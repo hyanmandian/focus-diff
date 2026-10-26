@@ -76,6 +76,31 @@ const QUERY = `query($owner: String!, $name: String!, $number: Int!) {
   }
 }`;
 
+type ReviewState = Details["reviewers"][number]["state"];
+
+/** The conversation's comments and reviews, as the query asks for them. */
+type TimelineNode =
+  | { __typename: "IssueComment"; id: string; author: Actor; bodyHTML: string; createdAt: string; url: string }
+  | {
+      __typename: "PullRequestReview";
+      id: string;
+      author: Actor;
+      state: string;
+      bodyHTML: string;
+      createdAt: string;
+      url: string;
+      comments: {
+        nodes: Array<{
+          id: string;
+          path: string;
+          line: number | null;
+          bodyHTML: string;
+          author: Actor;
+          url: string;
+        }> | null;
+      };
+    };
+
 type Raw = {
   repository: {
     squashMergeAllowed: boolean;
@@ -94,14 +119,14 @@ type Raw = {
             | { __typename: "Team"; name: string; slug: string };
         }>;
       };
-      latestOpinionatedReviews: { nodes: Array<{ author: Actor; state: string }> };
+      latestOpinionatedReviews: { nodes: Array<{ author: Actor; state: ReviewState }> };
       commits: {
         nodes: Array<{
           commit: { statusCheckRollup: null | { contexts: { nodes: Array<Record<string, string | null>> } } };
         }>;
       };
       files: { nodes: FileChange[] };
-      timelineItems: { nodes: Array<Record<string, unknown>> };
+      timelineItems: { nodes: TimelineNode[] };
     };
   };
 };
@@ -128,10 +153,7 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
   const { pullRequest: pr, ...repository } = data.repository;
 
   const reviewed = pr.latestOpinionatedReviews.nodes.filter((r) => r.author);
-  const reviewers: Details["reviewers"] = reviewed.map((r) => ({
-    actor: r.author,
-    state: r.state as Details["reviewers"][number]["state"],
-  }));
+  const reviewers: Details["reviewers"] = reviewed.map((r) => ({ actor: r.author, state: r.state }));
   for (const { requestedReviewer: r } of pr.reviewRequests.nodes) {
     if (!r) continue;
     if (r.__typename === "Team" && "slug" in r)
@@ -148,7 +170,7 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
       url: c.detailsUrl ?? c.targetUrl ?? null,
     }))
     // Failing first, then running, then the rest.
-    .sort(
+    .toSorted(
       (a, b) =>
         ["failure", "pending", "neutral", "success"].indexOf(a.state) -
         ["failure", "pending", "neutral", "success"].indexOf(b.state),
@@ -157,35 +179,21 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
   const entries: Entry[] = [];
   for (const node of pr.timelineItems.nodes) {
     if (node.__typename === "IssueComment") {
-      entries.push({
-        kind: "comment",
-        id: node.id as string,
-        author: node.author as Actor,
-        html: node.bodyHTML as string,
-        at: node.createdAt as string,
-        url: node.url as string,
-      });
-    } else if (node.__typename === "PullRequestReview") {
-      const comments = ((node.comments as { nodes: Array<Record<string, unknown>> }).nodes ?? []).map((c) => ({
-        id: c.id as string,
-        path: c.path as string,
-        line: (c.line as number | null) ?? null,
-        html: c.bodyHTML as string,
-        author: c.author as Actor,
-        url: c.url as string,
+      const { id, author, bodyHTML: html, createdAt: at, url } = node;
+      entries.push({ kind: "comment", id, author, html, at, url });
+    } else {
+      const comments = (node.comments.nodes ?? []).map((c) => ({
+        id: c.id,
+        path: c.path,
+        line: c.line,
+        html: c.bodyHTML,
+        author: c.author,
+        url: c.url,
       }));
       // Replies in threads come as empty "commented" reviews: only keep reviews that say something.
-      if (node.state === "COMMENTED" && !(node.bodyHTML as string)?.trim() && comments.length === 0) continue;
-      entries.push({
-        kind: "review",
-        id: node.id as string,
-        author: node.author as Actor,
-        state: node.state as string,
-        html: node.bodyHTML as string,
-        at: node.createdAt as string,
-        url: node.url as string,
-        comments,
-      });
+      if (node.state === "COMMENTED" && !node.bodyHTML.trim() && comments.length === 0) continue;
+      const { id, author, state, bodyHTML: html, createdAt: at, url } = node;
+      entries.push({ kind: "review", id, author, state, html, at, url, comments });
     }
   }
 
@@ -202,7 +210,7 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
     reviewers,
     checks,
     files: pr.files.nodes,
-    entries: entries.reverse(), // newest first
+    entries: entries.toReversed(), // newest first
     mergeMethods,
   };
 }

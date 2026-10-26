@@ -7,7 +7,11 @@
 type Side = "additions" | "deletions";
 export type Repo = { owner: string; repo: string };
 
-const segments = (path: string) => path.split("/").map(encodeURIComponent).join("/");
+const segments = (path: string) =>
+  path
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
 
 /** "#L10" or "#L10-L12" (GitHub's anchors on a file at a commit). */
 export function linesAnchor(start: number, end = start) {

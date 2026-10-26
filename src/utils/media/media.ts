@@ -10,4 +10,4 @@ export function media(url: string): string {
   return `${base}?u=${encodeURIComponent(url)}`;
 }
 
-export const isVideo = (url: string) => /\.(mp4|m4v|mov|webm)(?:$|\?)/i.test(url);
+export const isVideo = (url: string) => /\.(mp4|m4v|mov|webm)(?:$|\?)/iu.test(url);

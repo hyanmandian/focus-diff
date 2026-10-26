@@ -529,7 +529,7 @@ export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
       });
     return undefined;
   }
-  if (path.includes("/compare/")) return ok({ files: compareFiles });
+  if (path.includes("/compare/")) return ok({ files: compareFiles, merge_base_commit: { sha: "base" } });
   if (path.includes("/actions/runs?")) return ok({ workflow_runs: [{ id: 99, name: "CI", display_title: "CI" }] });
   if (method !== "GET") {
     if (path.endsWith("/merge")) pr.state = "MERGED";

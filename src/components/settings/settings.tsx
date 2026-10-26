@@ -109,14 +109,22 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
   };
   const move = (index: number, by: number) => {
     const queues = [...config.queues];
+    // The buttons only move what's there: the first can't go up, the last can't go down.
     const [queue] = queues.splice(index, 1);
-    if (!queue) return;
-    queues.splice(index + by, 0, queue);
+    queues.splice(index + by, 0, queue!);
     setQueues(queues);
   };
 
   if (selected) {
     const index = config.queues.indexOf(selected);
+    const remove = async () => {
+      if (
+        !(await confirmRemove(t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") })))
+      )
+        return;
+      setQueues(config.queues.filter((q) => q.id !== selected.id));
+      detail.close();
+    };
     return (
       <Pane
         title={selected.name || t("settings.untitledQueue")}
@@ -152,15 +160,8 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               size="icon"
               aria-label={t("settings.deleteNamed", { name: selected.name })}
               title={t("settings.deleteQueue")}
-              onClick={async () => {
-                if (
-                  !(await confirmRemove(
-                    t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") }),
-                  ))
-                )
-                  return;
-                setQueues(config.queues.filter((q) => q.id !== selected.id));
-                detail.close();
+              onClick={() => {
+                void remove();
               }}
             >
               <Trash2 />
@@ -337,11 +338,16 @@ function Updates() {
   const [state, setState] = useState<
     | { phase: "idle" | "checking" | "installing" }
     | { phase: "found"; version: string }
-    | { phase: "latest" | "error"; message?: string }
+    | { phase: "latest" }
+    | { phase: "error"; message: string }
   >({ phase: "idle" });
   useEffect(() => {
+    const offered = async () => {
+      const v = await bridge.updateOffered();
+      if (v) setState({ phase: "found", version: v });
+    };
     void getVersion().then(setVersion);
-    void bridge.updateOffered().then((v) => v && setState({ phase: "found", version: v }));
+    void offered();
   }, []);
   const check = async () => {
     setState({ phase: "checking" });
@@ -350,10 +356,10 @@ function Updates() {
       setState(found ? { phase: "found", version: found } : { phase: "latest" });
     } catch (e) {
       // The updater's own words are technical; the gist is enough.
-      const detail = typeof e === "string" ? e : String(e);
+      const detail = String(e);
       setState({
         phase: "error",
-        message: /release JSON|fetch|network|connect/i.test(detail) ? t("settings.noRelease") : detail,
+        message: /release JSON|fetch|network|connect/iu.test(detail) ? t("settings.noRelease") : detail,
       });
     }
   };
@@ -366,7 +372,7 @@ function Updates() {
           : state.phase === "latest"
             ? t("settings.latest")
             : state.phase === "error"
-              ? t("settings.checkFailed", { message: state.message ?? "" })
+              ? t("settings.checkFailed", { message: state.message })
               : t("settings.checksOnItsOwn")
       }
     >
@@ -422,7 +428,8 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           <Select
             value={config.theme}
             onValueChange={(v) => {
-              onChange({ ...config, theme: v as Config["theme"] });
+              // Never null: there's no empty choice in the list.
+              onChange({ ...config, theme: v! });
             }}
           >
             <SelectTrigger className="min-w-44" aria-label={t("settings.appearance")}>
@@ -441,7 +448,8 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           <Select
             value={config.language}
             onValueChange={(v) => {
-              const language = v as Language;
+              // Never null: there's no empty choice in the list.
+              const language = v!;
               // This window at once; Rust and the other windows follow the saved settings.
               setLanguage(language);
               onChange({ ...config, language });
@@ -487,8 +495,11 @@ const PANE_IDS: ReadonlySet<string> = new Set<PaneId>([
 /** The panes in the sidebar under the account, in order. */
 const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as const).map((value) => ({
   value,
-  ...PANE_META[value],
+  icon: PANE_META[value].icon,
+  tile: PANE_META[value].tile,
 }));
+
+const isPane = (id: string): id is PaneId => PANE_IDS.has(id);
 
 /** A pane's search words in the language in use, and in English too, so a setting is found by
  *  either name. */
@@ -502,7 +513,7 @@ function keywords(pane: PaneId, t: T): string[] {
 const fold = (text: string) =>
   text
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
+    .replaceAll(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
 /** What a search finds in a pane: nothing (null), its name, or the first setting that matches. */
@@ -515,8 +526,9 @@ function match(query: string, label: string, words: string[]): { hint?: string }
 }
 
 /** The panes a search finds, with the setting (or queue, action, filter, prompt by name) that matched. */
+const names = (list: Array<{ name: string }>) => list.map((x) => x.name).filter(Boolean);
+
 function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T) {
-  const names = (list: Array<{ name: string }>) => list.map((x) => x.name).filter(Boolean);
   const own: Partial<Record<PaneId, string[]>> = {
     queues: names(config.queues),
     review: names(config.reviewTime.sessions),
@@ -525,10 +537,12 @@ function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T)
     ai: names(config.ai.prompts),
   };
   const accountMatch = match(query, auth?.login ?? t("settings.pane.account"), keywords("account", t));
-  const panes = PANES.map((p) => ({
-    ...p,
-    label: t(`settings.pane.${p.value}`),
-    found: match(query, t(`settings.pane.${p.value}`), [...(own[p.value] ?? []), ...keywords(p.value, t)]),
+  const panes = PANES.map(({ value, icon, tile }) => ({
+    value,
+    icon,
+    tile,
+    label: t(`settings.pane.${value}`),
+    found: match(query, t(`settings.pane.${value}`), [...(own[value] ?? []), ...keywords(value, t)]),
   })).filter((p) => p.found);
   return { accountMatch, panes };
 }
@@ -538,7 +552,7 @@ const PANE_KEY = "settings-pane";
 function rememberedPane(): PaneId {
   try {
     const v = localStorage.getItem(PANE_KEY);
-    return v !== null && PANE_IDS.has(v) ? (v as PaneId) : "queues";
+    return v !== null && isPane(v) ? v : "queues";
   } catch {
     return "queues";
   }
@@ -582,7 +596,7 @@ function Sidebar({
   }, []);
 
   const { accountMatch, panes } = findPanes(query, config, auth, t);
-  const nothing = !accountMatch && !panes.length;
+  const nothing = !accountMatch && panes.length === 0;
 
   return (
     // A pane of glass floating inset in the window, the traffic lights inside its top (they sit at
@@ -684,9 +698,9 @@ function Sidebar({
             </TabsPrimitive.Tab>
           ))}
           {nothing ? (
-            <p className="px-2 py-6 text-center text-callout text-muted-foreground" role="status">
+            <output className="block px-2 py-6 text-center text-callout text-muted-foreground">
               {t("settings.noMatch", { query: query.trim() })}
-            </p>
+            </output>
           ) : null}
         </TabsPrimitive.List>
       </div>
@@ -705,11 +719,15 @@ export function Settings() {
   useTheme(config?.theme);
   // Another window sending the person here for something (the AI's setup, say).
   useEffect(() => {
-    const off = bridge.on<PaneId>("settings-pane", (p) => PANE_IDS.has(p) && setPane(p));
-    return () =>
-      void off.then((stop) => {
-        stop();
-      });
+    const off = bridge.on<string>("settings-pane", (p) => {
+      if (isPane(p)) setPane(p);
+    });
+    const stop = async () => {
+      (await off)();
+    };
+    return () => {
+      void stop();
+    };
   }, []);
   // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {

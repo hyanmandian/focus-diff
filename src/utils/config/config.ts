@@ -308,14 +308,9 @@ export const PARTS = ["review", "authored", "involved", "any"] as const;
 export type QueuePart = (typeof PARTS)[number];
 
 export function sourceOf(queue: Queue): { state: QueueState; part: QueuePart } {
-  switch (queue.kind) {
-    case "merged":
-      return { state: "merged", part: queue.requestedOnly ? "review" : "any" };
-    case "custom":
-      return { state: "open", part: "any" };
-    default:
-      return { state: "open", part: queue.kind };
-  }
+  if (queue.kind === "merged") return { state: "merged", part: queue.requestedOnly ? "review" : "any" };
+  if (queue.kind === "custom") return { state: "open", part: "any" };
+  return { state: "open", part: queue.kind };
 }
 
 /** Whether a pair can be: merged ones are asked of you, or anyone's. */
@@ -377,7 +372,7 @@ export const newSession = (): ReviewSession => ({
 });
 
 export const REVIEW_MINUTES = [15, 30, 45, 60, 90, 120] as const;
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
 export const validTime = (v: string) => TIME.test(v);
 const toMinutes = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
 
@@ -503,14 +498,13 @@ export function defaultFilters(): DiffFilter[] {
 /** Whether a file is in a filter. Case doesn't matter, as in Focus Diff, so a filter shared between
  *  the two keeps the same files. */
 export function inFilter(filter: Pick<DiffFilter, "include" | "exclude">, path: string): boolean {
-  try {
-    return (
-      (!filter.include || new RegExp(filter.include, "i").test(path)) &&
-      !(filter.exclude && new RegExp(filter.exclude, "i").test(path))
-    );
-  } catch {
-    return true;
-  }
+  const include = filter.include ? compile(filter.include, "i") : undefined;
+  // A broken pattern leaves every file in.
+  if (include === null) return true;
+  if (include && !include.test(path)) return false;
+  if (!filter.exclude) return true;
+  const exclude = compile(filter.exclude, "i");
+  return exclude === null || !exclude.test(path);
 }
 
 export const REVIEW_PROMPT = `Review it like a careful senior engineer. Comment only on what matters: bugs, unhandled edge cases, callers or features this change breaks, security or data risks, performance traps, missing tests for risky logic. No praise, no style nitpicks, no comments on what's fine.`;
@@ -559,92 +553,94 @@ export const newAction = (t: T): Action => ({
 // MARK: Reading what's on disk
 
 const isString = (v: unknown): v is string => typeof v === "string";
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const strings = (v: unknown, max = 200): string[] =>
   Array.isArray(v)
     ? v
-        .filter(isString)
+        .filter((s) => isString(s))
         .map((s) => s.trim())
         .filter(Boolean)
         .slice(0, max)
     : [];
-const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
-  allowed.includes(v as T) ? (v as T) : fallback;
+const pick = <V extends string>(v: unknown, allowed: readonly V[], fallback: V): V =>
+  allowed.find((a) => a === v) ?? fallback;
 const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
 const int = (v: unknown, fallback: number, min: number, max: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : fallback;
 
-/** A valid regular expression, or empty. */
-export function validPattern(pattern: string): boolean {
-  if (!pattern) return true;
+/** The person's own pattern compiled, or null when it isn't valid. Without the u flag: patterns
+ *  written for Focus Diff can use escapes the u flag turns into errors. */
+function compile(pattern: string, flags = ""): RegExp | null {
   try {
-    new RegExp(pattern);
-    return true;
+    return new RegExp(pattern, flags);
   } catch {
-    return false;
+    return null;
   }
 }
 
-const isLogin = (s: string) => /^[\w-]+(\[bot\])?$/.test(s);
-/** "owner/name", or "owner/*" for all of an owner's repositories. */
-export const isRepoPattern = (s: string) => /^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s);
+/** A valid regular expression, or empty. */
+export const validPattern = (pattern: string): boolean => !pattern || compile(pattern) !== null;
 
-function normalizeStep(raw: unknown): ActionStep | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const text = (v: unknown, max: number) => (isString(v) ? v.slice(0, max) : "");
+const isLogin = (s: string) => /^[\w-]+(\[bot\])?$/u.test(s);
+/** "owner/name", or "owner/*" for all of an owner's repositories. */
+export const isRepoPattern = (s: string) => /^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(s);
+
+const clipped = (v: unknown, max: number) => (isString(v) ? v.slice(0, max) : "");
+const pattern = (v: unknown) => (isString(v) && validPattern(v) ? v.slice(0, 1000) : "");
+const ID = /^[\w-]{1,64}$/u;
+const id = (v: unknown, fallback: () => string) => (isString(v) && ID.test(v) ? v : fallback());
+
+function normalizeStep(r: unknown): ActionStep | null {
+  if (!isRecord(r)) return null;
   switch (r.kind) {
     case "comment":
-      return { kind: "comment", body: text(r.body, 10_000) };
+      return { kind: "comment", body: clipped(r.body, 10_000) };
     case "request":
-      return { kind: "request", reviewers: strings(r.reviewers, 20).filter((s) => /^[\w.-]+(\/[\w.-]+)?$/.test(s)) };
+      return { kind: "request", reviewers: strings(r.reviewers, 20).filter((s) => /^[\w.-]+(\/[\w.-]+)?$/u.test(s)) };
     case "unrequestMe":
       return { kind: "unrequestMe" };
     case "label":
       return { kind: "label", labels: strings(r.labels, 20) };
     case "open":
-      return { kind: "open", url: text(r.url, 2000) };
+      return { kind: "open", url: clipped(r.url, 2000) };
     case "run":
-      return { kind: "run", command: text(r.command, 4000) };
+      return { kind: "run", command: clipped(r.command, 4000) };
     default:
       return null;
   }
 }
 
-function normalizePrompt(raw: unknown): Prompt | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
+function normalizePrompt(r: unknown): Prompt | null {
+  if (!isRecord(r)) return null;
   if (!isString(r.prompt) || !r.prompt.trim()) return null;
   return {
-    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    id: id(r.id, newId),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.prompt.untitled"),
     prompt: r.prompt.slice(0, 8000),
   };
 }
 
-function normalizeFilter(raw: unknown): DiffFilter | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const pattern = (v: unknown) => (isString(v) && validPattern(v) ? v.slice(0, 1000) : "");
+function normalizeFilter(r: unknown): DiffFilter | null {
+  if (!isRecord(r)) return null;
   return {
-    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    id: id(r.id, newId),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : i18n()("config.filter.untitled"),
     include: pattern(r.include),
     exclude: pattern(r.exclude),
-    repos: strings(r.repos, 20).filter(isRepoPattern),
+    repos: strings(r.repos, 20).filter((s) => isRepoPattern(s)),
   };
 }
 
-function normalizeAction(raw: unknown): Action | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
+function normalizeAction(r: unknown): Action | null {
+  if (!isRecord(r)) return null;
   return {
-    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    id: id(r.id, newId),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.action.untitled"),
     confirm: bool(r.confirm, false),
     steps: normalizeSteps(r.steps),
     choices: Array.isArray(r.choices)
       ? r.choices
-          .map(normalizeChoice)
+          .map((c) => normalizeChoice(c))
           .filter((c): c is ActionChoice => c !== null)
           .slice(0, 12)
       : [],
@@ -654,35 +650,32 @@ function normalizeAction(raw: unknown): Action | null {
 const normalizeSteps = (v: unknown) =>
   Array.isArray(v)
     ? v
-        .map(normalizeStep)
+        .map((s) => normalizeStep(s))
         .filter((x): x is ActionStep => x !== null)
         .slice(0, 10)
     : [];
 
-function normalizeChoice(raw: unknown): ActionChoice | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
+function normalizeChoice(r: unknown): ActionChoice | null {
+  if (!isRecord(r)) return null;
   return {
-    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
+    id: id(r.id, newId),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.action.untitled"),
     steps: normalizeSteps(r.steps),
   };
 }
 
-function normalizeQueue(raw: unknown): Queue | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
+function normalizeQueue(r: unknown): Queue | null {
+  if (!isRecord(r)) return null;
   const kind = pick(r.kind, ["review", "involved", "authored", "merged", "custom"] as const, "custom");
   const fallback = TEMPLATES[kind].make();
-  const pattern = (v: unknown) => (isString(v) && validPattern(v) ? v.slice(0, 1000) : "");
   return {
     id: isString(r.id) && r.id ? r.id.slice(0, 64) : fallback.id,
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 40) : fallback.name,
     tone: pick(r.tone, TONES, fallback.tone),
     enabled: bool(r.enabled, true),
     kind,
-    repos: strings(r.repos).filter((s) => /^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s)),
-    teams: strings(r.teams).filter((s) => /^[\w.-]+\/[\w.-]+$/.test(s)),
+    repos: strings(r.repos).filter((s) => isRepoPattern(s)),
+    teams: strings(r.teams).filter((s) => /^[\w.-]+\/[\w.-]+$/u.test(s)),
     directOnly: bool(r.directOnly, fallback.directOnly),
     hideOnceReviewed: bool(r.hideOnceReviewed, fallback.hideOnceReviewed),
     onlyNews: bool(r.onlyNews, fallback.onlyNews),
@@ -696,8 +689,8 @@ function normalizeQueue(raw: unknown): Queue | null {
     mergedDays: int(r.mergedDays, fallback.mergedDays, 1, 30),
     requestedOnly: bool(r.requestedOnly, fallback.requestedOnly),
     skipIfI: pick(r.skipIfI, ["approved", "reviewed", "tookPart"] as const, fallback.skipIfI),
-    skipApprovedBy: strings(r.skipApprovedBy).filter(isLogin),
-    skipMergedBy: strings(r.skipMergedBy).filter(isLogin),
+    skipApprovedBy: strings(r.skipApprovedBy).filter((s) => isLogin(s)),
+    skipMergedBy: strings(r.skipMergedBy).filter((s) => isLogin(s)),
     staleHours: int(r.staleHours, fallback.staleHours, 0, 24 * 30),
     query: isString(r.query) ? r.query.slice(0, 500) : fallback.query,
     notify: strings(r.notify).filter((k): k is EventKind => (EVENT_KINDS as readonly string[]).includes(k)),
@@ -705,23 +698,24 @@ function normalizeQueue(raw: unknown): Queue | null {
     notifyLeaveOut: [
       ...new Set(strings(r.notifyLeaveOut).filter((k): k is LeaveOut => (LEAVE_OUT as readonly string[]).includes(k))),
     ],
-    notifyRepos: strings(r.notifyRepos).filter((s) => /^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s)),
+    notifyRepos: strings(r.notifyRepos).filter((s) => isRepoPattern(s)),
   };
 }
 
-function normalizeSession(raw: unknown): ReviewSession | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
+function normalizeSession(r: unknown): ReviewSession | null {
+  if (!isRecord(r)) return null;
   const fallback = newSession();
   const days = Array.isArray(r.days)
     ? r.days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6)
     : fallback.days;
   return {
-    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : fallback.id,
+    id: id(r.id, () => fallback.id),
     name: isString(r.name) ? r.name.trim().slice(0, 40) : "",
     on: bool(r.on, true),
-    days: [...new Set(days)].sort((a, b) => a - b),
-    times: Array.isArray(r.times) ? [...new Set(strings(r.times, 12).filter(validTime))].sort() : fallback.times,
+    days: [...new Set(days)].toSorted((a, b) => a - b),
+    times: Array.isArray(r.times)
+      ? [...new Set(strings(r.times, 12).filter((t) => validTime(t)))].toSorted()
+      : fallback.times,
     minutes: int(r.minutes, fallback.minutes, 5, 240),
     order: pick(r.order, REVIEW_ORDERS, fallback.order),
     queues: strings(r.queues, 12),
@@ -731,7 +725,7 @@ function normalizeSession(raw: unknown): ReviewSession | null {
 
 function normalizeReviewTime(raw: unknown): ReviewTime {
   const fallback = defaultReviewTime();
-  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const r = isRecord(raw) ? raw : {};
   const sessions = Array.isArray(r.sessions)
     ? r.sessions
         .map(normalizeSession)
@@ -754,10 +748,9 @@ function normalizeReviewTime(raw: unknown): ReviewTime {
   };
 }
 
-export function normalize(raw: unknown): Config {
+export function normalize(r: unknown): Config {
   const fallback = defaultConfig();
-  if (!raw || typeof raw !== "object") return fallback;
-  const r = raw as Record<string, unknown>;
+  if (!isRecord(r)) return fallback;
   const queues = Array.isArray(r.queues)
     ? r.queues.map(normalizeQueue).filter((q): q is Queue => q !== null)
     : fallback.queues;
@@ -785,9 +778,9 @@ export function normalize(raw: unknown): Config {
     theme: pick(r.theme, ["system", "light", "dark"] as const, fallback.theme),
     language: pick(r.language, LANGUAGES, fallback.language),
     ai: (() => {
-      const ai = r.ai && typeof r.ai === "object" ? (r.ai as Record<string, unknown>) : {};
+      const ai = isRecord(r.ai) ? r.ai : {};
       return {
-        provider: AI_PROVIDERS.includes(ai.provider as AiProvider) ? (ai.provider as AiProvider) : null,
+        provider: AI_PROVIDERS.find((p) => p === ai.provider) ?? null,
         model: isString(ai.model) ? ai.model.trim().slice(0, 120) : "",
         effort: pick(ai.effort, ["", ...EFFORTS] as const, ""),
         instructions: isString(ai.instructions) ? ai.instructions.slice(0, 4000) : "",
@@ -799,7 +792,7 @@ export function normalize(raw: unknown): Config {
           : defaultPrompts(),
         project: bool(ai.project, true),
         review: (() => {
-          const review = ai.review && typeof ai.review === "object" ? (ai.review as Record<string, unknown>) : {};
+          const review = isRecord(ai.review) ? ai.review : {};
           return {
             auto: bool(review.auto, false),
             prompt: isString(review.prompt) && review.prompt.trim() ? review.prompt.slice(0, 8000) : REVIEW_PROMPT,

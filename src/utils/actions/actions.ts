@@ -10,7 +10,7 @@ import { i18n } from "@/utils/i18n/i18n";
  *  except one that starts the link, like a bare {url}. */
 export function fill(template: string, pr: ActionContext, encode = false): string {
   return template.replaceAll(
-    /\{(number|title|url|repo|author|me)\}/g,
+    /\{(number|title|url|repo|author|me)\}/gu,
     (_, key: keyof ActionContext, offset: number) => {
       const value = String(pr[key]);
       return encode && offset > 0 ? encodeURIComponent(value) : value;
@@ -50,8 +50,9 @@ async function runStep(action: Action, index: number, step: ActionStep, pr: Acti
       await bridge.openUrl(fill(step.url.trim(), pr, true));
       return null;
     case "run":
-      return (await bridge.runAction(action, index, pr)) || null;
+      break;
   }
+  return (await bridge.runAction(action, index, pr)) || null;
 }
 
 /** Runs every step; resolves to what to tell the person. */
@@ -59,6 +60,7 @@ export async function runAction(action: Action, pr: ActionContext): Promise<stri
   let said: string | null = null;
   for (const [index, step] of action.steps.entries()) {
     try {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- one after another: a failed step stops the rest
       said = (await runStep(action, index, step, pr)) ?? said;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

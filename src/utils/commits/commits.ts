@@ -92,6 +92,7 @@ export async function loadCommits(ref: PullRef): Promise<Commits> {
   let after: string | null = null;
   // GitHub lists at most 250 commits of a pull request.
   for (let page = 0; page < 3; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
     const data: Raw = await graphql<Raw>(QUERY, { owner: ref.owner, name: ref.repo, number: ref.number, after });
     const pr = data.repository.pullRequest;
     if (page === 0) {
@@ -133,15 +134,18 @@ export async function loadCommits(ref: PullRef): Promise<Commits> {
 export function useCommits(prId: string, ref: PullRef, head: string | undefined) {
   const [list, setList] = useState<Commits | null>(() => shelved<Commits>(`commits:${prId}`)?.value ?? null);
   useEffect(() => {
-    if (!head) return;
     let live = true;
-    void loadCommits(ref)
-      .then((c) => {
+    const load = async () => {
+      try {
+        const c = await loadCommits(ref);
         if (!live) return;
         setList(c);
         shelve(`commits:${prId}`, c);
-      })
-      .catch(() => {});
+      } catch {
+        // The kept copy stands.
+      }
+    };
+    if (head) void load();
     return () => {
       live = false;
     };
@@ -197,7 +201,7 @@ export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise
   const key = `${ref.owner}/${ref.repo}:${range.from}...${range.to}`;
   const known = compared.get(key);
   if (known) return known;
-  type Raw = {
+  type Compared = {
     files?: Array<{
       filename: string;
       previous_filename?: string;
@@ -208,7 +212,7 @@ export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise
     }>;
   };
   // Every changed file comes with the first page (up to 300); one commit a page keeps it small.
-  const files = github<Raw>(
+  const files = github<Compared>(
     "GET",
     `/repos/${ref.owner}/${ref.repo}/compare/${range.from}...${range.to}?per_page=1`,
   ).then((data) =>
@@ -234,13 +238,23 @@ export function useRangeFiles(ref: PullRef, range: Range) {
   const from = range?.from;
   const to = range?.to;
   const key = from && to ? `${from}...${to}` : "";
-  useEffect(() => {
-    if (!from || !to) return;
-    let live = true;
+  // A new range (or pull request) starts without the last one's error.
+  const [asked, setAsked] = useState({ ref, key });
+  if (asked.ref !== ref || asked.key !== key) {
+    setAsked({ ref, key });
     setError(null);
-    void loadRangeFiles(ref, { from, to })
-      .then((f) => live && setFiles({ key: `${from}...${to}`, files: f }))
-      .catch((e: unknown) => live && setError(e instanceof Error ? e.message : String(e)));
+  }
+  useEffect(() => {
+    let live = true;
+    const load = async (ends: NonNullable<Range>) => {
+      try {
+        const f = await loadRangeFiles(ref, ends);
+        if (live) setFiles({ key: `${ends.from}...${ends.to}`, files: f });
+      } catch (e) {
+        if (live) setError(e instanceof Error ? e.message : String(e));
+      }
+    };
+    if (from && to) void load({ from, to });
     return () => {
       live = false;
     };

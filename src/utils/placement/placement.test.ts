@@ -1,5 +1,5 @@
 import { getSingularPatch } from "@pierre/diffs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { findingSide, hunkTail, lineText, placeThread } from "@/utils/placement/placement";
 

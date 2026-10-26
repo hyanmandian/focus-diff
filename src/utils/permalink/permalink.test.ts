@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { diffLines, diffLink, linesAnchor, permalink, sha256 } from "@/utils/permalink/permalink";
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { mergeDrafts, toPut, unsent, type PendingReview } from "@/utils/pending/pending";
 import type { Draft, Thread } from "@/utils/review/review";

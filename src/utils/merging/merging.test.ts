@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import type { Manage } from "@/utils/manage/manage";
 import { defaultMessage, mergeView } from "@/utils/merging/merging";

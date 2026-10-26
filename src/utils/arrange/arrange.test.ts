@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { nextAfter } from "@/utils/arrange/arrange";
 import type { Item } from "@/utils/engine/engine";

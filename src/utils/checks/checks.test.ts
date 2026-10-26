@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { countChecks, failedRuns, groupChecks, parseLog, toCheck, type CheckItem } from "@/utils/checks/checks";
 

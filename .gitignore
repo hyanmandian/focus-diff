@@ -34,3 +34,4 @@ vite.config.d.ts
 coverage
 test-results
 playwright-report
+.vitest/

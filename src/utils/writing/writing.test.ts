@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { complete, emojiList, link, quote, rankEmoji, rankPeople, tokenAt, wrap } from "@/utils/writing/writing";
 

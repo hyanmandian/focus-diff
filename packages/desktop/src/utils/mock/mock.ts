@@ -188,7 +188,7 @@ const config = {
       ],
     },
     {
-      id: "slack",
+      id: "ask-team",
       name: "Ask the team",
       confirm: false,
       steps: [

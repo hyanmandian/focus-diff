@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ask, PROVIDERS } from "@/lib/ai";
 import type { Config } from "@/lib/config";
 import type { Details } from "@/lib/details";
+import { useT } from "@/lib/i18n";
 import { AiAnswer } from "./AiAnswer";
 
 type State = { phase: "idle" } | { phase: "busy"; asked: string } | { phase: "done" | "error"; asked: string; text: string; note?: string };
@@ -16,6 +17,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   const [state, setState] = useState<State>({ phase: "idle" });
   const [question, setQuestion] = useState("");
   const headingId = useId();
+  const t = useT();
   const provider = config.ai.provider;
   if (!provider) return null;
   const busy = state.phase === "busy";
@@ -42,9 +44,9 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       <div className="flex items-center gap-2">
         <Sparkles className="size-3.5 text-violet" aria-hidden />
         <h3 id={headingId} className="text-headline font-bold">
-          Ask {PROVIDERS[provider].name}
+          {t("shared.askTitle", { provider: PROVIDERS[provider].name })}
         </h3>
-        {busy ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label="Thinking" /> : null}
+        {busy ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("shared.askThinking")} /> : null}
       </div>
       {config.ai.prompts.length ? (
         <div className="flex flex-wrap gap-1.5">
@@ -59,11 +61,11 @@ export function AskAi({ config, details }: { config: Config; details: Details })
         <Input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask about this pull request…"
-          aria-label={`Ask ${PROVIDERS[provider].name} about this pull request`}
+          placeholder={t("shared.askPlaceholder")}
+          aria-label={t("shared.askLabel", { provider: PROVIDERS[provider].name })}
           maxLength={2000}
         />
-        <Button type="submit" size="icon-sm" variant="secondary" disabled={busy || !question.trim()} aria-label="Ask">
+        <Button type="submit" size="icon-sm" variant="secondary" disabled={busy || !question.trim()} aria-label={t("shared.askSubmit")}>
           <ArrowUp />
         </Button>
       </form>
@@ -80,7 +82,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
               {state.text}
             </p>
           ) : (
-            <p className="text-callout text-muted-foreground">{config.ai.project ? "Reading the project… this can take a few minutes." : "Reading the diff… this can take a minute."}</p>
+            <p className="text-callout text-muted-foreground">{config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}</p>
           )}
         </div>
       ) : null}

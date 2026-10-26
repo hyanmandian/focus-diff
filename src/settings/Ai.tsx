@@ -9,21 +9,23 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { EFFORT_LABELS, PROVIDERS } from "@/lib/ai";
+import { PROVIDERS } from "@/lib/ai";
 import { bridge, type AiStatus } from "@/lib/bridge";
 import { AI_PROVIDERS, defaultPrompts, newId, REVIEW_PROMPT, type AiProvider, type Config, type Effort, type Prompt } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Group, Intro, Pane, radioKeys, Row } from "./Form";
 
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
+  const t = useT();
   return (
     <span className="inline-flex items-center gap-1">
       <code className="selectable rounded-[4px] bg-fill px-1.5 py-0.5 font-mono text-callout">{command}</code>
       <Button
         variant="ghost"
         size="icon-xs"
-        aria-label={`Copy ${command}`}
+        aria-label={t("settings.copyNamed", { command })}
         onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}
       >
         {copied ? <Check /> : <Copy />}
@@ -42,6 +44,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   const autoId = useId();
   const reviewPromptId = useId();
   const [models, setModels] = useState<string[]>([]);
+  const t = useT();
   const check = useCallback(async () => {
     setChecking(true);
     try {
@@ -72,22 +75,19 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   };
 
   return (
-    <Pane title="AI">
-      <Intro>
-        Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer,
-        read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.
-      </Intro>
+    <Pane title={t("settings.pane.ai")}>
+      <Intro>{t("settings.aiIntro")}</Intro>
 
       <Group
-        title="Coding agent"
+        title={t("settings.codingAgent")}
         accessory={
           <Button variant="outline" size="xs" onClick={() => void check()} disabled={checking}>
-            {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check Again
+            {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} {t("settings.checkAgain")}
           </Button>
         }
-        footer="Check again after installing or signing in."
+        footer={t("settings.checkAgainFooter")}
       >
-        <div role="radiogroup" aria-label="AI" className="contents" onKeyDown={radioKeys}>
+        <div role="radiogroup" aria-label={t("settings.pane.ai")} className="contents" onKeyDown={radioKeys}>
           {[null, ...AI_PROVIDERS].map((provider) => {
             const status = provider ? statuses?.find((s) => s.provider === provider) : null;
             const active = selected === provider;
@@ -105,25 +105,25 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border border-input bg-(--field-bg)", active && "border-transparent bg-primary")} aria-hidden>
                     {active ? <span className="size-1.5 rounded-full bg-primary-foreground" /> : null}
                   </span>
-                  <span className="text-body">{provider ? PROVIDERS[provider].name : "No AI"}</span>
+                  <span className="text-body">{provider ? PROVIDERS[provider].name : t("settings.noAi")}</span>
                 </button>
                 <p className="max-w-[60%] pt-px text-right text-subheadline text-muted-foreground">
                   {!provider ? (
-                    "Everything works without it."
+                    t("settings.worksWithout")
                   ) : !statuses ? (
-                    "Checking…"
+                    t("settings.checking")
                   ) : !status?.installed ? (
                     <>
-                      Not installed on this computer.{" "}
+                      {t("settings.notInstalled")}{" "}
                       <Button variant="link" size="xs" className="h-auto p-0" onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}>
-                        Get it <ExternalLink />
+                        {t("settings.getIt")} <ExternalLink />
                       </Button>
                     </>
                   ) : status.signed_in ? (
-                    <span className="text-success">Ready · {status.version}</span>
+                    <span className="text-success">{t("settings.ready", { version: status.version ?? "" })}</span>
                   ) : (
                     <>
-                      Installed, not signed in. In a terminal, run <CopyCommand command={status.login_command} />
+                      {t("settings.notSignedInRun")} <CopyCommand command={status.login_command} />
                     </>
                   )}
                 </p>
@@ -136,7 +136,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
       {selected ? (
         <>
           <Group>
-            <Row label="Model" htmlFor={modelId} description={`Empty uses what you've set in ${PROVIDERS[selected].name}. Some plans only allow some models.`}>
+            <Row label={t("settings.model")} htmlFor={modelId} description={t("settings.modelHint", { provider: PROVIDERS[selected].name })}>
               <Input
                 id={modelId}
                 list={`${modelId}-list`}
@@ -145,7 +145,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 autoComplete="off"
                 value={ai.model}
                 onChange={(e) => setAi({ model: e.target.value })}
-                placeholder={`${PROVIDERS[selected].name}'s own default`}
+                placeholder={t("settings.modelPlaceholder", { provider: PROVIDERS[selected].name })}
               />
               <datalist id={`${modelId}-list`}>
                 {models.map((m) => (
@@ -154,30 +154,30 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               </datalist>
             </Row>
             {PROVIDERS[selected].efforts.length ? (
-              <Row label="Effort" htmlFor={effortId} description="Higher is slower and uses more of your plan.">
-                <Select value={ai.effort} onValueChange={(v) => setAi({ effort: (v ?? "") as Effort | "" })} items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: EFFORT_LABELS[e] }))}>
+              <Row label={t("settings.effort")} htmlFor={effortId} description={t("settings.effortHint")}>
+                <Select value={ai.effort} onValueChange={(v) => setAi({ effort: (v ?? "") as Effort | "" })} items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: t(`config.effort.${e}`) }))}>
                   <SelectTrigger id={effortId} className="w-40">
-                    <SelectValue>{(v: Effort | "") => EFFORT_LABELS[v]}</SelectValue>
+                    <SelectValue>{(v: Effort | "") => t(`config.effort.${v}`)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {PROVIDERS[selected].efforts.map((e) => (
                       <SelectItem key={e} value={e}>
-                        {EFFORT_LABELS[e]}
+                        {t(`config.effort.${e}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Row>
             ) : (
-              <Row label="Effort" description="Part of the model you pick (a thinking model thinks harder)." />
+              <Row label={t("settings.effort")} description={t("settings.effortInModel")} />
             )}
           </Group>
 
           <Group>
             <Row
-              label="Read the whole project, not just the diff"
+              label={t("settings.project")}
               htmlFor={projectId}
-              description="So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan."
+              description={t("settings.projectHint")}
             >
               <Switch id={projectId} size="sm" checked={ai.project} onCheckedChange={(project) => setAi({ project })} />
             </Row>
@@ -185,20 +185,20 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
 
           <Group>
             <Row
-              label="AI review when a pull request opens"
+              label={t("settings.autoReview")}
               htmlFor={autoId}
-              description={'Its comments show on the diff\'s lines, for you to add to your review or dismiss. Off: an "AI review" button in the review window.'}
+              description={t("settings.autoReviewHint")}
             >
               <Switch id={autoId} size="sm" checked={ai.review.auto} onCheckedChange={(auto) => setAi({ review: { ...ai.review, auto } })} />
             </Row>
             <Row stacked>
               <div className="flex items-center gap-2">
                 <label htmlFor={reviewPromptId} className="text-body">
-                  What the review looks for
+                  {t("settings.reviewLooksFor")}
                 </label>
                 {ai.review.prompt !== REVIEW_PROMPT ? (
                   <Button variant="link" size="xs" className="ml-auto h-auto p-0" onClick={() => setAi({ review: { ...ai.review, prompt: REVIEW_PROMPT } })}>
-                    Restore Default
+                    {t("settings.restoreDefault")}
                   </Button>
                 ) : null}
               </div>
@@ -206,7 +206,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
             </Row>
           </Group>
 
-          <Group title={<label htmlFor={guidelinesId}>Your review guidelines</label>}>
+          <Group title={<label htmlFor={guidelinesId}>{t("settings.guidelines")}</label>}>
             <Row stacked>
               <Textarea
                 id={guidelinesId}
@@ -214,35 +214,35 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 value={ai.instructions}
                 maxLength={4000}
                 onChange={(e) => setAi({ instructions: e.target.value })}
-                placeholder="Added to every question and review. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it."
+                placeholder={t("settings.guidelinesPlaceholder")}
               />
             </Row>
           </Group>
 
           <Group
-            title="Prompts"
+            title={t("settings.prompts")}
             accessory={
               <Button variant="link" size="xs" className="h-auto p-0" onClick={() => setPrompts(defaultPrompts())}>
-                Restore Defaults
+                {t("settings.restoreDefaults")}
               </Button>
             }
-            footer="Buttons on each pull request. Each one gets the pull request's description and diff, and your guidelines. You can also ask anything from the pull request itself."
+            footer={t("settings.promptsFooter")}
           >
             {ai.prompts.map((p, i) => (
               <Row stacked key={p.id}>
                 <div className="flex items-center gap-1">
-                  <Input aria-label="Button name" className="max-w-52" maxLength={30} value={p.name} onChange={(e) => updatePrompt(p.id, { name: e.target.value })} />
-                  <Button variant="ghost" size="icon-xs" className="ml-auto" aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => movePrompt(i, -1)}>
+                  <Input aria-label={t("settings.buttonName")} className="max-w-52" maxLength={30} value={p.name} onChange={(e) => updatePrompt(p.id, { name: e.target.value })} />
+                  <Button variant="ghost" size="icon-xs" className="ml-auto" aria-label={t("settings.moveNamedUp", { name: p.name })} disabled={i === 0} onClick={() => movePrompt(i, -1)}>
                     <ArrowUp />
                   </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label={`Move ${p.name} down`} disabled={i === ai.prompts.length - 1} onClick={() => movePrompt(i, 1)}>
+                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveNamedDown", { name: p.name })} disabled={i === ai.prompts.length - 1} onClick={() => movePrompt(i, 1)}>
                     <ArrowDown />
                   </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label={`Remove ${p.name}`} onClick={() => setPrompts(ai.prompts.filter((x) => x.id !== p.id))}>
+                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeNamed", { name: p.name })} onClick={() => setPrompts(ai.prompts.filter((x) => x.id !== p.id))}>
                     <Trash2 />
                   </Button>
                 </div>
-                <Textarea aria-label={`What ${p.name} asks`} className="min-h-16" maxLength={8000} value={p.prompt} onChange={(e) => updatePrompt(p.id, { prompt: e.target.value })} />
+                <Textarea aria-label={t("settings.whatAsks", { name: p.name })} className="min-h-16" maxLength={8000} value={p.prompt} onChange={(e) => updatePrompt(p.id, { prompt: e.target.value })} />
               </Row>
             ))}
             <div className="px-3 py-2">
@@ -250,9 +250,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 variant="outline"
                 size="xs"
                 disabled={ai.prompts.length >= 12}
-                onClick={() => setPrompts([...ai.prompts, { id: newId(), name: "New prompt", prompt: "What should I ask the author before approving?" }])}
+                onClick={() => setPrompts([...ai.prompts, { id: newId(), name: t("settings.newPrompt"), prompt: "What should I ask the author before approving?" }])}
               >
-                <Plus /> Add Prompt
+                <Plus /> {t("settings.addPrompt")}
               </Button>
             </div>
           </Group>

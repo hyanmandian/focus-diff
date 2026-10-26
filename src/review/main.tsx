@@ -10,11 +10,14 @@ import { createRoot } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Viewer } from "@/shared/Viewer";
 import { Review, type Target } from "./Review";
+import { followLanguage } from "@/lib/language";
 import "../index.css";
 
 // In a plain browser during development, sample data stands in for the app (src/dev/mock.ts).
 if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) (await import("../dev/mock")).installMock();
 else if (import.meta.env.DEV) (await import("../dev/log")).forwardErrors();
+// The language picked in Settings, followed live.
+followLanguage();
 
 // Syntax colouring off the main thread, so scrolling never waits on it. Started with the page (a
 // spare window warms them up before it's needed); the themes are the ones Diffs.tsx shows.

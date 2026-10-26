@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{Order, ReviewTime, Session};
 use crate::engine::PullRequest;
+use crate::i18n::{one, tr};
 
 const MINUTE: i64 = 60_000;
 const DAY: i64 = 86_400_000;
@@ -247,29 +248,36 @@ impl Run {
     }
 }
 
-fn plural(n: usize, one: &str, many: &str) -> String {
-    if n == 1 { format!("1 {one}") } else { format!("{n} {many}") }
-}
-
-/// The notification a review time starts with: what fits, and how long each takes.
+/// The notification a review time starts with: what fits, and how long each takes. In
+/// Portuguese, the extension's words (its pt_BR reviewTime*).
 pub fn offer_words(run: &Run) -> (String, String) {
     let total: u32 = run.pulls.iter().map(|p| p.minutes).sum();
-    let title = if run.pulls.is_empty() {
-        format!("{}: nothing waiting on your review", run.name)
+    let name = &run.name;
+    let n = run.pulls.len();
+    let title = if n == 0 {
+        tr!("{name}: nothing waiting on your review", "{name}: nada esperando sua revisão")
+    } else if one(n) {
+        tr!("{name}: 1 pull request, about {total} min", "{name}: 1 pull request, cerca de {total} min")
     } else {
-        format!("{}: {}, about {total} min", run.name, plural(run.pulls.len(), "pull request", "pull requests"))
+        tr!("{name}: {n} pull requests, about {total} min", "{name}: {n} pull requests, cerca de {total} min")
     };
     let mut lines = vec![];
     if run.over_by > 0 {
         let first = run.pulls.first().map_or(0, |p| p.minutes);
-        lines.push(format!("The one picked takes about {first} min, {} min more than the {} set aside.", run.over_by, run.minutes));
+        let (over, minutes) = (run.over_by, run.minutes);
+        lines.push(tr!(
+            "The one picked takes about {first} min, {over} min more than the {minutes} set aside.",
+            "O escolhido leva cerca de {first} min, {over} min a mais que os {minutes} min reservados."
+        ));
     }
     lines.extend(run.pulls.iter().take(4).map(|p| format!("{} · ~{} min", p.title, p.minutes)));
-    if run.pulls.len() > 4 {
-        lines.push(format!("and {} more", run.pulls.len() - 4));
+    if n > 4 {
+        let more = n - 4;
+        lines.push(tr!("and {more} more", "e mais {more}"));
     }
-    if run.left > 0 {
-        lines.push(format!("{} waiting didn't fit.", plural(run.left, "more", "more")));
+    let left = run.left;
+    if left > 0 {
+        lines.push(if one(left) { tr!("1 more waiting didn't fit.", "Mais 1 não coube.") } else { tr!("{left} more waiting didn't fit.", "Mais {left} não couberam.") });
     }
     (title, lines.join("\n"))
 }
@@ -279,14 +287,24 @@ pub fn offer_words(run: &Run) -> (String, String) {
 pub fn end_words(run: &Run, still_waiting: usize) -> (String, String) {
     let total = run.pulls.len();
     let reviewed = total.saturating_sub(still_waiting);
-    let body = if reviewed == total { "You went through all of them.".to_string() } else { format!("You reviewed {reviewed} of {total}.") };
-    (format!("{} is up", run.name), body)
+    let body = if reviewed == total {
+        tr!("You went through all of them.", "Você passou por todos.")
+    } else if one(total) {
+        tr!("You reviewed {reviewed} of 1.", "Você revisou {reviewed} de 1 pull request.")
+    } else {
+        tr!("You reviewed {reviewed} of {total}.", "Você revisou {reviewed} de {total} pull requests.")
+    };
+    let name = &run.name;
+    // The default name reads as a noun in Portuguese, as the extension says it.
+    let title = if name == "Review time" { tr!("{name} is up", "O review time acabou") } else { tr!("{name} is up", "{name} acabou") };
+    (title, body)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+    use crate::i18n::{in_locale, Locale};
 
     const HOUR: i64 = 3_600_000;
     /// Monday 2026-01-05 00:00 UTC.
@@ -413,11 +431,20 @@ mod tests {
             left: 2,
             over_by: 0,
         };
-        let (title, body) = offer_words(&run);
-        assert_eq!(title, "Review time: 2 pull requests, about 13 min");
-        assert_eq!(body, "Fix login · ~9 min\nDocs · ~4 min\n2 more waiting didn't fit.");
-        assert_eq!(end_words(&run, 1).1, "You reviewed 1 of 2.");
-        assert_eq!(end_words(&run, 0).1, "You went through all of them.");
+        in_locale(Locale::En, || {
+            let (title, body) = offer_words(&run);
+            assert_eq!(title, "Review time: 2 pull requests, about 13 min");
+            assert_eq!(body, "Fix login · ~9 min\nDocs · ~4 min\n2 more waiting didn't fit.");
+            assert_eq!(end_words(&run, 1).1, "You reviewed 1 of 2.");
+            assert_eq!(end_words(&run, 0).1, "You went through all of them.");
+        });
+        in_locale(Locale::PtBr, || {
+            let (title, body) = offer_words(&run);
+            assert_eq!(title, "Review time: 2 pull requests, cerca de 13 min");
+            assert_eq!(body, "Fix login · ~9 min\nDocs · ~4 min\nMais 2 não couberam.");
+            assert_eq!(end_words(&run, 1), ("O review time acabou".into(), "Você revisou 1 de 2 pull requests.".into()));
+            assert_eq!(end_words(&run, 0).1, "Você passou por todos.");
+        });
         assert_eq!(run.minutes_left(MONDAY + 29 * MINUTE + 1), 1);
         assert_eq!(run.minutes_left(MONDAY), 30);
     }

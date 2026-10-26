@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use crate::config::{Config, Kind, Session};
 use crate::engine::{self, Cache, CiMemo, Failure, Gql, Item};
 use crate::review::{self, Candidate, Run};
+use crate::i18n::tr;
 use crate::{github, sound};
 
 /// Every pull request in full again this often, changed or not: a safety net for what GitHub
@@ -117,7 +118,7 @@ struct State {
     retry_at: i64,
     backoff: i64,
     /// What the tray shows of review time's countdown.
-    countdown: Option<String>,
+    countdown: Option<i64>,
 }
 
 const FIRST_BACKOFF: i64 = 5 * 60_000;
@@ -141,11 +142,11 @@ impl Gql for Github<'_> {
         let (status, text) = self.0.request("POST", "/graphql", Some(&body), None).map_err(|message| Failure { status: 0, message })?;
         let mut reply: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
         if status >= 400 {
-            let message = reply["message"].as_str().map(String::from).unwrap_or_else(|| format!("GitHub returned {status}"));
+            let message = reply["message"].as_str().map(String::from).unwrap_or_else(|| tr!("GitHub returned {status}", "O GitHub respondeu {status}"));
             return Err(Failure { status, message });
         }
         if reply["data"].is_null() {
-            let message = reply["errors"][0]["message"].as_str().unwrap_or("GitHub returned no data").to_string();
+            let message = reply["errors"][0]["message"].as_str().map(String::from).unwrap_or_else(|| tr!("GitHub returned no data", "O GitHub não mandou nenhum dado"));
             return Err(Failure { status: 200, message });
         }
         Ok(reply["data"].take())
@@ -186,7 +187,7 @@ fn read_config<R: Runtime>(app: &AppHandle<R>) -> Option<Config> {
 fn first_name(actor: Option<&engine::Actor>) -> String {
     actor
         .and_then(|a| a.name.as_deref().and_then(|n| n.split_whitespace().next()).map(String::from).or_else(|| (!a.login.is_empty()).then(|| a.login.clone())))
-        .unwrap_or_else(|| "Someone".into())
+        .unwrap_or_else(|| tr!("Someone", "Alguém"))
 }
 
 /// What a notification says: what happened, by whom (and for a review request, whether it's asked
@@ -197,43 +198,69 @@ fn words(fresh: &engine::Fresh, kind: Option<Kind>) -> (String, String) {
     let who = first_name(fresh.event.who.as_ref());
     let teams = fresh.item.via_teams.as_deref().unwrap_or_default();
     let reviewing = kind == Some(Kind::Review);
+    // The extension's words (its pt_BR notify*), so both products say it the same way.
     let title = match fresh.event.kind {
-        "new" if reviewing && !teams.is_empty() => format!("{who} asked your team for a review"),
-        "new" if reviewing => format!("{who} asked for your review"),
-        "new" => "New in your queue".into(),
-        "rerequest" => format!("{who} asked you to review again"),
-        "ready" if reviewing => format!("{who}'s pull request is ready for your review"),
-        "ready" => format!("{who} marked it ready for review"),
-        "commits" => format!("{who} pushed changes"),
-        "reply" => format!("{who} replied to you"),
-        "mention" => format!("{who} mentioned you"),
-        "comment" if kind == Some(Kind::Authored) => format!("{who} commented on your pull request"),
-        "comment" if reviewing => format!("{who} commented on a pull request you review"),
-        "comment" => format!("{who} commented"),
-        "approved" => format!("{who} approved your pull request"),
-        "changes" => format!("{who} requested changes on your pull request"),
-        "ci-failed" => "CI failed".into(),
-        "ci-passed" => "CI passed".into(),
-        "conflict" => "Merge conflict".into(),
-        _ => "Something happened".into(),
+        "new" if reviewing && !teams.is_empty() => tr!("{who} asked your team for a review", "{who} pediu revisão ao seu time"),
+        "new" if reviewing => tr!("{who} asked for your review", "{who} pediu sua revisão"),
+        "new" => tr!("New in your queue", "Novo na sua fila"),
+        "rerequest" => tr!("{who} asked you to review again", "{who} pediu para você revisar de novo"),
+        "ready" if reviewing => tr!("{who}'s pull request is ready for your review", "O pull request de {who} está pronto para sua revisão"),
+        "ready" => tr!("{who} marked it ready for review", "{who} marcou como pronto para revisão"),
+        "commits" => tr!("{who} pushed changes", "{who} enviou mudanças"),
+        "reply" => tr!("{who} replied to you", "{who} respondeu você"),
+        "mention" => tr!("{who} mentioned you", "{who} mencionou você"),
+        "comment" if kind == Some(Kind::Authored) => tr!("{who} commented on your pull request", "{who} comentou no seu pull request"),
+        "comment" if reviewing => tr!("{who} commented on a pull request you review", "{who} comentou num pull request que você revisa"),
+        "comment" => tr!("{who} commented", "{who} comentou"),
+        "approved" => tr!("{who} approved your pull request", "{who} aprovou seu pull request"),
+        "changes" => tr!("{who} requested changes on your pull request", "{who} pediu mudanças no seu pull request"),
+        "ci-failed" => tr!("CI failed", "O CI falhou"),
+        "ci-passed" => tr!("CI passed", "O CI passou"),
+        "conflict" => tr!("Merge conflict", "Conflito de merge"),
+        _ => tr!("Something happened", "Aconteceu algo"),
     };
     let mut place = format!("{}#{}", pr.repository.name_with_owner, pr.number);
     if let Some(team) = teams.first() {
-        place.push_str(&format!(" · for {}", team.split_once('/').map_or(team.as_str(), |(_, slug)| slug)));
+        let team = team.split_once('/').map_or(team.as_str(), |(_, slug)| slug);
+        place.push_str(&tr!(" · for {team}", " · para {team}"));
     }
+    let title_of_pr = &pr.title;
     let body = match &fresh.event.text {
-        Some(text) => format!("“{text}”\n{place} · {}", pr.title),
-        None if fresh.event.kind == "new" && !reviewing => format!("{}\n{place} · by {}", pr.title, first_name(pr.author.as_ref())),
-        None => format!("{}\n{place}", pr.title),
+        Some(text) => format!("“{text}”\n{place} · {title_of_pr}"),
+        None if fresh.event.kind == "new" && !reviewing => {
+            let author = first_name(pr.author.as_ref());
+            tr!("{title_of_pr}\n{place} · by {author}", "{title_of_pr}\n{place} · de {author}")
+        }
+        None => format!("{title_of_pr}\n{place}"),
     };
     (title, body)
 }
 
+/// Why notifications were kept, for the one that sums them up.
+#[derive(Clone, Copy)]
+enum Why {
+    /// No review time is coming any more.
+    CameIn,
+    WaitedForReview,
+    CameInWhileReviewing,
+}
+
 /// Several notifications as one: how many, and a line each for the first few.
-fn summary(notes: &[Held], why: &str) -> (String, String) {
+fn summary(notes: &[Held], why: Why) -> (String, String) {
     let lines: Vec<String> = notes.iter().take(5).map(|n| format!("{}: {}", n.title, n.body.lines().next().unwrap_or(""))).collect();
-    let more = if notes.len() > 5 { format!("\nand {} more", notes.len() - 5) } else { String::new() };
-    (format!("{} updates {why}", notes.len()), format!("{}{more}", lines.join("\n")))
+    let more = if notes.len() > 5 {
+        let n = notes.len() - 5;
+        tr!("\nand {n} more", "\ne mais {n}")
+    } else {
+        String::new()
+    };
+    let n = notes.len();
+    let title = match why {
+        Why::CameIn => tr!("{n} updates came in", "{n} atualizações chegaram"),
+        Why::WaitedForReview => tr!("{n} updates waited for review time", "{n} atualizações guardadas para o review time"),
+        Why::CameInWhileReviewing => tr!("{n} updates came in while you reviewed", "{n} atualizações chegaram enquanto você revisava"),
+    };
+    (title, format!("{}{more}", lines.join("\n")))
 }
 
 impl State {
@@ -538,12 +565,13 @@ impl<R: Runtime> Worker<R> {
                 // What came in before GitHub refused is kept (the cache was updated as it went).
                 write(cache_file(&self.app), &serde_json::to_string(&state.cache).unwrap_or_default());
                 let message = if failure.status == 401 {
-                    "GitHub signed you out".to_string()
+                    tr!("GitHub signed you out", "O GitHub desconectou você")
                 } else if failure.rate_limited() {
                     // Waiting longer each time it asks again, up to half an hour.
                     state.backoff = (state.backoff * 2).clamp(FIRST_BACKOFF, LONGEST_BACKOFF);
                     state.retry_at = now() + state.backoff;
-                    format!("GitHub asked Focus Diff to slow down: trying again in {} minutes", state.backoff / 60_000)
+                    let minutes = state.backoff / 60_000;
+                    tr!("GitHub asked Focus Diff to slow down: trying again in {minutes} minutes", "O GitHub pediu para o Focus Diff ir mais devagar: tentando de novo em {minutes} minutos")
                 } else {
                     failure.message
                 };
@@ -660,12 +688,14 @@ impl<R: Runtime> Worker<R> {
             sound = false;
         }
         if notes.len() > MAX_NOTIFICATIONS {
-            crate::show_notification(&self.app, format!("{} more pull request updates", notes.len() - MAX_NOTIFICATIONS), "Open Focus Diff to see them".into(), sound);
+            let n = notes.len() - MAX_NOTIFICATIONS;
+            let title = tr!("{n} more pull request updates", "Mais {n} atualizações nos seus pull requests");
+            crate::show_notification(&self.app, title, tr!("Open Focus Diff to see them", "Abra o Focus Diff para ver"), sound);
         }
     }
 
     /// Notifications that were kept: as they were if just one, summed up in one otherwise.
-    fn release(&self, notes: Vec<Held>, why: &str, sound: bool) {
+    fn release(&self, notes: Vec<Held>, why: Why, sound: bool) {
         match notes.len() {
             0 => {}
             1 => self.show(&notes, sound),
@@ -700,7 +730,7 @@ impl<R: Runtime> Worker<R> {
             let Some(config) = state.config.clone() else { return };
             if !review::is_scheduled(&config.review_time) && state.persisted.run.is_none() && state.persisted.held.iter().any(|h| h.until == Until::Review) {
                 let waiting = take_held(&mut state, Until::Review);
-                self.release(waiting, "came in", config.sound);
+                self.release(waiting, Why::CameIn, config.sound);
                 self.save_state(&state);
             }
             let last = std::mem::replace(&mut state.persisted.review_checked_at, now);
@@ -745,14 +775,14 @@ impl<R: Runtime> Worker<R> {
             .collect();
         let plan = review::plan(candidates, session.minutes, session.order, config.review_time.again_first);
         let waited = take_held(state, Until::Review);
-        let name = if session.name.trim().is_empty() { "Review time".to_string() } else { session.name.trim().to_string() };
+        let name = if session.name.trim().is_empty() { tr!("Review time", "Review time") } else { session.name.trim().to_string() };
         let run = Run { session: session.id.clone(), name, minutes: session.minutes, started_at: now, pulls: plan.picked, left: plan.left, over_by: plan.over_by };
         if !run.pulls.is_empty() || !config.review_time.skip_empty {
             let (title, body) = review::offer_words(&run);
             self.chime(&config, title, body);
-            self.release(waited, "waited for review time", false);
+            self.release(waited, Why::WaitedForReview, false);
         } else {
-            self.release(waited, "waited for review time", config.sound);
+            self.release(waited, Why::WaitedForReview, config.sound);
         }
         // Nothing to review: nothing to count down.
         if !run.pulls.is_empty() {
@@ -774,7 +804,7 @@ impl<R: Runtime> Worker<R> {
             let (title, body) = review::end_words(&run, run.pulls.iter().filter(|p| waiting.contains(p.id.as_str())).count());
             self.chime(&config, title, body);
         }
-        self.release(waited, "came in while you reviewed", config.sound && !told);
+        self.release(waited, Why::CameInWhileReviewing, config.sound && !told);
         self.save_state(state);
     }
 
@@ -788,10 +818,10 @@ impl<R: Runtime> Worker<R> {
 
     /// The minutes left beside the tray icon, while a review time is under way.
     fn update_countdown(&self, state: &mut State, now: i64) {
-        let text = state.persisted.run.as_ref().map(|r| format!("{}m", r.minutes_left(now)));
-        if state.countdown != text {
-            state.countdown = text.clone();
-            crate::update_countdown(&self.app, text);
+        let minutes = state.persisted.run.as_ref().map(|r| r.minutes_left(now));
+        if state.countdown != minutes {
+            state.countdown = minutes;
+            crate::update_countdown(&self.app, minutes);
         }
     }
 
@@ -821,6 +851,7 @@ impl<R: Runtime> Worker<R> {
 mod tests {
     use super::*;
     use crate::engine::{Event, Fresh, PullRequest};
+    use crate::i18n::{in_locale, Locale};
 
     fn item(via_teams: Option<Vec<String>>) -> Item {
         let pr: PullRequest = serde_json::from_value(json!({
@@ -841,21 +872,44 @@ mod tests {
     fn says_what_happened() {
         let mine = item(Some(vec![]));
         let team = item(Some(vec!["acme/web-platform".into()]));
-        assert_eq!(said(&mine, "new", None, Kind::Review), ("Bruno asked for your review".into(), "Fix login\nacme/web#7".into()));
-        assert_eq!(said(&team, "new", None, Kind::Review), ("Bruno asked your team for a review".into(), "Fix login\nacme/web#7 · for web-platform".into()));
-        assert_eq!(said(&mine, "rerequest", None, Kind::Review).0, "Bruno asked you to review again");
-        assert_eq!(said(&mine, "ready", None, Kind::Review).0, "Bruno's pull request is ready for your review");
-        assert_eq!(said(&item(None), "comment", Some("Can you look?"), Kind::Authored), ("Bruno commented on your pull request".into(), "“Can you look?”\nacme/web#7 · Fix login".into()));
-        assert_eq!(said(&item(None), "new", None, Kind::Custom).1, "Fix login\nacme/web#7 · by Ana");
+        in_locale(Locale::En, || {
+            assert_eq!(said(&mine, "new", None, Kind::Review), ("Bruno asked for your review".into(), "Fix login\nacme/web#7".into()));
+            assert_eq!(said(&team, "new", None, Kind::Review), ("Bruno asked your team for a review".into(), "Fix login\nacme/web#7 · for web-platform".into()));
+            assert_eq!(said(&mine, "rerequest", None, Kind::Review).0, "Bruno asked you to review again");
+            assert_eq!(said(&mine, "ready", None, Kind::Review).0, "Bruno's pull request is ready for your review");
+            assert_eq!(said(&item(None), "comment", Some("Can you look?"), Kind::Authored), ("Bruno commented on your pull request".into(), "“Can you look?”\nacme/web#7 · Fix login".into()));
+            assert_eq!(said(&item(None), "new", None, Kind::Custom).1, "Fix login\nacme/web#7 · by Ana");
+        });
+    }
+
+    #[test]
+    fn says_it_in_portuguese() {
+        let mine = item(Some(vec![]));
+        let team = item(Some(vec!["acme/web-platform".into()]));
+        in_locale(Locale::PtBr, || {
+            assert_eq!(said(&mine, "new", None, Kind::Review).0, "Bruno pediu sua revisão");
+            assert_eq!(said(&team, "new", None, Kind::Review), ("Bruno pediu revisão ao seu time".into(), "Fix login\nacme/web#7 · para web-platform".into()));
+            assert_eq!(said(&mine, "rerequest", None, Kind::Review).0, "Bruno pediu para você revisar de novo");
+            assert_eq!(said(&mine, "ready", None, Kind::Review).0, "O pull request de Bruno está pronto para sua revisão");
+            assert_eq!(said(&item(None), "comment", None, Kind::Authored).0, "Bruno comentou no seu pull request");
+            assert_eq!(said(&item(None), "new", None, Kind::Custom).1, "Fix login\nacme/web#7 · de Ana");
+        });
     }
 
     #[test]
     fn several_kept_as_one() {
         let note = |title: &str| Held { key: title.into(), title: title.into(), body: "Fix login\nacme/web#7".into(), until: Until::Review };
         let notes: Vec<Held> = ["A", "B", "C", "D", "E", "F", "G"].into_iter().map(note).collect();
-        let (title, body) = summary(&notes, "waited for review time");
-        assert_eq!(title, "7 updates waited for review time");
-        assert_eq!(body.lines().next(), Some("A: Fix login"));
-        assert!(body.ends_with("and 2 more"), "{body}");
+        in_locale(Locale::En, || {
+            let (title, body) = summary(&notes, Why::WaitedForReview);
+            assert_eq!(title, "7 updates waited for review time");
+            assert_eq!(body.lines().next(), Some("A: Fix login"));
+            assert!(body.ends_with("and 2 more"), "{body}");
+        });
+        in_locale(Locale::PtBr, || {
+            let (title, body) = summary(&notes, Why::WaitedForReview);
+            assert_eq!(title, "7 atualizações guardadas para o review time");
+            assert!(body.ends_with("e mais 2"), "{body}");
+        });
     }
 }

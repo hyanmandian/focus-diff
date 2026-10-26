@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_updater::{Update, UpdaterExt};
+use crate::i18n::tr;
 
 const FIRST_CHECK: Duration = Duration::from_secs(30);
 const EVERY: Duration = Duration::from_secs(6 * 3600);
@@ -32,7 +33,7 @@ pub fn offered<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
 
 /// Downloads and installs the version on offer, then restarts into it.
 pub async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let update = app.state::<Pending>().0.lock().unwrap().take().ok_or("No update to install")?;
+    let update = app.state::<Pending>().0.lock().unwrap().take().ok_or_else(|| tr!("No update to install", "Não há atualização para instalar"))?;
     update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
     app.restart();
 }

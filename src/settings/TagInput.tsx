@@ -3,6 +3,7 @@
 
 import { X } from "lucide-react";
 import { useId, useState } from "react";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -18,11 +19,12 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const errorId = useId();
+  const t = useT();
 
   const add = (raw: string) => {
     const next = raw.trim().replace(/,$/, "");
     if (!next) return;
-    const problem = validate?.(next) ?? (value.includes(next) ? "Already added" : null);
+    const problem = validate?.(next) ?? (value.includes(next) ? t("settings.alreadyAdded") : null);
     if (problem) return setError(problem);
     onChange([...value, next]);
     setDraft("");
@@ -47,7 +49,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
             <button
               type="button"
               className="grid size-4 cursor-default place-items-center rounded-[3px] text-muted-foreground outline-none focus-ring active:bg-(--fill-control-pressed)"
-              aria-label={`Remove ${v}`}
+              aria-label={t("settings.removeNamed", { name: v })}
               onClick={() => onChange(value.filter((x) => x !== v))}
             >
               <X className="size-3" />

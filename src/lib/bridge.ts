@@ -2,6 +2,7 @@
 // they ask for API calls by path and Rust makes them.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { i18n } from "./i18n";
 
 export type AuthSource = "keychain" | "gh";
 
@@ -126,7 +127,7 @@ export async function github<T = unknown>(method: string, path: string, body?: u
   });
   const parsed = response.body && !accept ? safeJson(response.body) : response.body;
   if (response.status >= 400) {
-    const message = (parsed as { message?: string } | null)?.message ?? `GitHub returned ${response.status}`;
+    const message = (parsed as { message?: string } | null)?.message ?? i18n()("common.githubReturned", { status: String(response.status) });
     throw new GitHubError(response.status, message);
   }
   return parsed as T;
@@ -143,6 +144,6 @@ function safeJson(text: string): unknown {
 /** A GraphQL query. Throws on errors when there's no data at all; partial data comes back as is. */
 export async function graphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const reply = await github<{ data?: T; errors?: Array<{ message: string }> }>("POST", "/graphql", { query, variables });
-  if (!reply.data) throw new GitHubError(200, reply.errors?.[0]?.message ?? "GitHub returned no data");
+  if (!reply.data) throw new GitHubError(200, reply.errors?.[0]?.message ?? i18n()("common.githubNoData"));
   return reply.data;
 }

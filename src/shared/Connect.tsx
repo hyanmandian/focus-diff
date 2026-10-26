@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { bridge, type AuthStatus, type DeviceCode } from "@/lib/bridge";
+import { i18n, useT } from "@/lib/i18n";
 
 type Props = { auth: AuthStatus | null; onConnected: () => void };
 
@@ -17,6 +18,7 @@ export function Connect({ auth, onConnected }: Props) {
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(!auth?.device_flow && !auth?.gh_available);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   const run = async (kind: NonNullable<typeof busy>, action: () => Promise<void>) => {
     setBusy(kind);
@@ -25,7 +27,7 @@ export function Connect({ auth, onConnected }: Props) {
       await action();
       onConnected();
     } catch (e) {
-      setError(typeof e === "string" ? e : e instanceof Error ? e.message : "Something went wrong");
+      setError(typeof e === "string" ? e : e instanceof Error ? e.message : i18n()("common.somethingWentWrong"));
     } finally {
       setBusy(null);
       setCode(null);
@@ -44,25 +46,25 @@ export function Connect({ auth, onConnected }: Props) {
   if (code) {
     return (
       <div className="flex flex-col items-center gap-4 text-center" role="status" aria-live="polite">
-        <p className="text-body text-muted-foreground">Enter this code on GitHub to finish signing in:</p>
+        <p className="text-body text-muted-foreground">{t("shared.connectEnterCode")}</p>
         <div className="flex items-center gap-2">
-          <code className="rounded-lg bg-muted px-4 py-2 font-mono text-2xl font-semibold tracking-[0.2em]" aria-label={`Code ${code.user_code.split("").join(" ")}`}>
+          <code className="rounded-lg bg-muted px-4 py-2 font-mono text-2xl font-semibold tracking-[0.2em]" aria-label={t("shared.connectCodeLabel", { code: code.user_code.split("").join(" ") })}>
             {code.user_code}
           </code>
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Copy code"
+            aria-label={t("shared.connectCopyCode")}
             onClick={() => navigator.clipboard.writeText(code.user_code).then(() => setCopied(true))}
           >
             {copied ? <Check /> : <Copy />}
           </Button>
         </div>
         <Button variant="link" onClick={() => void bridge.openUrl(code.verification_uri)}>
-          Open github.com/login/device <ExternalLink />
+          {t("shared.connectOpenDevice")} <ExternalLink />
         </Button>
         <p className="flex items-center gap-2 text-callout text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin" aria-hidden /> Waiting for GitHub…
+          <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("shared.connectWaiting")}
         </p>
       </div>
     );
@@ -73,13 +75,13 @@ export function Connect({ auth, onConnected }: Props) {
       {auth?.device_flow ? (
         <Button size="lg" onClick={signIn} disabled={busy !== null}>
           {busy === "device" ? <Loader2 className="animate-spin" /> : null}
-          Sign in with GitHub
+          {t("shared.connectSignIn")}
         </Button>
       ) : null}
       {auth?.gh_available ? (
         <Button size="lg" variant={auth.device_flow ? "outline" : "default"} onClick={() => run("gh", bridge.authUseGh)} disabled={busy !== null}>
           {busy === "gh" ? <Loader2 className="animate-spin" /> : <Terminal />}
-          Use the GitHub CLI's login
+          {t("shared.connectUseGh")}
         </Button>
       ) : null}
       {showToken ? (
@@ -90,27 +92,28 @@ export function Connect({ auth, onConnected }: Props) {
             void run("token", () => bridge.authUseToken(token));
           }}
         >
-          <Label htmlFor="token">Personal access token</Label>
+          <Label htmlFor="token">{t("shared.connectToken")}</Label>
           <Input
             id="token"
             type="password"
             autoComplete="off"
             spellCheck={false}
-            placeholder="ghp_… or github_pat_…"
+            placeholder={t("shared.connectTokenPlaceholder")}
             value={token}
             onChange={(e) => setToken(e.target.value)}
           />
           <p className="text-callout text-muted-foreground">
-            Needs <code>repo</code> and <code>read:org</code>. It's kept in your system keychain and only ever sent to GitHub.
+            {t("shared.connectTokenNeedsBefore")} <code>repo</code> {t("shared.connectTokenNeedsAnd")} <code>read:org</code>
+            {t("shared.connectTokenNeedsAfter")}
           </p>
           <Button type="submit" variant="outline" disabled={!token.trim() || busy !== null}>
             {busy === "token" ? <Loader2 className="animate-spin" /> : <KeyRound />}
-            Use this token
+            {t("shared.connectUseToken")}
           </Button>
         </form>
       ) : (
         <Button variant="ghost" size="sm" onClick={() => setShowToken(true)}>
-          Use a personal access token instead
+          {t("shared.connectUseTokenInstead")}
         </Button>
       )}
       {error ? (

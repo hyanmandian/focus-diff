@@ -8,7 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inFilter, type DiffFilter } from "@/lib/config";
-import { ESTIMATE_HINT, formatDuration, type Estimator, type Learned } from "@/lib/estimate";
+import { estimateHint, type Estimator, type Learned } from "@/lib/estimate";
+import { useT, type T } from "@/lib/i18n";
 import { totals, type Totals } from "@/lib/filters";
 import type { ReviewFile } from "@/lib/review";
 import { shortcut } from "@/lib/platform";
@@ -35,16 +36,16 @@ type Props = {
   onNextFile: () => void;
 };
 
-const nextLabel = ({ left, nextFilter }: Next) =>
+const nextLabel = ({ left, nextFilter }: Next, t: T) =>
   left
-    ? `Next file to review, ${left} left`
+    ? t("review.nextFile", { count: left })
     : nextFilter
-      ? `Next: ${nextFilter.name}, ${nextFilter.left} ${nextFilter.left === 1 ? "file" : "files"} to review`
-      : "Every file here is viewed";
+      ? t("review.nextFilter", { filter: nextFilter.name, count: nextFilter.left })
+      : t("review.allViewed");
 
-const timeHint = (learned: Learned | null) => {
+const timeHint = (learned: Learned | null, t: T) => {
   const files = Math.round(learned?.all.files ?? 0);
-  return files ? `${ESTIMATE_HINT} It follows your own pace, learned from ${files} ${files === 1 ? "file" : "files"} you marked as viewed.` : ESTIMATE_HINT;
+  return files ? t("review.paceHint", { hint: estimateHint(t), count: files }) : estimateHint(t);
 };
 
 /** A five-square diffstat, as GitHub draws one: the share of added and removed lines. */
@@ -64,32 +65,33 @@ function Diffstat({ additions, deletions }: { additions: number; deletions: numb
 /** How the pull request splits across the filters: files viewed, lines and time left for each.
  *  Rows turn their filter on and off, like the chips. */
 function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onToggle }: Pick<Props, "files" | "filters" | "chosen" | "isViewed" | "minutesOf" | "learned" | "onToggle">) {
-  const rows = [{ id: "", name: "All", t: totals(files, isViewed, minutesOf) }, ...filters.map((f) => ({ id: f.id, name: f.name, t: totals(files.filter((x) => inFilter(f, x.path)), isViewed, minutesOf) }))];
+  const t = useT();
+  const rows = [{ id: "", name: t("review.all"), sums: totals(files, isViewed, minutesOf) }, ...filters.map((f) => ({ id: f.id, name: f.name, sums: totals(files.filter((x) => inFilter(f, x.path)), isViewed, minutesOf) }))];
   return (
     <div className="flex flex-col gap-2">
-      <p className="px-1 text-headline font-bold">Breakdown by Filter</p>
-      <div role="group" aria-label="Filters" className="grid grid-cols-[14px_minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 text-callout">
+      <p className="px-1 text-headline font-bold">{t("review.breakdownTitle")}</p>
+      <div role="group" aria-label={t("review.filters")} className="grid grid-cols-[14px_minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 text-callout">
         <div aria-hidden className="col-span-full grid grid-cols-subgrid px-2 pb-1 text-subheadline text-muted-foreground">
           <span />
-          <span>Filter</span>
-          <span className="text-right">Viewed</span>
-          <span>Lines</span>
-          <span className="text-right">Time left</span>
+          <span>{t("review.columnFilter")}</span>
+          <span className="text-right">{t("review.columnViewed")}</span>
+          <span>{t("review.columnLines")}</span>
+          <span className="text-right">{t("review.columnTime")}</span>
         </div>
-        {rows.map(({ id, name, t }) => {
+        {rows.map(({ id, name, sums }) => {
           const selected = id ? chosen.includes(id) : !chosen.length;
-          const complete = t.files > 0 && t.viewed === t.files;
+          const complete = sums.files > 0 && sums.viewed === sums.files;
           // A filter with nothing in this pull request can't be turned on.
-          const empty = t.files === 0 && !selected;
-          const left = t.minutesLeft === 0 ? "" : formatDuration(t.minutesLeft);
+          const empty = sums.files === 0 && !selected;
+          const left = sums.minutesLeft === 0 ? "" : t.duration(sums.minutesLeft);
           return (
             <button
               key={id || "all"}
               type="button"
               aria-pressed={selected}
               aria-disabled={empty}
-              title={empty ? `No files in ${name}` : undefined}
-              aria-label={`${name}: ${t.files} ${t.files === 1 ? "file" : "files"}, ${t.viewed} viewed, ${t.additions} lines added, ${t.deletions} removed. ${t.minutesLeft === 0 ? "Done" : `${left} left to review`}`}
+              title={empty ? t("review.noFilesInFilter", { name }) : undefined}
+              aria-label={t("review.breakdownRow", { name, files: t("common.files", { count: sums.files }), viewed: sums.viewed, additions: sums.additions, deletions: sums.deletions, left: sums.minutesLeft === 0 ? t("review.done") : t("review.leftToReview", { time: left }) })}
               onClick={() => !empty && onToggle(id)}
               className={cn(
                 "col-span-full grid h-(--row-h-sm) cursor-default grid-cols-subgrid items-center rounded-(--radius-row) px-2 text-left outline-none focus-ring-inset active:bg-fill",
@@ -99,28 +101,29 @@ function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onTog
               <span aria-hidden>{selected ? <Check className="size-3.5" /> : null}</span>
               <span className="truncate font-medium">{name}</span>
               <span className={cn("text-right tabular-nums", complete ? "text-success" : "text-muted-foreground")}>
-                {t.viewed}/{t.files}
+                {sums.viewed}/{sums.files}
               </span>
               <span className="flex items-center gap-1.5 font-mono text-subheadline tabular-nums">
-                <span className="text-success">+{t.additions}</span>
-                <span className="text-destructive">−{t.deletions}</span>
-                <Diffstat additions={t.additions} deletions={t.deletions} />
+                <span className="text-success">+{sums.additions}</span>
+                <span className="text-destructive">−{sums.deletions}</span>
+                <Diffstat additions={sums.additions} deletions={sums.deletions} />
               </span>
               <span className="text-right text-muted-foreground tabular-nums">{left}</span>
             </button>
           );
         })}
       </div>
-      <p className="px-1 text-subheadline leading-snug text-muted-foreground">{timeHint(learned)}</p>
+      <p className="px-1 text-subheadline leading-snug text-muted-foreground">{timeHint(learned, t)}</p>
     </div>
   );
 }
 
 export function FilterBar(props: Props) {
+  const t = useT();
   const { files, filters, chosen, shown, next, learned, onToggle, onNextFile } = props;
   const counts = new Map(filters.map((f) => [f.id, files.filter((x) => inFilter(f, x.path)).length]));
   const done = shown.files > 0 && shown.minutesLeft === 0;
-  const label = nextLabel(next);
+  const label = nextLabel(next, t);
   const stuck = !next.left && !next.nextFilter;
   const chip = (id: string, name: string, count: number) => {
     const pressed = id ? chosen.includes(id) : !chosen.length;
@@ -130,7 +133,7 @@ export function FilterBar(props: Props) {
         type="button"
         aria-pressed={pressed}
         aria-keyshortcuts={id ? undefined : "Alt+Shift+0"}
-        title={id ? undefined : `Show all files (${chord("0")})`}
+        title={id ? undefined : t("review.showAll", { shortcut: chord("0") })}
         onClick={() => onToggle(id)}
         className={cn(
           // Toggle buttons: the ones on in the accent, no highlight under the pointer.
@@ -148,7 +151,7 @@ export function FilterBar(props: Props) {
   return (
     <div
       role="group"
-      aria-label="Review one part"
+      aria-label={t("review.reviewOnePart")}
       aria-keyshortcuts={filters.length ? "Alt+Shift+. Alt+Shift+," : undefined}
       // Floats over the code on the system's menu material (opaque with Reduce Transparency).
       className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-[14px] bg-(--material-menu) p-1 shadow-(--shadow-menu) backdrop-blur-xl [scrollbar-width:none]"
@@ -166,12 +169,12 @@ export function FilterBar(props: Props) {
       {filters.length ? (
         <>
           <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />
-          {chip("", "All", files.length)}
+          {chip("", t("review.all"), files.length)}
           {filters.map((f) => chip(f.id, f.name, counts.get(f.id) ?? 0))}
         </>
       ) : null}
       <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
-      <span className="shrink-0 font-mono text-subheadline whitespace-nowrap tabular-nums" aria-label={`Lines in view: ${shown.additions} added, ${shown.deletions} removed`}>
+      <span className="shrink-0 font-mono text-subheadline whitespace-nowrap tabular-nums" aria-label={t("review.linesInView", { additions: shown.additions, deletions: shown.deletions })}>
         <span className="text-success">+{shown.additions}</span> <span className="text-destructive">−{shown.deletions}</span>
       </span>
       <Tooltip>
@@ -180,27 +183,27 @@ export function FilterBar(props: Props) {
             <span
               tabIndex={0}
               className="shrink-0 rounded-md px-1.5 text-subheadline whitespace-nowrap text-muted-foreground tabular-nums outline-none focus-ring"
-              aria-label={done ? "Done: every file here is viewed" : `About ${formatDuration(shown.minutesLeft).replace(/^~/, "")} left to review`}
+              aria-label={done ? t("review.doneLabel") : t("review.aboutLeft", { time: t.duration(shown.minutesLeft).replace(/^~/, "") })}
             />
           }
         >
           {done ? (
             <span className="flex items-center gap-1 text-success">
-              <Check className="size-3" aria-hidden /> Done
+              <Check className="size-3" aria-hidden /> {t("review.done")}
             </span>
           ) : (
-            `${formatDuration(shown.minutesLeft)} left`
+            t("review.timeLeft", { time: t.duration(shown.minutesLeft) })
           )}
         </TooltipTrigger>
-        <TooltipContent className="max-w-72">{timeHint(learned)}</TooltipContent>
+        <TooltipContent className="max-w-72">{timeHint(learned, t)}</TooltipContent>
       </Tooltip>
       {filters.length ? (
         <Popover>
           <Tooltip>
-            <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon" className="shrink-0 rounded-[10px]" aria-label="Breakdown by filter" />} />}>
+            <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon" className="shrink-0 rounded-[10px]" aria-label={t("review.breakdown")} />} />}>
               <ChartBarStacked />
             </TooltipTrigger>
-            <TooltipContent>Breakdown by Filter</TooltipContent>
+            <TooltipContent>{t("review.breakdownTitle")}</TooltipContent>
           </Tooltip>
           <PopoverContent side="top" align="end" className="w-auto min-w-80 max-w-[min(32rem,calc(100vw-2rem))]">
             <Breakdown {...props} />

@@ -1,58 +1,39 @@
-// The words for what happens on a pull request: short tags on cards, full sentences in
-// notifications and tooltips. One place, so they stay consistent.
+// The words for what happens on a pull request: short tags on cards, full sentences in tooltips
+// (the notifications say it in Rust, watch.rs). Their text is in src/locales (events.*); here is
+// what isn't words: each one's colour.
 
 import type { EventKind } from "./config";
 import type { Actor, Item } from "./engine";
+import type { T } from "./i18n";
 
-export const firstName = (actor: Actor) => actor?.name?.trim().split(/\s+/)[0] || actor?.login || "Someone";
+/** Someone by their first name, as people say it; their login without one. */
+export const firstName = (actor: Actor, t: T) => actor?.name?.trim().split(/\s+/)[0] || actor?.login || t("common.someone");
 
-type Copy = { tag: string; many?: string; long: string; say: (who: string) => string; tone: string };
-
-export const EVENTS: Record<EventKind, Copy> = {
-  new: { tag: "New", long: "New in this queue", say: () => "New in your queue", tone: "blue" },
-  commits: { tag: "Commits", long: "New commits since you last looked", say: (w) => `${w} pushed changes`, tone: "purple" },
-  reply: { tag: "Reply", long: "Someone replied to you", say: (w) => `${w} replied to you`, tone: "blue" },
-  mention: { tag: "Mention", long: "You were mentioned", say: (w) => `${w} mentioned you`, tone: "blue" },
-  comment: { tag: "Comment", many: "comments", long: "New comments", say: (w) => `${w} commented`, tone: "gray" },
-  rerequest: { tag: "Re-review", long: "Your review was requested again", say: () => "Your review was requested again", tone: "amber" },
-  ready: { tag: "Ready", long: "No longer a draft: ready for review", say: (w) => `${w} marked it ready for review`, tone: "blue" },
-  approved: { tag: "Approved", long: "Approved", say: (w) => `${w} approved`, tone: "green" },
-  changes: { tag: "Changes", long: "Changes requested", say: (w) => `${w} requested changes`, tone: "red" },
-  "ci-failed": { tag: "CI failed", long: "CI failed", say: () => "CI failed", tone: "red" },
-  "ci-passed": { tag: "CI passed", long: "CI passed", say: () => "CI passed", tone: "green" },
-  conflict: { tag: "Conflict", long: "Conflicts with the base branch", say: () => "Merge conflict", tone: "red" },
+/** Each event's colour: t(`events.tag.${kind}`) is its tag, t(`events.long.${kind}`) its tooltip,
+ *  t(`events.label.${kind}`) its name among a queue's notifications. */
+export const EVENT_TONES: Record<EventKind, string> = {
+  new: "blue",
+  commits: "purple",
+  reply: "blue",
+  mention: "blue",
+  comment: "gray",
+  rerequest: "amber",
+  ready: "blue",
+  approved: "green",
+  changes: "red",
+  "ci-failed": "red",
+  "ci-passed": "green",
+  conflict: "red",
 };
 
-export const EVENT_LABELS: Record<EventKind, string> = {
-  new: "Enters the queue",
-  commits: "New commits",
-  reply: "Replies to you",
-  mention: "Mentions you",
-  comment: "Comments",
-  rerequest: "Review requested again",
-  ready: "A draft is ready for review",
-  approved: "Approvals",
-  changes: "Changes requested",
-  "ci-failed": "CI fails",
-  "ci-passed": "CI passes again",
-  conflict: "Merge conflicts",
-};
-
-export const STATUS: Record<NonNullable<Item["status"]>, { tag: string; long: string; tone: string }> = {
-  APPROVED: { tag: "Approved", long: "You approved", tone: "green" },
-  CHANGES_REQUESTED: { tag: "Changes", long: "You requested changes", tone: "red" },
-  COMMENTED: { tag: "Commented", long: "You commented", tone: "gray" },
-  MENTIONED: { tag: "Mention", long: "You were mentioned", tone: "blue" },
+/** Where you stand on a pull request: t(`events.status.${status}`) is its tag,
+ *  t(`events.statusLong.${status}`) its tooltip. */
+export const STATUS_TONES: Record<NonNullable<Item["status"]>, string> = {
+  APPROVED: "green",
+  CHANGES_REQUESTED: "red",
+  COMMENTED: "gray",
+  MENTIONED: "blue",
 };
 
 /** "30 seconds", "3 minutes": a refresh interval. */
-export const interval = (seconds: number) => (seconds < 120 ? `${seconds} seconds` : `${seconds / 60} minutes`);
-
-export function ago(t: number, now = Date.now()): string {
-  const s = Math.max(0, (now - t) / 1000);
-  if (s < 60) return "now";
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  if (s < 86400 * 30) return `${Math.floor(s / 86400)}d`;
-  return `${Math.floor(s / (86400 * 30))}mo`;
-}
+export const interval = (seconds: number, t: T) => (seconds < 120 ? t("common.seconds", { count: seconds }) : t("common.minutes", { count: seconds / 60 }));

@@ -5,6 +5,7 @@
 import { github, graphql } from "./bridge";
 import type { Details } from "./details";
 import type { Actor } from "./engine";
+import { i18n } from "./i18n";
 
 export type ReviewFile = {
   path: string;
@@ -171,7 +172,7 @@ const draftPayload = (draft: Draft) => ({
 
 /** The review, with the comments written during it. */
 export function submitReview(d: Details, event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT", body: string, drafts: Draft[]) {
-  if (event === "COMMENT" && !body.trim() && !drafts.length) throw new Error("Write a comment, or add some on the lines, first.");
+  if (event === "COMMENT" && !body.trim() && !drafts.length) throw new Error(i18n()("config.reviewEmpty"));
   return github("POST", `${base(d)}/reviews`, { event, body: body.trim(), comments: drafts.map(draftPayload) });
 }
 
@@ -180,7 +181,7 @@ export const commentNow = (d: Details, draft: Draft) => github("POST", `${base(d
 
 export const reply = (d: Details, thread: Thread, body: string) => {
   const first = thread.comments[0];
-  if (!first) throw new Error("This conversation has no comment to reply to.");
+  if (!first) throw new Error(i18n()("config.replyNoComment"));
   return github("POST", `${base(d)}/comments/${first.databaseId}/replies`, { body });
 };
 

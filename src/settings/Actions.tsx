@@ -8,19 +8,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { STEP_LABELS } from "@/lib/actions";
-import { ACTION_TEMPLATES, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
+import { actionTemplates, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
+import { i18n, useT, type T } from "@/lib/i18n";
 import { Group, Intro, LinkRow, Pane, Row, SwitchRow, TWO_LINE_ITEM, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
-
-const STEP_HINTS: Record<ActionStep["kind"], string> = {
-  comment: "Posts a comment on the pull request, as you.",
-  request: "Asks these people or teams to review.",
-  unrequestMe: "Removes your own review request.",
-  label: "Adds labels to the pull request.",
-  open: "Opens a link in your browser.",
-  run: "Runs a shell command on this computer, as you.",
-};
 
 const newStep = (kind: ActionStep["kind"]): ActionStep => {
   switch (kind) {
@@ -39,37 +30,39 @@ const newStep = (kind: ActionStep["kind"]): ActionStep => {
   }
 };
 
-const reviewerError = (v: string) => (/^[\w-]+(\/[\w.-]+)?$/.test(v) ? null : "A username, or organization/team");
+// Called as a reviewer is added, so it reads the words then.
+const reviewerError = (v: string) => (/^[\w-]+(\/[\w.-]+)?$/.test(v) ? null : i18n()("settings.reviewerError"));
 const PLACEHOLDERS = "{number} {title} {url} {repo} {author} {me}";
 
 function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: ActionStep) => void }) {
   const id = useId();
+  const t = useT();
   switch (step.kind) {
     case "comment":
       return (
         <div className="flex flex-col gap-1">
-          <Textarea aria-label="Comment" rows={3} value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder="@dana could you take this one?" />
-          <p className="text-subheadline text-muted-foreground">Markdown. Fills in {PLACEHOLDERS}.</p>
+          <Textarea aria-label={t("settings.comment")} rows={3} value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder={t("settings.commentPlaceholder")} />
+          <p className="text-subheadline text-muted-foreground">{t("settings.commentHint", { placeholders: PLACEHOLDERS })}</p>
         </div>
       );
     case "request":
-      return <TagInput label="Reviewers" value={step.reviewers} onChange={(reviewers) => onChange({ ...step, reviewers })} placeholder="username or org/team" validate={reviewerError} />;
+      return <TagInput label={t("settings.reviewers")} value={step.reviewers} onChange={(reviewers) => onChange({ ...step, reviewers })} placeholder={t("settings.reviewerPlaceholder")} validate={reviewerError} />;
     case "unrequestMe":
       return null;
     case "label":
-      return <TagInput label="Labels" value={step.labels} onChange={(labels) => onChange({ ...step, labels })} placeholder="label" />;
+      return <TagInput label={t("settings.labels")} value={step.labels} onChange={(labels) => onChange({ ...step, labels })} placeholder={t("settings.labelPlaceholder")} />;
     case "open":
       return (
         <div className="flex flex-col gap-1">
-          <Input aria-label="Link" className="font-mono text-callout" spellCheck={false} value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value })} />
-          <p className="text-subheadline text-muted-foreground">An https link. Fills in {PLACEHOLDERS}.</p>
+          <Input aria-label={t("settings.link")} className="font-mono text-callout" spellCheck={false} value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value })} />
+          <p className="text-subheadline text-muted-foreground">{t("settings.linkHint", { placeholders: PLACEHOLDERS })}</p>
         </div>
       );
     case "run":
       return (
         <div className="flex flex-col gap-1">
           <Label htmlFor={id} className="sr-only">
-            Command
+            {t("settings.command")}
           </Label>
           <Textarea
             id={id}
@@ -81,7 +74,7 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
             placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
           />
           <p className="text-subheadline text-muted-foreground">
-            Runs with <code className="font-mono">sh</code> in your home folder, for up to two minutes. Gets <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>. Its last line of output is shown. The first time a command runs, or after it changes, you're asked to allow it.
+            {t("settings.commandHintBefore")} <code className="font-mono">sh</code> {t("settings.commandHintMiddle")} <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>. {t("settings.commandHintAfter")}
           </p>
         </div>
       );
@@ -90,6 +83,7 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
 
 function ActionEditor({ action, onChange }: { action: Action; onChange: (action: Action) => void }) {
   const nameId = useId();
+  const t = useT();
   const setStep = (index: number, step: ActionStep | null) => {
     const steps = [...action.steps];
     if (step) steps[index] = step;
@@ -106,29 +100,29 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   return (
     <>
       <Group>
-        <Row label="Button" htmlFor={nameId}>
+        <Row label={t("settings.button")} htmlFor={nameId}>
           <Input id={nameId} value={action.name} maxLength={30} onChange={(e) => onChange({ ...action, name: e.target.value })} className="w-56" />
         </Row>
-        <SwitchRow checked={action.confirm} onChange={(confirm) => onChange({ ...action, confirm })} label="Ask me to confirm" hint="Before running." />
+        <SwitchRow checked={action.confirm} onChange={(confirm) => onChange({ ...action, confirm })} label={t("settings.confirm")} hint={t("settings.confirmHint")} />
       </Group>
 
-      <Group title="Steps" footer="In order. If one fails, the rest don't run.">
+      <Group title={t("settings.steps")} footer={t("settings.stepsFooter")}>
         {action.steps.length ? (
           <ol className="contents">
             {action.steps.map((step, i) => (
               <li key={i} className="flex flex-col gap-2 px-3 py-3">
                 <div className="flex items-center gap-2">
                   <span className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-subheadline font-medium tabular-nums">{i + 1}</span>
-                  <span className="shrink-0 text-body">{STEP_LABELS[step.kind]}</span>
-                  <span className="hidden truncate text-subheadline text-muted-foreground sm:inline">{STEP_HINTS[step.kind]}</span>
+                  <span className="shrink-0 text-body">{t(`config.step.${step.kind}`)}</span>
+                  <span className="hidden truncate text-subheadline text-muted-foreground sm:inline">{t(`settings.stepHint.${step.kind}`)}</span>
                   <div className="ml-auto flex shrink-0">
-                    <Button variant="ghost" size="icon-xs" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveUp")} disabled={i === 0} onClick={() => move(i, -1)}>
                       <ArrowUp />
                     </Button>
-                    <Button variant="ghost" size="icon-xs" aria-label="Move down" disabled={i === action.steps.length - 1} onClick={() => move(i, 1)}>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveDown")} disabled={i === action.steps.length - 1} onClick={() => move(i, 1)}>
                       <ArrowDown />
                     </Button>
-                    <Button variant="ghost" size="icon-xs" aria-label={`Remove step ${i + 1}`} onClick={() => setStep(i, null)}>
+                    <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeStep", { number: i + 1 })} onClick={() => setStep(i, null)}>
                       <X />
                     </Button>
                   </div>
@@ -141,13 +135,13 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
         <div className="px-3 py-2">
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={action.steps.length >= 10} />}>
-              <Plus /> Add Step
+              <Plus /> {t("settings.addStep")}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72">
               {STEP_KINDS.map((kind) => (
                 <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
-                  <span>{STEP_LABELS[kind]}</span>
-                  <span className="text-subheadline text-muted-foreground">{STEP_HINTS[kind]}</span>
+                  <span>{t(`config.step.${kind}`)}</span>
+                  <span className="text-subheadline text-muted-foreground">{t(`settings.stepHint.${kind}`)}</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -160,13 +154,14 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
 
 /** Small beside a group's heading, regular on its own in the empty pane. */
 function AddAction({ config, onAdd, small = false }: { config: Config; onAdd: (action: Action) => void; small?: boolean }) {
+  const t = useT();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size={small ? "xs" : "default"} disabled={config.actions.length >= 12} />}>
-        <Plus /> Add Action
+        <Plus /> {t("settings.addAction")}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={small ? "end" : "center"} className="w-72">
-        {ACTION_TEMPLATES.map((template) => (
+        {actionTemplates(t).map((template) => (
           <DropdownMenuItem key={template.name} className={TWO_LINE_ITEM} onClick={() => onAdd(template.make())}>
             <span>{template.name}</span>
             <span className="text-subheadline text-muted-foreground">{template.description}</span>
@@ -177,11 +172,19 @@ function AddAction({ config, onAdd, small = false }: { config: Config; onAdd: (a
   );
 }
 
-const stepsSummary = (action: Action) => (action.steps.length ? action.steps.map((s, i) => (i ? STEP_LABELS[s.kind].toLowerCase() : STEP_LABELS[s.kind])).join(", then ") : "No steps yet");
+/** "Comment, then ask for reviews": each step after the first is said in lower case, as part of
+ *  the sentence. */
+const stepsSummary = (action: Action, t: T) =>
+  action.steps.length
+    ? action.steps
+        .map((s) => t(`config.step.${s.kind}`))
+        .reduce((said, label) => t("settings.stepsThen", { first: said, rest: label.toLocaleLowerCase(t.locale) }))
+    : t("settings.noSteps");
 
 export function Actions({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const detail = useDetail();
   const selected = config.actions.find((a) => a.id === detail.openId) ?? null;
+  const t = useT();
   const setActions = (actions: Action[]) => onChange({ ...config, actions });
   const add = (action: Action) => {
     setActions([...config.actions, action]);
@@ -191,14 +194,14 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
   if (selected)
     return (
       <Pane
-        title={selected.name || "Untitled action"}
-        back={{ label: "Actions", onBack: detail.close, ref: detail.backRef }}
+        title={selected.name || t("settings.untitledAction")}
+        back={{ label: t("settings.pane.actions"), onBack: detail.close, ref: detail.backRef }}
         tools={
           <Button
             variant="ghost"
             size="icon"
-            aria-label={`Delete ${selected.name}`}
-            title="Delete action"
+            aria-label={t("settings.deleteNamed", { name: selected.name })}
+            title={t("settings.deleteAction")}
             onClick={() => {
               setActions(config.actions.filter((a) => a.id !== selected.id));
               detail.close();
@@ -213,11 +216,11 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
     );
 
   return (
-    <Pane title="Actions">
+    <Pane title={t("settings.pane.actions")}>
       {config.actions.length ? (
         <>
-          <Intro>Your own buttons on pull requests, in each one's review window. Each runs its steps in order.</Intro>
-          <Group title="Buttons" accessory={<AddAction config={config} onAdd={add} small />}>
+          <Intro>{t("settings.actionsIntro")}</Intro>
+          <Group title={t("settings.buttons")} accessory={<AddAction config={config} onAdd={add} small />}>
             {config.actions.map((action) => (
               <LinkRow
                 key={action.id}
@@ -227,8 +230,8 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
                     <Zap className="size-3" strokeWidth={2.25} />
                   </span>
                 }
-                label={action.name || "Untitled action"}
-                description={stepsSummary(action)}
+                label={action.name || t("settings.untitledAction")}
+                description={stepsSummary(action, t)}
                 onOpen={() => detail.open(action.id)}
               />
             ))}
@@ -237,8 +240,8 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
       ) : (
         <div className="flex flex-col items-center gap-2 px-6 pt-20 text-center">
           <Zap className="size-5 text-muted-foreground" aria-hidden />
-          <p className="text-body font-semibold">Your own buttons on pull requests</p>
-          <p className="max-w-sm text-callout text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
+          <p className="text-body font-semibold">{t("settings.actionsEmpty")}</p>
+          <p className="max-w-sm text-callout text-muted-foreground">{t("settings.actionsEmptyHint")}</p>
           <div className="mt-2">
             <AddAction config={config} onAdd={add} />
           </div>

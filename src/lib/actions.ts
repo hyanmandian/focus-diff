@@ -4,6 +4,7 @@
 
 import { bridge, github, type ActionContext } from "./bridge";
 import type { Action, ActionStep } from "./config";
+import { i18n } from "./i18n";
 
 /** {number} {title} {url} {repo} {author} {me} in text. In links (`encode`), values are encoded,
  *  except one that starts the link, like a bare {url}. */
@@ -13,15 +14,6 @@ export function fill(template: string, pr: ActionContext, encode = false): strin
     return encode && offset > 0 ? encodeURIComponent(value) : value;
   });
 }
-
-export const STEP_LABELS: Record<ActionStep["kind"], string> = {
-  comment: "Comment",
-  request: "Ask for reviews",
-  unrequestMe: "Take me off the review",
-  label: "Add labels",
-  open: "Open a link",
-  run: "Run a command",
-};
 
 async function runStep(action: Action, index: number, step: ActionStep, pr: ActionContext): Promise<string | null> {
   const base = `/repos/${pr.repo}`;
@@ -61,8 +53,8 @@ export async function runAction(action: Action, pr: ActionContext): Promise<stri
       said = (await runStep(action, index, step, pr)) ?? said;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      throw new Error(action.steps.length > 1 ? `${STEP_LABELS[step.kind]}: ${message}` : message);
+      throw new Error(action.steps.length > 1 ? i18n()("config.action.failed", { step: i18n()(`config.step.${step.kind}`), message }) : message);
     }
   }
-  return said ? `${action.name}: ${said}` : `${action.name}: done`;
+  return said ? i18n()("config.action.said", { action: action.name, said }) : i18n()("config.action.done", { action: action.name });
 }

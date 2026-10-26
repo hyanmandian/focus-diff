@@ -20,6 +20,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
+use crate::i18n::tr;
 
 const TIME_LIMIT: Duration = Duration::from_secs(180);
 /// Reading around a project takes longer than reading a diff.
@@ -150,7 +151,7 @@ pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: 
         if started.elapsed() > limit {
             let _ = child.kill();
             let _ = child.wait();
-            return Err("It took too long and was stopped".into());
+            return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
         }
         std::thread::sleep(Duration::from_millis(50));
     };
@@ -233,7 +234,7 @@ pub struct Question<'a> {
 
 /// Asks the person's agent CLI and returns its answer. Blocking: run it off the main thread.
 pub fn ask(q: Question) -> Result<String, String> {
-    let binary = find(q.provider).ok_or("It isn't installed")?;
+    let binary = find(q.provider).ok_or_else(|| tr!("It isn't installed", "Não está instalado"))?;
     if let Some(project) = q.project {
         return ask_in(&q, &binary, project);
     }
@@ -279,7 +280,7 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
             let output = run_with_limit(&mut cmd, Some(&message), limit)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             if reply["is_error"].as_bool() == Some(true) {
-                return Err(reply["result"].as_str().unwrap_or("Claude Code returned an error").to_string());
+                return Err(reply["result"].as_str().map(String::from).unwrap_or_else(|| tr!("Claude Code returned an error", "O Claude Code respondeu com um erro")));
             }
             if q.schema.is_some() && reply["structured_output"].is_object() {
                 reply["structured_output"].to_string()
@@ -298,7 +299,7 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
             let output = run_with_limit(&mut cmd, None, limit)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
             let text = reply["result"].as_str().map(str::to_string).ok_or_else(|| failure(&output))?;
-            if q.schema.is_some() { json_object(&text).ok_or("The answer wasn't in the expected form")? } else { text }
+            if q.schema.is_some() { json_object(&text).ok_or_else(|| tr!("The answer wasn't in the expected form", "A resposta não veio no formato esperado"))? } else { text }
         }
     };
     Ok(answer.trim().to_string())
@@ -316,7 +317,7 @@ fn json_object(text: &str) -> Option<String> {
 /// what it printed.
 fn failure(output: &Output) -> String {
     let text = format!("{}\n{}", output.stderr, output.stdout);
-    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).unwrap_or("It didn't answer").to_string();
+    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).map(String::from).unwrap_or_else(|| tr!("It didn't answer", "Não houve resposta"));
     line.chars().take(400).collect()
 }
 

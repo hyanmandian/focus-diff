@@ -1,0 +1,23 @@
+// Words every window uses: time, counts, people.
+export const common = {
+  someone: "Someone",
+  now: "now",
+  underMinute: "<1 min",
+  aboutMinutes: "~{minutes} min",
+  aboutHours: "~{hours} h",
+  aboutHoursMinutes: "~{hours} h {minutes} min",
+  minutesShort: "{minutes} min",
+  sinceMinutes: { one: "{count}m", other: "{count}m" },
+  sinceHours: { one: "{count}h", other: "{count}h" },
+  sinceDays: { one: "{count}d", other: "{count}d" },
+  sinceMonths: { one: "{count}mo", other: "{count}mo" },
+  seconds: { one: "{count} second", other: "{count} seconds" },
+  minutes: { one: "{count} minute", other: "{count} minutes" },
+  files: { one: "{count} file", other: "{count} files" },
+  pullRequests: { one: "{count} pull request", other: "{count} pull requests" },
+  comments: { one: "{count} comment", other: "{count} comments" },
+  githubReturned: "GitHub returned {status}",
+  githubNoData: "GitHub returned no data",
+  somethingWentWrong: "Something went wrong",
+  cancel: "Cancel",
+} as const;

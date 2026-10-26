@@ -13,6 +13,7 @@ use serde::Deserialize;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use crate::ai;
+use crate::i18n::tr;
 
 const TIME_LIMIT: Duration = Duration::from_secs(120);
 
@@ -35,22 +36,22 @@ impl Context {
         if repo && login(&self.author) && login(&self.me) && self.url.starts_with("https://github.com/") && self.title.len() <= 1000 {
             Ok(())
         } else {
-            Err("That isn't a pull request".into())
+            Err(tr!("That isn't a pull request", "Isso não é um pull request"))
         }
     }
 }
 
 fn command_of(config: &Path, action: &str, step: usize) -> Result<String, String> {
-    let text = fs::read_to_string(config).map_err(|_| "Actions are set up in Settings".to_string())?;
+    let text = fs::read_to_string(config).map_err(|_| tr!("Actions are set up in Settings", "As ações são configuradas nos Ajustes"))?;
     let config: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
     let action = config["actions"]
         .as_array()
         .and_then(|actions| actions.iter().find(|a| a["id"].as_str() == Some(action)))
-        .ok_or("That action is gone")?;
+        .ok_or_else(|| tr!("That action is gone", "Essa ação não existe mais"))?;
     let step = &action["steps"][step];
     match (step["kind"].as_str(), step["command"].as_str()) {
         (Some("run"), Some(command)) if !command.trim().is_empty() => Ok(command.to_string()),
-        _ => Err("That step has no command".into()),
+        _ => Err(tr!("That step has no command", "Esse passo não tem comando")),
     }
 }
 
@@ -63,10 +64,13 @@ fn allowed(path: &Path) -> HashSet<String> {
 fn ask<R: tauri::Runtime>(app: &tauri::AppHandle<R>, name: &str, command: &str) -> bool {
     let shown: String = command.chars().take(600).collect();
     app.dialog()
-        .message(format!("“{name}” wants to run this command, as you:\n\n{shown}\n\nIt gets the pull request's number, title, link, repository and author. Allow it from now on?"))
-        .title("Run a command?")
+        .message(tr!(
+            "“{name}” wants to run this command, as you:\n\n{shown}\n\nIt gets the pull request's number, title, link, repository and author. Allow it from now on?",
+            "“{name}” quer rodar este comando, como você:\n\n{shown}\n\nEle recebe o número, o título, o link, o repositório e o autor do pull request. Permitir daqui em diante?"
+        ))
+        .title(tr!("Run a command?", "Rodar um comando?"))
         .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom("Allow and run".into(), "Cancel".into()))
+        .buttons(MessageDialogButtons::OkCancelCustom(tr!("Allow and run", "Permitir e rodar"), tr!("Cancel", "Cancelar")))
         .blocking_show()
 }
 
@@ -77,7 +81,7 @@ pub fn run<R: tauri::Runtime>(app: &tauri::AppHandle<R>, config: PathBuf, truste
     let mut allowed = allowed(&trusted);
     if !allowed.contains(&command) {
         if !ask(app, name, &command) {
-            return Err("Not run".into());
+            return Err(tr!("Not run", "Não foi rodado"));
         }
         allowed.insert(command.clone());
         let json = serde_json::to_string_pretty(&allowed).map_err(|e| e.to_string())?;
@@ -110,7 +114,7 @@ pub fn run<R: tauri::Runtime>(app: &tauri::AppHandle<R>, config: PathBuf, truste
         Ok(said(&output.stdout))
     } else {
         let message = said(&output.stderr);
-        Err(if message.is_empty() { "The command failed".into() } else { message })
+        Err(if message.is_empty() { tr!("The command failed", "O comando falhou") } else { message })
     }
 }
 

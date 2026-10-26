@@ -17,6 +17,7 @@ import { avatar } from "@/lib/avatar";
 import { bridge, type AuthStatus } from "@/lib/bridge";
 import { loadConfig, saveConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/lib/config";
 import { interval } from "@/lib/copy";
+import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Connect } from "@/shared/Connect";
@@ -43,16 +44,17 @@ function useConfig() {
 }
 
 function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => void }) {
+  const t = useT();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={config.queues.length >= 12} />}>
-        <Plus /> Add Queue
+        <Plus /> {t("settings.addQueue")}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         {(Object.keys(TEMPLATES) as QueueKind[]).map((kind) => (
           <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onAdd(TEMPLATES[kind].make())}>
-            <span>{TEMPLATES[kind].name}</span>
-            <span className="text-subheadline text-muted-foreground">{TEMPLATES[kind].description}</span>
+            <span>{t(`config.queue.${kind}`)}</span>
+            <span className="text-subheadline text-muted-foreground">{t(`config.queue.${kind}.hint`)}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -62,6 +64,7 @@ function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => 
 
 function Queues({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const detail = useDetail();
+  const t = useT();
   const selected = config.queues.find((q) => q.id === detail.openId) ?? null;
   const setQueues = (queues: Queue[]) => onChange({ ...config, queues });
   const replace = (queue: Queue) => setQueues(config.queues.map((q) => (q.id === queue.id ? queue : q)));
@@ -77,21 +80,21 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
     const index = config.queues.indexOf(selected);
     return (
       <Pane
-        title={selected.name || "Untitled queue"}
-        back={{ label: "Queues", onBack: detail.close, ref: detail.backRef }}
+        title={selected.name || t("settings.untitledQueue")}
+        back={{ label: t("settings.pane.queues"), onBack: detail.close, ref: detail.backRef }}
         tools={
           <>
-            <Button variant="ghost" size="icon" aria-label="Move up" title="Move up" disabled={index === 0} onClick={() => move(index, -1)}>
+            <Button variant="ghost" size="icon" aria-label={t("settings.moveUp")} title={t("settings.moveUp")} disabled={index === 0} onClick={() => move(index, -1)}>
               <ArrowUp />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Move down" title="Move down" disabled={index === config.queues.length - 1} onClick={() => move(index, 1)}>
+            <Button variant="ghost" size="icon" aria-label={t("settings.moveDown")} title={t("settings.moveDown")} disabled={index === config.queues.length - 1} onClick={() => move(index, 1)}>
               <ArrowDown />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              aria-label={`Delete ${selected.name}`}
-              title="Delete queue"
+              aria-label={t("settings.deleteNamed", { name: selected.name })}
+              title={t("settings.deleteQueue")}
               onClick={() => {
                 setQueues(config.queues.filter((q) => q.id !== selected.id));
                 detail.close();
@@ -103,7 +106,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         }
       >
         <Group>
-          <Row label="Show in the panel" description={selected.enabled ? undefined : "Hidden: it isn't checked or shown until you turn it back on."} htmlFor="queue-enabled">
+          <Row label={t("settings.showInPanel")} description={selected.enabled ? undefined : t("settings.hiddenQueue")} htmlFor="queue-enabled">
             <Switch id="queue-enabled" size="sm" checked={selected.enabled} onCheckedChange={(enabled) => replace({ ...selected, enabled })} />
           </Row>
         </Group>
@@ -113,10 +116,10 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
   }
 
   return (
-    <Pane title="Queues">
-      <Intro>The panel's tabs, in this order. Each gathers the pull requests that match it; open one to change what goes in it and what's worth a notification.</Intro>
+    <Pane title={t("settings.pane.queues")}>
+      <Intro>{t("settings.queuesIntro")}</Intro>
       <Group
-        title="Queues"
+        title={t("settings.pane.queues")}
         accessory={
           <AddQueue
             config={config}
@@ -126,7 +129,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
             }}
           />
         }
-        footer="Switched-off queues stay here, unchecked and out of the panel."
+        footer={t("settings.queuesFooter")}
       >
         {config.queues.length ? (
           config.queues.map((queue) => (
@@ -134,15 +137,15 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               key={queue.id}
               ref={detail.rowRef(queue.id)}
               leading={<span className={cn("size-2.5 shrink-0 rounded-full", TONE_FILL[queue.tone], !queue.enabled && "opacity-40")} aria-hidden />}
-              label={queue.name || "Untitled queue"}
-              description={TEMPLATES[queue.kind].name}
+              label={queue.name || t("settings.untitledQueue")}
+              description={t(`config.queue.${queue.kind}`)}
               muted={!queue.enabled}
               onOpen={() => detail.open(queue.id)}
-              control={<Switch size="sm" checked={queue.enabled} onCheckedChange={(enabled) => replace({ ...queue, enabled })} aria-label={`Show ${queue.name} in the panel`} />}
+              control={<Switch size="sm" checked={queue.enabled} onCheckedChange={(enabled) => replace({ ...queue, enabled })} aria-label={t("settings.showNamedInPanel", { name: queue.name })} />}
             />
           ))
         ) : (
-          <Row description="No queues yet. Add one to start." />
+          <Row description={t("settings.noQueues")} />
         )}
       </Group>
     </Pane>
@@ -152,12 +155,13 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
 const avatarOf = (login: string) => avatar(`https://avatars.githubusercontent.com/${login}`, 80);
 
 function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => void }) {
+  const t = useT();
   return (
-    <Pane title="Account">
+    <Pane title={t("settings.pane.account")}>
       {!auth ? (
-        <Loader2 className="m-3 animate-spin text-muted-foreground" aria-label="Loading" />
+        <Loader2 className="m-3 animate-spin text-muted-foreground" aria-label={t("settings.loading")} />
       ) : (
-        <Group title="GitHub" footer="Focus Diff reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.">
+        <Group title="GitHub" footer={t("settings.githubFooter")}>
           {auth.signed_in && auth.login ? (
             <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
               <Avatar className="size-9">
@@ -166,7 +170,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-body font-semibold">@{auth.login}</div>
-                <div className="mt-0.5 text-subheadline text-muted-foreground">{auth.source === "gh" ? "Using the GitHub CLI's login" : "Signed in with GitHub"}</div>
+                <div className="mt-0.5 text-subheadline text-muted-foreground">{auth.source === "gh" ? t("settings.usingGh") : t("settings.signedIn")}</div>
               </div>
               <Button
                 variant="outline"
@@ -174,7 +178,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
                   void bridge.authSignOut().then(onChange);
                 }}
               >
-                <LogOut /> Disconnect
+                <LogOut /> {t("settings.disconnect")}
               </Button>
             </div>
           ) : (
@@ -188,10 +192,15 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   );
 }
 
-const THEMES: Record<Config["theme"], string> = { system: "Like the system", light: "Light", dark: "Dark" };
+const THEMES: Array<Config["theme"]> = ["system", "light", "dark"];
+
+/** A language by its own name, so anyone can find theirs whatever the app is in now; the system's
+ *  is said in the language in use. */
+const languageName = (language: Language, t: T) => (language === "en" ? "English" : language === "pt-BR" ? "Português (Brasil)" : t("settings.language.system"));
 
 function Updates() {
   const [version, setVersion] = useState("");
+  const t = useT();
   const [state, setState] = useState<{ phase: "idle" | "checking" | "installing" } | { phase: "found"; version: string } | { phase: "latest" | "error"; message?: string }>({ phase: "idle" });
   useEffect(() => {
     void getVersion().then(setVersion);
@@ -205,7 +214,7 @@ function Updates() {
     } catch (e) {
       // The updater's own words are technical; the gist is enough.
       const detail = typeof e === "string" ? e : String(e);
-      setState({ phase: "error", message: /release JSON|fetch|network|connect/i.test(detail) ? "no published release could be reached" : detail });
+      setState({ phase: "error", message: /release JSON|fetch|network|connect/i.test(detail) ? t("settings.noRelease") : detail });
     }
   };
   return (
@@ -213,12 +222,12 @@ function Updates() {
       label={version ? `Focus Diff ${version}` : "Focus Diff"}
       description={
         state.phase === "found"
-          ? `Version ${state.version} is out.`
+          ? t("settings.versionOut", { version: state.version })
           : state.phase === "latest"
-            ? "You have the latest version."
+            ? t("settings.latest")
             : state.phase === "error"
-              ? `Couldn't check: ${state.message}`
-              : "Checks for updates on its own; you choose when to install."
+              ? t("settings.checkFailed", { message: state.message ?? "" })
+              : t("settings.checksOnItsOwn")
       }
     >
       {state.phase === "found" || state.phase === "installing" ? (
@@ -229,11 +238,11 @@ function Updates() {
             void bridge.installUpdate().catch((e: unknown) => setState({ phase: "error", message: String(e) }));
           }}
         >
-          {state.phase === "installing" ? <Loader2 className="animate-spin" /> : null} Update and Restart
+          {state.phase === "installing" ? <Loader2 className="animate-spin" /> : null} {t("settings.updateRestart")}
         </Button>
       ) : (
         <Button variant="outline" disabled={state.phase === "checking"} onClick={() => void check()}>
-          {state.phase === "checking" ? <Loader2 className="animate-spin" /> : null} Check for Updates
+          {state.phase === "checking" ? <Loader2 className="animate-spin" /> : null} {t("settings.checkUpdates")}
         </Button>
       )}
     </Row>
@@ -241,41 +250,64 @@ function Updates() {
 }
 
 function General({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
+  const t = useT();
   return (
-    <Pane title="General">
-      <Group title="Software update">
+    <Pane title={t("settings.pane.general")}>
+      <Group title={t("settings.softwareUpdate")}>
         <Updates />
       </Group>
-      <Group title="Behavior">
-        <Row label="Check GitHub every" description="Also whenever you open the panel.">
+      <Group title={t("settings.behavior")}>
+        <Row label={t("settings.checkEvery")} description={t("settings.checkEveryHint")}>
           <Select value={String(config.pollSeconds)} onValueChange={(v) => onChange({ ...config, pollSeconds: Number(v) })}>
-            <SelectTrigger className="w-36" aria-label="Refresh interval">
-              <SelectValue>{(v: string) => interval(Number(v))}</SelectValue>
+            <SelectTrigger className="min-w-36" aria-label={t("settings.refreshInterval")}>
+              <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {[30, 60, 90, 180, 300, 600].map((s) => (
                 <SelectItem key={s} value={String(s)}>
-                  {interval(s)}
+                  {interval(s, t)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Row>
-        <Row label="Appearance">
+        <Row label={t("settings.appearance")}>
           <Select value={config.theme} onValueChange={(v) => onChange({ ...config, theme: v as Config["theme"] })}>
-            <SelectTrigger className="w-36" aria-label="Appearance">
-              <SelectValue>{(v: string) => THEMES[v as Config["theme"]]}</SelectValue>
+            <SelectTrigger className="min-w-44" aria-label={t("settings.appearance")}>
+              <SelectValue>{(v: Config["theme"]) => t(`settings.theme.${v}`)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(THEMES) as Array<Config["theme"]>).map((t) => (
-                <SelectItem key={t} value={t}>
-                  {THEMES[t]}
+              {THEMES.map((theme) => (
+                <SelectItem key={theme} value={theme}>
+                  {t(`settings.theme.${theme}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Row>
-        <Row label="Play a sound with notifications" htmlFor="sound">
+        <Row label={t("settings.language")}>
+          <Select
+            value={config.language}
+            onValueChange={(v) => {
+              const language = v as Language;
+              // This window at once; Rust and the other windows follow the saved settings.
+              setLanguage(language);
+              onChange({ ...config, language });
+            }}
+          >
+            <SelectTrigger className="min-w-44" aria-label={t("settings.language")}>
+              <SelectValue>{(v: Language) => languageName(v, t)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGES.map((language) => (
+                <SelectItem key={language} value={language} lang={language === "system" ? undefined : language}>
+                  {languageName(language, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Row>
+        <Row label={t("settings.sound")} htmlFor="sound">
           <Switch id="sound" size="sm" checked={config.sound} onCheckedChange={(sound) => onChange({ ...config, sound })} />
         </Row>
       </Group>
@@ -286,54 +318,39 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
 type PaneId = "queues" | "review" | "filters" | "actions" | "ai" | "account" | "general";
 const PANE_IDS: PaneId[] = ["account", "queues", "review", "filters", "actions", "ai", "general"];
 
-/** The panes in the sidebar, each on a tile in a system color, as System Settings draws them. */
-const PANES: Array<{ value: Exclude<PaneId, "account">; label: string; icon: typeof Inbox; tile: string; keywords: string[] }> = [
-  {
-    value: "queues",
-    label: "Queues",
-    icon: Inbox,
-    tile: "blue",
-    keywords: ["Tabs", "Review requests", "Pull requests where", "Repositories", "Changing files", "Drafts", "Bots", "Labels", "Teams", "Notify me when", "Notifications", "Leave out of notifications", "At review time", "Right away", "Color"],
-  },
-  {
-    value: "review",
-    label: "Review time",
-    icon: Timer,
-    tile: "green",
-    keywords: ["Schedule", "Remind me", "Days", "Times", "How long", "What goes first", "Re-reviews first", "Time's up", "Hold notifications", "Countdown"],
-  },
-  { value: "filters", label: "Filters", icon: ListFilter, tile: "indigo", keywords: ["Diff filters", "Include", "Leave out", "Regular expressions", "File paths", "Chips", "Only in", "Repositories", "Share", "Copy filters", "Import filters"] },
-  { value: "actions", label: "Actions", icon: Zap, tile: "orange", keywords: ["Buttons", "Steps", "Post a comment", "Request review", "Labels", "Open a link", "Run a command", "Ask me to confirm"] },
-  {
-    value: "ai",
-    label: "AI",
-    icon: Sparkles,
-    tile: "purple",
-    keywords: ["Coding agent", ...Object.values(PROVIDERS).map((p) => p.name), "Model", "Effort", "Read the whole project", "AI review", "Review guidelines", "Prompts"],
-  },
-  {
-    value: "general",
-    label: "General",
-    icon: SettingsIcon,
-    tile: "gray",
-    keywords: ["Software update", "Check for updates", "Version", "Check GitHub every", "Refresh interval", "Appearance", "Theme", "Dark", "Light", "Play a sound with notifications"],
-  },
+/** The panes in the sidebar, each on a tile in a system color, as System Settings draws them. Their
+ *  names and what a search finds in them are in settings.pane.* and settings.keywords.*. */
+const PANES: Array<{ value: Exclude<PaneId, "account">; icon: typeof Inbox; tile: string }> = [
+  { value: "queues", icon: Inbox, tile: "blue" },
+  { value: "review", icon: Timer, tile: "green" },
+  { value: "filters", icon: ListFilter, tile: "indigo" },
+  { value: "actions", icon: Zap, tile: "orange" },
+  { value: "ai", icon: Sparkles, tile: "purple" },
+  { value: "general", icon: SettingsIcon, tile: "gray" },
 ];
-const ACCOUNT_KEYWORDS = ["Account", "GitHub", "Sign in", "Disconnect", "Sign out", "Token", "Login"];
 
-const TITLES: Record<PaneId, string> = { account: "Account", queues: "Queues", review: "Review time", filters: "Filters", actions: "Actions", ai: "AI", general: "General" };
+/** A pane's search words in the language in use, and in English too, so a setting is found by
+ *  either name. */
+function keywords(pane: PaneId, t: T): string[] {
+  const own = t(`settings.keywords.${pane}`).split("|");
+  const english = t.locale === "en" ? [] : translator("en")(`settings.keywords.${pane}`).split("|");
+  return [...own, ...english, ...(pane === "ai" ? Object.values(PROVIDERS).map((p) => p.name) : [])];
+}
+
+/** For matching: lower case, accents off, so "notificacoes" finds "Notificações". */
+const fold = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
 /** What a search finds in a pane: nothing (null), its name, or the first setting that matches. */
-function match(query: string, label: string, keywords: string[]): { hint?: string } | null {
-  const q = query.trim().toLowerCase();
+function match(query: string, label: string, words: string[]): { hint?: string } | null {
+  const q = fold(query.trim());
   if (!q) return {};
-  if (label.toLowerCase().includes(q)) return {};
-  const hit = keywords.find((k) => k.toLowerCase().includes(q));
+  if (fold(label).includes(q)) return {};
+  const hit = words.find((k) => fold(k).includes(q));
   return hit ? { hint: hit } : null;
 }
 
 /** The panes a search finds, with the setting (or queue, action, filter, prompt by name) that matched. */
-function findPanes(query: string, config: Config, auth: AuthStatus | null) {
+function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T) {
   const names = (list: Array<{ name: string }>) => list.map((x) => x.name).filter(Boolean);
   const own: Partial<Record<PaneId, string[]>> = {
     queues: names(config.queues),
@@ -342,8 +359,10 @@ function findPanes(query: string, config: Config, auth: AuthStatus | null) {
     filters: names(config.filters),
     ai: names(config.ai.prompts),
   };
-  const accountMatch = match(query, auth?.login ?? "Account", ACCOUNT_KEYWORDS);
-  const panes = PANES.map((p) => ({ ...p, found: match(query, p.label, [...(own[p.value] ?? []), ...p.keywords]) })).filter((p) => p.found);
+  const accountMatch = match(query, auth?.login ?? t("settings.pane.account"), keywords("account", t));
+  const panes = PANES.map((p) => ({ ...p, label: t(`settings.pane.${p.value}`), found: match(query, t(`settings.pane.${p.value}`), [...(own[p.value] ?? []), ...keywords(p.value, t)]) })).filter(
+    (p) => p.found,
+  );
   return { accountMatch, panes };
 }
 
@@ -370,6 +389,7 @@ const sidebarItem = cn(
 function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: AuthStatus | null; query: string; setQuery: (q: string) => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const t = useT();
   // ⌘F finds a setting, as in System Settings.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -383,7 +403,7 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const { accountMatch, panes } = findPanes(query, config, auth);
+  const { accountMatch, panes } = findPanes(query, config, auth, t);
   const nothing = !accountMatch && !panes.length;
 
   return (
@@ -397,8 +417,8 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
           <Input
             ref={searchRef}
             type="search"
-            aria-label="Search settings"
-            placeholder="Search settings…"
+            aria-label={t("settings.search")}
+            placeholder={t("settings.searchPlaceholder")}
             value={query}
             spellCheck={false}
             autoCorrect="off"
@@ -418,7 +438,7 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
           {query ? (
             <button
               type="button"
-              aria-label="Clear"
+              aria-label={t("settings.clear")}
               onClick={() => {
                 setQuery("");
                 searchRef.current?.focus();
@@ -430,7 +450,7 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
           ) : null}
         </div>
       </div>
-      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label="Settings" className="group/list flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 pb-3">
+      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label={t("settings.sections")} className="group/list flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 pb-3">
         {accountMatch ? (
           <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-2 h-12 gap-2.5")}>
             <Avatar className="size-8">
@@ -440,8 +460,8 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
               </AvatarFallback>
             </Avatar>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-semibold">{auth?.signed_in && auth.login ? auth.login : "Not signed in"}</span>
-              <span className="block truncate text-subheadline text-muted-foreground">{accountMatch.hint ?? "Account"}</span>
+              <span className="block truncate text-body font-semibold">{auth?.signed_in && auth.login ? auth.login : t("settings.notSignedIn")}</span>
+              <span className="block truncate text-subheadline text-muted-foreground">{accountMatch.hint ?? t("settings.pane.account")}</span>
             </span>
           </TabsPrimitive.Tab>
         ) : null}
@@ -458,7 +478,7 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
         ))}
         {nothing ? (
           <p className="px-2 py-6 text-center text-callout text-muted-foreground" role="status">
-            No settings match "{query.trim()}".
+            {t("settings.noMatch", { query: query.trim() })}
           </p>
         ) : null}
       </TabsPrimitive.List>
@@ -471,24 +491,25 @@ export function Settings() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [pane, setPane] = useState<PaneId>(rememberedPane);
   const [query, setQuery] = useState("");
+  const t = useT();
   const loadAuth = useCallback(() => void bridge.authStatus().then(setAuth), []);
   useEffect(loadAuth, [loadAuth]);
   useTheme(config?.theme);
   // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {
-    document.title = TITLES[pane];
+    document.title = t(`settings.pane.${pane}`);
     try {
       localStorage.setItem(PANE_KEY, pane);
     } catch {
       /* not remembered */
     }
-  }, [pane]);
+  }, [pane, t]);
 
   // Searching shows the first pane that matches, as System Settings does, unless the one open still does.
   const search = (q: string) => {
     setQuery(q);
     if (!config || !q.trim()) return;
-    const { accountMatch, panes } = findPanes(q, config, auth);
+    const { accountMatch, panes } = findPanes(q, config, auth, t);
     const hits: PaneId[] = [...(accountMatch ? ["account" as const] : []), ...panes.map((p) => p.value)];
     if (hits.length && !hits.includes(pane)) setPane(hits[0]!);
   };

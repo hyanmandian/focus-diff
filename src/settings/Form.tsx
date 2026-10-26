@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import type { Queue } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /** A queue's colour, as a fill: the system colours (the -ic ones are for text). */
@@ -45,6 +46,7 @@ export function Pane({
   className?: string;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const t = useT();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header
@@ -58,8 +60,8 @@ export function Pane({
               ref={back.ref}
               type="button"
               onClick={back.onBack}
-              aria-label={`Back to ${back.label}`}
-              title={`Back to ${back.label} (⌘[)`}
+              aria-label={t("settings.backTo", { pane: back.label })}
+              title={t("settings.backToShortcut", { pane: back.label })}
               className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground outline-none focus-ring hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
             >
               {/* A toolbar item, which (unlike a button in the content) may light up under the pointer. */}

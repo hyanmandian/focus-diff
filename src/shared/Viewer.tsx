@@ -6,6 +6,7 @@ import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 
 type Picture = { src: string; alt: string };
 
@@ -27,6 +28,7 @@ const MIN = 0.5;
 const MAX = 8;
 
 export function Viewer() {
+  const t = useT();
   const picture = useSyncExternalStore(
     (l) => (listeners.add(l), () => listeners.delete(l)),
     () => current,
@@ -67,7 +69,7 @@ export function Viewer() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={picture.alt || "Picture"}
+      aria-label={picture.alt || t("shared.pictureLabel")}
       className="fixed inset-0 z-50 flex flex-col bg-black/85 backdrop-blur-sm animate-in fade-in-0 duration-150 motion-reduce:animate-none"
       onClick={(e) => e.target === e.currentTarget && close()}
       onWheel={(e) => {
@@ -78,19 +80,19 @@ export function Viewer() {
     >
       <div className="flex shrink-0 items-center justify-end gap-1 p-3 text-white">
         {picture.alt ? <p className="mr-auto truncate pl-2 text-body text-white/80">{picture.alt}</p> : null}
-        <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label="Zoom out" onClick={() => zoom(0.8)}>
+        <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label={t("shared.zoomOut")} onClick={() => zoom(0.8)}>
           <Minus />
         </Button>
         <span className="w-12 text-center text-callout text-white/80 tabular-nums" aria-live="polite">
           {Math.round(scale * 100)}%
         </span>
-        <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label="Zoom in" onClick={() => zoom(1.25)}>
+        <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label={t("shared.zoomIn")} onClick={() => zoom(1.25)}>
           <Plus />
         </Button>
-        <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label="Actual size" onClick={reset}>
+        <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label={t("shared.actualSize")} onClick={reset}>
           <RotateCcw />
         </Button>
-        <Button ref={closeButton} variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label="Close" onClick={close}>
+        <Button ref={closeButton} variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label={t("shared.close")} onClick={close}>
           <X />
         </Button>
       </div>

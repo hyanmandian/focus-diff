@@ -10,7 +10,8 @@ import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer as Answer } from "@/lib/bridge";
 import { avatar } from "@/lib/avatar";
 import { bridge } from "@/lib/bridge";
-import { ago, firstName } from "@/lib/copy";
+import { firstName } from "@/lib/copy";
+import { i18n, useT } from "@/lib/i18n";
 import type { Actor } from "@/lib/engine";
 import type { Draft, Thread as ThreadData } from "@/lib/review";
 import { useDiagrams } from "@/lib/diagrams";
@@ -75,6 +76,7 @@ export function Composer({
   onCancel: () => void;
   secondary?: { label: string; onClick: (body: string) => Promise<void> | void };
 }) {
+  const t = useT();
   const [body, setBody] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,7 @@ export function Composer({
   const id = useId();
   useEffect(() => ref.current?.focus(), []);
   const run = async (action: (body: string) => Promise<void> | void) => {
-    if (!body.trim()) return setError("Write something first.");
+    if (!body.trim()) return setError(i18n()("review.writeFirst"));
     setBusy(true);
     setError(null);
     try {
@@ -123,7 +125,7 @@ export function Composer({
       ) : null}
       <div className="flex items-center justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         {secondary ? (
           <Button variant="outline" size="sm" onClick={() => void run(secondary.onClick)} disabled={busy}>
@@ -158,6 +160,7 @@ export function ThreadView({
   onReply: (body: string) => Promise<void>;
   onResolve: (resolved: boolean) => Promise<void>;
 }) {
+  const t = useT();
   const [replying, setReplying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
@@ -173,22 +176,22 @@ export function ThreadView({
     return (
       <Box className={cn("py-2", className)}>
         <button type="button" className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground outline-none focus-ring" onClick={() => setOpen(true)}>
-          <Check className="size-3.5 text-success" /> Resolved conversation · {thread.comments.length} {thread.comments.length === 1 ? "comment" : "comments"} · show
+          <Check className="size-3.5 text-success" /> {t("review.resolvedConversation", { comments: t("common.comments", { count: thread.comments.length }) })}
         </button>
       </Box>
     );
   }
   return (
     <Box className={className}>
-      {moved ? <p className="mb-2 text-callout text-muted-foreground">{thread.line ? `On line ${thread.line}, which this diff no longer shows` : "On the file"}</p> : null}
+      {moved ? <p className="mb-2 text-callout text-muted-foreground">{thread.line ? t("review.onGoneLine", { line: String(thread.line) }) : t("review.onFile")}</p> : null}
       <div className="flex flex-col gap-3">
         {thread.comments.map((c) => (
           <div key={c.id} className="flex gap-2">
             <Person actor={c.author} />
             <div className="min-w-0 flex-1">
               <p className="text-callout text-muted-foreground">
-                <span className="font-medium text-foreground">{firstName(c.author)}</span> · {ago(Date.parse(c.at))}
-                {thread.outdated ? " · outdated" : ""}
+                <span className="font-medium text-foreground">{firstName(c.author, t)}</span> · {t.since(Date.parse(c.at))}
+                {thread.outdated ? ` · ${t("review.outdated")}` : ""}
               </p>
               <Html html={c.html} />
             </div>
@@ -198,8 +201,8 @@ export function ThreadView({
       <div className="mt-3 border-t pt-3">
         {replying ? (
           <Composer
-            placeholder="Reply"
-            submitLabel="Reply"
+            placeholder={t("review.reply")}
+            submitLabel={t("review.reply")}
             onSubmit={async (body) => {
               await onReply(body);
               setReplying(false);
@@ -209,11 +212,11 @@ export function ThreadView({
         ) : (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setReplying(true)}>
-              <CornerDownRight /> Reply
+              <CornerDownRight /> {t("review.reply")}
             </Button>
             <Button variant="ghost" size="sm" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : thread.resolved ? <Undo2 /> : <Check />}
-              {thread.resolved ? "Unresolve" : "Resolve"}
+              {thread.resolved ? t("review.unresolve") : t("review.resolve")}
             </Button>
           </div>
         )}
@@ -223,13 +226,14 @@ export function ThreadView({
 }
 
 export function DraftView({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (body: string) => void; onRemove: () => void }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   return (
     <Box className="border-unread/40 bg-unread/5">
       {editing ? (
         <Composer
-          placeholder="Comment"
-          submitLabel="Save"
+          placeholder={t("review.commentPlaceholder")}
+          submitLabel={t("review.save")}
           initial={draft.body}
           onSubmit={(body) => {
             onEdit(body);
@@ -240,13 +244,13 @@ export function DraftView({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (
       ) : (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-callout font-medium text-unread">Pending · sent with your review</p>
+            <p className="text-callout font-medium text-unread">{t("review.pending")}</p>
             <p className="selectable mt-1 text-body whitespace-pre-wrap">{draft.body}</p>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="Edit comment" onClick={() => setEditing(true)}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("review.editComment")} onClick={() => setEditing(true)}>
             <Pencil />
           </Button>
-          <Button variant="ghost" size="icon-sm" aria-label="Remove comment" onClick={onRemove}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("review.removeComment")} onClick={onRemove}>
             <Trash2 />
           </Button>
         </div>
@@ -291,6 +295,7 @@ export function NewComment({
   ask: ((question: string, earlier: Exchange[]) => Promise<Answer>) | null;
   askName: string;
 }) {
+  const t = useT();
   const [mode, setModeState] = useState<Mode>(lastMode);
   const [body, setBody] = useState("");
   const [question, setQuestion] = useState("");
@@ -324,7 +329,7 @@ export function NewComment({
 
   const comment = async (now: boolean) => {
     const text = body.trim();
-    if (!text) return setError("Write something first.");
+    if (!text) return setError(i18n()("review.writeFirst"));
     setBusy(true);
     setError(null);
     try {
@@ -365,12 +370,12 @@ export function NewComment({
     <Box className="p-0">
       <div className="flex items-center gap-3 px-3 pt-3">
         {/* A segmented control in content: the chosen segment in the accent, as Tahoe draws it. */}
-        <div role="tablist" onKeyDown={tabKeys} aria-label={`On ${lines}`} className="relative isolate flex rounded-(--radius-control) bg-fill">
+        <div role="tablist" onKeyDown={tabKeys} aria-label={t("review.onLines", { lines })} className="relative isolate flex rounded-(--radius-control) bg-fill">
           <SlidingPill selected={mode} className="rounded-(--radius-control-sm) bg-selected" />
           {(
             [
-              ["comment", "Comment", MessageSquare],
-              ["ask", `Ask ${askName}`, Sparkles],
+              ["comment", t("review.commentTab"), MessageSquare],
+              ["ask", ask ? t("review.askTab", { name: askName }) : t("review.askAiTab"), Sparkles],
             ] as const
           ).map(([value, label, Icon]) => (
             <button
@@ -397,39 +402,39 @@ export function NewComment({
 
       <div role="tabpanel" id={`${tabs}-panel`} aria-labelledby={`${tabs}-${mode}`} className="flex flex-col gap-2 px-3 pt-2.5">
         {asking && turns.length ? (
-          <ol aria-label={`Conversation with ${askName}`} className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1">
-            {turns.map((t, i) => (
+          <ol aria-label={t("review.conversationWith", { name: askName })} className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1">
+            {turns.map((turn, i) => (
               <li key={i} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
                 <p className="selectable max-w-[85%] self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
-                  <span className="sr-only">You: </span>
-                  {t.question}
+                  <span className="sr-only">{t("review.you")}</span>
+                  {turn.question}
                 </p>
                 <div className="flex gap-2.5">
                   <span aria-hidden className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet/15 text-violet">
                     <Sparkles className="size-3" />
                   </span>
-                  {t.answer ? (
+                  {turn.answer ? (
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5 animate-in fade-in-0 duration-300 motion-reduce:animate-none">
                       <span className="sr-only">{askName}: </span>
-                      <AiAnswer text={t.answer} />
-                      {t.note ? <p className="text-subheadline text-muted-foreground">{t.note}</p> : null}
+                      <AiAnswer text={turn.answer} />
+                      {turn.note ? <p className="text-subheadline text-muted-foreground">{turn.note}</p> : null}
                       <div>
                         <Button
                           size="xs"
                           variant="ghost"
                           className="-ml-2 text-muted-foreground"
                           onClick={() => {
-                            setBody(t.answer ?? "");
+                            setBody(turn.answer ?? "");
                             setMode("comment");
                           }}
                         >
-                          <MessageSquare /> Turn into a comment
+                          <MessageSquare /> {t("review.turnIntoComment")}
                         </Button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1" role="status">
-                      <span className="sr-only">{askName} is reading the code…</span>
+                      <span className="sr-only">{t("review.readingCode", { name: askName })}</span>
                       <span aria-hidden className="h-3 w-11/12 rounded bg-muted" />
                       <span aria-hidden className="h-3 w-3/4 rounded bg-muted" />
                       <span aria-hidden className="h-3 w-1/2 rounded bg-muted" />
@@ -442,18 +447,18 @@ export function NewComment({
         ) : null}
 
         {asking && !ask ? (
-          <p className="py-2 text-body text-muted-foreground">Set up Claude Code or Cursor in Settings to ask about code here.</p>
+          <p className="py-2 text-body text-muted-foreground">{t("review.setUpAi")}</p>
         ) : (
           <>
             <label htmlFor={`${tabs}-field`} className="sr-only">
-              {asking ? "Your question about these lines" : "Your comment for the author"}
+              {asking ? t("review.questionLabel") : t("review.commentLabel")}
             </label>
             <Textarea
               id={`${tabs}-field`}
               ref={field}
               rows={asking ? 2 : 3}
               value={asking ? question : body}
-              placeholder={asking ? (turns.length ? "Ask a follow-up…" : "Ask about these lines…") : "Comment for the author: what to change, or a question"}
+              placeholder={asking ? (turns.length ? t("review.askFollowUp") : t("review.askAbout")) : t("review.commentForAuthor")}
               onChange={(e) => (asking ? setQuestion(e.target.value) : setBody(e.target.value))}
               onKeyDown={(e) => {
                 // Asking is a chat: Enter sends, Shift+Enter breaks the line. A comment, like GitHub's: ⌘/Ctrl+Enter.
@@ -478,30 +483,30 @@ export function NewComment({
 
       <div className="flex items-center gap-2 p-3">
         <p className="mr-auto text-subheadline text-muted-foreground">
-          {asking ? (ask ? <>Enter to ask · Shift+Enter for a new line</> : null) : <>Goes into your review · {isMac ? "⌘" : "Ctrl+"}Enter</>}
+          {asking ? (ask ? t("review.askHint") : null) : t("review.commentHint", { shortcut: `${isMac ? "⌘" : "Ctrl+"}Enter` })}
         </p>
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy && !asking}>
-          Close
+          {t("review.close")}
         </Button>
         {asking ? (
           ask ? (
             <Button size="sm" onClick={submit} disabled={busy || !question.trim()}>
               {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-              Ask
+              {t("review.ask")}
             </Button>
           ) : (
             <Button size="sm" onClick={() => void bridge.openSettings()}>
-              Open Settings
+              {t("review.openSettings")}
             </Button>
           )
         ) : (
           <>
             <Button variant="outline" size="sm" onClick={() => void comment(true)} disabled={busy}>
-              Post now
+              {t("review.postNow")}
             </Button>
             <Button size="sm" onClick={submit} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : <MessageSquare />}
-              Comment
+              {t("review.comment")}
             </Button>
           </>
         )}
@@ -510,24 +515,23 @@ export function NewComment({
   );
 }
 
-const SEVERITY = { issue: "Issue", suggestion: "Suggestion", question: "Question" } as const;
-
 /** A comment the AI suggests on a line: added to your review (where you can still edit it) or dismissed. */
 export function FindingView({ finding, by, onAdd, onDismiss }: { finding: Finding; by: string; onAdd: () => void; onDismiss: () => void }) {
+  const t = useT();
   return (
     <Box className="border-violet/40 bg-violet/5">
       <p className="flex items-center gap-1.5 text-callout font-medium text-violet">
-        <Sparkles className="size-3.5" aria-hidden /> {by} · {SEVERITY[finding.severity]}
+        <Sparkles className="size-3.5" aria-hidden /> {by} · {t(`review.severity.${finding.severity}`)}
       </p>
       <div className="mt-1.5">
         <AiAnswer text={finding.body} />
       </div>
       <div className="mt-2.5 flex items-center gap-2">
         <Button size="xs" variant="outline" onClick={onAdd}>
-          Add to my review
+          {t("review.addToReview")}
         </Button>
         <Button size="xs" variant="ghost" onClick={onDismiss}>
-          Dismiss
+          {t("review.dismiss")}
         </Button>
       </div>
     </Box>

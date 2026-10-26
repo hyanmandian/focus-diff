@@ -15,6 +15,8 @@ use tauri::image::Image;
 use tauri::tray::TrayIcon;
 use tauri::{AppHandle, Runtime};
 
+use crate::i18n::tr;
+
 const SIZE: u32 = 36; // 18pt at 2x, the menu bar's icon size
 const SUPERSAMPLE: u32 = 4;
 
@@ -170,30 +172,48 @@ fn show<R: Runtime>(tray: &TrayIcon<R>, image: Image<'static>) {
     let _ = tray.set_icon_as_template(true);
 }
 
-/// While a review time is under way, the minutes left ("24m"), shown beside the icon.
-static COUNTDOWN: Mutex<Option<String>> = Mutex::new(None);
+/// While a review time is under way, the minutes left, shown beside the icon.
+static COUNTDOWN: Mutex<Option<i64>> = Mutex::new(None);
+
+/// The minutes left as the menu bar shows them: "24m", "24 min".
+fn left(minutes: i64) -> String {
+    tr!("{minutes}m", "{minutes} min")
+}
 
 /// What the icon says on hover: the countdown first, while there is one.
 fn tooltip(count: u32) -> String {
     let waiting = match count {
-        0 => "nothing waiting on you".to_string(),
-        1 => "1 pull request waiting on you".to_string(),
-        n => format!("{n} pull requests waiting on you"),
+        0 => tr!("nothing waiting on you", "nada esperando por você"),
+        1 => tr!("1 pull request waiting on you", "1 pull request esperando por você"),
+        n => tr!("{n} pull requests waiting on you", "{n} pull requests esperando por você"),
     };
-    match COUNTDOWN.lock().unwrap().as_deref() {
-        Some(left) => format!("Focus Diff: review time, {left} left · {waiting}"),
+    match *COUNTDOWN.lock().unwrap() {
+        Some(minutes) => {
+            let left = left(minutes);
+            tr!("Focus Diff: review time, {left} left · {waiting}", "Focus Diff: review time, faltam {left} · {waiting}")
+        }
         None => format!("Focus Diff: {waiting}"),
     }
+}
+
+/// The countdown beside the icon, as text.
+fn title() -> Option<String> {
+    COUNTDOWN.lock().unwrap().map(left)
 }
 
 static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// Shows (or, with None, takes away) review time's countdown beside the icon. Windows has no text
 /// beside a tray icon, so there it's in the tooltip only.
-pub fn countdown<R: Runtime>(tray: &TrayIcon<R>, text: Option<String>) {
-    *COUNTDOWN.lock().unwrap() = text;
+pub fn countdown<R: Runtime>(tray: &TrayIcon<R>, minutes: Option<i64>) {
+    *COUNTDOWN.lock().unwrap() = minutes;
+    relocalize(tray);
+}
+
+/// Says the tooltip and countdown again, in the language in use.
+pub fn relocalize<R: Runtime>(tray: &TrayIcon<R>) {
     #[cfg(target_os = "macos")]
-    let _ = tray.set_title(COUNTDOWN.lock().unwrap().as_deref());
+    let _ = tray.set_title(title().as_deref());
     let _ = tray.set_tooltip(Some(&tooltip(LAST_COUNT.load(Ordering::SeqCst))));
 }
 
@@ -210,7 +230,7 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
     // No number beside it: the dot says there's something, the panel says what (a count of every
     // unread pull request in every queue is noise in a menu bar). Only review time's countdown.
     #[cfg(target_os = "macos")]
-    let _ = tray.set_title(COUNTDOWN.lock().unwrap().as_deref());
+    let _ = tray.set_title(title().as_deref());
     let rest = frame(0.0, dot);
     if !animate {
         show(tray, rest);
@@ -245,6 +265,20 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::i18n::{in_locale, Locale};
+
+    #[test]
+    fn tooltip_in_each_language() {
+        in_locale(Locale::En, || {
+            assert_eq!(tooltip(2), "Focus Diff: 2 pull requests waiting on you");
+            assert_eq!(left(24), "24m");
+        });
+        in_locale(Locale::PtBr, || {
+            assert_eq!(tooltip(0), "Focus Diff: nada esperando por você");
+            assert_eq!(tooltip(1), "Focus Diff: 1 pull request esperando por você");
+            assert_eq!(left(24), "24 min");
+        });
+    }
 
     /// Writes the rest frame, mid-focus and the unread frame as BMPs into $TRAY_PREVIEW_DIR, to
     /// look at the icon's drawing. Skipped when the variable isn't set.

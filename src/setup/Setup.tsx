@@ -13,6 +13,7 @@ import { PROVIDERS } from "@/lib/ai";
 import { bridge, type AiStatus, type AuthStatus } from "@/lib/bridge";
 import { AI_PROVIDERS, loadConfig, saveConfig, TEMPLATES, type AiProvider, type Config, type QueueKind } from "@/lib/config";
 import { interval } from "@/lib/copy";
+import { i18n, useT } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { isMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
@@ -20,9 +21,9 @@ import { TagInput } from "@/settings/TagInput";
 import { Connect } from "@/shared/Connect";
 import { Mark } from "@/shared/Mark";
 
-const STEPS = ["GitHub", "Queues", "Notifications", "AI", "Ready"] as const;
+const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
-const repoError = (s: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s) ? null : "Use owner/name, or owner/* for all of an owner's");
+const repoError = (s: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s) ? null : i18n()("setup.repoError"));
 
 /** A checkbox or radio button as macOS lays them out: the box on the leading edge, a 13pt label and
  *  an 11pt description under it. No card and no highlight under the pointer; the focus ring is on
@@ -56,6 +57,7 @@ export function Setup() {
   const [repos, setRepos] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const t = useT();
   useTheme(config?.theme);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function Setup() {
     void bridge.aiStatuses().then(setStatuses);
   }, []);
 
-  if (!config) return <Loader2 className="m-auto size-5 animate-spin text-muted-foreground" aria-label="Loading" />;
+  if (!config) return <Loader2 className="m-auto size-5 animate-spin text-muted-foreground" aria-label={t("setup.loading")} />;
 
   const toggle = (kind: QueueKind) =>
     setKinds((k) => {
@@ -112,10 +114,10 @@ export function Setup() {
       <header className="flex h-12 shrink-0 items-center gap-2 px-5" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
         <span className="text-body font-semibold">Focus Diff</span>
-        <ol className="ml-auto flex items-center gap-1.5" aria-label="Steps">
+        <ol className="ml-auto flex items-center gap-1.5" aria-label={t("setup.steps")}>
           {STEPS.map((name, i) => (
-            <li key={name} aria-current={i === step ? "step" : undefined} title={name} className={cn("h-1.5 rounded-full transition-all", i === step ? "w-5 bg-primary" : i < step ? "w-1.5 bg-primary/60" : "w-1.5 bg-muted-foreground/30")}>
-              <span className="sr-only">{name}</span>
+            <li key={name} aria-current={i === step ? "step" : undefined} title={t(`setup.step.${name}`)} className={cn("h-1.5 rounded-full transition-all", i === step ? "w-5 bg-primary" : i < step ? "w-1.5 bg-primary/60" : "w-1.5 bg-muted-foreground/30")}>
+              <span className="sr-only">{t(`setup.step.${name}`)}</span>
             </li>
           ))}
         </ol>
@@ -125,71 +127,72 @@ export function Setup() {
         {step === 0 ? (
           <section className="flex flex-col gap-6" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
-              <h1 id="step-title" className="text-title1 font-bold text-balance">Your reviews, without opening GitHub</h1>
-              <p className="text-body text-muted-foreground">Focus Diff sits in your menu bar, tells you when a pull request needs you, and lets you read, review and merge it right there. First, connect GitHub.</p>
+              <h1 id="step-title" className="text-title1 font-bold text-balance">{t("setup.githubTitle")}</h1>
+              <p className="text-body text-muted-foreground">{t("setup.githubBody")}</p>
             </div>
             {auth?.signed_in ? (
               <div className="flex items-center gap-2">
                 <Check className="size-4 text-success" aria-hidden />
                 <p className="text-body">
-                  Connected as <span className="font-medium">@{auth.login}</span>
+                  {t("setup.connectedAs", { login: "\0" })
+                    .split("\0")
+                    .map((part, i) => (i ? [<span key={i} className="font-medium">@{auth.login}</span>, part] : part))}
                 </p>
               </div>
             ) : auth ? (
               <Connect auth={auth} onConnected={() => void bridge.authStatus().then(setAuth)} />
             ) : (
-              <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Checking GitHub" />
+              <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("setup.checkingGitHub")} />
             )}
-            <p className="text-callout text-muted-foreground">Your token stays in the system keychain (or with the GitHub CLI) and only ever goes to GitHub. Focus Diff has no server.</p>
+            <p className="text-callout text-muted-foreground">{t("setup.tokenNote")}</p>
           </section>
         ) : step === 1 ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
-              <h1 id="step-title" className="text-title1 font-bold">What should it watch?</h1>
-              <p className="text-body text-muted-foreground">Each is a queue in the panel. Later, in Settings, you can narrow them down (teams, labels, files) or add searches of your own.</p>
+              <h1 id="step-title" className="text-title1 font-bold">{t("setup.queuesTitle")}</h1>
+              <p className="text-body text-muted-foreground">{t("setup.queuesBody")}</p>
             </div>
             <div className="flex flex-col gap-1.5">
               {OFFERED.map((kind) => (
-                <Choice key={kind} checked={kinds.has(kind)} onClick={() => toggle(kind)} title={TEMPLATES[kind].name}>
-                  {TEMPLATES[kind].description}
+                <Choice key={kind} checked={kinds.has(kind)} onClick={() => toggle(kind)} title={t(`config.queue.${kind}`)}>
+                  {t(`config.queue.${kind}.hint`)}
                 </Choice>
               ))}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-body">Only in these repositories (optional)</Label>
-              <TagInput label="Repositories" value={repos} onChange={setRepos} placeholder="acme/web or acme/*" validate={repoError} />
-              <p className="text-callout text-muted-foreground">Empty: every repository you can see.</p>
+              <Label className="text-body">{t("setup.onlyRepos")}</Label>
+              <TagInput label={t("setup.repositories")} value={repos} onChange={setRepos} placeholder={t("setup.repoPlaceholder")} validate={repoError} />
+              <p className="text-callout text-muted-foreground">{t("setup.reposEmpty")}</p>
             </div>
           </section>
         ) : step === 2 ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
-              <h1 id="step-title" className="text-title1 font-bold">How should it tell you?</h1>
+              <h1 id="step-title" className="text-title1 font-bold">{t("setup.notifyTitle")}</h1>
               <p className="text-body text-muted-foreground">
-                A notification and the menu bar icon's animation when something new needs you: a review request, new commits or replies on what you reviewed, approvals and failing
-                CI on yours. What each queue tells you about can be changed in Settings.
+                {t("setup.notifyBody")}
               </p>
             </div>
             {/* A grouped form, as System Settings draws one: rows on one rounded group, hairlines
                 between them, a mini switch. */}
             <div className="flex flex-col divide-y divide-border rounded-(--radius-group) border bg-card">
             <div className="flex min-h-10 items-center justify-between gap-4 px-3 py-2">
-              <Label htmlFor="sound">Play a sound</Label>
+              <Label htmlFor="sound">{t("setup.sound")}</Label>
               <Switch id="sound" size="sm" checked={config.sound} onCheckedChange={(sound) => setConfig({ ...config, sound })} />
             </div>
             <div className="flex min-h-10 items-center justify-between gap-4 px-3 py-2">
               <div>
-                <Label>Check GitHub every</Label>
-                <p className="text-subheadline text-muted-foreground">Only what changed is downloaded again.</p>
+                <Label>{t("setup.checkEvery")}</Label>
+                <p className="text-subheadline text-muted-foreground">{t("setup.checkEveryHint")}</p>
               </div>
               <Select value={String(config.pollSeconds)} onValueChange={(v) => setConfig({ ...config, pollSeconds: Number(v) })}>
-                <SelectTrigger className="min-w-36" aria-label="Check GitHub every">
-                  <SelectValue>{(v: string) => interval(Number(v))}</SelectValue>
+                <SelectTrigger className="min-w-36" aria-label={t("setup.checkEvery")}>
+                  <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {[30, 60, 90, 180, 300, 600].map((s) => (
                     <SelectItem key={s} value={String(s)}>
-                      {interval(s)}
+                      {interval(s, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -200,17 +203,16 @@ export function Setup() {
         ) : step === 3 ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">
-              <h1 id="step-title" className="text-title1 font-bold">Want a second pair of eyes?</h1>
+              <h1 id="step-title" className="text-title1 font-bold">{t("setup.aiTitle")}</h1>
               <p className="text-body text-muted-foreground">
-                Optional. Summaries, problems worth a look and answers about a pull request, from the coding agent you already use, on your own plan. It runs on this computer and can't
-                change anything.
+                {t("setup.aiBody")}
               </p>
             </div>
-            <div role="radiogroup" aria-label="AI" className="flex flex-col gap-1.5">
-              <Choice role="radio" checked={!config.ai.provider} onClick={() => setConfig({ ...config, ai: { ...config.ai, provider: null } })} title="No AI">
-                Everything works without it.
+            <div role="radiogroup" aria-label={t("setup.ai")} className="flex flex-col gap-1.5">
+              <Choice role="radio" checked={!config.ai.provider} onClick={() => setConfig({ ...config, ai: { ...config.ai, provider: null } })} title={t("setup.noAi")}>
+                {t("setup.noAiHint")}
               </Choice>
-              {!statuses ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Looking for coding agents" /> : null}
+              {!statuses ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label={t("setup.lookingForAgents")} /> : null}
               {statuses
                 ? AI_PROVIDERS.map((provider: AiProvider) => {
                     const status = statuses.find((s) => s.provider === provider);
@@ -219,11 +221,11 @@ export function Setup() {
                       return (
                         <div key={provider} className="flex items-center gap-2 py-1 pl-6 text-body text-muted-foreground">
                           <span className="flex-1">
-                            {PROVIDERS[provider].name} · {status?.installed ? <>signed out: run <code className="font-mono text-callout">{status.login_command}</code></> : "not installed"}
+                            {PROVIDERS[provider].name} · {status?.installed ? <>{t("setup.signedOutRun")} <code className="font-mono text-callout">{status.login_command}</code></> : t("setup.notInstalled")}
                           </span>
                           {!status?.installed ? (
                             <Button variant="link" size="xs" onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}>
-                              Get it <ExternalLink />
+                              {t("setup.getIt")} <ExternalLink />
                             </Button>
                           ) : null}
                         </div>
@@ -237,7 +239,7 @@ export function Setup() {
                         onClick={() => setConfig({ ...config, ai: { ...config.ai, provider, model: provider === config.ai.provider ? config.ai.model : "", effort: provider === config.ai.provider ? config.ai.effort : "" } })}
                         title={PROVIDERS[provider].name}
                       >
-                        Ready · {status.version}
+                        {t("setup.readyVersion", { version: status.version ?? "" })}
                       </Choice>
                     );
                   })
@@ -247,10 +249,9 @@ export function Setup() {
         ) : (
           <section className="m-auto flex max-w-sm flex-col items-center gap-4 text-center" aria-labelledby="step-title">
             <Mark className="size-12 text-primary" />
-            <h1 id="step-title" className="text-title1 font-bold">You're set</h1>
+            <h1 id="step-title" className="text-title1 font-bold">{t("setup.doneTitle")}</h1>
             <p className="text-body text-muted-foreground">
-              Focus Diff lives in your menu bar{isMac ? "" : " (the system tray)"}. Click its icon for your queues; it'll light up when something needs you. Model, effort,
-              your own prompts and buttons are in Settings.
+              {isMac ? t("setup.doneBodyMac") : t("setup.doneBodyTray")}
             </p>
           </section>
         )}
@@ -260,19 +261,19 @@ export function Setup() {
           default button. */}
       <footer className="flex h-14 shrink-0 items-center gap-2 border-t px-5">
         <div className="ml-auto flex items-center gap-2">
-          {step === 3 && !config.ai.provider ? <span className="text-callout text-muted-foreground">You can turn it on later.</span> : null}
+          {step === 3 && !config.ai.provider ? <span className="text-callout text-muted-foreground">{t("setup.laterAi")}</span> : null}
           {step > 0 ? (
             <Button variant="outline" className="min-w-20" onClick={() => setStep(step - 1)}>
-              Back
+              {t("setup.back")}
             </Button>
           ) : null}
           {step < STEPS.length - 1 ? (
             <Button className="min-w-20" onClick={() => setStep(step + 1)} disabled={!canContinue}>
-              Continue
+              {t("setup.continue")}
             </Button>
           ) : (
             <Button onClick={() => void finish()} disabled={saving}>
-              {saving ? <Loader2 className="animate-spin" /> : null} Open Focus Diff
+              {saving ? <Loader2 className="animate-spin" /> : null} {t("setup.open")}
             </Button>
           )}
         </div>

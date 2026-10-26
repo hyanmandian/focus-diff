@@ -4,6 +4,7 @@
 
 import { useSyncExternalStore } from "react";
 import { bridge } from "./bridge";
+import type { T } from "./i18n";
 
 /** An assumption, not measured: a working review pace. Careful inspection is under 500 lines an
  *  hour, but a day-to-day review skims imports, tests and renames much faster. */
@@ -110,18 +111,8 @@ export function pullMinutes(pr: LineCounts & { changedFiles: number }, learned: 
   return learned ? minutes * paceFactors(learned).all : minutes;
 }
 
-/** An estimate in words: under a minute, whole minutes, then five-minute steps past an hour. */
-export function formatDuration(minutes: number): string {
-  if (minutes < 1) return "<1 min";
-  if (minutes < 60) return `~${Math.round(minutes)} min`;
-  const rounded = Math.round(minutes / 5) * 5;
-  const hours = Math.floor(rounded / 60);
-  const rest = rounded % 60;
-  return rest ? `~${hours} h ${rest} min` : `~${hours} h`;
-}
-
-/** What the estimate assumes, for its tooltip. */
-export const ESTIMATE_HINT = `Review time assumes about ${LINES_PER_HOUR.toLocaleString("en")} changed lines an hour. Removed lines count a fifth, each file adds 15 seconds, and generated or lock files only add those 15 seconds.`;
+/** What the estimate assumes, for its tooltip. (An estimate in words is t.duration, lib/i18n.ts.) */
+export const estimateHint = (t: T) => t("config.estimateHint", { lines: LINES_PER_HOUR });
 
 // MARK: Time spent on files
 

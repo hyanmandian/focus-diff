@@ -7,28 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LEAVE_OUT, TONES, validPattern, type EventKind, type LeaveOut, type Queue, type QueueKind } from "@/lib/config";
-import { EVENT_LABELS } from "@/lib/copy";
+import { i18n, useT, type T } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "./Form";
 import { TagInput } from "./TagInput";
 
-/** Path filters to start from, the same as Focus Diff's recipes. */
-const PATH_PRESETS: Array<{ name: string; include: string; exclude: string }> = [
-  { name: "Frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
-  { name: "Backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
-  { name: "Code, no tests", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
-  { name: "Infrastructure", include: "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$", exclude: "" },
-  { name: "Database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" },
-  { name: "Docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" },
+/** Path filters to start from, the same as Focus Diff's recipes; `name` keys their words (settings.preset.*). */
+const PATH_PRESETS: Array<{ name: "frontend" | "backend" | "code" | "infra" | "database" | "docs"; include: string; exclude: string }> = [
+  { name: "frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
+  { name: "backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
+  { name: "code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
+  { name: "infra", include: "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$", exclude: "" },
+  { name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" },
+  { name: "docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" },
 ];
 
-const KIND_LABELS: Record<QueueKind, string> = {
-  review: "My review is requested",
-  involved: "I reviewed, commented or was mentioned",
-  authored: "I opened them",
-  merged: "They were merged",
-  custom: "They match a GitHub search",
-};
+const KINDS: QueueKind[] = ["review", "involved", "authored", "merged", "custom"];
 
 /** The events that can happen to the pull requests of each kind of queue. */
 const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
@@ -39,37 +33,32 @@ const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
   custom: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
 };
 
-const LEAVE_OUT_LABELS: Record<LeaveOut, { label: string; hint?: string }> = {
-  drafts: { label: "Drafts" },
-  bots: { label: "What bots do", hint: "Pull requests they open, comments and reviews they post." },
-  approved: { label: "Pull requests I've approved" },
-};
+/** What a queue's notifications can leave out that has a line under its name. */
+const LEAVE_OUT_HINTS: Partial<Record<LeaveOut, "settings.leaveOut.bots.hint">> = { bots: "settings.leaveOut.bots.hint" };
 
-const SKIP_LABELS: Record<Queue["skipIfI"], string> = {
-  approved: "approved",
-  reviewed: "reviewed in any way",
-  tookPart: "took any part in",
-};
+const SKIPS: Array<Queue["skipIfI"]> = ["approved", "reviewed", "tookPart"];
 
-const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(v) ? null : "Use owner/name, or owner/* for all of an owner's repositories");
-const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/.test(v) ? null : "Use organization/team, as in GitHub's @org/team");
-const userError = (v: string) => (/^[\w-]+(\[bot\])?$/.test(v) ? null : "A GitHub username");
+// Called as a value is added, so they read the words then.
+const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(v) ? null : i18n()("settings.repoError"));
+const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/.test(v) ? null : i18n()("settings.teamError"));
+const userError = (v: string) => (/^[\w-]+(\[bot\])?$/.test(v) ? null : i18n()("settings.userError"));
 
-const hours = (h: number) => (h === 0 ? "Never" : h < 24 ? `${h} hours` : `${h / 24} day${h === 24 ? "" : "s"}`);
+const hours = (h: number, t: T) => (h === 0 ? t("settings.never") : h < 24 ? t("settings.hours", { count: h }) : t("settings.days", { count: h / 24 }));
 
 export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queue: Queue) => void }) {
   const set = <K extends keyof Queue>(key: K, value: Queue[K]) => onChange({ ...queue, [key]: value });
   const ids = { name: useId(), include: useId(), exclude: useId(), query: useId() };
   const events = KIND_EVENTS[queue.kind];
+  const t = useT();
 
   return (
     <>
       <Group>
-        <Row label="Name" htmlFor={ids.name}>
+        <Row label={t("settings.name")} htmlFor={ids.name}>
           <Input id={ids.name} value={queue.name} maxLength={40} onChange={(e) => set("name", e.target.value)} className="w-56" />
         </Row>
-        <Row label="Color">
-          <div className="flex gap-2" role="radiogroup" aria-label="Color" onKeyDown={radioKeys}>
+        <Row label={t("settings.color")}>
+          <div className="flex gap-2" role="radiogroup" aria-label={t("settings.color")} onKeyDown={radioKeys}>
             {TONES.map((tone) => (
               <button
                 key={tone}
@@ -77,7 +66,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 role="radio"
                 aria-checked={queue.tone === tone}
                 tabIndex={queue.tone === tone ? 0 : -1}
-                aria-label={tone}
+                aria-label={t(`settings.tone.${tone}`)}
                 onClick={() => set("tone", tone)}
                 // The picked colour ringed, as the accent colours in System Settings are; no change under the pointer.
                 className={cn("size-4 cursor-default rounded-full outline-offset-2 focus-ring", TONE_FILL[tone], queue.tone === tone && "outline-2 outline-(--label-secondary)")}
@@ -87,16 +76,16 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         </Row>
       </Group>
 
-      <Group footer={queue.kind === "custom" ? "GitHub's search qualifiers, as on github.com/pulls. Pull requests only; the filters below still apply." : undefined}>
-        <Row label="Pull requests where" description="What puts a pull request in this queue.">
+      <Group footer={queue.kind === "custom" ? t("settings.customFooter") : undefined}>
+        <Row label={t("settings.pullRequestsWhere")} description={t("settings.pullRequestsWhereHint")}>
           <Select value={queue.kind} onValueChange={(v) => set("kind", v as QueueKind)}>
-            <SelectTrigger className="w-64" aria-label="Pull requests where">
-              <SelectValue>{(v: QueueKind) => KIND_LABELS[v]}</SelectValue>
+            <SelectTrigger className="min-w-64" aria-label={t("settings.pullRequestsWhere")}>
+              <SelectValue>{(v: QueueKind) => t(`settings.kind.${v}`)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(KIND_LABELS) as QueueKind[]).map((kind) => (
+              {KINDS.map((kind) => (
                 <SelectItem key={kind} value={kind}>
-                  {KIND_LABELS[kind]}
+                  {t(`settings.kind.${kind}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -104,22 +93,22 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         </Row>
         {queue.kind === "review" ? (
           <>
-            <SwitchRow checked={queue.hideOnceReviewed} onChange={(v) => set("hideOnceReviewed", v)} label="Leave once I've reviewed or commented" hint="It moves on to a queue of updates, if you have one." />
-            <SwitchRow checked={queue.directOnly} onChange={(v) => set("directOnly", v)} label="Only when I'm asked directly" hint="Not when one of my teams is." />
+            <SwitchRow checked={queue.hideOnceReviewed} onChange={(v) => set("hideOnceReviewed", v)} label={t("settings.hideOnceReviewed")} hint={t("settings.hideOnceReviewedHint")} />
+            <SwitchRow checked={queue.directOnly} onChange={(v) => set("directOnly", v)} label={t("settings.directOnly")} hint={t("settings.directOnlyHint")} />
             {!queue.directOnly ? (
-              <Row stacked label="Count requests to these teams as mine" description="Empty: all my teams.">
-                <TagInput label="Teams" value={queue.teams} onChange={(v) => set("teams", v)} placeholder="acme/web-platform" validate={teamError} />
+              <Row stacked label={t("settings.teamsMine")} description={t("settings.allMyTeams")}>
+                <TagInput label={t("settings.teams")} value={queue.teams} onChange={(v) => set("teams", v)} placeholder="acme/web-platform" validate={teamError} />
               </Row>
             ) : null}
-            <Row label="Call out pull requests waiting on me for" description="Counted from when you (or your team) were last asked.">
+            <Row label={t("settings.stale")} description={t("settings.staleHint")}>
               <Select value={String(queue.staleHours)} onValueChange={(v) => set("staleHours", Number(v))}>
-                <SelectTrigger className="w-32" aria-label="Waiting long after">
-                  <SelectValue>{(v: string) => hours(Number(v))}</SelectValue>
+                <SelectTrigger className="min-w-32" aria-label={t("settings.staleLabel")}>
+                  <SelectValue>{(v: string) => hours(Number(v), t)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {[4, 8, 24, 48, 72, 0].map((h) => (
                     <SelectItem key={h} value={String(h)}>
-                      {hours(h)}
+                      {hours(h, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -127,32 +116,32 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             </Row>
           </>
         ) : null}
-        {queue.kind === "involved" ? <SwitchRow checked={queue.onlyNews} onChange={(v) => set("onlyNews", v)} label="Only with something new since my last word" /> : null}
+        {queue.kind === "involved" ? <SwitchRow checked={queue.onlyNews} onChange={(v) => set("onlyNews", v)} label={t("settings.onlyNews")} /> : null}
         {queue.kind === "merged" ? (
           <>
-            <Row label="In the last">
+            <Row label={t("settings.inTheLast")}>
               <Select value={String(queue.mergedDays)} onValueChange={(v) => set("mergedDays", Number(v))}>
-                <SelectTrigger className="w-28" aria-label="Days">
-                  <SelectValue>{(v: string) => `${v} ${v === "1" ? "day" : "days"}`}</SelectValue>
+                <SelectTrigger className="min-w-28" aria-label={t("settings.daysLabel")}>
+                  <SelectValue>{(v: string) => t("settings.days", { count: Number(v) })}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {[1, 3, 7, 14, 30].map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {d} {d === 1 ? "day" : "days"}
+                      {t("settings.days", { count: d })}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Row>
-            <Row label="Leave out those I" description="And those you took yourself off the review of.">
+            <Row label={t("settings.skipIfI")} description={t("settings.skipIfIHint")}>
               <Select value={queue.skipIfI} onValueChange={(v) => set("skipIfI", v as Queue["skipIfI"])}>
-                <SelectTrigger className="w-48" aria-label="Leave out those I">
-                  <SelectValue>{(v: Queue["skipIfI"]) => SKIP_LABELS[v]}</SelectValue>
+                <SelectTrigger className="min-w-48" aria-label={t("settings.skipIfI")}>
+                  <SelectValue>{(v: Queue["skipIfI"]) => t(`settings.skip.${v}`)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(SKIP_LABELS) as Array<Queue["skipIfI"]>).map((k) => (
+                  {SKIPS.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {SKIP_LABELS[k]}
+                      {t(`settings.skip.${k}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -161,38 +150,38 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             <SwitchRow
               checked={queue.requestedOnly}
               onChange={(v) => set("requestedOnly", v)}
-              label="Only those my review was asked on"
-              hint="Asked of you or of one of your teams, even if someone else reviewed first."
+              label={t("settings.requestedOnly")}
+              hint={t("settings.requestedOnlyHint")}
             />
             {queue.requestedOnly ? (
               <>
-                <SwitchRow checked={queue.directOnly} onChange={(v) => set("directOnly", v)} label="Only when I was asked directly" hint="Not when one of my teams was." />
+                <SwitchRow checked={queue.directOnly} onChange={(v) => set("directOnly", v)} label={t("settings.directOnlyPast")} hint={t("settings.directOnlyPastHint")} />
                 {!queue.directOnly ? (
-                  <Row stacked label="Count asks to these teams" description="Empty: all my teams.">
-                    <TagInput label="Teams" value={queue.teams} onChange={(v) => set("teams", v)} placeholder="acme/web-platform" validate={teamError} />
+                  <Row stacked label={t("settings.teamsAsks")} description={t("settings.allMyTeams")}>
+                    <TagInput label={t("settings.teams")} value={queue.teams} onChange={(v) => set("teams", v)} placeholder="acme/web-platform" validate={teamError} />
                   </Row>
                 ) : null}
               </>
             ) : null}
-            <Row stacked label="Leave out those merged by">
-              <TagInput label="Mergers to leave out" value={queue.skipMergedBy} onChange={(v) => set("skipMergedBy", v)} placeholder="username" validate={userError} />
+            <Row stacked label={t("settings.skipMergedBy")}>
+              <TagInput label={t("settings.skipMergedByLabel")} value={queue.skipMergedBy} onChange={(v) => set("skipMergedBy", v)} placeholder={t("settings.usernamePlaceholder")} validate={userError} />
             </Row>
           </>
         ) : null}
         {queue.kind === "custom" ? (
-          <Row stacked label="GitHub search" htmlFor={ids.query}>
+          <Row stacked label={t("settings.githubSearch")} htmlFor={ids.query}>
             <Input id={ids.query} className="font-mono text-callout" spellCheck={false} value={queue.query} onChange={(e) => set("query", e.target.value)} placeholder="is:open team-review-requested:acme/web" />
           </Row>
         ) : null}
       </Group>
 
-      <Group title="In repositories" footer="Empty: every repository you can see.">
+      <Group title={t("settings.inRepositories")} footer={t("settings.everyRepository")}>
         <Row stacked>
-          <TagInput label="Repositories" value={queue.repos} onChange={(v) => set("repos", v)} placeholder="acme/web or acme/*" validate={repoError} />
+          <TagInput label={t("settings.repositories")} value={queue.repos} onChange={(v) => set("repos", v)} placeholder={t("settings.repoPlaceholder")} validate={repoError} />
         </Row>
       </Group>
 
-      <Group title="Changing files" footer="Regular expressions on file paths, like Focus Diff's filters.">
+      <Group title={t("settings.changingFiles")} footer={t("settings.changingFilesFooter")}>
         <Row stacked>
           <div className="flex flex-wrap gap-1.5">
             {PATH_PRESETS.map((preset) => (
@@ -205,17 +194,17 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 aria-pressed={queue.includePaths === preset.include && queue.excludePaths === preset.exclude}
                 onClick={() => onChange({ ...queue, includePaths: preset.include, excludePaths: preset.exclude })}
               >
-                {preset.name}
+                {t(`settings.preset.${preset.name}`)}
               </Button>
             ))}
             {queue.includePaths || queue.excludePaths ? (
               <Button type="button" size="xs" variant="link" onClick={() => onChange({ ...queue, includePaths: "", excludePaths: "" })}>
-                Any file
+                {t("settings.anyFile")}
               </Button>
             ) : null}
           </div>
         </Row>
-        <Row label="Include" htmlFor={ids.include}>
+        <Row label={t("settings.include")} htmlFor={ids.include}>
           <Input
             id={ids.include}
             className="w-80 font-mono text-callout"
@@ -223,10 +212,10 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             value={queue.includePaths}
             aria-invalid={!validPattern(queue.includePaths)}
             onChange={(e) => set("includePaths", e.target.value)}
-            placeholder="any file"
+            placeholder={t("settings.anyFilePlaceholder")}
           />
         </Row>
-        <Row label="Exclude" htmlFor={ids.exclude}>
+        <Row label={t("settings.exclude")} htmlFor={ids.exclude}>
           <Input
             id={ids.exclude}
             className="w-80 font-mono text-callout"
@@ -234,77 +223,77 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             value={queue.excludePaths}
             aria-invalid={!validPattern(queue.excludePaths)}
             onChange={(e) => set("excludePaths", e.target.value)}
-            placeholder="nothing"
+            placeholder={t("settings.nothingPlaceholder")}
           />
         </Row>
         {!validPattern(queue.includePaths) || !validPattern(queue.excludePaths) ? (
           <Row>
             <p className="text-subheadline text-destructive" role="alert">
-              That isn't a valid regular expression yet; it's ignored until it is.
+              {t("settings.invalidPattern")}
             </p>
           </Row>
         ) : null}
       </Group>
 
       <Group>
-        <Row label="Drafts">
-          <ToggleGroup value={[queue.drafts]} onValueChange={(v: string[]) => v[0] && set("drafts", v[0] as Queue["drafts"])} variant="outline" size="sm" aria-label="Drafts">
-            <ToggleGroupItem value="show">Show</ToggleGroupItem>
-            <ToggleGroupItem value="hide">Hide</ToggleGroupItem>
-            <ToggleGroupItem value="only">Only drafts</ToggleGroupItem>
+        <Row label={t("settings.drafts")}>
+          <ToggleGroup value={[queue.drafts]} onValueChange={(v: string[]) => v[0] && set("drafts", v[0] as Queue["drafts"])} variant="outline" size="sm" aria-label={t("settings.drafts")}>
+            <ToggleGroupItem value="show">{t("settings.drafts.show")}</ToggleGroupItem>
+            <ToggleGroupItem value="hide">{t("settings.drafts.hide")}</ToggleGroupItem>
+            <ToggleGroupItem value="only">{t("settings.drafts.only")}</ToggleGroupItem>
           </ToggleGroup>
         </Row>
       </Group>
 
-      <Group title="Leave out">
-        <SwitchRow checked={queue.hideBots} onChange={(v) => set("hideBots", v)} label="Pull requests opened by bots" hint="Dependabot, Renovate and the like." />
-        <Row stacked label="Opened by">
-          <TagInput label="Authors to leave out" value={queue.excludeAuthors} onChange={(v) => set("excludeAuthors", v)} placeholder="username" validate={userError} />
+      <Group title={t("settings.leaveOut")}>
+        <SwitchRow checked={queue.hideBots} onChange={(v) => set("hideBots", v)} label={t("settings.hideBots")} hint={t("settings.hideBotsHint")} />
+        <Row stacked label={t("settings.openedBy")}>
+          <TagInput label={t("settings.authorsLabel")} value={queue.excludeAuthors} onChange={(v) => set("excludeAuthors", v)} placeholder={t("settings.usernamePlaceholder")} validate={userError} />
         </Row>
-        <Row stacked label="Approved by">
-          <TagInput label="Approvers to leave out" value={queue.skipApprovedBy} onChange={(v) => set("skipApprovedBy", v)} placeholder="username" validate={userError} />
+        <Row stacked label={t("settings.approvedBy")}>
+          <TagInput label={t("settings.approversLabel")} value={queue.skipApprovedBy} onChange={(v) => set("skipApprovedBy", v)} placeholder={t("settings.usernamePlaceholder")} validate={userError} />
         </Row>
-        <Row stacked label="Only with labels">
-          <TagInput label="Labels to require" value={queue.includeLabels} onChange={(v) => set("includeLabels", v)} placeholder="label" />
+        <Row stacked label={t("settings.onlyLabels")}>
+          <TagInput label={t("settings.onlyLabelsLabel")} value={queue.includeLabels} onChange={(v) => set("includeLabels", v)} placeholder={t("settings.labelPlaceholder")} />
         </Row>
-        <Row stacked label="Without labels">
-          <TagInput label="Labels to leave out" value={queue.excludeLabels} onChange={(v) => set("excludeLabels", v)} placeholder="label" />
+        <Row stacked label={t("settings.withoutLabels")}>
+          <TagInput label={t("settings.withoutLabelsLabel")} value={queue.excludeLabels} onChange={(v) => set("excludeLabels", v)} placeholder={t("settings.labelPlaceholder")} />
         </Row>
       </Group>
 
-      <Group title="Notify me when" footer="Cards still show everything that's new.">
+      <Group title={t("settings.notifyWhen")} footer={t("settings.notifyWhenFooter")}>
         {events.map((kind) => (
           <SwitchRow
             key={kind}
             checked={queue.notify.includes(kind)}
             onChange={(on) => set("notify", on ? [...queue.notify, kind] : queue.notify.filter((k) => k !== kind))}
-            label={EVENT_LABELS[kind]}
+            label={t(`events.label.${kind}`)}
           />
         ))}
       </Group>
 
       {queue.notify.length ? (
         <>
-          <Group footer="At review time, they wait for your next one and come with what to review. With no review time set, they show right away.">
-            <Row label="Tell me">
-              <ToggleGroup value={[queue.notifyAt]} onValueChange={(v: string[]) => v[0] && set("notifyAt", v[0] as Queue["notifyAt"])} variant="outline" size="sm" aria-label="When to tell me">
-                <ToggleGroupItem value="now">Right away</ToggleGroupItem>
-                <ToggleGroupItem value="review">At review time</ToggleGroupItem>
+          <Group footer={t("settings.notifyAtFooter")}>
+            <Row label={t("settings.tellMe")}>
+              <ToggleGroup value={[queue.notifyAt]} onValueChange={(v: string[]) => v[0] && set("notifyAt", v[0] as Queue["notifyAt"])} variant="outline" size="sm" aria-label={t("settings.whenToTellMe")}>
+                <ToggleGroupItem value="now">{t("settings.rightAway")}</ToggleGroupItem>
+                <ToggleGroupItem value="review">{t("settings.atReviewTime")}</ToggleGroupItem>
               </ToggleGroup>
             </Row>
           </Group>
-          <Group title="Leave out of notifications" footer="They still show in the queue.">
+          <Group title={t("settings.leaveOutNotifications")} footer={t("settings.leaveOutNotificationsFooter")}>
             {LEAVE_OUT.map((kind) => (
               <SwitchRow
                 key={kind}
                 checked={queue.notifyLeaveOut.includes(kind)}
                 onChange={(on) => set("notifyLeaveOut", on ? [...queue.notifyLeaveOut, kind] : queue.notifyLeaveOut.filter((k) => k !== kind))}
-                label={LEAVE_OUT_LABELS[kind].label}
-                hint={LEAVE_OUT_LABELS[kind].hint}
+                label={t(`settings.leaveOut.${kind}`)}
+                hint={LEAVE_OUT_HINTS[kind] ? t(LEAVE_OUT_HINTS[kind]) : undefined}
               />
             ))}
-            <Row stacked label="Only in these repositories" description="Empty: every repository in this queue.">
-              <TagInput label="Repositories to notify about" value={queue.notifyRepos} onChange={(v) => set("notifyRepos", v)} placeholder="acme/web or acme/*" validate={repoError} />
+            <Row stacked label={t("settings.notifyRepos")} description={t("settings.notifyReposHint")}>
+              <TagInput label={t("settings.notifyReposLabel")} value={queue.notifyRepos} onChange={(v) => set("notifyRepos", v)} placeholder={t("settings.repoPlaceholder")} validate={repoError} />
             </Row>
           </Group>
         </>

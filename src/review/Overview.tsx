@@ -9,7 +9,8 @@ import { PROVIDERS, type AiReview } from "@/lib/ai";
 import { avatar } from "@/lib/avatar";
 import { bridge } from "@/lib/bridge";
 import type { Config } from "@/lib/config";
-import { ago, firstName } from "@/lib/copy";
+import { firstName } from "@/lib/copy";
+import { useT } from "@/lib/i18n";
 import type { Details } from "@/lib/details";
 import type { Actor } from "@/lib/engine";
 import type { Thread } from "@/lib/review";
@@ -32,10 +33,11 @@ function Person({ actor, className }: { actor: Actor; className?: string }) {
 
 /** GitHub's HTML, cleaned (sanitize.ts); links open in the browser. */
 function Html({ html, className }: { html: string; className?: string }) {
+  const t = useT();
   const clean = sanitize(html);
   const ref = useRef<HTMLDivElement>(null);
   useDiagrams(ref, clean);
-  if (!clean.trim()) return <p className="text-body text-muted-foreground italic">No description.</p>;
+  if (!clean.trim()) return <p className="text-body text-muted-foreground italic">{t("review.noDescription")}</p>;
   return (
     <div
       ref={ref}
@@ -68,46 +70,55 @@ function Html({ html, className }: { html: string; className?: string }) {
   );
 }
 
+// Their words: t(`review.check.${state}`).
 const CHECK_ICON = {
-  success: { icon: CircleCheck, className: "text-success", label: "Passed" },
-  failure: { icon: CircleX, className: "text-destructive", label: "Failed" },
-  pending: { icon: CircleDot, className: "text-warning", label: "Running" },
-  neutral: { icon: CircleMinus, className: "text-muted-foreground", label: "Skipped" },
+  success: { icon: CircleCheck, className: "text-success" },
+  failure: { icon: CircleX, className: "text-destructive" },
+  pending: { icon: CircleDot, className: "text-warning" },
+  neutral: { icon: CircleMinus, className: "text-muted-foreground" },
 } as const;
 
+// Their words: t(`review.state.${state}`) on its own, t(`review.did.${state}`) after a name.
 const REVIEW_STATE = {
-  APPROVED: { label: "Approved", className: "text-success" },
-  CHANGES_REQUESTED: { label: "Changes requested", className: "text-destructive" },
-  COMMENTED: { label: "Commented", className: "text-muted-foreground" },
-  PENDING: { label: "Not reviewed yet", className: "text-muted-foreground" },
-  DISMISSED: { label: "Dismissed", className: "text-muted-foreground" },
+  APPROVED: "text-success",
+  CHANGES_REQUESTED: "text-destructive",
+  COMMENTED: "text-muted-foreground",
+  PENDING: "text-muted-foreground",
+  DISMISSED: "text-muted-foreground",
 } as const;
+type ReviewState = keyof typeof REVIEW_STATE;
+const isReviewState = (state: string): state is ReviewState => state in REVIEW_STATE;
 
 /** The AI review's summary, and its comments that aren't on a line of the diff (GitHub only takes
  *  those on the diff's lines; these are for you to read). */
 function ReviewSummary({ config, review, reviewing, error, onJump }: { config: Config; review: AiReview | null; reviewing: boolean; error: string | null; onJump: (path: string, line: number | null) => void }) {
+  const t = useT();
   if (!review && !reviewing && !error) return null;
   const elsewhere = review?.findings.filter((f) => !f.inDiff) ?? [];
   const onLines = (review?.findings.length ?? 0) - elsewhere.length;
   return (
     <section aria-labelledby="ai-review" className="flex flex-col gap-2 rounded-xl border border-violet/30 bg-violet/5 p-3" aria-busy={reviewing}>
       <h3 id="ai-review" className="flex items-center gap-2 text-headline font-bold">
-        <Sparkles className="size-3.5 text-violet" aria-hidden /> AI review
-        <span className="font-normal text-muted-foreground">by {PROVIDERS[config.ai.provider ?? "claude"].name}</span>
-        {reviewing ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label="Reviewing" /> : null}
+        <Sparkles className="size-3.5 text-violet" aria-hidden /> {t("review.aiReviewHeading")}
+        <span className="font-normal text-muted-foreground">{t("review.by", { name: PROVIDERS[config.ai.provider ?? "claude"].name })}</span>
+        {reviewing ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("review.reviewing")} /> : null}
       </h3>
       {error ? (
         <p className="text-callout text-destructive" role="alert">
           {error}
         </p>
       ) : reviewing ? (
-        <p className="text-callout text-muted-foreground">{config.ai.project ? "Reading the project and the diff… this can take a few minutes." : "Reading the diff…"}</p>
+        <p className="text-callout text-muted-foreground">{config.ai.project ? t("review.readingProject") : t("review.readingDiff")}</p>
       ) : review ? (
         <>
           {review.summary ? <AiAnswer text={review.summary} /> : null}
           <p className="text-callout text-muted-foreground">
-            {review.findings.length ? `${onLines} comment${onLines === 1 ? "" : "s"} on the diff${elsewhere.length ? `, ${elsewhere.length} elsewhere` : ""}.` : "Nothing worth raising."}
-            {review.note ? ` ${review.note}.` : review.project ? " Read the whole project." : ""}
+            {review.findings.length
+              ? elsewhere.length
+                ? t("review.onDiffElsewhere", { count: onLines, elsewhere: elsewhere.length })
+                : t("review.onDiff", { count: onLines })
+              : t("review.nothingWorth")}
+            {review.note ? ` ${review.note}.` : review.project ? ` ${t("review.readProject")}` : ""}
           </p>
           {elsewhere.map((f, i) => (
             <div key={`${f.path}:${f.line}:${i}`} className="rounded-lg border bg-background p-2">
@@ -115,8 +126,8 @@ function ReviewSummary({ config, review, reviewing, error, onJump }: { config: C
                 <p className="min-w-0 flex-1 truncate font-mono text-subheadline text-muted-foreground">
                   {f.path}:{f.line}
                 </p>
-                <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(f.path, null)} aria-label={`Show ${f.path} in the diff`}>
-                  <ArrowDownToLine /> Go to File
+                <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(f.path, null)} aria-label={t("review.showInDiff", { path: f.path })}>
+                  <ArrowDownToLine /> {t("review.goToFile")}
                 </Button>
               </div>
               <div className="mt-1">
@@ -148,14 +159,15 @@ type Props = {
 
 /** Where a conversation on a line is, with a way to it in the diff. */
 function Where({ path, line, onJump }: { path: string; line: number | null; onJump: Props["onJump"] }) {
+  const t = useT();
   return (
     <div className="mb-1.5 flex items-center gap-2">
       <p className="min-w-0 flex-1 truncate font-mono text-subheadline text-muted-foreground">
         {path}
         {line ? `:${line}` : ""}
       </p>
-      <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(path, line)} aria-label={`Show ${path}${line ? ` line ${line}` : ""} in the diff`}>
-        <ArrowDownToLine /> {line ? "Go to Line" : "Go to File"}
+      <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(path, line)} aria-label={line ? t("review.showLineInDiff", { path, line: String(line) }) : t("review.showInDiff", { path })}>
+        <ArrowDownToLine /> {line ? t("review.goToLine") : t("review.goToFile")}
       </Button>
     </div>
   );
@@ -163,11 +175,12 @@ function Where({ path, line, onJump }: { path: string; line: number | null; onJu
 
 /** The comment box at the end of the conversation, closed until it's wanted. */
 function AddComment({ onComment }: { onComment: Props["onComment"] }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return open ? (
     <Composer
-      placeholder="Comment on this pull request"
-      submitLabel="Comment"
+      placeholder={t("review.commentOnPull")}
+      submitLabel={t("review.comment")}
       onSubmit={async (body) => {
         await onComment(body);
         setOpen(false);
@@ -176,12 +189,15 @@ function AddComment({ onComment }: { onComment: Props["onComment"] }) {
     />
   ) : (
     <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
-      <MessageSquarePlus /> Add Comment
+      <MessageSquarePlus /> {t("review.addComment")}
     </Button>
   );
 }
 
 export function Overview({ config, details, review, reviewing, reviewError, onJump, threads, onReply, onResolve, onComment }: Props) {
+  const t = useT();
+  // "{who} opened it {ago}", with the name set apart.
+  const [beforeWho, afterWho] = t("review.openedBy", { who: "\u0000", ago: t.ago(Date.parse(details.createdAt)) }).split("\u0000");
   // Each conversation on a line shows once, under the review that started it (as on GitHub); the
   // replies, which GitHub keeps as reviews of their own, are in it.
   const byComment = useMemo(() => new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const))), [threads]);
@@ -192,12 +208,14 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
       <div className="flex min-w-0 flex-col gap-8">
         <section aria-labelledby="description" className="rounded-xl border bg-card p-5">
           <h2 id="description" className="sr-only">
-            Description
+            {t("review.description")}
           </h2>
           <div className="mb-3 flex items-center gap-2 text-callout text-muted-foreground">
             <Person actor={details.author} />
             <span>
-              <span className="font-medium text-foreground">{firstName(details.author)}</span> opened it {ago(Date.parse(details.createdAt))} ago ·{" "}
+              {beforeWho}
+              <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
+              {afterWho} ·{" "}
               <span className="font-mono">{details.headRefName}</span> → <span className="font-mono">{details.baseRefName}</span>
             </span>
           </div>
@@ -205,7 +223,7 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
         </section>
         <section aria-labelledby="conversation" className="flex flex-col gap-5">
           <h2 id="conversation" className="text-headline font-bold">
-            Conversation <span className="font-normal text-muted-foreground tabular-nums">{details.entries.length}</span>
+            {t("review.conversation")} <span className="font-normal text-muted-foreground tabular-nums">{details.entries.length}</span>
           </h2>
               {details.entries.length ? (
                 details.entries.map((entry) => {
@@ -224,8 +242,8 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                       <Person actor={entry.author} className="mt-0.5 size-6" />
                       <div className="min-w-0 flex-1">
                         <p className="text-callout text-muted-foreground">
-                          <span className="font-medium text-foreground">{firstName(entry.author)}</span>
-                          {entry.kind === "review" ? <span className={cn(" ml-1", REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.className)}>{REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.label.toLowerCase()}</span> : null} · {ago(Date.parse(entry.at))}
+                          <span className="font-medium text-foreground">{firstName(entry.author, t)}</span>
+                          {entry.kind === "review" && isReviewState(entry.state) ? <span className={cn(" ml-1", REVIEW_STATE[entry.state])}>{t(`review.did.${entry.state}`)}</span> : null} · {t.since(Date.parse(entry.at))}
                         </p>
                         {entry.html.trim() ? <Html html={entry.html} className="mt-1" /> : null}
                         {parts.map(({ key, comment: c, thread }) =>
@@ -246,43 +264,43 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                   );
                 })
               ) : (
-                <p className="text-body text-muted-foreground">No conversation yet.</p>
+                <p className="text-body text-muted-foreground">{t("review.noConversation")}</p>
               )}
               <AddComment onComment={onComment} />
         </section>
       </div>
-      <aside className="flex min-w-0 flex-col gap-6" aria-label="At a glance">
+      <aside className="flex min-w-0 flex-col gap-6" aria-label={t("review.atAGlance")}>
         {config?.ai.provider ? <ReviewSummary config={config} review={review} reviewing={reviewing} error={reviewError} onJump={onJump} /> : null}
         {config ? <AskAi config={config} details={details} /> : null}
         <section aria-labelledby="reviewers" className="flex flex-col gap-2">
           <h3 id="reviewers" className="text-subheadline font-semibold text-muted-foreground">
-            Reviewers
+            {t("review.reviewers")}
           </h3>
           {details.reviewers.length ? (
             <ul className="flex flex-col gap-1.5">
               {details.reviewers.map(({ actor, state, team }) => (
                 <li key={`${actor?.login}${team ?? ""}`} className="flex items-center gap-2 text-body">
                   {team ? <span className="grid size-5 place-items-center rounded-full bg-muted text-footnote font-semibold">{team.slice(0, 2).toUpperCase()}</span> : <Person actor={actor} />}
-                  <span className="truncate">{team ?? firstName(actor)}</span>
-                  <span className={cn("ml-auto text-callout", REVIEW_STATE[state]?.className)}>{REVIEW_STATE[state]?.label ?? state}</span>
+                  <span className="truncate">{team ?? firstName(actor, t)}</span>
+                  <span className={cn("ml-auto text-callout", isReviewState(state) && REVIEW_STATE[state])}>{isReviewState(state) ? t(`review.state.${state}`) : state}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-callout text-muted-foreground">Nobody asked yet.</p>
+            <p className="text-callout text-muted-foreground">{t("review.nobodyAsked")}</p>
           )}
         </section>
         {details.checks.length ? (
           <section aria-labelledby="checks" className="flex flex-col gap-2">
             <h3 id="checks" className="text-subheadline font-semibold text-muted-foreground">
-              Checks
+              {t("review.checks")}
             </h3>
             <ul className="flex flex-col gap-1">
               {details.checks.slice(0, 12).map((check) => {
                 const s = CHECK_ICON[check.state];
                 const row = (
                   <>
-                    <s.icon className={cn("size-3.5 shrink-0", s.className)} aria-label={s.label} />
+                    <s.icon className={cn("size-3.5 shrink-0", s.className)} aria-label={t(`review.check.${check.state}`)} />
                     <span className="truncate">{check.name}</span>
                   </>
                 );
@@ -299,7 +317,7 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                 );
               })}
             </ul>
-            {details.checks.length > 12 ? <p className="text-callout text-muted-foreground">and {details.checks.length - 12} more</p> : null}
+            {details.checks.length > 12 ? <p className="text-callout text-muted-foreground">{t("review.checksMore", { count: details.checks.length - 12 })}</p> : null}
           </section>
         ) : null}
       </aside>

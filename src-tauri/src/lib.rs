@@ -16,6 +16,7 @@ mod engine;
 #[cfg(target_os = "macos")]
 mod floating;
 mod github;
+mod i18n;
 mod kept;
 mod media;
 mod menu;
@@ -92,6 +93,7 @@ fn write_file(app: AppHandle, name: &str, contents: &str) -> Result<(), String> 
     match name {
         "config" => {
             menu::apply_theme(&app, contents);
+            apply_language(&app, contents);
             app.state::<watch::Watch>().send(watch::Message::Config);
         }
         "auth" => app.state::<watch::Watch>().send(watch::Message::Auth),
@@ -234,7 +236,7 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
                 let cache = app.path().app_cache_dir().map_err(|e| e.to_string());
                 match token.and_then(|t| cache.and_then(|c| checkout::prepare(&c, &t, &p.repo, p.number, &p.head))) {
                     Ok(folder) => (Some(folder), None),
-                    Err(e) => (None, Some(format!("Read the diff only: couldn't get the project's code ({e})"))),
+                    Err(e) => (None, Some(i18n::tr!("Read the diff only: couldn't get the project's code ({e})", "Leu só o diff: não foi possível obter o código do projeto ({e})"))),
                 }
             }
         };
@@ -285,20 +287,48 @@ pub(crate) fn update_tray<R: Runtime>(app: &AppHandle<R>, count: u32, animate: b
 }
 
 /// Review time's minutes left beside the tray icon, or none.
-pub(crate) fn update_countdown<R: Runtime>(app: &AppHandle<R>, text: Option<String>) {
+pub(crate) fn update_countdown<R: Runtime>(app: &AppHandle<R>, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
-        eprintln!("[tray] countdown {text:?}");
+        eprintln!("[tray] countdown {minutes:?}");
     }
     if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
-        tray::countdown(icon, text);
+        tray::countdown(icon, minutes);
     }
+}
+
+/// The language picked in Settings (or the Mac's), for what Rust says: the menu bar, the tray and
+/// the windows' titles say it again when it changes; notifications use it from then on.
+fn apply_language<R: Runtime>(app: &AppHandle<R>, config: &str) {
+    let before = i18n::current();
+    i18n::apply_config(config);
+    if i18n::current() == before {
+        return;
+    }
+    menu::relocalize(app);
+    if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
+        tray::relocalize(icon);
+    }
+    if let Some(window) = app.get_webview_window(SETTINGS) {
+        let _ = window.set_title(&settings_title());
+    }
+    if let Some(window) = app.get_webview_window(SETUP) {
+        let _ = window.set_title(&setup_title());
+    }
+}
+
+fn settings_title() -> String {
+    i18n::tr!("Focus Diff Settings", "Ajustes do Focus Diff")
+}
+
+fn setup_title() -> String {
+    i18n::tr!("Welcome to Focus Diff", "Boas-vindas ao Focus Diff")
 }
 
 /// Web links only, in the default browser.
 #[tauri::command]
 fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
-        return Err("Only https links open".into());
+        return Err(i18n::tr!("Only https links open", "Só links https abrem"));
     }
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
@@ -515,7 +545,7 @@ pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()>
         return window.set_focus();
     }
     let builder = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
-        .title("Focus Diff Settings")
+        .title(settings_title())
         .inner_size(860.0, 620.0)
         .min_inner_size(760.0, 540.0)
         .center();
@@ -534,7 +564,7 @@ pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         return window.set_focus();
     }
     let window = WebviewWindowBuilder::new(app, SETUP, WebviewUrl::App("setup.html".into()))
-        .title("Welcome to Focus Diff")
+        .title(setup_title())
         .inner_size(600.0, 640.0)
         .min_inner_size(520.0, 560.0)
         .center()
@@ -861,9 +891,13 @@ pub fn run() {
 
             let handle = app.handle().clone();
             move_old_files(&handle);
-            // The theme picked last time, before any window shows.
-            if let Ok(Some(text)) = read_file(handle.clone(), "config") {
-                menu::apply_theme(&handle, &text);
+            // The theme and language picked last time, before any window or menu shows.
+            match read_file(handle.clone(), "config") {
+                Ok(Some(text)) => {
+                    menu::apply_theme(&handle, &text);
+                    i18n::apply_config(&text);
+                }
+                _ => i18n::apply_config(""),
             }
             #[cfg(target_os = "macos")]
             {

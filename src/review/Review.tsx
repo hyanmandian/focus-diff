@@ -22,6 +22,7 @@ import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Findi
 import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
+import { i18n, useT } from "@/lib/i18n";
 import { comment, leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
 import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/estimate";
 import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
@@ -104,13 +105,11 @@ type Event = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 const TOOL = "h-(--toolbar-item-h) rounded-full px-2.5 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
 const TOOL_ICON = "size-(--toolbar-item-h) rounded-full px-0 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
 
-const MERGE_LABEL = { merge: "Create Merge Commit", squash: "Squash and Merge", rebase: "Rebase and Merge" } as const;
-const MERGE_HOW = { merge: "with a merge commit", squash: "as one squashed commit", rebase: "by rebasing its commits" } as const;
-
 /** Submit Review…: the toolbar's one prominent action. Its popover keeps what was typed when it
  *  closes (and across closing the window), as a nonmodal popover should; sending clears it.
  *  `open`/`onOpenChange`: the menu bar's Submit Review… opens it too. */
 function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { details: Details; drafts: Draft[]; open: boolean; onOpenChange: (open: boolean) => void; onSubmitted: () => void }) {
+  const t = useT();
   const own = details.viewerDidAuthor;
   const setOpen = onOpenChange;
   const [event, setEvent] = useState<Event>("COMMENT");
@@ -134,20 +133,19 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button className="h-(--toolbar-item-h) rounded-full px-3.5" />}>
-        <span>
-          Submit<span className="@max-[860px]:hidden"> Review</span>…
-        </span>
+        <span className="@max-[860px]:hidden">{t("review.submit")}</span>
+        <span className="hidden @max-[860px]:inline">{t("review.submitShort")}</span>
         {drafts.length ? <Badge variant="secondary" className="ml-0.5 bg-white/25 text-primary-foreground">{drafts.length}</Badge> : null}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <div className="flex flex-col gap-3">
-          <PopoverTitle>Finish Your Review</PopoverTitle>
+          <PopoverTitle>{t("review.finishTitle")}</PopoverTitle>
           <Textarea
             rows={4}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Leave a comment"
-            aria-label="Review comment"
+            placeholder={t("review.leaveComment")}
+            aria-label={t("review.reviewComment")}
             className="resize-y"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -156,19 +154,19 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
               }
             }}
           />
-          <ToggleGroup value={[event]} onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)} variant="outline" aria-label="Kind of review" className="w-full">
+          <ToggleGroup value={[event]} onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)} variant="outline" aria-label={t("review.kindOfReview")} className="w-full">
             <ToggleGroupItem value="COMMENT" className="flex-1">
-              Comment
+              {t("review.comment")}
             </ToggleGroupItem>
             <ToggleGroupItem value="APPROVE" className="flex-1" disabled={own}>
-              Approve
+              {t("review.approve")}
             </ToggleGroupItem>
             <ToggleGroupItem value="REQUEST_CHANGES" className="flex-1" disabled={own}>
-              Request Changes
+              {t("review.requestChanges")}
             </ToggleGroupItem>
           </ToggleGroup>
-          {own ? <p className="text-callout text-muted-foreground">It's your pull request: you can comment, not approve.</p> : null}
-          {drafts.length ? <p className="text-callout text-muted-foreground">Sends {drafts.length} pending {drafts.length === 1 ? "comment" : "comments"} with it.</p> : null}
+          {own ? <p className="text-callout text-muted-foreground">{t("review.ownPull")}</p> : null}
+          {drafts.length ? <p className="text-callout text-muted-foreground">{t("review.sendsPending", { count: drafts.length })}</p> : null}
           {error ? (
             <p className="text-callout text-destructive" role="alert">
               {error}
@@ -177,7 +175,7 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
           {/* The default button, bottom right; ⌘↩ sends from the field. */}
           <Button className="self-end" onClick={() => void submit()} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : null}
-            {event === "APPROVE" ? "Approve" : event === "REQUEST_CHANGES" ? "Request Changes" : "Comment"}
+            {event === "APPROVE" ? t("review.approve") : event === "REQUEST_CHANGES" ? t("review.requestChanges") : t("review.comment")}
           </Button>
         </div>
       </PopoverContent>
@@ -189,6 +187,7 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
 type Stop = { path: string; line: number; kind: "conversation" | "pending" | "ai" };
 
 export function Review({ target }: { target: Target }) {
+  const t = useT();
   const { id: prId, repo, number, teams } = target;
   const [config, setConfig] = useState<Config | null>(null);
   const [details, setDetails] = useState<Details | null>(null);
@@ -379,7 +378,7 @@ export function Review({ target }: { target: Target }) {
     void markViewed(prId, f.path, v)
       .catch(() => {
         setViewed((m) => (before ? { ...m, [f.path]: before } : without(m, f.path)));
-        say(`Couldn't ${v ? "mark" : "unmark"} ${f.path.slice(f.path.lastIndexOf("/") + 1)} as viewed on GitHub`);
+        say(i18n()(v ? "review.couldntMark" : "review.couldntUnmark", { file: f.path.slice(f.path.lastIndexOf("/") + 1) }));
       })
       .finally(() => {
         const left = (sending.current.get(f.path) ?? 1) - 1;
@@ -471,11 +470,12 @@ export function Review({ target }: { target: Target }) {
   /** Merging can't be undone: a native alert on this window asks first, naming how. */
   const mergeWith = async (method: Details["mergeMethods"][number]) => {
     if (!details) return;
-    const ok = await bridge.confirm(`Merge pull request #${details.number}?`, `“${details.title}” goes into ${details.baseRefName} ${MERGE_HOW[method]}. This can't be undone.`, MERGE_LABEL[method]);
+    const t = i18n();
+    const ok = await bridge.confirm(t("review.mergeConfirm", { number: String(details.number) }), t(`review.mergeConfirm.${method}`, { title: details.title, base: details.baseRefName }), t(`review.mergeMethod.${method}`));
     if (!ok) return;
     void merge(details, method)
       .then(() => {
-        say("Merged");
+        say(i18n()("review.merged"));
         void bridge.refresh(true);
         void load();
       })
@@ -483,10 +483,11 @@ export function Review({ target }: { target: Target }) {
   };
   const leave = async () => {
     if (!details || !me) return;
-    if (!(await bridge.confirm(`Leave the review of #${details.number}?`, "You won't be asked to review it any more, and it leaves your queue.", "Leave Review"))) return;
+    const t = i18n();
+    if (!(await bridge.confirm(t("review.leaveConfirm", { number: String(details.number) }), t("review.leaveConfirmMessage"), t("review.leaveConfirmButton")))) return;
     void leaveReview(details, me, teams)
       .then(() => {
-        say("You left the review");
+        say(i18n()("review.left"));
         void bridge.refresh(true);
       })
       .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)));
@@ -542,7 +543,7 @@ export function Review({ target }: { target: Target }) {
             {error}
           </p>
           <Button variant="outline" onClick={() => void load()}>
-            Try again
+            {t("review.tryAgain")}
           </Button>
         </div>
       </div>
@@ -558,12 +559,12 @@ export function Review({ target }: { target: Target }) {
           menu, then labels turn into icons. The bar is a size container so this follows its width. */}
       <header data-tauri-drag-region className={cn("@container relative z-10 flex shrink-0 items-center gap-2 bg-background pr-2.5 transition-shadow duration-(--duration)", isMac ? "h-(--toolbar-h) pl-(--traffic-lights-inset)" : "h-11 pl-2", scrolled && "shadow-[0_1px_0_var(--separator)]")}>
         {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
-        <div role="tablist" onKeyDown={tabKeys} aria-label="View" className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5">
+        <div role="tablist" onKeyDown={tabKeys} aria-label={t("review.view")} className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5">
           <SlidingPill selected={tab} className="rounded-full bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
           {(
             [
-              ["overview", "Overview", details?.entries.length],
-              ["diff", "Diff", files?.length],
+              ["overview", t("review.overview"), details?.entries.length],
+              ["diff", t("review.diff"), files?.length],
             ] as const
           ).map(([value, label, count]) => (
             <button
@@ -601,7 +602,7 @@ export function Review({ target }: { target: Target }) {
                 </p>
               ) : (
                 <p data-tauri-drag-region className="truncate text-subheadline text-muted-foreground @max-[1180px]:hidden">
-                  {repo} #{number} · {firstName(details.author)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
+                  {repo} #{number} · {firstName(details.author, t)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
                 </p>
               )}
             </>
@@ -626,39 +627,39 @@ export function Review({ target }: { target: Target }) {
         >
           <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
             {/* Stepping through the comments (n and p from the keyboard), one capsule. */}
-            <div role="group" aria-label="Comments" className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+            <div role="group" aria-label={t("review.comments")} className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label="Previous comment" disabled={!stops.length} onClick={() => step(-1)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label={t("review.previousComment")} disabled={!stops.length} onClick={() => step(-1)} />}>
                   <ChevronUp />
                 </TooltipTrigger>
                 <TooltipContent>
-                  Previous Comment <Kbd>p</Kbd>
+                  {t("review.previousCommentTip")} <Kbd>p</Kbd>
                 </TooltipContent>
               </Tooltip>
               <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
                 <span className="inline-block min-w-[6.5rem] @max-[960px]:sr-only">
-                  {stops.length ? (stop >= 0 ? `Comment ${stop + 1} of ${stops.length}` : `${stops.length} comment${stops.length === 1 ? "" : "s"}`) : "No open comments"}
+                  {stops.length ? (stop >= 0 ? t("review.commentOf", { index: stop + 1, total: stops.length }) : t("common.comments", { count: stops.length })) : t("review.noOpenComments")}
                 </span>
                 <span aria-hidden className="hidden min-w-5 @max-[960px]:inline-block">
                   {stops.length ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
                 </span>
               </span>
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label="Next comment" disabled={!stops.length} onClick={() => step(1)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label={t("review.nextComment")} disabled={!stops.length} onClick={() => step(1)} />}>
                   <ChevronDown />
                 </TooltipTrigger>
                 <TooltipContent>
-                  Next Comment <Kbd>n</Kbd>
+                  {t("review.nextCommentTip")} <Kbd>n</Kbd>
                 </TooltipContent>
               </Tooltip>
             </div>
             {/* Layout and wrapping, one capsule of glyphs. */}
             <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-              <ToggleGroup value={[diffStyle]} onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")} spacing={0} aria-label="Layout" className="h-full rounded-full">
+              <ToggleGroup value={[diffStyle]} onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")} spacing={0} aria-label={t("review.layout")} className="h-full rounded-full">
                 {(
                   [
-                    ["split", "Side by Side", Columns2],
-                    ["unified", "One Column", Rows2],
+                    ["split", t("review.sideBySide"), Columns2],
+                    ["unified", t("review.oneColumn"), Rows2],
                   ] as const
                 ).map(([value, label, Icon]) => (
                   <Tooltip key={value}>
@@ -670,10 +671,10 @@ export function Review({ target }: { target: Target }) {
                 ))}
               </ToggleGroup>
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")} aria-pressed={wrap} aria-label="Wrap long lines" onClick={() => setWrap(!wrap)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")} aria-pressed={wrap} aria-label={t("review.wrap")} onClick={() => setWrap(!wrap)} />}>
                   <WrapText />
                 </TooltipTrigger>
-                <TooltipContent>Wrap Long Lines</TooltipContent>
+                <TooltipContent>{t("review.wrapTip")}</TooltipContent>
               </Tooltip>
             </div>
           </div>
@@ -696,10 +697,10 @@ export function Review({ target }: { target: Target }) {
                   </div>
                   <DropdownMenu>
                     <Tooltip>
-                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1100px]:inline-flex")} aria-label="Actions" />} />}>
+                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1100px]:inline-flex")} aria-label={t("review.actions")} />} />}>
                         <Zap />
                       </TooltipTrigger>
-                      <TooltipContent>Actions</TooltipContent>
+                      <TooltipContent>{t("review.actions")}</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent align="end">
                       <ActionMenuItems
@@ -715,9 +716,9 @@ export function Review({ target }: { target: Target }) {
                 <Tooltip>
                   <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[960px]:w-(--toolbar-item-h) @max-[960px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
                     {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                    <span className="@max-[960px]:sr-only">{current ? "Review Again" : "AI Review"}</span>
+                    <span className="@max-[960px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
                   </TooltipTrigger>
-                  <TooltipContent>{current ? "Review again with AI" : "Review with AI"}</TooltipContent>
+                  <TooltipContent>{current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
                 </Tooltip>
               ) : null}
               {details && details.viewerDidAuthor && isOpen && details.isDraft ? (
@@ -727,28 +728,28 @@ export function Review({ target }: { target: Target }) {
                   onClick={() =>
                     void markReady(details)
                       .then(() => {
-                        say("Ready for review");
+                        say(i18n()("review.readyNotice"));
                         void bridge.refresh(true);
                         void load();
                       })
                       .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
                   }
                 >
-                  Ready for Review
+                  {t("review.markReady")}
                 </Button>
               ) : null}
               {canMerge ? (
                 // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
                 <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
                   <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[960px]:px-2")} />}>
-                    <GitMerge /> <span className="@max-[960px]:sr-only">Merge</span>
+                    <GitMerge /> <span className="@max-[960px]:sr-only">{t("review.merge")}</span>
                     <ChevronDown className="size-3 opacity-70" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Merge Pull Request</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("review.mergeTitle")}</DropdownMenuLabel>
                     {details.mergeMethods.map((method) => (
                       <DropdownMenuItem key={method} onClick={() => void mergeWith(method)}>
-                        {MERGE_LABEL[method]}…
+                        {t(`review.mergeMethod.${method}`)}…
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -758,17 +759,17 @@ export function Review({ target }: { target: Target }) {
           ) : null}
           <DropdownMenu>
             <Tooltip>
-              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label="More" />} />}>
+              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label={t("review.more")} />} />}>
                 <MoreHorizontal />
               </TooltipTrigger>
-              <TooltipContent>More</TooltipContent>
+              <TooltipContent>{t("review.more")}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>Open on GitHub</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>{t("review.openOnGitHub")}</DropdownMenuItem>
               {canLeave ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => void leave()}>Leave This Review…</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void leave()}>{t("review.leaveMenu")}</DropdownMenuItem>
                 </>
               ) : null}
             </DropdownMenuContent>
@@ -781,7 +782,7 @@ export function Review({ target }: { target: Target }) {
               onOpenChange={setSubmitting}
               onSubmitted={() => {
                 setDrafts([]);
-                say("Review sent");
+                say(i18n()("review.reviewSent"));
                 void changed();
               }}
             />
@@ -810,13 +811,13 @@ export function Review({ target }: { target: Target }) {
               }}
               onComment={async (body) => {
                 await comment(details, body);
-                say("Comment posted");
+                say(i18n()("review.commentPosted"));
                 await changed();
               }}
             />
           ) : (
             // The Overview's own layout, empty: nothing moves when it fills in.
-            <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]" aria-busy="true" aria-label="Loading">
+            <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]" aria-busy="true" aria-label={t("review.loading")}>
               <div className="flex flex-col gap-3 rounded-xl border bg-card p-5">
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-3.5 w-full" />
@@ -833,7 +834,7 @@ export function Review({ target }: { target: Target }) {
         </div>
 
         <div role="tabpanel" id="panel-diff" aria-labelledby="tab-diff" hidden={tab !== "diff"} className="flex min-h-0 flex-1">
-          <aside className="flex w-72 shrink-0 flex-col border-r" aria-label="Files">
+          <aside className="flex w-72 shrink-0 flex-col border-r" aria-label={t("review.files")}>
             <div className="flex flex-col gap-2 border-b p-3">
               {/* A search field: a capsule, the magnifier inside, a clear button once there's text. */}
               <div className="relative">
@@ -847,24 +848,24 @@ export function Review({ target }: { target: Target }) {
                     requestAnimationFrame(() => diffs.current?.scrollToTop());
                   }}
                   onKeyDown={(e) => e.key === "Escape" && filter && (e.preventDefault(), setFilter(""))}
-                  placeholder="Filter Files"
-                  aria-label="Filter files"
+                  placeholder={t("review.filterFilesPlaceholder")}
+                  aria-label={t("review.filterFiles")}
                   className="rounded-full pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
                 />
                 {filter ? (
-                  <button type="button" aria-label="Clear" onClick={() => setFilter("")} className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background outline-none focus-ring">
+                  <button type="button" aria-label={t("review.clear")} onClick={() => setFilter("")} className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background outline-none focus-ring">
                     <X className="size-2.5" strokeWidth={3} aria-hidden />
                   </button>
                 ) : null}
               </div>
               <div className="flex items-center gap-2 text-subheadline text-muted-foreground">
-                <Progress value={inPart.length ? (viewedCount / inPart.length) * 100 : 0} className="flex-1" aria-label="Files viewed" />
+                <Progress value={inPart.length ? (viewedCount / inPart.length) * 100 : 0} className="flex-1" aria-label={t("review.filesViewed")} />
                 <span className="tabular-nums">
-                  {viewedCount}/{inPart.length} viewed
+                  {t("review.viewedOf", { viewed: viewedCount, total: inPart.length })}
                 </span>
               </div>
               <label className="flex items-center gap-1.5 text-body">
-                <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} className="size-3.5" /> Hide Viewed Files
+                <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} className="size-3.5" /> {t("review.hideViewed")}
               </label>
             </div>
             {/* A source list: no highlight under the pointer; the picked file's row in the accent while
@@ -903,7 +904,7 @@ export function Review({ target }: { target: Target }) {
                           <span className="text-muted-foreground">{f.path.slice(0, slash + 1)}</span>
                           {f.path.slice(slash + 1)}
                         </span>
-                        {comments ? <span className="text-subheadline text-unread tabular-nums" aria-label={`${comments} open conversations`}>{comments}</span> : null}
+                        {comments ? <span className="text-subheadline text-unread tabular-nums" aria-label={t("review.openConversations", { count: comments })}>{comments}</span> : null}
                         <span className="shrink-0 font-mono text-subheadline tabular-nums">
                           <span className="text-success">+{f.additions}</span> <span className="text-destructive">−{f.deletions}</span>
                         </span>
@@ -924,7 +925,7 @@ export function Review({ target }: { target: Target }) {
                   threads={threadsByPath}
                   drafts={drafts}
                   findings={current?.findings ?? []}
-                  findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : "AI"}
+                  findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}
                   onAcceptFinding={(f) => {
                     setDrafts((list) => [...list, { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, path: f.path, side: "additions", line: f.line, body: f.body }]);
                     dropFinding(f);
@@ -948,7 +949,7 @@ export function Review({ target }: { target: Target }) {
                   onCommentNow={async (draft) => {
                     if (!details) return;
                     await commentNow(details, { ...draft, key: "now" });
-                    say("Comment posted");
+                    say(i18n()("review.commentPosted"));
                     await changed();
                   }}
                   onReply={async (thread, body) => {
@@ -962,10 +963,10 @@ export function Review({ target }: { target: Target }) {
                   }}
                 />
               ) : (
-                <p className="p-10 text-center text-body text-muted-foreground">{chosen.length && !inPart.length ? `No files in ${chosen.map((f) => f.name).join(" + ")}.` : "No files match."}</p>
+                <p className="p-10 text-center text-body text-muted-foreground">{chosen.length && !inPart.length ? t("review.noFilesIn", { filters: chosen.map((f) => f.name).join(" + ") }) : t("review.noFilesMatch")}</p>
               )
             ) : (
-              <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label="Loading files">
+              <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label={t("review.loadingFiles")}>
                 {[0, 1, 2].map((i) => (
                   <Skeleton key={i} className="h-48 rounded-xl" />
                 ))}

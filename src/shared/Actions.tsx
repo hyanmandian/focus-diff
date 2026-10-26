@@ -6,21 +6,23 @@ import { Loader2, Zap } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { runAction, STEP_LABELS } from "@/lib/actions";
+import { runAction } from "@/lib/actions";
 import { bridge, type ActionContext } from "@/lib/bridge";
 import type { Action } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 type Result = (message: string, ok: boolean) => void;
 
 /** Runs an action, after asking when it's set to ask. */
 function useRun(action: Action, pr: ActionContext, onResult: Result) {
   const [busy, setBusy] = useState(false);
+  const t = useT();
   const run = async () => {
     if (action.confirm) {
       const steps = action.steps
-        .map((step) => `${STEP_LABELS[step.kind]}${step.kind === "request" && step.reviewers.length ? `: ${step.reviewers.join(", ")}` : step.kind === "label" && step.labels.length ? `: ${step.labels.join(", ")}` : ""}`)
+        .map((step) => `${t(`config.step.${step.kind}`)}${step.kind === "request" && step.reviewers.length ? `: ${step.reviewers.join(", ")}` : step.kind === "label" && step.labels.length ? `: ${step.labels.join(", ")}` : ""}`)
         .join("\n");
-      if (!(await bridge.confirm(`${action.name} #${pr.number}?`, steps, action.name))) return;
+      if (!(await bridge.confirm(t("shared.actionConfirm", { action: action.name, number: String(pr.number) }), steps, action.name))) return;
     }
     setBusy(true);
     try {

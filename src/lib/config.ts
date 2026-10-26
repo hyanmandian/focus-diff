@@ -3,6 +3,7 @@
 // app: unknown fields are dropped, missing ones get defaults.
 
 import { bridge } from "./bridge";
+import { i18n, LANGUAGES, type Language, type T } from "./i18n";
 
 /** What makes a pull request belong to a queue. */
 export type QueueKind =
@@ -156,6 +157,8 @@ export type Config = {
   pollSeconds: number;
   sound: boolean;
   theme: "system" | "light" | "dark";
+  /** The app's language: the Mac's, or one picked (lib/i18n.ts). */
+  language: Language;
   /** Optional: the coding agent CLI to ask, on the person's own subscription. */
   ai: {
     provider: AiProvider | null;
@@ -205,20 +208,18 @@ const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify" | "notif
   notifyRepos: [],
 });
 
-/** Starting points, offered when adding a queue. They're ordinary queues once added. */
-export const TEMPLATES: Record<QueueKind, { name: string; description: string; make: () => Queue }> = {
+/** Starting points, offered when adding a queue. They're ordinary queues once added, named in
+ *  the language in use then. Their names in the list: t(`config.queue.${kind}`) and
+ *  t(`config.queue.${kind}.hint`). */
+export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
   review: {
-    name: "Needs my review",
-    description: "Open pull requests waiting on your review, until you've reviewed or commented.",
-    make: () => ({ ...base(), id: newId(), name: "Review", kind: "review", tone: "blue", notify: ["new", "rerequest", "ready"], notifyAt: "review" }),
+    make: () => ({ ...base(), id: newId(), name: i18n()("config.queue.review.name"), kind: "review", tone: "blue", notify: ["new", "rerequest", "ready"], notifyAt: "review" }),
   },
   involved: {
-    name: "Updates",
-    description: "Pull requests you reviewed, commented on or were mentioned in, and what happened since.",
     make: () => ({
       ...base(),
       id: newId(),
-      name: "Updates",
+      name: i18n()("config.queue.involved.name"),
       kind: "involved",
       tone: "purple",
       drafts: "show",
@@ -227,12 +228,10 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
     }),
   },
   authored: {
-    name: "My pull requests",
-    description: "Your open pull requests, drafts too: reviews, comments, CI and conflicts.",
     make: () => ({
       ...base(),
       id: newId(),
-      name: "My PRs",
+      name: i18n()("config.queue.authored.name"),
       kind: "authored",
       tone: "green",
       drafts: "show",
@@ -241,17 +240,13 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
     }),
   },
   merged: {
-    name: "Merged without me",
-    description: "Pull requests merged lately without your approval: the ones asked of you or your team, in the files you care about.",
-    make: () => ({ ...base(), id: newId(), name: "Merged", kind: "merged", tone: "gray", drafts: "show", requestedOnly: true, skipIfI: "approved", notify: [], notifyAt: "now" }),
+    make: () => ({ ...base(), id: newId(), name: i18n()("config.queue.merged.name"), kind: "merged", tone: "gray", drafts: "show", requestedOnly: true, skipIfI: "approved", notify: [], notifyAt: "now" }),
   },
   custom: {
-    name: "Custom search",
-    description: "Any GitHub search: a team's repository, a label, an author.",
     make: () => ({
       ...base(),
       id: newId(),
-      name: "Search",
+      name: i18n()("config.queue.custom.name"),
       kind: "custom",
       tone: "amber",
       drafts: "show",
@@ -268,6 +263,7 @@ export const defaultConfig = (): Config => ({
   pollSeconds: 60,
   sound: false,
   theme: "system",
+  language: "system",
   ai: { provider: null, model: "", effort: "", instructions: "", prompts: defaultPrompts(), project: true, review: { auto: false, prompt: REVIEW_PROMPT } },
   actions: [],
   filters: defaultFilters(),
@@ -302,49 +298,59 @@ export function nextReviewTime(review: ReviewTime, after: Date): { session: Revi
   return best;
 }
 
-/** Starting points for filters, from Focus Diff's recipes. */
-export const FILTER_RECIPES: Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> = [
+type RecipeId = "stack" | "tests" | "generated" | "area" | "infra" | "database" | "docs";
+type FilterName = "frontend" | "backend" | "code" | "tests" | "generated" | "payments" | "infra" | "database" | "docs";
+
+/** Starting points for filters, from Focus Diff's recipes. `name` keys its words (config.filter.*);
+ *  `id` stays the same in every language, since the review window remembers a filter by it. */
+const RECIPES: Array<{ id: RecipeId; filters: Array<{ id: string; name: FilterName; include: string; exclude: string }> }> = [
   {
-    title: "Frontend and backend",
-    description: "Review each side of a full-stack change on its own.",
+    id: "stack",
     filters: [
-      { name: "Frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
-      { name: "Backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
+      { id: "frontend", name: "frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
+      { id: "backend", name: "backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
     ],
   },
   {
-    title: "Code, then tests",
-    description: "The change first, its tests after.",
+    id: "tests",
     filters: [
-      { name: "Code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
-      { name: "Tests", include: "\\.(test|spec)\\.|(^|/)(tests?|__tests__)/", exclude: "" },
+      { id: "code", name: "code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
+      { id: "tests", name: "tests", include: "\\.(test|spec)\\.|(^|/)(tests?|__tests__)/", exclude: "" },
     ],
   },
   {
-    title: "Without generated files",
-    description: "Lockfiles, snapshots, builds and generated code left out.",
+    id: "generated",
     filters: [
       {
-        name: "No generated",
+        id: "no-generated",
+        name: "generated",
         include: "",
         exclude: "(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/",
       },
     ],
   },
-  { title: "One area", description: "A folder you own, like a team's package.", filters: [{ name: "Payments", include: "^(apps|packages|services)/payments/", exclude: "" }] },
+  { id: "area", filters: [{ id: "payments", name: "payments", include: "^(apps|packages|services)/payments/", exclude: "" }] },
   {
-    title: "Infrastructure",
-    description: "CI, Docker, Terraform, Kubernetes.",
-    filters: [{ name: "Infra", include: "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$", exclude: "" }],
+    id: "infra",
+    filters: [{ id: "infra", name: "infra", include: "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$", exclude: "" }],
   },
-  { title: "Database", description: "Migrations and schemas.", filters: [{ name: "Database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" }] },
-  { title: "Docs", description: "Markdown and documentation.", filters: [{ name: "Docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }] },
+  { id: "database", filters: [{ id: "database", name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" }] },
+  { id: "docs", filters: [{ id: "docs", name: "docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }] },
 ];
+
+/** The recipes in words, for Settings. */
+export const filterRecipes = (t: T): Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> =>
+  RECIPES.map((recipe) => ({
+    title: t(`config.recipe.${recipe.id}`),
+    description: t(`config.recipe.${recipe.id}.hint`),
+    filters: recipe.filters.map((f) => ({ name: t(`config.filter.${f.name}`), include: f.include, exclude: f.exclude })),
+  }));
 
 /** Fixed ids: until the person changes them, the defaults are made again each time the file is
  *  read, and the review window remembers a repository's filter by id. */
 export function defaultFilters(): DiffFilter[] {
-  return [...FILTER_RECIPES[0]!.filters, ...FILTER_RECIPES[2]!.filters].map((f) => ({ ...f, id: f.name.toLowerCase().replace(/\W+/g, "-"), repos: [] }));
+  const t = i18n();
+  return [...RECIPES[0]!.filters, ...RECIPES[2]!.filters].map((f) => ({ id: f.id, name: t(`config.filter.${f.name}`), include: f.include, exclude: f.exclude, repos: [] }));
 }
 
 /** Whether a file is in a filter. Case doesn't matter, as in Focus Diff, so a filter shared between
@@ -359,11 +365,14 @@ export function inFilter(filter: Pick<DiffFilter, "include" | "exclude">, path: 
 
 export const REVIEW_PROMPT = `Review it like a careful senior engineer. Comment only on what matters: bugs, unhandled edge cases, callers or features this change breaks, security or data risks, performance traps, missing tests for risky logic. No praise, no style nitpicks, no comments on what's fine.`;
 
+/** The prompts' names are words of the app, in the language in use; what they ask stays in
+ *  English, the AI's working language, and its answers go on GitHub as comments. */
 export function defaultPrompts(): Prompt[] {
+  const t = i18n();
   return [
     {
       id: "summary",
-      name: "Summary",
+      name: t("config.prompt.summary"),
       prompt: `From its description and diff, write:
 1. What it changes, in two or three plain sentences.
 2. "Worth a closer look:" then up to five short points: risks, edge cases, missing tests, or anything surprising, each naming the file.
@@ -371,44 +380,44 @@ Be concrete and brief. Don't repeat the description back.`,
     },
     {
       id: "risks",
-      name: "Find problems",
+      name: t("config.prompt.risks"),
       prompt: `Review it like a careful senior engineer. List only real problems: bugs, unhandled edge cases, security or data risks, breaking changes, performance traps. For each: the file, what goes wrong and when, and a one-line fix. If there's nothing worth raising, say so in one sentence.`,
     },
     {
       id: "explain",
-      name: "Explain",
+      name: t("config.prompt.explain"),
       prompt: `Walk me through it as if I'd never seen this part of the codebase: why it exists, the main flow it changes, and the order to read the files in.`,
     },
     {
       id: "tests",
-      name: "Missing tests",
+      name: t("config.prompt.tests"),
       prompt: `Which tests would catch a regression in this change? List the missing cases, each with the file it belongs in and what it should check. Leave out what the diff already tests.`,
     },
   ];
 }
 
-/** Starting points for actions. */
-export const ACTION_TEMPLATES: Array<{ name: string; description: string; make: () => Action }> = [
+/** Starting points for actions, in words for Settings; what they make is named in the language in use. */
+export const actionTemplates = (t: T): Array<{ name: string; description: string; make: () => Action }> => [
   {
-    name: "Hand off",
-    description: "Ask someone else to review, take yourself off and tell them why.",
+    name: t("config.action.handOff"),
+    description: t("config.action.handOff.hint"),
     make: () => ({
       id: newId(),
-      name: "Hand off",
+      name: t("config.action.handOff"),
       confirm: true,
       steps: [
         { kind: "request", reviewers: [] },
         { kind: "unrequestMe" },
-        { kind: "comment", body: "Handing this one over, thanks!" },
+        { kind: "comment", body: t("config.action.handOff.comment") },
       ],
     }),
   },
   {
-    name: "Run a script",
-    description: "Anything a terminal can do: a Slack webhook, a ticket, a local checkout.",
-    make: () => ({ id: newId(), name: "Script", confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }] }),
+    name: t("config.action.script"),
+    description: t("config.action.script.hint"),
+    make: () => ({ id: newId(), name: t("config.action.script.name"), confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }] }),
   },
-  { name: "Blank", description: "Pick the steps yourself.", make: () => ({ id: newId(), name: "New action", confirm: false, steps: [] }) },
+  { name: t("config.action.blank"), description: t("config.action.blank.hint"), make: () => ({ id: newId(), name: t("config.action.blank.name"), confirm: false, steps: [] }) },
 ];
 
 // MARK: Reading what's on disk
@@ -465,7 +474,7 @@ function normalizePrompt(raw: unknown): Prompt | null {
   if (!isString(r.prompt) || !r.prompt.trim()) return null;
   return {
     id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
-    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : "Ask",
+    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.prompt.untitled"),
     prompt: r.prompt.slice(0, 8000),
   };
 }
@@ -476,7 +485,7 @@ function normalizeFilter(raw: unknown): DiffFilter | null {
   const pattern = (v: unknown) => (isString(v) && validPattern(v) ? v.slice(0, 1000) : "");
   return {
     id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
-    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : "Filter",
+    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : i18n()("config.filter.untitled"),
     include: pattern(r.include),
     exclude: pattern(r.exclude),
     repos: strings(r.repos, 20).filter(isRepoPattern),
@@ -488,7 +497,7 @@ function normalizeAction(raw: unknown): Action | null {
   const r = raw as Record<string, unknown>;
   return {
     id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : newId(),
-    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : "Action",
+    name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.action.untitled"),
     confirm: bool(r.confirm, false),
     steps: Array.isArray(r.steps) ? r.steps.map(normalizeStep).filter((x): x is ActionStep => x !== null).slice(0, 10) : [],
   };
@@ -592,6 +601,7 @@ export function normalize(raw: unknown): Config {
     pollSeconds: int(r.pollSeconds, fallback.pollSeconds, 30, 900),
     sound: bool(r.sound, fallback.sound),
     theme: pick(r.theme, ["system", "light", "dark"] as const, fallback.theme),
+    language: pick(r.language, LANGUAGES, fallback.language),
     ai: (() => {
       const ai = r.ai && typeof r.ai === "object" ? (r.ai as Record<string, unknown>) : {};
       return {

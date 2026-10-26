@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::Value;
+use crate::i18n::tr;
 
 const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github";
@@ -176,14 +177,14 @@ fn gh_path() -> Option<String> {
 }
 
 fn gh_token() -> Result<String, String> {
-    let gh = gh_path().ok_or("The GitHub CLI isn't installed")?;
+    let gh = gh_path().ok_or_else(|| tr!("The GitHub CLI isn't installed", "O GitHub CLI não está instalado"))?;
     let output = Command::new(gh)
         .args(["auth", "token", "--hostname", "github.com"])
         .output()
         .map_err(|e| e.to_string())?;
     let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if !output.status.success() || token.is_empty() {
-        return Err("The GitHub CLI isn't signed in: run `gh auth login`".into());
+        return Err(tr!("The GitHub CLI isn't signed in: run `gh auth login`", "O GitHub CLI não está conectado: rode `gh auth login`"));
     }
     Ok(token)
 }
@@ -198,7 +199,7 @@ impl Auth {
         let token = match source {
             Some(Source::Gh) => gh_token()?,
             _ => {
-                let token = keychain()?.get_password().map_err(|_| "Not signed in to GitHub".to_string())?;
+                let token = keychain()?.get_password().map_err(|_| tr!("Not signed in to GitHub", "Você não está conectado ao GitHub"))?;
                 *self.source.lock().unwrap() = Some(Source::Keychain);
                 token
             }
@@ -237,7 +238,7 @@ impl Auth {
                 Ok(login)
             }
             401 => Ok(None),
-            _ => Err(format!("GitHub returned {status}")),
+            _ => Err(tr!("GitHub returned {status}", "O GitHub respondeu {status}")),
         }
     }
 
@@ -262,11 +263,11 @@ impl Auth {
     pub fn use_token(&self, token: &str) -> Result<(), String> {
         let token = token.trim();
         if token.is_empty() || token.chars().any(char::is_whitespace) {
-            return Err("That doesn't look like a token".into());
+            return Err(tr!("That doesn't look like a token", "Isso não parece um token"));
         }
         let (status, _, _) = call(token, "GET", "/user", None, None, None)?;
         if status != 200 {
-            return Err("GitHub didn't accept that token".into());
+            return Err(tr!("GitHub didn't accept that token", "O GitHub não aceitou esse token"));
         }
         keychain()?.set_password(token).map_err(|e| e.to_string())?;
         self.set_source(Some(Source::Keychain));
@@ -366,7 +367,7 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
                 .send(body.unwrap_or(""))
         }
     }
-    .map_err(|e| format!("Couldn't reach GitHub: {e}"))?;
+    .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
     let status = response.status().as_u16();
     let etag = response.headers().get("etag").and_then(|v| v.to_str().ok()).map(String::from);
     let mut text = String::new();
@@ -389,16 +390,16 @@ pub struct DeviceCode {
 }
 
 pub fn device_start() -> Result<DeviceCode, String> {
-    let client_id = CLIENT_ID.ok_or("Signing in with GitHub isn't set up in this build")?;
+    let client_id = CLIENT_ID.ok_or_else(|| tr!("Signing in with GitHub isn't set up in this build", "Entrar com o GitHub não está configurado nesta versão"))?;
     let response = agent()
         .post("https://github.com/login/device/code")
         .header("Accept", "application/json")
         .send_form([("client_id", client_id), ("scope", SCOPES)])
-        .map_err(|e| format!("Couldn't reach GitHub: {e}"))?;
+        .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
     let v: Value = response.into_body().read_json().map_err(|e| e.to_string())?;
     Ok(DeviceCode {
-        device_code: v["device_code"].as_str().ok_or("GitHub didn't send a code")?.to_string(),
-        user_code: v["user_code"].as_str().ok_or("GitHub didn't send a code")?.to_string(),
+        device_code: v["device_code"].as_str().ok_or_else(|| tr!("GitHub didn't send a code", "O GitHub não mandou um código"))?.to_string(),
+        user_code: v["user_code"].as_str().ok_or_else(|| tr!("GitHub didn't send a code", "O GitHub não mandou um código"))?.to_string(),
         verification_uri: v["verification_uri"].as_str().unwrap_or("https://github.com/login/device").to_string(),
         interval: v["interval"].as_u64().unwrap_or(5),
         expires_in: v["expires_in"].as_u64().unwrap_or(900),
@@ -408,7 +409,7 @@ pub fn device_start() -> Result<DeviceCode, String> {
 /// Waits for the person to enter the code on github.com, then keeps the token in the keychain.
 /// Blocking: run it off the main thread.
 pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_in: u64) -> Result<(), String> {
-    let client_id = CLIENT_ID.ok_or("Signing in with GitHub isn't set up in this build")?;
+    let client_id = CLIENT_ID.ok_or_else(|| tr!("Signing in with GitHub isn't set up in this build", "Entrar com o GitHub não está configurado nesta versão"))?;
     let deadline = Instant::now() + Duration::from_secs(expires_in);
     while Instant::now() < deadline {
         std::thread::sleep(Duration::from_secs(interval));
@@ -420,7 +421,7 @@ pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_
                 ("device_code", device_code),
                 ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             ])
-            .map_err(|e| format!("Couldn't reach GitHub: {e}"))?;
+            .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
         let v: Value = response.into_body().read_json().map_err(|e| e.to_string())?;
         if let Some(token) = v["access_token"].as_str() {
             keychain()?.set_password(token).map_err(|e| e.to_string())?;
@@ -430,11 +431,11 @@ pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_
         match v["error"].as_str() {
             Some("authorization_pending") => {}
             Some("slow_down") => interval += 5,
-            Some("expired_token") => return Err("The code expired: start again".into()),
-            Some("access_denied") => return Err("Signing in was cancelled on GitHub".into()),
+            Some("expired_token") => return Err(tr!("The code expired: start again", "O código expirou: comece de novo")),
+            Some("access_denied") => return Err(tr!("Signing in was cancelled on GitHub", "A entrada foi cancelada no GitHub")),
             Some(other) => return Err(format!("GitHub: {other}")),
-            None => return Err("Unexpected reply from GitHub".into()),
+            None => return Err(tr!("Unexpected reply from GitHub", "Resposta inesperada do GitHub")),
         }
     }
-    Err("The code expired: start again".into())
+    Err(tr!("The code expired: start again", "O código expirou: comece de novo"))
 }

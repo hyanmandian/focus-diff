@@ -11,17 +11,45 @@ use tauri::menu::{Menu, MenuBuilder, MenuEvent, MenuItem, MenuItemBuilder, Prede
 use tauri::{AppHandle, Emitter, Manager, Runtime, Theme};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
+use crate::i18n::tr;
+
 /// The commands that act on the review in front.
 const REVIEW: &[&str] = &["find", "overview", "diff", "wrap", "next-file", "next-comment", "previous-comment", "ai-review", "submit", "merge", "open-github", "leave"];
 
 /// The review commands' items, and what each review window last said applies to it.
 pub struct ReviewItems<R: Runtime> {
-    items: HashMap<&'static str, MenuItem<R>>,
+    /// Made again when the language changes, with the menu bar.
+    items: Mutex<Items<R>>,
     /// By window label: the commands it can do now.
     state: Mutex<HashMap<String, HashMap<String, bool>>>,
 }
 
+/// The menu bar in the language in use; `items`: its review commands, by id.
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewItems<R>)> {
+    let (menu, items) = make(app)?;
+    Ok((menu, ReviewItems { items: Mutex::new(items), state: Mutex::new(HashMap::new()) }))
+}
+
+/// The language changed: the menu bar is made again in it, the review commands as the window in
+/// front last said.
+pub fn relocalize<R: Runtime>(app: &AppHandle<R>) {
+    let Some(review) = app.try_state::<ReviewItems<R>>() else { return };
+    let Ok((menu, items)) = make(app) else { return };
+    if app.set_menu(menu).is_err() {
+        return;
+    }
+    *review.items.lock().unwrap() = items;
+    if let Some((label, _)) = app.webview_windows().into_iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
+        focused(app, &label);
+    } else {
+        focused(app, "");
+    }
+}
+
+/// The review commands' items, by id.
+type Items<R> = HashMap<&'static str, MenuItem<R>>;
+
+fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
     let name = app.package_info().name.clone();
     let mut items = HashMap::new();
     let mut item = |id: &'static str, text: &str, accelerator: Option<&str>| -> tauri::Result<MenuItem<R>> {
@@ -36,70 +64,71 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewIt
         Ok(built)
     };
 
+    // Every item's text is given: the predefined ones' own are English whatever the language.
     let app_menu = SubmenuBuilder::new(app, &name)
-        .item(&PredefinedMenuItem::about(app, Some(&format!("About {name}")), None)?)
-        .item(&item("updates", "Check for Updates…", None)?)
+        .item(&PredefinedMenuItem::about(app, Some(&tr!("About {name}", "Sobre o {name}")), None)?)
+        .item(&item("updates", &tr!("Check for Updates…", "Buscar atualizações…"), None)?)
         .separator()
-        .item(&item("settings", "Settings…", Some("CmdOrCtrl+,"))?)
+        .item(&item("settings", &tr!("Settings…", "Ajustes…"), Some("CmdOrCtrl+,"))?)
         .separator()
-        .item(&PredefinedMenuItem::services(app, None)?)
+        .item(&PredefinedMenuItem::services(app, Some(&tr!("Services", "Serviços")))?)
         .separator()
-        .item(&PredefinedMenuItem::hide(app, None)?)
-        .item(&PredefinedMenuItem::hide_others(app, None)?)
-        .item(&PredefinedMenuItem::show_all(app, None)?)
+        .item(&PredefinedMenuItem::hide(app, Some(&tr!("Hide {name}", "Ocultar {name}")))?)
+        .item(&PredefinedMenuItem::hide_others(app, Some(&tr!("Hide Others", "Ocultar outros")))?)
+        .item(&PredefinedMenuItem::show_all(app, Some(&tr!("Show All", "Mostrar tudo")))?)
         .separator()
         // The app's own Quit: the run loop keeps a tray app alive through the system's.
-        .item(&item("quit", &format!("Quit {name}"), Some("CmdOrCtrl+Q"))?)
+        .item(&item("quit", &tr!("Quit {name}", "Sair do {name}"), Some("CmdOrCtrl+Q"))?)
         .build()?;
-    let file = SubmenuBuilder::new(app, "File").item(&PredefinedMenuItem::close_window(app, None)?).build()?;
-    let edit = SubmenuBuilder::new(app, "Edit")
-        .item(&PredefinedMenuItem::undo(app, None)?)
-        .item(&PredefinedMenuItem::redo(app, None)?)
+    let file = SubmenuBuilder::new(app, tr!("File", "Arquivo")).item(&PredefinedMenuItem::close_window(app, Some(&tr!("Close Window", "Fechar janela")))?).build()?;
+    let edit = SubmenuBuilder::new(app, tr!("Edit", "Editar"))
+        .item(&PredefinedMenuItem::undo(app, Some(&tr!("Undo", "Desfazer")))?)
+        .item(&PredefinedMenuItem::redo(app, Some(&tr!("Redo", "Refazer")))?)
         .separator()
-        .item(&PredefinedMenuItem::cut(app, None)?)
-        .item(&PredefinedMenuItem::copy(app, None)?)
-        .item(&PredefinedMenuItem::paste(app, None)?)
-        .item(&PredefinedMenuItem::select_all(app, None)?)
+        .item(&PredefinedMenuItem::cut(app, Some(&tr!("Cut", "Recortar")))?)
+        .item(&PredefinedMenuItem::copy(app, Some(&tr!("Copy", "Copiar")))?)
+        .item(&PredefinedMenuItem::paste(app, Some(&tr!("Paste", "Colar")))?)
+        .item(&PredefinedMenuItem::select_all(app, Some(&tr!("Select All", "Selecionar tudo")))?)
         .separator()
-        .item(&item("find", "Find Files…", Some("CmdOrCtrl+F"))?)
+        .item(&item("find", &tr!("Find Files…", "Buscar arquivos…"), Some("CmdOrCtrl+F"))?)
         .build()?;
     // n, p and ⌥⇧J are the page's own keys (they'd type into a field as menu shortcuts), so these
     // items name no shortcut.
-    let view = SubmenuBuilder::new(app, "View")
-        .item(&item("overview", "Overview", Some("CmdOrCtrl+1"))?)
-        .item(&item("diff", "Diff", Some("CmdOrCtrl+2"))?)
+    let view = SubmenuBuilder::new(app, tr!("View", "Visualizar"))
+        .item(&item("overview", &tr!("Overview", "Visão geral"), Some("CmdOrCtrl+1"))?)
+        .item(&item("diff", &tr!("Diff", "Diff"), Some("CmdOrCtrl+2"))?)
         .separator()
-        .item(&item("wrap", "Wrap Long Lines", None)?)
+        .item(&item("wrap", &tr!("Wrap Long Lines", "Quebrar linhas longas"), None)?)
         .separator()
-        .item(&item("next-file", "Next File to Review", None)?)
-        .item(&item("next-comment", "Next Comment", None)?)
-        .item(&item("previous-comment", "Previous Comment", None)?)
+        .item(&item("next-file", &tr!("Next File to Review", "Próximo arquivo para revisar"), None)?)
+        .item(&item("next-comment", &tr!("Next Comment", "Próxima conversa"), None)?)
+        .item(&item("previous-comment", &tr!("Previous Comment", "Conversa anterior"), None)?)
         .separator()
-        .item(&PredefinedMenuItem::fullscreen(app, None)?)
+        .item(&PredefinedMenuItem::fullscreen(app, Some(&tr!("Enter Full Screen", "Entrar em tela cheia")))?)
         .build()?;
-    let pull_request = SubmenuBuilder::new(app, "Pull Request")
-        .item(&item("ai-review", "Review with AI", None)?)
-        .item(&item("submit", "Submit Review…", None)?)
-        .item(&item("merge", "Merge…", None)?)
+    let pull_request = SubmenuBuilder::new(app, tr!("Pull Request", "Pull request"))
+        .item(&item("ai-review", &tr!("Review with AI", "Revisar com IA"), None)?)
+        .item(&item("submit", &tr!("Submit Review…", "Enviar revisão…"), None)?)
+        .item(&item("merge", &tr!("Merge…", "Fazer merge…"), None)?)
         .separator()
-        .item(&item("open-github", "Open on GitHub", None)?)
-        .item(&item("leave", "Leave This Review…", None)?)
+        .item(&item("open-github", &tr!("Open on GitHub", "Abrir no GitHub"), None)?)
+        .item(&item("leave", &tr!("Leave This Review…", "Sair desta revisão…"), None)?)
         .build()?;
-    let window = SubmenuBuilder::new(app, "Window")
-        .item(&PredefinedMenuItem::minimize(app, None)?)
-        .item(&PredefinedMenuItem::maximize(app, Some("Zoom"))?)
+    let window = SubmenuBuilder::new(app, tr!("Window", "Janela"))
+        .item(&PredefinedMenuItem::minimize(app, Some(&tr!("Minimize", "Minimizar")))?)
+        .item(&PredefinedMenuItem::maximize(app, Some(&tr!("Zoom", "Zoom")))?)
         .separator()
-        .item(&PredefinedMenuItem::bring_all_to_front(app, None)?)
+        .item(&PredefinedMenuItem::bring_all_to_front(app, Some(&tr!("Bring All to Front", "Trazer tudo para a frente")))?)
         .build()?;
     // Empty but for the system's search field, which finds menu items.
-    let help = SubmenuBuilder::new(app, "Help").build()?;
+    let help = SubmenuBuilder::new(app, tr!("Help", "Ajuda")).build()?;
     let menu = MenuBuilder::new(app).items(&[&app_menu, &file, &edit, &view, &pull_request, &window, &help]).build()?;
     #[cfg(target_os = "macos")]
     {
         window.set_as_windows_menu_for_nsapp()?;
         help.set_as_help_menu_for_nsapp()?;
     }
-    Ok((menu, ReviewItems { items, state: Mutex::new(HashMap::new()) }))
+    Ok((menu, items))
 }
 
 /// A window came to the front: the review commands follow it.
@@ -107,7 +136,7 @@ pub fn focused<R: Runtime>(app: &AppHandle<R>, label: &str) {
     let Some(review) = app.try_state::<ReviewItems<R>>() else { return };
     let state = review.state.lock().unwrap();
     let mine = label.starts_with("review-").then(|| state.get(label)).map(|s| s.cloned().unwrap_or_default());
-    for (id, item) in &review.items {
+    for (id, item) in review.items.lock().unwrap().iter() {
         // A review that hasn't said yet: everything on until it does.
         let _ = item.set_enabled(mine.as_ref().is_some_and(|s| s.get(*id).copied().unwrap_or(true)));
     }
@@ -156,19 +185,22 @@ fn check_for_updates<R: Runtime>(app: &AppHandle<R>) {
             Ok(Some(version)) => {
                 let install = tauri::async_runtime::spawn_blocking(move || {
                     dialog
-                        .message("It's downloaded and installed now, then the app restarts.")
-                        .title(format!("{name} {version} is available"))
-                        .buttons(MessageDialogButtons::OkCancelCustom("Install and Restart".into(), "Later".into()))
+                        .message(tr!("It's downloaded and installed now, then the app restarts.", "Ela é baixada e instalada agora, e o app reinicia."))
+                        .title(tr!("{name} {version} is available", "O {name} {version} está disponível"))
+                        .buttons(MessageDialogButtons::OkCancelCustom(tr!("Install and Restart", "Instalar e reiniciar"), tr!("Later", "Depois")))
                         .blocking_show()
                 })
                 .await
                 .unwrap_or(false);
                 if install && let Err(e) = crate::update::install(&app).await {
-                    app.dialog().message(e).title("The update couldn't be installed").kind(MessageDialogKind::Warning).show(|_| {});
+                    app.dialog().message(e).title(tr!("The update couldn't be installed", "Não foi possível instalar a atualização")).kind(MessageDialogKind::Warning).show(|_| {});
                 }
             }
-            Ok(None) => dialog.message(format!("{name} {} is the newest version.", app.package_info().version)).title("You're up to date").show(|_| {}),
-            Err(e) => dialog.message(e).title("Couldn't check for updates").kind(MessageDialogKind::Warning).show(|_| {}),
+            Ok(None) => {
+                let version = app.package_info().version.to_string();
+                dialog.message(tr!("{name} {version} is the newest version.", "O {name} {version} é a versão mais recente.")).title(tr!("You're up to date", "Você está com a versão mais recente")).show(|_| {})
+            }
+            Err(e) => dialog.message(e).title(tr!("Couldn't check for updates", "Não foi possível buscar atualizações")).kind(MessageDialogKind::Warning).show(|_| {}),
         }
     });
 }
@@ -177,7 +209,7 @@ fn check_for_updates<R: Runtime>(app: &AppHandle<R>) {
 /// that asked (a sheet on the Mac). `ok` names the default button; Cancel answers Esc.
 #[tauri::command]
 pub async fn confirm(app: AppHandle, window: tauri::WebviewWindow, title: String, message: String, ok: String) -> Result<bool, String> {
-    let dialog = app.dialog().message(message).title(title).parent(&window).buttons(MessageDialogButtons::OkCancelCustom(ok, "Cancel".into()));
+    let dialog = app.dialog().message(message).title(title).parent(&window).buttons(MessageDialogButtons::OkCancelCustom(ok, tr!("Cancel", "Cancelar")));
     tauri::async_runtime::spawn_blocking(move || dialog.blocking_show()).await.map_err(|e| e.to_string())
 }
 

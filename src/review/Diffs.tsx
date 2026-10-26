@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer } from "@/lib/bridge";
 import type { OnScreen } from "@/lib/estimate";
+import { useT, type T } from "@/lib/i18n";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
 import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
 
@@ -58,9 +59,9 @@ const version = (s: string) => {
   return h >>> 0;
 };
 
-const describe = (range: SelectedLineRange) => {
+const describe = (range: SelectedLineRange, t: T) => {
   const [a, b] = [Math.min(range.start, range.end), Math.max(range.start, range.end)];
-  return a === b ? `line ${b}` : `lines ${a}–${b}`;
+  return a === b ? t("review.line", { line: String(b) }) : t("review.lines", { start: String(a), end: String(b) });
 };
 
 const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Draft, "key"> => ({
@@ -84,6 +85,7 @@ function firstLine(diff: FileDiffMetadata): { side: Thread["side"]; line: number
 }
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
+  const t = useT();
   const { files, threads, drafts, findings, isViewed, opened, diffStyle, wrap, dark } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
   const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange } | null>(null);
@@ -150,6 +152,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           collapsed: viewed,
           version: version(
             JSON.stringify([
+              // The header and comments say things in words: drawn again in another language.
+              t.locale,
               viewed,
               fileThreads.map((t) => [t.id, t.resolved, t.comments.length]),
               fileDrafts.map((d) => [d.key, d.body]),
@@ -159,7 +163,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           ),
         };
       });
-  }, [files, threads, drafts, findings, composing, isViewed, opened]);
+  }, [files, threads, drafts, findings, composing, isViewed, opened, t]);
 
   const options = useMemo(
     () => ({
@@ -215,7 +219,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         renderGutterUtility={(getHovered, item) => (
           <button
             type="button"
-            aria-label="Comment on this line"
+            aria-label={t("review.commentOnLine")}
             onClick={() => {
               const line = getHovered();
               if (!line) return;
@@ -233,8 +237,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           return (
             <span className="flex items-center font-sans text-foreground select-none">
               <label className="flex items-center gap-1.5 px-1.5 py-1 text-body" onClick={(e) => e.stopPropagation()}>
-                <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={`Viewed ${file.path}`} className="size-3.5" />
-                Viewed
+                <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={t("review.viewedFile", { path: file.path })} className="size-3.5" />
+                {t("review.viewed")}
               </label>
             </span>
           );
@@ -246,7 +250,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           if (a.kind === "finding") return <FindingView finding={a.finding} by={props.findingsBy} onAdd={() => props.onAcceptFinding(a.finding)} onDismiss={() => props.onDismissFinding(a.finding)} />;
           return (
             <NewComment
-              lines={describe(a.range)}
+              lines={describe(a.range, t)}
               onAdd={(body) => {
                 props.onAddDraft(toDraft(a.path, a.range, body));
                 setComposing(null);
@@ -264,16 +268,22 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         renderCodeViewFooter={() =>
           binary.length ? (
             <div className="flex flex-col gap-1 px-3 pb-6 font-sans text-body text-muted-foreground">
-              {binary.map((f) => (
+              {binary.map((f) => {
+                // "{path} isn't shown here", with the path set apart.
+                const [before, after] = t("review.notShown", { path: "\u0000" }).split("\u0000");
+                return (
                 <p key={f.path} className="flex items-center gap-2">
-                  <FileWarning className="size-4" /> <span className="font-mono text-callout">{f.path}</span> isn't shown here (binary, or too large for GitHub's diff).
+                  <FileWarning className="size-4" /> {before}
+                  <span className="font-mono text-callout">{f.path}</span>
+                  {after}
                   {/* Still one to tick off, or the review never adds up. */}
                   <label className="ml-auto flex items-center gap-1.5 px-1.5 py-1 text-body text-foreground select-none">
-                    <Checkbox checked={isViewed(f)} onCheckedChange={(v) => props.onViewed(f, v)} aria-label={`Viewed ${f.path}`} className="size-3.5" />
-                    Viewed
+                    <Checkbox checked={isViewed(f)} onCheckedChange={(v) => props.onViewed(f, v)} aria-label={t("review.viewedFile", { path: f.path })} className="size-3.5" />
+                    {t("review.viewed")}
                   </label>
                 </p>
-              ))}
+                );
+              })}
             </div>
           ) : null
         }

@@ -8,8 +8,9 @@ import { bridge } from "@/lib/bridge";
 import { prefetch } from "@/lib/prefetch";
 import type { Queue } from "@/lib/config";
 import { avatar } from "@/lib/avatar";
-import { ago, EVENTS, firstName, STATUS } from "@/lib/copy";
-import { formatDuration, pullMinutes, useLearned } from "@/lib/estimate";
+import { EVENT_TONES, firstName, STATUS_TONES } from "@/lib/copy";
+import { pullMinutes, useLearned } from "@/lib/estimate";
+import { useT } from "@/lib/i18n";
 import type { Actor, Item } from "@/lib/engine";
 import { cn } from "@/lib/utils";
 
@@ -44,9 +45,6 @@ function Avatar({ actor }: { actor: Actor }) {
   );
 }
 
-/** "3d", "5h": how long it's been waiting. */
-const waited = (ms: number) => (ms >= 86_400_000 ? `${Math.floor(ms / 86_400_000)}d` : `${Math.max(1, Math.floor(ms / 3_600_000))}h`);
-
 // What's worth a tag, most direct first.
 const ORDER = ["rerequest", "reply", "mention", "changes", "approved", "commits", "ci-failed", "conflict", "comment"] as const;
 
@@ -62,6 +60,7 @@ type Props = {
 
 export const PullRow = memo(function PullRow({ item, queue, unread, arriving, onOpen, onDismiss, onArrived }: Props) {
   const { pr } = item;
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Resting on a row, not passing over it: then its pull request is fetched ahead of a click.
@@ -93,7 +92,9 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
 
   const teams = item.viaTeams?.length && !kinds.length ? item.viaTeams : [];
   const ci = (item.ci === "FAILURE" || item.ci === "ERROR") && !kinds.includes("ci-failed");
-  const status = item.status && item.status !== "MENTIONED" && !kinds.length ? STATUS[item.status] : null;
+  const status = item.status && item.status !== "MENTIONED" && !kinds.length ? item.status : null;
+  // "3d", "5h": how long it's been waiting, an hour at least.
+  const waited = t.since(Date.now() - Math.max(waiting, 3_600_000));
   // How long a review would take, for what's waiting on yours: from its totals, at your pace.
   const learned = useLearned();
   const minutes = queue.kind === "review" && pr.changedFiles ? pullMinutes(pr, learned) : null;
@@ -119,7 +120,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
         {/* The dot sits in the leading gutter, centred on the title's first line (8 + 9 - 3). */}
         {unread ? <span data-dot className="absolute top-[14px] left-[3px] size-1.5 rounded-full bg-unread in-focus-visible:bg-(--selection-fg)" aria-hidden /> : null}
         {/* Its name is what it shows; what only shows as a dot is said too. */}
-        {unread ? <span className="sr-only">Unread: </span> : null}
+        {unread ? <span className="sr-only">{t("panel.unread")}</span> : null}
         {/* 20pt, centred on the title's first line. */}
         {mine ? (
           <span className="mt-[-1px] grid size-5 shrink-0 place-items-center rounded-full bg-foreground/8 text-muted-foreground" aria-hidden>
@@ -131,48 +132,48 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
         {/* Two lines on one grid: title | when, then the secondary line | comments. */}
         <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5">
           <span className="line-clamp-2 text-body leading-[18px] font-semibold [overflow-wrap:anywhere]">{pr.title}</span>
-          <span className="text-callout leading-4 whitespace-nowrap text-muted-foreground tabular-nums group-focus-within:invisible group-hover:invisible">{ago(when)}</span>
+          <span className="text-callout leading-4 whitespace-nowrap text-muted-foreground tabular-nums group-focus-within:invisible group-hover:invisible">{t.since(when)}</span>
           {/* One line: the number and who never give way; what doesn't fit after them drops off whole,
               onto a hidden second line, rather than ending in "…". The full list is its tooltip. */}
           <span
             className="flex h-4 min-w-0 flex-wrap items-center overflow-hidden text-callout leading-4 text-muted-foreground"
-            title={teams.length ? `Asked of ${teams.join(", ")}` : undefined}
+            title={teams.length ? t("panel.askedOf", { teams: t.list(teams) }) : undefined}
           >
             <span className="shrink-0 tabular-nums">#{pr.number}</span>
             {!mine && pr.author ? (
               <Part className="max-w-[14ch]">
-                <span className="truncate">{firstName(pr.author)}</span>
+                <span className="truncate">{firstName(pr.author, t)}</span>
               </Part>
             ) : null}
-            {queue.kind === "merged" && pr.mergedBy ? <Part>merged by {firstName(pr.mergedBy)}</Part> : null}
+            {queue.kind === "merged" && pr.mergedBy ? <Part>{t("panel.mergedBy", { name: firstName(pr.mergedBy, t) })}</Part> : null}
             {late ? (
-              <Part tone="amber" title={`Waiting on you for ${waited(waiting)}`}>
-                waiting {waited(waiting)}
+              <Part tone="amber" title={t("panel.waitingTip", { time: waited })}>
+                {t("panel.waiting", { time: waited })}
               </Part>
             ) : null}
             {kinds.slice(0, 2).map((k) => (
-              <Part key={k} tone={EVENTS[k].tone} title={EVENTS[k].long}>
-                {EVENTS[k].tag}
+              <Part key={k} tone={EVENT_TONES[k]} title={t(`events.long.${k}`)}>
+                {t(`events.tag.${k}`)}
               </Part>
             ))}
             {status ? (
-              <Part tone={status.tone} title={status.long}>
-                {status.tag}
+              <Part tone={STATUS_TONES[status]} title={t(`events.statusLong.${status}`)}>
+                {t(`events.status.${status}`)}
               </Part>
             ) : null}
-            {ci ? <Part tone="red">CI failed</Part> : null}
-            {minutes !== null ? <Part title={`About ${formatDuration(minutes).replace(/^~/, "")} to review, at your pace`}>{formatDuration(minutes)}</Part> : null}
+            {ci ? <Part tone="red">{t("panel.ciFailed")}</Part> : null}
+            {minutes !== null ? <Part title={t("panel.aboutToReview", { time: t.duration(minutes).replace(/^~/, "") })}>{t.duration(minutes)}</Part> : null}
             {teams.length ? (
               <Part className="max-w-[24ch]">
                 <span className="truncate">
-                  via {teams[0]!.split("/")[1]}
+                  {t("panel.via", { team: teams[0]!.split("/")[1]! })}
                   {teams.length > 1 ? ` +${teams.length - 1}` : ""}
                 </span>
               </Part>
             ) : null}
           </span>
           {pr.comments ? (
-            <span className="inline-flex items-center justify-self-end gap-1 text-callout leading-4 text-muted-foreground tabular-nums" aria-label={`${pr.comments} comments`}>
+            <span className="inline-flex items-center justify-self-end gap-1 text-callout leading-4 text-muted-foreground tabular-nums" aria-label={t("common.comments", { count: pr.comments })}>
               <MessageSquare className="size-3 translate-y-px" aria-hidden />
               {pr.comments}
             </span>
@@ -184,13 +185,13 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
       <DropdownMenu>
         <DropdownMenuTrigger
           className="absolute top-[3px] right-1.5 grid size-7 cursor-default place-items-center rounded-full text-muted-foreground opacity-0 outline-none group-focus-within:opacity-100 group-hover:opacity-100 focus-ring active:bg-foreground/8 data-[popup-open]:bg-foreground/8 data-[popup-open]:opacity-100 group-has-[[data-row]:focus-visible]:text-(--selection-fg)"
-          aria-label={`More for ${pr.title}`}
+          aria-label={t("panel.more", { title: pr.title })}
         >
           <Ellipsis className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => void bridge.openUrl(pr.url)}>Open on GitHub</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onDismiss(item)}>{queue.kind === "merged" ? "Mark as Seen" : "Ignore"}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void bridge.openUrl(pr.url)}>{t("panel.openOnGitHub")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onDismiss(item)}>{queue.kind === "merged" ? t("panel.markSeen") : t("panel.ignore")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

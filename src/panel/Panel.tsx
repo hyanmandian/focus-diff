@@ -11,8 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bridge } from "@/lib/bridge";
-import type { Queue } from "@/lib/config";
-import { ago } from "@/lib/copy";
+import { useT } from "@/lib/i18n";
 import type { Item } from "@/lib/engine";
 import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, useStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
@@ -25,14 +24,6 @@ import { SlidingPill } from "@/shared/SlidingPill";
 import { prefetchSome } from "@/lib/prefetch";
 import { PullRow } from "./PullRow";
 import { ReviewTime } from "./ReviewTime";
-
-const EMPTY: Record<Queue["kind"], string> = {
-  review: "Nothing waiting on your review.",
-  involved: "Nothing new where you took part.",
-  authored: "You have no open pull requests.",
-  merged: "Nothing merged without you lately.",
-  custom: "Nothing matches this search.",
-};
 
 function remembered(key: string) {
   try {
@@ -85,6 +76,7 @@ const TOOL = "rounded-full text-muted-foreground active:bg-foreground/8 aria-exp
 export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen, review } = useStore();
   const shown = useShown();
+  const t = useT();
   // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
   // right away and VoiceOver reads where you are.
   const listRef = useRef<HTMLDivElement>(null);
@@ -198,32 +190,32 @@ export function Panel() {
           {signedIn ? (
             status.phase === "error" ? (
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.refreshFailedLabel", { error: status.error ?? "" })} onClick={() => void refresh(true)} />}>
                   <AlertCircle className="text-destructive" />
                 </TooltipTrigger>
-                <TooltipContent>{status.error} · click to try again</TooltipContent>
+                <TooltipContent>{t("panel.refreshFailedTip", { error: status.error ?? "" })}</TooltipContent>
               </Tooltip>
             ) : (
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.refresh")} onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
                   {status.phase === "loading" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                 </TooltipTrigger>
-                <TooltipContent>Refresh</TooltipContent>
+                <TooltipContent>{t("panel.refresh")}</TooltipContent>
               </Tooltip>
             )
           ) : null}
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label="Menu" />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.menu")} />}>
               <Settings />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>
-                Settings… <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
+                {t("panel.settings")} <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void bridge.openSetup()}>Run Setup Again…</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void bridge.openSetup()}>{t("panel.setupAgain")}</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => void bridge.quit()}>
-                Quit Focus Diff <DropdownMenuShortcut>{shortcut("Q", ["cmd"])}</DropdownMenuShortcut>
+                {t("panel.quit")} <DropdownMenuShortcut>{shortcut("Q", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -234,7 +226,7 @@ export function Panel() {
 
       {!ready ? (
         // The shape of what's coming, at its size: nothing moves when it arrives.
-        <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading">
+        <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label={t("panel.loading")}>
           <Skeleton className="mx-4 h-7 shrink-0 rounded-[8px] bg-(--panel-fill)" />
           <div className="mx-4 mt-3 h-px shrink-0 bg-(--panel-separator)" />
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pt-1">
@@ -255,23 +247,23 @@ export function Panel() {
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
           <Mark className="size-10 text-primary" />
           <div className="flex flex-col gap-1.5">
-            <h2 className="text-title3 leading-5 font-semibold">Your reviews, without opening GitHub</h2>
-            <p className="text-body leading-[18px] text-balance text-muted-foreground">Connect GitHub to see what's waiting on you, and hear about it as it happens.</p>
+            <h2 className="text-title3 leading-5 font-semibold">{t("panel.signedOutTitle")}</h2>
+            <p className="text-body leading-[18px] text-balance text-muted-foreground">{t("panel.signedOutBody")}</p>
           </div>
           <Connect auth={auth} onConnected={() => void refresh(true)} />
         </div>
       ) : !queue ? (
         <div className="flex flex-col items-center gap-3 px-8 py-16 text-center">
-          <p className="text-body text-muted-foreground">You have no queues turned on.</p>
+          <p className="text-body text-muted-foreground">{t("panel.noQueues")}</p>
           <Button variant="outline" onClick={() => void bridge.openSettings()}>
-            Set Up Queues…
+            {t("panel.setUpQueues")}
           </Button>
         </div>
       ) : (
         <main className="flex min-h-0 flex-1 flex-col">
           {/* The queues as a segmented control on the 16pt inset: the chosen one on a raised knob
               (concentric: 8px track, 2px in, 6px knob). */}
-          <div role="tablist" onKeyDown={tabKeys} aria-label="Queues" className="relative isolate mx-4 flex shrink-0 gap-0.5 overflow-x-auto rounded-[8px] bg-(--panel-fill) p-0.5 [scrollbar-width:none]">
+          <div role="tablist" onKeyDown={tabKeys} aria-label={t("panel.queues")} className="relative isolate mx-4 flex shrink-0 gap-0.5 overflow-x-auto rounded-[8px] bg-(--panel-fill) p-0.5 [scrollbar-width:none]">
             <SlidingPill selected={queue.id} className="rounded-[6px] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.14),0_0_0_0.5px_rgb(0_0_0/0.06)] dark:bg-white/18 dark:shadow-[0_1px_2px_rgb(0_0_0/0.3)]" />
             {queues.map((q) => {
               const its = items[q.id] ?? [];
@@ -299,9 +291,9 @@ export function Panel() {
 
           <div role="tabpanel" aria-label={queue.name} className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden">
             {repos.length > 1 ? (
-              <div role="group" aria-label="Repositories" className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto px-2 pb-2 [scrollbar-width:none]">
+              <div role="group" aria-label={t("panel.repositories")} className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto px-2 pb-2 [scrollbar-width:none]">
                 <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-[6px] bg-(--panel-fill)" />
-                {[["", "All", list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
+                {[["", t("panel.all"), list.length] as const, ...repos.map((r) => [r, shortName(r, repos), list.filter((i) => i.pr.repository.nameWithOwner === r).length] as const)].map(([value, label, n]) => {
                   const pressed = (repo && repos.includes(repo) ? repo : "") === value;
                   return (
                     <button
@@ -331,7 +323,7 @@ export function Panel() {
               key={`${queue.id}:${repo}`}
               ref={listRef}
               tabIndex={-1}
-              aria-label={`${queue.name} pull requests`}
+              aria-label={t("panel.pullRequestsOf", { queue: queue.name })}
               onScroll={stick}
               className={cn(
                 "outline-none",
@@ -358,7 +350,7 @@ export function Panel() {
                     <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-2")}>
                       <CollapsibleTrigger className="flex w-full cursor-default items-center gap-1 rounded-[6px] py-2 pr-3 pl-3 text-subheadline font-semibold text-muted-foreground outline-none focus-ring-inset">
                         <ChevronRight className={cn("size-3 transition-transform duration-200 motion-reduce:transition-none", draftsOpen && "rotate-90")} aria-hidden />
-                        Drafts <span className="font-normal tabular-nums">{drafts.length}</span>
+                        {t("panel.drafts")} <span className="font-normal tabular-nums">{drafts.length}</span>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <ul>{drafts.map(row)}</ul>
@@ -367,7 +359,7 @@ export function Panel() {
                   ) : null}
                 </>
               ) : (
-                <p className="px-4 py-10 text-center text-body text-muted-foreground">{EMPTY[queue.kind]}</p>
+                <p className="px-4 py-10 text-center text-body text-muted-foreground">{t(`panel.empty.${queue.kind}`)}</p>
               )}
             </div>
           </div>
@@ -385,13 +377,13 @@ export function Panel() {
                 }}
               >
                 {updating ? <Loader2 className="size-3 animate-spin" /> : null}
-                {updating ? "Updating…" : `Update to ${update} and restart`}
+                {updating ? t("panel.updating") : t("panel.updateTo", { version: update })}
               </button>
             ) : null}
-            <p role="status" className={cn(update && "sr-only")}>{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : status.phase === "loading" ? "Checking GitHub…" : ""}</p>
+            <p role="status" className={cn(update && "sr-only")}>{status.updatedAt ? (Date.now() - status.updatedAt < 60_000 ? t("panel.updatedNow") : t("panel.updatedAgo", { ago: t.ago(status.updatedAt) })) : status.phase === "loading" ? t("panel.checking") : ""}</p>
             {unreadHere ? (
               <button type="button" className="ml-auto cursor-default rounded-sm font-medium text-(--panel-link) outline-none focus-ring" onClick={() => markQueueSeen(queue.id)}>
-                Mark all as read
+                {t("panel.markAllRead")}
               </button>
             ) : null}
           </footer>

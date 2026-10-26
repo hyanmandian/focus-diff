@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEstimator, creditFor, formatDuration, kindOf, learnFile, normalizeLearned, paceFactors, pullMinutes, reviewMinutes, share } from "./estimate";
+import { createEstimator, creditFor, kindOf, learnFile, normalizeLearned, paceFactors, pullMinutes, reviewMinutes, share } from "./estimate";
 
 describe("review time", () => {
   it("takes about an hour for 1,000 added lines", () => {
@@ -21,12 +21,6 @@ describe("review time", () => {
     expect(kindOf("src/app.ts")).toBe("code");
   });
 
-  it("says it in words", () => {
-    expect(formatDuration(0.5)).toBe("<1 min");
-    expect(formatDuration(19.6)).toBe("~20 min");
-    expect(formatDuration(62)).toBe("~1 h");
-    expect(formatDuration(93)).toBe("~1 h 35 min");
-  });
 });
 
 describe("learning the reader's pace", () => {

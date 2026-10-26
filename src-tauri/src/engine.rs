@@ -15,6 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Value, json};
 
 use crate::config::{Drafts, Kind, Queue, SkipIfI};
+use crate::i18n::tr;
 
 // MARK: GitHub data
 
@@ -578,7 +579,7 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     let results: Vec<Result<Vec<Light>, Failure>> = std::thread::scope(|s| {
         let orgs = &orgs;
         let handles: Vec<_> = due.iter().map(|q| s.spawn(move || search(gql, q, me, now, orgs))).collect();
-        handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(Failure { status: 0, message: "Searching failed".into() }))).collect()
+        handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err(Failure { status: 0, message: tr!("Searching failed", "A busca falhou") }))).collect()
     });
     let mut fresh: HashMap<String, String> = HashMap::new();
     for (queue, result) in due.iter().zip(results) {
@@ -631,7 +632,7 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
             let handles: Vec<_> = wave.iter().map(|((files, requests), ids)| (*files, *requests, s.spawn(move || details(gql, ids, me, *files, *requests)))).collect();
             handles
                 .into_iter()
-                .map(|(f, r, h)| (f, r, h.join().unwrap_or_else(|_| Err(Failure { status: 0, message: "Fetching failed".into() }))))
+                .map(|(f, r, h)| (f, r, h.join().unwrap_or_else(|_| Err(Failure { status: 0, message: tr!("Fetching failed", "Não foi possível buscar os pull requests") }))))
                 .collect()
         });
         for (files, requests, result) in results {
@@ -893,7 +894,10 @@ fn path_filters(queue: &Queue) -> Result<(Option<Regex>, Option<Regex>), String>
         if p.is_empty() {
             return Ok(None);
         }
-        Regex::new(p).map(Some).map_err(|_| format!("{}: the file pattern \"{p}\" isn't supported", queue.name))
+        {
+            let name = &queue.name;
+            Regex::new(p).map(Some).map_err(|_| tr!("{name}: the file pattern \"{p}\" isn't supported", "{name}: o padrão de arquivos \"{p}\" não é suportado"))
+        }
     };
     Ok((compile(&queue.include_paths)?, compile(&queue.exclude_paths)?))
 }

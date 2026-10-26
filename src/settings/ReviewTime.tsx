@@ -9,48 +9,57 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { i18n, useT, type T } from "@/lib/i18n";
+import { LINES_PER_HOUR } from "@/lib/estimate";
 import { newSession, nextReviewTime, REVIEW_MINUTES, REVIEW_ORDERS, validTime, type Config, type Queue, type ReviewOrder, type ReviewSession, type ReviewTime } from "@/lib/config";
 import { Group, Intro, LinkRow, Pane, PRESSED_CHIP, Row, SwitchRow, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
 
-const ORDERS: Record<ReviewOrder, { label: string; hint: string }> = {
-  oldest: { label: "Waiting longest", hint: "The oldest pull requests first, so nobody waits too long." },
-  quickest: { label: "Quickest", hint: "As many as fit, the shortest first." },
-  fill: { label: "Fill the time", hint: "The mix that uses the time best." },
-};
-
 /** The week from Monday, as most of the world starts it; 0 is Sunday. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
-const dayName = (day: number, weekday: "short" | "long") => new Intl.DateTimeFormat(undefined, { weekday }).format(new Date(2024, 0, 7 + day));
-const clock = (time: string) => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(2024, 0, 1, Number(time.slice(0, 2)), Number(time.slice(3))));
-const list = (items: string[]) => new Intl.ListFormat(undefined, { type: "conjunction" }).format(items);
+/** "15:00" as the person's clock shows it, in the app's language. */
+const clock = (time: string, t: T) => t.clock(new Date(2024, 0, 1, Number(time.slice(0, 2)), Number(time.slice(3))));
 
 /** "Weekdays at 3:00 PM · 30 min", the way a review time reads in its row. */
-function summary(session: ReviewSession) {
-  if (!session.days.length) return "No days picked";
-  const days = session.days.join();
-  const when = days === "0,1,2,3,4,5,6" ? "Every day" : days === "1,2,3,4,5" ? "Weekdays" : days === "0,6" ? "Weekends" : list(WEEK.filter((d) => session.days.includes(d)).map((d) => dayName(d, "short")));
-  const at = session.times.length ? `at ${list(session.times.map(clock))}` : "with no time yet";
-  return `${when} ${at} · ${session.minutes} min`;
+function summary(session: ReviewSession, t: T) {
+  if (!session.days.length) return t("settings.noDays");
+  const picked = session.days.join();
+  const days =
+    picked === "0,1,2,3,4,5,6"
+      ? t("settings.everyDay")
+      : picked === "1,2,3,4,5"
+        ? t("settings.weekdays")
+        : picked === "0,6"
+          ? t("settings.weekends")
+          : t.list(WEEK.filter((d) => session.days.includes(d)).map((d) => t.weekday(d, "short")));
+  return session.times.length
+    ? t("settings.summaryAt", { days, times: t.list(session.times.map((time) => clock(time, t))), minutes: session.minutes })
+    : t("settings.summaryNoTime", { days, minutes: session.minutes });
 }
 
-const timeError = (v: string) => (validTime(v) ? null : "A time like 15:00, on a 24-hour clock");
+/** A day on its toggle: two letters in English ("Mo"); Portuguese needs three to tell segunda from
+ *  sexta and quarta from quinta ("seg", "sex"), without the abbreviation's period. */
+const dayInitials = (day: number, t: T) => (t.locale === "en" ? t.weekday(day, "short").slice(0, 2) : t.weekday(day, "short").replace(/\.$/, ""));
+
+// Called as a time is added, so it reads the words then.
+const timeError = (v: string) => (validTime(v) ? null : i18n()("settings.timeError"));
 
 function SessionEditor({ session, queues, onChange }: { session: ReviewSession; queues: Queue[]; onChange: (session: ReviewSession) => void }) {
   const set = <K extends keyof ReviewSession>(key: K, value: ReviewSession[K]) => onChange({ ...session, [key]: value });
   const nameId = useId();
   const picked = (id: string) => session.queues.includes(id);
+  const t = useT();
   return (
     <>
       <Group>
-        <Row label="Name" htmlFor={nameId}>
-          <Input id={nameId} value={session.name} maxLength={40} placeholder="Review time" onChange={(e) => set("name", e.target.value)} className="w-56" />
+        <Row label={t("settings.name")} htmlFor={nameId}>
+          <Input id={nameId} value={session.name} maxLength={40} placeholder={t("settings.reviewTimeName")} onChange={(e) => set("name", e.target.value)} className="w-56" />
         </Row>
-        <SwitchRow checked={session.on} onChange={(v) => set("on", v)} label="On" />
+        <SwitchRow checked={session.on} onChange={(v) => set("on", v)} label={t("settings.on")} />
       </Group>
 
-      <Group title="When" footer={session.times.length ? undefined : "Add at least one time."}>
-        <Row label="Days">
+      <Group title={t("settings.when")} footer={session.times.length ? undefined : t("settings.addTime")}>
+        <Row label={t("settings.daysLabel")}>
           <ToggleGroup
             multiple
             value={session.days.map(String)}
@@ -58,27 +67,27 @@ function SessionEditor({ session, queues, onChange }: { session: ReviewSession; 
             variant="outline"
             size="sm"
             spacing={0}
-            aria-label="Days"
+            aria-label={t("settings.daysLabel")}
           >
             {WEEK.map((day) => (
-              <ToggleGroupItem key={day} value={String(day)} aria-label={dayName(day, "long")} className="px-2">
-                {dayName(day, "short").slice(0, 2)}
+              <ToggleGroupItem key={day} value={String(day)} aria-label={t.weekday(day, "long")} className="px-2">
+                {dayInitials(day, t)}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
         </Row>
-        <Row stacked label="At" description="On a 24-hour clock, this computer's time.">
-          <TagInput label="Times" value={session.times} onChange={(v) => set("times", [...v].sort())} placeholder="15:00" validate={timeError} />
+        <Row stacked label={t("settings.at")} description={t("settings.atHint")}>
+          <TagInput label={t("settings.times")} value={session.times} onChange={(v) => set("times", [...v].sort())} placeholder="15:00" validate={timeError} />
         </Row>
-        <Row label="For">
+        <Row label={t("settings.for")}>
           <Select value={String(session.minutes)} onValueChange={(v) => set("minutes", Number(v))}>
-            <SelectTrigger className="w-32" aria-label="How long">
-              <SelectValue>{(v: string) => `${v} min`}</SelectValue>
+            <SelectTrigger className="min-w-32" aria-label={t("settings.howLong")}>
+              <SelectValue>{(v: string) => t("settings.minutes", { minutes: Number(v) })}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {[...new Set([...REVIEW_MINUTES, session.minutes])].sort((a, b) => a - b).map((m) => (
                 <SelectItem key={m} value={String(m)}>
-                  {m} min
+                  {t("settings.minutes", { minutes: m })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -86,23 +95,23 @@ function SessionEditor({ session, queues, onChange }: { session: ReviewSession; 
         </Row>
       </Group>
 
-      <Group title="What to review" footer="Empty: every review queue. Each pull request is estimated at about 1,000 changed lines an hour, plus a couple of minutes to read it and write the review.">
-        <Row label="What goes first" description={ORDERS[session.order].hint}>
+      <Group title={t("settings.whatToReview")} footer={t("settings.whatToReviewFooter", { lines: LINES_PER_HOUR })}>
+        <Row label={t("settings.whatGoesFirst")} description={t(`settings.order.${session.order}.hint`)}>
           <Select value={session.order} onValueChange={(v) => set("order", v as ReviewOrder)}>
-            <SelectTrigger className="w-40" aria-label="What goes first">
-              <SelectValue>{(v: ReviewOrder) => ORDERS[v].label}</SelectValue>
+            <SelectTrigger className="min-w-40" aria-label={t("settings.whatGoesFirst")}>
+              <SelectValue>{(v: ReviewOrder) => t(`settings.order.${v}`)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {REVIEW_ORDERS.map((o) => (
                 <SelectItem key={o} value={o}>
-                  {ORDERS[o].label}
+                  {t(`settings.order.${o}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Row>
-        <SwitchRow checked={session.drafts} onChange={(v) => set("drafts", v)} label="Include drafts" />
-        <Row stacked label="From these queues">
+        <SwitchRow checked={session.drafts} onChange={(v) => set("drafts", v)} label={t("settings.includeDrafts")} />
+        <Row stacked label={t("settings.fromQueues")}>
           <div className="flex flex-wrap gap-1.5">
             {queues.map((queue) => (
               <Button
@@ -131,18 +140,20 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
   const setSessions = (sessions: ReviewSession[]) => set({ sessions });
   const selected = review.sessions.find((s) => s.id === detail.openId) ?? null;
   const enabledId = useId();
+  const t = useT();
+  const reviewTimeName = t("settings.reviewTimeName");
 
   if (selected)
     return (
       <Pane
-        title={selected.name || "Review time"}
-        back={{ label: "Review time", onBack: detail.close, ref: detail.backRef }}
+        title={selected.name || reviewTimeName}
+        back={{ label: t("settings.pane.review"), onBack: detail.close, ref: detail.backRef }}
         tools={
           <Button
             variant="ghost"
             size="icon"
-            aria-label={`Delete ${selected.name || "review time"}`}
-            title="Delete review time"
+            aria-label={t("settings.deleteNamed", { name: selected.name || reviewTimeName })}
+            title={t("settings.deleteReviewTime")}
             onClick={() => {
               setSessions(review.sessions.filter((s) => s.id !== selected.id));
               detail.close();
@@ -159,24 +170,24 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
   const next = nextReviewTime(review, new Date());
   const waiting = config.queues.filter((q) => q.enabled && q.notify.length && q.notifyAt === "review").map((q) => q.name);
   return (
-    <Pane title="Review time">
-      <Intro>Set aside time to review. When it comes, Focus Diff picks the pull requests that fit, by about how long each takes, tells you with a sound of its own, and counts the time down in the menu bar.</Intro>
+    <Pane title={t("settings.pane.review")}>
+      <Intro>{t("settings.reviewIntro")}</Intro>
       <Group
         footer={
           !review.enabled
             ? undefined
             : next
-              ? `Next: ${dayName(next.at.getDay(), "long")} at ${clock(`${String(next.at.getHours()).padStart(2, "0")}:${String(next.at.getMinutes()).padStart(2, "0")}`)}, "${next.session.name || "Review time"}" for ${next.session.minutes} min.`
-              : "No review time is on. Turn one on, or give it a day and a time."
+              ? t("settings.next", { day: t.weekday(next.at.getDay(), "long"), time: t.clock(next.at), name: next.session.name || reviewTimeName, minutes: next.session.minutes })
+              : t("settings.noneOn")
         }
       >
-        <Row label="Remind me when it's review time" htmlFor={enabledId}>
+        <Row label={t("settings.remindMe")} htmlFor={enabledId}>
           <Switch id={enabledId} size="sm" checked={review.enabled} onCheckedChange={(enabled) => set({ enabled })} />
         </Row>
       </Group>
 
       <Group
-        title="Your review times"
+        title={t("settings.yourReviewTimes")}
         accessory={
           <Button
             variant="outline"
@@ -188,7 +199,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
               detail.open(session.id);
             }}
           >
-            <Plus /> Add Review Time
+            <Plus /> {t("settings.addReviewTime")}
           </Button>
         }
       >
@@ -202,26 +213,26 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
                   <Timer className="size-3" strokeWidth={2.25} />
                 </span>
               }
-              label={session.name || "Review time"}
-              description={summary(session)}
+              label={session.name || reviewTimeName}
+              description={summary(session, t)}
               muted={!session.on}
               onOpen={() => detail.open(session.id)}
-              control={<Switch size="sm" checked={session.on} onCheckedChange={(on) => setSessions(review.sessions.map((s) => (s.id === session.id ? { ...s, on } : s)))} aria-label={`${session.name || "Review time"} on`} />}
+              control={<Switch size="sm" checked={session.on} onCheckedChange={(on) => setSessions(review.sessions.map((s) => (s.id === session.id ? { ...s, on } : s)))} aria-label={t("settings.sessionOn", { name: session.name || reviewTimeName })} />}
             />
           ))
         ) : (
-          <Row description="None yet. Add one, like weekdays at 15:00 for half an hour." />
+          <Row description={t("settings.noSessions")} />
         )}
       </Group>
 
       <Group
-        title="When it's time"
-        footer={`${waiting.length ? `Notifications from ${list(waiting)} wait for review time; change that in each queue.` : "Each queue's notifications can wait for review time; set that in the queue."} The sound plays when "Play a sound with notifications" is on, in General.`}
+        title={t("settings.whenItsTime")}
+        footer={waiting.length ? t("settings.waitingQueues", { queues: t.list(waiting) }) : t("settings.noWaitingQueues")}
       >
-        <SwitchRow checked={review.againFirst} onChange={(againFirst) => set({ againFirst })} label="Re-reviews first" hint="When someone asks you to review a pull request again, it goes before the rest, if it fits." />
-        <SwitchRow checked={review.remindEnd} onChange={(remindEnd) => set({ remindEnd })} label="Tell me when the time's up" />
-        <SwitchRow checked={review.skipEmpty} onChange={(skipEmpty) => set({ skipEmpty })} label="Say nothing when there's nothing to review" />
-        <SwitchRow checked={review.holdWhileReviewing} onChange={(holdWhileReviewing) => set({ holdWhileReviewing })} label="Hold every notification while I review" hint="They show once the time's up." />
+        <SwitchRow checked={review.againFirst} onChange={(againFirst) => set({ againFirst })} label={t("settings.againFirst")} hint={t("settings.againFirstHint")} />
+        <SwitchRow checked={review.remindEnd} onChange={(remindEnd) => set({ remindEnd })} label={t("settings.remindEnd")} />
+        <SwitchRow checked={review.skipEmpty} onChange={(skipEmpty) => set({ skipEmpty })} label={t("settings.skipEmpty")} />
+        <SwitchRow checked={review.holdWhileReviewing} onChange={(holdWhileReviewing) => set({ holdWhileReviewing })} label={t("settings.hold")} hint={t("settings.holdHint")} />
       </Group>
     </Pane>
   );

@@ -5,21 +5,13 @@
 import { bridge, type AiAnswer } from "./bridge";
 import type { AiProvider, Config, Effort } from "./config";
 import type { Details } from "./details";
+import { i18n } from "./i18n";
 import { loadFiles, type ReviewFile } from "./review";
 
 export const PROVIDERS: Record<AiProvider, { name: string; install: string; efforts: Array<Effort | ""> }> = {
   claude: { name: "Claude Code", install: "https://claude.com/product/claude-code", efforts: ["", "low", "medium", "high", "xhigh", "max"] },
   // Cursor's effort is part of the model's name.
   cursor: { name: "Cursor", install: "https://cursor.com/cli", efforts: [] },
-};
-
-export const EFFORT_LABELS: Record<Effort | "", string> = {
-  "": "Default",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra high",
-  max: "Max",
 };
 
 const ROLE = "You're helping someone review a GitHub pull request; its description and diff are below.";
@@ -40,7 +32,7 @@ function material(details: Details, files: ReviewFile[]) {
 
 function run(config: Config, details: Details, files: ReviewFile[], task: string, schema?: object): Promise<AiAnswer> {
   const { provider, model, effort, instructions, project } = config.ai;
-  if (!provider) throw new Error("Turn on AI in Settings first.");
+  if (!provider) throw new Error(i18n()("config.aiOff"));
   const guidelines = instructions.trim() ? `\n\nThe reviewer's own guidelines, to follow:\n${instructions.trim()}` : "";
   const prompt = [ROLE, project ? PROJECT : null, `${task.trim()}${guidelines}`].filter(Boolean).join("\n\n");
   return bridge.aiAsk({
@@ -118,7 +110,7 @@ export async function review(config: Config, details: Details, files: ReviewFile
   try {
     parsed = JSON.parse(answer.text) as typeof parsed;
   } catch {
-    throw new Error("The AI's answer wasn't in the expected form. Try again.");
+    throw new Error(i18n()("config.aiUnexpected"));
   }
   const lines = new Map(files.map((f) => [f.path, commentable(f.patch)]));
   const findings = (Array.isArray(parsed.findings) ? parsed.findings : []).flatMap((raw): Finding[] => {

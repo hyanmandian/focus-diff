@@ -58,6 +58,11 @@ export type DraftChange = ({ op: "put" } & DraftPut) | { op: "remove"; key: stri
  *  GitHub's id for each that arrived, by key. */
 export type DraftsState = { jobs: Array<{ change: DraftChange; error: string | null }>; ids: Record<string, string> };
 
+/** A picture or video on github.com, for a comment (src-tauri/src/uploads.rs). */
+export type Uploaded = { href: string; kind: "image" | "video" };
+/** Why it wasn't uploaded: nobody signed in on github.com, the session ended, or GitHub's words. */
+export type UploadError = { kind: "not_signed_in" } | { kind: "session_expired" } | { kind: "failed"; message: string };
+
 export class GitHubError extends Error {
   constructor(
     readonly status: number,
@@ -99,6 +104,19 @@ export const bridge = {
       expiresIn: code.expires_in,
     }),
   authSignOut: () => invoke<void>("auth_sign_out"),
+
+  /** Who's signed in on github.com itself, for attaching files (src-tauri/src/web.rs); a
+   *  "web-session" event says when it changes. */
+  webSession: () => invoke<string | null>("github_web_session"),
+  /** github.com's own sign-in page, in a window of its own. */
+  signInWeb: () => invoke<void>("sign_in_web"),
+  signOutWeb: () => invoke<void>("sign_out_web"),
+  /** Uploads a picture or video as github.com does, for a comment on `repo#number`. The bytes go
+   *  as they are; rejects with an UploadError. */
+  uploadAttachment: async (repo: string, number: number, file: File) =>
+    invoke<Uploaded>("upload_attachment", new Uint8Array(await file.arrayBuffer()), {
+      headers: { "x-repo": repo, "x-number": String(number), "x-name": encodeURIComponent(file.name) },
+    }),
 
   aiStatuses: () => invoke<AiStatus[]>("ai_statuses"),
   aiModels: (provider: AiStatus["provider"]) => invoke<string[]>("ai_models", { provider }),

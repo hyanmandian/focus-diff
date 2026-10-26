@@ -387,11 +387,14 @@ const listeners = new Map<number, string>();
 const callbacks = new Map<number, (event: unknown) => void>();
 let callbackId = 0;
 // Events from the sample's side (dev/conversation.ts) reach the page's listeners.
-setEmitter((event, payload) => {
+const emit = (event: string, payload: unknown) => {
   for (const [handler, name] of listeners) if (name === event) callbacks.get(handler)?.({ event, id: handler, payload });
-});
+};
+setEmitter(emit);
+// Signed in on github.com for attachments: nobody at first, so the sign-in is there to try.
+let webLogin: string | null = null;
 
-async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
+async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record<string, string> }): Promise<unknown> {
   // Commenting (suggestions, the pending review, reactions…) answers first.
   const answered = await conversationMock(cmd, args, () => ({ people, threads: threads.repository.pullRequest.reviewThreads.nodes, details, files: reviewFiles }));
   if (answered !== undefined) return answered;
@@ -424,6 +427,21 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
       await new Promise((r) => setTimeout(r, 150));
       if (text === undefined) throw "absent";
       return new TextEncoder().encode(text);
+    }
+    case "github_web_session":
+      return webLogin;
+    case "sign_in_web":
+      setTimeout(() => emit("web-session", (webLogin = "you")), 600);
+      return;
+    case "sign_out_web":
+      emit("web-session", (webLogin = null));
+      return;
+    case "upload_attachment": {
+      await new Promise((r) => setTimeout(r, 900));
+      if (!webLogin) throw { kind: "not_signed_in" };
+      const name = decodeURIComponent(options?.headers?.["x-name"] ?? "");
+      if (/fail/i.test(name)) throw { kind: "failed", message: "GitHub didn't take it: Size must be less than 10 MB" };
+      return { href: `https://github.com/user-attachments/assets/${crypto.randomUUID()}`, kind: /\.(mp4|m4v|mov|webm)$/i.test(name) ? "video" : "image" };
     }
     case "queue_viewed":
       return;

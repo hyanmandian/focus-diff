@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { getVersion } from "@tauri-apps/api/app";
 import { PROVIDERS } from "@/lib/ai";
+import { useWebSession } from "@/lib/attachments";
 import { avatar } from "@/lib/avatar";
 import { bridge, type AuthStatus } from "@/lib/bridge";
 import { loadConfig, saveConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/lib/config";
@@ -188,7 +189,44 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
           )}
         </Group>
       )}
+      {auth?.signed_in ? <Attachments /> : null}
     </Pane>
+  );
+}
+
+/** Signing in on github.com itself, only to attach pictures and videos (src-tauri/src/web.rs). */
+function Attachments() {
+  const t = useT();
+  const login = useWebSession();
+  return (
+    <Group title={t("settings.attachments")} footer={t("settings.attachmentsFooter")}>
+      <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
+        {login === undefined ? (
+          <Loader2 className="animate-spin text-muted-foreground" aria-label={t("settings.loading")} />
+        ) : login ? (
+          <>
+            <Avatar className="size-9">
+              <AvatarImage src={avatarOf(login)} alt="" />
+              <AvatarFallback className="text-body">{login.slice(0, 1).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-body font-semibold">@{login}</div>
+              <div className="mt-0.5 text-subheadline text-muted-foreground">{t("settings.webSignedIn")}</div>
+            </div>
+            <Button variant="outline" onClick={() => void bridge.signOutWeb()}>
+              <LogOut /> {t("settings.webSignOut")}
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="min-w-0 flex-1 text-body text-muted-foreground">{t("settings.webSignedOut")}</p>
+            <Button variant="outline" onClick={() => void bridge.signInWeb()}>
+              {t("settings.webSignIn")}
+            </Button>
+          </>
+        )}
+      </div>
+    </Group>
   );
 }
 

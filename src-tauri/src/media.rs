@@ -29,7 +29,7 @@ fn name(key: &str) -> String {
     format!("{hash:016x}")
 }
 
-fn decode(s: &str) -> String {
+pub(crate) fn decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -122,6 +122,12 @@ fn fetch<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Vec<u8>> {
     if url.starts_with("https://github.com/") && url.contains("/releases/download/") {
         let token = app.state::<crate::github::Auth>().token_for_git().ok()?;
         return release_asset(&token, url);
+    }
+    // An attachment in a private repository is the signed-in person's to see: asked as them on
+    // github.com when they're signed in there (web.rs), it's at a signed address on GitHub's
+    // content host, fetched without the session.
+    if let Some(signed) = crate::web::signed_address(app, url) {
+        return read_all(crate::github::agent().get(&signed).call().ok()?);
     }
     // Everything else on GitHub's content hosts is reachable at its (signed) address.
     read_all(crate::github::agent().get(url).call().ok()?)

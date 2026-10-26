@@ -1,17 +1,19 @@
 // The box comments are written in, as GitHub's: Markdown, with a preview GitHub renders, @mentions
 // and #references completed as you type, ⌘B ⌘I ⌘E ⌘K for bold, italic, code and links, a suggested
 // change for the lines picked, and your saved replies. No formatting toolbar: the keys and the
-// text are the interface.
+// text are the interface. Pictures and videos pasted, dropped or picked are uploaded as github.com
+// does, once you've signed in there (lib/attachments.ts).
 
-import { CircleDot, FileDiff, GitPullRequest, Loader2, Reply } from "lucide-react";
+import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ACCEPT, attachable, displayWidth, markdownFor, swap, uploadMark, useWebSession } from "@/lib/attachments";
 import { avatar } from "@/lib/avatar";
-import { bridge } from "@/lib/bridge";
+import { bridge, type UploadError } from "@/lib/bridge";
 import { useT } from "@/lib/i18n";
 import { tabKeys } from "@/lib/keys";
 import { isMac } from "@/lib/platform";
@@ -118,8 +120,20 @@ export function MarkdownField({
   const [options, setOptions] = useState<Option[]>([]);
   const [active, setActive] = useState(0);
   const [at, setAt] = useState({ top: 0, left: 0, height: 0 });
-  const [notice, setNotice] = useState(false);
+  // Under the field: why an attachment didn't go, or that github.com needs signing in to first.
+  const [message, setMessage] = useState<{ kind: "sign-in" | "ended" } | { kind: "error"; text: string } | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const session = useWebSession();
+  // The text as it is now, for uploads that finish after it changed.
+  const latest = useRef(value);
+  latest.current = value;
   const asked = useRef(0);
+  const number = Number(/\/pull\/(\d+)/.exec(api?.url ?? "")?.[1]) || null;
+
+  // Signed in on github.com: what asked for it goes.
+  useEffect(() => {
+    if (session) setMessage((m) => (m?.kind === "error" ? m : null));
+  }, [session]);
 
   useEffect(() => {
     if (autoFocus) field.current?.focus();
@@ -185,6 +199,51 @@ export function MarkdownField({
     requestAnimationFrame(() => apply({ from: start, to: end, insert: full, select: [start + full.length, start + full.length] }));
   };
 
+  /** One placeholder swapped for what took its place, keeping the caret where it was. */
+  const replace = (mark: string, by: string) => {
+    const before = latest.current;
+    const at = before.indexOf(mark);
+    const next = swap(before, mark, by);
+    if (next === before) return;
+    const el = field.current;
+    const caret = el && document.activeElement === el ? [el.selectionStart, el.selectionEnd] : null;
+    latest.current = next;
+    onChange(next);
+    if (caret && el) {
+      const shift = (i: number) => (i > at ? Math.max(at, i + next.length - before.length) : i);
+      requestAnimationFrame(() => el.setSelectionRange(shift(caret[0]!), shift(caret[1]!)));
+    }
+  };
+
+  /** Pictures and videos into the comment: a placeholder for each at the caret, then each as
+   *  github.com writes it once it's uploaded. */
+  const attach = (files: File[]) => {
+    if (!api || !number || !files.length) return;
+    const list = files.filter(attachable);
+    if (list.length < files.length) setMessage({ kind: "error", text: t("review.uploadUnsupported") });
+    if (!list.length) return;
+    if (session === null) return setMessage({ kind: "sign-in" });
+    if (list.length === files.length) setMessage(null);
+    let text = latest.current;
+    const marks = list.map((file) => {
+      const mark = uploadMark(file.name, t("review.uploading", { name: "{name}" }), text);
+      text += mark;
+      return mark;
+    });
+    insert(marks.join("\n"), true);
+    for (const [i, file] of list.entries()) {
+      Promise.all([bridge.uploadAttachment(api.repo, number, file), displayWidth(file)]).then(
+        ([uploaded, width]) => replace(marks[i]!, markdownFor(uploaded.kind, uploaded.href, file.name, width)),
+        (e: UploadError | string) => {
+          replace(marks[i]!, "");
+          if (typeof e === "string") setMessage({ kind: "error", text: e });
+          else if (e.kind === "failed") setMessage({ kind: "error", text: e.message });
+          else setMessage({ kind: e.kind === "session_expired" ? "ended" : "sign-in" });
+        },
+      );
+    }
+  };
+
   const pick = (option: Option | undefined) => {
     const el = field.current;
     if (!option || !token || !el) return;
@@ -236,6 +295,25 @@ export function MarkdownField({
             <TooltipContent>{t("review.suggestChangeTip")}</TooltipContent>
           </Tooltip>
         ) : null}
+        {api && number ? (
+          <Tooltip>
+            <TooltipTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.attachFiles")} onClick={() => picker.current?.click()} />}>
+              <Paperclip />
+            </TooltipTrigger>
+            <TooltipContent>{t("review.attachFiles")}</TooltipContent>
+          </Tooltip>
+        ) : null}
+        <input
+          ref={picker}
+          type="file"
+          multiple
+          accept={ACCEPT}
+          hidden
+          onChange={(e) => {
+            attach([...(e.target.files ?? [])]);
+            e.target.value = "";
+          }}
+        />
         {api ? <SavedReplies onPick={(body) => insert(body)} /> : null}
       </div>
 
@@ -317,10 +395,10 @@ export function MarkdownField({
                 }
               }}
               onPaste={(e) => {
-                // GitHub has no way for an app to upload a picture or a file: said so, not faked.
-                if ([...e.clipboardData.items].some((i) => i.kind === "file")) {
+                const files = [...e.clipboardData.files];
+                if (files.length) {
                   e.preventDefault();
-                  setNotice(true);
+                  attach(files);
                   return;
                 }
                 // A link pasted over words makes them a link, as on GitHub.
@@ -335,7 +413,11 @@ export function MarkdownField({
               onDrop={(e) => {
                 if (!e.dataTransfer.files.length) return;
                 e.preventDefault();
-                setNotice(true);
+                // Where it's dropped is where it goes.
+                const el = e.currentTarget;
+                const at = document.caretPositionFromPoint?.(e.clientX, e.clientY);
+                if (at?.offsetNode === el) el.setSelectionRange(at.offset, at.offset);
+                attach([...e.dataTransfer.files]);
               }}
               className="resize-y"
             />
@@ -382,12 +464,12 @@ export function MarkdownField({
           </div>
         )}
       </div>
-      {notice ? (
-        <p id={`${id}-hint`} role="status" className="flex flex-wrap items-center gap-x-1.5 text-callout text-muted-foreground">
-          {t("review.noUploads")}
-          {api ? (
-            <Button variant="link" size="xs" className="h-auto px-0" onClick={() => void bridge.openUrl(api.url)}>
-              {t("review.finishOnGitHub")}
+      {message ? (
+        <p id={`${id}-hint`} role={message.kind === "error" ? "alert" : "status"} className={cn("flex flex-wrap items-center gap-x-1.5 text-callout", message.kind === "error" ? "text-destructive" : "text-muted-foreground")}>
+          {message.kind === "error" ? message.text : t(message.kind === "ended" ? "review.uploadSessionEnded" : "review.uploadSignIn")}
+          {message.kind !== "error" ? (
+            <Button variant="link" size="xs" className="h-auto px-0" onClick={() => void bridge.signInWeb()}>
+              {t("review.signInGitHubCom")}
             </Button>
           ) : null}
         </p>

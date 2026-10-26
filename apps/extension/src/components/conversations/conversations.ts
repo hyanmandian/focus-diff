@@ -68,6 +68,21 @@ export const createConversations = (
       chevronIcon(direction > 0 ? "right" : "left"),
     );
   };
+  const next = step(1);
+  // With a single conversation there's nowhere to step to, only back to it.
+  const goTo = h(
+    "button",
+    {
+      type: "button",
+      className: "icon-button go-to",
+      "aria-label": i18n.t("panelGoToComment"),
+      "data-tip": i18n.t("panelGoToComment"),
+      onClick: () => {
+        onStep(1);
+      },
+    },
+    targetIcon(),
+  );
   const popover = h(
     "div",
     {
@@ -81,26 +96,7 @@ export const createConversations = (
     file,
     state,
     position,
-    h(
-      "span",
-      { className: "conversation-steps" },
-      step(-1),
-      step(1),
-      // With a single conversation there's nowhere to step to, only back to it.
-      h(
-        "button",
-        {
-          type: "button",
-          className: "icon-button go-to",
-          "aria-label": i18n.t("panelGoToComment"),
-          "data-tip": i18n.t("panelGoToComment"),
-          onClick: () => {
-            onStep(1);
-          },
-        },
-        targetIcon(),
-      ),
-    ),
+    h("span", { className: "conversation-steps" }, step(-1), next, goTo),
   );
   // Like the breakdown, the card follows its toggle and is positioned against the host.
   const element = h("div", { className: "navigation" }, toggle, popover);
@@ -130,8 +126,7 @@ export const createConversations = (
       // The step arrows and Go to swap places; focus moves to whichever is left, instead of falling to the page.
       const had = focused();
       popover.toggleAttribute("data-single", single);
-      if (had && popover.contains(had) && had.matches(".step, .go-to"))
-        popover.querySelector<HTMLElement>(single ? ".go-to" : ".step:last-child")?.focus();
+      if (had && popover.contains(had) && had.matches(".step, .go-to")) (single ? goTo : next).focus();
     }
     position.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
   };

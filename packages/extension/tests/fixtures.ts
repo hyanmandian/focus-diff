@@ -133,7 +133,8 @@ export const expectSoundPage = async (
   await page.setViewportSize({ width, height: 900 });
   await page.emulateMedia({ colorScheme });
   await expect(ready).not.toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  // Polled: right after the resize the page may still be laid out for the old width.
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   // Contrast is checked as the page rests, not halfway through a fade, like the bar's as it comes in.
   await page.evaluate(() => {
     const roots: (Document | ShadowRoot)[] = [document];

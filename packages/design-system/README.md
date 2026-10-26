@@ -67,8 +67,8 @@ example `DialogContent`'s `closeLabel`), so the app passes it in its language.
 
 **The page.** Dark mode is the `dark` class on `<html>`. `<html data-platform="macos">` turns on the Mac's live
 system colours in a web view that has them (Safari, WKWebView); elsewhere the tokens' own values apply.
-`<html data-window-inactive>` grays selections, as an inactive Mac window does. The desktop sets both in
-`packages/desktop/src/utils/platform`.
+`<html data-window-inactive>` grays selections, as an inactive Mac window does. The screens set both in
+`packages/app/src/utils/os`.
 
 ## Working on it
 

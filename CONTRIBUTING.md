@@ -12,13 +12,14 @@ This repository holds everything Focus Diff is, as npm workspaces:
 packages/
   extension/      the browser extension: WXT and TypeScript
   desktop/        the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
+  app/            the screens both apps run and their logic, on a pluggable platform (see its README)
   site/           focus-diff.com, a static page
   core/           logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
   design-system/  what makes them one product: the Mac look's tokens, styles and React components (see its README)
 ```
 
 The apps import a shared package's files directly, as its `exports` name them (`@focus-diff/core/filters`), and bundle
-them; `npm run check` in `packages/core` and `packages/design-system` is Oxfmt, Oxlint (as strict as the apps'), types
+them; `npm run check` in `packages/core`, `packages/design-system` and `packages/app` is Oxfmt, Oxlint (as strict as the apps'), types
 and Vitest at 100%.
 
 `npm install` at the root installs everything. Run an app's commands from its folder (or with `--workspace`), and
@@ -64,9 +65,11 @@ npm run e2e         # Playwright on the pages, in Chromium and WebKit
 npm run tauri build # a signed .app in src-tauri/target/release/bundle (needs the updater key, see Releasing)
 ```
 
-Its code follows one layout: `src/components/<name>/<name>.tsx`, `src/hooks/<name>/<name>.ts` and
-`src/utils/<name>/<name>.ts`, each with its `<name>.test.tsx` beside it, kebab-case, imported directly (no index
-files); `tests/` is only for end-to-end tests; `src-tauri/` is the Rust side.
+Its screens live in `packages/app`; the desktop keeps what makes it a Tauri app: `src/entries/` (a page each, which
+plugs in the Tauri platform and draws a screen), `src/utils/tauri-platform/`, `src-tauri/` (the Rust side) and
+`tests/` (end-to-end tests of the pages, on the sample data). Both follow one layout: `src/components/<name>/<name>.tsx`,
+`src/hooks/<name>/<name>.ts` and `src/utils/<name>/<name>.ts`, each with its `<name>.test.tsx` beside it, kebab-case,
+imported directly (no index files).
 
 The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`utils/review/review.ts`) as on a review site. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
 

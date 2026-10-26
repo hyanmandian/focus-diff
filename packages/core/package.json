@@ -14,6 +14,8 @@
     "./github-pulls": "./src/github-pulls/github-pulls.ts",
     "./json-decode": "./src/json-decode/json-decode.ts",
     "./queue-config": "./src/queue-config/queue-config.ts",
+    "./queue-engine": "./src/queue-engine/queue-engine.ts",
+    "./queue-words": "./src/queue-words/queue-words.ts",
     "./recipes": "./src/recipes/recipes.ts",
     "./repos": "./src/repos/repos.ts"
   },

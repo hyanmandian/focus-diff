@@ -81,14 +81,19 @@ export type ReviewPull = {
   author: { login: string; name?: string | null } | null;
 };
 
+/** The author as a window's title names them: their first name, else their login. */
+const byline = (author: ReviewPull["author"]) => (author?.name ?? "").trim().split(/\s+/u)[0]! || (author?.login ?? "");
+
 const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string | null) => ({
   id: pr.id,
   repo: pr.repository.nameWithOwner,
   number: pr.number,
   teams,
   queue: queue ?? null,
-  title: `#${pr.number} · ${pr.title} · ${pr.author?.name?.trim().split(/\s+/)[0] || pr.author?.login || ""}`,
+  title: `#${pr.number} · ${pr.title} · ${byline(pr.author)}`,
 });
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 export const bridge = {
   /** Marks a file viewed, or not, on github.com: Rust keeps it until GitHub takes it (outbox.rs).
@@ -201,6 +206,7 @@ export const bridge = {
   menuState: (items: Record<string, boolean>) => invoke<void>("menu_state", { items }),
   quit: () => invoke<void>("quit"),
 
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the payload Rust sends
   on: <T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> =>
     listen<T>(event, (e) => {
       handler(e.payload);
@@ -218,10 +224,12 @@ export async function github<T = unknown>(method: string, path: string, body?: u
   const parsed = response.body && !accept ? safeJson(response.body) : response.body;
   if (response.status >= 400) {
     const message =
-      (parsed as { message?: string } | null)?.message ??
-      i18n()("common.githubReturned", { status: String(response.status) });
+      isRecord(parsed) && typeof parsed.message === "string"
+        ? parsed.message
+        : i18n()("common.githubReturned", { status: String(response.status) });
     throw new GitHubError(response.status, message);
   }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the caller names the shape GitHub sends; nothing here can check it
   return parsed as T;
 }
 

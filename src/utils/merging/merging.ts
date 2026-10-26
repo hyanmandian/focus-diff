@@ -272,5 +272,8 @@ export const updateBranch = (d: Pick<Details, "id" | "headRefOid">, how: "MERGE"
 export const deleteBranch = (m: Pick<Manage, "headOwner" | "headRepo">, branch: string) =>
   github(
     "DELETE",
-    `/repos/${m.headOwner}/${m.headRepo}/git/refs/heads/${branch.split("/").map(encodeURIComponent).join("/")}`,
+    `/repos/${m.headOwner}/${m.headRepo}/git/refs/heads/${branch
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/")}`,
   );

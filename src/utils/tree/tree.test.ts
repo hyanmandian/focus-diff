@@ -17,14 +17,17 @@ describe("the file tree", () => {
 
   it("puts folders first, then files, by name (numbers in order)", () => {
     expect(tree.map((n) => n.name)).toEqual(["docs/guide", "src", "README.md"]);
-    const src = tree[1]!;
-    expect(src.kind === "folder" && src.children.map((n) => n.name)).toEqual(["checkout", "app.ts"]);
-    const checkout = src.kind === "folder" ? src.children[0]! : null;
-    expect(checkout?.kind === "folder" && checkout.children.map((n) => n.name)).toEqual([
+    expect(flatten(tree, new Set()).map((r) => r.node.name)).toEqual([
+      "docs/guide",
+      "intro.md",
+      "src",
+      "checkout",
       "a9.ts",
       "a10.ts",
       "cart.ts",
       "promo.ts",
+      "app.ts",
+      "README.md",
     ]);
   });
 
@@ -33,8 +36,11 @@ describe("the file tree", () => {
   });
 
   it("knows every file under a folder", () => {
-    const src = tree[1]!;
-    expect(src.kind === "folder" && src.files.length).toBe(5);
+    expect(tree[1]).toMatchObject({ kind: "folder", path: "src" });
+    expect(tree[1]).toHaveProperty(
+      "files",
+      files.filter((f) => f.path.startsWith("src/")),
+    );
   });
 
   it("hides what's in a closed folder", () => {
@@ -76,6 +82,22 @@ describe("the outline's keys", () => {
     expect(outlineKey(rows, 0, "ArrowDown", closed)).toEqual({ focus: 1 });
     expect(outlineKey(rows, 0, "ArrowUp", closed)).toEqual({ focus: 0 });
     expect(outlineKey(rows, 2, "End", closed)).toEqual({ focus: rows.length - 1 });
+    expect(outlineKey(rows, 4, "Home", closed)).toEqual({ focus: 0 });
+  });
+
+  it("does nothing with other keys, or in an empty outline", () => {
+    expect(outlineKey(rows, 0, "a", closed)).toBeNull();
+    expect(outlineKey([], 0, "ArrowDown", closed)).toBeNull();
+  });
+
+  it("goes to the first row when the focused one is gone", () => {
+    expect(outlineKey(rows, 99, "ArrowDown", closed)).toEqual({ focus: 0 });
+  });
+
+  it("goes nowhere right from a file, or from an open folder with nothing shown under it", () => {
+    expect(outlineKey(rows, 4, "ArrowRight", closed)).toBeNull();
+    const lone = flatten(buildTree([{ path: "a/b.ts" }]), new Set());
+    expect(outlineKey(lone.slice(0, 1), 0, "ArrowRight", new Set())).toBeNull();
   });
 
   it("opens a closed folder, then goes into it", () => {

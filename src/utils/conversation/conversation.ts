@@ -70,8 +70,7 @@ type RawItem =
       author: Entry["author"];
       state: string;
       comments: Page<RawReviewComment>;
-    } & RawSaid)
-  | { __typename: string };
+    } & RawSaid);
 
 const said = (n: RawSaid): Said => ({
   body: n.body,
@@ -110,10 +109,11 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
   };
   let head: Omit<Conversation, "entries"> | null = null;
   const entries: ConversationEntry[] = [];
-  const longer: Array<Promise<void>> = [];
+  const longer: Array<Promise<unknown>> = [];
   let after: string | null = null;
   // As long as it is, a hundred a page (with the pull request's own fields on the first).
   for (let page = 0; page < 100; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page needs the cursor the one before gave
     const data: Raw = await graphql<Raw>(
       `query($owner: String!, $name: String!, $number: Int!, $after: String, $first: Boolean!) {
         repository(owner: $owner, name: $name) { pullRequest(number: $number) {
@@ -143,7 +143,7 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
       headOid: pr.headRefOid ?? "",
     };
     for (const node of pr.timelineItems.nodes) {
-      if (node.__typename === "IssueComment" && "body" in node) {
+      if (node.__typename === "IssueComment") {
         entries.push({
           kind: "comment",
           id: node.id,
@@ -153,10 +153,11 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
           url: node.url,
           ...said(node),
         });
-      } else if (node.__typename === "PullRequestReview" && "comments" in node) {
+      } else {
         // Your pending review isn't part of the conversation yet: its comments show as pending.
         if (node.state === "PENDING") continue;
-        const entry: ConversationEntry = {
+        const comments = node.comments.nodes.map(toComment);
+        entries.push({
           kind: "review",
           id: node.id,
           author: node.author,
@@ -164,24 +165,18 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
           html: node.bodyHTML,
           at: node.createdAt,
           url: node.url,
-          comments: node.comments.nodes.map(toComment),
+          comments,
           ...said(node),
-        };
-        entries.push(entry);
+        });
         const cursor = node.comments.pageInfo.hasNextPage ? node.comments.pageInfo.endCursor : null;
-        if (cursor)
-          longer.push(
-            moreReviewComments(node.id, cursor).then(
-              (rest) => void (entry.kind === "review" && entry.comments.push(...rest)),
-            ),
-          );
+        if (cursor) longer.push(moreReviewComments(node.id, cursor).then((rest) => comments.push(...rest)));
       }
     }
     if (!pr.timelineItems.pageInfo.hasNextPage) break;
     after = pr.timelineItems.pageInfo.endCursor;
   }
   await Promise.all(longer);
-  return { ...head!, entries: entries.reverse() };
+  return { ...head!, entries: entries.toReversed() };
 }
 
 /** A review's comments past its first hundred. */
@@ -189,6 +184,7 @@ async function moreReviewComments(review: string, after: string) {
   const all: ReturnType<typeof toComment>[] = [];
   let cursor: string | null = after;
   for (let page = 0; cursor && page < 50; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page needs the cursor the one before gave
     const data: { node: { comments: Page<RawReviewComment> } | null } = await graphql(
       `query($id: ID!, $after: String) { node(id: $id) { ... on PullRequestReview { comments(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { id path line bodyHTML author { ${AUTHOR} } url } } } } }`,
       { id: review, after: cursor },
@@ -206,11 +202,17 @@ const keptId = (prId: string) => `${prId}-conversation`;
 export async function readKeptConversation(prId: string): Promise<Conversation | null> {
   try {
     const text = await invoke<string | null>("kept_read", { id: keptId(prId) });
-    return text ? (JSON.parse(text) as Conversation) : null;
+    if (!text) return null;
+    const kept: unknown = JSON.parse(text);
+    return isConversation(kept) ? kept : null;
   } catch {
     return null;
   }
 }
+
+/** Enough of a check that a kept copy from an older version, or a damaged one, isn't taken for one. */
+const isConversation = (value: unknown): value is Conversation =>
+  typeof value === "object" && value !== null && "entries" in value && Array.isArray(value.entries);
 
 export function keepConversation(prId: string, conversation: Conversation) {
   // Only slower next time if it fails.

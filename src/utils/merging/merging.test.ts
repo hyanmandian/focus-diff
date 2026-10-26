@@ -1,7 +1,38 @@
+import type { InvokeArgs } from "@tauri-apps/api/core";
+import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { Manage } from "@/utils/manage/manage";
-import { defaultMessage, mergeView } from "@/utils/merging/merging";
+import {
+  defaultMessage,
+  deleteBranch,
+  dequeue,
+  disableAutoMerge,
+  enableAutoMerge,
+  enqueue,
+  loadMergeState,
+  mergePull,
+  mergeView,
+  updateBranch,
+} from "@/utils/merging/merging";
+
+type Call = { cmd: string; fields: Record<string, unknown> };
+const fields = (args: InvokeArgs | undefined): Record<string, unknown> =>
+  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
+const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
+
+/** Rust answering each call with the same reply, keeping what was asked. */
+function rust(reply: unknown = ok({ data: {} })) {
+  const calls: Call[] = [];
+  mockIPC((cmd, args) => {
+    calls.push({ cmd, fields: fields(args) });
+    return reply;
+  });
+  return calls;
+}
+/** What each call sent: its method, path and body. */
+const sent = (calls: Call[]) =>
+  calls.map((c) => [c.fields.method, c.fields.path, JSON.parse(String(c.fields.body)) as unknown]);
 
 const manage = (over: Partial<Manage> = {}): Manage => ({
   viewerPermission: "WRITE",
@@ -44,8 +75,9 @@ const details = (over: Partial<D> = {}): D => ({
   mergeMethods: ["squash", "merge"],
   ...over,
 });
-const view = (d: Partial<D> = {}, m: Partial<Manage> = {}, extra = { failing: 0, pending: 0, unresolved: 0 }) =>
-  mergeView({ details: details(d), manage: manage(m), ...extra });
+type Counts = { failing: number; pending: number; unresolved: number };
+const view = (d: Partial<D> = {}, m: Partial<Manage> = {}, extra: Partial<Counts> = {}) =>
+  mergeView({ details: details(d), manage: manage(m), failing: 0, pending: 0, unresolved: 0, ...extra });
 
 describe("merge state", () => {
   it("lets anyone with write access merge a clean pull request, not only its author", () => {
@@ -145,7 +177,60 @@ describe("merge state", () => {
   });
 
   it("can't merge where the repository allows no method", () => {
-    expect(view({ mergeMethods: [] }).canMerge).toBe(false);
+    expect(view({ mergeMethods: [] })).toMatchObject({ canMerge: false, canBypass: false, canAutoMerge: false });
+  });
+
+  it("asks for approvals when the code owners who must review weren't asked", () => {
+    const rule = { approvals: 1, codeOwners: true, checks: [], conversations: false, linear: false };
+    const owner = {
+      key: "user:bo",
+      actor: { login: "bo", avatarUrl: "", name: null },
+      team: null,
+      state: null,
+      requested: false,
+      codeOwner: true,
+    };
+    const blocked = { mergeStateStatus: "BLOCKED", reviewDecision: "REVIEW_REQUIRED" } as const;
+    expect(view(blocked, { rule, reviewers: [owner] }, { unresolved: 3 }).reasons).toEqual(["approvals"]);
+    expect(view(blocked, { rule, reviewers: [{ ...owner, codeOwner: false, requested: true }] }).reasons).toEqual([
+      "approvals",
+    ]);
+  });
+
+  it("lets an admin bypass, but not while GitHub works it out or it's queued", () => {
+    const admin = { viewerCanMergeAsAdmin: true };
+    expect(view({ mergeStateStatus: "UNKNOWN" }, admin).canBypass).toBe(false);
+    expect(view({}, { ...admin, isMergeQueueEnabled: true }).canBypass).toBe(true);
+    expect(view({}, { ...admin, isMergeQueueEnabled: true, isInMergeQueue: true }).canBypass).toBe(false);
+    expect(view({ mergeStateStatus: "BLOCKED" }, { ...admin, viewerPermission: "READ" })).toMatchObject({
+      canBypass: true,
+      canMerge: false,
+    });
+  });
+
+  it("offers auto-merge only where the repository and the person can, and there's no queue", () => {
+    const blocked = { mergeStateStatus: "BLOCKED" } as const;
+    expect(view(blocked).canAutoMerge).toBe(true);
+    expect(view({ mergeStateStatus: "BEHIND" }).canAutoMerge).toBe(true);
+    expect(view({ mergeStateStatus: "UNKNOWN" }).canAutoMerge).toBe(true);
+    expect(view(blocked, { autoMergeAllowed: false }).canAutoMerge).toBe(false);
+    expect(view(blocked, { viewerCanEnableAutoMerge: false }).canAutoMerge).toBe(false);
+    expect(view(blocked, { isMergeQueueEnabled: true }).canAutoMerge).toBe(false);
+    expect(view({ mergeStateStatus: "BEHIND", mergeable: "CONFLICTING" }).canAutoMerge).toBe(false);
+  });
+
+  it("lets auto-merge be turned off only by who may", () => {
+    expect(
+      view({}, { autoMerge: { method: "SQUASH", by: "ana" }, viewerCanDisableAutoMerge: false }).canDisableAutoMerge,
+    ).toBe(false);
+    expect(view({ state: "MERGED" }, { autoMerge: null }).canDisableAutoMerge).toBe(false);
+  });
+
+  it("needs write access for the merge queue, and no conflicts to join it", () => {
+    const queue = { isMergeQueueEnabled: true };
+    expect(view({}, { ...queue, viewerPermission: "READ" })).toMatchObject({ canEnqueue: false, canDequeue: false });
+    expect(view({ mergeable: "CONFLICTING" }, queue).canEnqueue).toBe(false);
+    expect(view({}, { ...queue, isInMergeQueue: true, viewerPermission: "READ" }).canDequeue).toBe(false);
   });
 });
 
@@ -167,6 +252,9 @@ describe("commit message", () => {
       title: "Second (#7)",
       body: "Why it changed",
     });
+    expect(defaultMessage("squash", manage({ squashTitle: "COMMIT_OR_PR_TITLE" }), pr, commits).title).toBe(
+      "Keep the code (#7)",
+    );
   });
 
   it("writes a merge commit as the repository's settings ask", () => {
@@ -178,9 +266,77 @@ describe("commit message", () => {
       title: "Keep the code (#7)",
       body: "The body",
     });
+    expect(defaultMessage("merge", manage({ mergeMessage: "BLANK" }), pr, commits).body).toBe("");
   });
 
   it("leaves rebasing to the commits' own messages", () => {
     expect(defaultMessage("rebase", manage(), pr, commits)).toEqual({ title: "", body: "" });
+  });
+});
+
+describe("merging on GitHub", () => {
+  const pull = { owner: "acme", repo: "web", number: 7, id: "PR_7", headRefOid: "h1" };
+  const message = { title: "Fix (#7)", body: "Why" };
+
+  it("asks again for the merge state past Rust's memory", async () => {
+    const state = { state: "OPEN", isDraft: false, mergeable: "MERGEABLE", mergeStateStatus: "CLEAN" };
+    const calls = rust(ok({ data: { repository: { pullRequest: state } } }));
+    expect(await loadMergeState(pull)).toEqual(state);
+    expect(String(calls[0]?.fields.body)).toMatch(/# \d+/u);
+    expect(JSON.parse(String(calls[0]?.fields.body))).toMatchObject({
+      variables: { owner: "acme", name: "web", number: 7 },
+    });
+  });
+
+  it("merges the head that was looked at, with its message unless rebasing", async () => {
+    const calls = rust(ok({ merged: true }));
+    await mergePull(pull, "squash", message);
+    await mergePull(pull, "rebase", message);
+    await mergePull(pull, "merge");
+    expect(sent(calls)).toEqual([
+      [
+        "PUT",
+        "/repos/acme/web/pulls/7/merge",
+        { merge_method: "squash", sha: "h1", commit_title: "Fix (#7)", commit_message: "Why" },
+      ],
+      ["PUT", "/repos/acme/web/pulls/7/merge", { merge_method: "rebase", sha: "h1" }],
+      ["PUT", "/repos/acme/web/pulls/7/merge", { merge_method: "merge", sha: "h1" }],
+    ]);
+  });
+
+  it("turns auto-merge on and off", async () => {
+    const calls = rust();
+    await enableAutoMerge(pull, "squash", message);
+    await enableAutoMerge(pull, "merge");
+    await enableAutoMerge(pull, "rebase", message);
+    await disableAutoMerge(pull);
+    expect(sent(calls).map(([, , body]) => body)).toMatchObject([
+      { variables: { id: "PR_7", method: "SQUASH", head: "h1", title: "Fix (#7)", body: "Why" } },
+      { variables: { id: "PR_7", method: "MERGE", head: "h1", title: null, body: null } },
+      { variables: { id: "PR_7", method: "REBASE", head: "h1", title: null, body: null } },
+      { variables: { id: "PR_7" } },
+    ]);
+    expect(String(calls[3]?.fields.body)).toContain("disablePullRequestAutoMerge");
+  });
+
+  it("joins and leaves the merge queue, and updates the branch", async () => {
+    const calls = rust();
+    await enqueue(pull);
+    await dequeue(pull);
+    await updateBranch(pull, "REBASE");
+    expect(sent(calls).map(([, , body]) => body)).toMatchObject([
+      { variables: { id: "PR_7", head: "h1" } },
+      { variables: { id: "PR_7" } },
+      { variables: { id: "PR_7", head: "h1", how: "REBASE" } },
+    ]);
+    expect(
+      calls.map((c) => /(?:en|de)queuePullRequest|updatePullRequestBranch/u.exec(String(c.fields.body))?.[0]),
+    ).toEqual(["enqueuePullRequest", "dequeuePullRequest", "updatePullRequestBranch"]);
+  });
+
+  it("deletes the head branch, its name encoded part by part", async () => {
+    const calls = rust({ status: 204, body: "" });
+    await deleteBranch({ headOwner: "ana", headRepo: "web" }, "ana/fix #2");
+    expect(calls[0]?.fields).toMatchObject({ method: "DELETE", path: "/repos/ana/web/git/refs/heads/ana/fix%20%232" });
   });
 });

@@ -207,6 +207,9 @@ export function reviewerList(
   return list;
 }
 
+/** A link GitHub may send empty: null then. */
+const link = (url: string | null | undefined) => (url === "" ? null : (url ?? null));
+
 /** `again`: past Rust's memory of the last answer (checks.ts). */
 export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
   const data = await graphql<Raw>(again ? fresh(QUERY) : QUERY, {
@@ -258,8 +261,8 @@ export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
       id: d.id,
       environment: d.environment ?? "",
       state: d.latestStatus?.state ?? d.state,
-      url: d.latestStatus?.environmentUrl || null,
-      logUrl: d.latestStatus?.logUrl || null,
+      url: link(d.latestStatus?.environmentUrl),
+      logUrl: link(d.latestStatus?.logUrl),
       at: d.createdAt,
     })),
   };
@@ -294,6 +297,7 @@ export function useManage(prId: string, ref: PullRef) {
     [prId, ref],
   );
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- reload sets state only once GitHub answers, not synchronously
     void reload();
   }, [reload]);
   const patch = useCallback((change: (m: Manage) => Manage) => {
@@ -360,6 +364,7 @@ export function labels(ref: PullRef, onValue: (list: Label[]) => void) {
     const all: Label[] = [];
     let after: string | null = null;
     for (let page = 0; page < 10; page++) {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
       const data: R = await graphql<R>(
         `
           query ($owner: String!, $name: String!, $after: String) {

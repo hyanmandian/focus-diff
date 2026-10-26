@@ -1,7 +1,20 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vite-plus/test";
 
-import { sanitize } from "@/utils/sanitize/sanitize";
+import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
+
+/** A picture with a dark version, a second `media` one, and a fallback. */
+const picture = (media: string) =>
+  sanitize(
+    `<picture><source media="(prefers-color-scheme: dark)" srcset="https://github.com/d.png 1x"><source ${media} srcset="https://github.com/l.png"><img src="https://github.com/x.png"></picture>`,
+  );
+
+/** The picture in some HTML, on the page. */
+const imgIn = (html: string) => {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return div.querySelector("img")!;
+};
 
 describe("sanitize", () => {
   it("keeps formatting", () => {
@@ -14,7 +27,7 @@ describe("sanitize", () => {
     const out = sanitize(
       '<p onclick="x()">a</p><script>alert(1)</script><a href="javascript:alert(1)">b</a><iframe src="https://evil"></iframe><a href="https://github.com" target="_blank" style="x">c</a>',
     );
-    expect(out).not.toMatch(/script|onclick|javascript|iframe|target|style/);
+    expect(out).not.toMatch(/script|onclick|javascript|iframe|target|style/u);
     expect(out).toContain('<a href="https://github.com">c</a>');
   });
 
@@ -26,6 +39,16 @@ describe("sanitize", () => {
   it("unwraps unknown tags and disables task checkboxes", () => {
     expect(sanitize("<custom-el><b>x</b></custom-el>")).toBe("<b>x</b>");
     expect(sanitize('<input type="checkbox" checked>')).toBe('<input type="checkbox" checked="" disabled="">');
+  });
+
+  it("drops other inputs, comments and pictures without an address", () => {
+    expect(sanitize('<input type="text" value="x">')).toBe("");
+    expect(sanitize("<p>a<!-- hidden -->b</p>")).toBe("<p>ab</p>");
+    expect(sanitize('<img alt="x">')).toBe("");
+  });
+
+  it("keeps a link with no address as its text", () => {
+    expect(sanitize('<a name="x">anchor</a>')).toBe("<a>anchor</a>");
   });
 });
 
@@ -39,6 +62,25 @@ describe("media", () => {
     expect(html).not.toContain("evil.com");
     expect(html).toContain('loading="lazy"');
   });
+
+  it("gives a GitHub video controls, played through the app", () => {
+    const src = "https://github.com/user-attachments/assets/demo.mp4";
+    const html = sanitize(`<video src="${src}" autoplay></video>`);
+    expect(html).toContain(`data-original="${src}"`);
+    expect(html).toContain('controls=""');
+    expect(html).toContain('preload="metadata"');
+    expect(html).not.toContain("autoplay");
+  });
+
+  it("shows a picture's version for the theme showing", () => {
+    expect(picture('media="(prefers-color-scheme: light)"')).toContain('data-original="https://github.com/l.png"');
+    document.documentElement.classList.add("dark");
+    expect(picture("")).toContain('data-original="https://github.com/d.png"');
+    document.documentElement.classList.remove("dark");
+    // No version for the theme: the picture as it was.
+    expect(picture("")).toContain('data-original="https://github.com/x.png"');
+    expect(sanitize('<picture><source srcset="https://github.com/l.png"></picture>')).toBe("");
+  });
 });
 
 describe("diagrams", () => {
@@ -47,6 +89,11 @@ describe("diagrams", () => {
       '<section class="js-render-needs-enrichment" data-type="mermaid" data-src="https://viewscreen.githubusercontent.com/markdown/mermaid"><div data-plain="x"><div><pre lang="mermaid">flowchart LR\n  A --&gt; B</pre></div></div><span><span>Loading</span></span></section>',
     );
     expect(html).toBe('<pre data-mermaid="">flowchart LR\n  A --&gt; B</pre>');
+  });
+
+  it("keeps other diagrams' source unmarked, and an empty one empty", () => {
+    expect(sanitize('<section data-type="geojson"><pre>{}</pre></section>')).toBe("<pre>{}</pre>");
+    expect(sanitize('<section data-type="mermaid"><span>Loading</span></section>')).toBe('<pre data-mermaid=""></pre>');
   });
 });
 
@@ -62,6 +109,31 @@ describe("picture buttons", () => {
       '<a href="https://github.com/user-attachments/assets/a.png"><img alt="shot" height="400" src="https://github.com/user-attachments/assets/a.png"></a>',
     );
     expect(html).toContain("<img");
+  });
+
+  it("leaves a link with words, or a picture without a label or size, a link", () => {
+    const img = 'src="https://github.com/b.png"';
+    expect(sanitize(`<a href="https://x.dev">Go <img alt="Go" height="20" ${img}></a>`)).toContain("Go <img");
+    expect(sanitize(`<a href="https://x.dev"><img height="20" ${img}></a>`)).toContain("<img");
+    expect(sanitize(`<a href="https://x.dev"><img alt="Go" ${img}></a>`)).toContain("<img");
+  });
+
+  it("makes a button with no address when it had no https one", () => {
+    expect(sanitize('<a><img alt="Run" height="20" src="https://github.com/b.png"></a>')).toBe(
+      '<a data-button="">Run</a>',
+    );
+  });
+});
+
+describe("leadsElsewhere", () => {
+  it("is a picture in a link to a page", () => {
+    expect(leadsElsewhere(imgIn('<a href="https://ci.dev/run/1"><img></a>'))).toBe(true);
+  });
+
+  it("isn't a picture alone, or linked to itself or another picture", () => {
+    expect(leadsElsewhere(imgIn("<img>"))).toBe(false);
+    expect(leadsElsewhere(imgIn('<a href="https://github.com/a/b"><img></a>'))).toBe(false);
+    expect(leadsElsewhere(imgIn('<a href="https://ci.dev/badge.png?x=1"><img></a>'))).toBe(false);
   });
 });
 
@@ -83,5 +155,18 @@ describe("suggested changes", () => {
     expect(html).toContain(
       '<tr data-diff="deletion"><td data-sign="">−</td><td>  const a = 1;</td></tr><tr data-diff="addition"><td data-sign="">+</td><td>  const a = 2;</td></tr>',
     );
+  });
+
+  it("draws a previewed suggestion that removes the lines, with nothing known of them", () => {
+    expect(sanitize('<pre lang="suggestion"></pre>')).toBe(
+      '<div data-suggestion=""><p data-suggestion-head="">Suggested change</p><table><tbody></tbody></table></div>',
+    );
+  });
+
+  it("reads a suggestion's rows from their second cell when unmarked, skipping rows without one", () => {
+    const html = sanitize(
+      '<div class="js-suggested-changes-blob"><table><tbody><tr><td></td><td>x<!-- note --></td></tr><tr><td>only</td></tr></tbody></table></div>',
+    );
+    expect(html).toContain('<tbody><tr data-diff="addition"><td data-sign="">+</td><td>x</td></tr></tbody>');
   });
 });

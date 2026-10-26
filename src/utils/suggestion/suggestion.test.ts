@@ -85,6 +85,12 @@ describe("linesFromPatch", () => {
     expect(linesFromPatch(patch, 10, 11, "deletions")).toEqual(["  keep", "  old"]);
   });
 
+  it("skips the patch's no-newline notes", () => {
+    const end = "@@ -1,1 +1,1 @@\n-a\n\\ No newline at end of file\n+b";
+    expect(linesFromPatch(end, 1, 1, "deletions")).toEqual(["a"]);
+    expect(linesFromPatch(end, 1, 1, "additions")).toEqual(["b"]);
+  });
+
   it("knows when the patch doesn't show them", () => {
     expect(linesFromPatch(patch, 1, 2, "additions")).toBeNull();
   });
@@ -103,6 +109,21 @@ describe("coAuthors", () => {
         "you",
       ),
     ).toEqual(["Co-authored-by: Ana Lima <7+ana@users.noreply.github.com>"]);
+  });
+
+  it("names someone by their login when they have no name", () => {
+    expect(
+      coAuthors(
+        [
+          { login: "bo", name: "  ", databaseId: 3 },
+          { login: "cy", databaseId: 4 },
+        ],
+        null,
+      ),
+    ).toEqual([
+      "Co-authored-by: bo <3+bo@users.noreply.github.com>",
+      "Co-authored-by: cy <4+cy@users.noreply.github.com>",
+    ]);
   });
 });
 

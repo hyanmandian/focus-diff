@@ -161,7 +161,8 @@ type Props = {
   onReply: (thread: Thread, body: string) => Promise<void>;
   onResolve: (thread: Thread, resolved: boolean) => Promise<void>;
   /** A comment on the pull request itself, at the end of the conversation. */
-  onComment: (body: string) => Promise<void>;
+  /** Resolves to the new comment's id, once the conversation has it. */
+  onComment: (body: string) => Promise<string | undefined>;
   /** What's around the pull request (usePull.ts): merging, checks, commits, people, the timeline. */
   pull: Pull;
   me: string | null;
@@ -256,7 +257,7 @@ function EntryView({ entry, byComment, onJump, onReply, onResolve, onQuote }: { 
   // A review's words can be edited, not deleted; a comment both.
   const said = entry.kind === "comment" || entry.html.trim() || editing;
   return (
-    <article className="group/said flex gap-2.5">
+    <article data-entry={entry.id} className="group/said -m-2 flex scroll-mt-16 gap-2.5 rounded-[10px] p-2">
       <Person actor={entry.author} className="mt-0.5 size-6" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
@@ -401,6 +402,25 @@ export function Overview({ config, details, conversation, review, reviewing, rev
   const byComment = useMemo(() => new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const))), [threads]);
   // What happened (commits, labels, merging...) among what was said, as on GitHub.
   const items = useMemo(() => byTime(entries, pull.events), [entries, pull.events]);
+  // A comment just posted: shown where it landed, at the top of the conversation (newest first),
+  // lit up a moment so the eye finds it. Without its id, the conversation's top.
+  // The conversation is fetched again after posting, so it may arrive a moment later: until then
+  // (a few seconds at most) its top shows, where it will be.
+  const [landed, setLanded] = useState<string | null>(null);
+  useEffect(() => {
+    if (landed === null) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior = still ? "auto" : "smooth";
+    const entry = landed ? document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(landed)}"]`) : null;
+    if (!entry) {
+      document.getElementById("conversation")?.scrollIntoView({ behavior, block: "start" });
+      const giveUp = setTimeout(() => setLanded(null), 4000);
+      return () => clearTimeout(giveUp);
+    }
+    setLanded(null);
+    entry.scrollIntoView({ behavior, block: "center" });
+    entry.animate([{ backgroundColor: "color-mix(in srgb, var(--primary) 16%, transparent)" }, { backgroundColor: "transparent" }], { duration: 1800, delay: still ? 0 : 300, easing: "ease-out" });
+  }, [landed, items]);
   // A page to read: the description and the conversation in a column, and beside them what's at a
   // glance (the AI, reviewers, checks).
   return (
@@ -437,7 +457,15 @@ export function Overview({ config, details, conversation, review, reviewing, rev
                   {t("manage.olderEvents")}
                 </Button>
               ) : null}
-              <AddComment onComment={onComment} quoted={quoted} onQuoted={() => setQuoted(null)} />
+              <AddComment
+                onComment={async (body) => {
+                  const id = await onComment(body);
+                  setLanded(id ?? "");
+                  return id;
+                }}
+                quoted={quoted}
+                onQuoted={() => setQuoted(null)}
+              />
         </section>
       </div>
       <aside className="flex min-w-0 flex-col gap-6" aria-label={t("review.atAGlance")}>

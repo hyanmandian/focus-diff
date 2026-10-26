@@ -154,7 +154,8 @@ const base = (d: Details) => `/repos/${d.owner}/${d.repo}`;
 export const review = (d: Details, event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT", body: string) =>
   github("POST", `${base(d)}/pulls/${d.number}/reviews`, { event, body });
 
-export const comment = (d: Details, body: string) => github("POST", `${base(d)}/issues/${d.number}/comments`, { body });
+/** The new comment's id, the one the conversation knows it by. */
+export const comment = async (d: Details, body: string) => (await github<{ node_id: string }>("POST", `${base(d)}/issues/${d.number}/comments`, { body })).node_id;
 
 export const merge = (d: Details, method: "squash" | "merge" | "rebase") => github("PUT", `${base(d)}/pulls/${d.number}/merge`, { merge_method: method });
 

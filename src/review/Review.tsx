@@ -1038,9 +1038,10 @@ export function Review({ target }: { target: Target }) {
                 await changed();
               }}
               onComment={async (body) => {
-                await comment(details, body);
+                const id = await comment(details, body);
                 say(i18n()("review.commentPosted"));
                 await changed();
+                return id;
               }}
               pull={pull}
               me={me}

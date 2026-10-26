@@ -11,6 +11,9 @@
     "./duration": "./src/duration/duration.ts",
     "./estimate": "./src/estimate/estimate.ts",
     "./filters": "./src/filters/filters.ts",
+    "./github-pulls": "./src/github-pulls/github-pulls.ts",
+    "./json-decode": "./src/json-decode/json-decode.ts",
+    "./queue-config": "./src/queue-config/queue-config.ts",
     "./recipes": "./src/recipes/recipes.ts",
     "./repos": "./src/repos/repos.ts"
   },

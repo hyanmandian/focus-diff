@@ -1,7 +1,19 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "options": { "typeAware": true, "typeCheck": true },
-  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "jsdoc", "promise", "vitest"],
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "react-perf",
+    "jsx-a11y",
+    "import",
+    "jsdoc",
+    "promise",
+    "vitest"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -14,9 +26,16 @@
   },
   "ignorePatterns": [".output/**", ".wxt/**", "playwright-report/**", "test-results/**", "coverage/**"],
   "rules": {
-    // The same as the Mac app's (packages/desktop/vite.config.ts), less the React rules. What the categories turn on that
-    // doesn't fit: readonly parameters and strict booleans (outside typescript-eslint's strict sets too), JSDoc
-    // @param/@returns that would only repeat the types, and size limits on files and functions.
+    // The same as the Mac app's (packages/desktop/vite.config.ts). What the categories turn on that doesn't fit: the old
+    // JSX transform's rule, readonly parameters and strict booleans (outside typescript-eslint's strict sets too), render
+    // performance rules the React Compiler makes moot, JSDoc @param/@returns that would only repeat the types, and size
+    // limits on files and functions.
+    "react/react-in-jsx-scope": "off",
+    "react-perf/jsx-no-new-function-as-prop": "off",
+    "react-perf/jsx-no-new-object-as-prop": "off",
+    "react-perf/jsx-no-new-array-as-prop": "off",
+    "react-perf/jsx-no-jsx-as-prop": "off",
+    "react/jsx-no-constructed-context-values": "off",
     "typescript/prefer-readonly-parameter-types": "off",
     "typescript/strict-boolean-expressions": "off",
     // Immutable state updates copy with a spread on purpose.
@@ -53,6 +72,13 @@
     "typescript/no-misused-promises": "error",
     "typescript/await-thenable": "error",
     "typescript/switch-exhaustiveness-check": "error",
+    "react/jsx-key": "error",
+    "react/no-array-index-key": "error",
+    "react/self-closing-comp": "error",
+    "react/jsx-no-useless-fragment": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    "jsx-a11y/no-autofocus": "off",
     "jsdoc/check-tag-names": "error",
     "jsdoc/no-defaults": "error",
     "unicorn/filename-case": ["error", { "case": "kebabCase" }],
@@ -64,7 +90,7 @@
   },
   "overrides": [
     {
-      "files": ["src/**/*.test.ts", "tests/**"],
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "tests/**"],
       "rules": {
         "vitest/no-conditional-in-test": "off",
         "unicorn/consistent-function-scoping": "off",
@@ -78,6 +104,8 @@
         "node": true
       },
       "rules": {
+        // Playwright's fixtures hand their value on with `use`, which isn't React's hook.
+        "react-hooks/rules-of-hooks": "off",
         // Playwright's fixtures take their dependencies by destructuring, even when they use none.
         "no-empty-pattern": "off",
         // Steps on one page run one after another, on purpose.

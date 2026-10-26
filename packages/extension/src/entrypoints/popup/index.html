@@ -1,99 +1,13 @@
 <!doctype html>
-<html lang="en" class="pending">
+<html lang="en" class="panel">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- WXT makes this the toolbar button's tooltip; the popup itself is titled in popup.ts. -->
+    <!-- WXT makes this the toolbar button's tooltip. -->
     <title>__MSG_actionTitle__</title>
   </head>
   <body>
-    <header class="head">
-      <div class="head-row">
-        <div class="brand">
-          <img src="/logo-96.webp" width="22" height="22" alt="" />
-          <h1 data-i18n="popupTitle"></h1>
-        </div>
-        <div class="head-actions">
-          <button
-            type="button"
-            class="icon-button"
-            id="review-now"
-            aria-expanded="false"
-            aria-controls="review-card"
-          ></button>
-          <button type="button" class="icon-button" id="settings" data-i18n-label="panelSettings"></button>
-        </div>
-      </div>
-
-      <div class="tabs" role="tablist" data-i18n-label="popupLists">
-        <button type="button" role="tab" class="tab" id="tab-reviews" aria-controls="panel-reviews">
-          <span data-i18n="popupReviewQueue"></span>
-          <span class="option-count" id="count-reviews"></span>
-        </button>
-        <button type="button" role="tab" class="tab" id="tab-mine" aria-controls="panel-mine">
-          <span data-i18n="popupMine"></span>
-          <span class="option-count" id="count-mine"></span>
-        </button>
-      </div>
-    </header>
-
-    <!-- Review time, when one is offered or under way, or when the reader asks to review now. -->
-    <section class="review-card" id="review-card" data-i18n-label="popupReviewTime" hidden></section>
-
-    <main>
-      <div class="notice" id="notice" hidden>
-        <p id="notice-text" role="status"></p>
-        <button type="button" class="text-button retry" data-i18n="popupRetry"></button>
-      </div>
-      <section class="list" role="tabpanel" id="panel-reviews" aria-labelledby="tab-reviews" tabindex="-1">
-        <div class="filter-slot"></div>
-        <div class="scroll">
-          <div class="groups"></div>
-          <div class="empty">
-            <p data-i18n="popupReviewsEmpty"></p>
-          </div>
-          <a class="see-all" href="https://github.com/pulls/review-requested" target="_blank" rel="noopener">
-            <span data-i18n="popupSeeAll"></span>
-          </a>
-        </div>
-      </section>
-      <section class="list" role="tabpanel" id="panel-mine" aria-labelledby="tab-mine" tabindex="-1" hidden>
-        <div class="filter-slot"></div>
-        <div class="scroll">
-          <div class="groups"></div>
-          <div class="empty">
-            <p data-i18n="popupMineEmpty"></p>
-          </div>
-          <a class="see-all" href="https://github.com/pulls" target="_blank" rel="noopener">
-            <span data-i18n="popupSeeAll"></span>
-          </a>
-        </div>
-      </section>
-      <div class="problem" id="problem" hidden>
-        <p id="problem-text"></p>
-        <a
-          class="button"
-          id="problem-link"
-          href="https://github.com/login"
-          target="_blank"
-          rel="noopener"
-          data-i18n="popupSignIn"
-        ></a>
-        <button type="button" class="button quiet retry" id="problem-retry" data-i18n="popupRetry"></button>
-      </div>
-    </main>
-
-    <footer class="foot">
-      <p id="updated" role="status"></p>
-      <button type="button" class="text-button notify-state" id="notify-setup"></button>
-      <div class="selection" id="selection" hidden>
-        <p id="selection-text" role="status"></p>
-        <button type="button" class="text-button quiet" id="selection-clear" data-i18n="popupClear"></button>
-        <button type="button" class="button" id="mark-done" data-i18n="popupMarkDone"></button>
-        <button type="button" class="button quiet" id="undo-done" data-i18n="popupUndo"></button>
-      </div>
-    </footer>
-
-    <script type="module" src="./popup.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
   </body>
 </html>

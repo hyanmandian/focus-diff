@@ -1,14 +1,13 @@
 <div align="center">
   <img src="packages/extension/store/logo/focus-diff-1024.png" width="112" alt="">
   <h1>Focus Diff</h1>
-  <p><strong>Review what matters.</strong><br>Filter GitHub pull request diffs down to the files you need to review.</p>
+  <p><strong>Review what matters.</strong><br>Your pull request reviews in one place: queues, a review page, and filters on GitHub's diffs.</p>
   <p>
     <a href="https://github.com/hyanmandian/focus-diff/releases/latest"><img src="https://img.shields.io/github/v/release/hyanmandian/focus-diff?label=version&color=2ea043" alt="Latest version"></a>
     <a href="https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil"><img src="https://img.shields.io/chrome-web-store/v/nnocnopcbjipboglgbnmocfaplhlkfil?label=Chrome%20Web%20Store&color=2ea043" alt="Focus Diff on the Chrome Web Store"></a>
     <a href="https://addons.mozilla.org/firefox/addon/focus-diff/"><img src="https://img.shields.io/amo/v/focus-diff?label=Firefox%20Add-ons&color=2ea043" alt="Focus Diff on Firefox Add-ons"></a>
     <a href="https://focus-diff.com"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Ffocus-diff.com%2Fbadges%2Finstalls.json" alt="Installs: Chrome Web Store and Firefox Add-ons users plus release downloads"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/hyanmandian/focus-diff" alt="MIT license"></a>
-    <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="Zero runtime dependencies">
     <img src="https://img.shields.io/badge/TypeScript-strict-3178c6" alt="TypeScript">
     <img src="https://img.shields.io/badge/Chrome%20%C2%B7%20Edge%20%C2%B7%20Firefox%20%C2%B7%20Safari-supported-2ea043" alt="Works on Chrome, Edge, Firefox and Safari">
     <br>
@@ -22,38 +21,24 @@
 
 ## Why
 
-Large pull requests mix the code you need to read with tests, stories, generated files and docs. Focus Diff adds a small bar to the **Files changed** page: pick a filter and only the matching files stay on screen. The file tree, the **Files changed** counter and the **+/−** totals follow along, so you see the real size of your review before you start.
+Large pull requests mix the code you need to read with tests, stories, generated files and docs, and the reviews waiting on you are spread across GitHub. Focus Diff brings them together: your review queues a click away in the toolbar, each pull request in a review page of its own, and a small bar on GitHub's **Files changed** page that narrows the diff to the files you pick. The browser extension runs the same screens as Focus Diff for Mac, with the same look.
 
 ## Features
 
-- **Your own filters.** Each filter is a button with an _Include_ regex and an optional _Exclude_ regex, tested against the full file path. **All** is always there.
-- **Everywhere or per repository.** Keep filters for every pull request, and add extra ones for `owner/name` or a whole `owner/*`.
-- **Real numbers.** Files changed and the line totals show only what the filter keeps, and update as GitHub loads more files.
-- **Combine filters.** Turn on as many as you like, like _Frontend + Docs_. Turn them all off and you're back on **All**.
-- **See where the changes are.** The breakdown shows, per filter, how many files you've marked as viewed, the lines changed and the time left.
-- **Review time left.** An estimate next to the line totals, from about 1,000 changed lines per hour, that drops as you mark files as viewed.
-- **Conversations.** Step through review threads one by one. Each shows its file and line, and whether it's waiting on you, answered or resolved.
-- **Keyboard friendly.** Arrow keys inside the bar, plus global shortcuts.
-- **Your pull requests at a glance.** The toolbar button lists what's waiting for your review and your own open pull requests, what changed since you last looked first, each a click from its files. Turn on notifications to hear about new review requests, drafts that become ready, comments, approvals and requested changes, in the repositories you pick, each leaving out what you don't need, like drafts, bots, or pull requests you've already approved.
-- **Review time.** Set aside time to review, like weekdays at 15:00 for half an hour. When it comes, Focus Diff picks the pull requests that fit, by how long each takes you, counting only the filters you pick, and tells you with a sound of its own. It learns your pace from the files you mark as viewed, so the estimates, the bar's too, follow you. Notifications can wait for it, and the toolbar icon counts the time down.
-- **Made to share.** Copy your filters and send them to a teammate, who imports them in one step.
-- **Looks at home.** Follows your GitHub theme, or make your own: pick the bar's colours in settings with a live preview, and share the theme with your team like filters. Checked against WCAG 2.1 AA, respects reduced motion, and speaks English and Portuguese.
-- **Ready for more sites.** It works on GitHub. Everything that reads the page lives in one adapter per site, so others can follow: see [adding a site](CONTRIBUTING.md#adding-a-site).
-- **Private.** No tracking, and nothing sent anywhere but GitHub. Your pull requests are read from github.com with the session already in your browser, only when you open the popup or turn notifications on. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
+- **Your queues at a glance.** The toolbar button shows what waits for your review, what you're involved in and your own pull requests, what's new since you last looked first. Pick several to mark done or open, and undo.
+- **A review page.** Each pull request opens in a tab of its own: its overview, the diff with its file tree, conversations, checks and their logs, commits, merging, and your pending review, written in place and sent to GitHub as you go.
+- **Your own filters.** Each filter has an _Include_ regex and an optional _Exclude_ one, tested against the full file path, for every repository or for `owner/name` and `owner/*`. Turn on as many as you like; none is **All**.
+- **The bar on GitHub.** On a pull request's **Files changed** page, the bar keeps only the files your filters pick. The file tree, the **Files changed** counter and the **+/−** totals follow along, and the breakdown shows each filter's files, lines and time left.
+- **Review time left.** An estimate from about 1,000 changed lines per hour that learns your pace from the files you mark as viewed, and drops as you go.
+- **Notifications.** New review requests, drafts made ready, comments, replies, mentions, approvals, requested changes, CI and conflicts, per queue and per repository, leaving out what you don't need, like drafts or bots.
+- **Review time.** Set aside time to review, like weekdays at 15:00 for half an hour. When it comes, Focus Diff picks the pull requests that fit and tells you; notifications can wait for it, and the toolbar icon counts the time down.
+- **Your own buttons.** Actions on a pull request: comment, ask for reviews, take yourself off a review, add labels, open a link.
+- **Keyboard friendly.** Global shortcuts for the bar, and the Mac app's shortcuts on the review page.
+- **Private.** No tracking, and nothing sent anywhere but GitHub. You connect GitHub once; the token stays on your device. See the [privacy policy](packages/extension/PRIVACY.md).
 
 ## Getting started
 
-Focus Diff starts empty, so your filters fit the way you review. Right after installing, a welcome page explains how it works and offers examples you can add with one click:
-
-- **Split frontend and backend**, without tests and stories in the way.
-- **Focus on one part of the codebase**, like the folder your team owns.
-- **Read the code before the tests**, or only the tests.
-- **Skip generated files**: lockfiles, snapshots, minified files and build output.
-- **Check infrastructure changes**: CI, Docker, Terraform, Kubernetes and YAML.
-- **Watch database changes**: migrations, SQL and schemas.
-- **Review docs and copy**.
-
-They're regular filters, so you can rename or tweak them later. The welcome page is always one click away from the settings.
+Right after installing, setup asks you to connect GitHub (with a code you enter on github.com, or a personal access token), pick the queues to watch and how to be told. Updating from an earlier version keeps your filters, notification and review time settings and your learned pace; you only connect GitHub once. Settings is always one click away from the toolbar button's menu.
 
 ## Keyboard shortcuts
 
@@ -63,6 +48,8 @@ They're regular filters, so you can rename or tweak them later. The welcome page
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>,</kbd> | Previous filter     |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>0</kbd> | Show all files      |
 | <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd> | Next file to review |
+
+These work on GitHub's **Files changed** page.
 
 On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensions/shortcuts`, or in Firefox under `about:addons` → gear → _Manage Extension Shortcuts_.
 

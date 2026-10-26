@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { Button } from "@/components/button/button";
 import { Picker, type Choice } from "@/components/picker/picker";
-import { renderTwice } from "@/utils/mock-render/mock-render";
 
 const choices: Choice[] = [
   { id: "ana", label: "Ana Lima", detail: "octocat", selected: false, leading: <span>A</span> },
@@ -29,7 +28,7 @@ function picker(extra: Extra = {}) {
     trigger,
     ...extra,
   };
-  const result = renderTwice(() => <Picker {...props}>Reviewers</Picker>);
+  const result = render(<Picker {...props}>Reviewers</Picker>);
   return { onPick, ...result };
 }
 

@@ -9,7 +9,6 @@ import { cn } from "@/utils/cn/cn";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
 
-// oxlint-disable-next-line import/no-unassigned-import -- a stylesheet: importing it is what it's for.
 import "@/components/suggestion/suggestion.css";
 
 /** A click in GitHub's HTML: a picture opens in the viewer (even one GitHub wrapped in a link to

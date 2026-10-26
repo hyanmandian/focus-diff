@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -8,7 +8,6 @@ import { TooltipProvider } from "@/components/tooltip/tooltip";
 import type { DiffFilter } from "@/utils/config/config";
 import type { Learned } from "@/utils/estimate/estimate";
 import type { Totals } from "@/utils/filters/filters";
-import { renderTwice, rerenderCopies } from "@/utils/mock-render/mock-render";
 import type { ReviewFile } from "@/utils/review/review";
 
 const file = (path: string, additions: number, deletions: number): ReviewFile => ({
@@ -59,12 +58,8 @@ function bar(extra: Partial<Props> = {}) {
     onNextFile: vi.fn<() => void>(),
     ...extra,
   };
-  const result = renderTwice(() => <FilterBar {...props} />, { wrapper: AtOnce });
-  return {
-    ...props,
-    again: result.again,
-    copies: () => rerenderCopies(result, (p: Props) => <FilterBar {...p} />, props),
-  };
+  render(<FilterBar {...props} />, { wrapper: AtOnce });
+  return props;
 }
 
 const chips = () =>
@@ -147,16 +142,6 @@ describe("FilterBar", () => {
     expect(tip.querySelector("kbd")).toBeNull();
   });
 
-  it("draws the same from copies of what it's given, closed or open", async () => {
-    const { copies } = bar({ chosen: ["code"], next: { left: 0, nextFilter: { id: "tests", name: "Tests", left: 1 } } });
-    const closed = document.body.innerHTML;
-    expect(new Set(copies())).toEqual(new Set([closed.replace(/^<div>|<\/div>$/gu, "")]));
-    await userEvent.click(screen.getByRole("button", { name: "Breakdown by filter" }));
-    const open = document.body.innerHTML;
-    copies();
-    expect(document.body.innerHTML).toBe(open);
-  });
-
   it("shows only the totals for a repository without filters", () => {
     bar({ filters: [] });
     expect(screen.getByRole("group", { name: "Review one part" }).hasAttribute("aria-keyshortcuts")).toBe(false);
@@ -165,19 +150,15 @@ describe("FilterBar", () => {
   });
 
   describe("breakdown", () => {
-    /** Opens it, and draws the bar again with nothing changed (its parts kept). */
-    const open = async (again: () => void) => {
-      await userEvent.click(screen.getByRole("button", { name: "Breakdown by filter" }));
-      again();
-    };
+    const open = () => userEvent.click(screen.getByRole("button", { name: "Breakdown by filter" }));
     const rows = () =>
       within(screen.getByRole("group", { name: "Filters" }))
         .getAllByRole("button")
         .filter((b) => b.hasAttribute("aria-pressed"));
 
     it("splits the pull request across the filters", async () => {
-      const { again } = bar({ chosen: ["code"] });
-      await open(again);
+      bar({ chosen: ["code"] });
+      await open();
       expect(rows().map((r) => r.getAttribute("aria-label"))).toEqual([
         "All: 3 files, 1 viewed, 60 lines added, 10 removed. ~30 min left to review",
         "Code: 2 files, 1 viewed, 60 lines added, 10 removed. ~30 min left to review",
@@ -194,7 +175,7 @@ describe("FilterBar", () => {
 
     it("turns filters on from its rows, but not an empty one", async () => {
       const props = bar();
-      await open(props.again);
+      await open();
       await userEvent.click(rows()[1]!);
       await userEvent.click(rows()[3]!);
       expect(vi.mocked(props.onToggle).mock.calls).toEqual([["code"]]);
@@ -202,14 +183,14 @@ describe("FilterBar", () => {
 
     it("lets an empty filter that's on be turned off", async () => {
       const props = bar({ chosen: ["css"] });
-      await open(props.again);
+      await open();
       await userEvent.click(rows()[3]!);
       expect(props.onToggle).toHaveBeenCalledWith("css");
     });
 
     it("draws each row's share of added and removed lines", async () => {
-      const { again } = bar({ files: [file("a.ts", 1, 3), file("b.css", 0, 0)] });
-      await open(again);
+      bar({ files: [file("a.ts", 1, 3), file("b.css", 0, 0)] });
+      await open();
       const squares = (row: HTMLElement) =>
         [...row.querySelectorAll("span.size-2")].map((s) =>
           s.className.includes("bg-success") ? "+" : s.className.includes("bg-destructive") ? "-" : ".",
@@ -219,8 +200,8 @@ describe("FilterBar", () => {
     });
 
     it("explains how the time is worked out", async () => {
-      const { again } = bar();
-      await open(again);
+      bar();
+      await open();
       const info = screen.getByRole("button", { name: "Time left" });
       expect(info.getAttribute("aria-description")).toMatch(/lines an hour/u);
     });

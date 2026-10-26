@@ -192,7 +192,6 @@ export function FilterBar({
   onNextFile,
 }: Props) {
   const t = useT();
-  const counts = new Map(filters.map((f) => [f.id, files.filter((x) => inFilter(f, x.path)).length]));
   const done = shown.files > 0 && shown.minutesLeft === 0;
   const label = nextLabel(next, t);
   const stuck = !next.left && !next.nextFilter;
@@ -265,7 +264,7 @@ export function FilterBar({
           {/* Neighbours both on read as one pill, as in the extension (index.css). */}
           <span data-join="row" className="flex shrink-0 items-center gap-1">
             {chip("", t("review.all"), files.length)}
-            {filters.map((f) => chip(f.id, f.name, counts.get(f.id) ?? 0))}
+            {filters.map((f) => chip(f.id, f.name, files.filter((x) => inFilter(f, x.path)).length))}
           </span>
         </>
       ) : null}

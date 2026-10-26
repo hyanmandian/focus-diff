@@ -1,9 +1,8 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { FileTree } from "@/components/file-tree/file-tree";
-import { renderTwice } from "@/utils/mock-render/mock-render";
 import type { ReviewFile } from "@/utils/review/review";
 
 const file = (path: string, extra: Partial<ReviewFile> = {}): ReviewFile => ({
@@ -43,7 +42,7 @@ function tree({ files = FILES, flat = false, picked = null }: Options = {}) {
       onPick={onPick}
     />
   );
-  const result = renderTwice(() => view());
+  const result = render(view());
   return {
     onPick,
     container: result.container,

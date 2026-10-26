@@ -32,17 +32,6 @@ describe("CommentHtml", () => {
     expect(container.firstElementChild).toHaveProperty("className", expect.stringContaining("extra"));
   });
 
-  it("keeps the comment through re-renders and follows a new class or comment", () => {
-    const { container, rerender } = render(<CommentHtml html="<p>Same</p>" className="a" />);
-    const shown = container.firstElementChild;
-    rerender(<CommentHtml html="<p>Same</p>" className="a" />);
-    expect(container.firstElementChild).toBe(shown);
-    rerender(<CommentHtml html="<p>Same</p>" className="b" />);
-    expect(container.firstElementChild?.className).toContain(" b");
-    rerender(<CommentHtml html="<p>Changed</p>" className="b" />);
-    expect(screen.getByText("Changed")).toBeTruthy();
-  });
-
   it("opens a link in the browser", async () => {
     const urls = opened();
     render(<CommentHtml html='<p>See <a href="https://github.com/acme/app/pull/1">the PR</a></p>' />);

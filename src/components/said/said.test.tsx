@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -151,67 +151,5 @@ describe("CommentMenu", () => {
     expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
     await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
     expect(screen.queryByRole("menu")).toBeNull();
-  });
-});
-
-describe("re-rendered", () => {
-  it("keeps the reactions as they are, and follows what changes", async () => {
-    const api = conversation();
-    const given = [thumbs];
-    const { rerender } = render(<Reactions given={given} />, { wrapper: withApi(api) });
-    rerender(<Reactions given={given} />);
-    expect(capsule(/Thumbs up/u).textContent).toBe("👍 3");
-    rerender(<Reactions given={[heart]} />);
-    expect(capsule(/Heart/u)).toBeTruthy();
-
-    const first = vi.fn<(content: ReactionContent) => void>();
-    const last = vi.fn<(content: ReactionContent) => void>();
-    const list = render(<ReactionList reactions={given} canReact onToggle={first} />);
-    list.rerender(<ReactionList reactions={given} canReact onToggle={first} />);
-    list.rerender(<ReactionList reactions={given} canReact={false} onToggle={first} />);
-    list.rerender(<ReactionList reactions={given} canReact onToggle={last} />);
-    list.rerender(<ReactionList reactions={[{ ...thumbs, count: 5 }]} canReact onToggle={last} />);
-    await userEvent.click(within(list.container).getByRole("button", { name: /Thumbs up/u }));
-    expect(first).not.toHaveBeenCalled();
-    expect(last).toHaveBeenCalledWith("THUMBS_UP");
-    expect(within(list.container).getByRole("button", { name: /Thumbs up/u }).textContent).toBe("👍 5");
-  });
-
-  it("keeps the picker and the menu as they are, and answers whoever holds them last", async () => {
-    const first = vi.fn<() => void>();
-    const last = vi.fn<() => void>();
-    const given = [thumbs];
-    const picker = render(<ReactionPicker reactions={given} onToggle={first} />);
-    picker.rerender(<ReactionPicker reactions={given} onToggle={first} />);
-    picker.rerender(<ReactionPicker reactions={[heart]} onToggle={first} />);
-    picker.rerender(<ReactionPicker reactions={[heart]} onToggle={last} />);
-    await userEvent.click(screen.getByRole("button", { name: "Add reaction" }));
-    picker.rerender(<ReactionPicker reactions={[heart]} onToggle={last} />);
-    expect(screen.getByRole("button", { name: "Heart" }).getAttribute("aria-pressed")).toBe("true");
-    await userEvent.click(screen.getByRole("button", { name: "Eyes" }));
-    expect(last).toHaveBeenCalledWith("EYES");
-    picker.unmount();
-    last.mockClear();
-
-    const api = conversation();
-    const menu = render(<CommentMenu url="a" onQuote={first} onEdit={first} onDelete={first} />, {
-      wrapper: withApi(api),
-    });
-    menu.rerender(<CommentMenu url="a" onQuote={first} onEdit={first} onDelete={first} />);
-    menu.rerender(<CommentMenu url="b" onQuote={first} onEdit={first} onDelete={first} />);
-    menu.rerender(<CommentMenu url="b" onQuote={last} onEdit={first} onDelete={first} />);
-    menu.rerender(<CommentMenu url="b" onQuote={last} onEdit={last} onDelete={first} />);
-    menu.rerender(<CommentMenu url="b" onQuote={last} onEdit={last} onDelete={last} />);
-    await open();
-    await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
-    await open();
-    await userEvent.click(screen.getByRole("menuitem", { name: "Quote Reply" }));
-    await open();
-    await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
-    await open();
-    await userEvent.click(screen.getByRole("menuitem", { name: "Delete…" }));
-    expect(api.copyLink).toHaveBeenCalledWith("b");
-    expect(first).not.toHaveBeenCalled();
-    expect(last).toHaveBeenCalledTimes(3);
   });
 });

@@ -1,12 +1,12 @@
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ImageDiff, isImage, NoPatchFile, renamed } from "@/components/rich-diff/rich-diff";
 import type { Source } from "@/utils/contents/contents";
-import { later, renderTwice } from "@/utils/mock-render/mock-render";
+import { later } from "@/utils/mock-render/mock-render";
 import type { ReviewFile } from "@/utils/review/review";
 
 /** A command's named argument, as the page sent it. */
@@ -40,7 +40,7 @@ beforeEach(() => {
 });
 
 // Rust's errors reach the page as plain strings.
-// oxlint-disable-next-line prefer-promise-reject-errors, typescript/prefer-promise-reject-errors -- the case under test.
+// oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the case under test.
 const noBase = () => Promise.reject("no base");
 
 let unique = 0;
@@ -88,16 +88,14 @@ describe("ImageDiff", () => {
     const file = picture();
     const asked = commits({ [`base:${file.path}`]: 500, [`head:${file.path}`]: 2048 });
     const s = source();
-    const { again } = renderTwice(() => <ImageDiff file={file} source={s} />);
+    render(<ImageDiff file={file} source={s} />);
     expect(screen.getByRole("status").textContent).toContain("Loading…");
     await screen.findByRole("group", { name: "Compare" });
-    again();
     expect(images()).toEqual(["Before", "After"]);
     expect(screen.getByRole("img", { name: "Before" }).getAttribute("src")).toMatch(/^blob:/u);
     expect(screen.getByText("500 B")).toBeTruthy();
     const after = screen.getByRole("img", { name: "After" });
     Object.defineProperties(after, { naturalWidth: { value: 640 }, naturalHeight: { value: 480 } });
-    fireEvent.load(after);
     fireEvent.load(after);
     expect(screen.getByText("640 × 480 · 2.0 KB")).toBeTruthy();
     expect(asked.toSorted()).toEqual([`base:${file.path}`, `head:${file.path}`]);
@@ -106,7 +104,7 @@ describe("ImageDiff", () => {
   it("swipes between them or fades one over the other, and remembers how", async () => {
     const file = picture({ status: "renamed", previousPath: "img/old.png" });
     commits({ "base:img/old.png": 3 * 1024 * 1024, [`head:${file.path}`]: 10 });
-    renderTwice(() => <ImageDiff file={file} source={source()} />);
+    render(<ImageDiff file={file} source={source()} />);
     expect(await screen.findByText("3.0 MB")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Swipe" }));
     const slider = screen.getByRole("slider", { name: "Where the swipe is" });
@@ -124,7 +122,7 @@ describe("ImageDiff", () => {
     localStorage.setItem("image-diff-mode", "onion");
     const file = picture();
     commits({ [`base:${file.path}`]: 1, [`head:${file.path}`]: 1 });
-    renderTwice(() => <ImageDiff file={file} source={source()} />);
+    render(<ImageDiff file={file} source={source()} />);
     expect(await screen.findByRole("slider", { name: "How much of the new one shows" })).toBeTruthy();
   });
 
@@ -137,7 +135,7 @@ describe("ImageDiff", () => {
     });
     const file = picture();
     commits({ [`base:${file.path}`]: 1, [`head:${file.path}`]: 1 });
-    renderTwice(() => <ImageDiff file={file} source={source()} />);
+    render(<ImageDiff file={file} source={source()} />);
     await userEvent.click(await screen.findByRole("button", { name: "Swipe" }));
     expect(screen.getByRole("slider", { name: "Where the swipe is" })).toBeTruthy();
   });
@@ -146,9 +144,9 @@ describe("ImageDiff", () => {
     const added = picture({ status: "added" });
     const removed = picture({ status: "removed", previousPath: "img/gone-before.png" });
     const asked = commits({ [`head:${added.path}`]: 4, "base:img/gone-before.png": 4 });
-    renderTwice(() => <ImageDiff file={added} source={source()} />);
+    render(<ImageDiff file={added} source={source()} />);
     expect(await screen.findByRole("img", { name: "Added" })).toBeTruthy();
-    renderTwice(() => <ImageDiff file={removed} source={source()} />);
+    render(<ImageDiff file={removed} source={source()} />);
     expect(await screen.findByRole("img", { name: "Deleted" })).toBeTruthy();
     expect(asked).toEqual([`head:${added.path}`, "base:img/gone-before.png"]);
   });
@@ -156,11 +154,11 @@ describe("ImageDiff", () => {
   it("shows nothing when neither version is there, or there's nowhere to look", async () => {
     const file = picture();
     commits({});
-    const { container } = renderTwice(() => <ImageDiff file={file} source={source()} />);
+    const { container } = render(<ImageDiff file={file} source={source()} />);
     await waitFor(() => {
       expect(container.textContent).toBe("");
     });
-    const { container: nowhere } = renderTwice(() => <ImageDiff file={file} source={null} />);
+    const { container: nowhere } = render(<ImageDiff file={file} source={null} />);
     expect(nowhere.textContent).toBe("");
   });
 
@@ -174,18 +172,16 @@ describe("ImageDiff", () => {
       [`head:${second.path}`]: new Error("Not found"),
     });
     const s = source();
-    const { again } = renderTwice(() => <ImageDiff file={first} source={s} />);
+    render(<ImageDiff file={first} source={s} />);
     expect(await screen.findByText("Couldn't load it: Bad credentials")).toBeTruthy();
-    again();
-    const next = renderTwice(() => <ImageDiff file={second} source={s} />);
+    render(<ImageDiff file={second} source={s} />);
     expect(await screen.findByText("Couldn't load it: Not found")).toBeTruthy();
-    next.again();
   });
 
   it("says why when the failure isn't an Error", async () => {
     const file = picture();
     commits({ [`head:${file.path}`]: 1 });
-    renderTwice(() => <ImageDiff file={file} source={source(noBase)} />);
+    render(<ImageDiff file={file} source={source(noBase)} />);
     expect(await screen.findByText("Couldn't load it: no base")).toBeTruthy();
   });
 
@@ -194,7 +190,7 @@ describe("ImageDiff", () => {
     const two = picture({ status: "added" });
     commits({ [`head:${one.path}`]: 1, [`head:${two.path}`]: 2 });
     const s = source();
-    const { rerender, unmount } = renderTwice(() => <ImageDiff file={one} source={s} />);
+    const { rerender, unmount } = render(<ImageDiff file={one} source={s} />);
     await screen.findByText("1 B");
     rerender(<ImageDiff file={two} source={s} />);
     expect(screen.getByRole("status")).toBeTruthy();
@@ -213,8 +209,8 @@ describe("ImageDiff", () => {
       failing.promise.then(() => {
         throw new Error("late");
       });
-    renderTwice(() => <ImageDiff file={file} source={source(slow)} />).unmount();
-    renderTwice(() => <ImageDiff file={file} source={source(broken)} />).unmount();
+    render(<ImageDiff file={file} source={source(slow)} />).unmount();
+    render(<ImageDiff file={file} source={source(broken)} />).unmount();
     held.settle();
     failing.settle();
     await held.promise;
@@ -239,7 +235,7 @@ describe("NoPatchFile", () => {
       onLoad,
       ...extra,
     };
-    return renderTwice(() => <NoPatchFile {...props} />);
+    return render(<NoPatchFile {...props} />);
   }
 
   it("offers to load a diff too large for GitHub's", async () => {

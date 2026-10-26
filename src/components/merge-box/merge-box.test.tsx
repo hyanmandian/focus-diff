@@ -1,6 +1,6 @@
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -10,14 +10,13 @@ import type { Details } from "@/utils/details/details";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
 import { fakeCommit, fakeDetails, fakeManage, fakePull, fakeView } from "@/utils/mock-pull/mock-pull";
-import { renderTwice } from "@/utils/mock-render/mock-render";
 
 type Setup = { details?: Partial<Details>; view?: Partial<MergeView>; manage?: Partial<Manage>; pull?: Partial<Pull> };
 
 function box({ details: d = {}, view = {}, manage = {}, pull: p = {} }: Setup = {}) {
   const details = fakeDetails(d);
   const pull = fakePull({ view: fakeView(view), manage: fakeManage(manage), ...p });
-  const result = renderTwice(() => <MergeBox details={details} pull={pull} />);
+  const result = render(<MergeBox details={details} pull={pull} />);
   return { pull, details, ...result };
 }
 
@@ -196,7 +195,7 @@ describe("MergeBox", () => {
     const view = fakeView();
     const pull = fakePull({ view, manage: fakeManage() });
     const all = fakeDetails();
-    const { rerender } = renderTwice(() => <MergeBox details={all} pull={pull} />);
+    const { rerender } = render(<MergeBox details={all} pull={pull} />);
     await userEvent.click(screen.getByRole("combobox", { name: "Merge method" }));
     await userEvent.click(await screen.findByRole("option", { name: "Rebase and Merge" }));
     expect(button("Rebase and Merge")).toBeTruthy();

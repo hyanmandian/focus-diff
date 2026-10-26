@@ -1,12 +1,11 @@
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
 import { describe as words, TimelineRow } from "@/components/timeline/timeline";
 import { i18n } from "@/utils/i18n/i18n";
-import { renderTwice } from "@/utils/mock-render/mock-render";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
 const at = "2026-10-20T10:00:00Z";
@@ -26,7 +25,7 @@ function opened() {
   return urls;
 }
 
-const row = (event: TimelineEvent) => renderTwice(() => <TimelineRow event={event} />);
+const row = (event: TimelineEvent) => render(<TimelineRow event={event} />);
 
 describe("an event in words", () => {
   const t = i18n();

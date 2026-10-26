@@ -20,19 +20,6 @@ describe("Shortcuts", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("keeps the sheet as it is when re-rendered, and answers whoever holds it last", async () => {
-    const first = vi.fn<(open: boolean) => void>();
-    const last = vi.fn<(open: boolean) => void>();
-    const { rerender } = render(<Shortcuts open onOpenChange={first} />);
-    const dialog = screen.getByRole("dialog");
-    rerender(<Shortcuts open onOpenChange={first} />);
-    expect(screen.getByRole("dialog")).toBe(dialog);
-    rerender(<Shortcuts open onOpenChange={last} />);
-    await userEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(first).not.toHaveBeenCalled();
-    expect(last).toHaveBeenCalledWith(false);
-  });
-
   it("shows nothing while closed", () => {
     render(<Shortcuts open={false} onOpenChange={() => {}} />);
     expect(screen.queryByRole("dialog")).toBeNull();

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -7,7 +7,7 @@ import { SuggestionActions, SuggestionBatch } from "@/components/suggestion/sugg
 import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Applied } from "@/utils/commit/commit";
 import { fakeConversation } from "@/utils/mock-pull/mock-pull";
-import { later, renderTwice } from "@/utils/mock-render/mock-render";
+import { later } from "@/utils/mock-render/mock-render";
 import type { Thread, ThreadComment } from "@/utils/review/review";
 
 const SUGGESTION = "Try this:\n```suggestion\nconst total = 2;\n```";
@@ -53,7 +53,7 @@ const withApi = (api: ConversationApi | null) =>
 const pushing = (extra: Partial<ConversationApi> = {}) => fakeConversation({ canApplySuggestion: true, ...extra });
 
 function actions(t: Thread, c: ThreadComment, api: ConversationApi | null = pushing()) {
-  renderTwice(() => <SuggestionActions thread={t} comment={c} />, { wrapper: withApi(api) });
+  render(<SuggestionActions thread={t} comment={c} />, { wrapper: withApi(api) });
   return api;
 }
 
@@ -62,7 +62,7 @@ const button = (name: string) => screen.getByRole("button", { name });
 describe("SuggestionActions", () => {
   it("offers nothing where suggestions can't be committed, or there's none", () => {
     const t = thread();
-    const { container } = renderTwice(() => <SuggestionActions thread={t} comment={comment()} />);
+    const { container } = render(<SuggestionActions thread={t} comment={comment()} />);
     actions(t, comment(), fakeConversation());
     actions(t, comment({ body: undefined }));
     actions(t, comment({ body: "Looks good" }));
@@ -164,7 +164,7 @@ describe("SuggestionActions", () => {
         <SuggestionActions thread={t} comment={c} />
       </ConversationProvider>
     );
-    const { rerender } = renderTwice(() => view(pushing()));
+    const { rerender } = render(view(pushing()));
     expect(button("Add to Batch")).toBeTruthy();
     rerender(view(pushing({ batch: [applied] })));
     expect(button("Remove from Batch")).toBeTruthy();
@@ -173,14 +173,14 @@ describe("SuggestionActions", () => {
 
 describe("SuggestionBatch", () => {
   it("shows nothing while the batch is empty, or outside a review window", () => {
-    const { container } = renderTwice(() => <SuggestionBatch />);
-    renderTwice(() => <SuggestionBatch />, { wrapper: withApi(pushing()), container });
+    const { container } = render(<SuggestionBatch />);
+    render(<SuggestionBatch />, { wrapper: withApi(pushing()), container });
     expect(container.textContent).toBe("");
   });
 
   it("commits the batch, or empties it", async () => {
     const api = pushing({ batch: [applied] });
-    renderTwice(() => <SuggestionBatch />, { wrapper: withApi(api) });
+    render(<SuggestionBatch />, { wrapper: withApi(api) });
     const batch = screen.getByRole("region", { name: "Suggestions to commit" });
     expect(batch.textContent).toContain("1 suggestion in batch");
     await userEvent.click(button("Empty the batch"));

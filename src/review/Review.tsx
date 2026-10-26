@@ -276,6 +276,29 @@ export function Review({ target }: { target: Target }) {
   const [picked, setPicked] = useState<string | null>(null);
   // The toolbar draws its edge only once something has scrolled under it.
   const [scrolled, setScrolled] = useState(false);
+  // The title centred on the window, as a Mac window's is, while it has room between the two ends;
+  // when it hasn't, it takes what's between them instead.
+  const leadingRef = useRef<HTMLDivElement>(null);
+  const trailingRef = useRef<HTMLDivElement>(null);
+  const [titleBox, setTitleBox] = useState<{ left: number; right: number } | null>(null);
+  useLayoutEffect(() => {
+    const leading = leadingRef.current;
+    const trailing = trailingRef.current;
+    const bar = leading?.parentElement;
+    if (!leading || !trailing || !bar) return;
+    const GAP = 16;
+    const place = () => {
+      const width = bar.clientWidth;
+      const left = leading.offsetLeft + leading.offsetWidth + GAP;
+      const right = width - trailing.offsetLeft + GAP;
+      const side = Math.max(left, right);
+      setTitleBox(width - 2 * side >= 280 ? { left: side, right: side } : { left, right });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    for (const el of [bar, leading, trailing]) observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const filterField = useRef<HTMLInputElement>(null);
 
   const ref = useMemo(() => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }), [repo, number]);
@@ -690,12 +713,12 @@ export function Review({ target }: { target: Target }) {
       <header
         data-tauri-drag-region
         className={cn(
-          "@container relative z-10 grid shrink-0 grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-3 bg-background pr-2.5 transition-shadow duration-(--duration)",
+          "@container relative z-10 flex shrink-0 items-center justify-between gap-3 bg-background pr-2.5 transition-shadow duration-(--duration)",
           isMac ? "h-(--toolbar-h) pl-(--traffic-lights-inset)" : "h-11 pl-2",
           scrolled && "shadow-[0_1px_0_var(--separator)]",
         )}
       >
-        <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
+        <div ref={leadingRef} data-tauri-drag-region className="flex shrink-0 items-center gap-2">
         {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
         <div role="tablist" onKeyDown={tabKeys} aria-label={t("review.view")} className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5">
           <SlidingPill selected={tab} className="rounded-full bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
@@ -743,7 +766,11 @@ export function Review({ target }: { target: Target }) {
           </div>
         </div>
 
-        <div data-tauri-drag-region className="flex min-w-0 flex-col items-center justify-center gap-px text-center">
+        <div
+          data-tauri-drag-region
+          style={titleBox ?? undefined}
+          className={cn("absolute inset-y-0 flex flex-col items-center justify-center gap-px text-center", !titleBox && "invisible")}
+        >
           {details ? (
             <>
               <h1 data-tauri-drag-region className="max-w-full truncate text-headline font-bold" title={details.title}>
@@ -769,7 +796,7 @@ export function Review({ target }: { target: Target }) {
           )}
         </div>
 
-        <div data-tauri-drag-region className="flex min-w-0 items-center justify-end gap-1">
+        <div ref={trailingRef} data-tauri-drag-region className="flex shrink-0 items-center justify-end gap-1">
         {/* The Diff's controls: drawn always, opened only in the Diff, so switching tabs moves no
             button; the title's room shrinks smoothly instead (at once with reduced motion). */}
         <div
@@ -793,10 +820,10 @@ export function Review({ target }: { target: Target }) {
                 </TooltipContent>
               </Tooltip>
               <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
-                <span className="inline-block min-w-[6.5rem] @max-[1180px]:sr-only">
+                <span className="inline-block min-w-[6.5rem] @max-[1360px]:sr-only">
                   {stops.length ? (stop >= 0 ? t("review.commentOf", { index: stop + 1, total: stops.length }) : t("common.comments", { count: stops.length })) : t("review.noOpenComments")}
                 </span>
-                <span aria-hidden className="hidden min-w-5 @max-[1180px]:inline-block">
+                <span aria-hidden className="hidden min-w-5 @max-[1360px]:inline-block">
                   {stops.length ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
                 </span>
               </span>
@@ -851,7 +878,7 @@ export function Review({ target }: { target: Target }) {
             <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
               {config?.actions.length && details && me ? (
                 <>
-                  <div className="contents @max-[1360px]:hidden">
+                  <div className="contents @max-[1600px]:hidden">
                     <ActionButtons
                       actions={config.actions}
                       className={TOOL}
@@ -861,7 +888,7 @@ export function Review({ target }: { target: Target }) {
                   </div>
                   <DropdownMenu>
                     <Tooltip>
-                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1360px]:inline-flex")} aria-label={t("review.actions")} />} />}>
+                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1600px]:inline-flex")} aria-label={t("review.actions")} />} />}>
                         <Zap />
                       </TooltipTrigger>
                       <TooltipContent>{t("review.actions")}</TooltipContent>
@@ -878,9 +905,9 @@ export function Review({ target }: { target: Target }) {
               ) : null}
               {ai && details ? (
                 <Tooltip>
-                  <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[1180px]:w-(--toolbar-item-h) @max-[1180px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
+                  <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
                     {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                    <span className="@max-[1180px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
+                    <span className="@max-[1360px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
                   </TooltipTrigger>
                   <TooltipContent>{current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
                 </Tooltip>
@@ -893,8 +920,8 @@ export function Review({ target }: { target: Target }) {
               {canMerge && details ? (
                 // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
                 <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
-                  <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[1180px]:px-2")} />}>
-                    <GitMerge /> <span className="@max-[1180px]:sr-only">{t("review.merge")}</span>
+                  <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[1360px]:px-2")} />}>
+                    <GitMerge /> <span className="@max-[1360px]:sr-only">{t("review.merge")}</span>
                     <ChevronDown className="size-3 opacity-70" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

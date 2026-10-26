@@ -92,7 +92,7 @@
   /* Control sizes (NSControl.ControlSize: mini, small, regular, large). */
   --control-h-mini: 16px; --control-h-sm: 20px; --control-h: 24px; --control-h-lg: 28px;
   --field-h-sm: 22px; --field-h: 24px;
-  --toolbar-h: 52px; --toolbar-item-h: 28px; --traffic-lights-inset: 84px;
+  --toolbar-h: 52px; --toolbar-item-h: 28px; --traffic-lights-inset: 91px;
   --menu-item-h: 24px; --menu-pad: 5px;
   --row-h-sm: 24px; --row-h: 32px;
 

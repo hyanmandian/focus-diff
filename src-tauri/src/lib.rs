@@ -736,7 +736,7 @@ pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 /// The panel floats under the tray icon (over it, when the taskbar is at the bottom of the screen),
-/// kept inside the screen it's on.
+/// its leading edge on the icon's as a menu bar extra's menu is, kept inside the screen it's on.
 fn place_panel<R: Runtime>(panel: &tauri::WebviewWindow<R>, rect: &Rect) -> tauri::Result<()> {
     // In points: with screens of different scales (a 1x display beside a Retina one) each screen's
     // "physical" coordinates use its own scale, so mixing them puts the panel off the icon. The
@@ -767,11 +767,11 @@ fn place_panel<R: Runtime>(panel: &tauri::WebviewWindow<R>, rect: &Rect) -> taur
         })
         .or_else(|| screens.first().copied())
         .unwrap_or((1.0, 0.0, 0.0, f64::MAX, f64::MAX));
-    let (ix, iy, iw, ih) = (rx / scale, ry / scale, rw / scale, rh / scale);
+    let (ix, iy, ih) = (rx / scale, ry / scale, rh / scale);
     let (width, height) = PANEL_SIZE;
     let gap = 6.0;
     let below = iy < my + mh / 2.0;
-    let x = (ix + iw / 2.0 - width / 2.0).clamp(mx + gap, mx + mw - width - gap);
+    let x = ix.clamp(mx + gap, mx + mw - width - gap);
     let y = if below { iy + ih + gap } else { iy - height - gap };
     panel.set_position(tauri::LogicalPosition::new(x.round(), y.round()))
 }

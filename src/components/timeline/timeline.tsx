@@ -103,9 +103,20 @@ export function describe(e: TimelineEvent, t: T): string {
       return t("manage.event.reviewDismissed", { who, reviewer: e.reviewer ?? t("common.someone") });
     case "baseChanged":
       return t("manage.event.baseChanged", { who, from: e.from, to: e.to });
-    default:
-      return t(`manage.event.${e.kind}`, { who });
+    case "ready":
+    case "draft":
+    case "closed":
+    case "reopened":
+    case "autoMergeEnabled":
+    case "autoMergeDisabled":
+    case "queued":
+    case "dequeued":
+    case "branchDeleted":
+    case "branchRestored":
+      break;
   }
+  // The rest say only who did it.
+  return t(`manage.event.${e.kind}`, { who });
 }
 
 const TONE: Partial<Record<TimelineEvent["kind"], string>> = {
@@ -156,6 +167,7 @@ export function TimelineRow({ event: e }: { event: TimelineEvent }) {
           {e.kind === "labels"
             ? [...e.added, ...e.removed].map((l, i) => (
                 <LabelChip
+                  // oxlint-disable-next-line react/no-array-index-key -- one run can add the same label twice; an event's list never changes order.
                   key={`${i}:${l.name}`}
                   label={l}
                   className={cn("h-4.5", e.removed.includes(l) && "line-through opacity-70")}

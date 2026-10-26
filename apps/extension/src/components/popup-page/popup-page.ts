@@ -572,11 +572,13 @@ export const startPopup = (): void => {
     const previous = LISTS.findIndex((_, index) => tabs[index]?.getAttribute("aria-selected") === "true");
     const next = LISTS.indexOf(list);
     if (previous !== -1 && previous !== next && panels[next]) slideIn(panels[next], next > previous ? 1 : -1);
-    LISTS.forEach((each, index) => {
-      const selected = each === list;
-      tabs[index]?.setAttribute("aria-selected", String(selected));
-      if (tabs[index]) tabs[index].tabIndex = selected ? 0 : -1;
-      if (panels[index]) panels[index].hidden = !selected;
+    tabs.forEach((tab, index) => {
+      const selected = LISTS[index] === list;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    });
+    panels.forEach((panel, index) => {
+      panel.hidden = LISTS[index] !== list;
     });
     moveIndicator();
     syncSelection();
@@ -589,13 +591,13 @@ export const startPopup = (): void => {
   };
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => {
-      select(LISTS[index] ?? "reviews");
+      select(LISTS[index]!);
     });
     tab.addEventListener("keydown", (event) => {
       const target = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: LISTS.length - 1 }[event.key];
       if (target === undefined) return;
       event.preventDefault();
-      select(LISTS[(target + LISTS.length) % LISTS.length] ?? "reviews", true);
+      select(LISTS[(target + LISTS.length) % LISTS.length]!, true);
     });
   });
 
@@ -613,14 +615,19 @@ export const startPopup = (): void => {
       clearPicked();
       return;
     }
-    const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
-    if (!keys.includes(event.key)) return;
+    const moves: Record<string, (index: number, last: number) => number> = {
+      ArrowDown: (index) => index + 1,
+      ArrowUp: (index) => index - 1,
+      Home: () => 0,
+      End: (_, last) => last,
+    };
+    const move = moves[event.key];
+    if (!move) return;
     const rows = [...document.querySelectorAll<HTMLElement>(".list:not([hidden]) a.pull")].filter(
       (each) => each.offsetParent,
     );
-    const index = rows.indexOf(event.target);
-    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: rows.length - 1 }[event.key] ?? index;
-    const row = rows.filter((each) => each.offsetParent)[Math.max(0, Math.min(rows.length - 1, next))];
+    const next = move(rows.indexOf(event.target), rows.length - 1);
+    const row = rows[Math.max(0, Math.min(rows.length - 1, next))];
     if (!row) return;
     event.preventDefault();
     row.focus();
@@ -659,9 +666,8 @@ export const startPopup = (): void => {
     const key = JSON.stringify([loading, all, narrowed, done, [...estimates], popup]);
     const redraw = key !== drawn;
     drawn = key;
-    LISTS.forEach((list, index) => {
-      const panel = panels[index];
-      if (!panel) return;
+    panels.forEach((panel, index) => {
+      const list = LISTS[index]!;
       panel.setAttribute("aria-busy", String(loading));
       if (redraw) {
         const drawnList = loading
@@ -866,7 +872,7 @@ export const startPopup = (): void => {
     renderReview();
   });
   heldItem.watch((value) => {
-    held = value ?? [];
+    held = value;
     renderReview();
   });
   reviewTimeItem.watch((value) => {
@@ -879,7 +885,7 @@ export const startPopup = (): void => {
     render();
   });
   pullFilesItem.watch((value) => {
-    pullFiles = value ?? {};
+    pullFiles = value;
     render();
   });
   learnedItem.watch((value) => {
@@ -887,7 +893,7 @@ export const startPopup = (): void => {
     render();
   });
   reviewSkipItem.watch((value) => {
-    skipUntil = value ?? 0;
+    skipUntil = value;
     renderReview();
   });
 
@@ -902,7 +908,7 @@ export const startPopup = (): void => {
       }),
   );
   doneItem.watch((value) => {
-    done = value ?? {};
+    done = value;
     render();
     syncSelection();
   });

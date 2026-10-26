@@ -157,18 +157,16 @@ const filesOf = (pulls: PullRequest[], reviews: PullRequest[], viewed: boolean):
 };
 
 const readFiles = async (pulls: PullRequest[], reviews: PullRequest[], viewed: boolean) => {
-  const cache = await pullFilesItem.getValue();
+  // A copy: with nothing stored, the item hands out its one fallback object, which mustn't fill up.
+  const cache = { ...(await pullFilesItem.getValue()) };
   const queue = pool(FILES_CONCURRENCY);
   let budget = FILES_LIMIT;
-  const fresh = (record: FilesRecord | undefined, pull: PullRequest) =>
-    record &&
-    pull.headSha &&
-    record.sha === pull.headSha &&
-    (!viewed || Date.now() - (record.readAt ?? 0) < VIEWED_FRESH_MS);
+  const fresh = (record: FilesRecord, pull: PullRequest) =>
+    pull.headSha && record.sha === pull.headSha && (!viewed || Date.now() - (record.readAt ?? 0) < VIEWED_FRESH_MS);
   const read = await Promise.all(
     pulls.map(async (pull) => {
       const cached = cache[pull.url];
-      if (fresh(cached, pull)) return cached ?? null;
+      if (cached && fresh(cached, pull)) return cached;
       // Past the budget, files from a while ago are better than none.
       if (budget <= 0) return cached?.sha === pull.headSha ? cached : null;
       budget -= 1;
@@ -261,7 +259,8 @@ const notify = async (
 
 const offerMessage = (run: ReviewRun, held: number) => {
   const lines = run.pulls.map((pull) => `${pull.title} · ~${pull.minutes} min`);
-  if (run.overBy) lines.unshift(i18n.t("reviewTimeOver", [run.pulls[0]?.minutes ?? 0, run.overBy, run.minutes]));
+  // Over by some minutes only with one picked.
+  if (run.overBy) lines.unshift(i18n.t("reviewTimeOver", [run.pulls[0]!.minutes, run.overBy, run.minutes]));
   if (held) lines.push(i18n.t("reviewTimeHeld", held, [held]));
   return lines.join("\n");
 };

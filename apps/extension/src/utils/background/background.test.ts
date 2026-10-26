@@ -73,8 +73,11 @@ const { scheduler } = mocks;
 /** Friday 9 October 2026, 10:00 local time. */
 const NOW = new Date(2026, 9, 9, 10).getTime();
 
-const created: [string, Browser.notifications.NotificationCreateOptions][] = [];
-const cleared: string[] = [];
+const create = vi.fn<(id: string, options: Browser.notifications.NotificationCreateOptions) => Promise<string>>();
+const clear = vi.fn<(id: string) => Promise<boolean>>();
+/** The notifications shown, as their ids and what they say, and the ones cleared. */
+const created = () => create.mock.calls;
+const cleared = () => clear.mock.calls.map(([id]) => id);
 const contains = vi.fn<(permissions: unknown) => Promise<boolean>>();
 const tabMessages = vi.fn<(tabId: number, message: unknown) => Promise<unknown>>();
 /** An event the fake browser doesn't have, to fire by hand. */
@@ -104,21 +107,25 @@ const snapshot = (extra: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
   problem: null,
   ...extra,
 });
-const event = (number: number, extra: Partial<InboxEvent> = {}): InboxEvent => ({
-  kind: "comment-mine",
-  repo: "octo/web",
-  number,
-  title: `Pull request ${number}`,
-  url: samplePull(number).url,
-  actor: "ada",
-  bot: false,
-  draft: false,
-  approvedByMe: false,
-  team: false,
-  again: false,
-  excerpt: "",
-  ...extra,
-});
+/** What happened on a sample pull request: by default, a comment on one of the reader's. */
+const event = (number: number, extra: Partial<InboxEvent> = {}): InboxEvent => {
+  const { repo, title, url } = samplePull(number);
+  return {
+    repo,
+    title,
+    url,
+    number,
+    kind: "comment-mine",
+    actor: "ada",
+    bot: false,
+    draft: false,
+    approvedByMe: false,
+    team: false,
+    again: false,
+    excerpt: "",
+    ...extra,
+  };
+};
 const result = (extra: Partial<CheckResult> = {}): CheckResult => ({
   snapshot: snapshot(),
   memory: { threads: {}, reviews: [] },
@@ -170,8 +177,6 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   vi.stubEnv("FIREFOX", "");
-  created.length = 0;
-  cleared.length = 0;
   contains.mockResolvedValue(true);
   tabMessages.mockResolvedValue(null);
   permissionsAdded.reset();
@@ -180,16 +185,11 @@ beforeEach(async () => {
   Object.assign(fakeBrowser.commands, { onCommand: commandGiven });
   Object.assign(fakeBrowser.tabs, { sendMessage: tabMessages });
   Object.assign(fakeBrowser.runtime, { getManifest: () => ({ version: "1.3.0" }) });
-  Object.assign(fakeBrowser.notifications, {
-    create: (id: string, options: Browser.notifications.NotificationCreateOptions) => {
-      created.push([id, options]);
-      return Promise.resolve(id);
-    },
-    clear: (id: string) => {
-      cleared.push(id);
-      return Promise.resolve(true);
-    },
-  });
+  create.mockReset();
+  create.mockImplementation((id) => Promise.resolve(id));
+  clear.mockReset();
+  clear.mockResolvedValue(true);
+  Object.assign(fakeBrowser.notifications, { create, clear });
   mocks.checkInbox.mockResolvedValue(result());
   mocks.play.mockResolvedValue();
   scheduler.runBadge.mockResolvedValue(null);
@@ -248,10 +248,10 @@ describe("scheduling the looks", () => {
     await notifyItem.setValue(enabled());
     await settle();
     expect((await fakeBrowser.alarms.get("inbox"))?.periodInMinutes).toBe(2);
-    const create = vi.spyOn(fakeBrowser.alarms, "create");
+    const setAlarm = vi.spyOn(fakeBrowser.alarms, "create");
     await notifyItem.setValue(enabled({ quiet: { ...DEFAULT_NOTIFY.quiet, on: true } }));
     await settle();
-    expect(create).not.toHaveBeenCalled();
+    expect(setAlarm).not.toHaveBeenCalled();
     expect(mocks.checkInbox).toHaveBeenCalledTimes(2);
   });
 
@@ -329,11 +329,11 @@ describe("a look", () => {
     await queueHistoryItem.setValue({ [samplePull(2).url]: { left: NOW - 1000 } });
     await notifyItem.setValue(enabled());
     await settle();
-    created.length = 0;
+    create.mockClear();
     mocks.checkInbox.mockResolvedValue(result({ events: [event(2, { kind: "review-requested" })] }));
     await look();
     expect((await inboxItem.getValue())?.reviews.map((pull) => Boolean(pull.again))).toEqual([false, true]);
-    expect(created[0]?.[1].title).toBe("ada asked you to review again");
+    expect(created()[0]?.[1].title).toBe("ada asked you to review again");
   });
 
   it("compares against nothing when the last look found the reader signed out", async () => {
@@ -388,7 +388,7 @@ describe("a look", () => {
   it("keeps what waits for review time, and shows the rest", async () => {
     await notifyItem.setValue(enabled());
     await settle();
-    created.length = 0;
+    create.mockClear();
     scheduler.holding.mockResolvedValue((when) => (when === "review" ? "review" : null));
     mocks.checkInbox.mockResolvedValue(
       result({ events: [event(1, { kind: "review-requested" }), event(2, { kind: "approved" })] }),
@@ -397,7 +397,7 @@ describe("a look", () => {
     expect(scheduler.hold).toHaveBeenCalledWith([
       { ...event(1, { kind: "review-requested" }), until: "review", heldAt: NOW },
     ]);
-    expect(created.map(([, options]) => options.title)).toEqual(["ada approved your pull request"]);
+    expect(created().map(([, options]) => options.title)).toEqual(["ada approved your pull request"]);
   });
 
   it("shows nothing in quiet hours, or when notifications are off", async () => {
@@ -406,7 +406,7 @@ describe("a look", () => {
     await notifyItem.setValue(enabled({ quiet: { on: true, from: "09:00", to: "17:00", weekends: false } }));
     await settle();
     await look();
-    expect(created).toEqual([]);
+    expect(created()).toEqual([]);
   });
 
   it("reads only the lists for the popup, leaving out their teams' when the queue does", async () => {
@@ -422,7 +422,7 @@ describe("notifications", () => {
   const show = async (events: InboxEvent[], settings: NotifySettings = enabled()) => {
     await notifyItem.setValue(settings);
     await settle();
-    created.length = 0;
+    create.mockClear();
     mocks.checkInbox.mockResolvedValue(result({ events }));
     await fakeBrowser.alarms.onAlarm.trigger(alarm("inbox"));
     await settle();
@@ -436,7 +436,7 @@ describe("notifications", () => {
       event(4, { kind: "comment-reviewing", actor: "" }),
     ]);
     await show([event(5, { kind: "mention" }), event(6, { kind: "changes-requested" }), event(7)]);
-    expect(created.map(([, options]) => options.title)).toEqual([
+    expect(created().map(([, options]) => options.title)).toEqual([
       "ada mentioned you",
       "ada requested changes on your pull request",
       "ada commented on your pull request",
@@ -450,7 +450,7 @@ describe("notifications", () => {
       event(3, { kind: "ready-for-review", excerpt: "Ready now" }),
       event(4, { kind: "comment-reviewing", actor: "", excerpt: "Looks good" }),
     ]);
-    expect(created.map(([, options]) => [options.title, options.message, options.contextMessage])).toEqual([
+    expect(created().map(([, options]) => [options.title, options.message, options.contextMessage])).toEqual([
       ["ada asked for your review", "Pull request 1", "octo/web#1"],
       ["ada asked your team for a review", "Pull request 2", "octo/web#2"],
       ["ada’s pull request is ready for your review", "“Ready now”", "octo/web#3 · Pull request 3"],
@@ -463,29 +463,29 @@ describe("notifications", () => {
       `${samplePull(3).url}/changes`,
       samplePull(4).url,
     ]);
-    expect(created[0]?.[1]).toMatchObject({ silent: true, requireInteraction: false });
+    expect(created()[0]?.[1]).toMatchObject({ silent: true, requireInteraction: false });
     expect(mocks.play).toHaveBeenCalledTimes(1);
   });
 
   it("says how many more there are past four", async () => {
     await show([1, 2, 3, 4, 5, 6].map((number) => event(number)));
-    expect(created).toHaveLength(5);
-    expect(created[4]?.[0]).toMatch(/^inbox:more:/u);
-    expect(created[4]?.[1].title).toContain("2 more");
+    expect(created()).toHaveLength(5);
+    expect(created()[4]?.[0]).toMatch(/^inbox:more:/u);
+    expect(created()[4]?.[1].title).toContain("2 more");
     expect(Object.values(await notificationLinksItem.getValue()).at(-1)).toBe("https://github.com/notifications");
   });
 
   it("groups them in one, a line each, when asked", async () => {
     const delivery = { ...DEFAULT_NOTIFY.delivery, grouped: true };
     await show([event(1), event(2, { excerpt: "Nice" })], enabled({ delivery }));
-    expect(created).toHaveLength(1);
-    expect(created[0]?.[1].title).toContain("2 updates");
-    expect(created[0]?.[1].message).toBe(
+    expect(created()).toHaveLength(1);
+    expect(created()[0]?.[1].title).toContain("2 updates");
+    expect(created()[0]?.[1].message).toBe(
       "ada commented on your pull request: Pull request 1\nada commented on your pull request: “Nice”",
     );
     // One alone shows as itself.
     await show([event(3)], enabled({ delivery }));
-    expect(created[0]?.[0]).toMatch(/^inbox:comment-mine:/u);
+    expect(created()[0]?.[0]).toMatch(/^inbox:comment-mine:/u);
   });
 
   it("keeps the links of the latest fifty", async () => {
@@ -501,7 +501,7 @@ describe("notifications", () => {
   it("asks Firefox for nothing it can't do, and puts the pull request in the message", async () => {
     vi.stubEnv("FIREFOX", "true");
     await show([event(1, { excerpt: "Nice" }), event(2)]);
-    expect(created.map(([, options]) => options)).toEqual([
+    expect(created().map(([, options]) => options)).toEqual([
       {
         type: "basic",
         iconUrl: "chrome-extension://test-extension-id/icon/128.png",
@@ -527,25 +527,25 @@ describe("notifications", () => {
     } finally {
       Object.assign(fakeBrowser, { notifications });
     }
-    expect(created).toEqual([]);
+    expect(created()).toEqual([]);
     expect(mocks.play).not.toHaveBeenCalled();
   });
 
   it("opens what a notification is about when clicked, unless it's review time's", async () => {
     await show([event(1)]);
-    const [id] = created[0]!;
+    const [id] = created()[0]!;
     await fakeBrowser.notifications.onClicked.trigger(id);
     await settle();
     expect(await openTabs()).toEqual([samplePull(1).url]);
-    expect(cleared).toEqual([id]);
+    expect(cleared()).toEqual([id]);
     await fakeBrowser.notifications.onClicked.trigger("gone");
     await settle();
     expect(await openTabs()).toHaveLength(1);
-    expect(cleared).toEqual([id, "gone"]);
+    expect(cleared()).toEqual([id, "gone"]);
     scheduler.onReviewNotification.mockResolvedValue(true);
     await fakeBrowser.notifications.onClicked.trigger("review-time:offer");
     await settle();
-    expect(cleared).toEqual([id, "gone"]);
+    expect(cleared()).toEqual([id, "gone"]);
   });
 
   it("hands review time's buttons to it", async () => {
@@ -569,15 +569,15 @@ describe("notifications", () => {
 
   it("shows what was kept while reviewing once the time's up, unless it's quiet or they're off", async () => {
     expect(await hooks.release([event(1)])).toBe(true);
-    expect(created).toEqual([]);
+    expect(created()).toEqual([]);
     await notifyItem.setValue(enabled({ quiet: { on: true, from: "09:00", to: "17:00", weekends: false } }));
     await settle();
     expect(await hooks.release([event(1)])).toBe(false);
     await notifyItem.setValue(enabled());
     await settle();
-    created.length = 0;
+    create.mockClear();
     expect(await hooks.release([event(1)])).toBe(true);
-    expect(created).toHaveLength(1);
+    expect(created()).toHaveLength(1);
   });
 });
 

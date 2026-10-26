@@ -79,9 +79,9 @@ const ATTRIBUTES: Record<string, Set<string>> = {
   details: new Set(["open"]),
   pre: new Set(["data-mermaid"]),
 };
-const IMAGE_HOSTS = /^https:\/\/(?:[\w-]+\.)*(?:githubusercontent\.com|github\.com|githubassets\.com)\//;
+const IMAGE_HOSTS = /^https:\/\/(?:[\w-]+\.)*(?:githubusercontent\.com|github\.com|githubassets\.com)\//u;
 
-const isDark = () => typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+const isDark = () => document.documentElement.classList.contains("dark");
 
 /** A link whose only content is one small picture with words in its alt text, pointing somewhere
  *  other than the picture itself. */
@@ -93,7 +93,7 @@ function isPictureButton(link: Element) {
   const height = Number(img.getAttribute("height") ?? "0");
   const href = link.getAttribute("href") ?? "";
   return (
-    alt.length > 1 && alt.length <= 40 && height > 0 && height <= 40 && !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(href)
+    alt.length > 1 && alt.length <= 40 && height > 0 && height <= 40 && !/\.(png|jpe?g|gif|webp|svg)(\?|$)/iu.test(href)
   );
 }
 
@@ -118,9 +118,9 @@ function suggestion(doc: Document, rows: Row[]) {
     const sign = doc.createElement("td");
     sign.dataset.sign = "";
     sign.textContent = row.kind === "deletion" ? "−" : "+";
-    const code = doc.createElement("td");
-    code.append(...row.code);
-    tr.append(sign, code);
+    const cell = doc.createElement("td");
+    cell.append(...row.code);
+    tr.append(sign, cell);
     body.append(tr);
   }
   table.append(body);
@@ -130,10 +130,10 @@ function suggestion(doc: Document, rows: Row[]) {
 
 /** A line of highlighted code as text, keeping only GitHub's syntax color names ("pl-k"). */
 function code(doc: Document, from: Node): Node[] {
-  return [...from.childNodes].flatMap((child): Node[] => {
-    if (child.nodeType === Node.TEXT_NODE) return [doc.createTextNode(child.textContent ?? "")];
-    if (child.nodeType !== Node.ELEMENT_NODE) return [];
-    const color = [...(child as Element).classList].find((c) => /^pl-[a-z0-9]{1,6}$/.test(c));
+  return Array.from(from.childNodes).flatMap((child): Node[] => {
+    if (child.nodeType === Node.TEXT_NODE) return [doc.createTextNode(child.textContent!)];
+    if (!(child instanceof Element)) return [];
+    const color = [...child.classList].find((c) => /^pl-[a-z0-9]{1,6}$/u.test(c));
     const inner = code(doc, child);
     if (!color) return inner;
     const span = doc.createElement("span");
@@ -158,7 +158,7 @@ function suggestedChange(element: Element) {
  *  under the ones they replace when those are known. */
 function previewedChange(element: Element, base: string[] | undefined) {
   const doc = element.ownerDocument;
-  const text = (element.textContent ?? "").replace(/\n$/, "");
+  const text = element.textContent.replace(/\n$/u, "");
   const lines = text ? text.split("\n") : [];
   return suggestion(doc, [
     ...(base ?? []).map((line): Row => ({ kind: "deletion", code: [doc.createTextNode(line)] })),
@@ -167,13 +167,13 @@ function previewedChange(element: Element, base: string[] | undefined) {
 }
 
 function clean(node: Node, base?: string[]) {
-  for (const child of [...node.childNodes]) {
+  for (const child of Array.from(node.childNodes)) {
     if (child.nodeType === Node.COMMENT_NODE) {
       child.remove();
       continue;
     }
-    if (child.nodeType !== Node.ELEMENT_NODE) continue;
-    const element = child as Element;
+    if (!(child instanceof Element)) continue;
+    const element = child;
     const tag = element.tagName.toLowerCase();
     if (tag === "div" && element.classList.contains("js-suggested-changes-blob")) {
       element.replaceWith(suggestedChange(element));
@@ -200,15 +200,16 @@ function clean(node: Node, base?: string[]) {
         (s.getAttribute("media") ?? "").includes(dark ? "dark" : "light"),
       );
       const img = element.querySelector("img");
-      const url = source?.getAttribute("srcset")?.trim().split(/\s+/)[0];
+      const url = source?.getAttribute("srcset")?.trim().split(/\s+/u)[0];
       if (img && url) img.setAttribute("src", url);
     }
     // A button drawn as a picture in a link ("Open in Web", "Fix in Cursor", CI badges with a
     // label): a real button with its words, which reads, themes and clicks like the app's own.
     if (tag === "a" && isPictureButton(element)) {
       const href = element.getAttribute("href") ?? "";
-      const label = element.querySelector("img")?.getAttribute("alt")?.trim() ?? "";
-      for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
+      // isPictureButton has made sure of the picture and its words.
+      const label = element.querySelector("img")!.getAttribute("alt")!.trim();
+      for (const attribute of Array.from(element.attributes)) element.removeAttribute(attribute.name);
       if (href.startsWith("https://")) element.setAttribute("href", href);
       element.setAttribute("data-button", "");
       element.textContent = label;
@@ -225,7 +226,7 @@ function clean(node: Node, base?: string[]) {
       continue;
     }
     const allowed = ATTRIBUTES[tag];
-    for (const attribute of [...element.attributes]) {
+    for (const attribute of Array.from(element.attributes)) {
       if (!allowed?.has(attribute.name)) element.removeAttribute(attribute.name);
     }
     if (tag === "a") {
@@ -277,8 +278,7 @@ function clean(node: Node, base?: string[]) {
 /** `base`: the lines a previewed suggestion replaces, to show them removed. */
 export function sanitize(html: string, base?: string[]): string {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
-  const root = doc.body.firstElementChild;
-  if (!root) return "";
+  const root = doc.body.firstElementChild!;
   clean(root, base);
   return root.innerHTML;
 }
@@ -287,5 +287,5 @@ export function sanitize(html: string, base?: string[]): string {
  *  click follows the link rather than opening the viewer. */
 export function leadsElsewhere(img: Element) {
   const href = img.closest("a[href]")?.getAttribute("href");
-  return Boolean(href) && !IMAGE_HOSTS.test(href!) && !/\.(png|jpe?g|gif|webp)(\?|$)/i.test(href!);
+  return Boolean(href) && !IMAGE_HOSTS.test(href!) && !/\.(png|jpe?g|gif|webp)(\?|$)/iu.test(href!);
 }

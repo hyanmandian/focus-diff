@@ -6,8 +6,10 @@ import { clearMocks } from "@tauri-apps/api/mocks";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // Unmounting removes Tauri event listeners asynchronously: let that finish before the mock goes.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   clearMocks();
   localStorage.clear();
   sessionStorage.clear();

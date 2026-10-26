@@ -25,7 +25,7 @@ const FORMAT =
   'Plain text: short paragraphs, "- " to start a point, `backticks` for code names. No headings, no tables.';
 
 function material(details: Details, files: ReviewFile[]) {
-  const body = new DOMParser().parseFromString(details.html, "text/html").body.textContent ?? "";
+  const body = new DOMParser().parseFromString(details.html, "text/html").body.textContent;
   const diff = files.map((f) => f.patch || `${f.path}: (no patch: binary or too large)`).join("\n");
   return [
     `Title: ${details.title}`,
@@ -111,12 +111,14 @@ const SCHEMA = {
   required: ["summary", "findings"],
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
 /** The lines of the new version a comment can go on: those the diff adds or shows. */
 export function commentable(patch: string): Set<number> {
   const lines = new Set<number>();
   let line = 0;
   for (const text of patch.split("\n")) {
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(text);
     if (hunk) {
       line = Number(hunk[1]);
       continue;
@@ -131,25 +133,26 @@ export function commentable(patch: string): Set<number> {
 export async function review(config: Config, details: Details, files: ReviewFile[]): Promise<AiReview> {
   const task = `${config.ai.review.prompt}\n\nGive each problem as a finding on the line it's about. If nothing is worth raising, return no findings.`;
   const answer = await run(config, details, files, task, SCHEMA);
-  let parsed: { summary?: unknown; findings?: unknown };
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(answer.text) as typeof parsed;
+    parsed = JSON.parse(answer.text);
   } catch {
-    throw new Error(i18n()("config.aiUnexpected"));
+    parsed = null;
   }
+  // Not even an object: not the answer the schema asks for.
+  if (!isRecord(parsed)) throw new Error(i18n()("config.aiUnexpected"));
   const lines = new Map(files.map((f) => [f.path, commentable(f.patch)]));
-  const findings = (Array.isArray(parsed.findings) ? parsed.findings : []).flatMap((raw): Finding[] => {
-    const f = raw as Partial<Finding>;
-    if (typeof f.path !== "string" || typeof f.line !== "number" || typeof f.body !== "string" || !f.body.trim())
-      return [];
-    const severity = f.severity === "suggestion" || f.severity === "question" ? f.severity : "issue";
+  const findings = (Array.isArray(parsed.findings) ? parsed.findings : []).flatMap((raw: unknown): Finding[] => {
+    if (!isRecord(raw)) return [];
+    const { path, line, body, severity } = raw;
+    if (typeof path !== "string" || typeof line !== "number" || typeof body !== "string" || !body.trim()) return [];
     return [
       {
-        path: f.path,
-        line: Math.round(f.line),
-        severity,
-        body: f.body.trim(),
-        inDiff: lines.get(f.path)?.has(Math.round(f.line)) ?? false,
+        path,
+        line: Math.round(line),
+        severity: severity === "suggestion" || severity === "question" ? severity : "issue",
+        body: body.trim(),
+        inDiff: lines.get(path)?.has(Math.round(line)) ?? false,
       },
     ];
   });
@@ -173,7 +176,7 @@ export function linesFromPatch(
   let old = 0;
   let now = 0;
   for (const text of patch.split("\n")) {
-    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(text);
     if (hunk) {
       old = Number(hunk[1]);
       now = Number(hunk[2]);
@@ -197,7 +200,7 @@ export function linesFromPatch(
 export type Exchange = { question: string; answer: string };
 
 /** A question about some lines of a file in the pull request, following the earlier ones. */
-export async function askAboutLines(
+export function askAboutLines(
   config: Config,
   details: Details,
   files: ReviewFile[],

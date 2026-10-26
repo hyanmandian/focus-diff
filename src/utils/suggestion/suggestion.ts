@@ -5,7 +5,7 @@
 /** A ```suggestion block that starts as the lines themselves, to edit from. Its fence is longer
  *  than any run of backticks in them, so code with fences of its own can't close it early. */
 export function suggestionBlock(lines: string[]): string {
-  const longest = Math.max(0, ...lines.flatMap((l) => (l.match(/`+/g) ?? []).map((run) => run.length)));
+  const longest = Math.max(0, ...lines.flatMap((l) => (l.match(/`+/gu) ?? []).map((run) => run.length)));
   const fence = "`".repeat(Math.max(3, longest + 1));
   return `${fence}suggestion\n${lines.length > 0 ? `${lines.join("\n")}\n` : ""}${fence}`;
 }
@@ -14,11 +14,11 @@ export function suggestionBlock(lines: string[]): string {
  *  them). An unclosed block runs to the end, as Markdown reads it. */
 export function suggestionsIn(markdown: string): string[][] {
   const found: string[][] = [];
-  const lines = markdown.replaceAll(/\r\n?/g, "\n").split("\n");
+  const lines = markdown.replaceAll(/\r\n?/gu, "\n").split("\n");
   let open: { fence: string; lines: string[]; suggestion: boolean } | null = null;
   for (const line of lines) {
     if (open) {
-      const close = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+      const close = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/u);
       if (close && close[1]![0] === open.fence[0] && close[1]!.length >= open.fence.length) {
         if (open.suggestion) found.push(open.lines);
         open = null;
@@ -26,7 +26,7 @@ export function suggestionsIn(markdown: string): string[][] {
       continue;
     }
     // Any fenced block opens here, so a suggestion inside another code block isn't one.
-    const start = line.match(/^ {0,3}(`{3,}|~{3,})\s*([^`\s]*)[^`]*$/);
+    const start = line.match(/^ {0,3}(`{3,}|~{3,})\s*([^`\s]*)[^`]*$/u);
     if (start) open = { fence: start[1]!, lines: [], suggestion: start[2] === "suggestion" };
   }
   if (open?.suggestion) found.push(open.lines);
@@ -50,13 +50,13 @@ export function applyEdits(content: string, edits: Edit[]): string {
   const lines = content.split(eol);
   // A final newline makes an empty last piece that's no line of its own.
   const count = content.endsWith(eol) ? lines.length - 1 : lines.length;
-  const sorted = [...edits].sort((a, b) => a.start - b.start);
+  const sorted = edits.toSorted((a, b) => a.start - b.start);
   for (const [i, edit] of sorted.entries()) {
     if (edit.start < 1 || edit.end < edit.start || edit.end > count) throw new SuggestionError("outside");
     if (i > 0 && edit.start <= sorted[i - 1]!.end) throw new SuggestionError("overlap");
   }
   // From the bottom up, so each edit's line numbers still hold.
-  for (const edit of sorted.reverse()) lines.splice(edit.start - 1, edit.end - edit.start + 1, ...edit.lines);
+  for (const edit of sorted.toReversed()) lines.splice(edit.start - 1, edit.end - edit.start + 1, ...edit.lines);
   return lines.join(eol);
 }
 
@@ -73,7 +73,7 @@ export function linesFromPatch(
   let newLine = 0;
   let inHunk = false;
   for (const line of patch.split("\n")) {
-    const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u);
     if (hunk) {
       oldLine = Number(hunk[1]);
       newLine = Number(hunk[2]);
@@ -116,7 +116,9 @@ export function coAuthors(authors: Author[], me: string | null): string[] {
   for (const a of authors) {
     if (!a.databaseId || a.login === me || seen.has(a.login)) continue;
     seen.add(a.login);
-    lines.push(`Co-authored-by: ${a.name?.trim() || a.login} <${a.databaseId}+${a.login}@users.noreply.github.com>`);
+    lines.push(
+      `Co-authored-by: ${(a.name ?? "").trim() || a.login} <${a.databaseId}+${a.login}@users.noreply.github.com>`,
+    );
   }
   return lines;
 }
@@ -126,6 +128,6 @@ export function toBase64(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
   // In pieces: one call per byte of a large file would overflow the stack.
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCodePoint(...bytes.subarray(i, i + 0x8000));
   return btoa(binary);
 }

@@ -27,6 +27,8 @@ const filter = (id: string, include: string, repos: string[] = [], exclude = "")
 const frontend = filter("frontend", "\\.tsx?$", [], "\\.test\\.");
 const docs = filter("docs", "\\.md$");
 const payments = filter("payments", "^payments/", ["acme/web", "acme/*"]);
+/** A filter as Focus Diff's text has it. */
+const shared = (id: string, f: DiffFilter) => ({ id, name: f.name, include: f.include, exclude: f.exclude });
 
 describe("per repository", () => {
   it("matches owner/name and owner/*, ignoring case", () => {
@@ -136,14 +138,16 @@ describe("sharing with Focus Diff", () => {
 
   it("copies in Focus Diff's exact shape", () => {
     const text = exportFilters([frontend, payments]);
-    const parsed = JSON.parse(text) as { global: object[]; repos: Array<{ repo: string; filters: object[] }> };
-    expect(text).toBe(JSON.stringify(parsed, null, 2));
-    expect(Object.keys(parsed)).toEqual(["global", "repos"]);
-    expect(Object.keys(parsed.global[0]!)).toEqual(["id", "name", "include", "exclude"]);
-    expect(parsed.repos.map((r) => r.repo)).toEqual(["acme/web", "acme/*"]);
     // Ids unique across the whole text, as Focus Diff keeps them.
-    const ids = [...parsed.global, ...parsed.repos.flatMap((r) => r.filters)].map((f) => (f as { id: string }).id);
-    expect(new Set(ids).size).toBe(ids.length);
+    const expected = {
+      global: [shared("frontend", frontend)],
+      repos: [
+        { repo: "acme/web", filters: [shared("payments", payments)] },
+        { repo: "acme/*", filters: [shared("payments-2", payments)] },
+      ],
+    };
+    // Key for key in the same order, two-space indented.
+    expect(text).toBe(JSON.stringify(expected, null, 2));
   });
 
   it("round-trips", () => {
@@ -157,6 +161,7 @@ describe("sharing with Focus Diff", () => {
     expect(importFilters("not json")).toBeNull();
     expect(importFilters('{"theme": "dark"}')).toBeNull();
     expect(importFilters('{"global": [], "repos": []}')).toEqual([]);
+    expect(importFilters('{"repos": []}')).toEqual([]);
   });
 
   it("adds what's new, up to twelve, with unique ids", () => {

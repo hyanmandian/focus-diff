@@ -29,4 +29,13 @@ describe("hiding whitespace changes", () => {
     const patch = `${head}@@ -1,3 +1,3 @@\n-x\n-  y\n-z\n+w\n+y\n+v\n`;
     expect(ignoreWhitespace(patch)).toBe(`${head}@@ -1,3 +1,3 @@\n-x\n+w\n y\n-z\n+v\n`);
   });
+
+  it("pairs a huge run's lines only at the same place", () => {
+    const removed = Array.from({ length: 2001 }, (_, i) => `-line${i}`);
+    const added = ["+other", ...Array.from({ length: 2000 }, (_, i) => `+  line${i + 1}`)];
+    const patch = `${head}@@ -1,2001 +1,2001 @@\n${[...removed, ...added].join("\n")}\n`;
+    const out = ignoreWhitespace(patch).split("\n");
+    expect(out.slice(3, 7)).toEqual(["@@ -1,2001 +1,2001 @@", "-line0", "+other", "   line1"]);
+    expect(out.filter((l) => /^[-+][^-+]/u.test(l))).toEqual(["-line0", "+other"]);
+  });
 });

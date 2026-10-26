@@ -33,6 +33,24 @@ export const PRESSED_CHIP =
 /** How far a pane's big header scrolls before its name takes its place in the strip. */
 const HERO_PAST = 120;
 
+/** The way back from a detail to its list, in the strip. */
+function Back({ label, onBack, ref }: { label: string; onBack: () => void; ref?: React.Ref<HTMLButtonElement> }) {
+  const t = useT();
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onBack}
+      aria-label={t("settings.backTo", { pane: label })}
+      title={t("settings.backToShortcut", { pane: label })}
+      className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground focus-ring outline-none hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
+    >
+      {/* A toolbar item, which (unlike a button in the content) may light up under the pointer. */}
+      <ChevronLeft className="size-[18px]" strokeWidth={2} aria-hidden />
+    </button>
+  );
+}
+
 /**
  * A pane: the 52px strip level with the traffic lights (its title, a way back from a detail, the
  * detail's own tools) and a scrolling column under it. The strip is the window's drag area; a
@@ -70,19 +88,7 @@ export function Pane({
       >
         {/* Lined up with the column below, so the title sits over the groups' edge. */}
         <div data-tauri-drag-region className="mx-auto flex h-[52px] max-w-[620px] items-center gap-1.5 px-5">
-          {back ? (
-            <button
-              ref={back.ref}
-              type="button"
-              onClick={back.onBack}
-              aria-label={t("settings.backTo", { pane: back.label })}
-              title={t("settings.backToShortcut", { pane: back.label })}
-              className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground focus-ring outline-none hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
-            >
-              {/* A toolbar item, which (unlike a button in the content) may light up under the pointer. */}
-              <ChevronLeft className="size-[18px]" strokeWidth={2} aria-hidden />
-            </button>
-          ) : null}
+          {back ? <Back {...back} /> : null}
           <h1
             data-tauri-drag-region
             aria-hidden={hero ? true : undefined}
@@ -292,9 +298,8 @@ export function useDetail() {
     else if (returnTo.current) rows.current.get(returnTo.current)?.focus({ preventScroll: true });
   }, [openId]);
   useEffect(() => {
-    if (!openId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === "[") {
+      if (openId && e.metaKey && e.key === "[") {
         e.preventDefault();
         returnTo.current = openId;
         setOpenId(null);
@@ -318,7 +323,7 @@ export function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
     e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
   if (!by) return;
   const radios = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=radio]")];
-  const i = radios.indexOf(document.activeElement as HTMLElement);
+  const i = radios.findIndex((r) => r === document.activeElement);
   if (i < 0) return;
   e.preventDefault();
   const next = radios[(i + by + radios.length) % radios.length];

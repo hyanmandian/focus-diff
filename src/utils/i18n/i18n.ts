@@ -23,7 +23,7 @@ export const LANGUAGES = ["system", ...LOCALES] as const satisfies readonly Lang
 export type Plural = { zero?: string; one: string; other: string; many?: string };
 
 type English = typeof en;
-type Namespace = keyof English & string;
+type Namespace = Extract<keyof English, string>;
 export type Key = { [N in Namespace]: `${N}.${keyof English[N] & string}` }[Namespace];
 type Value<K extends Key> = K extends `${infer N extends Namespace}.${infer M}`
   ? M extends keyof English[N]
@@ -46,13 +46,22 @@ export type Dictionary = {
 
 const DICTIONARIES: Record<Locale, Dictionary> = { en, "pt-BR": ptBR };
 
+/** A dictionary's messages by their whole key, "namespace.name". */
+const byKey = (dictionary: Dictionary) =>
+  new Map<string, string | Plural>(
+    Object.entries(dictionary).flatMap(([namespace, messages]) =>
+      Object.entries(messages).map(([name, value]): [string, string | Plural] => [`${namespace}.${name}`, value]),
+    ),
+  );
+const ENGLISH = byKey(en);
+
 /** The first language in `preferred` the app speaks: any Portuguese is Brazilian, anything it
  *  doesn't speak falls through to the next, and English when none match. The same rule as Rust's
  *  (src-tauri/src/i18n.rs). */
 export function resolveLocale(language: Language | undefined, preferred: readonly string[]): Locale {
   if (language === "en" || language === "pt-BR") return language;
   for (const tag of preferred) {
-    const primary = tag.toLowerCase().split(/[-_]/)[0];
+    const primary = tag.toLowerCase().split(/[-_]/u)[0];
     if (primary === "pt") return "pt-BR";
     if (primary === "en") return "en";
   }
@@ -84,73 +93,71 @@ const DAY = 24 * HOUR;
 const MONTH = 30 * DAY;
 
 export function translator(locale: Locale): T {
-  const dictionary = DICTIONARIES[locale];
+  const dictionary = byKey(DICTIONARIES[locale]);
   const rules = new Intl.PluralRules(locale);
   const numbers = new Intl.NumberFormat(locale);
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "narrow" });
   const clock = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" });
 
-  const lookup = (key: string): string | Plural => {
-    const dot = key.indexOf(".");
-    const namespace = key.slice(0, dot) as Namespace;
-    const name = key.slice(dot + 1);
-    const pick = (d: Dictionary) => (d[namespace] as Record<string, string | Plural> | undefined)?.[name];
-    // English stands in for anything missing, so a slip shows words, not a key.
-    return pick(dictionary) ?? pick(en) ?? key;
-  };
+  // English stands in for anything missing, so a slip shows words, not a key.
+  const lookup = (key: string): string | Plural => dictionary.get(key) ?? ENGLISH.get(key) ?? key;
 
   const fill = (text: string, params: Record<string, string | number>) =>
-    text.replaceAll(/\{(\w+)\}/g, (match, name: string) => {
+    text.replaceAll(/\{(\w+)\}/gu, (match, name: string) => {
       const value = params[name];
       return value === undefined ? match : typeof value === "number" ? numbers.format(value) : value;
     });
 
-  const t = ((key: string, params: Record<string, string | number> = {}) => {
+  const words = (key: string, params: Record<string, string | number> = {}) => {
     const value = lookup(key);
     if (typeof value === "string") return fill(value, params);
     const count = Number(params.count ?? 0);
-    const form = (count === 0 ? value.zero : undefined) ?? value[rules.select(count) as keyof Plural] ?? value.other;
+    const forms: Partial<Record<Intl.LDMLPluralRule, string>> = value;
+    const form = (count === 0 ? value.zero : undefined) ?? forms[rules.select(count)] ?? value.other;
     return fill(form, params);
-  }) as T;
-
-  t.locale = locale;
-  t.number = (value, options) =>
-    options ? new Intl.NumberFormat(locale, options).format(value) : numbers.format(value);
-  t.duration = (minutes) => {
-    if (minutes < 1) return t("common.underMinute");
-    if (minutes < 60) return t("common.aboutMinutes", { minutes: Math.round(minutes) });
-    const rounded = Math.round(minutes / 5) * 5;
-    const hours = Math.floor(rounded / 60);
-    const rest = rounded % 60;
-    return rest ? t("common.aboutHoursMinutes", { hours, minutes: rest }) : t("common.aboutHours", { hours });
   };
-  t.ago = (time, now = Date.now()) => {
-    const ms = Math.max(0, now - time);
-    const [value, unit]: [number, Intl.RelativeTimeFormatUnit] =
-      ms < MINUTE
-        ? [0, "second"]
-        : ms < HOUR
-          ? [Math.floor(ms / MINUTE), "minute"]
-          : ms < DAY
-            ? [Math.floor(ms / HOUR), "hour"]
-            : ms < MONTH
-              ? [Math.floor(ms / DAY), "day"]
-              : [Math.floor(ms / MONTH), "month"];
-    // Narrow Portuguese abbreviates with a period ("há 3 min."), which reads as the end of a
-    // sentence in the middle of one.
-    return relative.format(-value, unit).replace(/\.$/, "");
-  };
-  t.since = (time, now = Date.now()) => {
-    const ms = Math.max(0, now - time);
-    if (ms < MINUTE) return t("common.now");
-    if (ms < HOUR) return t("common.sinceMinutes", { count: Math.floor(ms / MINUTE) });
-    if (ms < DAY) return t("common.sinceHours", { count: Math.floor(ms / HOUR) });
-    if (ms < MONTH) return t("common.sinceDays", { count: Math.floor(ms / DAY) });
-    return t("common.sinceMonths", { count: Math.floor(ms / MONTH) });
-  };
-  t.clock = (date) => clock.format(date);
-  t.weekday = (day, style) => new Intl.DateTimeFormat(locale, { weekday: style }).format(new Date(2024, 0, 7 + day));
-  t.list = (items, type = "conjunction") => new Intl.ListFormat(locale, { type }).format(items);
+  const t: T = Object.assign(words, {
+    locale,
+    number: (value: number, options?: Intl.NumberFormatOptions) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : numbers.format(value),
+    duration: (minutes: number) => {
+      if (minutes < 1) return t("common.underMinute");
+      if (minutes < 60) return t("common.aboutMinutes", { minutes: Math.round(minutes) });
+      const rounded = Math.round(minutes / 5) * 5;
+      const hours = Math.floor(rounded / 60);
+      const rest = rounded % 60;
+      return rest ? t("common.aboutHoursMinutes", { hours, minutes: rest }) : t("common.aboutHours", { hours });
+    },
+    ago: (time: number, now = Date.now()) => {
+      const ms = Math.max(0, now - time);
+      const [value, unit]: [number, Intl.RelativeTimeFormatUnit] =
+        ms < MINUTE
+          ? [0, "second"]
+          : ms < HOUR
+            ? [Math.floor(ms / MINUTE), "minute"]
+            : ms < DAY
+              ? [Math.floor(ms / HOUR), "hour"]
+              : ms < MONTH
+                ? [Math.floor(ms / DAY), "day"]
+                : [Math.floor(ms / MONTH), "month"];
+      // Narrow Portuguese abbreviates with a period ("há 3 min."), which reads as the end of a
+      // sentence in the middle of one.
+      return relative.format(-value, unit).replace(/\.$/u, "");
+    },
+    since: (time: number, now = Date.now()) => {
+      const ms = Math.max(0, now - time);
+      if (ms < MINUTE) return t("common.now");
+      if (ms < HOUR) return t("common.sinceMinutes", { count: Math.floor(ms / MINUTE) });
+      if (ms < DAY) return t("common.sinceHours", { count: Math.floor(ms / HOUR) });
+      if (ms < MONTH) return t("common.sinceDays", { count: Math.floor(ms / DAY) });
+      return t("common.sinceMonths", { count: Math.floor(ms / MONTH) });
+    },
+    clock: (date: Date) => clock.format(date),
+    weekday: (day: number, style: "short" | "long") =>
+      new Intl.DateTimeFormat(locale, { weekday: style }).format(new Date(2024, 0, 7 + day)),
+    list: (items: string[], type: "conjunction" | "disjunction" = "conjunction") =>
+      new Intl.ListFormat(locale, { type }).format(items),
+  });
   return t;
 }
 
@@ -160,20 +167,16 @@ const KEY = "language";
 const listeners = new Set<() => void>();
 let language: Language = remembered();
 let current = translator(resolveLocale(language, systemLanguages()));
-if (typeof document !== "undefined") document.documentElement.lang = current.locale;
+document.documentElement.lang = current.locale;
 
 function systemLanguages(): readonly string[] {
-  return typeof navigator === "undefined"
-    ? []
-    : navigator.languages?.length
-      ? navigator.languages
-      : [navigator.language];
+  return navigator.languages.length > 0 ? navigator.languages : [navigator.language];
 }
 
 function remembered(): Language {
   try {
     const value = localStorage.getItem(KEY);
-    return (LANGUAGES as readonly string[]).includes(value ?? "") ? (value as Language) : "system";
+    return LANGUAGES.find((l) => l === value) ?? "system";
   } catch {
     return "system";
   }
@@ -191,15 +194,14 @@ export function setLanguage(next: Language | undefined) {
   const locale = resolveLocale(language, systemLanguages());
   if (locale === current.locale) return;
   current = translator(locale);
-  if (typeof document !== "undefined") document.documentElement.lang = locale;
+  document.documentElement.lang = locale;
   for (const listener of listeners) listener();
 }
 
 // The Mac's languages changing reaches the web view as this.
-if (typeof window !== "undefined")
-  window.addEventListener("languagechange", () => {
-    setLanguage(language);
-  });
+window.addEventListener("languagechange", () => {
+  setLanguage(language);
+});
 
 /** The words in the language in use, for code outside components (an error made in a callback). */
 export const i18n = () => current;
@@ -209,7 +211,9 @@ export function useT(): T {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener);
-      return () => listeners.delete(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
     () => current,
   );

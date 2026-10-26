@@ -61,7 +61,7 @@ export type Item = {
 
 export const isBot = (a: Actor) => !a || a.__typename === "Bot" || a.login.endsWith("[bot]");
 
-export function requests(pr: PullRequest, me: string) {
+export function requests(pr: Pick<PullRequest, "reviewRequests">, me: string) {
   const reviewers = pr.reviewRequests.nodes.map((n) => n.requestedReviewer).filter((r) => r !== null);
   const teams: string[] = [];
   const users: Array<{ login: string; avatarUrl?: string }> = [];

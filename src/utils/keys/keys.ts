@@ -6,7 +6,7 @@ import type { KeyboardEvent } from "react";
  *  WAI-ARIA tabs pattern); Tab then goes into the chosen panel. Put on the role="tablist". */
 export function tabKeys(e: KeyboardEvent<HTMLElement>) {
   const tabs = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]:not([disabled])')];
-  const at = tabs.indexOf(document.activeElement as HTMLElement);
+  const at = tabs.findIndex((tab) => tab === document.activeElement);
   if (at < 0) return;
   const next = {
     ArrowRight: at + 1,

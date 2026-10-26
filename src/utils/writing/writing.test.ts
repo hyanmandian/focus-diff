@@ -23,6 +23,13 @@ describe("complete", () => {
     expect(complete("hi @an", token, 6, "ana")).toEqual({ text: "hi @ana ", caret: 8 });
     expect(complete("hi @an and", token, 6, "ana")).toEqual({ text: "hi @ana and", caret: 8 });
   });
+
+  it("puts a reference in with its #", () => {
+    expect(complete("see #1", { kind: "reference", query: "1", start: 4 }, 6, "12")).toEqual({
+      text: "see #12 ",
+      caret: 8,
+    });
+  });
 });
 
 describe("rankPeople", () => {
@@ -37,6 +44,10 @@ describe("rankPeople", () => {
   it("puts logins that start with it first, then names, then the rest", () => {
     expect(rankPeople(people, "d").map((p) => p.login)).toEqual(["dana", "carla"]);
     expect(rankPeople(people, "an").map((p) => p.login)).toEqual(["ana", "dana"]);
+  });
+
+  it("keeps the given order among equally good matches", () => {
+    expect(rankPeople([{ login: "zed" }, { login: "zara" }], "z").map((p) => p.login)).toEqual(["zed", "zara"]);
   });
 
   it("keeps the given order with nothing typed, once each", () => {
@@ -101,5 +112,17 @@ describe("emoji", () => {
       { name: "potato", char: "🥔" },
     ]);
     expect(rankEmoji(list, "ta").map((e) => e.name)).toEqual(["tada", "potato"]);
+  });
+
+  it("leave out a picture that names no character", () => {
+    expect(emojiList({ odd: "https://github.githubassets.com/images/icons/emoji/unicode/ffffff.png" })).toEqual([]);
+  });
+
+  it("rank names of the same length alphabetically", () => {
+    const list = [
+      { name: "tada", char: "🎉" },
+      { name: "taco", char: "🌮" },
+    ];
+    expect(rankEmoji(list, "ta").map((e) => e.name)).toEqual(["taco", "tada"]);
   });
 });

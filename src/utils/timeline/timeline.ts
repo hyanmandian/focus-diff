@@ -9,25 +9,25 @@ import type { PullRef } from "@/utils/review/review";
 type Who = string | null;
 type Commit = { oid: string; short: string; headline: string; url: string };
 
+type SimpleKind =
+  | "ready"
+  | "draft"
+  | "closed"
+  | "reopened"
+  | "autoMergeEnabled"
+  | "autoMergeDisabled"
+  | "queued"
+  | "dequeued"
+  | "branchDeleted"
+  | "branchRestored";
+
 export type TimelineEvent = { id: string; at: string; actor: Who } & (
   | { kind: "commits"; commits: Commit[] }
   | { kind: "forcePushed"; before: string | null; after: string | null; ref: string }
   | { kind: "reviewRequested" | "reviewRequestRemoved"; reviewer: string }
   | { kind: "labels"; added: Array<{ name: string; color: string }>; removed: Array<{ name: string; color: string }> }
   | { kind: "renamed"; from: string; to: string }
-  | {
-      kind:
-        | "ready"
-        | "draft"
-        | "closed"
-        | "reopened"
-        | "autoMergeEnabled"
-        | "autoMergeDisabled"
-        | "queued"
-        | "dequeued"
-        | "branchDeleted"
-        | "branchRestored";
-    }
+  | { kind: SimpleKind }
   | { kind: "merged"; commit: string | null; into: string }
   | {
       kind: "referenced";
@@ -120,22 +120,78 @@ const QUERY = `query($owner: String!, $name: String!, $number: Int!, $before: St
   } }
 }`;
 
-// GitHub's nodes, loosely: each kind has its own fields, read below.
-type Node = Record<string, any>;
+type Login = { login: string } | null;
+type GitHubEvent<T extends string, F = unknown> = { __typename: T; id: string; createdAt: string; actor?: Login } & F;
+type Abbreviated = { abbreviatedOid: string } | null;
+type SimpleType =
+  | "ReadyForReviewEvent"
+  | "ConvertToDraftEvent"
+  | "ClosedEvent"
+  | "ReopenedEvent"
+  | "AutoMergeEnabledEvent"
+  | "AutoMergeDisabledEvent"
+  | "AddedToMergeQueueEvent"
+  | "RemovedFromMergeQueueEvent"
+  | "HeadRefDeletedEvent"
+  | "HeadRefRestoredEvent";
+
+/** GitHub's timeline nodes, as the query above asks for them. */
+export type TimelineNode =
+  | {
+      __typename: "PullRequestCommit";
+      id: string;
+      createdAt?: undefined;
+      actor?: undefined;
+      commit: {
+        oid: string;
+        abbreviatedOid: string;
+        messageHeadline: string;
+        committedDate: string;
+        url: string;
+        author: { user: Login; name: string | null } | null;
+      };
+    }
+  | GitHubEvent<
+      "HeadRefForcePushedEvent",
+      { beforeCommit: Abbreviated; afterCommit: Abbreviated; ref: { name: string } | null }
+    >
+  | GitHubEvent<
+      "ReviewRequestedEvent" | "ReviewRequestRemovedEvent",
+      { requestedReviewer: { __typename: string; login?: string; name?: string } | null }
+    >
+  | GitHubEvent<"LabeledEvent" | "UnlabeledEvent", { label: { name: string; color: string } }>
+  | GitHubEvent<"RenamedTitleEvent", { previousTitle: string; currentTitle: string }>
+  | GitHubEvent<"MergedEvent", { commit: Abbreviated; mergeRefName: string }>
+  | GitHubEvent<
+      "CrossReferencedEvent",
+      {
+        willCloseTarget: boolean;
+        source: {
+          __typename: "Issue" | "PullRequest";
+          number: number;
+          title: string;
+          url: string;
+          repository: { nameWithOwner: string };
+        } | null;
+      }
+    >
+  | GitHubEvent<"ReferencedEvent", { commit: { abbreviatedOid: string; messageHeadline: string; url: string } | null }>
+  | GitHubEvent<"DeployedEvent", { deployment: { environment: string } | null }>
+  | GitHubEvent<"AssignedEvent" | "UnassignedEvent", { assignee: { __typename: string; login?: string } | null }>
+  | GitHubEvent<"MilestonedEvent" | "DemilestonedEvent", { milestoneTitle: string }>
+  | GitHubEvent<"ReviewDismissedEvent", { dismissalMessage: string | null; review: { author: Login } | null }>
+  | GitHubEvent<"BaseRefChangedEvent", { previousRefName: string; currentRefName: string }>
+  | GitHubEvent<SimpleType>;
 
 /** Two changes this close together, by the same person, read as one. */
 const TOGETHER = 2 * 60_000;
 
 /** GitHub's timeline nodes (oldest first) as events (oldest first): consecutive commits by one
  *  author in one line, label changes made together in one, unknown kinds left out. */
-export function mapTimeline(nodes: Node[]): TimelineEvent[] {
+export function mapTimeline(nodes: TimelineNode[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
   for (const n of nodes) {
-    const base = {
-      id: n.id as string,
-      at: n.createdAt as string,
-      actor: (n.actor?.login as string | undefined) ?? null,
-    };
+    const base = { id: n.id, at: n.createdAt ?? "", actor: n.actor?.login ?? null };
     const last = events.at(-1);
     switch (n.__typename) {
       case "PullRequestCommit": {
@@ -170,7 +226,7 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
       }
       case "LabeledEvent":
       case "UnlabeledEvent": {
-        const label = { name: n.label.name as string, color: n.label.color as string };
+        const label = { name: n.label.name, color: n.label.color };
         const added = n.__typename === "LabeledEvent";
         if (
           last?.kind === "labels" &&
@@ -199,7 +255,7 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
           url: s.url,
           repo: s.repository.nameWithOwner,
           isPull: s.__typename === "PullRequest",
-          willClose: Boolean(n.willCloseTarget),
+          willClose: n.willCloseTarget,
         });
         break;
       }
@@ -244,28 +300,25 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
       case "BaseRefChangedEvent":
         events.push({ ...base, kind: "baseChanged", from: n.previousRefName, to: n.currentRefName });
         break;
-      default: {
-        const simple = SIMPLE[n.__typename as string];
-        if (simple) events.push({ ...base, kind: simple });
-      }
+      // Kinds GitHub may add later match no case and are left out.
+      case "ReadyForReviewEvent":
+      case "ConvertToDraftEvent":
+      case "ClosedEvent":
+      case "ReopenedEvent":
+      case "AutoMergeEnabledEvent":
+      case "AutoMergeDisabledEvent":
+      case "AddedToMergeQueueEvent":
+      case "RemovedFromMergeQueueEvent":
+      case "HeadRefDeletedEvent":
+      case "HeadRefRestoredEvent":
+        events.push({ ...base, kind: SIMPLE[n.__typename] });
+        break;
     }
   }
   return events;
 }
 
-const SIMPLE: Record<
-  string,
-  | "ready"
-  | "draft"
-  | "closed"
-  | "reopened"
-  | "autoMergeEnabled"
-  | "autoMergeDisabled"
-  | "queued"
-  | "dequeued"
-  | "branchDeleted"
-  | "branchRestored"
-> = {
+const SIMPLE: Record<SimpleType, SimpleKind> = {
   ReadyForReviewEvent: "ready",
   ConvertToDraftEvent: "draft",
   ClosedEvent: "closed",
@@ -278,14 +331,14 @@ const SIMPLE: Record<
   HeadRefRestoredEvent: "branchRestored",
 };
 
-export type TimelinePage = { nodes: Node[]; older: string | null };
+export type TimelinePage = { nodes: TimelineNode[]; older: string | null };
 
 /** A page of the timeline, the newest first time, older ones with the cursor it gave (`older`). */
 export async function loadTimeline(ref: PullRef, before: string | null = null): Promise<TimelinePage> {
   type R = {
     repository: {
       pullRequest: {
-        timelineItems: { pageInfo: { hasPreviousPage: boolean; startCursor: string | null }; nodes: Node[] };
+        timelineItems: { pageInfo: { hasPreviousPage: boolean; startCursor: string | null }; nodes: TimelineNode[] };
       };
     };
   };
@@ -312,8 +365,9 @@ export function byTime<E extends { at: string }>(
     if (entry && (!event || Date.parse(entry.at) >= Date.parse(event.at))) {
       out.push({ kind: "entry", entry });
       i++;
-    } else if (event) {
-      out.push({ kind: "event", event });
+    } else {
+      // The loop's condition leaves an event here whenever there's no entry to take.
+      out.push({ kind: "event", event: event! });
       j++;
     }
   }

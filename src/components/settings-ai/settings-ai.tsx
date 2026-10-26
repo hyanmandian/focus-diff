@@ -30,6 +30,10 @@ import { useT } from "@/utils/i18n/i18n";
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
   const t = useT();
+  const copy = async () => {
+    await navigator.clipboard.writeText(command);
+    setCopied(true);
+  };
   return (
     <span className="inline-flex items-center gap-1">
       <code className="selectable rounded-[4px] bg-fill px-1.5 py-0.5 font-mono text-callout">{command}</code>
@@ -37,11 +41,9 @@ function CopyCommand({ command }: { command: string }) {
         variant="ghost"
         size="icon-xs"
         aria-label={t("settings.copyNamed", { command })}
-        onClick={() =>
-          void navigator.clipboard.writeText(command).then(() => {
-            setCopied(true);
-          })
-        }
+        onClick={() => {
+          void copy();
+        }}
       >
         {copied ? <Check /> : <Copy />}
       </Button>
@@ -51,24 +53,31 @@ function CopyCommand({ command }: { command: string }) {
 
 export function Ai({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
-  const [checking, setChecking] = useState(false);
+  // Checked as the pane opens.
+  const [checking, setChecking] = useState(true);
   const modelId = useId();
   const effortId = useId();
   const guidelinesId = useId();
   const projectId = useId();
   const autoId = useId();
   const reviewPromptId = useId();
-  const [models, setModels] = useState<string[]>([]);
+  // The models the chosen CLI offers, with which one they're for.
+  const [offered, setOffered] = useState<{ provider: AiProvider; models: string[] } | null>(null);
   const t = useT();
-  const check = useCallback(async () => {
-    setChecking(true);
+  const load = useCallback(async () => {
     try {
       setStatuses(await bridge.aiStatuses());
     } finally {
       setChecking(false);
     }
   }, []);
-  useEffect(() => void check(), [check]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const check = () => {
+    setChecking(true);
+    void load();
+  };
 
   const selected = config.ai.provider;
   const ai = config.ai;
@@ -80,12 +89,20 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
     setAi(provider === ai.provider ? {} : { provider, model: "", effort: "" });
   };
   useEffect(() => {
-    setModels([]);
-    if (selected)
-      void bridge.aiModels(selected).then(setModels, () => {
-        setModels([]);
-      });
+    if (!selected) return () => {};
+    const ask = async () => {
+      let models: string[] = [];
+      try {
+        models = await bridge.aiModels(selected);
+      } catch {
+        // None to suggest; the field takes any name.
+      }
+      setOffered({ provider: selected, models });
+    };
+    void ask();
+    return () => {};
   }, [selected]);
+  const models = offered && offered.provider === selected ? offered.models : [];
   const setPrompts = (prompts: Prompt[]) => {
     setAi({ prompts });
   };
@@ -94,10 +111,12 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   };
   const movePrompt = (index: number, by: number) => {
     const prompts = [...ai.prompts];
-    const [prompt] = prompts.splice(index, 1);
-    if (!prompt) return;
-    prompts.splice(index + by, 0, prompt);
+    prompts.splice(index + by, 0, ...prompts.splice(index, 1));
     setPrompts(prompts);
+  };
+  const removePrompt = async (prompt: Prompt) => {
+    if (await confirmRemove(t("settings.removePromptConfirm", { name: prompt.name })))
+      setPrompts(ai.prompts.filter((x) => x.id !== prompt.id));
   };
 
   return (
@@ -107,12 +126,15 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
       <Group
         title={t("settings.codingAgent")}
         accessory={
-          <Button variant="outline" onClick={() => void check()} disabled={checking}>
+          <Button variant="outline" onClick={check} disabled={checking}>
             {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} {t("settings.checkAgain")}
           </Button>
         }
         footer={t("settings.checkAgainFooter")}
       >
+        {/* Roving focus: the picked choice takes Tab and the arrows move between them (radioKeys), so
+            the group itself needs no focus. */}
+        {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- see above */}
         <div role="radiogroup" aria-label={t("settings.pane.ai")} className="contents" onKeyDown={radioKeys}>
           {[null, ...AI_PROVIDERS].map((provider) => {
             const status = provider ? statuses?.find((s) => s.provider === provider) : null;
@@ -121,6 +143,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               <div key={provider ?? "none"} className="flex items-start gap-2.5 px-3 py-2.5">
                 <button
                   type="button"
+                  // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a radio drawn as AppKit's, with the roving focus above
                   role="radio"
                   aria-checked={active}
                   tabIndex={active ? 0 : -1}
@@ -143,26 +166,30 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 </button>
                 <p className="max-w-[60%] pt-px text-right text-subheadline text-muted-foreground">
                   {provider ? (
-                    !statuses ? (
-                      t("settings.checking")
-                    ) : !status?.installed ? (
-                      <>
-                        {t("settings.notInstalled")}{" "}
-                        <Button
-                          variant="link"
-                          size="xs"
-                          className="h-auto p-0"
-                          onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}
-                        >
-                          {t("settings.getIt")} <ExternalLink />
-                        </Button>
-                      </>
-                    ) : status.signed_in ? (
-                      <span className="text-success">{t("settings.ready", { version: status.version ?? "" })}</span>
+                    statuses ? (
+                      status?.installed ? (
+                        status.signed_in ? (
+                          <span className="text-success">{t("settings.ready", { version: status.version ?? "" })}</span>
+                        ) : (
+                          <>
+                            {t("settings.notSignedInRun")} <CopyCommand command={status.login_command} />
+                          </>
+                        )
+                      ) : (
+                        <>
+                          {t("settings.notInstalled")}{" "}
+                          <Button
+                            variant="link"
+                            size="xs"
+                            className="h-auto p-0"
+                            onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}
+                          >
+                            {t("settings.getIt")} <ExternalLink />
+                          </Button>
+                        </>
+                      )
                     ) : (
-                      <>
-                        {t("settings.notSignedInRun")} <CopyCommand command={status.login_command} />
-                      </>
+                      t("settings.checking")
                     )
                   ) : (
                     t("settings.worksWithout")
@@ -196,7 +223,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               />
               <datalist id={`${modelId}-list`}>
                 {models.map((m) => (
-                  <option key={m} value={m} />
+                  <option key={m} value={m} aria-label={m} />
                 ))}
               </datalist>
             </Row>
@@ -205,7 +232,8 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 <Select
                   value={ai.effort}
                   onValueChange={(v) => {
-                    setAi({ effort: (v ?? "") as Effort | "" });
+                    // Never null: the CLI's default is a choice of its own ("").
+                    setAi({ effort: v! });
                   }}
                   items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: t(`config.effort.${e}`) }))}
                 >
@@ -350,10 +378,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                     variant="ghost"
                     size="icon-xs"
                     aria-label={t("settings.removeNamed", { name: p.name })}
-                    onClick={async () =>
-                      (await confirmRemove(t("settings.removePromptConfirm", { name: p.name }))) &&
-                      setPrompts(ai.prompts.filter((x) => x.id !== p.id))
-                    }
+                    onClick={() => {
+                      void removePrompt(p);
+                    }}
                   >
                     <Trash2 />
                   </Button>

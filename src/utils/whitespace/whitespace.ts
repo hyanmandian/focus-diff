@@ -8,12 +8,12 @@
 /** Past this many line pairs in one run, lines pair only in order (no full search). */
 const LARGEST = 4_000_000;
 
-const bare = (line: string) => line.slice(1).replaceAll(/\s+/g, "");
+const bare = (line: string) => line.slice(1).replaceAll(/\s+/gu, "");
 
 /** The removed and added lines of one run, as unchanged pairs and what's left, in order. */
 function pairUp(removed: string[], added: string[]): string[] {
-  const a = removed.map(bare);
-  const b = added.map(bare);
+  const a = removed.map((line) => bare(line));
+  const b = added.map((line) => bare(line));
   // Which added line each removed line pairs with: the longest run of lines both share (the
   // classic table, read back from the start), or, for a huge run, only lines at the same place.
   const pairs = new Map<number, number>();
@@ -47,7 +47,7 @@ function pairUp(removed: string[], added: string[]): string[] {
 }
 
 export function ignoreWhitespace(patch: string): string {
-  const lines = patch.replace(/\n$/, "").split("\n");
+  const lines = patch.replace(/\n$/u, "").split("\n");
   const head: string[] = [];
   const hunks: string[][] = [];
   for (const line of lines) {

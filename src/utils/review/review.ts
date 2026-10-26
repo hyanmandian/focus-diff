@@ -118,6 +118,7 @@ export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[
     const step = known ? 1 : 4;
     for (let next = Math.max(2, known + 1); next <= PAGES && pages.at(-1)!.length === 100; next += step) {
       pages.push(
+        // oxlint-disable-next-line eslint/no-await-in-loop -- whether to go on depends on the last page being full
         ...(await Promise.all(Array.from({ length: Math.min(step, PAGES - next + 1) }, (_, i) => page(next + i)))),
       );
     }
@@ -183,6 +184,7 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
   const longer: Array<Promise<void>> = [];
   let after: string | null = null;
   for (let page = 0; page < 10; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
     const data: Raw = await graphql<Raw>(
       `query($owner: String!, $name: String!, $number: Int!, $after: String) {
         repository(owner: $owner, name: $name) { pullRequest(number: $number) {
@@ -196,8 +198,8 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
       }`,
       { owner: d.owner, name: d.repo, number: d.number, after },
     );
-    const page_ = data.repository.pullRequest.reviewThreads;
-    for (const t of page_.nodes) {
+    const batch = data.repository.pullRequest.reviewThreads;
+    for (const t of batch.nodes) {
       // A comment on the file as a whole has no line; it's kept, at the top of the file.
       const line = t.subjectType === "FILE" ? 0 : (t.line ?? t.originalLine ?? 0);
       const thread: Thread = {
@@ -208,7 +210,7 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
         startLine: t.startLine,
         resolved: t.isResolved,
         outdated: t.isOutdated,
-        context: hunkTail(t.hunk?.nodes[0]?.diffHunk),
+        context: hunkTail(t.hunk.nodes[0]?.diffHunk),
         comments: t.comments.nodes.map(toComment),
         pending: t.comments.nodes[0]?.state === "PENDING",
       };
@@ -216,10 +218,12 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
       // A long conversation: the rest of it, alongside the other pages.
       const cursor = t.comments.pageInfo.hasNextPage ? t.comments.pageInfo.endCursor : null;
       if (cursor)
-        longer.push(moreComments(t.id, cursor).then((rest) => void thread.comments.push(...rest.map(toComment))));
+        longer.push(
+          moreComments(t.id, cursor).then((rest) => void thread.comments.push(...rest.map((c) => toComment(c)))),
+        );
     }
-    if (!page_.pageInfo.hasNextPage) break;
-    after = page_.pageInfo.endCursor;
+    if (!batch.pageInfo.hasNextPage) break;
+    after = batch.pageInfo.endCursor;
   }
   await Promise.all(longer);
   return threads;
@@ -244,6 +248,7 @@ export async function loadViewed(d: PullRef): Promise<Map<string, ViewedState>> 
   let after: string | null = null;
   // As many as the files list has, 100 a page.
   for (let page = 0; page < 30; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
     const data: Raw = await graphql<Raw>(
       `
         query ($owner: String!, $name: String!, $number: Int!, $after: String) {

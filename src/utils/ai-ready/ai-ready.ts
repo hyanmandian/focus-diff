@@ -7,24 +7,30 @@ import { useEffect, useState } from "react";
 
 import { PROVIDERS } from "@/utils/ai/ai";
 import { bridge, type AiStatus } from "@/utils/bridge/bridge";
-import type { Config } from "@/utils/config/config";
+import type { AiProvider, Config } from "@/utils/config/config";
 import { i18n } from "@/utils/i18n/i18n";
 
 let asked: { at: number; statuses: Promise<AiStatus[]> } | null = null;
 
 function statuses() {
   if (!asked || Date.now() - asked.at > 60_000) {
-    const statuses = bridge.aiStatuses();
-    asked = { at: Date.now(), statuses };
-    statuses.catch(() => (asked = null));
+    const pending = bridge.aiStatuses();
+    asked = { at: Date.now(), statuses: pending };
+    // A failed look isn't kept: the next one asks again.
+    pending.catch(() => {
+      asked = null;
+    });
   }
   return asked.statuses;
 }
 
+type Problem = { title: string; message: string };
+
 /** What stands between the chosen AI and an answer: nothing, or what to tell the person. */
-export async function aiProblem(config: Config): Promise<{ title: string; message: string } | null> {
+export const aiProblem = (config: Config): Promise<Problem | null> => problemWith(config.ai.provider);
+
+async function problemWith(provider: AiProvider | null): Promise<Problem | null> {
   const t = i18n();
-  const provider = config.ai.provider;
   if (!provider) return { title: t("shared.aiOffTitle"), message: t("shared.aiOffMessage") };
   const status = (await statuses().catch(() => [])).find((s) => s.provider === provider);
   const name = PROVIDERS[provider].name;
@@ -66,22 +72,25 @@ export async function openAiSettings() {
 
 /** `aiProblem`, kept current while the window is up (looked at again when it comes forward). */
 export function useAiProblem(config: Config | null) {
-  const [problem, setProblem] = useState<{ title: string; message: string } | null>(null);
-  const provider = config?.ai.provider;
+  const [problem, setProblem] = useState<Problem | null>(null);
+  // Only the chosen AI matters here, not the rest of the setup.
+  const provider = config?.ai.provider ?? null;
   useEffect(() => {
-    if (!config || !provider) {
-      setProblem(null);
-      return;
-    }
     let live = true;
-    const look = () => void aiProblem(config).then((p) => live && setProblem(p));
-    look();
-    window.addEventListener("focus", look);
+    const show = (p: Problem | null) => {
+      if (live) setProblem(p);
+    };
+    const look = () => {
+      void problemWith(provider).then(show);
+    };
+    if (provider) {
+      look();
+      window.addEventListener("focus", look);
+    }
     return () => {
       live = false;
       window.removeEventListener("focus", look);
     };
-    // Only the chosen AI matters here, not the rest of the setup.
   }, [provider]);
-  return problem;
+  return provider ? problem : null;
 }

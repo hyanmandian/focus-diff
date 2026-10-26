@@ -23,6 +23,7 @@ import {
   TEMPLATES,
   type AiProvider,
   type Config,
+  type Queue,
   type QueueKind,
 } from "@/utils/config/config";
 import { interval } from "@/utils/copy/copy";
@@ -32,7 +33,7 @@ import { useTheme } from "@/utils/theme/theme";
 
 const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
-const repoError = (s: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s) ? null : i18n()("setup.repoError"));
+const repoError = (s: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(s) ? null : i18n()("setup.repoError"));
 
 /** A checkbox or radio button as macOS lays them out: the box on the leading edge, a 13pt label and
  *  an 11pt description under it. No card and no highlight under the pointer; the focus ring is on
@@ -42,18 +43,18 @@ function Choice({
   onClick,
   title,
   children,
-  role = "checkbox",
+  kind = "checkbox",
 }: {
   checked: boolean;
   onClick: () => void;
   title: string;
-  children?: ReactNode;
-  role?: "checkbox" | "radio";
+  children: ReactNode;
+  kind?: "checkbox" | "radio";
 }) {
   return (
     <button
       type="button"
-      role={role}
+      role={kind}
       aria-checked={checked}
       onClick={onClick}
       className="group/choice flex w-full cursor-default items-start gap-2 py-1 text-left outline-none"
@@ -61,13 +62,13 @@ function Choice({
       <span
         className={cn(
           "mt-px grid size-4 shrink-0 place-items-center border group-focus-visible/choice:outline-(length:--focus-ring-width) group-focus-visible/choice:outline-(--focus-ring) group-focus-visible/choice:outline-solid group-active/choice:brightness-95",
-          role === "radio" ? "rounded-full" : "rounded-(--radius-checkbox)",
+          kind === "radio" ? "rounded-full" : "rounded-(--radius-checkbox)",
           checked ? "border-transparent bg-primary text-primary-foreground" : "border-input bg-(--field-bg)",
         )}
         aria-hidden
       >
         {checked ? (
-          role === "radio" ? (
+          kind === "radio" ? (
             <span className="size-1.5 rounded-full bg-primary-foreground" />
           ) : (
             <Check className="size-3" strokeWidth={3} />
@@ -76,7 +77,7 @@ function Choice({
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-body">{title}</span>
-        {children ? <span className="text-subheadline text-muted-foreground">{children}</span> : null}
+        <span className="text-subheadline text-muted-foreground">{children}</span>
       </span>
     </button>
   );
@@ -95,12 +96,13 @@ export function Setup() {
 
   useEffect(() => {
     void bridge.authStatus().then(setAuth);
-    void loadConfig().then((c) => {
+    void (async () => {
+      const c = await loadConfig();
       setConfig(c);
       setKinds(new Set(c.queues.filter((q) => q.enabled).map((q) => q.kind)));
       const shared = c.queues[0]?.repos ?? [];
       if (c.queues.every((q) => q.repos.join() === shared.join())) setRepos(shared);
-    });
+    })();
     void bridge.aiStatuses().then(setStatuses);
   }, []);
 
@@ -119,14 +121,13 @@ export function Setup() {
   /** The chosen queues: the ones you had stay as they were, new ones come from their template;
    *  your own searches are left alone. */
   const finalConfig = (): Config => {
-    const queues = OFFERED.flatMap((kind) => {
-      if (!kinds.has(kind)) return [];
+    const queues: Queue[] = [];
+    for (const kind of OFFERED) {
+      if (!kinds.has(kind)) continue;
       const had = config.queues.filter((q) => q.kind === kind);
-      return (had.length > 0 ? had.map((q) => ({ ...q, enabled: true })) : [TEMPLATES[kind].make()]).map((q) => ({
-        ...q,
-        repos,
-      }));
-    });
+      if (had.length === 0) queues.push({ ...TEMPLATES[kind].make(), repos });
+      for (const q of had) queues.push({ ...q, enabled: true, repos });
+    }
     return { ...config, queues: [...queues, ...config.queues.filter((q) => q.kind === "custom")] };
   };
 
@@ -144,7 +145,7 @@ export function Setup() {
     if (
       e.key !== "Enter" ||
       e.defaultPrevented ||
-      (e.target as HTMLElement).closest("input, textarea, button, [role=combobox], [role=listbox]")
+      (e.target instanceof Element && e.target.closest("input, textarea, button, [role=combobox], [role=listbox]"))
     )
       return;
     e.preventDefault();
@@ -153,6 +154,7 @@ export function Setup() {
   };
 
   return (
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only catches Return bubbling up from the controls inside, for the default button
     <div className="flex h-full flex-col" onKeyDown={onKeyDown}>
       <header className="flex h-12 shrink-0 items-center gap-2 px-5" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
@@ -189,15 +191,15 @@ export function Setup() {
                 <p className="text-body">
                   {t("setup.connectedAs", { login: "\0" })
                     .split("\0")
-                    .map((part, i) =>
+                    .flatMap((part, i) =>
                       i
                         ? [
-                            <span key={i} className="font-medium">
+                            <span key="login" className="font-medium">
                               @{auth.login}
                             </span>,
                             part,
                           ]
-                        : part,
+                        : [part],
                     )}
                 </p>
               </div>
@@ -299,7 +301,7 @@ export function Setup() {
             </div>
             <div role="radiogroup" aria-label={t("setup.ai")} className="flex flex-col gap-1.5">
               <Choice
-                role="radio"
+                kind="radio"
                 checked={!config.ai.provider}
                 onClick={() => {
                   setConfig({ ...config, ai: { ...config.ai, provider: null } });
@@ -350,7 +352,7 @@ export function Setup() {
                     return (
                       <Choice
                         key={provider}
-                        role="radio"
+                        kind="radio"
                         checked={config.ai.provider === provider}
                         onClick={() => {
                           setConfig({

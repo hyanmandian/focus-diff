@@ -655,6 +655,18 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
         return { status: 200, body: JSON.stringify({ base: { sha: "tip" }, head: { sha: "abc123" } }) };
       if (path.includes("/compare/"))
         return { status: 200, body: JSON.stringify({ merge_base_commit: { sha: "base" } }) };
+      // A few of GitHub's emoji, for :completion.
+      if (path === "/emojis")
+        return {
+          status: 200,
+          body: JSON.stringify({
+            tada: "https://github.githubassets.com/images/icons/emoji/unicode/1f389.png?v8",
+            "+1": "https://github.githubassets.com/images/icons/emoji/unicode/1f44d.png?v8",
+            rocket: "https://github.githubassets.com/images/icons/emoji/unicode/1f680.png?v8",
+            eyes: "https://github.githubassets.com/images/icons/emoji/unicode/1f440.png?v8",
+            heart: "https://github.githubassets.com/images/icons/emoji/unicode/2764.png?v8",
+          }),
+        };
       if (path.includes("/contents/docs/promo-codes.md"))
         return {
           status: 200,

@@ -1,26 +1,35 @@
 //! The app's live state, kept here rather than in a web view so the panel can be closed while
-//! hidden: refreshes the queues on the configured rhythm, remembers what's been seen, notifies,
-//! and keeps the tray icon current. The panel reads it as a snapshot and follows its changes.
+//! hidden: refreshes the queues on the configured rhythm, remembers what's been seen, notifies (or
+//! keeps notifications for review time), runs review time, and keeps the tray icon current. The
+//! panel reads it as a snapshot and follows its changes.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-use crate::config::Config;
+use crate::config::{Config, Kind, Session};
 use crate::engine::{self, Cache, CiMemo, Failure, Gql, Item};
-use crate::github;
+use crate::review::{self, Candidate, Run};
+use crate::{github, sound};
 
 /// Every pull request in full again this often, changed or not: a safety net for what GitHub
 /// doesn't count as an update.
 const FULL_EVERY: i64 = 20 * 60_000;
 const MAX_NOTIFICATIONS: usize = 4;
+/// Notifications kept for later, the latest of them.
+const MAX_HELD: usize = 50;
+/// How often review time's clock is looked at: to start on the minute and count down.
+const TICK: Duration = Duration::from_secs(15);
+/// Bumped when there are new kinds of event: the first refresh after notifies about none of them,
+/// or every comment and draft made ready in the queues would be news at once.
+const EVENTS_VERSION: u32 = 1;
 
 pub enum Message {
     Refresh { force: bool },
@@ -28,6 +37,29 @@ pub enum Message {
     Config,
     /// Signed in or out.
     Auth,
+    /// Review time's clock.
+    Tick,
+    /// The panel's End on a review time under way.
+    EndReview,
+}
+
+/// What a notification kept for later waits for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Until {
+    /// The next review time.
+    Review,
+    /// The end of the one under way.
+    End,
+}
+
+/// A notification kept for later, as it would have shown.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Held {
+    key: String,
+    title: String,
+    body: String,
+    until: Until,
 }
 
 /// What's remembered between launches (state.json).
@@ -44,6 +76,14 @@ struct Persisted {
     /// Each queue's search last time: a queue that's new or searches differently starts quietly,
     /// its first results the baseline rather than a burst of notifications.
     searches: HashMap<String, String>,
+    /// The kinds of event `keys` knows about (EVENTS_VERSION).
+    events_version: u32,
+    /// Notifications waiting for review time, or for the end of the one under way.
+    held: Vec<Held>,
+    /// The review time under way.
+    run: Option<Run>,
+    /// When review time's schedule was last looked at (ms): one that started since is due.
+    review_checked_at: i64,
 }
 
 /// A queue's search without the date a merged queue moves along each day.
@@ -76,6 +116,8 @@ struct State {
     /// GitHub asked to slow down: no refresh before this (ms), and how long the last wait was.
     retry_at: i64,
     backoff: i64,
+    /// What the tray shows of review time's countdown.
+    countdown: Option<String>,
 }
 
 const FIRST_BACKOFF: i64 = 5 * 60_000;
@@ -147,21 +189,51 @@ fn first_name(actor: Option<&engine::Actor>) -> String {
         .unwrap_or_else(|| "Someone".into())
 }
 
-fn say(kind: &str, who: &str) -> String {
-    match kind {
+/// What a notification says: what happened, by whom (and for a review request, whether it's asked
+/// of you or your team, or again), then what a comment or review said, if anything, over the pull
+/// request it's on.
+fn words(fresh: &engine::Fresh, kind: Option<Kind>) -> (String, String) {
+    let pr = &fresh.item.pr;
+    let who = first_name(fresh.event.who.as_ref());
+    let teams = fresh.item.via_teams.as_deref().unwrap_or_default();
+    let reviewing = kind == Some(Kind::Review);
+    let title = match fresh.event.kind {
+        "new" if reviewing && !teams.is_empty() => format!("{who} asked your team for a review"),
+        "new" if reviewing => format!("{who} asked for your review"),
         "new" => "New in your queue".into(),
+        "rerequest" => format!("{who} asked you to review again"),
+        "ready" if reviewing => format!("{who}'s pull request is ready for your review"),
+        "ready" => format!("{who} marked it ready for review"),
         "commits" => format!("{who} pushed changes"),
         "reply" => format!("{who} replied to you"),
         "mention" => format!("{who} mentioned you"),
+        "comment" if kind == Some(Kind::Authored) => format!("{who} commented on your pull request"),
+        "comment" if reviewing => format!("{who} commented on a pull request you review"),
         "comment" => format!("{who} commented"),
-        "rerequest" => "Your review was requested again".into(),
-        "approved" => format!("{who} approved"),
-        "changes" => format!("{who} requested changes"),
+        "approved" => format!("{who} approved your pull request"),
+        "changes" => format!("{who} requested changes on your pull request"),
         "ci-failed" => "CI failed".into(),
         "ci-passed" => "CI passed".into(),
         "conflict" => "Merge conflict".into(),
         _ => "Something happened".into(),
+    };
+    let mut place = format!("{}#{}", pr.repository.name_with_owner, pr.number);
+    if let Some(team) = teams.first() {
+        place.push_str(&format!(" · for {}", team.split_once('/').map_or(team.as_str(), |(_, slug)| slug)));
     }
+    let body = match &fresh.event.text {
+        Some(text) => format!("“{text}”\n{place} · {}", pr.title),
+        None if fresh.event.kind == "new" && !reviewing => format!("{}\n{place} · by {}", pr.title, first_name(pr.author.as_ref())),
+        None => format!("{}\n{place}", pr.title),
+    };
+    (title, body)
+}
+
+/// Several notifications as one: how many, and a line each for the first few.
+fn summary(notes: &[Held], why: &str) -> (String, String) {
+    let lines: Vec<String> = notes.iter().take(5).map(|n| format!("{}: {}", n.title, n.body.lines().next().unwrap_or(""))).collect();
+    let more = if notes.len() > 5 { format!("\nand {} more", notes.len() - 5) } else { String::new() };
+    (format!("{} updates {why}", notes.len()), format!("{}{more}", lines.join("\n")))
 }
 
 impl State {
@@ -180,6 +252,7 @@ impl State {
             "arrivals": self.arrivals,
             "seen": self.persisted.seen,
             "dismissed": self.persisted.dismissed,
+            "review": self.persisted.run.as_ref().map(|run| json!({ "run": run, "endsAt": run.ends_at() })),
         })
     }
 
@@ -204,26 +277,30 @@ impl Watch {
             auth_unknown: false,
             retry_at: 0,
             backoff: 0,
+            countdown: None,
         }));
-        let watch = Watch { sender, state: state.clone() };
+        let watch = Watch { sender: sender.clone(), state: state.clone() };
         let app = app.clone();
         std::thread::spawn(move || {
             let worker = Worker { app, state };
             worker.boot();
+            let rhythm = |worker: &Worker<R>| Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(60, |c| c.poll_seconds));
+            let mut next = Instant::now() + rhythm(&worker);
             loop {
-                let wait = Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(60, |c| c.poll_seconds));
-                let first = match receiver.recv_timeout(wait) {
+                let first = match receiver.recv_timeout(next.saturating_duration_since(Instant::now())) {
                     Ok(message) => message,
                     Err(RecvTimeoutError::Timeout) => Message::Refresh { force: false },
                     Err(RecvTimeoutError::Disconnected) => return,
                 };
                 // Several requests that piled up during a refresh make one.
-                let (mut force, mut config, mut auth) = (false, false, false);
+                let (mut refresh, mut force, mut config, mut auth, mut end) = (false, false, false, false, false);
                 for message in std::iter::once(first).chain(receiver.try_iter()) {
                     match message {
-                        Message::Refresh { force: f } => force |= f,
+                        Message::Refresh { force: f } => (refresh, force) = (true, force | f),
                         Message::Config => config = true,
                         Message::Auth => auth = true,
+                        Message::Tick => {}
+                        Message::EndReview => end = true,
                     }
                 }
                 if auth {
@@ -232,7 +309,23 @@ impl Watch {
                 if config {
                     worker.reload_config();
                 }
-                worker.refresh(force || config || auth);
+                if end {
+                    worker.end_review();
+                }
+                // The clock's ticks alone don't refresh: GitHub is asked on its own rhythm.
+                if refresh || config || auth {
+                    worker.refresh(force || config || auth);
+                    next = Instant::now() + rhythm(&worker);
+                }
+                worker.review_tick();
+            }
+        });
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(TICK);
+                if sender.send(Message::Tick).is_err() {
+                    return;
+                }
             }
         });
         watch
@@ -317,12 +410,24 @@ impl Watch {
         picked.into_iter().map(|(title, _)| title).collect()
     }
 
+    /// Ends the review time under way, on the refreshing thread.
+    pub fn end_review(&self) {
+        self.send(Message::EndReview);
+    }
+
     pub fn clear_arrival<R: Runtime>(&self, app: &AppHandle<R>, pr_id: &str) {
         let removed = self.state.lock().unwrap().arrivals.remove(pr_id);
         if removed {
             Worker { app: app.clone(), state: self.state.clone() }.publish();
         }
     }
+}
+
+/// Takes the notifications kept for this, in the order they came.
+fn take_held(state: &mut State, until: Until) -> Vec<Held> {
+    let (taken, kept) = std::mem::take(&mut state.persisted.held).into_iter().partition(|h| h.until == until);
+    state.persisted.held = kept;
+    taken
 }
 
 /// The refreshing thread's side.
@@ -351,6 +456,7 @@ impl<R: Runtime> Worker<R> {
         self.publish();
         self.check_auth();
         self.refresh(true);
+        self.review_tick();
     }
 
     fn check_auth(&self) {
@@ -479,19 +585,21 @@ impl<R: Runtime> Worker<R> {
         let searches: HashMap<String, String> = queues.iter().filter_map(|q| state.cache.lists.get(&q.id).map(|l| (q.id.clone(), search_key(&l.search)))).collect();
         let settled = |id: &str| searches.get(id).is_some_and(|s| state.persisted.searches.get(id) == Some(s));
         let mut animate = false;
-        if let Some(previous) = &state.persisted.keys {
+        let known = state.persisted.events_version == EVENTS_VERSION;
+        if let Some(previous) = state.persisted.keys.as_ref().filter(|_| known) {
             let previous: HashSet<String> = previous.iter().cloned().collect();
             let audible: Vec<Item> = all.iter().filter(|i| settled(&i.queue_id)).cloned().collect();
             let fresh = engine::fresh_events(&audible, &queues, &previous, &state.persisted.seen, now());
-            self.notify(&fresh, config.sound);
             for f in &fresh {
                 state.arrivals.insert(f.item.pr.id.clone());
             }
-            animate = !fresh.is_empty();
+            // Only what shows now draws the eye: what's kept waits quietly.
+            animate = self.notify(state, &config, &fresh) > 0;
         }
         // Only once GitHub answered for them: before that a queue has no results to start from.
         if !searches.is_empty() {
             state.persisted.searches = searches;
+            state.persisted.events_version = EVENTS_VERSION;
         }
         // The first refresh notifies about nothing: it's all old news. Cards still show as unclicked.
         state.persisted.keys = Some(keys.iter().cloned().collect());
@@ -512,18 +620,177 @@ impl<R: Runtime> Worker<R> {
         self.update_tray(state, animate);
     }
 
-    fn notify(&self, fresh: &[engine::Fresh], sound: bool) {
-        // One sound for the batch, not one per notification.
+    /// Shows what's new, or keeps it: for the next review time when its queue says so (and there is
+    /// one coming), or for the end of the one under way when everything waits while reviewing.
+    /// Returns how many showed now.
+    fn notify(&self, state: &mut State, config: &Config, fresh: &[engine::Fresh]) -> usize {
+        let reviewing = state.persisted.run.is_some();
+        let scheduled = review::is_scheduled(&config.review_time);
+        let mut now = Vec::new();
+        for f in fresh {
+            let queue = config.queues.iter().find(|q| q.id == f.item.queue_id);
+            let (title, body) = words(f, queue.map(|q| q.kind));
+            let until = if reviewing && config.review_time.hold_while_reviewing {
+                Some(Until::End)
+            } else if scheduled && queue.is_some_and(|q| q.waits_for_review()) {
+                Some(Until::Review)
+            } else {
+                None
+            };
+            let note = Held { key: f.event.key.clone(), title, body, until: until.unwrap_or(Until::Review) };
+            match until {
+                Some(_) => {
+                    state.persisted.held.retain(|h| h.key != note.key);
+                    state.persisted.held.push(note);
+                }
+                None => now.push(note),
+            }
+        }
+        let overflow = state.persisted.held.len().saturating_sub(MAX_HELD);
+        state.persisted.held.drain(..overflow);
+        self.show(&now, config.sound);
+        now.len()
+    }
+
+    /// Notifications, a few at most, with one sound for the batch, not one per notification.
+    fn show(&self, notes: &[Held], sound: bool) {
         let mut sound = sound;
-        for f in fresh.iter().take(MAX_NOTIFICATIONS) {
-            let pr = &f.item.pr;
-            let by = if f.event.kind == engine::NEW { format!(" · by {}", first_name(pr.author.as_ref())) } else { String::new() };
-            let title = say(f.event.kind, &first_name(f.event.who.as_ref()));
-            crate::show_notification(&self.app, title, format!("{}\n{}#{}{by}", pr.title, pr.repository.name_with_owner, pr.number), sound);
+        for note in notes.iter().take(MAX_NOTIFICATIONS) {
+            crate::show_notification(&self.app, note.title.clone(), note.body.clone(), sound);
             sound = false;
         }
-        if fresh.len() > MAX_NOTIFICATIONS {
-            crate::show_notification(&self.app, format!("{} more pull request updates", fresh.len() - MAX_NOTIFICATIONS), "Open Focus Diff to see them".into(), sound);
+        if notes.len() > MAX_NOTIFICATIONS {
+            crate::show_notification(&self.app, format!("{} more pull request updates", notes.len() - MAX_NOTIFICATIONS), "Open Focus Diff to see them".into(), sound);
+        }
+    }
+
+    /// Notifications that were kept: as they were if just one, summed up in one otherwise.
+    fn release(&self, notes: Vec<Held>, why: &str, sound: bool) {
+        match notes.len() {
+            0 => {}
+            1 => self.show(&notes, sound),
+            _ => {
+                let (title, body) = summary(&notes, why);
+                crate::show_notification(&self.app, title, body, sound);
+            }
+        }
+    }
+
+    /// Review time's own notification: its own sound where there is one, else the system's.
+    fn chime(&self, config: &Config, title: String, body: String) {
+        crate::show_notification(&self.app, title, body, config.sound && !sound::OWN);
+        if config.sound {
+            sound::play(&self.app);
+        }
+    }
+
+    /// Review time's clock: the one under way ends when its time is up, one that's due starts, and
+    /// the tray counts down. What was kept for review times that won't come any more shows now.
+    fn review_tick(&self) {
+        let now = now();
+        let over = self.state.lock().unwrap().persisted.run.as_ref().is_some_and(|r| now >= r.ends_at());
+        if over {
+            // How far it got, from the queues as they are now.
+            self.refresh(true);
+            let mut state = self.state.lock().unwrap();
+            self.end_run(&mut state, true);
+        }
+        let due = {
+            let mut state = self.state.lock().unwrap();
+            let Some(config) = state.config.clone() else { return };
+            if !review::is_scheduled(&config.review_time) && state.persisted.run.is_none() && state.persisted.held.iter().any(|h| h.until == Until::Review) {
+                let waiting = take_held(&mut state, Until::Review);
+                self.release(waiting, "came in", config.sound);
+                self.save_state(&state);
+            }
+            let last = std::mem::replace(&mut state.persisted.review_checked_at, now);
+            // The first look starts the clock: nothing from before counts.
+            let due = (last > 0).then(|| review::due(&config.review_time, last, now, &review::local_offset)).flatten().map(|d| d.session.clone());
+            due.filter(|_| state.persisted.run.is_none() && state.me.is_some())
+        };
+        let started = due.is_some();
+        if let Some(session) = due {
+            // What's waiting as it stands now, not as of the last refresh.
+            self.refresh(true);
+            let mut state = self.state.lock().unwrap();
+            self.start_run(&mut state, &session, now);
+        }
+        let mut state = self.state.lock().unwrap();
+        self.update_countdown(&mut state, now);
+        drop(state);
+        if over || started {
+            self.publish();
+        }
+    }
+
+    /// The items of the queues a session picks from: the ones it names, or every review queue.
+    fn session_items<'a>(state: &'a State, session: Option<&Session>) -> Vec<&'a Item> {
+        let config = state.config.as_ref();
+        let picks = |id: &str| match session.filter(|s| !s.queues.is_empty()) {
+            Some(s) => s.queues.iter().any(|q| q == id),
+            None => config.is_some_and(|c| c.queues.iter().any(|q| q.id == id && q.kind == Kind::Review)),
+        };
+        state.items.iter().filter(|(id, _)| picks(id)).flat_map(|(_, items)| items.iter()).collect()
+    }
+
+    /// Starts a review time: picks what fits and says so, with what waited for it.
+    fn start_run(&self, state: &mut State, session: &Session, now: i64) {
+        let Some(config) = state.config.clone() else { return };
+        let mut ids = HashSet::new();
+        let candidates: Vec<Candidate> = Self::session_items(state, Some(session))
+            .into_iter()
+            .filter(|i| (session.drafts || !i.pr.is_draft) && ids.insert(i.pr.id.as_str()))
+            .map(|i| Candidate::new(&i.pr, i.events.iter().any(|e| e.kind == "rerequest")))
+            .collect();
+        let plan = review::plan(candidates, session.minutes, session.order, config.review_time.again_first);
+        let waited = take_held(state, Until::Review);
+        let name = if session.name.trim().is_empty() { "Review time".to_string() } else { session.name.trim().to_string() };
+        let run = Run { session: session.id.clone(), name, minutes: session.minutes, started_at: now, pulls: plan.picked, left: plan.left, over_by: plan.over_by };
+        if !run.pulls.is_empty() || !config.review_time.skip_empty {
+            let (title, body) = review::offer_words(&run);
+            self.chime(&config, title, body);
+            self.release(waited, "waited for review time", false);
+        } else {
+            self.release(waited, "waited for review time", config.sound);
+        }
+        // Nothing to review: nothing to count down.
+        if !run.pulls.is_empty() {
+            state.persisted.run = Some(run);
+        }
+        self.save_state(state);
+    }
+
+    /// Ends the review time under way: its time is up (said, if asked), or it was ended by hand.
+    /// What waited for the end of it shows now.
+    fn end_run(&self, state: &mut State, time_up: bool) {
+        let Some(config) = state.config.clone() else { return };
+        let Some(run) = state.persisted.run.take() else { return };
+        let waited = take_held(state, Until::End);
+        let told = time_up && config.review_time.remind_end && !run.pulls.is_empty();
+        if told {
+            let session = config.review_time.sessions.iter().find(|s| s.id == run.session);
+            let waiting: HashSet<&str> = Self::session_items(state, session).into_iter().map(|i| i.pr.id.as_str()).collect();
+            let (title, body) = review::end_words(&run, run.pulls.iter().filter(|p| waiting.contains(p.id.as_str())).count());
+            self.chime(&config, title, body);
+        }
+        self.release(waited, "came in while you reviewed", config.sound && !told);
+        self.save_state(state);
+    }
+
+    fn end_review(&self) {
+        let mut state = self.state.lock().unwrap();
+        self.end_run(&mut state, false);
+        self.update_countdown(&mut state, now());
+        drop(state);
+        self.publish();
+    }
+
+    /// The minutes left beside the tray icon, while a review time is under way.
+    fn update_countdown(&self, state: &mut State, now: i64) {
+        let text = state.persisted.run.as_ref().map(|r| format!("{}m", r.minutes_left(now)));
+        if state.countdown != text {
+            state.countdown = text.clone();
+            crate::update_countdown(&self.app, text);
         }
     }
 
@@ -546,5 +813,48 @@ impl<R: Runtime> Worker<R> {
             let snapshot = self.state.lock().unwrap().snapshot();
             let _ = self.app.emit_to(crate::PANEL, "snapshot", snapshot);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::{Event, Fresh, PullRequest};
+
+    fn item(via_teams: Option<Vec<String>>) -> Item {
+        let pr: PullRequest = serde_json::from_value(json!({
+            "id": "PR_1", "number": 7, "title": "Fix login", "repository": { "nameWithOwner": "acme/web" },
+            "author": { "login": "ana", "name": "Ana Lima" },
+        }))
+        .unwrap();
+        Item { queue_id: "q".into(), pr: Arc::new(pr), events: vec![], status: None, via_teams, ci: None, passed: false, waiting_since: None }
+    }
+
+    fn said(item: &Item, kind: &'static str, text: Option<&str>, kind_of_queue: Kind) -> (String, String) {
+        let who = Some(engine::Actor { login: "bruno".into(), name: Some("Bruno Costa".into()), ..Default::default() });
+        let event = Event { key: "k".into(), kind, at: 0, who, text: text.map(String::from) };
+        words(&Fresh { item, event }, Some(kind_of_queue))
+    }
+
+    #[test]
+    fn says_what_happened() {
+        let mine = item(Some(vec![]));
+        let team = item(Some(vec!["acme/web-platform".into()]));
+        assert_eq!(said(&mine, "new", None, Kind::Review), ("Bruno asked for your review".into(), "Fix login\nacme/web#7".into()));
+        assert_eq!(said(&team, "new", None, Kind::Review), ("Bruno asked your team for a review".into(), "Fix login\nacme/web#7 · for web-platform".into()));
+        assert_eq!(said(&mine, "rerequest", None, Kind::Review).0, "Bruno asked you to review again");
+        assert_eq!(said(&mine, "ready", None, Kind::Review).0, "Bruno's pull request is ready for your review");
+        assert_eq!(said(&item(None), "comment", Some("Can you look?"), Kind::Authored), ("Bruno commented on your pull request".into(), "“Can you look?”\nacme/web#7 · Fix login".into()));
+        assert_eq!(said(&item(None), "new", None, Kind::Custom).1, "Fix login\nacme/web#7 · by Ana");
+    }
+
+    #[test]
+    fn several_kept_as_one() {
+        let note = |title: &str| Held { key: title.into(), title: title.into(), body: "Fix login\nacme/web#7".into(), until: Until::Review };
+        let notes: Vec<Held> = ["A", "B", "C", "D", "E", "F", "G"].into_iter().map(note).collect();
+        let (title, body) = summary(&notes, "waited for review time");
+        assert_eq!(title, "7 updates waited for review time");
+        assert_eq!(body.lines().next(), Some("A: Fix login"));
+        assert!(body.ends_with("and 2 more"), "{body}");
     }
 }

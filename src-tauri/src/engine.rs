@@ -73,6 +73,9 @@ pub struct Review {
     pub state: String,
     pub submitted_at: Option<String>,
     pub url: String,
+    /// What the review said, if anything (not sent to the panel).
+    #[serde(skip_serializing)]
+    pub body: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -122,6 +125,13 @@ pub struct Login {
 #[serde(default)]
 pub struct Removed {
     pub actor: Option<Login>,
+}
+
+/// A draft marked ready for review, and when.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Ready {
+    pub created_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -205,6 +215,7 @@ pub struct PullRequest {
     pub commits: Nodes<CommitNode>,
     pub participants: Nodes<Login>,
     pub removed: Nodes<Removed>,
+    pub ready: Nodes<Ready>,
     pub comment_count: Count,
     pub thread_count: Count,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -253,7 +264,7 @@ fn fragment(files: bool, requests: bool) -> String {
         mergedBy {{ {ACTOR} }}
         labels(first: 20) {{ nodes {{ name }} }}
         reviewRequests(first: 20) {{ nodes {{ requestedReviewer {{ __typename ... on User {{ login avatarUrl(size: 64) }} ... on Team {{ slug organization {{ login }} }} }} }} }}
-        latestOpinionatedReviews(first: 20) {{ nodes {{ author {{ {ACTOR} }} state submittedAt url }} }}
+        latestOpinionatedReviews(first: 20) {{ nodes {{ author {{ {ACTOR} }} state submittedAt url body }} }}
         mine: reviews(last: 20, author: $login) {{ nodes {{ state submittedAt commit {{ oid }} }} }}
         reviewComments: reviews(last: 10, states: [COMMENTED]) {{ nodes {{ author {{ {ACTOR} }} createdAt: submittedAt body url }} }}
         comments(last: 20) {{ nodes {{ {comment} }} }}
@@ -262,7 +273,8 @@ fn fragment(files: bool, requests: bool) -> String {
         participants(first: 50) {{ nodes {{ login }} }}
         commentCount: comments {{ totalCount }}
         threadCount: reviewThreads {{ totalCount }}
-        removed: timelineItems(first: 20, itemTypes: [REVIEW_REQUEST_REMOVED_EVENT]) {{ nodes {{ ... on ReviewRequestRemovedEvent {{ actor {{ login }} }} }} }}"
+        removed: timelineItems(first: 20, itemTypes: [REVIEW_REQUEST_REMOVED_EVENT]) {{ nodes {{ ... on ReviewRequestRemovedEvent {{ actor {{ login }} }} }} }}
+        ready: timelineItems(last: 1, itemTypes: [READY_FOR_REVIEW_EVENT]) {{ nodes {{ ... on ReadyForReviewEvent {{ createdAt }} }} }}"
     );
     if files {
         f.push_str(" files(first: 100) { nodes { path } }");
@@ -534,7 +546,7 @@ fn organizations(gql: &dyn Gql) -> Result<Vec<String>, Failure> {
 }
 
 pub const MERGED_EVERY: i64 = 5 * 60_000;
-pub const CACHE_VERSION: u32 = 2;
+pub const CACHE_VERSION: u32 = 3;
 
 /// Brings the cache up to date with GitHub. `force` searches merged queues again too; `full`
 /// fetches every pull request in full, changed or not (a periodic safety net for what GitHub
@@ -645,6 +657,9 @@ pub struct Event {
     pub kind: &'static str,
     pub at: i64,
     pub who: Option<Actor>,
+    /// The start of what a comment or review said, for its notification.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -824,7 +839,51 @@ fn asked_at(pr: &PullRequest, me: &str, teams: &[String]) -> Option<i64> {
 }
 
 fn event(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&Actor>) -> Event {
-    Event { key: format!("{}:{kind}:{id}", pr.id), kind, at, who: who.cloned() }
+    Event { key: format!("{}:{kind}:{id}", pr.id), kind, at, who: who.cloned(), text: None }
+}
+
+/// The same, quoting what a comment or review said.
+fn said(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&Actor>, body: Option<&str>) -> Event {
+    Event { text: snippet(body.unwrap_or("")), ..event(pr, kind, id, at, who) }
+}
+
+/// Characters of a comment a notification quotes.
+const SNIPPET: usize = 140;
+
+/// The start of a comment as plain words, for a notification: quotes of earlier comments, code
+/// blocks, hidden HTML comments and pictures say less than the words around them, so they go;
+/// links keep their text; runs of whitespace become one space. None when nothing's left.
+pub fn snippet(body: &str) -> Option<String> {
+    static PATTERNS: OnceLock<[(Regex, &str); 7]> = OnceLock::new();
+    let patterns = PATTERNS.get_or_init(|| {
+        [
+            (Regex::new(r"(?s)```.*?(```|$)").unwrap(), " "),
+            (Regex::new(r"(?s)<!--.*?(-->|$)").unwrap(), " "),
+            (Regex::new(r"(?m)^\s*>.*$").unwrap(), " "),
+            (Regex::new(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>").unwrap(), " "),
+            (Regex::new(r"\[([^\]]*)\]\([^)]*\)").unwrap(), "$1"),
+            (Regex::new(r"(?m)</?[a-zA-Z][^>]*>|\*\*|~~|`|^#+\s+").unwrap(), ""),
+            (Regex::new(r"\s+").unwrap(), " "),
+        ]
+    });
+    let mut text = body.to_string();
+    for (pattern, with) in patterns {
+        text = pattern.replace_all(&text, *with).into_owned();
+    }
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    if text.chars().count() <= SNIPPET {
+        return Some(text.to_string());
+    }
+    let cut: String = text.chars().take(SNIPPET - 1).collect();
+    Some(format!("{}…", cut.trim_end()))
+}
+
+/// When the pull request was last marked ready for review, if it ever was a draft.
+fn ready_at(pr: &PullRequest) -> Option<i64> {
+    pr.ready.nodes.last().map(|r| time(r.created_at.as_deref())).filter(|t| *t > 0)
 }
 
 /// A queue's path filters, compiled. A pattern this side can't use (JavaScript-only syntax) is an
@@ -867,7 +926,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
         let ci = ci_state(pr);
         let pushed = time(pr.commits.nodes.first().and_then(|c| c.commit.committed_date.as_deref()));
         // Entering the queue is an event of its own, per queue.
-        let arrived = Event { key: format!("{}:{}:new", queue.id, pr.id), kind: NEW, at: time(Some(&pr.created_at)), who: pr.author.clone() };
+        let arrived = Event { key: format!("{}:{}:new", queue.id, pr.id), kind: NEW, at: time(Some(&pr.created_at)), who: pr.author.clone(), text: None };
         let item = |events: Vec<Event>| Item { queue_id: queue.id.clone(), pr: pr.clone(), events, status: None, via_teams: None, ci: ci.clone(), passed: false, waiting_since: None };
 
         match queue.kind {
@@ -876,11 +935,31 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 if !(direct || (!queue.direct_only && !via.is_empty())) {
                     continue;
                 }
-                if queue.hide_once_reviewed && act.any {
+                let asked = asked_at(pr, me, if direct { &[] } else { &via });
+                // Asked again after your last word on it: back for another look, reviewed or not.
+                let again = act.any && asked.is_some_and(|a| a > act.last);
+                if queue.hide_once_reviewed && act.any && !again {
                     continue;
                 }
-                let waiting = asked_at(pr, me, if direct { &[] } else { &via }).unwrap_or_else(|| time(Some(&pr.created_at)));
-                items.push(Item { via_teams: Some(if direct { vec![] } else { via }), waiting_since: Some(waiting), ..item(vec![arrived]) });
+                let waiting = asked.unwrap_or_else(|| time(Some(&pr.created_at)));
+                let mut events = vec![arrived];
+                if again {
+                    // Keyed like an updates queue's, so it's one notification in both.
+                    events.push(event(pr, "rerequest", &act.last.to_string(), waiting, author));
+                }
+                // Made ready after you were asked: it waited on that, not on you.
+                if let Some(at) = ready_at(pr).filter(|at| *at > waiting && !pr.is_draft) {
+                    events.push(event(pr, "ready", &at.to_string(), at, author));
+                }
+                // What others said while it's been waiting on you.
+                let since = waiting.max(act.last);
+                for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
+                    if by_others(c) && time(c.created_at.as_deref()) > since {
+                        let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
+                        events.push(said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
+                    }
+                }
+                items.push(Item { via_teams: Some(if direct { vec![] } else { via }), waiting_since: Some(waiting), ..item(events) });
             }
             Kind::Merged => {
                 if queue.skip_if_i == SkipIfI::TookPart && pr.participants.nodes.iter().any(|p| p.login == me) {
@@ -913,12 +992,12 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                         _ => continue,
                     };
                     let id = format!("{}:{}", login(r.author.as_ref()), r.submitted_at.as_deref().unwrap_or(""));
-                    events.push(event(pr, kind, &id, time(r.submitted_at.as_deref()), r.author.as_ref()));
+                    events.push(said(pr, kind, &id, time(r.submitted_at.as_deref()), r.author.as_ref(), r.body.as_deref()));
                 }
                 for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
                     if by_others(c) {
                         let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
-                        events.push(event(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref()));
+                        events.push(said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
                     }
                 }
                 if matches!(ci.as_deref(), Some("FAILURE" | "ERROR")) {
@@ -944,7 +1023,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 let mut events = vec![arrived];
                 for c in &mention_list {
                     if time(c.created_at.as_deref()) > since {
-                        events.push(event(pr, "mention", &c.url, time(c.created_at.as_deref()), c.author.as_ref()));
+                        events.push(said(pr, "mention", &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
                     }
                 }
                 if act.any || queue.kind == Kind::Custom {
@@ -952,14 +1031,17 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                         let mine = thread.iter().any(|c| login(c.author.as_ref()) == me);
                         for c in thread {
                             if after(c) && !mentioned.contains(c.url.as_str()) {
-                                events.push(event(pr, if mine { "reply" } else { "comment" }, &c.url, time(c.created_at.as_deref()), c.author.as_ref()));
+                                events.push(said(pr, if mine { "reply" } else { "comment" }, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
                             }
                         }
                     }
                     for c in &all_notes {
                         if after(c) && !mentioned.contains(c.url.as_str()) {
-                            events.push(event(pr, "comment", &c.url, time(c.created_at.as_deref()), c.author.as_ref()));
+                            events.push(said(pr, "comment", &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
                         }
+                    }
+                    if let Some(at) = ready_at(pr).filter(|at| *at > since && !pr.is_draft) {
+                        events.push(event(pr, "ready", &at.to_string(), at, author));
                     }
                     let base = act.opinion.or(act.last_review);
                     match base.and_then(|b| b.commit.as_ref()) {
@@ -976,7 +1058,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                     }
                     // Still asked after reviewing: asked again.
                     if act.last_review.is_some() && direct {
-                        events.push(event(pr, "rerequest", &since.to_string(), since, None));
+                        events.push(event(pr, "rerequest", &since.to_string(), since, author));
                     }
                 }
                 if queue.kind == Kind::Involved && queue.only_news && events.len() == 1 {
@@ -1000,25 +1082,63 @@ pub struct Fresh<'a> {
     pub event: Event,
 }
 
-/// What to notify: events not there last time and not seen, of the kinds the queue asked for,
-/// each once even when a pull request is in several queues; plus CI passing again.
+/// "owner/name", or all of an owner's with "owner/*".
+pub fn repo_matches(pattern: &str, repo: &str) -> bool {
+    match pattern.strip_suffix("/*") {
+        Some(owner) => repo.split_once('/').is_some_and(|(o, _)| o.eq_ignore_ascii_case(owner)),
+        None => pattern.eq_ignore_ascii_case(repo),
+    }
+}
+
+/// Whether your latest review that took a side approved it.
+fn approved_by_me(pr: &PullRequest) -> bool {
+    pr.mine.nodes.iter().rev().find(|r| r.state == "APPROVED" || r.state == "CHANGES_REQUESTED").is_some_and(|r| r.state == "APPROVED")
+}
+
+/// Whether a queue's notification settings leave this event out: a draft, a bot's doing, a pull
+/// request you approved, or one from a repository its notifications aren't for.
+fn left_out(queue: &Queue, item: &Item, event: &Event) -> bool {
+    let repo = &item.pr.repository.name_with_owner;
+    (queue.leaves_out("drafts") && item.pr.is_draft)
+        || (queue.leaves_out("bots") && event.who.is_some() && is_bot(event.who.as_ref()))
+        || (queue.leaves_out("approved") && approved_by_me(&item.pr))
+        || (!queue.notify_repos.is_empty() && !queue.notify_repos.iter().any(|p| repo_matches(p, repo)))
+}
+
+/// What to notify: events not there last time and not seen, of the kinds the queue asked for and
+/// not left out, each once even when a pull request is in several queues; plus CI passing again.
+/// Arriving in a queue and the reason it arrived are one notification: being asked again wins,
+/// and in a review queue a draft made ready does too (elsewhere arriving says more).
 pub fn fresh_events<'a>(items: &'a [Item], queues: &[&Queue], previous: &HashSet<String>, seen: &HashMap<String, bool>, now: i64) -> Vec<Fresh<'a>> {
-    let kinds: HashMap<&str, &[String]> = queues.iter().map(|q| (q.id.as_str(), q.notify.as_slice())).collect();
-    let wants = |item: &Item, kind: &str| kinds.get(item.queue_id.as_str()).is_some_and(|k| k.iter().any(|n| n == kind));
+    let by_id: HashMap<&str, &Queue> = queues.iter().map(|q| (q.id.as_str(), *q)).collect();
+    let wants = |queue: &Queue, kind: &str| queue.notify.iter().any(|n| n == kind);
     let mut out = Vec::new();
     let mut taken = HashSet::new();
     for item in items {
-        for e in &item.events {
-            if previous.contains(&e.key) || seen.contains_key(&e.key) || taken.contains(&e.key) || !wants(item, e.kind) {
+        let Some(queue) = by_id.get(item.queue_id.as_str()).copied() else { continue };
+        let fresh: Vec<&Event> = item
+            .events
+            .iter()
+            .filter(|e| !previous.contains(&e.key) && !seen.contains_key(&e.key) && wants(queue, e.kind) && !left_out(queue, item, e))
+            .collect();
+        let has = |kind: &str| fresh.iter().any(|e| e.kind == kind);
+        let ready_wins = queue.kind == Kind::Review;
+        for e in &fresh {
+            let shadowed = match e.kind {
+                NEW => has("rerequest") || (ready_wins && has("ready")),
+                "ready" => has("rerequest") || (!ready_wins && has(NEW)),
+                _ => false,
+            };
+            if shadowed || !taken.insert(e.key.clone()) {
                 continue;
             }
-            taken.insert(e.key.clone());
-            out.push(Fresh { item, event: e.clone() });
+            out.push(Fresh { item, event: (*e).clone() });
         }
-        if item.passed && wants(item, "ci-passed") {
+        if item.passed && wants(queue, "ci-passed") {
             let key = format!("{}:ci-passed:{}", item.pr.id, item.pr.head_ref_oid);
-            if taken.insert(key.clone()) {
-                out.push(Fresh { item, event: Event { key, kind: "ci-passed", at: now, who: None } });
+            let event = Event { key, kind: "ci-passed", at: now, who: None, text: None };
+            if !left_out(queue, item, &event) && taken.insert(event.key.clone()) {
+                out.push(Fresh { item, event });
             }
         }
     }
@@ -1285,6 +1405,125 @@ mod tests {
         assert_eq!(fresh_events(&all, &queues, &HashSet::new(), &seen, T0).len(), 0);
         let quiet = [queue(Kind::Review, json!({ "notify": [] })), queue(Kind::Custom, json!({ "notify": [] }))];
         assert_eq!(fresh_events(&all, &[&quiet[0], &quiet[1]], &HashSet::new(), &HashMap::new(), T0).len(), 0);
+    }
+
+    #[test]
+    fn snippets_are_plain_and_short() {
+        assert_eq!(snippet("> earlier words\n\nLooks **good**, see [the docs](https://x/y) `fn()`").as_deref(), Some("Looks good, see the docs fn()"));
+        assert_eq!(snippet("Run this:\n```sh\nrm -rf /\n```\nthen ship").as_deref(), Some("Run this: then ship"));
+        assert_eq!(snippet("<!-- template -->\n## Summary\n![shot](a.png) Done").as_deref(), Some("Summary Done"));
+        assert_eq!(snippet("> only a quote\n```\ncode\n```").as_deref(), None);
+        assert_eq!(snippet("snake_case_name stays"), Some("snake_case_name stays".into()));
+        let long = snippet(&"word ".repeat(60)).unwrap();
+        assert_eq!(long.chars().count(), SNIPPET);
+        assert!(long.ends_with("word…"), "{long}");
+        // Cut by characters, not bytes.
+        assert_eq!(snippet(&"é".repeat(200)).unwrap().chars().count(), SNIPPET);
+    }
+
+    fn me_asked(minutes_ago: i64) -> Value {
+        json!({ "requestedReviewer": { "__typename": "User", "login": ME }, "createdAt": t(minutes_ago) })
+    }
+
+    #[test]
+    fn asked_again_after_reviewing() {
+        let direct = json!({ "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] });
+        let reviewed = json!({ "nodes": [{ "state": "COMMENTED", "submittedAt": t(60), "commit": { "oid": "head" } }] });
+        // Asked, reviewed, asked again: back in the queue, asked again.
+        let again = pr(json!({ "reviewRequests": direct, "mine": reviewed, "requested": { "nodes": [me_asked(120), me_asked(30)] } }));
+        let found = items(&queue(Kind::Review, json!({})), std::slice::from_ref(&again));
+        assert_eq!(kinds(&found), ["new", "rerequest"]);
+        assert_eq!(found[0].waiting_since, Some(T0 - 30 * 60_000));
+        // Reviewed since the last ask: done with it.
+        let done = pr(json!({ "reviewRequests": direct, "mine": reviewed, "requested": { "nodes": [me_asked(120)] } }));
+        assert!(items(&queue(Kind::Review, json!({})), &[done]).is_empty());
+        // The same notification as an updates queue's, once.
+        let involved = queue(Kind::Involved, json!({}));
+        let review = queue(Kind::Review, json!({}));
+        let mut all = items(&review, std::slice::from_ref(&again));
+        all.extend(items(&involved, &[again]));
+        let fresh = fresh_events(&all, &[&review, &involved], &HashSet::new(), &HashMap::new(), T0);
+        assert_eq!(fresh.iter().map(|f| f.event.kind).collect::<Vec<_>>(), ["rerequest"], "asked again, not also new, and once");
+    }
+
+    #[test]
+    fn asked_of_you_or_your_team() {
+        let team = json!({ "__typename": "Team", "slug": "web", "organization": { "login": "acme" } });
+        let found = items(
+            &queue(Kind::Review, json!({})),
+            &[pr(json!({ "reviewRequests": { "nodes": [{ "requestedReviewer": team }] } })), pr(json!({ "reviewRequests": { "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] } }))],
+        );
+        assert_eq!(found[0].via_teams, Some(vec!["acme/web".to_string()]));
+        assert_eq!(found[1].via_teams, Some(vec![]));
+    }
+
+    #[test]
+    fn drafts_made_ready() {
+        let direct = json!({ "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] });
+        let ready = |minutes_ago: i64| json!({ "nodes": [{ "createdAt": t(minutes_ago) }] });
+        // Asked while a draft, then made ready: that's what's new, not arriving.
+        let made_ready = pr(json!({ "reviewRequests": direct, "requested": { "nodes": [me_asked(120)] }, "ready": ready(10) }));
+        let review = queue(Kind::Review, json!({ "notify": ["new", "ready"] }));
+        let found = items(&review, std::slice::from_ref(&made_ready));
+        assert_eq!(kinds(&found), ["new", "ready"]);
+        let fresh = fresh_events(&found, &[&review], &HashSet::new(), &HashMap::new(), T0);
+        assert_eq!(fresh.iter().map(|f| f.event.kind).collect::<Vec<_>>(), ["ready"]);
+        // Made ready before you were asked: only asked.
+        let earlier = pr(json!({ "reviewRequests": direct, "requested": { "nodes": [me_asked(10)] }, "ready": ready(120) }));
+        assert_eq!(kinds(&items(&review, &[earlier])), ["new"]);
+        // Still a draft (marked ready, then back to draft): nothing to say.
+        let back = pr(json!({ "isDraft": true, "reviewRequests": direct, "requested": { "nodes": [me_asked(120)] }, "ready": ready(10) }));
+        assert_eq!(kinds(&items(&queue(Kind::Review, json!({ "drafts": "show" })), &[back])), ["new"]);
+        // Where you took part: ready since your last word.
+        let approved = json!({ "nodes": [{ "state": "COMMENTED", "submittedAt": t(60), "commit": { "oid": "head" } }] });
+        let found = items(&queue(Kind::Involved, json!({})), &[pr(json!({ "mine": approved, "ready": ready(10) }))]);
+        assert!(kinds(&found).contains(&"ready"));
+    }
+
+    #[test]
+    fn comments_say_what_was_said() {
+        let direct = json!({ "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] });
+        let found = items(
+            &queue(Kind::Review, json!({})),
+            &[pr(json!({ "reviewRequests": direct, "requested": { "nodes": [me_asked(60)] }, "comments": { "nodes": [comment("ana", 90, "before you were asked"), comment("bruno", 20, "> quoted\nCan you look at **this**?")] } }))],
+        );
+        let comments: Vec<&Event> = found[0].events.iter().filter(|e| e.kind == "comment").collect();
+        assert_eq!(comments.len(), 1, "only since you were asked");
+        assert_eq!(comments[0].text.as_deref(), Some("Can you look at this?"));
+        let mine = items(
+            &queue(Kind::Authored, json!({})),
+            &[pr(json!({ "author": user(ME), "latestOpinionatedReviews": { "nodes": [{ "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": "u", "body": "Ship it" }] } }))],
+        );
+        let approved = mine[0].events.iter().find(|e| e.kind == "approved").unwrap();
+        assert_eq!(approved.text.as_deref(), Some("Ship it"));
+    }
+
+    #[test]
+    fn notifications_leave_out_what_was_asked() {
+        let direct = json!({ "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] });
+        let prs = [
+            pr(json!({ "reviewRequests": direct, "isDraft": true })),
+            pr(json!({ "reviewRequests": direct, "author": bot("renovate") })),
+            pr(json!({ "reviewRequests": direct, "mine": { "nodes": [{ "state": "APPROVED", "submittedAt": t(500), "commit": null }] }, "requested": { "nodes": [me_asked(400)] } })),
+            pr(json!({ "reviewRequests": direct, "repository": { "nameWithOwner": "other/api" } })),
+            pr(json!({ "reviewRequests": direct })),
+        ];
+        let count = |patch: Value| {
+            let mut settings = json!({ "drafts": "show", "hideBots": false, "hideOnceReviewed": false });
+            for (k, v) in patch.as_object().unwrap() {
+                settings[k] = v.clone();
+            }
+            let q = queue(Kind::Review, settings);
+            let found = items(&q, &prs);
+            fresh_events(&found, &[&q], &HashSet::new(), &HashMap::new(), T0).len()
+        };
+        assert_eq!(count(json!({})), 5);
+        assert_eq!(count(json!({ "notifyLeaveOut": ["drafts"] })), 4);
+        assert_eq!(count(json!({ "notifyLeaveOut": ["bots"] })), 4);
+        assert_eq!(count(json!({ "notifyLeaveOut": ["approved"] })), 4);
+        assert_eq!(count(json!({ "notifyRepos": ["acme/*"] })), 4);
+        assert_eq!(count(json!({ "notifyRepos": ["other/api"], "notifyLeaveOut": ["drafts", "bots", "approved"] })), 1);
+        assert!(repo_matches("Acme/*", "acme/web") && repo_matches("acme/web", "ACME/web") && !repo_matches("acme/*", "acmeco/web"));
     }
 
     /// Answers from a script, and records the variables of each call.

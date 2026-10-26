@@ -9,6 +9,15 @@ import type { Item } from "./engine";
 
 export type Status = { phase: "idle" | "loading" | "error"; error?: string; updatedAt: number };
 
+/** A pull request picked for review time (`RunPull` in review.rs). */
+export type RunPull = { id: string; title: string; repo: string; number: number; url: string; minutes: number; again: boolean };
+
+/** The review time under way (`Run` in review.rs), and when its time is up (ms). */
+export type ReviewRun = {
+  run: { session: string; name: string; minutes: number; startedAt: number; pulls: RunPull[]; left: number; overBy: number };
+  endsAt: number;
+};
+
 /** What Rust sends: see `State::snapshot` in watch.rs. */
 type Live = {
   ready: boolean;
@@ -19,6 +28,7 @@ type Live = {
   arrivals: string[];
   seen: Record<string, true>;
   dismissed: Record<string, true>;
+  review: ReviewRun | null;
 };
 
 export type Snapshot = Omit<Live, "arrivals"> & {
@@ -40,6 +50,7 @@ let snapshot: Snapshot = {
   arrivals: new Set(),
   seen: {},
   dismissed: {},
+  review: null,
 };
 const listeners = new Set<() => void>();
 

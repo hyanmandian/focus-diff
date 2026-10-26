@@ -19,6 +19,7 @@ export const EVENT_KINDS = [
   "mention",
   "comment",
   "rerequest",
+  "ready",
   "approved",
   "changes",
   "ci-failed",
@@ -26,6 +27,10 @@ export const EVENT_KINDS = [
   "conflict",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
+
+/** What a queue's notifications can leave out: drafts, what bots do, pull requests you approved. */
+export const LEAVE_OUT = ["drafts", "bots", "approved"] as const;
+export type LeaveOut = (typeof LEAVE_OUT)[number];
 
 export const TONES = ["blue", "purple", "green", "amber", "red", "gray"] as const;
 export type Tone = (typeof TONES)[number];
@@ -70,6 +75,45 @@ export type Queue = {
   query: string;
   /** What's worth a notification. */
   notify: EventKind[];
+  /** Right away, or kept for the next review time (right away when there's none coming). */
+  notifyAt: "now" | "review";
+  /** What to leave out of its notifications. */
+  notifyLeaveOut: LeaveOut[];
+  /** Notifications only from these repositories ("owner/name" or "owner/*"). Empty: all of the queue's. */
+  notifyRepos: string[];
+};
+
+/** Which of the pull requests that fit a review time go first. */
+export const REVIEW_ORDERS = ["oldest", "quickest", "fill"] as const;
+export type ReviewOrder = (typeof REVIEW_ORDERS)[number];
+
+/** A time set aside to review, like weekdays at 15:00 for half an hour (review.rs runs it). */
+export type ReviewSession = {
+  id: string;
+  name: string;
+  on: boolean;
+  /** Days of the week, 0 for Sunday. */
+  days: number[];
+  /** "HH:MM", local time. */
+  times: string[];
+  minutes: number;
+  order: ReviewOrder;
+  /** The queues it picks from, by id. Empty: every review queue. */
+  queues: string[];
+  drafts: boolean;
+};
+
+export type ReviewTime = {
+  enabled: boolean;
+  sessions: ReviewSession[];
+  /** Pull requests you were asked to review again go first, when they fit. */
+  againFirst: boolean;
+  /** A notification when the time's up, saying how far it got. */
+  remindEnd: boolean;
+  /** With nothing to review, the time passes without a word. */
+  skipEmpty: boolean;
+  /** While reviewing, every notification waits for the time to be up. */
+  holdWhileReviewing: boolean;
 };
 
 export const AI_PROVIDERS = ["claude", "cursor"] as const;
@@ -129,12 +173,14 @@ export type Config = {
   actions: Action[];
   /** The diff's filters, offered as chips in the review window. */
   filters: DiffFilter[];
+  /** Times set aside to review. */
+  reviewTime: ReviewTime;
 };
 
 let counter = 0;
 export const newId = () => `${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify"> => ({
+const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify" | "notifyAt"> => ({
   enabled: true,
   repos: [],
   teams: [],
@@ -155,6 +201,8 @@ const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify"> => ({
   skipMergedBy: [],
   staleHours: 24,
   query: "",
+  notifyLeaveOut: [],
+  notifyRepos: [],
 });
 
 /** Starting points, offered when adding a queue. They're ordinary queues once added. */
@@ -162,7 +210,7 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
   review: {
     name: "Needs my review",
     description: "Open pull requests waiting on your review, until you've reviewed or commented.",
-    make: () => ({ ...base(), id: newId(), name: "Review", kind: "review", tone: "blue", notify: ["new", "rerequest"] }),
+    make: () => ({ ...base(), id: newId(), name: "Review", kind: "review", tone: "blue", notify: ["new", "rerequest", "ready"], notifyAt: "review" }),
   },
   involved: {
     name: "Updates",
@@ -175,6 +223,7 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
       tone: "purple",
       drafts: "show",
       notify: ["commits", "reply", "mention", "rerequest"],
+      notifyAt: "now",
     }),
   },
   authored: {
@@ -188,12 +237,13 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
       tone: "green",
       drafts: "show",
       notify: ["approved", "changes", "comment", "mention", "ci-failed", "ci-passed", "conflict"],
+      notifyAt: "now",
     }),
   },
   merged: {
     name: "Merged without me",
     description: "Pull requests merged lately without your approval: the ones asked of you or your team, in the files you care about.",
-    make: () => ({ ...base(), id: newId(), name: "Merged", kind: "merged", tone: "gray", drafts: "show", requestedOnly: true, skipIfI: "approved", notify: [] }),
+    make: () => ({ ...base(), id: newId(), name: "Merged", kind: "merged", tone: "gray", drafts: "show", requestedOnly: true, skipIfI: "approved", notify: [], notifyAt: "now" }),
   },
   custom: {
     name: "Custom search",
@@ -207,6 +257,7 @@ export const TEMPLATES: Record<QueueKind, { name: string; description: string; m
       drafts: "show",
       query: "is:open",
       notify: ["new"],
+      notifyAt: "now",
     }),
   },
 };
@@ -220,7 +271,36 @@ export const defaultConfig = (): Config => ({
   ai: { provider: null, model: "", effort: "", instructions: "", prompts: defaultPrompts(), project: true, review: { auto: false, prompt: REVIEW_PROMPT } },
   actions: [],
   filters: defaultFilters(),
+  reviewTime: defaultReviewTime(),
 });
+
+export const defaultReviewTime = (): ReviewTime => ({ enabled: false, sessions: [], againFirst: true, remindEnd: true, skipEmpty: true, holdWhileReviewing: false });
+
+const WEEKDAYS = [1, 2, 3, 4, 5];
+
+export const newSession = (): ReviewSession => ({ id: newId(), name: "", on: true, days: WEEKDAYS, times: ["15:00"], minutes: 30, order: "oldest", queues: [], drafts: false });
+
+export const REVIEW_MINUTES = [15, 30, 45, 60, 90, 120] as const;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const validTime = (v: string) => TIME.test(v);
+const toMinutes = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
+
+/** The next review time strictly after `after`, in this computer's time zone, looking a week ahead. */
+export function nextReviewTime(review: ReviewTime, after: Date): { session: ReviewSession; at: Date } | null {
+  if (!review.enabled) return null;
+  let best: { session: ReviewSession; at: Date } | null = null;
+  for (let offset = 0; offset <= 7 && !best; offset++) {
+    const day = new Date(after.getFullYear(), after.getMonth(), after.getDate() + offset);
+    for (const session of review.sessions) {
+      if (!session.on || !session.days.includes(day.getDay())) continue;
+      for (const time of session.times) {
+        const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, toMinutes(time));
+        if (at > after && (!best || at < best.at)) best = { session, at };
+      }
+    }
+  }
+  return best;
+}
 
 /** Starting points for filters, from Focus Diff's recipes. */
 export const FILTER_RECIPES: Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> = [
@@ -446,6 +526,47 @@ function normalizeQueue(raw: unknown): Queue | null {
     staleHours: int(r.staleHours, fallback.staleHours, 0, 24 * 30),
     query: isString(r.query) ? r.query.slice(0, 500) : fallback.query,
     notify: strings(r.notify).filter((k): k is EventKind => (EVENT_KINDS as readonly string[]).includes(k)),
+    notifyAt: pick(r.notifyAt, ["now", "review"] as const, fallback.notifyAt),
+    notifyLeaveOut: [...new Set(strings(r.notifyLeaveOut).filter((k): k is LeaveOut => (LEAVE_OUT as readonly string[]).includes(k)))],
+    notifyRepos: strings(r.notifyRepos).filter((s) => /^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s)),
+  };
+}
+
+function normalizeSession(raw: unknown): ReviewSession | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const fallback = newSession();
+  const days = Array.isArray(r.days) ? r.days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6) : fallback.days;
+  return {
+    id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : fallback.id,
+    name: isString(r.name) ? r.name.trim().slice(0, 40) : "",
+    on: bool(r.on, true),
+    days: [...new Set(days)].sort((a, b) => a - b),
+    times: Array.isArray(r.times) ? [...new Set(strings(r.times, 12).filter(validTime))].sort() : fallback.times,
+    minutes: int(r.minutes, fallback.minutes, 5, 240),
+    order: pick(r.order, REVIEW_ORDERS, fallback.order),
+    queues: strings(r.queues, 12),
+    drafts: bool(r.drafts, false),
+  };
+}
+
+function normalizeReviewTime(raw: unknown): ReviewTime {
+  const fallback = defaultReviewTime();
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const sessions = Array.isArray(r.sessions) ? r.sessions.map(normalizeSession).filter((s): s is ReviewSession => s !== null).slice(0, 10) : [];
+  // Two the same would edit as one.
+  const ids = new Set<string>();
+  for (const s of sessions) {
+    if (ids.has(s.id)) s.id = newId();
+    ids.add(s.id);
+  }
+  return {
+    enabled: bool(r.enabled, fallback.enabled),
+    sessions,
+    againFirst: bool(r.againFirst, fallback.againFirst),
+    remindEnd: bool(r.remindEnd, fallback.remindEnd),
+    skipEmpty: bool(r.skipEmpty, fallback.skipEmpty),
+    holdWhileReviewing: bool(r.holdWhileReviewing, fallback.holdWhileReviewing),
   };
 }
 
@@ -488,6 +609,7 @@ export function normalize(raw: unknown): Config {
     })(),
     actions,
     filters: Array.isArray(r.filters) ? r.filters.map(normalizeFilter).filter((f): f is DiffFilter => f !== null).slice(0, 12) : fallback.filters,
+    reviewTime: normalizeReviewTime(r.reviewTime),
   };
 }
 

@@ -304,7 +304,7 @@ const items = {
   merged: merged.map((p) => item("merged", p)),
 };
 const seen = Object.fromEntries([...items.review.slice(2), ...items.updates.slice(2), ...items.merged].flatMap((i) => i.events.map((e) => [e.key, true])));
-const snapshot = { ready: true, signedIn: true, me: "you", items, status: { phase: "idle", updatedAt: now }, arrivals: [promo.id], seen, dismissed: {} };
+const snapshot = { ready: true, signedIn: true, me: "you", items, status: { phase: "idle", updatedAt: now }, arrivals: [promo.id], seen, dismissed: {}, review: null };
 
 const files: Record<string, string | null> = { config: JSON.stringify(config), pace: JSON.stringify(pace) };
 const listeners = new Map<number, string>();

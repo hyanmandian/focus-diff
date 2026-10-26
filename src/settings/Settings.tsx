@@ -3,7 +3,7 @@
 // Changes save as you make them; the panel follows along.
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { ArrowDown, ArrowUp, CircleUserRound, Inbox, ListFilter, Loader2, LogOut, Plus, Search, Settings as SettingsIcon, Sparkles, Trash2, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleUserRound, Inbox, ListFilter, Loader2, LogOut, Plus, Search, Settings as SettingsIcon, Sparkles, Timer, Trash2, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { Ai } from "./Ai";
 import { Filters } from "./Filters";
 import { Group, Intro, LinkRow, Pane, Row, useDetail } from "./Form";
 import { QueueEditor } from "./QueueEditor";
+import { ReviewTimePane } from "./ReviewTime";
 
 const DOT: Record<Queue["tone"], string> = {
   blue: "bg-unread",
@@ -292,8 +293,8 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
   );
 }
 
-type PaneId = "queues" | "filters" | "actions" | "ai" | "account" | "general";
-const PANE_IDS: PaneId[] = ["account", "queues", "filters", "actions", "ai", "general"];
+type PaneId = "queues" | "review" | "filters" | "actions" | "ai" | "account" | "general";
+const PANE_IDS: PaneId[] = ["account", "queues", "review", "filters", "actions", "ai", "general"];
 
 /** The panes in the sidebar, each on a tile in a system color, as System Settings draws them. */
 const PANES: Array<{ value: Exclude<PaneId, "account">; label: string; icon: typeof Inbox; tile: string; keywords: string[] }> = [
@@ -302,7 +303,14 @@ const PANES: Array<{ value: Exclude<PaneId, "account">; label: string; icon: typ
     label: "Queues",
     icon: Inbox,
     tile: "blue",
-    keywords: ["Tabs", "Review requests", "Pull requests where", "Repositories", "Changing files", "Drafts", "Bots", "Labels", "Teams", "Notify me when", "Notifications", "Color"],
+    keywords: ["Tabs", "Review requests", "Pull requests where", "Repositories", "Changing files", "Drafts", "Bots", "Labels", "Teams", "Notify me when", "Notifications", "Leave out of notifications", "At review time", "Right away", "Color"],
+  },
+  {
+    value: "review",
+    label: "Review time",
+    icon: Timer,
+    tile: "green",
+    keywords: ["Schedule", "Remind me", "Days", "Times", "How long", "What goes first", "Re-reviews first", "Time's up", "Hold notifications", "Countdown"],
   },
   { value: "filters", label: "Filters", icon: ListFilter, tile: "indigo", keywords: ["Diff filters", "Include", "Leave out", "Regular expressions", "File paths", "Chips", "Only in", "Repositories", "Share", "Copy filters", "Import filters"] },
   { value: "actions", label: "Actions", icon: Zap, tile: "orange", keywords: ["Buttons", "Steps", "Post a comment", "Request review", "Labels", "Open a link", "Run a command", "Ask me to confirm"] },
@@ -323,7 +331,7 @@ const PANES: Array<{ value: Exclude<PaneId, "account">; label: string; icon: typ
 ];
 const ACCOUNT_KEYWORDS = ["Account", "GitHub", "Sign in", "Disconnect", "Sign out", "Token", "Login"];
 
-const TITLES: Record<PaneId, string> = { account: "Account", queues: "Queues", filters: "Filters", actions: "Actions", ai: "AI", general: "General" };
+const TITLES: Record<PaneId, string> = { account: "Account", queues: "Queues", review: "Review time", filters: "Filters", actions: "Actions", ai: "AI", general: "General" };
 
 /** What a search finds in a pane: nothing (null), its name, or the first setting that matches. */
 function match(query: string, label: string, keywords: string[]): { hint?: string } | null {
@@ -339,6 +347,7 @@ function findPanes(query: string, config: Config, auth: AuthStatus | null) {
   const names = (list: Array<{ name: string }>) => list.map((x) => x.name).filter(Boolean);
   const own: Partial<Record<PaneId, string[]>> = {
     queues: names(config.queues),
+    review: names(config.reviewTime.sessions),
     actions: names(config.actions),
     filters: names(config.filters),
     ai: names(config.ai.prompts),
@@ -490,6 +499,9 @@ export function Settings() {
       <main className="min-w-0 flex-1 bg-[var(--settings-window)]">
         <TabsPrimitive.Panel value="queues" className="h-full outline-none">
           <Queues config={config} onChange={setConfig} />
+        </TabsPrimitive.Panel>
+        <TabsPrimitive.Panel value="review" className="h-full outline-none">
+          <ReviewTimePane config={config} onChange={setConfig} />
         </TabsPrimitive.Panel>
         <TabsPrimitive.Panel value="filters" className="h-full outline-none">
           <Filters config={config} onChange={setConfig} />

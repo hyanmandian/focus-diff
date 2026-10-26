@@ -14,6 +14,7 @@ import { LINES_PER_HOUR } from "@/lib/estimate";
 import { newSession, nextReviewTime, REVIEW_MINUTES, REVIEW_ORDERS, validTime, type Config, type Queue, type ReviewOrder, type ReviewSession, type ReviewTime } from "@/lib/config";
 import { Group, Intro, LinkRow, Pane, PRESSED_CHIP, Row, SwitchRow, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
+import { confirmRemove } from "@/lib/confirm";
 
 /** The week from Monday, as most of the world starts it; 0 is Sunday. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -154,7 +155,8 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
             size="icon"
             aria-label={t("settings.deleteNamed", { name: selected.name || reviewTimeName })}
             title={t("settings.deleteReviewTime")}
-            onClick={() => {
+            onClick={async () => {
+              if (!(await confirmRemove(t("settings.removeReviewTimeConfirm", { name: selected.name || reviewTimeName })))) return;
               setSessions(review.sessions.filter((s) => s.id !== selected.id));
               detail.close();
             }}
@@ -170,7 +172,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
   const next = nextReviewTime(review, new Date());
   const waiting = config.queues.filter((q) => q.enabled && q.notify.length && q.notifyAt === "review").map((q) => q.name);
   return (
-    <Pane title={t("settings.pane.review")}>
+    <Pane title={t("settings.pane.review")} hero="review">
       <Intro>{t("settings.reviewIntro")}</Intro>
       <Group
         footer={

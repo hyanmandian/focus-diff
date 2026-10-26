@@ -397,28 +397,8 @@ Be concrete and brief. Don't repeat the description back.`,
 }
 
 /** Starting points for actions, in words for Settings; what they make is named in the language in use. */
-export const actionTemplates = (t: T): Array<{ name: string; description: string; make: () => Action }> => [
-  {
-    name: t("config.action.handOff"),
-    description: t("config.action.handOff.hint"),
-    make: () => ({
-      id: newId(),
-      name: t("config.action.handOff"),
-      confirm: true,
-      steps: [
-        { kind: "request", reviewers: [] },
-        { kind: "unrequestMe" },
-        { kind: "comment", body: t("config.action.handOff.comment") },
-      ],
-    }),
-  },
-  {
-    name: t("config.action.script"),
-    description: t("config.action.script.hint"),
-    make: () => ({ id: newId(), name: t("config.action.script.name"), confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }] }),
-  },
-  { name: t("config.action.blank"), description: t("config.action.blank.hint"), make: () => ({ id: newId(), name: t("config.action.blank.name"), confirm: false, steps: [] }) },
-];
+/** A new action: a script, which can do anything a terminal can; more steps are added in it. */
+export const newAction = (t: T): Action => ({ id: newId(), name: t("config.action.script.name"), confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }] });
 
 // MARK: Reading what's on disk
 

@@ -13,6 +13,7 @@ import { TagInput } from "./TagInput";
 import { filterRecipes, isRepoPattern, newId, validPattern, type Config, type DiffFilter } from "@/lib/config";
 import { addImported, exportFilters, importFilters } from "@/lib/filters";
 import { i18n, useT } from "@/lib/i18n";
+import { confirmRemove } from "@/lib/confirm";
 
 // Called as a repository is added, so it reads the words then.
 const repoError = (v: string) => (isRepoPattern(v) ? null : i18n()("settings.repoError"));
@@ -121,7 +122,7 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
   const add = (list: Array<Omit<DiffFilter, "id" | "repos">>) => set([...filters, ...list.map((f) => ({ ...f, id: newId(), repos: [] }))].slice(0, 12));
 
   return (
-    <Pane title={t("settings.pane.filters")}>
+    <Pane title={t("settings.pane.filters")} hero="filters">
       <Intro>{t("settings.filtersIntro")}</Intro>
       {filters.map((f, i) => (
         <Group key={f.id}>
@@ -134,7 +135,7 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
               <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveNamedDown", { name: f.name })} disabled={i === filters.length - 1} onClick={() => move(i, 1)}>
                 <ArrowDown />
               </Button>
-              <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeNamed", { name: f.name })} onClick={() => set(filters.filter((x) => x.id !== f.id))}>
+              <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeNamed", { name: f.name })} onClick={async () => (await confirmRemove(t("settings.removeFilterConfirm", { name: f.name }))) && set(filters.filter((x) => x.id !== f.id))}>
                 <Trash2 />
               </Button>
             </div>

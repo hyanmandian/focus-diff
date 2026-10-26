@@ -1,6 +1,54 @@
 /* The settings window's own pieces; everything else (colours, controls, scroll bars, selection) is
-   the platform's, from index.css. The sidebar is opaque, a step off the window as System Settings'
-   is, so Reduce Transparency has nothing to take away. */
+   the platform's, from index.css. */
+
+/* Liquid Glass, as Tahoe's own settings and Raycast's: the window has the system's sidebar material
+   behind it (lib.rs); the content side paints the window's colour over it, nearly opaque, and the
+   sidebar floats as a pane of glass with a light edge, the desktop showing through. With Reduce
+   Transparency everything goes opaque; with Increase Contrast the edges firm up. */
+html.settings, html.settings body { background: transparent; }
+html.settings {
+  --settings-content: color-mix(in srgb, var(--window-bg) 94%, transparent);
+  --settings-glass: rgb(255 255 255 / 0.32);
+  --settings-glass-edge: rgb(255 255 255 / 0.7);
+  --settings-glass-line: rgb(0 0 0 / 0.08);
+  --settings-field: rgb(0 0 0 / 0.06);
+  --settings-selected: rgb(0 0 0 / 0.07);
+  --settings-selected-focus: rgb(0 0 0 / 0.11);
+  --settings-group: rgb(0 0 0 / 0.035);
+}
+html.settings.dark {
+  --settings-content: color-mix(in srgb, #1e1e1e 95%, transparent);
+  --settings-glass: rgb(255 255 255 / 0.06);
+  --settings-glass-edge: rgb(255 255 255 / 0.13);
+  --settings-glass-line: rgb(0 0 0 / 0.5);
+  --settings-field: rgb(255 255 255 / 0.08);
+  --settings-selected: rgb(255 255 255 / 0.09);
+  --settings-selected-focus: rgb(255 255 255 / 0.14);
+  --settings-group: rgb(255 255 255 / 0.05);
+}
+@media (prefers-reduced-transparency: reduce) {
+  html.settings { --settings-content: var(--window-bg); --settings-glass: var(--under-page-bg); }
+  html.settings.dark { --settings-content: #1e1e1e; --settings-glass: var(--under-page-bg); }
+}
+@media (prefers-contrast: more) {
+  html.settings, html.settings.dark {
+    --settings-content: var(--window-bg);
+    --settings-glass: var(--under-page-bg);
+    --settings-glass-edge: var(--separator-strong);
+    --settings-group: var(--fill-tertiary);
+  }
+}
+/* The pane, and around it the content's colour (its spread shadow, clipped by the sidebar's column,
+   which leaves only the pane itself clear); an inner light edge and an outer hairline. */
+.settings-glass {
+  background: var(--settings-glass);
+  box-shadow:
+    inset 0 0 0 0.5px var(--settings-glass-edge),
+    0 0 0 0.5px var(--settings-glass-line),
+    0 0 0 48px var(--settings-content);
+}
+/* A window in the background dims its glass a little, as the system's does. */
+:root[data-window-inactive] .settings-glass { background: color-mix(in srgb, var(--settings-glass) 60%, transparent); }
 
 /* The sidebar's tiles: a white glyph on a rounded square in a system colour, with the faint top
    light System Settings gives its panes. They keep their colour when selected or in the background,
@@ -16,6 +64,11 @@
 .settings-tile[data-tile="purple"] { --tile: var(--purple); }
 .settings-tile[data-tile="green"] { --tile: var(--green); }
 .settings-tile[data-tile="gray"] { --tile: var(--gray); }
+/* Large, at the top of a pane: a softer light and a little depth, as an app icon has. */
+.settings-tile-large {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--tile) 75%, white), var(--tile) 70%);
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.3), 0 4px 12px color-mix(in srgb, var(--tile) 30%, transparent);
+}
 
 /* Hairlines between a group's rows, inset from its edges like the system's; rows can sit in a
    display: contents wrapper (a list, a radio group) and still get them. */
@@ -36,6 +89,7 @@
 .settings-group > .contents::before { content: none; }
 
 /* With Increase Contrast, the groups get an edge as well as their fill. */
+.settings-group { box-shadow: inset 0 0 0 0.5px var(--separator); }
 @media (prefers-contrast: more) {
-  .settings-group { box-shadow: inset 0 0 0 1px var(--separator); }
+  .settings-group { box-shadow: inset 0 0 0 1px var(--separator-strong); }
 }

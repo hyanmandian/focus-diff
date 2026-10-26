@@ -263,4 +263,7 @@ export const review: Dictionary["review"] = {
   "cantApply.outdated": "Não dá para fazer commit de sugestões desatualizadas.",
   "cantApply.deleted": "Não dá para fazer commit de uma sugestão em linhas removidas.",
   "cantApply.several": "Não dá para fazer commit daqui de um comentário com várias sugestões.",
+  removeDraftConfirm: "Remover este comentário?",
+  removeDraftConfirmMessage: "Ele só está na sua review pendente e ainda não foi publicado.",
+  removeDraftConfirmButton: "Remover",
 };

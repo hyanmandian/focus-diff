@@ -268,4 +268,7 @@ export const review = {
   "cantApply.outdated": "Outdated suggestions can't be committed.",
   "cantApply.deleted": "A suggestion on removed lines can't be committed.",
   "cantApply.several": "A comment with several suggestions can't be committed from here.",
+  removeDraftConfirm: "Remove this comment?",
+  removeDraftConfirmMessage: "It's only in your pending review and hasn't been posted.",
+  removeDraftConfirmButton: "Remove",
 } as const;

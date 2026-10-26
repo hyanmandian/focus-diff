@@ -19,7 +19,7 @@ import type { AiAnswer } from "@/lib/bridge";
 import { bridge } from "@/lib/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/lib/contents";
 import type { OnScreen } from "@/lib/estimate";
-import { useT, type T } from "@/lib/i18n";
+import { i18n, useT, type T } from "@/lib/i18n";
 import { diffLink, permalink } from "@/lib/permalink";
 import { findingSide, placeThread, shows, type Placement } from "@/lib/placement";
 import { lineRange } from "@/lib/range";
@@ -490,7 +490,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               const a = annotation.metadata as Annotation;
               if (a.kind === "rendered") return source ? <Rendered file={a.file} source={source} /> : null;
               if (a.kind === "thread") return <ThreadView thread={a.thread} moved={a.moved} onReply={(body) => props.onReply(a.thread, body)} onResolve={(resolved) => props.onResolve(a.thread, resolved)} />;
-              if (a.kind === "draft") return <DraftView draft={a.draft} onEdit={(body) => props.onEditDraft(a.draft.key, body)} onRemove={() => props.onRemoveDraft(a.draft.key)} />;
+              if (a.kind === "draft") return <DraftView draft={a.draft} onEdit={(body) => props.onEditDraft(a.draft.key, body)} onRemove={async () => {
+                    const t = i18n();
+                    if (await bridge.confirm(t("review.removeDraftConfirm"), t("review.removeDraftConfirmMessage"), t("review.removeDraftConfirmButton"))) props.onRemoveDraft(a.draft.key);
+                  }} />;
               if (a.kind === "finding") {
                 const diff = diffOf(a.finding.path);
                 return <FindingView finding={a.finding} by={props.findingsBy} onAdd={() => props.onAcceptFinding(a.finding, diff ? findingSide(diff, a.finding.line) : "additions")} onDismiss={() => props.onDismissFinding(a.finding)} />;

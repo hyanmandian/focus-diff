@@ -8,10 +8,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { actionTemplates, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
+import { newAction, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
 import { i18n, useT, type T } from "@/lib/i18n";
-import { Group, Intro, LinkRow, Pane, Row, SwitchRow, TWO_LINE_ITEM, useDetail } from "./Form";
+import { Group, LinkRow, Pane, Row, SwitchRow, TWO_LINE_ITEM, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
+import { confirmRemove } from "@/lib/confirm";
 
 const newStep = (kind: ActionStep["kind"]): ActionStep => {
   switch (kind) {
@@ -152,23 +153,14 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   );
 }
 
-/** Small beside a group's heading, regular on its own in the empty pane. */
+/** Small beside a group's heading, regular on its own in the empty pane. An action starts as a
+ *  script, which can do anything; other steps are added in it. */
 function AddAction({ config, onAdd, small = false }: { config: Config; onAdd: (action: Action) => void; small?: boolean }) {
   const t = useT();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size={small ? "xs" : "default"} disabled={config.actions.length >= 12} />}>
-        <Plus /> {t("settings.addAction")}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align={small ? "end" : "center"} className="w-72">
-        {actionTemplates(t).map((template) => (
-          <DropdownMenuItem key={template.name} className={TWO_LINE_ITEM} onClick={() => onAdd(template.make())}>
-            <span>{template.name}</span>
-            <span className="text-subheadline text-muted-foreground">{template.description}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button variant="outline" size={small ? "xs" : "default"} disabled={config.actions.length >= 12} aria-label={t("settings.addActionLabel")} onClick={() => onAdd(newAction(t))}>
+      <Plus /> {t("settings.add")}
+    </Button>
   );
 }
 
@@ -202,7 +194,8 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
             size="icon"
             aria-label={t("settings.deleteNamed", { name: selected.name })}
             title={t("settings.deleteAction")}
-            onClick={() => {
+            onClick={async () => {
+              if (!(await confirmRemove(t("settings.removeActionConfirm", { name: selected.name || t("settings.untitledAction") })))) return;
               setActions(config.actions.filter((a) => a.id !== selected.id));
               detail.close();
             }}
@@ -216,10 +209,9 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
     );
 
   return (
-    <Pane title={t("settings.pane.actions")}>
+    <Pane title={t("settings.pane.actions")} hero="actions">
       {config.actions.length ? (
         <>
-          <Intro>{t("settings.actionsIntro")}</Intro>
           <Group title={t("settings.buttons")} accessory={<AddAction config={config} onAdd={add} small />}>
             {config.actions.map((action) => (
               <LinkRow

@@ -102,6 +102,8 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     return () => {
       window.clearTimeout(timer);
     };
+    // The details changing is the cue to ask once more, while GitHub still doesn't know.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [unknown, revalidate, details?.updatedAt]);
   // Checks finishing changes what stands in the way of merging.
   const wasRunning = useRef(checks.running);
@@ -117,9 +119,15 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   useEffect(() => {
     if (!write || !head || details?.state !== "OPEN") return;
     let live = true;
-    void awaitingApproval(ref, head)
-      .then((runs) => live && setAwaiting(runs))
-      .catch(() => {});
+    const look = async () => {
+      try {
+        const runs = await awaitingApproval(ref, head);
+        if (live) setAwaiting(runs);
+      } catch {
+        // None shown, as before.
+      }
+    };
+    void look();
     return () => {
       live = false;
     };
@@ -131,9 +139,15 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   useEffect(() => {
     if (!updatedAt) return;
     let live = true;
-    void loadTimeline(ref)
-      .then((page) => live && setPages((old) => [page, ...old.slice(1)]))
-      .catch(() => {});
+    const look = async () => {
+      try {
+        const page = await loadTimeline(ref);
+        if (live) setPages((old) => [page, ...old.slice(1)]);
+      } catch {
+        // The pages there are stay.
+      }
+    };
+    void look();
     return () => {
       live = false;
     };
@@ -147,12 +161,12 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   // Oldest first for the mapping (runs of commits read forwards), then newest first, as the
   // conversation is. The newest page, asked again, can overlap the next: each node counts once.
   const events = useMemo(() => {
-    const seen = new Set<string>();
-    const nodes = [...pages]
-      .reverse()
+    const seen = new Set<unknown>();
+    const nodes = pages
+      .toReversed()
       .flatMap((p) => p.nodes)
       .filter((n) => !seen.has(n.id) && Boolean(seen.add(n.id)));
-    return mapTimeline(nodes).reverse();
+    return mapTimeline(nodes).toReversed();
   }, [pages]);
 
   const unresolved = threads.filter((t) => !t.resolved).length;
@@ -169,12 +183,17 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       : null;
 
   /** Runs an action: `optimistic` shows its result at once, GitHub's answer replaces it after. */
-  const act = async (name: string, call: () => Promise<unknown>, optimistic?: () => void, done?: string) => {
+  const act = async (
+    name: string,
+    call: () => Promise<unknown>,
+    optimistic: (() => void) | undefined,
+    done: string,
+  ) => {
     setBusy(name);
     optimistic?.();
     try {
       await call();
-      if (done) say(done);
+      say(done);
     } catch (e) {
       // A head that moved since it was looked at: what's new is loaded, to look at first.
       if (e instanceof GitHubError && e.status === 409) {
@@ -365,11 +384,11 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   // The menu bar's Pull Request commands for these (src-tauri/src/menu.rs).
   const allowed: Record<string, boolean> = {
     "update-branch": Boolean(view?.canUpdateBranch),
-    "auto-merge": Boolean(view?.canAutoMerge || view?.canDisableAutoMerge),
-    ready: Boolean(open && details?.isDraft && details.viewerCanUpdate),
-    draft: Boolean(open && !details?.isDraft && details?.viewerCanUpdate),
-    close: Boolean(open && details?.viewerCanUpdate),
-    reopen: Boolean(details?.state === "CLOSED" && details.viewerCanUpdate),
+    "auto-merge": view ? view.canAutoMerge || view.canDisableAutoMerge : false,
+    ready: open && details.isDraft && details.viewerCanUpdate,
+    draft: open && !details.isDraft && details.viewerCanUpdate,
+    close: open && details.viewerCanUpdate,
+    reopen: details?.state === "CLOSED" && details.viewerCanUpdate,
     "delete-branch": Boolean(
       details && details.state !== "OPEN" && manage?.headRefExists && manage.viewerCanDeleteHeadRef,
     ),
@@ -395,7 +414,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     "all-changes": () => {
       setRange(null);
     },
-    "since-review": () => since && setRange(since.range),
+    "since-review": () => {
+      if (since) setRange(since.range);
+    },
   };
 
   return {

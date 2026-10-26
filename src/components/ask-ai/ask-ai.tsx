@@ -2,7 +2,7 @@
 // their own. Shown only when they've chosen an AI in Settings.
 
 import { ArrowUp, Loader2, Sparkles, Square } from "lucide-react";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type SubmitEvent } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
 import { Button } from "@/components/button/button";
@@ -26,32 +26,35 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   const headingId = useId();
   const t = useT();
   const problem = useAiProblem(config);
+  const waited = useSeconds(state.phase === "busy" ? state.at : null);
   const provider = config.ai.provider;
   if (!provider) return null;
   const busy = state.phase === "busy";
-  const waited = useSeconds(state.phase === "busy" ? state.at : null);
 
   const run = async (asked: string, prompt: string) => {
     if (!(await ensureAi(config))) return;
-    const run = newRun();
-    setState({ phase: "busy", asked, run, at: Date.now() });
+    const id = newRun();
+    // Asked from a click or the form, never while drawing.
+    // oxlint-disable-next-line react/purity
+    setState({ phase: "busy", asked, run: id, at: Date.now() });
     try {
-      const answer = await ask(config, details, prompt, run);
+      const answer = await ask(config, details, prompt, id);
       setState({ phase: "done", asked, text: answer.text, note: answer.note });
     } catch (e) {
       setState({ phase: "error", asked, text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
     }
   };
-  const submit = (e: FormEvent) => {
+  const send = async (q: string) => {
+    // Kept in the field when the AI can't take it, to send once it's set up.
+    if (!(await ensureAi(config))) return;
+    setQuestion("");
+    await run(q, q);
+  };
+  const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     const q = question.trim();
     if (!q || busy) return;
-    // Kept in the field when the AI can't take it, to send once it's set up.
-    void ensureAi(config).then((ok) => {
-      if (!ok) return;
-      setQuestion("");
-      void run(q, q);
-    });
+    void send(q);
   };
 
   return (

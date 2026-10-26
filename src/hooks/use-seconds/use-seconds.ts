@@ -1,18 +1,21 @@
 // Whole seconds since a moment, ticking once a second while there is one; 0 without.
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const NEVER = () => () => {};
 
 export function useSeconds(since: number | null) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (since === null) return;
-    setNow(Date.now());
-    const tick = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-    return () => {
-      clearInterval(tick);
-    };
-  }, [since]);
-  return since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000));
+  // The clock is the store: read it on each tick, and a render follows only when the whole
+  // seconds change.
+  return useSyncExternalStore(
+    since === null
+      ? NEVER
+      : (changed) => {
+          const tick = setInterval(changed, 1000);
+          return () => {
+            clearInterval(tick);
+          };
+        },
+    () => (since === null ? 0 : Math.max(0, Math.floor((Date.now() - since) / 1000))),
+  );
 }

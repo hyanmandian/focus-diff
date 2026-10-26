@@ -39,19 +39,29 @@ export function Connect({ auth, onConnected }: Props) {
     run("device", async () => {
       const started = await bridge.authDeviceStart();
       setCode(started);
-      await navigator.clipboard.writeText(started.user_code).then(
-        () => {
-          setCopied(true);
-        },
-        () => {},
-      );
+      try {
+        await navigator.clipboard.writeText(started.user_code);
+        setCopied(true);
+      } catch {
+        // Typed from the screen instead.
+      }
       await bridge.openUrl(started.verification_uri);
       await bridge.authDeviceFinish(started);
     });
 
   if (code) {
+    const copy = async () => {
+      await navigator.clipboard.writeText(code.user_code);
+      setCopied(true);
+    };
     return (
-      <div className="flex flex-col items-center gap-4 text-center" role="status" aria-live="polite">
+      <div
+        className="flex flex-col items-center gap-4 text-center"
+        // A live region around paragraphs and buttons, which an <output> can't hold.
+        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
+        role="status"
+        aria-live="polite"
+      >
         <p className="text-body text-muted-foreground">{t("shared.connectEnterCode")}</p>
         <div className="flex items-center gap-2">
           <code
@@ -60,16 +70,7 @@ export function Connect({ auth, onConnected }: Props) {
           >
             {code.user_code}
           </code>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t("shared.connectCopyCode")}
-            onClick={() =>
-              navigator.clipboard.writeText(code.user_code).then(() => {
-                setCopied(true);
-              })
-            }
-          >
+          <Button variant="ghost" size="icon" aria-label={t("shared.connectCopyCode")} onClick={() => void copy()}>
             {copied ? <Check /> : <Copy />}
           </Button>
         </div>
@@ -86,7 +87,7 @@ export function Connect({ auth, onConnected }: Props) {
   return (
     <div className="flex w-full flex-col gap-3">
       {auth?.device_flow ? (
-        <Button size="lg" onClick={signIn} disabled={busy !== null}>
+        <Button size="lg" onClick={() => void signIn()} disabled={busy !== null}>
           {busy === "device" ? <Loader2 className="animate-spin" /> : null}
           {t("shared.connectSignIn")}
         </Button>
@@ -95,7 +96,7 @@ export function Connect({ auth, onConnected }: Props) {
         <Button
           size="lg"
           variant={auth.device_flow ? "outline" : "default"}
-          onClick={() => run("gh", bridge.authUseGh)}
+          onClick={() => void run("gh", bridge.authUseGh)}
           disabled={busy !== null}
         >
           {busy === "gh" ? <Loader2 className="animate-spin" /> : <Terminal />}

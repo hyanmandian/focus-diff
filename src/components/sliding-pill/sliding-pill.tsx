@@ -24,10 +24,10 @@ export function SlidingPill({
 
   useLayoutEffect(() => {
     // Its own parent: a ref on the row isn't set yet when a child's layout effect runs.
-    const el = self.current?.parentElement;
-    if (!el) return;
+    const row = self.current!.parentElement;
+    const options = () => [...(row?.querySelectorAll<HTMLElement>("[data-pill]") ?? [])];
     const place = () => {
-      const option = [...el.querySelectorAll<HTMLElement>("[data-pill]")].find((o) => o.dataset.pill === selected);
+      const option = options().find((o) => o.dataset.pill === selected);
       if (!option?.offsetWidth) return;
       setBox({ x: option.offsetLeft, y: option.offsetTop, w: option.offsetWidth, h: option.offsetHeight });
       if (!placed.current) {
@@ -39,8 +39,8 @@ export function SlidingPill({
     };
     place();
     const observer = new ResizeObserver(place);
-    observer.observe(el);
-    for (const option of el.querySelectorAll("[data-pill]")) observer.observe(option);
+    if (row) observer.observe(row);
+    for (const option of options()) observer.observe(option);
     return () => {
       observer.disconnect();
     };

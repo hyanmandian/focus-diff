@@ -52,8 +52,10 @@ function Html({ html, className }: { html: string; className?: string }) {
   useDiagrams(ref, clean);
   if (!clean.trim()) return <p className="text-body text-muted-foreground italic">{t("review.noDescription")}</p>;
   return (
+    // Presentation: the clicks it takes are its links' and pictures' (Enter on a link clicks it too).
     <div
       ref={ref}
+      role="presentation"
       className={cn(
         // Text to read and copy: selectable, 13pt with room between the lines, links in the link colour.
         "selectable prose-sm text-body leading-(--type-reading-leading) break-words",
@@ -65,16 +67,18 @@ function Html({ html, className }: { html: string; className?: string }) {
       )}
       onClick={(e) => {
         // A picture opens in the viewer (even one GitHub wrapped in a link to itself).
-        const picture = (e.target as Element).closest("img");
+        // Always an element: React reports a click on text as one on its parent.
+        const target = e.target instanceof Element && e.target;
+        const picture = target && target.closest("img");
         if (picture && !leadsElsewhere(picture)) {
           e.preventDefault();
           openViewer({ src: picture.src, alt: picture.alt });
           return;
         }
-        const link = (e.target as Element).closest("a[href]");
+        const link = target && target.closest<HTMLAnchorElement>("a[href]");
         if (link) {
           e.preventDefault();
-          void bridge.openUrl((link as HTMLAnchorElement).href);
+          void bridge.openUrl(link.href);
         }
       }}
       // Sanitized above: an allowlist of tags and attributes, https links and GitHub images only.
@@ -97,13 +101,16 @@ const isReviewState = (state: string): state is ReviewState => state in REVIEW_S
 /** The AI review's summary, and its comments that aren't on a line of the diff (GitHub only takes
  *  those on the diff's lines; these are for you to read). */
 function ReviewSummary({
-  config,
+  by,
+  project,
   review,
   reviewing,
   error,
   onJump,
 }: {
-  config: Config;
+  /** Which AI reviewed it, and whether it reads the whole project. */
+  by: string;
+  project: boolean;
   review: AiReview | null;
   reviewing: boolean;
   error: string | null;
@@ -121,9 +128,7 @@ function ReviewSummary({
     >
       <h3 id="ai-review" className="flex items-center gap-2 text-headline font-bold">
         <Sparkles className="size-3.5 text-violet" aria-hidden /> {t("review.aiReviewHeading")}
-        <span className="font-normal text-muted-foreground">
-          {t("review.by", { name: PROVIDERS[config.ai.provider ?? "claude"].name })}
-        </span>
+        <span className="font-normal text-muted-foreground">{t("review.by", { name: by })}</span>
         {reviewing ? (
           <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("review.reviewing")} />
         ) : null}
@@ -132,11 +137,7 @@ function ReviewSummary({
         <p className="text-callout text-destructive" role="alert">
           {error}
         </p>
-      ) : reviewing ? (
-        <p className="text-callout text-muted-foreground">
-          {config.ai.project ? t("review.readingProject") : t("review.readingDiff")}
-        </p>
-      ) : review ? (
+      ) : !reviewing && review ? (
         <>
           {review.summary ? <AiAnswer text={review.summary} /> : null}
           <p className="text-callout text-muted-foreground">
@@ -147,8 +148,8 @@ function ReviewSummary({
               : t("review.nothingWorth")}
             {review.note ? ` ${review.note}.` : review.project ? ` ${t("review.readProject")}` : ""}
           </p>
-          {elsewhere.map((f, i) => (
-            <div key={`${f.path}:${f.line}:${i}`} className="rounded-lg border bg-background p-2">
+          {elsewhere.map((f) => (
+            <div key={`${f.path}:${f.line}:${f.body}`} className="rounded-lg border bg-background p-2">
               <div className="flex items-center gap-2">
                 <p className="min-w-0 flex-1 truncate font-mono text-subheadline text-muted-foreground">
                   {f.path}:{f.line}
@@ -171,7 +172,12 @@ function ReviewSummary({
             </div>
           ))}
         </>
-      ) : null}
+      ) : (
+        // Nothing else is left: it's being reviewed (with nothing at all, there's no section).
+        <p className="text-callout text-muted-foreground">
+          {project ? t("review.readingProject") : t("review.readingDiff")}
+        </p>
+      )}
     </section>
   );
 }
@@ -322,6 +328,7 @@ function EntryView({
   const api = useConversationApi();
   const [editing, setEditing] = useState(false);
   const [reactions, toggle] = useReactions(entry.id, entry.reactions ?? []);
+  const words = entry.body;
   const parts =
     entry.kind === "review"
       ? entry.comments.flatMap((c): Array<{ key: string; comment: typeof c; thread: Thread | null }> => {
@@ -353,9 +360,9 @@ function EntryView({
               <CommentMenu
                 url={entry.url}
                 onQuote={
-                  entry.body
+                  words
                     ? () => {
-                        onQuote(quote(entry.body ?? ""));
+                        onQuote(quote(words));
                       }
                     : undefined
                 }
@@ -378,7 +385,9 @@ function EntryView({
           body={entry.body}
           editing={editing}
           className="mt-1"
-          onSave={(body) => api?.editEntry(entry.kind, entry.id, body) ?? Promise.resolve()}
+          onSave={async (body) => {
+            await api?.editEntry(entry.kind, entry.id, body);
+          }}
           onDone={() => {
             setEditing(false);
           }}
@@ -413,20 +422,24 @@ function EntryView({
  *  fast as a short one. */
 const PAGE = 30;
 
-/** The description: the author's words, editable when you may, with its reactions. */
 /** A branch's name, with a button to copy it. */
 function Branch({ name }: { name: string }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => {
-      setCopied(false);
-    }, 1500);
+    const timer = copied
+      ? setTimeout(() => {
+          setCopied(false);
+        }, 1500)
+      : undefined;
     return () => {
       clearTimeout(timer);
     };
   }, [copied]);
+  const copy = async () => {
+    await copyText(name);
+    setCopied(true);
+  };
   return (
     <span className="inline-flex max-w-full min-w-0 items-center rounded-[6px] bg-fill pl-1.5 text-foreground">
       <span className="selectable truncate font-mono text-subheadline" title={name}>
@@ -437,11 +450,7 @@ function Branch({ name }: { name: string }) {
         size="icon-xs"
         className="shrink-0 text-muted-foreground"
         aria-label={copied ? t("review.branchCopied") : t("review.copyBranch", { name })}
-        onClick={() =>
-          void copyText(name).then(() => {
-            setCopied(true);
-          })
-        }
+        onClick={() => void copy()}
       >
         {copied ? <Check className="text-success" /> : <Copy />}
       </Button>
@@ -483,6 +492,7 @@ function Heading({ details }: { details: Details }) {
   );
 }
 
+/** The description: the author's words, editable when you may, with its reactions. */
 function Description({ details, conversation }: { details: Details; conversation: Conversation | null | undefined }) {
   const t = useT();
   const api = useConversationApi();
@@ -517,7 +527,9 @@ function Description({ details, conversation }: { details: Details; conversation
           html={html}
           body={conversation?.body}
           editing={editing}
-          onSave={(body) => api?.editDescription(body) ?? Promise.resolve()}
+          onSave={async (body) => {
+            await api?.editDescription(body);
+          }}
           onDone={() => {
             setEditing(false);
           }}
@@ -555,7 +567,7 @@ export function Overview({
   // Each conversation on a line shows once, under the review that started it (as on GitHub); the
   // replies, which GitHub keeps as reviews of their own, are in it.
   const byComment = useMemo(
-    () => new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const))),
+    () => new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const))),
     [threads],
   );
   // What happened (commits, labels, merging...) among what was said, as on GitHub.
@@ -565,26 +577,36 @@ export function Overview({
   // The conversation is fetched again after posting, so it may arrive a moment later: until then
   // (a few seconds at most) its top shows, where it will be.
   const [landed, setLanded] = useState<string | null>(null);
+  // The one already lit up, so the conversation coming in again doesn't light it again.
+  const lit = useRef<string | null>(null);
   useEffect(() => {
-    if (landed === null) return;
-    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const behavior = still ? "auto" : "smooth";
-    const entry = landed ? document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(landed)}"]`) : null;
-    if (!entry) {
-      document.querySelector("#conversation")?.scrollIntoView({ behavior, block: "start" });
-      const giveUp = setTimeout(() => {
-        setLanded(null);
-      }, 4000);
-      return () => {
-        clearTimeout(giveUp);
-      };
+    let giveUp: ReturnType<typeof setTimeout> | undefined;
+    if (landed !== null && landed !== lit.current) {
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const behavior = still ? "auto" : "smooth";
+      const entry = items.some((item) => item.kind === "entry" && item.entry.id === landed)
+        ? document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(landed)}"]`)
+        : null;
+      if (entry) {
+        lit.current = landed;
+        entry.scrollIntoView({ behavior, block: "center" });
+        entry.animate(
+          [
+            { backgroundColor: "color-mix(in srgb, var(--primary) 16%, transparent)" },
+            { backgroundColor: "transparent" },
+          ],
+          { duration: 1800, delay: still ? 0 : 300, easing: "ease-out" },
+        );
+      } else {
+        document.querySelector("#conversation")?.scrollIntoView({ behavior, block: "start" });
+        giveUp = setTimeout(() => {
+          setLanded(null);
+        }, 4000);
+      }
     }
-    setLanded(null);
-    entry.scrollIntoView({ behavior, block: "center" });
-    entry.animate(
-      [{ backgroundColor: "color-mix(in srgb, var(--primary) 16%, transparent)" }, { backgroundColor: "transparent" }],
-      { duration: 1800, delay: still ? 0 : 300, easing: "ease-out" },
-    );
+    return () => {
+      clearTimeout(giveUp);
+    };
   }, [landed, items]);
   // A page to read: the description and the conversation in a column, and beside them what's at a
   // glance (the AI, reviewers, checks).
@@ -660,7 +682,14 @@ export function Overview({
       </div>
       <aside className="flex min-w-0 flex-col gap-6" aria-label={t("review.atAGlance")}>
         {config?.ai.provider ? (
-          <ReviewSummary config={config} review={review} reviewing={reviewing} error={reviewError} onJump={onJump} />
+          <ReviewSummary
+            by={PROVIDERS[config.ai.provider].name}
+            project={config.ai.project}
+            review={review}
+            reviewing={reviewing}
+            error={reviewError}
+            onJump={onJump}
+          />
         ) : null}
         {config ? <AskAi config={config} details={details} /> : null}
         <Sidebar pr={details} details={details} pull={pull} me={me} onError={say} />

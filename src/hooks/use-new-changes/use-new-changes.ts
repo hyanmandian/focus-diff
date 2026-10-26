@@ -4,7 +4,7 @@
 // the rate limit. New commits wait for the person (the diff doesn't change under them); new
 // comments and the like come in on their own.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { github } from "@/utils/bridge/bridge";
 
@@ -22,15 +22,21 @@ export function useNewChanges(
   onActivity: () => void,
 ) {
   const [found, setFound] = useState<NewChanges | null>(null);
-  const known = useRef({ head, updatedAt });
-  known.current = { head, updatedAt };
+  // Up to date again (after Update, or another reload): nothing to say.
+  const [shown, setShown] = useState(head);
+  if (shown !== head) {
+    setShown(head);
+    if (found && found.head === head) setFound(null);
+  }
+  const known = useRef(updatedAt);
   const activity = useRef(onActivity);
-  activity.current = onActivity;
+  useLayoutEffect(() => {
+    known.current = updatedAt;
+    activity.current = onActivity;
+  });
 
   useEffect(() => {
     if (!head) return;
-    // Up to date again (after Update, or another reload): nothing to say.
-    setFound((f) => (f && f.head === head ? null : f));
     let live = true;
     let busy = false;
     const look = async () => {
@@ -39,9 +45,9 @@ export function useNewChanges(
       try {
         const pr = await github<Rest>("GET", `/repos/${repo}/pulls/${number}`);
         if (!live) return;
-        const now = known.current;
-        if (now.head && pr.head.sha !== now.head) setFound({ head: pr.head.sha, at: Date.now() });
-        else if (now.updatedAt && Date.parse(pr.updated_at) > Date.parse(now.updatedAt)) activity.current();
+        const since = known.current;
+        if (pr.head.sha !== head) setFound({ head: pr.head.sha, at: Date.now() });
+        else if (since && Date.parse(pr.updated_at) > Date.parse(since)) activity.current();
       } catch {
         // Offline or the like: the next look tries again.
       } finally {

@@ -4,7 +4,7 @@
 // through takes stillness; past it they've likely stepped away. The time is shared by the files on
 // screen, each by how much of it it takes.
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
 import { creditFor, share, type OnScreen } from "@/utils/estimate/estimate";
 
@@ -25,11 +25,11 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
   });
 
   /** Gives the time since the last moment of activity to the files on screen since then. */
-  const settle = (now: number) => {
+  const settle = useCallback((now: number) => {
     if (!last.current) return;
     for (const [path, part] of share(creditFor(now - last.current), current.current))
       spent.current.set(path, (spent.current.get(path) ?? 0) + part);
-  };
+  }, []);
 
   useEffect(() => {
     if (!on) return;
@@ -59,7 +59,7 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
         (type === "selectionchange" ? document : window).removeEventListener(type, sample, { capture: true });
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [on]);
+  }, [on, settle]);
 
   return (path: string): number => {
     const now = Date.now();

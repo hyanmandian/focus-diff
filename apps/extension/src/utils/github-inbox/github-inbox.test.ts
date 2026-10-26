@@ -248,9 +248,9 @@ describe("reading what GitHub sends defensively", () => {
     const huge = "9".repeat(400);
     const html = `<ul>${notification()}</ul>`.replace(
       "Cache the <code>book</code> covers &amp; more",
-      `&#x41;&#66; &LT; &unknown; &#${huge};`,
+      `&#x41;&#66; &LT; &unknown; &#${huge}; &#9999999; &#x110000;`,
     );
-    expect(parseNotifications(html)[0]?.title).toBe(`AB < &unknown; &#${huge};`);
+    expect(parseNotifications(html)[0]?.title).toBe(`AB < &unknown; &#${huge}; &#9999999; &#x110000;`);
   });
 
   it("reads a thread's time off the page when its link doesn't say, and leaves out one without either", () => {

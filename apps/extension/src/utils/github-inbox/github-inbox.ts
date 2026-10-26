@@ -85,7 +85,8 @@ const decode = (text: string) =>
   text.replaceAll(/&(#x[\da-f]+|#\d+|\w+);/giu, (entity, code: string) => {
     if (code[0] !== "#") return ENTITIES[code.toLowerCase()] ?? entity;
     const point = code[1]?.toLowerCase() === "x" ? Number.parseInt(code.slice(2), 16) : Number(code.slice(1));
-    return Number.isFinite(point) ? String.fromCodePoint(point) : entity;
+    // Past the last code point there's no character: left as it was written, rather than failing the whole read.
+    return Number.isFinite(point) && point <= 0x10ffff ? String.fromCodePoint(point) : entity;
   });
 const textOf = (html: string) =>
   decode(html.replaceAll(/<[^>]*>/gu, " "))

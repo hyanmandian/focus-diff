@@ -1,4 +1,3 @@
-import { defineBackground } from '#imports';
 import { i18n } from '#i18n';
 import { browser } from 'wxt/browser';
 import { fetchDetail, fetchNotifications, fetchPulls } from '@/utils/github-inbox/github-inbox';
@@ -268,7 +267,8 @@ const listenToNotifications = () => {
   browser.notifications.onButtonClicked?.addListener((id, button) => void onReviewNotification(id, button));
 };
 
-export default defineBackground(() => {
+/** The background: checks GitHub on its alarms, sends notifications, keeps the badge and runs review time. */
+export const startBackground = (): void => {
   initReviewTime({
     refreshLists: () => refreshLists(),
     updateBadge: async () => updateBadge(await loadNotify(), await inboxItem.getValue()),
@@ -342,4 +342,4 @@ export default defineBackground(() => {
     const message: Message = { type: 'command', command: command as Command };
     await browser.tabs.sendMessage(target.id, message).catch(() => {});
   });
-});
+};

@@ -44,7 +44,7 @@ export function Connect({ auth, onConnected }: Props) {
   if (code) {
     return (
       <div className="flex flex-col items-center gap-4 text-center" role="status" aria-live="polite">
-        <p className="text-sm text-muted-foreground">Enter this code on GitHub to finish signing in:</p>
+        <p className="text-body text-muted-foreground">Enter this code on GitHub to finish signing in:</p>
         <div className="flex items-center gap-2">
           <code className="rounded-lg bg-muted px-4 py-2 font-mono text-2xl font-semibold tracking-[0.2em]" aria-label={`Code ${code.user_code.split("").join(" ")}`}>
             {code.user_code}
@@ -61,7 +61,7 @@ export function Connect({ auth, onConnected }: Props) {
         <Button variant="link" onClick={() => void bridge.openUrl(code.verification_uri)}>
           Open github.com/login/device <ExternalLink />
         </Button>
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <p className="flex items-center gap-2 text-callout text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" aria-hidden /> Waiting for GitHub…
         </p>
       </div>
@@ -100,7 +100,7 @@ export function Connect({ auth, onConnected }: Props) {
             value={token}
             onChange={(e) => setToken(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-callout text-muted-foreground">
             Needs <code>repo</code> and <code>read:org</code>. It's kept in your system keychain and only ever sent to GitHub.
           </p>
           <Button type="submit" variant="outline" disabled={!token.trim() || busy !== null}>
@@ -114,7 +114,7 @@ export function Connect({ auth, onConnected }: Props) {
         </Button>
       )}
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-body text-destructive" role="alert">
           {error}
         </p>
       ) : null}

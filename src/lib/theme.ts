@@ -1,7 +1,11 @@
-// Light or dark: the system's, unless the person picked one. Applied as shadcn's `dark` class.
-// The pick is remembered here too and applied as soon as this loads, before the settings arrive,
-// so a dark page doesn't open light and then flash over.
+// Light or dark: the system's, unless the person picked one. The app sets the pick on every window
+// natively (menu.rs apply_theme), so the web view's appearance, its system colours, scroll bars and
+// the panel's material agree, and prefers-color-scheme follows it; here it's mirrored as shadcn's
+// `dark` class. The pick is remembered here too and applied as soon as this loads, before the
+// settings arrive, so a dark page doesn't open light and then flash over.
 import { useEffect } from "react";
+// Every page sets its theme through here, so the platform (<html data-platform>) is set with it.
+import "./platform";
 import type { Config } from "./config";
 
 const KEY = "theme";

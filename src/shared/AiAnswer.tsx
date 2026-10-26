@@ -31,7 +31,7 @@ export function AiAnswer({ text }: { text: string }) {
     else blocks.push({ list: point, lines: [line.replace(/^[-*•]\s+/, "")] });
   }
   return (
-    <div className="flex flex-col gap-2 text-[13px] leading-relaxed">
+    <div className="selectable flex flex-col gap-2 text-body leading-(--type-reading-leading)">
       {blocks
         .filter((b) => b.lines.length)
         .map((b, i) =>

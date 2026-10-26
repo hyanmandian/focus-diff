@@ -3,16 +3,16 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
-import { ChevronDown, ChevronUp, Columns2, ExternalLink, GitMerge, Loader2, MoreHorizontal, Rows2, Search, Send, Sparkles, UserMinus, WrapText, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Columns2, GitMerge, Loader2, MoreHorizontal, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -27,8 +27,9 @@ import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/es
 import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
 import { commentNow, loadFiles, loadThreads, loadViewed, markViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
-import { ActionButtons } from "@/shared/Actions";
+import { ActionButtons, ActionMenuItems } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 import { tabKeys } from "@/lib/keys";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { useActiveTime } from "./activeTime";
@@ -40,7 +41,6 @@ import { Overview } from "./Overview";
  *  ("org/slug"), for leaving the review. */
 export type Target = { id: string; repo: string; number: number; teams: string[] };
 
-const isMac = navigator.userAgent.includes("Mac");
 const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 
 // MARK: Kept on this machine
@@ -99,11 +99,22 @@ const useDark = (config: Config | null) => {
 
 type Event = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 
-function SubmitReview({ details, drafts, onSubmitted }: { details: Details; drafts: Draft[]; onSubmitted: () => void }) {
+/** The toolbar's items: borderless, 28pt, in capsules, as Tahoe's toolbars draw them. Toolbars are
+ *  where macOS does light up an item under the pointer. */
+const TOOL = "h-(--toolbar-item-h) rounded-full px-2.5 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
+const TOOL_ICON = "size-(--toolbar-item-h) rounded-full px-0 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
+
+const MERGE_LABEL = { merge: "Create Merge Commit", squash: "Squash and Merge", rebase: "Rebase and Merge" } as const;
+const MERGE_HOW = { merge: "with a merge commit", squash: "as one squashed commit", rebase: "by rebasing its commits" } as const;
+
+/** Submit Review…: the toolbar's one prominent action. Its popover keeps what was typed when it
+ *  closes (and across closing the window), as a nonmodal popover should; sending clears it.
+ *  `open`/`onOpenChange`: the menu bar's Submit Review… opens it too. */
+function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { details: Details; drafts: Draft[]; open: boolean; onOpenChange: (open: boolean) => void; onSubmitted: () => void }) {
   const own = details.viewerDidAuthor;
-  const [open, setOpen] = useState(false);
+  const setOpen = onOpenChange;
   const [event, setEvent] = useState<Event>("COMMENT");
-  const [body, setBody] = useState("");
+  const [body, setBody] = usePersisted(`review-body:${details.id}`, "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = async () => {
@@ -122,20 +133,22 @@ function SubmitReview({ details, drafts, onSubmitted }: { details: Details; draf
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button size="sm" />}>
-        <Send /> Submit<span className="@max-[860px]:hidden"> review</span>
-        {drafts.length ? <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 tabular-nums">{drafts.length}</Badge> : null}
+      <PopoverTrigger render={<Button className="h-(--toolbar-item-h) rounded-full px-3.5" />}>
+        <span>
+          Submit<span className="@max-[860px]:hidden"> Review</span>…
+        </span>
+        {drafts.length ? <Badge variant="secondary" className="ml-0.5 bg-white/25 text-primary-foreground">{drafts.length}</Badge> : null}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-semibold">Finish your review</p>
+          <PopoverTitle>Finish Your Review</PopoverTitle>
           <Textarea
             rows={4}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Leave a comment"
             aria-label="Review comment"
-            className="resize-y text-[13px]"
+            className="resize-y"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -143,7 +156,7 @@ function SubmitReview({ details, drafts, onSubmitted }: { details: Details; draf
               }
             }}
           />
-          <ToggleGroup value={[event]} onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)} variant="outline" size="sm" aria-label="Kind of review" className="w-full">
+          <ToggleGroup value={[event]} onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)} variant="outline" aria-label="Kind of review" className="w-full">
             <ToggleGroupItem value="COMMENT" className="flex-1">
               Comment
             </ToggleGroupItem>
@@ -151,19 +164,20 @@ function SubmitReview({ details, drafts, onSubmitted }: { details: Details; draf
               Approve
             </ToggleGroupItem>
             <ToggleGroupItem value="REQUEST_CHANGES" className="flex-1" disabled={own}>
-              Request changes
+              Request Changes
             </ToggleGroupItem>
           </ToggleGroup>
-          {own ? <p className="text-xs text-muted-foreground">It's your pull request: you can comment, not approve.</p> : null}
-          {drafts.length ? <p className="text-xs text-muted-foreground">Sends {drafts.length} pending {drafts.length === 1 ? "comment" : "comments"} with it.</p> : null}
+          {own ? <p className="text-callout text-muted-foreground">It's your pull request: you can comment, not approve.</p> : null}
+          {drafts.length ? <p className="text-callout text-muted-foreground">Sends {drafts.length} pending {drafts.length === 1 ? "comment" : "comments"} with it.</p> : null}
           {error ? (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-callout text-destructive" role="alert">
               {error}
             </p>
           ) : null}
-          <Button onClick={() => void submit()} disabled={busy} variant={event === "REQUEST_CHANGES" ? "destructive" : "default"}>
+          {/* The default button, bottom right; ⌘↩ sends from the field. */}
+          <Button className="self-end" onClick={() => void submit()} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : null}
-            {event === "APPROVE" ? "Approve" : event === "REQUEST_CHANGES" ? "Request changes" : "Comment"}
+            {event === "APPROVE" ? "Approve" : event === "REQUEST_CHANGES" ? "Request Changes" : "Comment"}
           </Button>
         </div>
       </PopoverContent>
@@ -207,6 +221,14 @@ export function Review({ target }: { target: Target }) {
   const dark = useDark(config);
   const diffs = useRef<DiffsHandle>(null);
   const [me, setMe] = useState<string | null>(null);
+  // Opened from the toolbar or the menu bar.
+  const [submitting, setSubmitting] = useState(false);
+  const [mergeMenu, setMergeMenu] = useState(false);
+  // The file last picked in the sidebar: its row stays selected, as in a source list.
+  const [picked, setPicked] = useState<string | null>(null);
+  // The toolbar draws its edge only once something has scrolled under it.
+  const [scrolled, setScrolled] = useState(false);
+  const filterField = useRef<HTMLInputElement>(null);
 
   const ref = useMemo(() => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }), [repo, number]);
   // All three at once: each needs only the pull request's address. What the panel fetched ahead of
@@ -389,6 +411,7 @@ export function Review({ target }: { target: Target }) {
   const jump = useCallback(
     (path: string, line: number | null) => {
       setTab("diff");
+      setPicked(path);
       if (!inAny(chosen, path)) setKept([]);
       setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
       // Opened, not unmarked: it stays viewed, here and on GitHub.
@@ -436,11 +459,86 @@ export function Review({ target }: { target: Target }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [tab, step, files, setTab]);
 
+  const actionResult = (message: string, ok: boolean) => {
+    say(message);
+    if (ok) {
+      void bridge.refresh(true);
+      void load();
+    }
+  };
+  const canMerge = details && details.viewerDidAuthor && details.state === "OPEN" && !details.isDraft && details.mergeable === "MERGEABLE" && details.mergeMethods.length > 0;
+  const canLeave = Boolean(details && me && !details.viewerDidAuthor && details.state === "OPEN");
+  /** Merging can't be undone: a native alert on this window asks first, naming how. */
+  const mergeWith = async (method: Details["mergeMethods"][number]) => {
+    if (!details) return;
+    const ok = await bridge.confirm(`Merge pull request #${details.number}?`, `“${details.title}” goes into ${details.baseRefName} ${MERGE_HOW[method]}. This can't be undone.`, MERGE_LABEL[method]);
+    if (!ok) return;
+    void merge(details, method)
+      .then(() => {
+        say("Merged");
+        void bridge.refresh(true);
+        void load();
+      })
+      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)));
+  };
+  const leave = async () => {
+    if (!details || !me) return;
+    if (!(await bridge.confirm(`Leave the review of #${details.number}?`, "You won't be asked to review it any more, and it leaves your queue.", "Leave Review"))) return;
+    void leaveReview(details, me, teams)
+      .then(() => {
+        say("You left the review");
+        void bridge.refresh(true);
+      })
+      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)));
+  };
+
+  // The menu bar's review commands (src-tauri/src/menu.rs) come here when this window is in front;
+  // it's told which of them this pull request allows, so the others are dimmed.
+  const menuActions = useRef<Record<string, () => void>>({});
+  useLayoutEffect(() => {
+    menuActions.current = {
+      find: () => {
+        setTab("diff");
+        requestAnimationFrame(() => filterField.current?.focus());
+      },
+      overview: () => setTab("overview"),
+      diff: () => setTab("diff"),
+      wrap: () => setWrap(!wrap),
+      "next-file": goToNextFile,
+      "next-comment": () => step(1),
+      "previous-comment": () => step(-1),
+      "ai-review": () => void runReview(),
+      submit: () => setSubmitting(true),
+      merge: () => setMergeMenu(true),
+      "open-github": () => details && void bridge.openUrl(details.url),
+      leave: () => void leave(),
+    };
+  });
+  useEffect(() => {
+    const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
+    return () => void off.then((f) => f());
+  }, []);
+  const isOpen = details?.state === "OPEN";
+  const allowed = {
+    "next-file": Boolean(files?.length),
+    "next-comment": stops.length > 0,
+    "previous-comment": stops.length > 0,
+    "ai-review": Boolean(ai && details && files && !reviewing),
+    submit: isOpen,
+    merge: Boolean(canMerge),
+    "open-github": Boolean(details),
+    leave: canLeave,
+  };
+  const allowedKey = JSON.stringify(allowed);
+  useEffect(() => {
+    void bridge.menuState(JSON.parse(allowedKey) as Record<string, boolean>).catch(() => {});
+  }, [allowedKey]);
+
   if (error && !details) {
     return (
       <div className="grid h-screen place-items-center p-10 text-center">
         <div className="flex flex-col items-center gap-3">
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-body text-destructive" role="alert">
             {error}
           </p>
           <Button variant="outline" onClick={() => void load()}>
@@ -451,15 +549,6 @@ export function Review({ target }: { target: Target }) {
     );
   }
 
-  const actionResult = (message: string, ok: boolean) => {
-    say(message);
-    if (ok) {
-      void bridge.refresh(true);
-      void load();
-    }
-  };
-  const canMerge = details && details.viewerDidAuthor && details.state === "OPEN" && !details.isDraft && details.mergeable === "MERGEABLE" && details.mergeMethods.length > 0;
-
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       {/* One toolbar, as in Mail or Xcode. The view switch sits right after the traffic lights so it
@@ -467,9 +556,10 @@ export function Review({ target }: { target: Target }) {
           in beside the actions when the Diff is showing (the title making room for them, never the
           buttons). As the window narrows the branch line goes first, then the actions fold into a
           menu, then labels turn into icons. The bar is a size container so this follows its width. */}
-      <header data-tauri-drag-region className={cn("@container flex shrink-0 items-center gap-2 border-b pr-2", isMac ? "h-[52px] pl-[84px]" : "h-11 pl-2")}>
-        <div role="tablist" onKeyDown={tabKeys} aria-label="View" className="relative isolate flex h-7 shrink-0 items-center rounded-lg bg-muted p-0.5">
-          <SlidingPill selected={tab} className="rounded-md bg-background shadow-[0_1px_2px_oklch(0_0_0/0.12),0_0_0_0.5px_oklch(0_0_0/0.06)] dark:bg-white/[0.16] dark:shadow-[0_1px_2px_oklch(0_0_0/0.3)]" />
+      <header data-tauri-drag-region className={cn("@container relative z-10 flex shrink-0 items-center gap-2 bg-background pr-2.5 transition-shadow duration-(--duration)", isMac ? "h-(--toolbar-h) pl-(--traffic-lights-inset)" : "h-11 pl-2", scrolled && "shadow-[0_1px_0_var(--separator)]")}>
+        {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
+        <div role="tablist" onKeyDown={tabKeys} aria-label="View" className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5">
+          <SlidingPill selected={tab} className="rounded-full bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
           {(
             [
               ["overview", "Overview", details?.entries.length],
@@ -486,14 +576,11 @@ export function Review({ target }: { target: Target }) {
               aria-controls={`panel-${value}`}
               data-pill={value}
               onClick={() => setTab(value)}
-              className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                tab === value ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
+              className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground outline-none focus-ring"
             >
               {label}
               {/* Its room kept while loading, so the switch doesn't grow when the count arrives. */}
-              <span className="min-w-3.5 text-center text-[11px] font-normal text-muted-foreground tabular-nums @max-[860px]:hidden">
+              <span className="min-w-3.5 text-center text-subheadline text-muted-foreground tabular-nums @max-[860px]:hidden">
                 {count === undefined ? <Skeleton className="h-3 w-3.5" /> : count || null}
               </span>
             </button>
@@ -503,12 +590,20 @@ export function Review({ target }: { target: Target }) {
         <div data-tauri-drag-region className="flex min-w-0 flex-1 flex-col justify-center gap-px pl-1">
           {details ? (
             <>
-              <h1 data-tauri-drag-region className="truncate text-[13px] leading-4 font-semibold" title={details.title}>
+              <h1 data-tauri-drag-region className="truncate text-headline font-bold" title={details.title}>
                 {details.title}
               </h1>
-              <p data-tauri-drag-region className="truncate text-[11px] leading-[14px] text-muted-foreground @max-[1180px]:hidden">
-                {repo} #{number} · {firstName(details.author)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
-              </p>
+              {/* What just happened shows here for a moment, in place of the branch line, rather than
+                  as a toast: a Mac window says it where you're looking. */}
+              {notice ? (
+                <p role="status" className="truncate text-subheadline text-foreground animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
+                  {notice}
+                </p>
+              ) : (
+                <p data-tauri-drag-region className="truncate text-subheadline text-muted-foreground @max-[1180px]:hidden">
+                  {repo} #{number} · {firstName(details.author)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -529,18 +624,18 @@ export function Review({ target }: { target: Target }) {
             tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
           )}
         >
-          <div data-tauri-drag-region className="flex min-w-0 items-center gap-1.5 overflow-hidden py-1 pr-0.5 pl-0.5">
-            {/* Stepping through the comments: n and p from the keyboard. */}
-            <div role="group" aria-label="Comments" className="flex h-7 shrink-0 items-center rounded-lg bg-muted p-0.5">
+          <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
+            {/* Stepping through the comments (n and p from the keyboard), one capsule. */}
+            <div role="group" aria-label="Comments" className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon-xs" className="hover:bg-background dark:hover:bg-white/10" aria-label="Previous comment" disabled={!stops.length} onClick={() => step(-1)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label="Previous comment" disabled={!stops.length} onClick={() => step(-1)} />}>
                   <ChevronUp />
                 </TooltipTrigger>
                 <TooltipContent>
-                  Previous comment <kbd className="ml-1 font-mono">p</kbd>
+                  Previous Comment <Kbd>p</Kbd>
                 </TooltipContent>
               </Tooltip>
-              <span className="px-1 text-center text-xs text-muted-foreground tabular-nums @max-[960px]:px-0.5" aria-live="polite">
+              <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
                 <span className="inline-block min-w-[6.5rem] @max-[960px]:sr-only">
                   {stops.length ? (stop >= 0 ? `Comment ${stop + 1} of ${stops.length}` : `${stops.length} comment${stops.length === 1 ? "" : "s"}`) : "No open comments"}
                 </span>
@@ -549,137 +644,141 @@ export function Review({ target }: { target: Target }) {
                 </span>
               </span>
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon-xs" className="hover:bg-background dark:hover:bg-white/10" aria-label="Next comment" disabled={!stops.length} onClick={() => step(1)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label="Next comment" disabled={!stops.length} onClick={() => step(1)} />}>
                   <ChevronDown />
                 </TooltipTrigger>
                 <TooltipContent>
-                  Next comment <kbd className="ml-1 font-mono">n</kbd>
+                  Next Comment <Kbd>n</Kbd>
                 </TooltipContent>
               </Tooltip>
             </div>
-            <ToggleGroup
-              value={[diffStyle]}
-              onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")}
-              spacing={0}
-              size="sm"
-              aria-label="Layout"
-              className="h-7 shrink-0 rounded-lg bg-muted p-0.5"
-            >
-              {(
-                [
-                  ["split", "Side by side", Columns2],
-                  ["unified", "One column", Rows2],
-                ] as const
-              ).map(([value, label, Icon]) => (
-                <Tooltip key={value}>
-                  <TooltipTrigger
-                    render={
-                      <ToggleGroupItem
-                        value={value}
-                        aria-label={label}
-                        className="h-6 min-w-7 rounded-md! px-1.5 text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-[0_1px_2px_oklch(0_0_0/0.12)] focus-visible:ring-2 focus-visible:ring-ring dark:aria-pressed:bg-white/[0.16]"
-                      />
-                    }
-                  >
-                    <Icon />
-                  </TooltipTrigger>
-                  <TooltipContent>{label}</TooltipContent>
-                </Tooltip>
-              ))}
-            </ToggleGroup>
-            <Tooltip>
-              <TooltipTrigger render={<Button variant={wrap ? "secondary" : "ghost"} size="icon-sm" className={cn("shrink-0", wrap && "bg-muted text-foreground")} aria-pressed={wrap} aria-label="Wrap long lines" onClick={() => setWrap(!wrap)} />}>
-                <WrapText />
-              </TooltipTrigger>
-              <TooltipContent>Wrap long lines</TooltipContent>
-            </Tooltip>
-            <span data-tauri-drag-region aria-hidden className="ml-1.5 h-5 w-px shrink-0 bg-border" />
+            {/* Layout and wrapping, one capsule of glyphs. */}
+            <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+              <ToggleGroup value={[diffStyle]} onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")} spacing={0} aria-label="Layout" className="h-full rounded-full">
+                {(
+                  [
+                    ["split", "Side by Side", Columns2],
+                    ["unified", "One Column", Rows2],
+                  ] as const
+                ).map(([value, label, Icon]) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-foreground")} />}>
+                      <Icon />
+                    </TooltipTrigger>
+                    <TooltipContent>{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </ToggleGroup>
+              <Tooltip>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")} aria-pressed={wrap} aria-label="Wrap long lines" onClick={() => setWrap(!wrap)} />}>
+                  <WrapText />
+                </TooltipTrigger>
+                <TooltipContent>Wrap Long Lines</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* The person's own actions: as buttons while there's room, in a menu once there isn't. */}
-          {config?.actions.length && details && me ? (
-            <>
-              <div className="contents @max-[1100px]:hidden">
-                <ActionButtons
-                  actions={config.actions}
-                  pr={{ number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me }}
-                  onResult={actionResult}
-                />
-              </div>
-              <Popover>
+        <div className="flex shrink-0 items-center gap-1">
+          {/* The person's own actions, AI, readiness and merging: one capsule of labelled items. The
+              actions fold into a pull-down menu as the window narrows. */}
+          {(config?.actions.length && details && me) || (ai && details) || canMerge || (details?.viewerDidAuthor && isOpen && details.isDraft) ? (
+            <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+              {config?.actions.length && details && me ? (
+                <>
+                  <div className="contents @max-[1100px]:hidden">
+                    <ActionButtons
+                      actions={config.actions}
+                      className={TOOL}
+                      pr={{ number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me }}
+                      onResult={actionResult}
+                    />
+                  </div>
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1100px]:inline-flex")} aria-label="Actions" />} />}>
+                        <Zap />
+                      </TooltipTrigger>
+                      <TooltipContent>Actions</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end">
+                      <ActionMenuItems
+                        actions={config.actions}
+                        pr={{ number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me }}
+                        onResult={actionResult}
+                      />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : null}
+              {ai && details ? (
                 <Tooltip>
-                  <TooltipTrigger render={<PopoverTrigger render={<Button variant="outline" size="icon-sm" className="hidden @max-[1100px]:inline-flex" aria-label="Actions" />} />}>
-                    <Zap />
+                  <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[960px]:w-(--toolbar-item-h) @max-[960px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
+                    {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    <span className="@max-[960px]:sr-only">{current ? "Review Again" : "AI Review"}</span>
                   </TooltipTrigger>
-                  <TooltipContent>Actions</TooltipContent>
+                  <TooltipContent>{current ? "Review again with AI" : "Review with AI"}</TooltipContent>
                 </Tooltip>
-                <PopoverContent align="end" className="w-auto min-w-48 gap-1 p-1.5 [&_button]:justify-start">
-                  <ActionButtons
-                    actions={config.actions}
-                    pr={{ number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me }}
-                    onResult={actionResult}
-                  />
-                </PopoverContent>
-              </Popover>
-            </>
+              ) : null}
+              {details && details.viewerDidAuthor && isOpen && details.isDraft ? (
+                <Button
+                  variant="ghost"
+                  className={TOOL}
+                  onClick={() =>
+                    void markReady(details)
+                      .then(() => {
+                        say("Ready for review");
+                        void bridge.refresh(true);
+                        void load();
+                      })
+                      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
+                  }
+                >
+                  Ready for Review
+                </Button>
+              ) : null}
+              {canMerge ? (
+                // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
+                <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
+                  <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[960px]:px-2")} />}>
+                    <GitMerge /> <span className="@max-[960px]:sr-only">Merge</span>
+                    <ChevronDown className="size-3 opacity-70" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Merge Pull Request</DropdownMenuLabel>
+                    {details.mergeMethods.map((method) => (
+                      <DropdownMenuItem key={method} onClick={() => void mergeWith(method)}>
+                        {MERGE_LABEL[method]}…
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
           ) : null}
-          {ai && details ? (
+          <DropdownMenu>
             <Tooltip>
-              <TooltipTrigger render={<Button size="sm" variant="outline" className="@max-[960px]:w-7 @max-[960px]:px-0" onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
-                {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                <span className="@max-[960px]:sr-only">{current ? "Review again" : "AI review"}</span>
+              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label="More" />} />}>
+                <MoreHorizontal />
               </TooltipTrigger>
-              <TooltipContent>{current ? "Review again with AI" : "Review with AI"}</TooltipContent>
+              <TooltipContent>More</TooltipContent>
             </Tooltip>
-          ) : null}
-          {details && details.viewerDidAuthor && details.state === "OPEN" && details.isDraft ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                void markReady(details)
-                  .then(() => {
-                    say("Ready for review");
-                    void bridge.refresh(true);
-                    void load();
-                  })
-                  .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
-              }
-            >
-              Ready for review
-            </Button>
-          ) : null}
-          {canMerge ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="@max-[960px]:w-7 @max-[960px]:px-0"
-                    onClick={() =>
-                      void merge(details, details.mergeMethods[0]!)
-                        .then(() => {
-                          say("Merged");
-                          void bridge.refresh(true);
-                          void load();
-                        })
-                        .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
-                    }
-                  />
-                }
-              >
-                <GitMerge /> <span className="@max-[960px]:sr-only">Merge</span>
-              </TooltipTrigger>
-              <TooltipContent>Merge this pull request</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {details && details.state === "OPEN" ? (
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>Open on GitHub</DropdownMenuItem>
+              {canLeave ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => void leave()}>Leave This Review…</DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {details && isOpen ? (
             <SubmitReview
               details={details}
               drafts={drafts}
+              open={submitting}
+              onOpenChange={setSubmitting}
               onSubmitted={() => {
                 setDrafts([]);
                 say("Review sent");
@@ -687,39 +786,11 @@ export function Review({ target }: { target: Target }) {
               }}
             />
           ) : null}
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="More" />} />}>
-                <MoreHorizontal />
-              </TooltipTrigger>
-              <TooltipContent>More</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>
-                <ExternalLink /> Open on GitHub
-              </DropdownMenuItem>
-              {details && me && !details.viewerDidAuthor && details.state === "OPEN" ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    void leaveReview(details, me, teams)
-                      .then(() => {
-                        say("You left the review");
-                        void bridge.refresh(true);
-                      })
-                      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
-                  }
-                >
-                  <UserMinus /> Leave this review
-                </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col">
-
-        <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" hidden={tab !== "overview"} className="min-h-0 flex-1 overflow-y-auto bg-muted/30 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+      <main className="flex min-h-0 flex-1 flex-col" onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}>
+        <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" hidden={tab !== "overview"} className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
           {details ? (
             <Overview
               config={config}
@@ -761,31 +832,48 @@ export function Review({ target }: { target: Target }) {
           )}
         </div>
 
-        <div role="tabpanel" id="panel-diff" aria-labelledby="tab-diff" hidden={tab !== "diff"} className="flex min-h-0 flex-1 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+        <div role="tabpanel" id="panel-diff" aria-labelledby="tab-diff" hidden={tab !== "diff"} className="flex min-h-0 flex-1">
           <aside className="flex w-72 shrink-0 flex-col border-r" aria-label="Files">
             <div className="flex flex-col gap-2 border-b p-3">
+              {/* A search field: a capsule, the magnifier inside, a clear button once there's text. */}
               <div className="relative">
-                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-                <Input value={filter} onChange={(e) => {
+                <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input
+                  ref={filterField}
+                  type="search"
+                  value={filter}
+                  onChange={(e) => {
                     setFilter(e.target.value);
                     requestAnimationFrame(() => diffs.current?.scrollToTop());
-                  }} placeholder="Filter files" aria-label="Filter files" className="h-8 pl-8 text-[13px]" />
+                  }}
+                  onKeyDown={(e) => e.key === "Escape" && filter && (e.preventDefault(), setFilter(""))}
+                  placeholder="Filter Files"
+                  aria-label="Filter files"
+                  className="rounded-full pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                />
+                {filter ? (
+                  <button type="button" aria-label="Clear" onClick={() => setFilter("")} className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background outline-none focus-ring">
+                    <X className="size-2.5" strokeWidth={3} aria-hidden />
+                  </button>
+                ) : null}
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-subheadline text-muted-foreground">
                 <Progress value={inPart.length ? (viewedCount / inPart.length) * 100 : 0} className="flex-1" aria-label="Files viewed" />
                 <span className="tabular-nums">
                   {viewedCount}/{inPart.length} viewed
                 </span>
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} /> Hide viewed files
+              <label className="flex items-center gap-1.5 text-body">
+                <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} className="size-3.5" /> Hide Viewed Files
               </label>
             </div>
-            <ScrollArea className="min-h-0 flex-1">
-              <ul className="flex flex-col p-1.5" aria-busy={!files}>
+            {/* A source list: no highlight under the pointer; the picked file's row in the accent while
+                the list has focus, gray otherwise (and in a window that isn't in front). */}
+            <div className="group/list min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <ul className="flex flex-col px-2.5 py-1.5" aria-busy={!files}>
                 {!files
                   ? [0, 1, 2, 3, 4, 5].map((i) => (
-                      <li key={i} className="flex items-center gap-2 px-2 py-1.5">
+                      <li key={i} className="flex h-(--row-h-sm) items-center gap-2 px-2">
                         <Skeleton className="h-3.5 flex-1" style={{ maxWidth: `${70 - i * 6}%` }} />
                         <Skeleton className="h-3 w-10" />
                       </li>
@@ -798,16 +886,25 @@ export function Review({ target }: { target: Target }) {
                     <li key={f.path}>
                       <button
                         type="button"
-                        className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", isViewed(f) && "text-muted-foreground")}
-                        onClick={() => diffs.current?.scrollToFile(f.path)}
+                        data-selected={picked === f.path}
+                        aria-current={picked === f.path || undefined}
+                        className={cn(
+                          "flex h-(--row-h-sm) w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 text-left text-callout outline-none focus-ring-inset",
+                          "data-[selected=true]:bg-(--selection-bg-inactive) group-focus-within/list:data-[selected=true]:bg-(--selection-bg) group-focus-within/list:data-[selected=true]:text-(--selection-fg) group-focus-within/list:data-[selected=true]:**:text-(--selection-fg) group-focus-within/list:data-[selected=true]:focus-visible:outline-none",
+                          isViewed(f) && "text-muted-foreground",
+                        )}
+                        onClick={() => {
+                          setPicked(f.path);
+                          diffs.current?.scrollToFile(f.path);
+                        }}
                         title={f.path}
                       >
                         <span className="min-w-0 flex-1 truncate font-mono">
                           <span className="text-muted-foreground">{f.path.slice(0, slash + 1)}</span>
                           {f.path.slice(slash + 1)}
                         </span>
-                        {comments ? <span className="text-[11px] text-unread tabular-nums" aria-label={`${comments} open conversations`}>{comments}</span> : null}
-                        <span className="shrink-0 font-mono text-[11px] tabular-nums">
+                        {comments ? <span className="text-subheadline text-unread tabular-nums" aria-label={`${comments} open conversations`}>{comments}</span> : null}
+                        <span className="shrink-0 font-mono text-subheadline tabular-nums">
                           <span className="text-success">+{f.additions}</span> <span className="text-destructive">−{f.deletions}</span>
                         </span>
                       </button>
@@ -815,7 +912,7 @@ export function Review({ target }: { target: Target }) {
                   );
                 })}
               </ul>
-            </ScrollArea>
+            </div>
           </aside>
 
           <div className="relative min-w-0 flex-1 bg-muted/30">
@@ -865,7 +962,7 @@ export function Review({ target }: { target: Target }) {
                   }}
                 />
               ) : (
-                <p className="p-10 text-center text-sm text-muted-foreground">{chosen.length && !inPart.length ? `No files in ${chosen.map((f) => f.name).join(" + ")}.` : "No files match."}</p>
+                <p className="p-10 text-center text-body text-muted-foreground">{chosen.length && !inPart.length ? `No files in ${chosen.map((f) => f.name).join(" + ")}.` : "No files match."}</p>
               )
             ) : (
               <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label="Loading files">
@@ -892,11 +989,6 @@ export function Review({ target }: { target: Target }) {
         </div>
       </main>
 
-      {notice ? (
-        <div role="status" className="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 rounded-xl bg-foreground px-4 py-2.5 text-[13px] font-medium text-background shadow-xl animate-in fade-in-0 slide-in-from-bottom-2 motion-reduce:animate-none">
-          {notice}
-        </div>
-      ) : null}
     </div>
   );
 }

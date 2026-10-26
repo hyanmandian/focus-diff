@@ -5,16 +5,17 @@
 import { Check, ChartBarStacked, ChevronsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { inFilter, type DiffFilter } from "@/lib/config";
 import { ESTIMATE_HINT, formatDuration, type Estimator, type Learned } from "@/lib/estimate";
 import { totals, type Totals } from "@/lib/filters";
 import type { ReviewFile } from "@/lib/review";
+import { shortcut } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 
-const isMac = navigator.userAgent.includes("Mac");
-/** A shortcut as the platform writes it: ⌥⇧J, or Alt+Shift+J. */
-export const chord = (key: string) => (isMac ? `⌥⇧${key}` : `Alt+Shift+${key}`);
+/** A filter shortcut as the platform writes it: ⌥⇧J, or Alt+Shift+J. */
+export const chord = (key: string) => shortcut(key, ["alt", "shift"]);
 
 /** What's left to review: files in the chosen filters, or else the next filter that has some. */
 export type Next = { left: number; nextFilter?: { id: string; name: string; left: number } };
@@ -66,9 +67,9 @@ function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onTog
   const rows = [{ id: "", name: "All", t: totals(files, isViewed, minutesOf) }, ...filters.map((f) => ({ id: f.id, name: f.name, t: totals(files.filter((x) => inFilter(f, x.path)), isViewed, minutesOf) }))];
   return (
     <div className="flex flex-col gap-2">
-      <p className="px-1 text-xs font-semibold">Breakdown by filter</p>
-      <div role="group" aria-label="Filters" className="grid grid-cols-[14px_minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 text-xs">
-        <div aria-hidden className="col-span-full grid grid-cols-subgrid px-2 pb-1 text-[11px] text-muted-foreground">
+      <p className="px-1 text-headline font-bold">Breakdown by Filter</p>
+      <div role="group" aria-label="Filters" className="grid grid-cols-[14px_minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 text-callout">
+        <div aria-hidden className="col-span-full grid grid-cols-subgrid px-2 pb-1 text-subheadline text-muted-foreground">
           <span />
           <span>Filter</span>
           <span className="text-right">Viewed</span>
@@ -91,8 +92,8 @@ function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onTog
               aria-label={`${name}: ${t.files} ${t.files === 1 ? "file" : "files"}, ${t.viewed} viewed, ${t.additions} lines added, ${t.deletions} removed. ${t.minutesLeft === 0 ? "Done" : `${left} left to review`}`}
               onClick={() => !empty && onToggle(id)}
               className={cn(
-                "col-span-full grid h-7 grid-cols-subgrid items-center rounded-md px-2 text-left outline-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring",
-                empty && "text-muted-foreground hover:bg-transparent",
+                "col-span-full grid h-(--row-h-sm) cursor-default grid-cols-subgrid items-center rounded-(--radius-row) px-2 text-left outline-none focus-ring-inset active:bg-fill",
+                empty && "text-muted-foreground active:bg-transparent",
               )}
             >
               <span aria-hidden>{selected ? <Check className="size-3.5" /> : null}</span>
@@ -100,7 +101,7 @@ function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onTog
               <span className={cn("text-right tabular-nums", complete ? "text-success" : "text-muted-foreground")}>
                 {t.viewed}/{t.files}
               </span>
-              <span className="flex items-center gap-1.5 font-mono text-[11px] tabular-nums">
+              <span className="flex items-center gap-1.5 font-mono text-subheadline tabular-nums">
                 <span className="text-success">+{t.additions}</span>
                 <span className="text-destructive">−{t.deletions}</span>
                 <Diffstat additions={t.additions} deletions={t.deletions} />
@@ -110,7 +111,7 @@ function Breakdown({ files, filters, chosen, isViewed, minutesOf, learned, onTog
           );
         })}
       </div>
-      <p className="px-1 text-[11px] leading-snug text-muted-foreground">{timeHint(learned)}</p>
+      <p className="px-1 text-subheadline leading-snug text-muted-foreground">{timeHint(learned)}</p>
     </div>
   );
 }
@@ -132,13 +133,14 @@ export function FilterBar(props: Props) {
         title={id ? undefined : `Show all files (${chord("0")})`}
         onClick={() => onToggle(id)}
         className={cn(
-          "flex h-7 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-          pressed ? "bg-selected text-selected-foreground" : "hover:bg-foreground/6",
+          // Toggle buttons: the ones on in the accent, no highlight under the pointer.
+          "flex h-(--toolbar-item-h) shrink-0 cursor-default items-center gap-1.5 rounded-[10px] pr-1.5 pl-2.5 text-body outline-none focus-ring",
+          pressed ? "bg-selected text-selected-foreground" : "active:bg-fill",
           count === 0 && !pressed && "text-muted-foreground",
         )}
       >
         {name}
-        <span className={cn("rounded-full px-1.5 text-[11px] leading-[18px] tabular-nums", pressed ? "bg-black/16" : "bg-muted text-muted-foreground")}>{count}</span>
+        <span className={cn("rounded-full px-1.5 text-subheadline leading-[18px] tabular-nums", pressed ? "bg-black/16" : "bg-muted text-muted-foreground")}>{count}</span>
       </button>
     );
   };
@@ -148,16 +150,17 @@ export function FilterBar(props: Props) {
       role="group"
       aria-label="Review one part"
       aria-keyshortcuts={filters.length ? "Alt+Shift+. Alt+Shift+," : undefined}
-      className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-xl border bg-popover/95 p-1 shadow-xl backdrop-blur [scrollbar-width:none]"
+      // Floats over the code on the system's menu material (opaque with Reduce Transparency).
+      className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-[14px] bg-(--material-menu) p-1 shadow-(--shadow-menu) backdrop-blur-xl [scrollbar-width:none]"
     >
       <Tooltip>
         <TooltipTrigger
-          render={<Button variant="ghost" size="icon-sm" className="shrink-0 rounded-lg" aria-label={label} aria-disabled={stuck} aria-keyshortcuts="Alt+Shift+J" onClick={() => !stuck && onNextFile()} />}
+          render={<Button variant="ghost" size="icon" className="shrink-0 rounded-[10px]" aria-label={label} aria-disabled={stuck} aria-keyshortcuts="Alt+Shift+J" onClick={() => !stuck && onNextFile()} />}
         >
           <ChevronsDown className={cn(stuck && "opacity-50")} />
         </TooltipTrigger>
         <TooltipContent>
-          {label} {stuck ? null : <kbd className="ml-1 font-mono">{chord("J")}</kbd>}
+          {label} {stuck ? null : <Kbd>{chord("J")}</Kbd>}
         </TooltipContent>
       </Tooltip>
       {filters.length ? (
@@ -168,7 +171,7 @@ export function FilterBar(props: Props) {
         </>
       ) : null}
       <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
-      <span className="shrink-0 font-mono text-[11px] whitespace-nowrap tabular-nums" aria-label={`Lines in view: ${shown.additions} added, ${shown.deletions} removed`}>
+      <span className="shrink-0 font-mono text-subheadline whitespace-nowrap tabular-nums" aria-label={`Lines in view: ${shown.additions} added, ${shown.deletions} removed`}>
         <span className="text-success">+{shown.additions}</span> <span className="text-destructive">−{shown.deletions}</span>
       </span>
       <Tooltip>
@@ -176,7 +179,7 @@ export function FilterBar(props: Props) {
           render={
             <span
               tabIndex={0}
-              className="shrink-0 rounded-md px-1.5 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="shrink-0 rounded-md px-1.5 text-subheadline whitespace-nowrap text-muted-foreground tabular-nums outline-none focus-ring"
               aria-label={done ? "Done: every file here is viewed" : `About ${formatDuration(shown.minutesLeft).replace(/^~/, "")} left to review`}
             />
           }
@@ -194,10 +197,10 @@ export function FilterBar(props: Props) {
       {filters.length ? (
         <Popover>
           <Tooltip>
-            <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon-sm" className="shrink-0 rounded-lg" aria-label="Breakdown by filter" />} />}>
+            <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon" className="shrink-0 rounded-[10px]" aria-label="Breakdown by filter" />} />}>
               <ChartBarStacked />
             </TooltipTrigger>
-            <TooltipContent>Breakdown by filter</TooltipContent>
+            <TooltipContent>Breakdown by Filter</TooltipContent>
           </Tooltip>
           <PopoverContent side="top" align="end" className="w-auto min-w-80 max-w-[min(32rem,calc(100vw-2rem))]">
             <Breakdown {...props} />

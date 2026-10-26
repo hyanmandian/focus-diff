@@ -18,6 +18,7 @@ mod floating;
 mod github;
 mod kept;
 mod media;
+mod menu;
 mod tray;
 mod update;
 mod watch;
@@ -87,7 +88,10 @@ fn write_file(app: AppHandle, name: &str, contents: &str) -> Result<(), String> 
     fs::write(&temporary, contents).map_err(|e| e.to_string())?;
     fs::rename(&temporary, &path).map_err(|e| e.to_string())?;
     match name {
-        "config" => app.state::<watch::Watch>().send(watch::Message::Config),
+        "config" => {
+            menu::apply_theme(&app, contents);
+            app.state::<watch::Watch>().send(watch::Message::Config);
+        }
         "auth" => app.state::<watch::Watch>().send(watch::Message::Auth),
         _ => {}
     }
@@ -781,6 +785,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .on_menu_event(menu::on_event)
         .register_asynchronous_uri_scheme_protocol("avatar", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
             thread::spawn(move || responder.respond(avatars::serve(&app, &request)));
@@ -827,6 +832,8 @@ pub fn run() {
             hide_panel,
             log,
             quit,
+            menu::confirm,
+            menu::menu_state,
         ])
         .setup(|app| {
             // A tray app: no Dock icon, no app switcher entry.
@@ -835,6 +842,16 @@ pub fn run() {
 
             let handle = app.handle().clone();
             move_old_files(&handle);
+            // The theme picked last time, before any window shows.
+            if let Ok(Some(text)) = read_file(handle.clone(), "config") {
+                menu::apply_theme(&handle, &text);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let (bar, items) = menu::build(&handle)?;
+                app.set_menu(bar)?;
+                app.manage(items);
+            }
             // Where GitHub's token comes from, as chosen last time.
             if let Ok(Some(text)) = read_file(handle.clone(), "auth") {
                 let source = serde_json::from_str::<serde_json::Value>(&text)
@@ -871,9 +888,13 @@ pub fn run() {
                 && let WindowEvent::Focused(false) = event {
                     hide(window.app_handle());
                 }
+            if let WindowEvent::Focused(true) = event {
+                menu::focused(window.app_handle(), window.label());
+            }
             if let WindowEvent::Destroyed = event {
                 let app = window.app_handle();
                 let label = window.label().to_string();
+                menu::forget(app, &label);
                 app.state::<Reviews>().open.lock().unwrap().retain(|_, l| *l != label);
                 app.state::<Reviews>().ready.lock().unwrap().remove(&label);
                 {

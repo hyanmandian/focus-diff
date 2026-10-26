@@ -37,6 +37,9 @@ pub struct Put {
     pub side: String,
     #[serde(default)]
     pub start_line: Option<u32>,
+    /// The side several lines start on, when it's the other one (across the two).
+    #[serde(default)]
+    pub start_side: Option<String>,
     /// On the file as a whole.
     #[serde(default)]
     pub file: bool,
@@ -366,16 +369,18 @@ fn create(auth: &github::Auth, put: &Put) -> Result<Sent, Sent> {
             data["addPullRequestReviewThreadReply"]["comment"]["id"].as_str().map(String::from)
         }
         None => {
-            let side = if put.side == "deletions" { "LEFT" } else { "RIGHT" };
+            let side_of = |s: &str| if s == "deletions" { "LEFT" } else { "RIGHT" };
+            let side = side_of(&put.side);
+            let start_side = put.start_side.as_deref().map_or(side, side_of);
             let mut input = json!({ "pullRequestReviewId": review, "path": put.path, "body": put.body });
             if put.file {
                 input["subjectType"] = json!("FILE");
             } else {
                 input["line"] = json!(put.line);
                 input["side"] = json!(side);
-                if let Some(start) = put.start_line.filter(|s| *s != put.line) {
+                if let Some(start) = put.start_line.filter(|s| *s != put.line || start_side != side) {
                     input["startLine"] = json!(start);
-                    input["startSide"] = json!(side);
+                    input["startSide"] = json!(start_side);
                 }
             }
             let data = graphql(
@@ -428,7 +433,7 @@ mod tests {
     use super::*;
 
     fn put(key: &str, body: &str) -> Put {
-        Put { key: key.into(), pull: "PR_1".into(), path: "a.ts".into(), line: 3, side: "additions".into(), start_line: None, file: false, body: body.into(), id: None, reply_to: None }
+        Put { key: key.into(), pull: "PR_1".into(), path: "a.ts".into(), line: 3, side: "additions".into(), start_line: None, start_side: None, file: false, body: body.into(), id: None, reply_to: None }
     }
 
     #[test]

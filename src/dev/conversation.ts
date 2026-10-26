@@ -74,7 +74,7 @@ type Comment = {
 type MockThread = { id: string; isResolved: boolean; isOutdated: boolean; path: string; line: number | null; originalLine: number | null; startLine: number | null; subjectType: "LINE" | "FILE"; diffSide: "LEFT" | "RIGHT"; comments: Comment[] };
 type Item = Record<string, unknown> & { __typename: string; id: string };
 
-type Seed = { people: Record<string, Actor>; threads: Array<Record<string, unknown>>; details: { pullRequest: Record<string, unknown> }; files: Array<{ filename: string; patch: string }> };
+type Seed = { people: Record<string, Actor>; threads: Array<Record<string, unknown>>; details: { pullRequest: Record<string, unknown> }; files: Array<{ filename: string; patch?: string }> };
 
 let state: {
   people: Record<string, Actor>;

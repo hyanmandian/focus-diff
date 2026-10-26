@@ -315,6 +315,38 @@ impl Auth {
         Ok((status, text))
     }
 
+    /// A GET whose answer is bytes, not text (a file at a commit, blobs.rs), up to `largest`.
+    pub fn get_bytes(&self, path: &str, accept: &str, largest: usize) -> Result<(u16, Vec<u8>), String> {
+        let token = self.token()?;
+        let (status, bytes) = call_bytes(&token, path, accept, largest)?;
+        if status == 401 && *self.source.lock().unwrap() == Some(Source::Gh) {
+            // gh may have been signed in again since: read its token once more.
+            *self.token.lock().unwrap() = None;
+            return call_bytes(&self.token()?, path, accept, largest);
+        }
+        Ok((status, bytes))
+    }
+
+    /// Where a GET that GitHub answers with a redirect leads (a job's log, a download), without
+    /// following it: the token goes to api.github.com only, never to where it points.
+    pub fn redirect(&self, path: &str) -> Result<(u16, Option<String>), String> {
+        if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
+            return Err("Bad request".into());
+        }
+        let response = agent()
+            .get(format!("{API}{path}"))
+            .header("Authorization", &format!("Bearer {}", self.token()?))
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .config()
+            .max_redirects(0)
+            .build()
+            .call()
+            .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+        let location = response.headers().get("location").and_then(|v| v.to_str().ok()).map(String::from);
+        Ok((response.status().as_u16(), location))
+    }
+
     /// `call`, with GET responses revalidated by their ETag.
     fn call_tagged(&self, token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
         if method != "GET" {
@@ -379,6 +411,27 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
         .read_to_string(&mut text)
         .map_err(|e| e.to_string())?;
     Ok((status, text, etag))
+}
+
+fn call_bytes(token: &str, path: &str, accept: &str, largest: usize) -> Result<(u16, Vec<u8>), String> {
+    // Only ever the API, as `call`.
+    if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
+        return Err("Bad request".into());
+    }
+    let response = agent()
+        .get(&format!("{API}{path}"))
+        .header("Authorization", &format!("Bearer {token}"))
+        .header("Accept", accept)
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .call()
+        .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+    let status = response.status().as_u16();
+    let mut bytes = Vec::new();
+    response.into_body().into_reader().take(largest as u64 + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    if bytes.len() > largest {
+        return Err(tr!("The file is too large to show", "O arquivo é grande demais para mostrar"));
+    }
+    Ok((status, bytes))
 }
 
 #[derive(Serialize)]

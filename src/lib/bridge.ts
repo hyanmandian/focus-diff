@@ -47,6 +47,7 @@ export type DraftPut = {
   line: number;
   side: "additions" | "deletions";
   startLine?: number;
+  startSide?: "additions" | "deletions";
   file?: boolean;
   body: string;
   id?: string;

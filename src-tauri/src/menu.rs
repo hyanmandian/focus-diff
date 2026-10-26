@@ -14,7 +14,10 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use crate::i18n::tr;
 
 /// The commands that act on the review in front.
-const REVIEW: &[&str] = &["find", "overview", "diff", "wrap", "next-file", "next-comment", "previous-comment", "ai-review", "submit", "merge", "open-github", "leave"];
+const REVIEW: &[&str] = &[
+    "find", "overview", "diff", "wrap", "whitespace", "file-next", "file-previous", "toggle-viewed", "next-file", "next-comment", "previous-comment", "commits", "all-changes", "since-review", "ai-review", "submit", "merge", "auto-merge",
+    "update-branch", "ready", "draft", "close", "reopen", "delete-branch", "rerun-failed", "open-github", "leave", "shortcuts",
+];
 
 /// The review commands' items, and what each review window last said applies to it.
 pub struct ReviewItems<R: Runtime> {
@@ -92,17 +95,25 @@ fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
         .separator()
         .item(&item("find", &tr!("Find Files…", "Buscar arquivos…"), Some("CmdOrCtrl+F"))?)
         .build()?;
-    // n, p and ⌥⇧J are the page's own keys (they'd type into a field as menu shortcuts), so these
-    // items name no shortcut.
+    // j, k, v, n, p and ⌥⇧J are the page's own keys (they'd type into a field as menu shortcuts),
+    // so these items name no shortcut; the page's Keyboard Shortcuts sheet lists them.
     let view = SubmenuBuilder::new(app, tr!("View", "Visualizar"))
         .item(&item("overview", &tr!("Overview", "Visão geral"), Some("CmdOrCtrl+1"))?)
         .item(&item("diff", &tr!("Diff", "Diff"), Some("CmdOrCtrl+2"))?)
         .separator()
         .item(&item("wrap", &tr!("Wrap Long Lines", "Quebrar linhas longas"), None)?)
+        .item(&item("whitespace", &tr!("Hide Whitespace Changes", "Ocultar mudanças de espaço em branco"), None)?)
         .separator()
+        .item(&item("file-next", &tr!("Next File", "Próximo arquivo"), None)?)
+        .item(&item("file-previous", &tr!("Previous File", "Arquivo anterior"), None)?)
+        .item(&item("toggle-viewed", &tr!("Mark File as Viewed or Not", "Marcar arquivo como visualizado ou não"), None)?)
         .item(&item("next-file", &tr!("Next File to Review", "Próximo arquivo para revisar"), None)?)
         .item(&item("next-comment", &tr!("Next Comment", "Próxima conversa"), None)?)
         .item(&item("previous-comment", &tr!("Previous Comment", "Conversa anterior"), None)?)
+        .separator()
+        .item(&item("commits", &tr!("Choose Commits…", "Escolher commits…"), None)?)
+        .item(&item("all-changes", &tr!("All Changes", "Todas as mudanças"), None)?)
+        .item(&item("since-review", &tr!("Changes Since Your Last Review", "Mudanças desde a sua última revisão"), None)?)
         .separator()
         .item(&PredefinedMenuItem::fullscreen(app, Some(&tr!("Enter Full Screen", "Entrar em tela cheia")))?)
         .build()?;
@@ -110,6 +121,16 @@ fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
         .item(&item("ai-review", &tr!("Review with AI", "Revisar com IA"), None)?)
         .item(&item("submit", &tr!("Submit Review…", "Enviar revisão…"), None)?)
         .item(&item("merge", &tr!("Merge…", "Fazer merge…"), None)?)
+        .item(&item("auto-merge", &tr!("Merge When Ready", "Fazer merge quando estiver pronto"), None)?)
+        .item(&item("update-branch", &tr!("Update Branch", "Atualizar branch"), None)?)
+        .separator()
+        .item(&item("ready", &tr!("Ready for Review", "Pronto para revisão"), None)?)
+        .item(&item("draft", &tr!("Convert to Draft", "Converter em rascunho"), None)?)
+        .item(&item("close", &tr!("Close Pull Request", "Fechar pull request"), None)?)
+        .item(&item("reopen", &tr!("Reopen Pull Request", "Reabrir pull request"), None)?)
+        .item(&item("delete-branch", &tr!("Delete Branch…", "Apagar branch…"), None)?)
+        .separator()
+        .item(&item("rerun-failed", &tr!("Re-run Failed Checks", "Rodar de novo as verificações que falharam"), None)?)
         .separator()
         .item(&item("open-github", &tr!("Open on GitHub", "Abrir no GitHub"), None)?)
         .item(&item("leave", &tr!("Leave This Review…", "Sair desta revisão…"), None)?)
@@ -120,8 +141,8 @@ fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
         .separator()
         .item(&PredefinedMenuItem::bring_all_to_front(app, Some(&tr!("Bring All to Front", "Trazer tudo para a frente")))?)
         .build()?;
-    // Empty but for the system's search field, which finds menu items.
-    let help = SubmenuBuilder::new(app, tr!("Help", "Ajuda")).build()?;
+    // The system's search field, which finds menu items, and the review window's shortcuts.
+    let help = SubmenuBuilder::new(app, tr!("Help", "Ajuda")).item(&item("shortcuts", &tr!("Keyboard Shortcuts", "Atalhos de teclado"), None)?).build()?;
     let menu = MenuBuilder::new(app).items(&[&app_menu, &file, &edit, &view, &pull_request, &window, &help]).build()?;
     #[cfg(target_os = "macos")]
     {

@@ -8,6 +8,7 @@
 mod actions;
 mod ai;
 mod avatars;
+mod blobs;
 mod checkout;
 mod config;
 #[cfg(any(debug_assertions, feature = "devctl"))]
@@ -19,6 +20,7 @@ mod floating;
 mod github;
 mod i18n;
 mod kept;
+mod logs;
 mod media;
 mod menu;
 mod outbox;
@@ -156,6 +158,21 @@ struct Response {
 async fn github(auth: State<'_, github::Auth>, method: String, path: String, body: Option<String>, accept: Option<String>) -> Result<Response, String> {
     let (status, body) = auth.request_for_page(&method, &path, body.as_deref(), accept.as_deref())?;
     Ok(Response { status, body })
+}
+
+/// A file at a commit (blobs.rs), as bytes; "absent" when it isn't there.
+#[tauri::command]
+async fn github_file(app: AppHandle, auth: State<'_, github::Auth>, repo: String, sha: String, path: String) -> Result<tauri::ipc::Response, String> {
+    match blobs::file_at(&app, &auth, &repo, &sha, &path)? {
+        Some(bytes) => Ok(tauri::ipc::Response::new(bytes)),
+        None => Err(blobs::ABSENT.into()),
+    }
+}
+
+/// A GitHub Actions job's log (logs.rs): its end, when it's long.
+#[tauri::command]
+async fn job_log(auth: State<'_, github::Auth>, logs: State<'_, logs::Logs>, owner: String, repo: String, job: u64, done: bool) -> Result<logs::Log, String> {
+    logs::job_log(&auth, &logs, &owner, &repo, job, done)
 }
 
 /// Marks a file viewed, or not, on github.com, through the outbox: kept until GitHub takes it.
@@ -949,6 +966,7 @@ pub fn run() {
         })
         .manage(update::Pending::default())
         .manage(github::Auth::default())
+        .manage(logs::Logs::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
@@ -970,6 +988,8 @@ pub fn run() {
             end_review,
             clear_arrival,
             github,
+            github_file,
+            job_log,
             spare_ready,
             kept_read,
             kept_write,
@@ -1042,6 +1062,7 @@ pub fn run() {
                     avatars::sweep(&app);
                     media::sweep(&app);
                     kept::sweep(&app);
+                    blobs::sweep(&app);
                 });
             }
             // No setup yet: the first thing to see is how to start.

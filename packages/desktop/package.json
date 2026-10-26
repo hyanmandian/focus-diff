@@ -1,0 +1,51 @@
+{
+  "name": "@focus-diff/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "tsc --noEmit && vp build",
+    "preview": "vp preview",
+    "tauri": "tauri",
+    "fmt": "vp fmt",
+    "lint": "vp lint",
+    "test": "vp test",
+    "coverage": "vp test --coverage",
+    "e2e": "playwright test",
+    "check": "vp check && vp test --coverage"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@focus-diff/core": "*",
+    "@focus-diff/design-system": "*",
+    "@pierre/diffs": "^1.6.1",
+    "@tauri-apps/api": "^2",
+    "lucide-react": "^1.61.0",
+    "mermaid": "12.2.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "8.0.9",
+    "@playwright/test": "^1.64.1",
+    "@rolldown/plugin-babel": "0.2.4",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/babel__core": "7.20.5",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "babel-plugin-react-compiler": "1.0.0",
+    "happy-dom": "^21.0.4",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vite-plus": "1.4.0"
+  }
+}

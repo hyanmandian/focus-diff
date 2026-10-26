@@ -56,7 +56,7 @@
     }
   ],
   "packages": {
-    "apps/extension": {
+    "packages/extension": {
       "release-type": "node",
       "package-name": "focus-diff",
       "component": "extension",
@@ -65,7 +65,7 @@
         "store"
       ]
     },
-    "apps/desktop": {
+    "packages/desktop": {
       "release-type": "node",
       "package-name": "focus-diff-desktop",
       "component": "desktop",

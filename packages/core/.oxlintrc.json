@@ -13,7 +13,7 @@
   },
   "ignorePatterns": ["coverage/**"],
   "rules": {
-    // The same as the Mac app's (apps/desktop/vite.config.ts) and the extension's, less the React and DOM rules.
+    // The same as the Mac app's (packages/desktop/vite.config.ts) and the extension's, less the React and DOM rules.
     // What the categories turn on that doesn't fit: readonly parameters and strict booleans (outside typescript-eslint's strict sets too), JSDoc
     // @param/@returns that would only repeat the types, and size limits on files and functions.
     "typescript/prefer-readonly-parameter-types": "off",

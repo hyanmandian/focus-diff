@@ -13,6 +13,11 @@ export type Unlisten = () => void;
 /** What a picture or video from GitHub is: a person's avatar, or an attachment in a comment. */
 export type Media = "avatar" | "media";
 
+/** What an app may not have, which the screens then leave out: quitting, installing its own updates, the AI tools
+ *  on the computer, running commands (actions' "run" steps), attaching files as github.com does, and a tray icon or
+ *  menu bar extra to find it by. The desktop has them all. */
+export type Feature = "quit" | "updates" | "ai" | "commands" | "uploads" | "tray";
+
 export interface Platform {
   /** Runs one of the app's commands (the desktop's are Rust's, src-tauri/src/lib.rs) and answers what it
    *  returns; rejects with the command's error as it is, not always an Error. */
@@ -33,6 +38,8 @@ export interface Platform {
   /** Where a picture or video from GitHub loads from, when the app keeps copies of them (the desktop's
    *  avatar:// and media:// schemes); without it, from GitHub itself. */
   mediaUrl?: (kind: Media, url: string) => string;
+  /** What this app can't do, as `false`; anything left out it can. */
+  features?: Partial<Record<Feature, boolean>>;
 }
 
 declare global {
@@ -58,3 +65,6 @@ export function platform(): Platform {
 /** One of the app's commands (Platform.invoke), through the platform set now. */
 export const invoke = <T>(command: string, args?: Args, options?: InvokeOptions): Promise<T> =>
   platform().invoke<T>(command, args, options);
+
+/** Whether the app the screens run in can do this (Platform.features). */
+export const supports = (feature: Feature): boolean => platform().features?.[feature] ?? true;

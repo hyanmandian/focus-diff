@@ -11,8 +11,9 @@ import {
   type ReviewSession,
   type ReviewTime,
 } from "../../utils/config/config";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
+import { fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
 import { setLanguage } from "../../utils/i18n/i18n";
+import { setPlatform } from "../../utils/platform/platform";
 import { ReviewTimePane } from "./settings-review-time";
 
 beforeEach(() => {
@@ -105,6 +106,12 @@ describe("ReviewTimePane", () => {
   it("names an untitled review time by default in the next one", () => {
     setup({ enabled: true, sessions: [session({ name: "" })] });
     expect(screen.getByText(/“Review time”/u)).toBeTruthy();
+  });
+
+  it("counts down on the toolbar button in the browser extension", () => {
+    setPlatform({ ...fakePlatform, features: { tray: false } });
+    setup();
+    expect(screen.getByText(/counts the time down on its toolbar button/u)).toBeTruthy();
   });
 
   it("says when no review time is coming", () => {

@@ -10,7 +10,7 @@ This repository holds everything Focus Diff is, as npm workspaces:
 
 ```text
 packages/
-  extension/      the browser extension: WXT and TypeScript
+  extension/      the browser extension: WXT, running the app's screens in a browser
   desktop/        the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
   app/            the screens both apps run and their logic, on a pluggable platform (see its README)
   site/           focus-diff.com, a static page
@@ -27,31 +27,45 @@ and Vitest at 100%.
 
 ### The extension (`packages/extension`)
 
-Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runtime dependencies.
+Built with [WXT](https://wxt.dev), it runs the Mac app's screens (`packages/app`) on the design system, as the desktop
+does: React with the React Compiler, Tailwind v4. Its runtime dependencies are the workspace packages, React and
+`@pierre/diffs` (the review's syntax colouring); `npm run check` allows exactly those.
 
 ```sh
 npm run dev         # Chrome with the extension loaded and hot reload (dev:firefox for Firefox)
-npm run check       # types, Oxlint, Oxfmt, jscpd (no copy-paste), no runtime dependencies, the lockfile, Knip (unused code)
+npm run check       # types, Oxlint, Oxfmt, jscpd (no copy-paste), the allowed runtime dependencies, the lockfile, Knip
 npm test            # unit tests with Vitest (test:coverage adds coverage, which must be 100%)
 npm run e2e         # builds, then runs Playwright against the real extension, with axe accessibility checks
 npm run fmt         # format everything
 npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)
-npm run build:demo  # the welcome page's live demo as one script for the site, in .output/demo/
 npm run screenshots -- <pull request files URL>  # store and README images in store/screenshots/, then optimise them
 ```
 
+Set `FOCUS_DIFF_GITHUB_CLIENT_ID` when building to offer signing in with a code (GitHub's device flow), as the
+desktop's build does; without it, setup offers a personal access token.
+
+How it fits together: each page (the popup is the panel, the options page Settings, `setup.html` first-run setup,
+`review.html` a pull request's review) plugs in a `Platform` (`utils/web-platform`) that sends the app's commands, by
+the desktop's names, over a port named for its window to the background (`utils/command-server`), and hears its events
+(`snapshot`, `file-changed`, `drafts`, `review-open`) the same way. The background is what the desktop's Rust is: it
+keeps the token and calls GitHub (`utils/github-api`, with the ETag cache), runs core's queue engine on an alarm with
+notifications and the toolbar badge (`utils/queue-service`), sends pending review comments and viewed marks until GitHub
+takes them (`utils/drafts`, `utils/viewed-outbox`), keeps the app's files and the last copy of each review in local
+storage (`utils/app-files`, `utils/kept`), and opens the review tabs (`utils/windows`). What a browser can't do (quit,
+update itself, the AI tools, running commands, attaching files as github.com does) the platform says in
+`Platform.features`, and the screens leave it out. `utils/migration` moves an earlier version's settings over on update.
+
 ```text
 src/
-  entrypoints/      what the browser loads: background, a content script per supported site, the popup, options,
-                    welcome and offscreen pages; each only wires up a component or util
-  components/       the UI: functions that build elements and return how to update them; panel/ lays the bar's
-                    others out in a shadow root, mount-bar/ puts it on a review page, *-page/ are the extension's pages
-  utils/            the logic: the review and its moves (review/, review-controller/, review-navigation/), one
-                    <site>-provider/ per supported site with its page reading (github-page/), filters, storage,
-                    inbox, review time, the background's work (background/, review-scheduler/)
-  assets/           global.css: the extension pages' colours, reset and type
-  locales/          English and Brazilian Portuguese messages
-tests/              Playwright end-to-end tests, on a local copy of a pull request page
+  entrypoints/      what the browser loads: the background, the popup, options, setup and review pages, and the
+                    content scripts for github.com; each only wires up a component or util
+  components/       the review tab and the bar on github.com (React, in a shadow root with the design system's tokens)
+  utils/            the background's work, the pages' platform, and the bar's page reading (github-page/,
+                    github-provider/) and filtering
+  assets/           pages.css: Tailwind, the design system and the screens' styles for the extension's pages
+  locales/          the manifest's English and Brazilian Portuguese messages (the screens' are packages/app's)
+tests/              Playwright end-to-end tests: the popup, Settings, setup, a review on sample data, the bar on saved
+                    pull request pages, and moving an earlier version's settings over
 ```
 
 ### The Mac app (`packages/desktop`)
@@ -71,22 +85,18 @@ plugs in the Tauri platform and draws a screen), `src/utils/tauri-platform/`, `s
 `src/hooks/<name>/<name>.ts` and `src/utils/<name>/<name>.ts`, each with its `<name>.test.tsx` beside it, kebab-case,
 imported directly (no index files).
 
-The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`utils/review/review.ts`) as on a review site. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
+The extension's code follows the same layout as the Mac app's: `src/components/<name>/<name>.tsx` and `src/utils/<name>/<name>.ts`, kebab-case, one folder per module even when it has a single file, each with its unit test (Vitest with WXT's fake browser) beside it. Import the file itself, never an index. `src/entrypoints/` stays thin: WXT needs it, and its files only wire up a component or util.
 
-Its code follows the same layout as the Mac app's: `src/components/<name>/<name>.ts` (UI that builds elements) and `src/utils/<name>/<name>.ts` (logic), kebab-case, one folder per module even when it has a single file, each with its unit test (Vitest with WXT's fake browser) beside it as `<name>.test.ts`. Import the file itself, never an index. `src/entrypoints/` stays thin: WXT needs it, and its files only wire up a component or util.
-
-The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
+The extension's end-to-end tests serve saved pull request pages in place of github.com and answer GitHub's API from sample data, so they don't depend on the network.
 
 ## Adding a site
 
-The bar, its numbers and its moves are the same on every site. What differs is where a site keeps a review's files, counters, file tree and conversations, and that's a provider's job. To add a site, say GitLab:
+The bar, its numbers and its moves are the same on every site. What differs is where a site keeps a review's files, counters and file tree, and that's a provider's job. To add a site, say GitLab:
 
 1. `src/utils/gitlab-provider/gitlab-provider.ts` exports a `Provider` (see `src/utils/provider/provider.ts`) that reads its merge request pages. Keep the reading of the page in a module of its own, with unit tests next to it, like `utils/github-page/github-page.ts`.
-2. `src/components/gitlab-theme/gitlab-theme.css` sets the bar's `--fd-*` properties from the site's own design tokens, with the site's light and dark values as fallbacks, like `components/github-theme/github-theme.css` (and `components/mount-bar/mount-bar.ts` leaves it out of the bar's own styles).
-3. `src/utils/providers/providers.ts` lists it, with its name and its theme, which loads only when it's needed.
-4. `src/entrypoints/gitlab.content.ts` runs the bar there, like `github.content.ts`: each site's content script carries only its own provider.
-5. A saved page in `tests/fixtures/` and end-to-end tests on it, like the GitHub ones.
-6. The places that name the supported sites by hand: the manifest description in the locales, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and the store listings.
+2. `src/entrypoints/gitlab.content.ts` runs the bar there, like `github.content.ts`: each site's content script carries only its own provider. The bar wears the design system's look on every site, light or dark as the site is (`utils/bar-theme`).
+3. A saved page in `tests/fixtures/` and end-to-end tests on it, like `tests/bar.spec.ts`.
+4. The places that name the supported sites by hand: the manifest's host permissions and description, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and the store listings.
 
 ## Releasing
 
@@ -96,7 +106,7 @@ The Mac app has its own release pull request (tagged `desktop-v…`). Merging it
 
 ## Supply chain
 
-- Add no runtime dependency: the extension ships only its own code, and `npm run check` enforces it.
+- Add no runtime dependency beyond the extension's allowed ones (the workspace packages, React, `@pierre/diffs`): `npm run check` enforces it.
 - Pin every action to a full commit SHA with its version in a comment (`uses: owner/action@<sha> # vX.Y.Z`), and give each job only the permissions it needs. Dependabot keeps both up to date.
 - The Security workflow lints the workflows (actionlint, zizmor), scans the lockfile (OSV-Scanner) and the commits (TruffleHog), runs CodeQL and reviews new dependencies on pull requests, and runs OpenSSF Scorecard on `main`. Fix what it reports in the same pull request.
 - Use the Node.js version in `.nvmrc`.
@@ -105,6 +115,6 @@ The Mac app has its own release pull request (tagged `desktop-v…`). Merging it
 
 - Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
-- Put new text in both `src/locales/en.json` and `src/locales/pt_BR.json`.
+- Put new text in both languages: the screens' in `packages/app/src/locales`, the manifest's in `packages/extension/src/locales`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.
-- Check the panel in the site's light and dark themes, and with the keyboard.
+- Check the screens and the bar in light and dark, and with the keyboard.

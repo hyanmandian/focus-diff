@@ -4,8 +4,6 @@ import path from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium, test as base, type BrowserContext, type Locator, type Page, type Worker } from "@playwright/test";
 
-import type { Config } from "../src/utils/filters/filters";
-
 const extensionPath = path.resolve(".output/chrome-mv3");
 const pullRequestHtml = readFileSync(path.resolve("tests/fixtures/pull-request.html"), "utf8");
 const virtualizedHtml = readFileSync(path.resolve("tests/fixtures/pull-request-virtualized.html"), "utf8");
@@ -19,13 +17,34 @@ const largeHtml = pullRequestHtml
   .replace("['web/src/book-card.tsx', 40, 10", "['web/src/book-card.tsx', 12040, 1510")
   .replace("['api/books/service.py', 25, 10", "['api/books/service.py', 2525, 310");
 
+/** A filter of the app's setup (config.json's `filters`). */
+export interface Filter {
+  id: string;
+  name: string;
+  include: string;
+  exclude: string;
+  repos: string[];
+}
+
+/** The part of the app's setup the bar reads. */
+export interface Config {
+  filters: Filter[];
+  theme?: "system" | "light" | "dark";
+  language?: "system" | "en" | "pt-BR";
+}
+
 export const DEFAULT_CONFIG: Config = {
-  global: [
-    { id: "frontend", name: "Frontend", include: "\\.(ts|tsx|js|jsx)$", exclude: "\\.(test|spec|stories)\\." },
-    { id: "backend", name: "Backend", include: "\\.py$", exclude: "(^|/)tests/" },
-    { id: "docs", name: "Docs", include: "\\.mdx?$", exclude: "" },
+  filters: [
+    {
+      id: "frontend",
+      name: "Frontend",
+      include: "\\.(ts|tsx|js|jsx)$",
+      exclude: "\\.(test|spec|stories)\\.",
+      repos: [],
+    },
+    { id: "backend", name: "Backend", include: "\\.py$", exclude: "(^|/)tests/", repos: [] },
+    { id: "docs", name: "Docs", include: "\\.mdx?$", exclude: "", repos: [] },
   ],
-  repos: [],
 };
 
 /** Chrome picks its UI language, and so the extension's, from `--lang` everywhere but macOS. */
@@ -41,6 +60,8 @@ interface Fixtures {
   seed: (config: Config) => Promise<void>;
   openPullRequest: (url?: string) => Promise<Page>;
   openExtensionPage: (file: string) => Promise<Page>;
+  /** Signs in to GitHub with a token, as Settings does, from one of the extension's pages. */
+  signIn: (page: Page) => Promise<void>;
   pageErrors: string[];
 }
 
@@ -74,7 +95,8 @@ export const test = base.extend<Fixtures>({
 
   seed: async ({ background }, use) => {
     await use(async (config) => {
-      await background.evaluate((value) => chrome.storage.sync.set({ config: value }), config);
+      // The app's setup, as the background keeps config.json (src/utils/app-files).
+      await background.evaluate((text) => chrome.storage.local.set({ "file.config": text }), JSON.stringify(config));
     });
   },
 
@@ -89,9 +111,8 @@ export const test = base.extend<Fixtures>({
       page.on("pageerror", (error) => pageErrors.push(error.message));
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(url);
-      await page
-        .locator("focus-diff-panel .panel")
-        .waitFor({ state: url.endsWith("/changes") ? "visible" : "attached" });
+      if (url.endsWith("/changes")) await page.locator("focus-diff-bar [role=group]").waitFor();
+      else await page.locator("focus-diff-bar").waitFor({ state: "attached" });
       return page;
     });
   },
@@ -105,13 +126,20 @@ export const test = base.extend<Fixtures>({
       return page;
     });
   },
+
+  signIn: async ({}, use) => {
+    await use(async (page) => {
+      await page.evaluate(() => window.focusDiffPlatform!.invoke("auth_use_token", { token: "ghp_sample" }));
+    });
+  },
 });
 
 export const expect = test.expect;
 
-export const accessibilityViolations = async (page: Page, include?: string) => {
+export const accessibilityViolations = async (page: Page, include?: string, skip: string[] = []) => {
   const builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "best-practice"]);
   if (include) builder.include(include);
+  if (skip.length > 0) builder.disableRules(skip);
   const { violations } = await builder.analyze();
   return violations.map(
     (violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`,
@@ -127,13 +155,14 @@ export const PAGE_VIEWS = [
 /** A page in a theme and width has no accessibility violations and doesn't scroll sideways, once `ready` is there. */
 export const expectSoundPage = async (
   page: Page,
-  [colorScheme, width]: (typeof PAGE_VIEWS)[number],
+  [colorScheme, width]: readonly ["light" | "dark", number],
   ready: Locator,
+  skip: string[] = [],
 ) => {
   await page.setViewportSize({ width, height: 900 });
   await page.emulateMedia({ colorScheme });
   await expect(ready).not.toHaveCount(0);
-  // Polled: right after the resize the page may still be laid out for the old width.
+  // Polled: right after a resize, the page may not have laid itself out at the new width yet.
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   // Contrast is checked as the page rests, not halfway through a fade, like the bar's as it comes in.
   await page.evaluate(() => {
@@ -143,5 +172,5 @@ export const expectSoundPage = async (
     const animations = roots.flatMap((root) => root.getAnimations());
     return Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
   });
-  expect(await accessibilityViolations(page)).toEqual([]);
+  expect(await accessibilityViolations(page, undefined, skip)).toEqual([]);
 };

@@ -4,8 +4,9 @@ import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { defaultConfig, type Action, type ActionStep, type Config } from "../../utils/config/config";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
+import { fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
 import { setLanguage } from "../../utils/i18n/i18n";
+import { setPlatform } from "../../utils/platform/platform";
 import { Actions } from "./settings-actions";
 
 afterEach(() => {
@@ -219,6 +220,19 @@ describe("Actions", () => {
     await user.click(screen.getByRole("button", { name: "Button" }));
     expect(asked).toEqual([]);
     expect(current()).toMatchObject({ steps, choices: [] });
+  });
+
+  it("offers no commands where the app can't run them (the browser extension): a comment to start", async () => {
+    setPlatform({ ...fakePlatform, features: { commands: false } });
+    const { user, last, current } = setup([]);
+    await user.click(screen.getByRole("button", { name: "Add an action" }));
+    expect(last().actions[0]!.steps).toEqual([{ kind: "comment", body: "" }]);
+    await user.click(screen.getByRole("button", { name: "Add Step" }));
+    await screen.findByRole("menuitem", { name: /^Comment/u });
+    expect(screen.queryByRole("menuitem", { name: /^Run a command/u })).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+    expect(current().choices[0]!.steps).toEqual([{ kind: "comment", body: "" }]);
   });
 
   it("starts a menu from an empty button with a command to run", async () => {

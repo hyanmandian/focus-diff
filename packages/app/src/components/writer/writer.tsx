@@ -36,6 +36,7 @@ import { bridge, type UploadError } from "../../utils/bridge/bridge";
 import { useT } from "../../utils/i18n/i18n";
 import { tabKeys } from "../../utils/keys/keys";
 import { isMac } from "../../utils/os/os";
+import { supports } from "../../utils/platform/platform";
 import { suggestionBlock } from "../../utils/suggestion/suggestion";
 import {
   emoji,
@@ -207,6 +208,8 @@ export function MarkdownField({
   const [message, setMessage] = useState<{ kind: "sign-in" | "ended" } | { kind: "error"; text: string } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const session = useWebSession();
+  // Attaching as github.com does, where the app can (the browser extension can't).
+  const uploads = supports("uploads");
   // The text as it is now, for uploads that finish after it changed.
   const latest = useRef(value);
   useLayoutEffect(() => {
@@ -334,7 +337,7 @@ export function MarkdownField({
   /** Pictures and videos into the comment: a placeholder for each at the caret, then each as
    *  github.com writes it once it's uploaded. */
   const attach = (files: File[]) => {
-    if (!api || !number || files.length === 0) return;
+    if (!api || !number || !uploads || files.length === 0) return;
     const list = files.filter((file) => attachable(file));
     if (list.length < files.length) setMessage({ kind: "error", text: t("review.uploadUnsupported") });
     if (list.length === 0) return;
@@ -454,7 +457,7 @@ export function MarkdownField({
             <TooltipContent>{t("review.suggestChangeTip")}</TooltipContent>
           </Tooltip>
         ) : null}
-        {api && number ? (
+        {api && number && uploads ? (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -586,7 +589,7 @@ export function MarkdownField({
               }}
               onPaste={(e) => {
                 const files = [...e.clipboardData.files];
-                if (files.length > 0) {
+                if (files.length > 0 && uploads) {
                   e.preventDefault();
                   attach(files);
                   return;
@@ -607,7 +610,7 @@ export function MarkdownField({
                 if (e.dataTransfer.types.includes("Files")) e.preventDefault();
               }}
               onDrop={(e) => {
-                if (e.dataTransfer.files.length === 0) return;
+                if (e.dataTransfer.files.length === 0 || !uploads) return;
                 e.preventDefault();
                 // Where it's dropped is where it goes.
                 const el = e.currentTarget;

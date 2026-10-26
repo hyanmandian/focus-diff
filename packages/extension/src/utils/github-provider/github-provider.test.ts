@@ -18,15 +18,6 @@ const load = (name: string, address: string) => {
   Reflect.apply(new Function(script.textContent), undefined, []);
 };
 
-const fileOf = (diff: ReturnType<typeof github.diffs>[number]) => ({
-  path: diff.path,
-  anchor: diff.anchor,
-  stats: diff.stats(),
-  viewed: false,
-  diff: { element: diff.element, container: diff.container },
-  threads: [],
-});
-
 describe("github", () => {
   beforeEach(() => {
     document.head.innerHTML = "";
@@ -65,19 +56,6 @@ describe("github", () => {
     expect(github.tree.folders().map((folder) => folder.path)).toContain("api/books");
     expect(github.diffAt("0")).toBe(diffs[0]?.element);
     expect(github.hashOf("0")).toBe("#diff-0");
-    expect(
-      github
-        .conversations(
-          diffs.map((diff) => fileOf(diff)),
-          false,
-        )
-        .map(({ file, line, state }) => [file.path, line, state]),
-    ).toEqual([
-      ["web/src/book-card.tsx", 12, "waiting"],
-      ["api/books/service.py", 3, "resolved"],
-      ["api/books/service.py", 40, "answered"],
-      ["docs/books.md", 7, "answered"],
-    ]);
   });
 
   it("reads the newer view from the data GitHub embeds", () => {

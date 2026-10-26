@@ -10,7 +10,9 @@ describe("what a browser has no part of", () => {
   it("offers no update: the store updates the extension", () => {
     expect(commands.update_offered!({}, from)).toBeNull();
     expect(commands.check_update!({}, from)).toBeNull();
-    expect(() => commands.install_update!({}, from)).toThrow("Your browser updates Focus Diff from its extension store");
+    expect(() => commands.install_update!({}, from)).toThrow(
+      "Your browser updates Focus Diff from its extension store",
+    );
   });
 
   it("has no AI tools, as a Mac with none installed", () => {

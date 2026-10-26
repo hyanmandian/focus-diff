@@ -20,8 +20,15 @@ vi.mock("@focus-diff/app/components/review", () => ({
 }));
 vi.mock("@focus-diff/app/components/viewer", () => ({ Viewer: () => null }));
 
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- no workers in a test: the review is a stand-in
 const pool = null as never;
-const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+const settle = () =>
+  act(
+    () =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      }),
+  );
 
 describe("a review in a tab", () => {
   let server: CommandServer;
@@ -72,8 +79,8 @@ describe("a review in a tab", () => {
 
   it("slides the way it went through the queue, where the browser can", async () => {
     await open();
-    const finished = Promise.withResolvers<undefined>();
-    const transition = vi.fn((update: () => void) => {
+    const finished = Promise.withResolvers<null>();
+    const transition = vi.fn<(update: () => void) => { finished: Promise<null> }>((update) => {
       update();
       return { finished: finished.promise };
     });
@@ -84,7 +91,7 @@ describe("a review in a tab", () => {
     expect(transition).toHaveBeenCalled();
     expect(document.documentElement.dataset.direction).toBe("forward");
     expect(screen.getByRole("heading").textContent).toBe("acme/api#3  q");
-    finished.resolve(undefined);
+    finished.resolve(null);
     await settle();
     expect(document.documentElement.dataset.direction).toBeUndefined();
     // With Reduce Motion, it just shows.

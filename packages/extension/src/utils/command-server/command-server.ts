@@ -77,7 +77,12 @@ export const startCommandServer = (commands: Commands): CommandServer => {
         if (!command) throw new Error(unknownCommand(message.command));
         value = await command(isRecord(message.args) ? message.args : {}, page);
       }
-      send(port, { type: "reply", id: message.id, ok: true, value: value instanceof Uint8Array ? toBytes(value) : value });
+      send(port, {
+        type: "reply",
+        id: message.id,
+        ok: true,
+        value: value instanceof Uint8Array ? toBytes(value) : value,
+      });
     } catch (error) {
       send(port, { type: "reply", id: message.id, ok: false, error: toError(error) });
     }

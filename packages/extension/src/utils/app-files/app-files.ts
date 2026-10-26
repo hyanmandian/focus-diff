@@ -3,7 +3,6 @@
 // in the browser's local storage, as the same text.
 
 import { storage } from "#imports";
-
 import type { Commands } from "@/utils/command-server/command-server";
 
 export const FILES = ["config", "pace"] as const;
@@ -18,7 +17,8 @@ export const UNKNOWN_FILE = "Unknown file";
 
 export const readAppFile = (name: AppFile): Promise<string | null> => storage.getItem<string>(fileKey(name));
 
-export const writeAppFile = (name: AppFile, contents: string): Promise<void> => storage.setItem(fileKey(name), contents);
+export const writeAppFile = (name: AppFile, contents: string): Promise<void> =>
+  storage.setItem(fileKey(name), contents);
 
 /** read_file and write_file. A write tells every page ("file-changed") and `changed`, which follows the setup. */
 export const appFileCommands = (changed: (name: AppFile, contents: string) => void | Promise<void>): Commands => ({

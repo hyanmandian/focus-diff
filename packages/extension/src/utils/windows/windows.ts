@@ -1,9 +1,9 @@
 // The app's windows, as tabs: a pull request's review (one tab per pull request, as the desktop has one window each),
 // Settings (the options page), setup, the panel (the popup) and links, as lib.rs opens them.
 
-import { storage } from "#imports";
 import { browser } from "wxt/browser";
 
+import { storage } from "#imports";
 import type { CommandServer, Commands, Sender } from "@/utils/command-server/command-server";
 import { tr } from "@/utils/words/words";
 
@@ -26,12 +26,20 @@ const text = (value: unknown) => (typeof value === "string" ? value : "");
 
 /** The pull request a command names, if its id, repository, teams and queue are what GitHub and the app make (lib.rs
  *  `plausible`): they go into an address and events. */
+const token = (s: string) => /^[\w-]*$/u.test(s);
+const name = (s: string) => /^[\w./-]*$/u.test(s);
+
 export const targetOf = (args: Record<string, unknown>): Target => {
-  const token = (s: string) => /^[\w-]*$/u.test(s);
-  const name = (s: string) => /^[\w./-]*$/u.test(s);
   const teams = Array.isArray(args.teams) ? args.teams.map((team) => text(team)) : [];
   const queue = typeof args.queue === "string" ? args.queue : null;
-  const target = { id: text(args.id), repo: text(args.repo), number: Number(args.number), teams, queue, title: text(args.title) };
+  const target = {
+    id: text(args.id),
+    repo: text(args.repo),
+    number: Number(args.number),
+    teams,
+    queue,
+    title: text(args.title),
+  };
   const plausible =
     token(target.id) &&
     target.id !== "" &&
@@ -68,7 +76,8 @@ const pageIn = (server: CommandServer, matches: (page: Sender) => boolean) =>
 
 /** Web links only, in a new tab. */
 export const openUrl = async (url: unknown) => {
-  if (typeof url !== "string" || !url.startsWith("https://")) throw new Error(tr("Only https links open", "Só links https abrem"));
+  if (typeof url !== "string" || !url.startsWith("https://"))
+    throw new Error(tr("Only https links open", "Só links https abrem"));
   await browser.tabs.create({ url });
 };
 

@@ -17,7 +17,16 @@ const heard = (port: Browser.runtime.Port) => {
   return messages;
 };
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
+/** A page's message to the background. */
+const send = (port: Browser.runtime.Port, message: unknown) => {
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a runtime port, not a window
+  port.postMessage(message);
+};
 
 describe("the background's command server", () => {
   const start = (commands: Commands = {}) => {
@@ -26,7 +35,7 @@ describe("the background's command server", () => {
   };
 
   it("answers a page's commands with what they return, bytes as base64, and says why one failed", async () => {
-    const asked = vi.fn();
+    const asked = vi.fn<(args: unknown, from: unknown) => void>();
     start({
       snapshot: (args, from) => {
         asked(args, from);
@@ -36,25 +45,20 @@ describe("the background's command server", () => {
       broken: () => {
         throw new Error("GitHub returned 500");
       },
-      refused: async () => {
-        await Promise.resolve();
-        // oxlint-disable-next-line typescript/only-throw-error -- the app's upload errors are plain objects
-        throw { kind: "not_signed_in" };
-      },
-      odd: () => {
-        // oxlint-disable-next-line typescript/only-throw-error -- Tauri's commands reject with strings, and so may these
-        throw "absent";
-      },
+      // The app's upload errors are plain objects.
+      refused: () => Promise.reject({ kind: "not_signed_in" }),
+      // Tauri's commands reject with strings, and so may these.
+      odd: () => Promise.reject("absent"),
     });
     const page = connect("focus-diff:panel");
     const messages = heard(page);
-    page.postMessage({ type: "invoke", id: 1, command: "snapshot", args: { force: true } });
-    page.postMessage({ type: "invoke", id: 2, command: "github_file", args: null });
-    page.postMessage({ type: "invoke", id: 3, command: "broken", args: {} });
-    page.postMessage({ type: "invoke", id: 4, command: "refused", args: {} });
-    page.postMessage({ type: "invoke", id: 5, command: "odd", args: {} });
-    page.postMessage({ type: "invoke", id: 6, command: "toString", args: {} });
-    page.postMessage({ type: "ping" });
+    send(page, { type: "invoke", id: 1, command: "snapshot", args: { force: true } });
+    send(page, { type: "invoke", id: 2, command: "github_file", args: null });
+    send(page, { type: "invoke", id: 3, command: "broken", args: {} });
+    send(page, { type: "invoke", id: 4, command: "refused", args: {} });
+    send(page, { type: "invoke", id: 5, command: "odd", args: {} });
+    send(page, { type: "invoke", id: 6, command: "toString", args: {} });
+    send(page, { type: "ping" });
     await settle();
     expect(asked).toHaveBeenCalledWith({ force: true }, { window: "panel" });
     expect(messages.toSorted((a, b) => (a.type === "reply" && b.type === "reply" ? a.id - b.id : 0))).toEqual([
@@ -69,7 +73,7 @@ describe("the background's command server", () => {
 
   it("knows the pages open, and the tab each is in", () => {
     const { ports, server } = start();
-    const opened = vi.fn();
+    const opened = vi.fn<(page: unknown) => void>();
     server.onConnect(opened);
     connect("focus-diff:panel");
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the browser's tab, with only what's read
@@ -91,8 +95,8 @@ describe("the background's command server", () => {
     server.broadcast("panel-shown");
     expect(server.emitTo("settings", "settings-pane", "ai")).toBe(true);
     expect(server.emitTo("setup", "anything")).toBe(false);
-    settings.postMessage({ type: "emit", id: 1, window: "panel", event: "hello", payload: 1 });
-    settings.postMessage({ type: "emit", id: 2, window: "setup", event: "hello", payload: 1 });
+    send(settings, { type: "emit", id: 1, window: "panel", event: "hello", payload: 1 });
+    send(settings, { type: "emit", id: 2, window: "setup", event: "hello", payload: 1 });
     await settle();
     expect(panel).toEqual([
       { type: "event", event: "snapshot", payload: { ready: true }, own: false },

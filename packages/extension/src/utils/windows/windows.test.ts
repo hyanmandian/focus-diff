@@ -6,23 +6,34 @@ import type { CommandServer, Sender } from "@/utils/command-server/command-serve
 
 import { BAD_PULL, openUrl, reviewUrl, targetOf, windowCommands } from "./windows";
 
-const pull = { id: "PR_1", repo: "acme/web", number: 12, teams: ["acme/web-team"], queue: "q1", title: "#12 · Fix login · Ana" };
+const pull = {
+  id: "PR_1",
+  repo: "acme/web",
+  number: 12,
+  teams: ["acme/web-team"],
+  queue: "q1",
+  title: "#12 · Fix login · Ana",
+};
 
 const setup = () => {
   let pages: Sender[] = [];
   const server = {
     pages: () => pages,
-    emitTo: vi.fn(() => true),
-    broadcast: vi.fn(),
-    onConnect: vi.fn(),
+    emitTo: vi.fn<CommandServer["emitTo"]>(() => true),
+    broadcast: vi.fn<CommandServer["broadcast"]>(),
+    onConnect: vi.fn<CommandServer["onConnect"]>(),
   } satisfies CommandServer;
   let next = 10;
-  const created = vi.spyOn(fakeBrowser.tabs, "create").mockImplementation((info) => {
+  const created = vi.fn<(info: { url?: string }) => Promise<Partial<Browser.tabs.Tab>>>(async (info) => {
     const id = next++;
     pages = [...pages, { window: `review-${id}`, tabId: id, windowId: 1 }];
-    return Promise.resolve({ id, url: info.url } as Browser.tabs.Tab);
+    await Promise.resolve();
+    return { id, url: info.url };
   });
+  Object.assign(fakeBrowser.tabs, { create: created });
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- what the browser answers isn't read
   const updated = vi.spyOn(fakeBrowser.tabs, "update").mockResolvedValue({} as never);
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- what the browser answers isn't read
   const focused = vi.spyOn(fakeBrowser.windows, "update").mockResolvedValue({} as never);
   return {
     commands: windowCommands(server),
@@ -54,7 +65,8 @@ describe("the app's windows, as tabs", () => {
     setPages([]);
     await commands.open_review!(pull, { window: "panel" });
     expect(created).toHaveBeenCalledTimes(2);
-    created.mockResolvedValueOnce({} as never);
+    // A tab without an id, as the browser may answer.
+    created.mockResolvedValueOnce({});
     await commands.open_review!({ ...pull, id: "PR_2" }, { window: "panel" });
     expect(created).toHaveBeenCalledTimes(3);
   });
@@ -109,7 +121,10 @@ describe("the app's windows, as tabs", () => {
     setPages([{ window: "setup", tabId: 3 }, { window: "panel" }]);
     await commands.open_setup!({}, { window: "panel" });
     expect(updated).toHaveBeenCalledWith(3, { active: true });
-    const popup = vi.spyOn(fakeBrowser.action, "openPopup").mockResolvedValueOnce().mockRejectedValueOnce(new Error("no"));
+    const popup = vi
+      .spyOn(fakeBrowser.action, "openPopup")
+      .mockResolvedValueOnce()
+      .mockRejectedValueOnce(new Error("no"));
     await commands.open_panel!({}, { window: "setup" });
     await commands.open_panel!({}, { window: "setup" });
     expect(popup).toHaveBeenCalledTimes(2);

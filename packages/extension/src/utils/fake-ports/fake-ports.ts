@@ -21,10 +21,12 @@ const end = (name: string, sender?: Browser.runtime.MessageSender): End => {
   const self: End = {
     messages,
     disconnects,
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a port with what the extension uses of one
     port: {
       name,
       sender,
       postMessage: (message: unknown) => {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the copy of a message the listeners name
         const copy = JSON.parse(JSON.stringify(message)) as never;
         for (const listener of self.other!.messages) listener(copy);
       },
@@ -32,10 +34,14 @@ const end = (name: string, sender?: Browser.runtime.MessageSender): End => {
         for (const listener of self.other!.disconnects) listener();
       },
       onMessage: {
-        addListener: (listener: Listener) => messages.add(listener),
+        addListener: (listener: Listener) => {
+          messages.add(listener);
+        },
       },
       onDisconnect: {
-        addListener: (listener: () => void) => disconnects.add(listener),
+        addListener: (listener: () => void) => {
+          disconnects.add(listener);
+        },
       },
     } as unknown as Browser.runtime.Port,
   };
@@ -50,9 +56,11 @@ export const fakePorts = () => {
   let tab: Browser.tabs.Tab | undefined;
   Object.assign(fakeBrowser.runtime, {
     onConnect: {
-      addListener: (listener: (port: Browser.runtime.Port) => void) => background.add(listener),
+      addListener: (listener: (port: Browser.runtime.Port) => void) => {
+        background.add(listener);
+      },
     },
-    connect: vi.fn((info: { name: string }) => {
+    connect: vi.fn<(info: { name: string }) => Browser.runtime.Port>((info) => {
       const page = end(info.name);
       const there = end(info.name, tab ? { tab } : {});
       page.other = there;

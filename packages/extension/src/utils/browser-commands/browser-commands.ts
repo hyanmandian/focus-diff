@@ -15,7 +15,10 @@ export const browserCommands = (): Commands => ({
   update_offered: nothing,
   check_update: nothing,
   install_update: needsMac(() =>
-    tr("Your browser updates Focus Diff from its extension store", "Seu navegador atualiza o Focus Diff pela loja de extensões"),
+    tr(
+      "Your browser updates Focus Diff from its extension store",
+      "Seu navegador atualiza o Focus Diff pela loja de extensões",
+    ),
   ),
   // No AI tools in a browser: none installed, as the screens say when there's none on a Mac.
   ai_statuses: () => [],

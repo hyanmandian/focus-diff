@@ -7,7 +7,10 @@ import { fakePorts } from "@/utils/fake-ports/fake-ports";
 
 import { BROWSER_FEATURES, createWebPlatform, GONE, PING_MS } from "./web-platform";
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
 
 describe("the browser as the screens' platform", () => {
   let ports: ReturnType<typeof fakePorts>;
@@ -19,7 +22,7 @@ describe("the browser as the screens' platform", () => {
   });
 
   it("asks the background for the app's commands, bytes both ways", async () => {
-    const asked = vi.fn();
+    const asked = vi.fn<(args: unknown, window: string) => void>();
     startCommandServer({
       refresh: (args, from) => {
         asked(args, from.window);
@@ -39,7 +42,9 @@ describe("the browser as the screens' platform", () => {
       [{}, "panel"],
     ]);
     expect(await app.invoke("github_file", { repo: "acme/web" })).toEqual(new Uint8Array([1, 2, 255]));
-    expect(await app.invoke("upload_attachment", new Uint8Array([104, 105]), { headers: { "x-repo": "acme/web" } })).toEqual({
+    expect(
+      await app.invoke("upload_attachment", new Uint8Array([104, 105]), { headers: { "x-repo": "acme/web" } }),
+    ).toEqual({
       bytes: { $bytes: "aGk=" },
       headers: { "x-repo": "acme/web" },
     });
@@ -54,21 +59,21 @@ describe("the browser as the screens' platform", () => {
     startCommandServer({});
     const app = createWebPlatform("panel");
     const close = vi.spyOn(window, "close").mockImplementation(() => {});
-    const confirm = vi.fn(() => true);
+    const confirm = vi.fn<(text: string) => boolean>(() => true);
     Object.defineProperty(window, "confirm", { configurable: true, value: confirm });
     await app.invoke("hide_panel");
     await app.invoke("quit", new Uint8Array());
     expect(close).toHaveBeenCalledTimes(2);
     expect(await app.invoke("confirm", { title: "Delete?", message: "It goes for good.", ok: "Delete" })).toBe(true);
     expect(confirm).toHaveBeenCalledWith("Delete?\n\nIt goes for good.");
-    expect(await app.invoke("menu_state", { items: {} })).toBeUndefined();
+    expect(await app.invoke("menu_state", { items: {} })).toBeNull();
   });
 
   it("hears the background's events: everyone's, and its own window's", async () => {
     const server = startCommandServer({});
     const app = createWebPlatform("review-1");
-    const all = vi.fn();
-    const own = vi.fn();
+    const all = vi.fn<(payload: unknown) => void>();
+    const own = vi.fn<(payload: unknown) => void>();
     const stop = await app.listen("snapshot", all);
     await app.listenToWindow("review-open", own);
     await app.listen("review-open", all);
@@ -85,7 +90,7 @@ describe("the browser as the screens' platform", () => {
   it("sends an event to another window, or says it isn't open", async () => {
     const server = startCommandServer({});
     const settings = createWebPlatform("settings");
-    const pane = vi.fn();
+    const pane = vi.fn<(payload: unknown) => void>();
     await settings.listenToWindow("settings-pane", pane);
     const setup = createWebPlatform("setup");
     await setup.emitTo("settings", "settings-pane", "ai");
@@ -98,13 +103,15 @@ describe("the browser as the screens' platform", () => {
   it("knows its version, and closes its tab or the popup", async () => {
     startCommandServer({});
     const app = createWebPlatform("settings");
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the manifest, with only what's read
     vi.spyOn(fakeBrowser.runtime, "getManifest").mockReturnValue({ version: "2.0.0" } as Browser.runtime.Manifest);
     expect(await app.version()).toBe("2.0.0");
     const remove = vi.spyOn(fakeBrowser.tabs, "remove").mockResolvedValue();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the browser's tab, with only what's read
     const current = vi.spyOn(fakeBrowser.tabs, "getCurrent").mockResolvedValue({ id: 4 } as never);
     await app.closeWindow();
     expect(remove).toHaveBeenCalledWith(4);
-    current.mockResolvedValue(undefined);
+    current.mockResolvedValue();
     const close = vi.spyOn(window, "close").mockImplementation(() => {});
     await app.closeWindow();
     expect(close).toHaveBeenCalled();
@@ -114,7 +121,7 @@ describe("the browser as the screens' platform", () => {
     const pending = Promise.withResolvers<unknown>();
     const server = startCommandServer({ snapshot: () => pending.promise });
     const app = createWebPlatform("panel");
-    const heard = vi.fn();
+    const heard = vi.fn<(payload: unknown) => void>();
     await app.listen("snapshot", heard);
     const asking = app.invoke("snapshot");
     await settle();

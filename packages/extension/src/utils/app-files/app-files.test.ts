@@ -5,7 +5,7 @@ import { appFileCommands, readAppFile, UNKNOWN_FILE, writeAppFile } from "./app-
 
 describe("the app's files", () => {
   it("are read and written as the text the pages give, and a write is told", async () => {
-    const changed = vi.fn();
+    const changed = vi.fn<(name: string, contents: string) => void>();
     const commands = appFileCommands(changed);
     expect(await commands.read_file!({ name: "config" }, { window: "settings" })).toBeNull();
     await commands.write_file!({ name: "config", contents: '{"version":1}' }, { window: "settings" });

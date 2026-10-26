@@ -45,12 +45,16 @@ const closePage = async () => {
 
 /** The page's own answers, without the background. */
 const LOCAL: Record<string, (args: Record<string, unknown>) => unknown> = {
-  hide_panel: () => window.close(),
-  quit: () => window.close(),
+  hide_panel: () => {
+    window.close();
+  },
+  quit: () => {
+    window.close();
+  },
   // The browser's own dialog: the title, then what it means; OK is the default.
   confirm: ({ title, message }) => window.confirm(`${String(title)}\n\n${String(message)}`),
   // Review windows' menu bar commands: a browser has no menu bar.
-  menu_state: () => undefined,
+  menu_state: () => null,
 };
 
 /** The platform for a page that is the app's window `name`. */
@@ -88,11 +92,17 @@ export const createWebPlatform = (name: string): Platform => {
     return opened;
   };
 
+  /** A message to the background. */
+  const send = (message: PageMessage) => {
+    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a runtime port, not a window
+    connect().postMessage(message);
+  };
+
   const request = (message: PageRequest) =>
     new Promise<unknown>((resolve, reject) => {
       const id = ++next;
       pending.set(id, { resolve, reject });
-      connect().postMessage({ ...message, id } satisfies PageMessage);
+      send({ ...message, id });
     });
 
   const addListener = (event: string, handler: (payload: unknown) => void, own: boolean): Promise<Unlisten> => {
@@ -107,7 +117,7 @@ export const createWebPlatform = (name: string): Platform => {
 
   connect();
   setInterval(() => {
-    connect().postMessage({ type: "ping" } satisfies PageMessage);
+    send({ type: "ping" });
   }, PING_MS);
 
   return {
@@ -124,12 +134,24 @@ export const createWebPlatform = (name: string): Platform => {
     },
     // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the payload the app sends
     listen: <T>(event: string, handler: (payload: T) => void) =>
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the background sends the payload the listener names
-      addListener(event, (payload) => handler(payload as T), false),
+      addListener(
+        event,
+        (payload) => {
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the background sends the payload the listener names
+          handler(payload as T);
+        },
+        false,
+      ),
     // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the payload the app sends
     listenToWindow: <T>(event: string, handler: (payload: T) => void) =>
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the background sends the payload the listener names
-      addListener(event, (payload) => handler(payload as T), true),
+      addListener(
+        event,
+        (payload) => {
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the background sends the payload the listener names
+          handler(payload as T);
+        },
+        true,
+      ),
     emitTo: async (window, event, payload) => {
       await request({ type: "emit", window, event, payload: payload ?? null });
     },

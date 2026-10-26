@@ -310,9 +310,9 @@ export const startOptions = (): void => {
     const notifyOk = notifications.check();
     const popupOk = popupSettings.check();
     if (!filtersOk || !reposOk) {
+      // Every filter has its row, in the same order: the global ones', then each repository's.
       filters.forEach((filter, index) => {
-        const row = rows[index];
-        if (row) showFilterProblems(row, filter, { force: true });
+        showFilterProblems(rows[index]!, filter, { force: true });
       });
       say(filtersOk ? i18n.t("statusFixRepos") : i18n.t("statusFixFilters"), "error");
       document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();

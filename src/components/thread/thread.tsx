@@ -156,6 +156,7 @@ function CommentView({
   const api = useConversationApi();
   const [editing, setEditing] = useState(false);
   const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
+  const { body } = comment;
   return (
     <div className="group/said flex gap-2">
       <Person actor={comment.author} />
@@ -173,14 +174,14 @@ function CommentView({
               <CommentMenu
                 url={comment.url}
                 onQuote={
-                  comment.body === undefined
+                  body === undefined
                     ? undefined
                     : () => {
-                        onQuote(comment.body ?? "");
+                        onQuote(body);
                       }
                 }
                 onEdit={
-                  comment.canEdit && comment.body !== undefined
+                  comment.canEdit && body !== undefined
                     ? () => {
                         setEditing(true);
                       }
@@ -196,9 +197,9 @@ function CommentView({
             <Composer
               placeholder={t("review.commentPlaceholder")}
               submitLabel={t("review.save")}
-              initial={comment.body}
-              onSubmit={async (body) => {
-                await api.editComment(comment, body);
+              initial={body}
+              onSubmit={async (text) => {
+                await api.editComment(comment, text);
                 setEditing(false);
               }}
               onCancel={() => {
@@ -382,9 +383,9 @@ export function DraftView({
               {draft.replyTo ? t("review.pendingReply") : draft.file ? t("review.pendingOnFile") : t("review.pending")}
               {/* Where it is: on its way to your pending review on GitHub, or there. */}
               {error ? null : sending ? (
-                <span className="flex items-center gap-1 font-normal text-muted-foreground" role="status">
+                <output className="flex items-center gap-1 font-normal text-muted-foreground">
                   <CloudUpload className="size-3.5" aria-hidden /> {t("review.savingToGitHub")}
-                </span>
+                </output>
               ) : draft.id ? (
                 <span className="font-normal text-muted-foreground">· {t("review.onGitHub")}</span>
               ) : null}
@@ -442,8 +443,8 @@ function lastMode(): Mode {
   }
 }
 
-/** One question about the selected lines, and what came back. */
-type Turn = { question: string; answer?: string; note?: string };
+/** One question about the selected lines, and what came back. `id`: to tell them apart. */
+type Turn = { id: number; question: string; answer?: string; note?: string };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -506,12 +507,14 @@ export function NewComment({
     }
   };
 
+  // The question's field takes the focus when its tab opens (a comment's focuses itself).
   useEffect(() => {
-    field.current?.focus();
+    if (mode === "ask") field.current?.focus();
   }, [mode]);
   // The newest question and answer in view as they come (in braces: scrolling may return a promise).
   useEffect(() => {
-    latest.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+    if (turns.length > 0)
+      latest.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
   }, [turns]);
 
   const fail = (e: unknown) => {
@@ -539,16 +542,20 @@ export function NewComment({
   const send = async () => {
     const q = question.trim();
     if (!ask || !q || busy) return;
-    const earlier = turns.flatMap((t) => (t.answer ? [{ question: t.question, answer: t.answer }] : []));
+    const earlier = turns
+      .filter((turn): turn is Turn & { answer: string } => Boolean(turn.answer))
+      .map((turn) => ({ question: turn.question, answer: turn.answer }));
     setBusy(true);
     setError(null);
     setQuestion("");
-    setTurns((list) => [...list, { question: q }]);
+    setTurns((list) => [...list, { id: (list.at(-1)?.id ?? 0) + 1, question: q }]);
     const run = newRun();
     setAsked({ run, at: Date.now() });
     try {
       const a = await ask(q, earlier, run);
-      setTurns((list) => list.map((t, i) => (i === list.length - 1 ? { ...t, answer: a.text, note: a.note } : t)));
+      setTurns((list) =>
+        list.map((turn, i) => (i === list.length - 1 ? { ...turn, answer: a.text, note: a.note } : turn)),
+      );
     } catch (e) {
       // The question goes back in the box to try again.
       setTurns((list) => list.slice(0, -1));
@@ -560,7 +567,6 @@ export function NewComment({
       field.current?.focus();
     }
   };
-  const stop = () => asked && void bridge.aiCancel(asked.run);
 
   const submit = () => void (asking ? send() : comment(false));
 
@@ -568,6 +574,7 @@ export function NewComment({
     <Box className="p-0">
       <div className="flex items-center gap-3 px-3 pt-3">
         {/* A segmented control in content: the chosen segment in the accent, as Tahoe draws it. */}
+        {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- in a tab list the tabs take the focus (WAI-ARIA's tabs pattern), not the list. */}
         <div
           role="tablist"
           onKeyDown={tabKeys}
@@ -616,11 +623,11 @@ export function NewComment({
             aria-label={t("review.conversationWith", { name: askName })}
             className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1"
           >
-            {turns.map((turn, i) => (
-              <li key={i} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
+            {turns.map(({ id, question: text, answer, note }, i) => (
+              <li key={id} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
                 <p className="selectable max-w-[85%] animate-in self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   <span className="sr-only">{t("review.you")}</span>
-                  {turn.question}
+                  {text}
                 </p>
                 <div className="flex gap-2.5">
                   <span
@@ -629,17 +636,17 @@ export function NewComment({
                   >
                     <Sparkles className="size-3" />
                   </span>
-                  {turn.answer ? (
+                  {answer ? (
                     <div className="flex min-w-0 flex-1 animate-in flex-col gap-1.5 duration-300 fade-in-0 motion-reduce:animate-none">
                       <span className="sr-only">{askName}: </span>
-                      <AiAnswer text={turn.answer} />
-                      {turn.note ? <p className="text-subheadline text-muted-foreground">{turn.note}</p> : null}
+                      <AiAnswer text={answer} />
+                      {note ? <p className="text-subheadline text-muted-foreground">{note}</p> : null}
                       <div>
                         <Button
                           variant="ghost"
                           className="-ml-2.5 text-muted-foreground"
                           onClick={() => {
-                            setBody(turn.answer ?? "");
+                            setBody(answer);
                             setMode("comment");
                           }}
                         >
@@ -648,7 +655,7 @@ export function NewComment({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1" role="status">
+                    <output className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
                       {/* What it's doing and for how long, so a long answer doesn't look stuck. */}
                       <span className="text-subheadline text-muted-foreground tabular-nums">
                         {t("review.readingCode", { name: askName })}
@@ -666,7 +673,7 @@ export function NewComment({
                         aria-hidden
                         className="h-3 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none"
                       />
-                    </div>
+                    </output>
                   )}
                 </div>
               </li>
@@ -679,25 +686,21 @@ export function NewComment({
         ) : asking ? (
           <>
             <label htmlFor={`${tabs}-field`} className="sr-only">
-              {asking ? t("review.questionLabel") : t("review.commentLabel")}
+              {t("review.questionLabel")}
             </label>
             <Textarea
               id={`${tabs}-field`}
               ref={field}
-              rows={asking ? 2 : 3}
-              value={asking ? question : body}
-              placeholder={
-                asking ? (turns.length ? t("review.askFollowUp") : t("review.askAbout")) : t("review.commentForAuthor")
-              }
+              rows={2}
+              value={question}
+              placeholder={turns.length > 0 ? t("review.askFollowUp") : t("review.askAbout")}
               onChange={(e) => {
-                asking ? setQuestion(e.target.value) : setBody(e.target.value);
+                setQuestion(e.target.value);
               }}
               onKeyDown={(e) => {
-                // Asking is a chat: Enter sends, Shift+Enter breaks the line. A comment, like GitHub's: ⌘/Ctrl+Enter.
-                if (
-                  e.key === "Enter" &&
-                  (e.metaKey || e.ctrlKey || (asking && !e.shiftKey && !e.nativeEvent.isComposing))
-                ) {
+                // Asking is a chat: Enter sends, Shift+Enter breaks the line (a comment, like GitHub's, sends
+                // with ⌘/Ctrl+Enter: MarkdownField).
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (!e.shiftKey && !e.nativeEvent.isComposing))) {
                   e.preventDefault();
                   submit();
                 } else if (e.key === "Escape") {
@@ -741,7 +744,7 @@ export function NewComment({
         {asking ? (
           ask ? (
             asked ? (
-              <Button variant="outline" onClick={stop}>
+              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.run)}>
                 <Square className="size-3 fill-current" />
                 {t("review.stop")}
               </Button>

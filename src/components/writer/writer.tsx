@@ -5,7 +5,7 @@
 // does, once you've signed in there (utils/attachments/attachments.ts).
 
 import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
@@ -108,7 +108,11 @@ function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
   const t = useT();
   const [replies, setReplies] = useState<SavedReply[] | null | undefined>();
   return (
-    <DropdownMenu onOpenChange={(open) => open && replies === undefined && void savedReplies().then(setReplies)}>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open && replies === undefined) void savedReplies().then(setReplies);
+      }}
+    >
       <Tooltip>
         <TooltipTrigger
           render={
@@ -197,21 +201,26 @@ export function MarkdownField({
   const [token, setToken] = useState<Token | null>(null);
   const [options, setOptions] = useState<Option[]>([]);
   const [active, setActive] = useState(0);
-  const [at, setAt] = useState({ top: 0, left: 0, height: 0 });
+  // Where the caret is, and the field's width, for the list of completions under it.
+  const [at, setAt] = useState({ top: 0, left: 0, height: 0, width: 288 });
   // Under the field: why an attachment didn't go, or that github.com needs signing in to first.
   const [message, setMessage] = useState<{ kind: "sign-in" | "ended" } | { kind: "error"; text: string } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const session = useWebSession();
   // The text as it is now, for uploads that finish after it changed.
   const latest = useRef(value);
-  latest.current = value;
+  useLayoutEffect(() => {
+    latest.current = value;
+  });
   const asked = useRef(0);
-  const number = Number(/\/pull\/(\d+)/.exec(api?.url ?? "")?.[1]) || null;
+  const number = Number(/\/pull\/(\d+)/u.exec(api?.url ?? "")?.[1]) || null;
 
   // Signed in on github.com: what asked for it goes.
-  useEffect(() => {
+  const [sessionSeen, setSessionSeen] = useState(session);
+  if (session !== sessionSeen) {
+    setSessionSeen(session);
     if (session) setMessage((m) => (m?.kind === "error" ? m : null));
-  }, [session]);
+  }
 
   useEffect(() => {
     if (autoFocus) field.current?.focus();
@@ -219,13 +228,16 @@ export function MarkdownField({
 
   // The preview, when it's showing: GitHub renders it (kept per text, utils/writer/writer.ts).
   useEffect(() => {
-    if (tab !== "preview" || !api || !value.trim()) return;
     let current = true;
-    preview(value, api.repo).then(
-      (html) => current && setRendered({ text: value, html }),
-      (e: unknown) =>
-        current && setRendered({ text: value, html: null, error: e instanceof Error ? e.message : String(e) }),
-    );
+    const show = async (repo: string) => {
+      try {
+        const html = await preview(value, repo);
+        if (current) setRendered({ text: value, html });
+      } catch (e) {
+        if (current) setRendered({ text: value, html: null, error: e instanceof Error ? e.message : String(e) });
+      }
+    };
+    if (tab === "preview" && api && value.trim()) void show(api.repo);
     return () => {
       current = false;
     };
@@ -239,7 +251,7 @@ export function MarkdownField({
       setOptions([]);
       return;
     }
-    setAt(caretAt(field.current, next.start));
+    setAt({ ...caretAt(field.current, next.start), width: field.current.clientWidth });
     const turn = ++asked.current;
     const found: Promise<Option[]> =
       next.kind === "emoji"
@@ -258,11 +270,12 @@ export function MarkdownField({
     // The pull request's own people at once, the rest as they come.
     if (next.kind === "mention")
       setOptions(rankPeople(api.people, next.query).map((person) => ({ kind: "person", person })));
-    void found.then((list) => {
+    void (async () => {
+      const list = await found;
       if (turn !== asked.current) return;
       setOptions(list);
       setActive(0);
-    });
+    })();
   };
 
   /** A change made as if typed, so ⌘Z undoes it. */
@@ -271,9 +284,13 @@ export function MarkdownField({
     if (!el) return;
     el.focus();
     el.setSelectionRange(change.from, change.to);
+    // execCommand is deprecated, but it's still the only way to change a field's text that the
+    // browser's own undo knows about.
     const typed = change.insert
-      ? document.execCommand("insertText", false, change.insert)
-      : document.execCommand("delete");
+      ? // oxlint-disable-next-line typescript/no-deprecated -- the one way to keep ⌘Z (above)
+        document.execCommand("insertText", false, change.insert)
+      : // oxlint-disable-next-line typescript/no-deprecated -- the one way to keep ⌘Z (above)
+        document.execCommand("delete");
     if (!typed) onChange(value.slice(0, change.from) + change.insert + value.slice(change.to));
     requestAnimationFrame(() => {
       el.setSelectionRange(...change.select);
@@ -294,29 +311,31 @@ export function MarkdownField({
     });
   };
 
-  /** One placeholder swapped for what took its place, keeping the caret where it was. */
+  /** One placeholder swapped for what took its place, keeping the caret where it was. Says whether
+   *  it was still there. */
   const replace = (mark: string, by: string) => {
     const before = latest.current;
-    const at = before.indexOf(mark);
+    const index = before.indexOf(mark);
     const next = swap(before, mark, by);
-    if (next === before) return;
+    if (next === before) return false;
     const el = field.current;
     const caret = el && document.activeElement === el ? [el.selectionStart, el.selectionEnd] : null;
     latest.current = next;
     onChange(next);
     if (caret && el) {
-      const shift = (i: number) => (i > at ? Math.max(at, i + next.length - before.length) : i);
+      const shift = (i: number) => (i > index ? Math.max(index, i + next.length - before.length) : i);
       requestAnimationFrame(() => {
         el.setSelectionRange(shift(caret[0]!), shift(caret[1]!));
       });
     }
+    return true;
   };
 
   /** Pictures and videos into the comment: a placeholder for each at the caret, then each as
    *  github.com writes it once it's uploaded. */
   const attach = (files: File[]) => {
     if (!api || !number || files.length === 0) return;
-    const list = files.filter(attachable);
+    const list = files.filter((file) => attachable(file));
     if (list.length < files.length) setMessage({ kind: "error", text: t("review.uploadUnsupported") });
     if (list.length === 0) return;
     if (session === null) {
@@ -331,16 +350,18 @@ export function MarkdownField({
       return mark;
     });
     insert(marks.join("\n"), true);
+    const failed = (mark: string, e: UploadError | string) => {
+      replace(mark, "");
+      if (typeof e === "string") setMessage({ kind: "error", text: e });
+      else if (e.kind === "failed") setMessage({ kind: "error", text: e.message });
+      else setMessage({ kind: e.kind === "session_expired" ? "ended" : "sign-in" });
+    };
     for (const [i, file] of list.entries()) {
-      Promise.all([bridge.uploadAttachment(api.repo, number, file), displayWidth(file)]).then(
-        ([uploaded, width]) => {
-          replace(marks[i]!, markdownFor(uploaded.kind, uploaded.href, file.name, width));
-        },
+      const mark = marks[i]!;
+      void Promise.all([bridge.uploadAttachment(api.repo, number, file), displayWidth(file)]).then(
+        ([uploaded, width]) => replace(mark, markdownFor(uploaded.kind, uploaded.href, file.name, width)),
         (e: UploadError | string) => {
-          replace(marks[i]!, "");
-          if (typeof e === "string") setMessage({ kind: "error", text: e });
-          else if (e.kind === "failed") setMessage({ kind: "error", text: e.message });
-          else setMessage({ kind: e.kind === "session_expired" ? "ended" : "sign-in" });
+          failed(mark, e);
         },
       );
     }
@@ -377,6 +398,7 @@ export function MarkdownField({
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
         {/* A small segmented control: write, or see it as GitHub will show it. */}
+        {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- in a tab list the tabs take the focus (WAI-ARIA's tabs pattern), not the list. */}
         <div
           role="tablist"
           onKeyDown={tabKeys}
@@ -457,7 +479,8 @@ export function MarkdownField({
           accept={ACCEPT}
           hidden
           onChange={(e) => {
-            attach([...(e.target.files ?? [])]);
+            // A file input always has its list.
+            attach([...e.target.files!]);
             e.target.value = "";
           }}
         />
@@ -477,15 +500,17 @@ export function MarkdownField({
             aria-busy={rendered?.text !== value}
           >
             {value.trim() ? (
-              rendered?.text !== value ? (
+              rendered?.text === value ? (
+                rendered.html === null ? (
+                  <p className="text-callout text-destructive" role="alert">
+                    {rendered.error}
+                  </p>
+                ) : (
+                  <CommentHtml html={rendered.html} base={base} />
+                )
+              ) : (
                 <p className="flex items-center gap-1.5 text-body text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("review.loadingPreview")}
-                </p>
-              ) : rendered.html !== null ? (
-                <CommentHtml html={rendered.html} base={base} />
-              ) : (
-                <p className="text-callout text-destructive" role="alert">
-                  {rendered.error}
                 </p>
               )
             ) : (
@@ -503,6 +528,7 @@ export function MarkdownField({
               rows={rows}
               value={value}
               placeholder={placeholder}
+              // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a text field that completes as you type is a combobox (WAI-ARIA's pattern); no HTML element is both.
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={open}
@@ -568,19 +594,25 @@ export function MarkdownField({
                 // A link pasted over words makes them a link, as on GitHub.
                 const pasted = e.clipboardData.getData("text/plain").trim();
                 const { selectionStart: start, selectionEnd: end } = e.currentTarget;
-                if (start !== end && /^https?:\/\/\S+$/.test(pasted) && !/^https?:\/\//.test(value.slice(start, end))) {
+                if (
+                  start !== end &&
+                  /^https?:\/\/\S+$/u.test(pasted) &&
+                  !/^https?:\/\//u.test(value.slice(start, end))
+                ) {
                   e.preventDefault();
                   apply(link(value, start, end, pasted));
                 }
               }}
-              onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
+              onDragOver={(e) => {
+                if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+              }}
               onDrop={(e) => {
                 if (e.dataTransfer.files.length === 0) return;
                 e.preventDefault();
                 // Where it's dropped is where it goes.
                 const el = e.currentTarget;
-                const at = document.caretPositionFromPoint?.(e.clientX, e.clientY);
-                if (at?.offsetNode === el) el.setSelectionRange(at.offset, at.offset);
+                const point = document.caretPositionFromPoint?.(e.clientX, e.clientY);
+                if (point?.offsetNode === el) el.setSelectionRange(point.offset, point.offset);
                 attach([...e.dataTransfer.files]);
               }}
               className="resize-y"
@@ -588,6 +620,7 @@ export function MarkdownField({
             {open ? (
               <ul
                 id={listId}
+                // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role, jsx-a11y/prefer-tag-over-role -- the combobox's popup (WAI-ARIA's pattern): a <select> can't sit under a text field.
                 role="listbox"
                 aria-label={
                   token?.kind === "mention"
@@ -599,7 +632,7 @@ export function MarkdownField({
                 className="mac-menu absolute z-50 w-72 max-w-[calc(100%-8px)] p-(--menu-pad) text-popover-foreground"
                 style={{
                   top: at.top + at.height + 4,
-                  left: Math.min(at.left, Math.max(0, (field.current?.clientWidth ?? 288) - 288)),
+                  left: Math.min(at.left, Math.max(0, at.width - 288)),
                 }}
                 // A click picks without taking the focus from the field.
                 onMouseDown={(e) => {
@@ -607,9 +640,12 @@ export function MarkdownField({
                 }}
               >
                 {options.map((o, i) => (
+                  // The keyboard picks from the field (aria-activedescendant): the options only take clicks.
+                  // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
                   <li
                     key={o.kind === "person" ? o.person.login : o.kind === "emoji" ? o.emoji.name : o.reference.number}
                     id={`${listId}-${i}`}
+                    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role, jsx-a11y/prefer-tag-over-role -- the listbox's options, as above.
                     role="option"
                     aria-selected={i === active}
                     onMouseEnter={() => {

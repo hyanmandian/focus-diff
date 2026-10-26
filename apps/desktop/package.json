@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@focus-diff/core": "*",
     "@pierre/diffs": "^1.6.1",
     "@tauri-apps/api": "^2",
     "class-variance-authority": "^0.7.1",

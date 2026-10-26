@@ -2,6 +2,7 @@
 // Focus Diff picks the pull requests that fit, says so with a sound of its own and counts the time
 // down in the menu bar. Rust runs them (src-tauri/src/review.rs); this edits them.
 
+import { LINES_PER_HOUR } from "@focus-diff/core/estimate";
 import { Plus, Timer, Trash2 } from "lucide-react";
 import { useId } from "react";
 
@@ -34,7 +35,6 @@ import {
   type ReviewTime,
 } from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
-import { LINES_PER_HOUR } from "@/utils/estimate/estimate";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
 /** The week from Monday, as most of the world starts it; 0 is Sunday. */

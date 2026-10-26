@@ -7,7 +7,6 @@ import {
   choiceAction,
   defaultConfig,
   filterRecipes,
-  inFilter,
   isRepoPattern,
   loadConfig,
   newAction,
@@ -16,7 +15,6 @@ import {
   saveConfig,
   sourceOf,
   TEMPLATES,
-  validPattern,
   withSource,
 } from "@/utils/config/config";
 import { i18n } from "@/utils/i18n/i18n";
@@ -138,38 +136,7 @@ describe("notifications and review time", () => {
   });
 });
 
-describe("inFilter", () => {
-  it("includes, then leaves out", () => {
-    const frontend = { include: "\\.(tsx?|css)$", exclude: "\\.test\\." };
-    expect(inFilter(frontend, "src/app.tsx")).toBe(true);
-    expect(inFilter(frontend, "src/app.test.tsx")).toBe(false);
-    expect(inFilter(frontend, "api/main.go")).toBe(false);
-    expect(inFilter({ include: "", exclude: "" }, "anything")).toBe(true);
-    // Case doesn't matter, as in Focus Diff.
-    expect(inFilter({ include: "dockerfile", exclude: "" }, "Dockerfile")).toBe(true);
-    expect(inFilter({ include: "", exclude: "\\.lock$" }, "Cargo.lock")).toBe(false);
-  });
-
-  it("keeps every file when a pattern is broken", () => {
-    expect(inFilter({ include: "(", exclude: "" }, "a.ts")).toBe(true);
-    expect(inFilter({ include: "\\.ts$", exclude: "[" }, "a.ts")).toBe(true);
-    // A file the include leaves out stays out, whatever the exclude.
-    expect(inFilter({ include: "\\.go$", exclude: "[" }, "a.ts")).toBe(false);
-  });
-
-  it("takes patterns the u flag would refuse, as Focus Diff writes them", () => {
-    expect(validPattern("\\-generated")).toBe(true);
-    expect(inFilter({ include: "\\-generated", exclude: "" }, "api-generated.ts")).toBe(true);
-  });
-});
-
 describe("patterns", () => {
-  it("tells valid regular expressions, empty counting as one", () => {
-    expect(validPattern("")).toBe(true);
-    expect(validPattern("a+")).toBe(true);
-    expect(validPattern("(")).toBe(false);
-  });
-
   it("tells repository patterns", () => {
     expect(isRepoPattern("acme/web")).toBe(true);
     expect(isRepoPattern("acme/*")).toBe(true);

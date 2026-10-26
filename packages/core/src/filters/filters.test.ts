@@ -28,6 +28,11 @@ describe("compile", () => {
     expect(compile("a")).toEqual({ ok: false, error: "too complex" });
   });
 
+  it("takes patterns the u flag would refuse, as people write them", () => {
+    expect(isValidPattern("\\-generated")).toBe(true);
+    expect(inFilter({ include: "\\-generated", exclude: "" }, "api-generated.ts")).toBe(true);
+  });
+
   it("tells valid patterns from broken ones", () => {
     expect(isValidPattern("")).toBe(true);
     expect(isValidPattern("\\.md$")).toBe(true);

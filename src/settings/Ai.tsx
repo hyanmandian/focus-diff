@@ -15,6 +15,7 @@ import { AI_PROVIDERS, defaultPrompts, newId, REVIEW_PROMPT, type AiProvider, ty
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Group, Intro, Pane, radioKeys, Row } from "./Form";
+import { confirmRemove } from "@/lib/confirm";
 
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
@@ -75,7 +76,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   };
 
   return (
-    <Pane title={t("settings.pane.ai")}>
+    <Pane title={t("settings.pane.ai")} hero="ai">
       <Intro>{t("settings.aiIntro")}</Intro>
 
       <Group
@@ -238,7 +239,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveNamedDown", { name: p.name })} disabled={i === ai.prompts.length - 1} onClick={() => movePrompt(i, 1)}>
                     <ArrowDown />
                   </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeNamed", { name: p.name })} onClick={() => setPrompts(ai.prompts.filter((x) => x.id !== p.id))}>
+                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeNamed", { name: p.name })} onClick={async () => (await confirmRemove(t("settings.removePromptConfirm", { name: p.name }))) && setPrompts(ai.prompts.filter((x) => x.id !== p.id))}>
                     <Trash2 />
                   </Button>
                 </div>

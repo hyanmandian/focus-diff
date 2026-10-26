@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import type { Queue } from "@/lib/config";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { PANE_META, type PaneId } from "./panes";
 
 /** A queue's colour, as a fill: the system colours (the -ic ones are for text). */
 export const TONE_FILL: Record<Queue["tone"], string> = {
@@ -27,31 +28,40 @@ export const TWO_LINE_ITEM = "h-auto flex-col items-start gap-0 py-1 whitespace-
  *  chosen segment, gray in a window that isn't in front. */
 export const PRESSED_CHIP = "aria-pressed:bg-selected aria-pressed:text-selected-foreground aria-pressed:active:brightness-90";
 
+/** How far a pane's big header scrolls before its name takes its place in the strip. */
+const HERO_PAST = 120;
+
 /**
  * A pane: the 52px strip level with the traffic lights (its title, a way back from a detail, the
  * detail's own tools) and a scrolling column under it. The strip is the window's drag area; a
  * hairline shows under it once the content scrolls beneath, as in the system's own windows.
+ * `hero`: a top-level pane opens on its tile, large, its name and what it's for, centred (Tahoe's
+ * and Raycast's settings); the strip takes the name only once that has scrolled away.
  */
 export function Pane({
   title,
   back,
   tools,
+  hero,
   children,
   className,
 }: {
   title: React.ReactNode;
   back?: { label: string; onBack: () => void; ref?: React.Ref<HTMLButtonElement> };
   tools?: React.ReactNode;
+  hero?: PaneId;
   children: React.ReactNode;
   className?: string;
 }) {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled] = useState(0);
   const t = useT();
+  const meta = hero ? PANE_META[hero] : null;
+  const Icon = meta?.icon;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header
         data-tauri-drag-region
-        className={cn("shrink-0 border-b transition-colors duration-(--duration)", scrolled ? "border-separator" : "border-transparent")}
+        className={cn("shrink-0 border-b transition-colors duration-(--duration)", scrolled > 0 && (!hero || scrolled > HERO_PAST) ? "border-separator" : "border-transparent")}
       >
         {/* Lined up with the column below, so the title sits over the groups' edge. */}
         <div data-tauri-drag-region className="mx-auto flex h-[52px] max-w-[620px] items-center gap-1.5 px-5">
@@ -68,7 +78,11 @@ export function Pane({
               <ChevronLeft className="size-[18px]" strokeWidth={2} aria-hidden />
             </button>
           ) : null}
-          <h1 data-tauri-drag-region className="min-w-0 truncate text-title3 font-semibold">
+          <h1
+            data-tauri-drag-region
+            aria-hidden={hero ? true : undefined}
+            className={cn("min-w-0 truncate text-title3 font-semibold transition-opacity duration-(--duration)", hero && scrolled <= HERO_PAST && "opacity-0")}
+          >
             {title}
           </h1>
           {/* The empty stretch between title and tools is the most likely grab point. */}
@@ -76,8 +90,19 @@ export function Pane({
           {tools ? <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">{tools}</div> : null}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}>
-        <div className={cn("mx-auto flex max-w-[620px] flex-col gap-6 px-5 pt-1 pb-8", className)}>{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollTop)}>
+        <div className={cn("mx-auto flex max-w-[620px] flex-col gap-6 px-5 pt-1 pb-8", className)}>
+          {meta && Icon ? (
+            <div className="flex flex-col items-center gap-1.5 pt-1 pb-3 text-center">
+              <span className="settings-tile settings-tile-large mb-2 grid size-16 place-items-center rounded-[18px] text-white" data-tile={meta.tile} aria-hidden>
+                <Icon className="size-8" strokeWidth={2} />
+              </span>
+              <h1 className="text-title1 leading-tight font-bold">{title}</h1>
+              <p className="text-body text-muted-foreground">{t(`settings.subtitle.${hero!}`)}</p>
+            </div>
+          ) : null}
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -110,7 +135,7 @@ export function Group({
           {accessory ? <div className="ml-auto flex items-center">{accessory}</div> : null}
         </div>
       ) : null}
-      <div className={cn("settings-group flex flex-col rounded-(--radius-group) bg-(--fill-tertiary)", className)}>
+      <div className={cn("settings-group flex flex-col rounded-[12px] bg-(--settings-group)", className)}>
         {children}
       </div>
       {footer ? <div className="max-w-[70ch] px-3 text-subheadline text-muted-foreground">{footer}</div> : null}
@@ -195,7 +220,7 @@ export const LinkRow = forwardRef<
   }
 >(function LinkRow({ leading, label, description, muted, control, onOpen, "aria-label": ariaLabel }, ref) {
   return (
-    <div className="group/link relative flex min-h-10 items-center gap-3 px-3 py-1.5 first:rounded-t-(--radius-group) last:rounded-b-(--radius-group) has-[>button:active]:bg-fill">
+    <div className="group/link relative flex min-h-11 items-center gap-3 px-3 py-1.5 first:rounded-t-[12px] last:rounded-b-[12px] has-[>button:active]:bg-fill">
       {leading}
       <button
         ref={ref}

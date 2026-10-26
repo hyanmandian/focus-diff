@@ -3,7 +3,7 @@
 // Changes save as you make them; the panel follows along.
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { ArrowDown, ArrowUp, CircleUserRound, Inbox, ListFilter, Loader2, LogOut, Plus, Search, Settings as SettingsIcon, Sparkles, Timer, Trash2, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,11 @@ import { Connect } from "@/shared/Connect";
 import { Actions } from "./Actions";
 import { Ai } from "./Ai";
 import { Filters } from "./Filters";
-import { Group, Intro, LinkRow, Pane, Row, TONE_FILL, TWO_LINE_ITEM, useDetail } from "./Form";
+import { Group, LinkRow, Pane, Row, TONE_FILL, TWO_LINE_ITEM, useDetail } from "./Form";
 import { QueueEditor } from "./QueueEditor";
+import { PANE_META, type PaneId } from "./panes";
 import { ReviewTimePane } from "./ReviewTime";
+import { confirmRemove } from "@/lib/confirm";
 
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -96,7 +98,8 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               size="icon"
               aria-label={t("settings.deleteNamed", { name: selected.name })}
               title={t("settings.deleteQueue")}
-              onClick={() => {
+              onClick={async () => {
+                if (!(await confirmRemove(t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") })))) return;
                 setQueues(config.queues.filter((q) => q.id !== selected.id));
                 detail.close();
               }}
@@ -117,8 +120,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
   }
 
   return (
-    <Pane title={t("settings.pane.queues")}>
-      <Intro>{t("settings.queuesIntro")}</Intro>
+    <Pane title={t("settings.pane.queues")} hero="queues">
       <Group
         title={t("settings.pane.queues")}
         accessory={
@@ -158,7 +160,7 @@ const avatarOf = (login: string) => avatar(`https://avatars.githubusercontent.co
 function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => void }) {
   const t = useT();
   return (
-    <Pane title={t("settings.pane.account")}>
+    <Pane title={t("settings.pane.account")} hero="account">
       {!auth ? (
         <Loader2 className="m-3 animate-spin text-muted-foreground" aria-label={t("settings.loading")} />
       ) : (
@@ -290,7 +292,7 @@ function Updates() {
 function General({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const t = useT();
   return (
-    <Pane title={t("settings.pane.general")}>
+    <Pane title={t("settings.pane.general")} hero="general">
       <Group title={t("settings.softwareUpdate")}>
         <Updates />
       </Group>
@@ -353,19 +355,10 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
   );
 }
 
-type PaneId = "queues" | "review" | "filters" | "actions" | "ai" | "account" | "general";
 const PANE_IDS: PaneId[] = ["account", "queues", "review", "filters", "actions", "ai", "general"];
 
-/** The panes in the sidebar, each on a tile in a system color, as System Settings draws them. Their
- *  names and what a search finds in them are in settings.pane.* and settings.keywords.*. */
-const PANES: Array<{ value: Exclude<PaneId, "account">; icon: typeof Inbox; tile: string }> = [
-  { value: "queues", icon: Inbox, tile: "blue" },
-  { value: "review", icon: Timer, tile: "green" },
-  { value: "filters", icon: ListFilter, tile: "indigo" },
-  { value: "actions", icon: Zap, tile: "orange" },
-  { value: "ai", icon: Sparkles, tile: "purple" },
-  { value: "general", icon: SettingsIcon, tile: "gray" },
-];
+/** The panes in the sidebar under the account, in order. */
+const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as const).map((value) => ({ value, ...PANE_META[value] }));
 
 /** A pane's search words in the language in use, and in English too, so a setting is found by
  *  either name. */
@@ -415,13 +408,12 @@ function rememberedPane(): PaneId {
   }
 }
 
-// A source list's row: no highlight under the pointer; the open pane's row in the accent (white text)
-// while the list has focus, gray when it hasn't or the window isn't in front (index.css). The row
-// highlight is the focus indicator, so no ring on top of it.
+// A row of the glass sidebar, as Tahoe's (and Raycast's): the open pane on a soft rounded highlight
+// that keeps the text's own colour, a touch firmer while the list has the keyboard; the focus ring
+// only for the keyboard.
 const sidebarItem = cn(
-  "group/item flex w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 text-left text-body outline-none focus-ring-inset",
-  "data-[active]:bg-(--selection-bg-inactive) data-[active]:text-(--selection-fg-inactive)",
-  "group-focus-within/list:data-[active]:bg-(--selection-bg) group-focus-within/list:data-[active]:text-(--selection-fg) group-focus-within/list:data-[active]:**:text-(--selection-fg) group-focus-within/list:data-[active]:focus-visible:outline-none",
+  "group/item flex w-full cursor-default items-center gap-2.5 rounded-[9px] px-2 text-left text-body outline-none focus-ring-inset",
+  "data-[active]:bg-(--settings-selected) group-focus-within/list:data-[active]:bg-(--settings-selected-focus)",
 );
 
 function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: AuthStatus | null; query: string; setQuery: (q: string) => void }) {
@@ -445,10 +437,13 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
   const nothing = !accountMatch && !panes.length;
 
   return (
-    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-separator bg-(--under-page-bg)">
-      {/* The traffic lights sit here (x 0-78, centred at y 26); the strip drags the window. */}
-      <div data-tauri-drag-region className="h-[52px] shrink-0" />
-      <div className="px-2.5 pb-2.5">
+    // A pane of glass floating inset in the window, the traffic lights inside its top (they sit at
+    // x 19-79, centred at y 26). What's around it is painted the content's colour by its spread
+    // shadow (clipped by the column), so only the pane itself shows the material behind.
+    <aside className="h-full w-[240px] shrink-0 overflow-hidden p-2">
+      <div className="settings-glass flex h-full flex-col rounded-[18px]">
+      <div data-tauri-drag-region className="h-11 shrink-0" />
+      <div className="px-2.5 pb-3">
         {/* A search field: a capsule, with a clear button once there's something in it. */}
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -471,7 +466,7 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
                 (listRef.current?.querySelector("[role=tab][aria-selected=true]") ?? listRef.current?.querySelector("[role=tab]"))?.closest<HTMLElement>("[role=tab]")?.focus();
               }
             }}
-            className="rounded-(--radius-capsule) pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+            className="h-8 rounded-(--radius-capsule) border-0 bg-(--settings-field) pr-6 pl-7 shadow-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
           />
           {query ? (
             <button
@@ -488,9 +483,9 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
           ) : null}
         </div>
       </div>
-      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label={t("settings.sections")} className="group/list flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 pb-3">
+      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label={t("settings.sections")} className="group/list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
         {accountMatch ? (
-          <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-2 h-12 gap-2.5")}>
+          <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-3 h-12")}>
             <Avatar className="size-8">
               {auth?.login ? <AvatarImage src={avatarOf(auth.login)} alt="" /> : null}
               <AvatarFallback>
@@ -504,9 +499,9 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
           </TabsPrimitive.Tab>
         ) : null}
         {panes.map(({ value, label, icon: Icon, tile, found }) => (
-          <TabsPrimitive.Tab key={value} value={value} className={cn(sidebarItem, found?.hint ? "h-10" : "h-(--row-h)")}>
-            <span className="settings-tile grid size-5 shrink-0 place-items-center rounded-[5px] text-white" data-tile={tile} aria-hidden>
-              <Icon className="size-3" strokeWidth={2.25} />
+          <TabsPrimitive.Tab key={value} value={value} className={cn(sidebarItem, found?.hint ? "h-11" : "h-8")}>
+            <span className="settings-tile grid size-[22px] shrink-0 place-items-center rounded-[6px] text-white" data-tile={tile} aria-hidden>
+              <Icon className="size-3.5" strokeWidth={2.25} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate">{label}</span>
@@ -520,6 +515,7 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
           </p>
         ) : null}
       </TabsPrimitive.List>
+      </div>
     </aside>
   );
 }
@@ -555,14 +551,16 @@ export function Settings() {
   if (!config)
     return (
       <div className="flex h-full">
-        <div data-tauri-drag-region className="h-full w-[220px] border-r border-separator bg-(--under-page-bg)" />
-        <div data-tauri-drag-region className="h-[52px] flex-1" />
+        <div className="h-full w-[240px] shrink-0 overflow-hidden p-2">
+          <div data-tauri-drag-region className="settings-glass h-full rounded-[18px]" />
+        </div>
+        <div data-tauri-drag-region className="h-full flex-1 bg-(--settings-content)" />
       </div>
     );
   return (
     <TabsPrimitive.Root value={pane} onValueChange={(v: PaneId) => setPane(v)} orientation="vertical" className="flex h-full text-body">
       <Sidebar config={config} auth={auth} query={query} setQuery={search} />
-      <main className="min-w-0 flex-1">
+      <main className="min-w-0 flex-1 bg-(--settings-content)">
         <TabsPrimitive.Panel value="queues" className="h-full outline-none">
           <Queues config={config} onChange={setConfig} />
         </TabsPrimitive.Panel>

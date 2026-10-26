@@ -706,11 +706,26 @@ pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()>
         window.show()?;
         return window.set_focus();
     }
+    // The system's sidebar material behind the whole page: the sidebar floats over it as a pane of
+    // glass, the desktop showing through, and the content side paints the window's own colour.
     let builder = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
         .title(settings_title())
-        .inner_size(860.0, 620.0)
-        .min_inner_size(760.0, 540.0)
-        .center();
+        .inner_size(880.0, 640.0)
+        .min_inner_size(780.0, 540.0)
+        .center()
+        .transparent(true)
+        .effects(WindowEffectsConfig {
+            effects: vec![
+                #[cfg(target_os = "macos")]
+                Effect::Sidebar,
+                #[cfg(windows)]
+                Effect::Mica,
+            ],
+            state: Some(EffectState::FollowsWindowActiveState),
+            radius: None,
+            color: None,
+            interactive: false,
+        });
     #[cfg(target_os = "macos")]
     let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     let window = builder.build()?;

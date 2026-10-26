@@ -22,6 +22,7 @@ function rust(answer: (cmd: string) => unknown = () => null, events = false) {
 
 afterEach(() => {
   clearMocks();
+  vi.restoreAllMocks();
 });
 
 describe("the Mac app as the platform", () => {

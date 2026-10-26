@@ -1,3 +1,8 @@
+import { Review, type Target } from "@focus-diff/app/components/review";
+import { Viewer } from "@focus-diff/app/components/viewer";
+import { DIRECTION } from "@focus-diff/app/hooks/use-next-in-queue";
+import { followLanguage } from "@focus-diff/app/utils/language";
+import { platform, setPlatform } from "@focus-diff/app/utils/platform";
 import { TooltipProvider } from "@focus-diff/design-system/components/tooltip";
 import { WorkerPoolContext } from "@pierre/diffs/react";
 import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
@@ -9,11 +14,6 @@ import { StrictMode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
-import { Review, type Target } from "@/components/review/review";
-import { Viewer } from "@/components/viewer/viewer";
-import { DIRECTION } from "@/hooks/use-next-in-queue/use-next-in-queue";
-import { followLanguage } from "@/utils/language/language";
-import { platform, setPlatform } from "@/utils/platform/platform";
 import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";
 
 import "@/index.css";
@@ -21,7 +21,7 @@ import "@/index.css";
 // The app the screens run in: Tauri, or in a plain browser during development, sample data
 // (src/utils/mock/mock.ts).
 if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window))
-  setPlatform((await import("@/utils/mock/mock")).mockPlatform);
+  setPlatform((await import("@focus-diff/app/utils/mock")).mockPlatform);
 else {
   setPlatform(tauriPlatform);
   if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardErrors();

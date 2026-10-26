@@ -1,3 +1,4 @@
+import type { Platform } from "@focus-diff/app/utils/platform";
 // The Mac app as the screens' platform (@focus-diff/app's utils/platform): Rust's commands and events
 // through Tauri, its windows, and the custom schemes that serve GitHub's pictures from the app's cache.
 import { getVersion } from "@tauri-apps/api/app";
@@ -5,8 +6,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-
-import type { Platform } from "@/utils/platform/platform";
 
 /** A custom scheme's address: http://<scheme>.localhost on Windows (WebView2), <scheme>://localhost elsewhere. */
 const scheme = (name: string) =>

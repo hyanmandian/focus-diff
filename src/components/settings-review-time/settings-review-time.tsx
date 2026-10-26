@@ -66,7 +66,7 @@ function summary(session: ReviewSession, t: T) {
 /** A day on its toggle: two letters in English ("Mo"); Portuguese needs three to tell segunda from
  *  sexta and quarta from quinta ("seg", "sex"), without the abbreviation's period. */
 const dayInitials = (day: number, t: T) =>
-  t.locale === "en" ? t.weekday(day, "short").slice(0, 2) : t.weekday(day, "short").replace(/\.$/, "");
+  t.locale === "en" ? t.weekday(day, "short").slice(0, 2) : t.weekday(day, "short").replace(/\.$/u, "");
 
 // Called as a time is added, so it reads the words then.
 const timeError = (v: string) => (validTime(v) ? null : i18n()("settings.timeError"));
@@ -118,7 +118,7 @@ function SessionEditor({
             onValueChange={(v: string[]) => {
               set(
                 "days",
-                v.map(Number).sort((a, b) => a - b),
+                v.map(Number).toSorted((a, b) => a - b),
               );
             }}
             variant="outline"
@@ -138,7 +138,7 @@ function SessionEditor({
             label={t("settings.times")}
             value={session.times}
             onChange={(v) => {
-              set("times", [...v].sort());
+              set("times", v.toSorted());
             }}
             placeholder="15:00"
             validate={timeError}
@@ -156,7 +156,7 @@ function SessionEditor({
             </SelectTrigger>
             <SelectContent>
               {[...new Set([...REVIEW_MINUTES, session.minutes])]
-                .sort((a, b) => a - b)
+                .toSorted((a, b) => a - b)
                 .map((m) => (
                   <SelectItem key={m} value={String(m)}>
                     {t("settings.minutes", { minutes: m })}
@@ -169,10 +169,11 @@ function SessionEditor({
 
       <Group title={t("settings.whatToReview")} footer={t("settings.whatToReviewFooter", { lines: LINES_PER_HOUR })}>
         <Row label={t("settings.whatGoesFirst")} description={t(`settings.order.${session.order}.hint`)}>
-          <Select
+          <Select<ReviewOrder>
             value={session.order}
             onValueChange={(v) => {
-              set("order", v as ReviewOrder);
+              // Never null: there's no empty choice in the list.
+              set("order", v!);
             }}
           >
             <SelectTrigger className="min-w-40" aria-label={t("settings.whatGoesFirst")}>
@@ -221,6 +222,9 @@ function SessionEditor({
   );
 }
 
+/** The next review time, as of now. */
+const nextFromNow = (review: ReviewTime) => nextReviewTime(review, new Date());
+
 export function ReviewTimePane({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const detail = useDetail();
   const review = config.reviewTime;
@@ -234,6 +238,11 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
   const enabledId = useId();
   const t = useT();
   const reviewTimeName = t("settings.reviewTimeName");
+  const remove = async (session: ReviewSession) => {
+    if (!(await confirmRemove(t("settings.removeReviewTimeConfirm", { name: session.name || reviewTimeName })))) return;
+    setSessions(review.sessions.filter((s) => s.id !== session.id));
+    detail.close();
+  };
 
   if (selected)
     return (
@@ -246,13 +255,8 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
             size="icon"
             aria-label={t("settings.deleteNamed", { name: selected.name || reviewTimeName })}
             title={t("settings.deleteReviewTime")}
-            onClick={async () => {
-              if (
-                !(await confirmRemove(t("settings.removeReviewTimeConfirm", { name: selected.name || reviewTimeName })))
-              )
-                return;
-              setSessions(review.sessions.filter((s) => s.id !== selected.id));
-              detail.close();
+            onClick={() => {
+              void remove(selected);
             }}
           >
             <Trash2 />
@@ -270,9 +274,9 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
       </Pane>
     );
 
-  const next = nextReviewTime(review, new Date());
+  const next = nextFromNow(review);
   const waiting = config.queues
-    .filter((q) => q.enabled && q.notify.length && q.notifyAt === "review")
+    .filter((q) => q.enabled && q.notify.length > 0 && q.notifyAt === "review")
     .map((q) => q.name);
   return (
     <Pane title={t("settings.pane.review")} hero="review">

@@ -26,7 +26,9 @@ root.dataset.platform = platform;
 
 // A window that isn't the key one draws its selection and accent controls in gray, as AppKit's do
 // (index.css, [data-window-inactive]). The web view's own focus follows the window's.
-const follow = () => root.toggleAttribute("data-window-inactive", !document.hasFocus());
+const follow = () => {
+  root.toggleAttribute("data-window-inactive", !document.hasFocus());
+};
 window.addEventListener("focus", follow);
 window.addEventListener("blur", follow);
 follow();

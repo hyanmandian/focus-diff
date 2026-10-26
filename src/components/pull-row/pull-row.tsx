@@ -87,6 +87,10 @@ const ORDER = [
   "conflict",
   "comment",
 ] as const;
+const rank = (kind: string) => ORDER.findIndex((k) => k === kind);
+
+/** How long it's been since a moment (ms), as of now. */
+const age = (since: number) => Date.now() - since;
 
 type Props = {
   item: Item;
@@ -130,8 +134,9 @@ export const PullRow = memo(function PullRow({
 
   // Something new plays the arrival once, while the panel shows it.
   useEffect(() => {
-    const el = ref.current;
-    if (!arriving || !el) return;
+    if (!arriving) return () => {};
+    // Set by now: effects run after the row is in the page.
+    const el = ref.current!;
     el.classList.remove("arrive");
     void el.offsetWidth;
     el.classList.add("arrive");
@@ -147,9 +152,8 @@ export const PullRow = memo(function PullRow({
 
   const news = item.events.filter((e) => e.kind !== "new");
   const latest = item.events.reduce<Item["events"][number] | null>((a, e) => (!a || e.at > a.at ? e : a), null);
-  const kinds = [...new Set(news.map((e) => e.kind))];
-  kinds.sort((a, b) => ORDER.indexOf(a as (typeof ORDER)[number]) - ORDER.indexOf(b as (typeof ORDER)[number]));
-  const waiting = item.waitingSince ? Date.now() - item.waitingSince : 0;
+  const kinds = [...new Set(news.map((e) => e.kind))].toSorted((a, b) => rank(a) - rank(b));
+  const waiting = item.waitingSince ? age(item.waitingSince) : 0;
   const late = queue.kind === "review" && queue.staleHours > 0 && waiting > queue.staleHours * 3_600_000;
   const mine = queue.kind === "authored";
   const when =
@@ -158,8 +162,8 @@ export const PullRow = memo(function PullRow({
   const teams = item.viaTeams?.length && kinds.length === 0 ? item.viaTeams : [];
   const ci = (item.ci === "FAILURE" || item.ci === "ERROR") && !kinds.includes("ci-failed");
   const status = item.status && item.status !== "MENTIONED" && kinds.length === 0 ? item.status : null;
-  // "3d", "5h": how long it's been waiting, an hour at least.
-  const waited = t.since(Date.now() - Math.max(waiting, 3_600_000));
+  // "3d", "5h": how long it's been waiting, an hour at least (a span, so from 0 to it).
+  const waited = t.since(0, Math.max(waiting, 3_600_000));
   // How long a review would take, for what's waiting on yours: from its totals, at your pace.
   const learned = useLearned();
   const minutes = queue.kind === "review" && pr.changedFiles ? pullMinutes(pr, learned) : null;
@@ -183,7 +187,9 @@ export const PullRow = memo(function PullRow({
         onClick={(e) => {
           onPick(item, !picked, e.shiftKey);
         }}
-        onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+        onMouseDown={(e) => {
+          if (e.shiftKey) e.preventDefault();
+        }}
         className="absolute inset-y-0 left-0 z-10 w-11 cursor-default"
       />
       <input
@@ -203,7 +209,9 @@ export const PullRow = memo(function PullRow({
         onClick={(e) => {
           onOpen(item, e.currentTarget.getBoundingClientRect());
         }}
-        onPointerEnter={() => (intent.current = setTimeout(ahead, 120))}
+        onPointerEnter={() => {
+          intent.current = setTimeout(ahead, 120);
+        }}
         onPointerLeave={() => {
           clearTimeout(intent.current);
         }}
@@ -257,7 +265,7 @@ export const PullRow = memo(function PullRow({
             {minutes === null ? null : (
               <Part
                 className="text-foreground tabular-nums"
-                title={t("panel.aboutToReview", { time: t.duration(minutes).replace(/^~/, "") })}
+                title={t("panel.aboutToReview", { time: t.duration(minutes).replace(/^~/u, "") })}
               >
                 {t.duration(minutes)}
               </Part>

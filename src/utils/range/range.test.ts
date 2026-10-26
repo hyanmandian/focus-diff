@@ -33,4 +33,23 @@ describe("lines picked for a comment", () => {
       startLine: 3,
     });
   });
+
+  it("takes the new side when the selection names no side", () => {
+    expect(lineRange({ start: 2, end: 2 })).toEqual({ side: "additions", line: 2 });
+  });
+
+  it("takes the other end's side when one end names none", () => {
+    expect(lineRange({ start: 2, end: 4, endSide: "deletions" })).toEqual({
+      side: "deletions",
+      line: 4,
+      startSide: "deletions",
+      startLine: 2,
+    });
+    expect(lineRange({ start: 2, end: 4, side: "deletions" })).toEqual({
+      side: "deletions",
+      line: 4,
+      startSide: "deletions",
+      startLine: 2,
+    });
+  });
 });

@@ -14,7 +14,9 @@ const page = (name: string) => fileURLToPath(new URL(`./${name}.html`, import.me
 export default defineConfig({
   // React Compiler memoizes components and hooks at build time, so renders stay cheap without
   // hand-written useMemo/useCallback.
-  plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
+  // Not while testing: coverage measures the code as written, not the compiler's cache checks
+  // (some of which no render can reach).
+  plugins: [react(), ...(process.env.VITEST ? [] : [babel({ presets: [reactCompilerPreset()] })]), tailwindcss()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
@@ -77,6 +79,13 @@ export default defineConfig({
       "eslint/max-lines": "off",
       "import/max-dependencies": "off",
       "eslint/no-inline-comments": "off",
+      // An effect that returns its cleanup on one path can't satisfy both of these on another
+      // ("return;" or "return undefined;"); the cleanup contract is React's, not ours.
+      "typescript/consistent-return": "off",
+      // "" means missing in the person's settings and GitHub's fields (x?.trim() || null).
+      "typescript/prefer-nullish-coalescing": ["error", { ignorePrimitives: { string: true } }],
+      // Stylesheets are imported for what they do.
+      "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
       // Not type-aware: it would have data-* set through .dataset on elements that have none (an Element).
       "unicorn/prefer-dom-node-dataset": "off",
       // GraphQL's __typename and Tauri's __TAURI_INTERNALS__ are names we don't choose.
@@ -110,6 +119,16 @@ export default defineConfig({
       "eslint/no-var": "error",
       "eslint/prefer-const": "error",
     },
+    overrides: [
+      {
+        files: ["src/**/*.test.ts", "src/**/*.test.tsx", "tests/**"],
+        rules: {
+          "vitest/no-conditional-in-test": "off",
+          "unicorn/consistent-function-scoping": "off",
+          "eslint/prefer-promise-reject-errors": "off",
+        },
+      },
+    ],
   },
 
   test: {

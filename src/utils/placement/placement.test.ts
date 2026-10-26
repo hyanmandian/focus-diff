@@ -1,4 +1,4 @@
-import { getSingularPatch } from "@pierre/diffs";
+import { getSingularPatch, parseDiffFromFile } from "@pierre/diffs";
 import { describe, expect, it } from "vite-plus/test";
 
 import { findingSide, hunkTail, lineText, placeThread } from "@/utils/placement/placement";
@@ -32,6 +32,18 @@ describe("a line's text", () => {
   it("is null outside the hunks", () => {
     expect(lineText(diff, "additions", 9)).toBeNull();
     expect(lineText(diff, "additions", 16)).toBeNull();
+  });
+
+  it("reads any line of a full file, in or out of the hunks", () => {
+    const full = parseDiffFromFile(
+      { name: "a.ts", contents: "one\ntwo\nthree\nfour\n" },
+      { name: "a.ts", contents: "one\nTWO\nthree\nfour\n" },
+    );
+    expect(full.isPartial).toBe(false);
+    expect(lineText(full, "additions", 4)).toBe("four");
+    expect(lineText(full, "deletions", 2)).toBe("two");
+    expect(lineText(full, "additions", 0)).toBeNull();
+    expect(lineText(full, "additions", 9)).toBeNull();
   });
 });
 

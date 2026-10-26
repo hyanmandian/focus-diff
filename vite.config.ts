@@ -114,12 +114,20 @@ export default defineConfig({
 
   test: {
     environment: "happy-dom",
+    setupFiles: ["src/utils/test-setup/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
       // The windows' entry points, the development sample data and type declarations aren't units.
-      exclude: ["src/entries/**", "src/utils/mock*/**", "src/utils/dev-log/**", "src/**/*.d.ts", "src/locales/**"],
+      exclude: [
+        "src/entries/**",
+        "src/utils/mock*/**",
+        "src/utils/dev-log/**",
+        "src/utils/test-setup/**",
+        "src/**/*.d.ts",
+        "src/locales/**",
+      ],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
       reporter: ["text-summary", "html"],
     },

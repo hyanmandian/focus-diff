@@ -97,6 +97,7 @@ function Breakdown({
   // the time column explained by the (i) beside it.
   return (
     <div
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a grid of rows (subgrid), which a <fieldset> doesn't lay out reliably in WebKit.
       role="group"
       aria-label={t("review.filters")}
       className="grid max-h-[min(52vh,420px)] grid-cols-[16px_minmax(96px,max-content)_repeat(3,max-content)] gap-x-4 overflow-y-auto overscroll-contain p-2 text-body tabular-nums"
@@ -115,6 +116,7 @@ function Breakdown({
                   type="button"
                   className="grid size-5 cursor-default place-items-center rounded-full text-muted-foreground focus-ring outline-none hover:text-foreground"
                   aria-label={t("review.columnTime")}
+                  // oxlint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 (WebKit reads it); the rule's list is older.
                   aria-description={timeHint(learned, t)}
                 />
               }
@@ -146,7 +148,9 @@ function Breakdown({
               deletions: sums.deletions,
               left: sums.minutesLeft === 0 ? t("review.done") : t("review.leftToReview", { time: left }),
             })}
-            onClick={() => !empty && onToggle(id)}
+            onClick={() => {
+              if (!empty) onToggle(id);
+            }}
             className={cn(
               // Rows apart on a hairline that gives way under the pointer.
               "peer relative col-span-full grid min-h-9 cursor-default grid-cols-subgrid items-center rounded-[6px] px-2 text-left focus-ring-inset transition-colors duration-100 outline-none hover:bg-foreground/6",
@@ -175,9 +179,19 @@ function Breakdown({
   );
 }
 
-export function FilterBar(props: Props) {
+export function FilterBar({
+  files,
+  filters,
+  chosen,
+  shown,
+  next,
+  isViewed,
+  minutesOf,
+  learned,
+  onToggle,
+  onNextFile,
+}: Props) {
   const t = useT();
-  const { files, filters, chosen, shown, next, learned, onToggle, onNextFile } = props;
   const counts = new Map(filters.map((f) => [f.id, files.filter((x) => inFilter(f, x.path)).length]));
   const done = shown.files > 0 && shown.minutesLeft === 0;
   const label = nextLabel(next, t);
@@ -216,6 +230,7 @@ export function FilterBar(props: Props) {
 
   return (
     <div
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a floating flex bar, which a <fieldset> doesn't lay out reliably in WebKit.
       role="group"
       aria-label={t("review.reviewOnePart")}
       aria-keyshortcuts={filters.length > 0 ? "Alt+Shift+. Alt+Shift+," : undefined}
@@ -232,7 +247,9 @@ export function FilterBar(props: Props) {
               aria-label={label}
               aria-disabled={stuck}
               aria-keyshortcuts="Alt+Shift+J"
-              onClick={() => !stuck && onNextFile()}
+              onClick={() => {
+                if (!stuck) onNextFile();
+              }}
             />
           }
         >
@@ -273,12 +290,13 @@ export function FilterBar(props: Props) {
           <TooltipTrigger
             render={
               <span
+                // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- reachable from the keyboard so its tooltip (how the time is worked out) can be read.
                 tabIndex={0}
                 className="flex items-center gap-1.5 rounded-md focus-ring outline-none"
                 aria-label={
                   done
                     ? t("review.doneLabel")
-                    : t("review.aboutLeft", { time: t.duration(shown.minutesLeft).replace(/^~/, "") })
+                    : t("review.aboutLeft", { time: t.duration(shown.minutesLeft).replace(/^~/u, "") })
                 }
               />
             }
@@ -324,7 +342,15 @@ export function FilterBar(props: Props) {
             sideOffset={10}
             className="w-max max-w-[min(560px,calc(100vw-2rem))] rounded-[12px] p-0"
           >
-            <Breakdown {...props} />
+            <Breakdown
+              files={files}
+              filters={filters}
+              chosen={chosen}
+              isViewed={isViewed}
+              minutesOf={minutesOf}
+              learned={learned}
+              onToggle={onToggle}
+            />
           </PopoverContent>
         </Popover>
       ) : null}

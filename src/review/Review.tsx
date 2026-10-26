@@ -3,7 +3,7 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
-import { ChevronDown, ChevronRight, ChevronUp, Columns2, GitCommitHorizontal, GitMerge, Loader2, MoreHorizontal, Pilcrow, RefreshCw, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns2, GitCommitHorizontal, GitMerge, Loader2, MoreHorizontal, Pilcrow, RefreshCw, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
@@ -50,7 +50,7 @@ import { Overview } from "./Overview";
 import { Shortcuts } from "./Shortcuts";
 import { RangeBanner, RangePicker } from "./Commits";
 import { MergeMenuItems, PullMenuItems } from "./PullMenus";
-import { useNextInQueue } from "./next";
+import { useNextInQueue, type Visit } from "./next";
 import { usePull } from "./usePull";
 import { useNewChanges } from "./newChanges";
 
@@ -264,10 +264,17 @@ export function Review({ target }: { target: Target }) {
   // Viewed files opened anyway, to show a comment in one: they don't fold until marked again.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const learned = useLearned();
-  const { next: nextPull, go: goNext } = useNextInQueue(target.queue, prId);
+  // This pull request, for coming back to it from the next.
+  const here = useMemo<Visit | null>(
+    () => (details ? { pr: { id: prId, number, title: details.title, repository: { nameWithOwner: repo }, author: details.author ? { login: details.author.login } : null }, teams, queue: target.queue ?? null } : null),
+    [details, prId, number, repo, teams, target.queue],
+  );
+  const { next: nextPull, go: goNext, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
   const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
   const goNextRef = useRef(goNext);
   goNextRef.current = goNext;
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
   const minutesOf = useMemo(() => createEstimator(learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(`ai-review:${prId}`, null);
@@ -597,14 +604,15 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Taken already (a menu's type-to-select, the file tree's arrows): not a shortcut.
-      if (e.defaultPrevented || typing(e.target) || e.metaKey || e.ctrlKey) return;
-      // ⌘] on to the next pull request of the queue, as forward is in Safari.
-      if (e.metaKey && !e.shiftKey && !e.altKey && e.key === "]") {
+      if (e.defaultPrevented || typing(e.target)) return;
+      // ⌘] on to the next pull request of the queue and ⌘[ back, as forward and back in Safari.
+      if (e.metaKey && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
         e.preventDefault();
-        void goNextRef.current();
+        void (e.key === "]" ? goNextRef : goBackRef).current();
         return;
       }
+      // Taken already (a menu's type-to-select, the file tree's arrows): not a shortcut.
+      if (e.metaKey || e.ctrlKey) return;
       if (e.altKey && e.shiftKey) {
         const keys = filterKeys.current;
         const action = { Period: () => keys.stepPart(1), Comma: () => keys.stepPart(-1), Digit0: () => keys.choose([]), KeyJ: keys.goToNextFile }[e.code];
@@ -1001,33 +1009,66 @@ export function Review({ target }: { target: Target }) {
               }}
             />
           ) : null}
-          {/* On to the next pull request of the queue this one was opened from, in this window: the
-              last item, where the eye goes once the review is sent, as Mail's next message. */}
-          {nextPull ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    className={cn(TOOL, "gap-1 bg-fill pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                    aria-label={t("review.nextPullLabel", { queue: queueName, number: String(nextPull.pr.number), title: nextPull.pr.title })}
-                    aria-keyshortcuts="Meta+]"
-                    onClick={() => void goNext()}
-                  />
-                }
-              >
-                <span className="@max-[1360px]:sr-only">{t("review.nextPull")}</span>
-                <ChevronRight />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-80">
-                <span className="block font-semibold">
-                  {t("review.nextPullIn", { queue: queueName })} <Kbd>⌘]</Kbd>
-                </span>
-                <span className="block truncate">
-                  #{nextPull.pr.number} · {nextPull.pr.title}
-                </span>
-              </TooltipContent>
-            </Tooltip>
+          {/* Back to the pull request shown before and on to the next of the queue it was opened
+              from, in this window, as back and forward in Safari: the last item, where the eye goes
+              once the review is sent. */}
+          {nextPull || previous ? (
+            <div role="group" aria-label={t("review.pullNavigation")} className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={TOOL_ICON}
+                      disabled={!previous}
+                      aria-label={previous ? t("review.backToLabel", { number: String(previous.pr.number), title: previous.pr.title }) : t("review.back")}
+                      aria-keyshortcuts="Meta+["
+                      onClick={() => void goBack()}
+                    />
+                  }
+                >
+                  <ChevronLeft />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-80">
+                  <span className="block font-semibold">
+                    {t("review.back")} <Kbd>⌘[</Kbd>
+                  </span>
+                  {previous ? (
+                    <span className="block truncate">
+                      #{previous.pr.number} · {previous.pr.title}
+                    </span>
+                  ) : null}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className={cn(TOOL, "gap-1 pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
+                      disabled={!nextPull}
+                      aria-label={nextPull ? t("review.nextPullLabel", { queue: queueName, number: String(nextPull.pr.number), title: nextPull.pr.title }) : t("review.nextPull")}
+                      aria-keyshortcuts="Meta+]"
+                      onClick={() => void goNext()}
+                    />
+                  }
+                >
+                  <span className="@max-[1360px]:sr-only">{t("review.nextPull")}</span>
+                  <ChevronRight />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-80">
+                  <span className="block font-semibold">
+                    {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")} <Kbd>⌘]</Kbd>
+                  </span>
+                  {nextPull ? (
+                    <span className="block truncate">
+                      #{nextPull.pr.number} · {nextPull.pr.title}
+                    </span>
+                  ) : null}
+                </TooltipContent>
+              </Tooltip>
+            </div>
           ) : null}
         </div>
         </div>

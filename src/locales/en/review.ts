@@ -281,4 +281,7 @@ export const review = {
   waitedSeconds: "{seconds}s",
   newChanges: "New changes were pushed",
   update: "Update",
+  back: "Back",
+  backToLabel: "Back to #{number} {title}",
+  pullNavigation: "Pull requests",
 } as const;

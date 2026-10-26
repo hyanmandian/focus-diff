@@ -276,4 +276,7 @@ export const review: Dictionary["review"] = {
   waitedSeconds: "{seconds}s",
   newChanges: "Chegaram mudanças novas",
   update: "Atualizar",
+  back: "Voltar",
+  backToLabel: "Voltar para #{number} {title}",
+  pullNavigation: "Pull requests",
 };

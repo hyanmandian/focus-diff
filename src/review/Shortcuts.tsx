@@ -43,6 +43,7 @@ const GROUPS: Array<[title: Words, shortcuts: Array<[keys: string, does: Words]>
     [
       ["⌘1", "diff.keyOverview"],
       ["⌘2", "diff.keyDiff"],
+      ["⌘[", "diff.keyPreviousPull"],
       ["⌘]", "diff.keyNextPull"],
       ["?", "diff.keyHelp"],
     ],

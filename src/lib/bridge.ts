@@ -72,9 +72,9 @@ export class GitHubError extends Error {
   }
 }
 
-type ReviewPull = { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null };
+export type ReviewPull = { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null };
 
-const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string) => ({
+const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string | null) => ({
   id: pr.id,
   repo: pr.repository.nameWithOwner,
   number: pr.number,
@@ -166,7 +166,7 @@ export const bridge = {
   openReview: (pr: ReviewPull, teams: string[] = [], from?: DOMRect, queue?: string) =>
     invoke<void>("open_review", { from: from && { x: from.x, y: from.y, width: from.width, height: from.height }, ...reviewArgs(pr, teams, queue) }),
   /** This review window, on to another pull request of its queue (or to its own window, if open). */
-  switchReview: (pr: ReviewPull, teams: string[], queue: string) => invoke<void>("switch_review", reviewArgs(pr, teams, queue)),
+  switchReview: (pr: ReviewPull, teams: string[], queue: string | null) => invoke<void>("switch_review", reviewArgs(pr, teams, queue)),
   /** A newer version, if there is one (checking GitHub's releases now). */
   checkUpdate: () => invoke<string | null>("check_update"),
   /** The newer version found by the last check, if any. */

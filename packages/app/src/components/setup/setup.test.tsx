@@ -310,10 +310,15 @@ describe("Setup", () => {
     render(<Setup />);
     await screen.findByText("@octocat");
     expect(screen.getAllByRole("listitem")).toHaveLength(4);
-    for (const title of ["What should it watch?", "How should it tell you?", "You're set"]) {
-      enter(screen.getByRole("heading", { level: 1 }));
-      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(title);
-    }
+    expect(screen.getByText(/sits in your browser's toolbar/u)).toBeTruthy();
+    expect(screen.getByText(/Your token stays in this browser/u)).toBeTruthy();
+    enter(screen.getByRole("heading", { level: 1 }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What should it watch?");
+    enter(screen.getByRole("heading", { level: 1 }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("How should it tell you?");
+    expect(screen.getByText(/a count on its toolbar button/u)).toBeTruthy();
+    enter(screen.getByRole("heading", { level: 1 }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("You're set");
     expect(screen.getByText(/lives in your browser's toolbar/u)).toBeTruthy();
     expect(screen.queryByText("You can turn it on later.")).toBeNull();
   });

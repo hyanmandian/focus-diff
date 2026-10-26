@@ -152,6 +152,8 @@ export const settings = {
   notifyReposLabel: "Repositories to notify about",
 
   // Account
+  githubFooterBrowser:
+    "Focus Diff reads and acts on pull requests as you. Your token stays in this browser and is only ever sent to GitHub.",
   githubFooter:
     "Focus Diff reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.",
   usingGh: "Using the GitHub CLI's login",
@@ -219,6 +221,8 @@ export const settings = {
   includeDrafts: "Include drafts",
   fromQueues: "From these queues",
   deleteReviewTime: "Delete review time",
+  reviewIntroBrowser:
+    "Set aside time to review. When it comes, Focus Diff picks the pull requests that fit, by about how long each takes, tells you, and counts the time down on its toolbar button.",
   reviewIntro:
     "Set aside time to review. When it comes, Focus Diff picks the pull requests that fit, by about how long each takes, tells you with a sound of its own, and counts the time down in the menu bar.",
   next: "Next: {day} at {time}, “{name}” for {minutes} min.",

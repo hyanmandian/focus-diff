@@ -31,6 +31,7 @@ import {
 } from "../../utils/config/config";
 import { confirmRemove } from "../../utils/confirm/confirm";
 import { i18n, useT, type T } from "../../utils/i18n/i18n";
+import { supports } from "../../utils/platform/platform";
 import { Group, Intro, LinkRow, Pane, PRESSED_CHIP, Row, SwitchRow, useDetail } from "../settings-form/settings-form";
 import { TagInput } from "../tag-input/tag-input";
 
@@ -277,7 +278,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
     .map((q) => q.name);
   return (
     <Pane title={t("settings.pane.review")} hero="review">
-      <Intro>{t("settings.reviewIntro")}</Intro>
+      <Intro>{t(supports("tray") ? "settings.reviewIntro" : "settings.reviewIntroBrowser")}</Intro>
       <Group
         footer={
           review.enabled

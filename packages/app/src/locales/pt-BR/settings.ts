@@ -147,6 +147,8 @@ export const settings: Dictionary["settings"] = {
   notifyReposHint: "Vazio: todos os repositórios desta fila.",
   notifyReposLabel: "Repositórios para notificar",
 
+  githubFooterBrowser:
+    "O Focus Diff lê e age nos pull requests como você. Seu token fica neste navegador e só é enviado ao GitHub.",
   githubFooter:
     "O Focus Diff lê e age nos pull requests como você. Seu token fica nas Chaves do sistema e só é enviado ao GitHub.",
   usingGh: "Usando o login do GitHub CLI",
@@ -211,6 +213,8 @@ export const settings: Dictionary["settings"] = {
   includeDrafts: "Incluir rascunhos",
   fromQueues: "Destas filas",
   deleteReviewTime: "Apagar review time",
+  reviewIntroBrowser:
+    "Reserve um tempo para revisar. Quando ele chega, o Focus Diff escolhe os pull requests que cabem, pelo tempo que cada um leva, avisa você e faz a contagem regressiva no botão da barra de ferramentas.",
   reviewIntro:
     "Reserve um tempo para revisar. Quando chegar a hora, o Focus Diff escolhe os pull requests que cabem, pelo tempo que cada um leva, avisa com um som próprio e faz a contagem regressiva na barra de menus.",
   next: "Próximo: {day} às {time}, “{name}” por {minutes} min.",

@@ -251,7 +251,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   return (
     <Pane title={t("settings.pane.account")} hero="account">
       {auth ? (
-        <Group title="GitHub" footer={t("settings.githubFooter")}>
+        <Group title="GitHub" footer={t(supports("tray") ? "settings.githubFooter" : "settings.githubFooterBrowser")}>
           {auth.signed_in && auth.login ? (
             <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
               <Avatar className="size-9">

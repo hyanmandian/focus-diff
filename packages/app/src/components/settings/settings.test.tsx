@@ -351,7 +351,7 @@ describe("Account pane", () => {
 
 describe("in an app without some features (the browser extension)", () => {
   const browser = () => {
-    setPlatform({ ...fakePlatform, features: { updates: false, ai: false, uploads: false } });
+    setPlatform({ ...fakePlatform, features: { updates: false, ai: false, uploads: false, tray: false } });
   };
 
   it("has no AI pane, and opens on the queues when the AI was the last one", async () => {
@@ -368,6 +368,7 @@ describe("in an app without some features (the browser extension)", () => {
     await open({ web: null });
     expect(await within(panel()).findByText("@octocat")).toBeTruthy();
     expect(within(panel()).queryByText("Attachments")).toBeNull();
+    expect(within(panel()).getByText(/Your token stays in this browser/u)).toBeTruthy();
   });
 
   it("names the version, which the store keeps up to date", async () => {

@@ -9,10 +9,13 @@ export const setup = {
   repoError: "Use owner/name, or owner/* for all of an owner's",
   loading: "Loading",
   githubTitle: "Your reviews, without opening GitHub",
+  githubBodyBrowser:
+    "Focus Diff sits in your browser's toolbar, tells you when a pull request needs you, and lets you read, review and merge it right there. First, connect GitHub.",
   githubBody:
     "Focus Diff sits in your menu bar, tells you when a pull request needs you, and lets you read, review and merge it right there. First, connect GitHub.",
   connectedAs: "Connected as {login}",
   checkingGitHub: "Checking GitHub",
+  tokenNoteBrowser: "Your token stays in this browser and only ever goes to GitHub. Focus Diff has no server.",
   tokenNote:
     "Your token stays in the system keychain (or with the GitHub CLI) and only ever goes to GitHub. Focus Diff has no server.",
   queuesTitle: "What should it watch?",
@@ -23,6 +26,8 @@ export const setup = {
   repoPlaceholder: "acme/web or acme/*",
   reposEmpty: "Empty: every repository you can see.",
   notifyTitle: "How should it tell you?",
+  notifyBodyBrowser:
+    "A notification and a count on its toolbar button when something new needs you: a review request, new commits or replies on what you reviewed, approvals and failing CI on yours. What each queue tells you about can be changed in Settings.",
   notifyBody:
     "A notification and the menu bar icon's animation when something new needs you: a review request, new commits or replies on what you reviewed, approvals and failing CI on yours. What each queue tells you about can be changed in Settings.",
   sound: "Play a sound",

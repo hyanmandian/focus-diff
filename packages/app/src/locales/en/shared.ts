@@ -12,6 +12,7 @@ export const shared = {
   connectTokenPlaceholder: "ghp_… or github_pat_…",
   connectTokenNeedsBefore: "Needs",
   connectTokenNeedsAnd: "and",
+  connectTokenNeedsAfterBrowser: ". It's kept in this browser and only ever sent to GitHub.",
   connectTokenNeedsAfter: ". It's kept in your system keychain and only ever sent to GitHub.",
   connectUseToken: "Use this token",
   connectUseTokenInstead: "Use a personal access token instead",

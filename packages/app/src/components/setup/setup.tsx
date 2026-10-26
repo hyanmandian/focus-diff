@@ -192,7 +192,9 @@ export function Setup() {
               <h1 id="step-title" className="text-title1 font-bold text-balance">
                 {t("setup.githubTitle")}
               </h1>
-              <p className="text-body text-muted-foreground">{t("setup.githubBody")}</p>
+              <p className="text-body text-muted-foreground">
+                {t(supports("tray") ? "setup.githubBody" : "setup.githubBodyBrowser")}
+              </p>
             </div>
             {auth?.signed_in ? (
               <div className="flex items-center gap-2">
@@ -217,7 +219,9 @@ export function Setup() {
             ) : (
               <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("setup.checkingGitHub")} />
             )}
-            <p className="text-callout text-muted-foreground">{t("setup.tokenNote")}</p>
+            <p className="text-callout text-muted-foreground">
+              {t(supports("tray") ? "setup.tokenNote" : "setup.tokenNoteBrowser")}
+            </p>
           </section>
         ) : at === "queues" ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
@@ -259,7 +263,9 @@ export function Setup() {
               <h1 id="step-title" className="text-title1 font-bold">
                 {t("setup.notifyTitle")}
               </h1>
-              <p className="text-body text-muted-foreground">{t("setup.notifyBody")}</p>
+              <p className="text-body text-muted-foreground">
+                {t(supports("tray") ? "setup.notifyBody" : "setup.notifyBodyBrowser")}
+              </p>
             </div>
             {/* A grouped form, as System Settings draws one: rows on one rounded group, hairlines
                 between them, a mini switch. */}

@@ -65,7 +65,7 @@ export function nextFilterWithWork<F extends FileLike>(
   filters: DiffFilter[],
   ids: string[],
   isViewed: (f: F) => boolean,
-) {
+): { id: string; name: string; left: number } | undefined {
   const last = Math.max(-1, ...ids.map((id) => filters.findIndex((f) => f.id === id)));
   for (let offset = 1; offset <= filters.length; offset++) {
     const filter = filters[(last + offset) % filters.length];
@@ -73,7 +73,7 @@ export function nextFilterWithWork<F extends FileLike>(
     const left = files.filter((f) => !isViewed(f) && inFilter(filter, f.path)).length;
     if (left) return { id: filter.id, name: filter.name, left };
   }
-  return;
+  return undefined;
 }
 
 /** The file to go to next: the first not viewed after the one at the top of the screen, wrapping
@@ -95,7 +95,7 @@ export function nextFile<F extends FileLike>(
 export function stepFilter(options: string[], ids: string[], by: 1 | -1): string[] {
   const all = ["", ...options];
   const at = Math.max(0, all.indexOf(ids[0] ?? ""));
-  const next = all[(at + by + all.length) % all.length] ?? "";
+  const next = all[(at + by + all.length) % all.length]!;
   return next ? [next] : [];
 }
 
@@ -121,7 +121,7 @@ export function exportFilters(filters: DiffFilter[]): string {
     include: f.include,
     exclude: f.exclude,
   });
-  const out: Shared = { global: filters.filter((f) => f.repos.length === 0).map(shared), repos: [] };
+  const out: Shared = { global: filters.filter((f) => f.repos.length === 0).map((f) => shared(f)), repos: [] };
   for (const f of filters)
     for (const repo of f.repos) {
       const entry = out.repos.find((e) => e.repo === repo) ?? out.repos[out.repos.push({ repo, filters: [] }) - 1]!;
@@ -132,6 +132,12 @@ export function exportFilters(filters: DiffFilter[]): string {
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+/** Focus Diff keeps only filters with a name. */
+const named = (v: unknown): v is Record<string, unknown> =>
+  isRecord(v) && typeof v.name === "string" && Boolean(v.name.trim());
+
+/** What makes two filters the same, whatever their ids. */
+const sameness = (f: DiffFilter) => JSON.stringify([f.name, f.include, f.exclude, f.repos.toSorted()]);
 
 /**
  * Filters from text Focus Diff (or this app) copied, through the config's own checks. The same
@@ -147,18 +153,16 @@ export function importFilters(text: string): DiffFilter[] | null {
     return null;
   }
   if (!isRecord(raw) || (!Array.isArray(raw.global) && !Array.isArray(raw.repos))) return null;
-  // Focus Diff keeps only filters with a name.
-  const named = (v: unknown): v is Record<string, unknown> =>
-    isRecord(v) && typeof v.name === "string" && Boolean(v.name.trim());
   const found: Array<Record<string, unknown> & { repos: string[] }> = list(raw.global)
-    .filter(named)
-    .map((f) => ({ ...f, repos: [] }));
+    .filter((v) => named(v))
+    // Fresh from JSON.parse, so these objects are ours to add to.
+    .map((f) => Object.assign(f, { repos: [] }));
   for (const entry of list(raw.repos)) {
     if (!isRecord(entry) || typeof entry.repo !== "string" || !isRepoPattern(entry.repo.trim())) continue;
     const repo = entry.repo.trim();
-    for (const f of list(entry.filters).filter(named)) {
+    for (const f of list(entry.filters).filter((v) => named(v))) {
       const same = found.find(
-        (x) => x.repos.length && x.name === f.name && x.include === f.include && x.exclude === f.exclude,
+        (x) => x.repos.length > 0 && x.name === f.name && x.include === f.include && x.exclude === f.exclude,
       );
       if (same) same.repos = [...new Set([...same.repos, repo])];
       else found.push({ ...f, repos: [repo] });
@@ -173,15 +177,15 @@ export function addImported(
   own: DiffFilter[],
   imported: DiffFilter[],
 ): { filters: DiffFilter[]; added: number; skipped: number } {
-  const key = (f: DiffFilter) => JSON.stringify([f.name, f.include, f.exclude, [...f.repos].sort()]);
-  const have = new Set(own.map(key));
+  const have = new Set(own.map((f) => sameness(f)));
   const ids = new Set(own.map((f) => f.id));
-  const fresh = imported.filter((f) => !have.has(key(f)) && (have.add(key(f)), true));
+  const fresh = imported.filter((f) => !have.has(sameness(f)) && (have.add(sameness(f)), true));
   const room = Math.max(0, 12 - own.length);
-  const added = fresh.slice(0, room).map((f) => {
+  const added: DiffFilter[] = [];
+  for (const f of fresh.slice(0, room)) {
     const id = ids.has(f.id) ? newId() : f.id;
     ids.add(id);
-    return { ...f, id };
-  });
+    added.push({ ...f, id });
+  }
   return { filters: [...own, ...added], added: added.length, skipped: fresh.length - added.length };
 }

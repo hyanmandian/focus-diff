@@ -44,7 +44,7 @@ type RawGroup = {
 export const toReactions = (groups: RawGroup[] | null | undefined): Reaction[] =>
   (groups ?? [])
     .filter((g) => g.reactors.totalCount > 0 && REACTIONS.includes(g.content))
-    .sort((a, b) => REACTIONS.indexOf(a.content) - REACTIONS.indexOf(b.content))
+    .toSorted((a, b) => REACTIONS.indexOf(a.content) - REACTIONS.indexOf(b.content))
     .map((g) => ({
       content: g.content,
       count: g.reactors.totalCount,
@@ -68,7 +68,7 @@ export function toggled(reactions: Reaction[], content: ReactionContent, me: str
     return reactions.map((r) =>
       r.content === content ? { ...r, count: r.count + 1, mine: true, who: me ? [me, ...r.who] : r.who } : r,
     );
-  return [...reactions, { content, count: 1, mine: true, who: me ? [me] : [] }].sort(
+  return [...reactions, { content, count: 1, mine: true, who: me ? [me] : [] }].toSorted(
     (a, b) => REACTIONS.indexOf(a.content) - REACTIONS.indexOf(b.content),
   );
 }
@@ -135,7 +135,8 @@ export type RawComment = {
   bodyHTML: string;
   createdAt: string;
   url: string;
-  state?: "PENDING" | "SUBMITTED" | string;
+  /** "PENDING" (in your review not sent yet), "SUBMITTED", and the like. */
+  state?: string;
   lastEditedAt: string | null;
   viewerCanUpdate: boolean;
   viewerCanDelete: boolean;
@@ -152,6 +153,7 @@ export async function moreComments(thread: string, after: string): Promise<RawCo
   const all: RawComment[] = [];
   let cursor: string | null = after;
   for (let page = 0; cursor && page < 50; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page's cursor comes from the one before
     const data: Raw = await graphql<Raw>(
       `query($id: ID!, $after: String) { node(id: $id) { ... on PullRequestReviewThread { comments(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { ${COMMENT_FIELDS} } } } } }`,
       { id: thread, after: cursor },

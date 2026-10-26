@@ -26,7 +26,7 @@ export function arrange(list: Item[], unread: (item: Item) => boolean): { groups
       b.items.filter(unread).length - a.items.filter(unread).length ||
       Math.max(...b.items.map(at)) - Math.max(...a.items.map(at)),
   );
-  return { groups, drafts: list.filter((i) => i.pr.isDraft).sort(order) };
+  return { groups, drafts: list.filter((i) => i.pr.isDraft).toSorted(order) };
 }
 
 /** The one after `current` in the panel's order (drafts last), back to the top past the end; the
@@ -34,7 +34,7 @@ export function arrange(list: Item[], unread: (item: Item) => boolean): { groups
 export function nextAfter(list: Item[], current: string, unread: (item: Item) => boolean): Item | null {
   const { groups, drafts } = arrange(list, unread);
   const all = [...groups.flatMap((g) => g.items), ...drafts];
-  const at = all.findIndex((i) => i.pr.id === current);
-  const next = at < 0 ? all[0] : all[(at + 1) % all.length];
+  const index = all.findIndex((i) => i.pr.id === current);
+  const next = index < 0 ? all[0] : all[(index + 1) % all.length];
   return next && next.pr.id !== current ? next : null;
 }

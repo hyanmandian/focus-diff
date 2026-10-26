@@ -18,7 +18,10 @@ export const defaultHeadline = (items: Applied[]) =>
   items.length === 1 ? `Update ${items[0]!.path.split("/").pop()}` : "Apply suggestions from code review";
 
 const contentsPath = (repo: string, path: string, ref: string) =>
-  `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${ref}`;
+  `/repos/${repo}/contents/${path
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")}?ref=${ref}`;
 
 export async function commitSuggestions(c: {
   repo: string;
@@ -61,7 +64,7 @@ export async function commitSuggestions(c: {
       },
     );
   } catch (e) {
-    if (e instanceof GitHubError && /expected branch to point to|is at .* but expected/i.test(e.message))
+    if (e instanceof GitHubError && /expected branch to point to|is at .* but expected/iu.test(e.message))
       throw new StaleHead(e.message);
     throw e;
   }

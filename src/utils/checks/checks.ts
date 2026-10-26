@@ -83,6 +83,10 @@ type Raw = {
 
 const FAILED = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"]);
 
+/** How a finished check run or step went, by GitHub's conclusion. */
+const concluded = (conclusion: string): CheckState =>
+  conclusion === "SUCCESS" ? "success" : FAILED.has(conclusion) ? "failure" : "neutral";
+
 /** One check as the list shows it. */
 export function toCheck(node: RawNode): CheckItem {
   if (node.__typename === "StatusContext") {
@@ -110,13 +114,7 @@ export function toCheck(node: RawNode): CheckItem {
   }
   const done = node.status === "COMPLETED";
   const conclusion = node.conclusion ?? "";
-  const state: CheckState = !done
-    ? "pending"
-    : conclusion === "SUCCESS"
-      ? "success"
-      : FAILED.has(conclusion)
-        ? "failure"
-        : "neutral";
+  const state = done ? concluded(conclusion) : "pending";
   const actions = node.checkSuite?.app?.slug === "github-actions";
   return {
     id: node.id,
@@ -145,6 +143,7 @@ export async function loadChecks(ref: PullRef, again = false): Promise<{ head: s
   let head: string | null = null;
   let after: string | null = null;
   for (let page = 0; page < 10; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
     const data: Raw = await graphql<Raw>(again ? fresh(QUERY) : QUERY, {
       owner: ref.owner,
       name: ref.repo,
@@ -156,7 +155,9 @@ export async function loadChecks(ref: PullRef, again = false): Promise<{ head: s
     const contexts = commit?.statusCheckRollup?.contexts;
     if (!contexts) break;
     checks.push(
-      ...contexts.nodes.filter((n) => n.__typename === "CheckRun" || n.__typename === "StatusContext").map(toCheck),
+      ...contexts.nodes
+        .filter((n) => n.__typename === "CheckRun" || n.__typename === "StatusContext")
+        .map((n) => toCheck(n)),
     );
     if (!contexts.pageInfo.hasNextPage) break;
     after = contexts.pageInfo.endCursor;
@@ -174,13 +175,15 @@ export function groupChecks(checks: CheckItem[]): Group[] {
     state,
     checks: checks
       .filter((c) => c.state === state)
-      .sort((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name)),
+      .toSorted((a, b) => Number(b.required) - Number(a.required) || a.name.localeCompare(b.name)),
   })).filter((g) => g.checks.length);
 }
 
 /** How many of each, for the summary line. */
-export const countChecks = (checks: CheckItem[]) =>
-  Object.fromEntries(ORDER.map((s) => [s, checks.filter((c) => c.state === s).length])) as Record<CheckState, number>;
+export function countChecks(checks: CheckItem[]): Record<CheckState, number> {
+  const count = (state: CheckState) => checks.filter((c) => c.state === state).length;
+  return { failure: count("failure"), pending: count("pending"), neutral: count("neutral"), success: count("success") };
+}
 
 /** The workflow runs that have failed jobs, each once: what "Re-run failed jobs" re-runs. */
 export const failedRuns = (checks: CheckItem[]) => [
@@ -202,6 +205,13 @@ export type Annotation = {
 };
 export type Step = { number: number; name: string; state: CheckState };
 export type CheckDetail = { summary: string | null; text: string | null; annotations: Annotation[]; steps: Step[] };
+
+/** Trimmed text, or null when there's none. */
+function nonBlank(text: string | null | undefined) {
+  const trimmed = text?.trim();
+  if (!trimmed) return null;
+  return trimmed;
+}
 
 /** What a check run says beyond its name: its summary, annotations (the lines it complains about)
  *  and, for an Actions job, its steps. */
@@ -258,8 +268,8 @@ export async function loadCheckDetail(id: string): Promise<CheckDetail> {
   );
   const node = data.node;
   return {
-    summary: node?.summary?.trim() || null,
-    text: node?.text?.trim() || null,
+    summary: nonBlank(node?.summary),
+    text: nonBlank(node?.text),
     annotations: (node?.annotations?.nodes ?? []).map((a) => ({
       path: a.path,
       line: a.location?.start.line ?? null,
@@ -270,14 +280,7 @@ export async function loadCheckDetail(id: string): Promise<CheckDetail> {
     steps: (node?.steps?.nodes ?? []).map((s) => ({
       number: s.number,
       name: s.name,
-      state:
-        s.status !== "COMPLETED"
-          ? "pending"
-          : s.conclusion === "SUCCESS"
-            ? "success"
-            : FAILED.has(s.conclusion ?? "")
-              ? "failure"
-              : "neutral",
+      state: s.status === "COMPLETED" ? concluded(s.conclusion ?? "") : "pending",
     })),
   };
 }
@@ -295,9 +298,12 @@ export type LogLine = { text: string; kind: "group" | "error" | "warning" | "com
  *  kinds (a group's title, an error, a warning, a command run), empty group ends dropped. */
 export function parseLog(text: string): LogLine[] {
   const lines: LogLine[] = [];
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.replace(/^﻿?\d{4}-\d\d-\d\dT[\d:.]+Z ?/, "").replaceAll(/\u001B\[[0-9;]*[A-Za-z]/g, "");
-    const marker = /^##\[(\w+)\](.*)$/.exec(line);
+  for (const raw of text.split(/\r?\n/u)) {
+    const line = raw
+      .replace(/^﻿?\d{4}-\d\d-\d\dT[\d:.]+Z ?/u, "")
+      // oxlint-disable-next-line eslint/no-control-regex -- the escape character is what starts a colour code
+      .replaceAll(/\u001B\[[0-9;]*[A-Za-z]/gu, "");
+    const marker = /^##\[(\w+)\](.*)$/u.exec(line);
     if (marker) {
       const [, name, rest = ""] = marker;
       if (name === "endgroup") continue;
@@ -356,15 +362,17 @@ export function useChecks(ref: PullRef, head: string | undefined, initial: Check
     [ref],
   );
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- reload sets state only once GitHub answers, not synchronously
     if (head) void reload();
   }, [head, reload]);
   const running = Boolean(checks?.some((c) => c.state === "pending"));
   useEffect(() => {
-    if (!running) return;
     const POLL = 10_000;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void reload(true);
-    }, POLL);
+    const timer = running
+      ? window.setInterval(() => {
+          if (document.visibilityState === "visible") void reload(true);
+        }, POLL)
+      : undefined;
     return () => {
       window.clearInterval(timer);
     };

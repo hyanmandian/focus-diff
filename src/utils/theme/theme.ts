@@ -6,6 +6,7 @@
 import { useEffect } from "react";
 
 // Every page sets its theme through here, so the platform (<html data-platform>) is set with it.
+// oxlint-disable-next-line import/no-unassigned-import -- loaded for that, nothing to name
 import "@/utils/platform/platform";
 import type { Config } from "@/utils/config/config";
 
@@ -20,7 +21,8 @@ function apply(theme: Config["theme"] | undefined) {
 
 function remembered(): Config["theme"] | undefined {
   try {
-    return (localStorage.getItem(KEY) as Config["theme"] | null) ?? undefined;
+    const value = localStorage.getItem(KEY);
+    return value === "system" || value === "light" || value === "dark" ? value : undefined;
   } catch {
     return undefined;
   }

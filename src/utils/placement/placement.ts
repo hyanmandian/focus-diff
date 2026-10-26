@@ -13,20 +13,20 @@ type Side = Thread["side"];
 /** The text of a line the diff shows, on that side (without its line ending); null when no hunk
  *  shows it. */
 export function lineText(diff: FileDiffMetadata, side: Side, line: number): string | null {
-  return rawLine(diff, side, line)?.replace(/\r?\n$/, "") ?? null;
+  return rawLine(diff, side, line)?.replace(/\r?\n$/u, "") ?? null;
 }
 
-function rawLine(diff: FileDiffMetadata, side: Side, line: number): string | null {
+function rawLine(diff: FileDiffMetadata, side: Side, line: number): string | undefined {
   for (const h of diff.hunks) {
     const [start, count, index, lines] =
       side === "additions"
         ? [h.additionStart, h.additionCount, h.additionLineIndex, diff.additionLines]
         : [h.deletionStart, h.deletionCount, h.deletionLineIndex, diff.deletionLines];
     // A full file (hydrated, or made from both versions) holds every line at its own place.
-    if (!diff.isPartial) return line >= 1 && line <= lines.length ? (lines[line - 1] ?? null) : null;
-    if (line >= start && line < start + count) return lines[index + line - start] ?? null;
+    if (!diff.isPartial) return lines[line - 1];
+    if (line >= start && line < start + count) return lines[index + line - start];
   }
-  return null;
+  return undefined;
 }
 
 /** Whether a line is one the diff shows (in a hunk) on that side. */
@@ -39,7 +39,7 @@ export function shows(diff: FileDiffMetadata, side: Side, line: number) {
 }
 
 /** Lines compared as code: the line ending and trailing spaces don't count. */
-const same = (a: string, b: string) => a.replace(/\s+$/, "") === b.replace(/\s+$/, "");
+const same = (a: string, b: string) => a.replace(/\s+$/u, "") === b.replace(/\s+$/u, "");
 
 /** `lineNumber` 0: the top of the file. `moved`: not at its line, so it says where it was. */
 export type Placement = { side: Side; lineNumber: number; moved: boolean };
@@ -62,7 +62,7 @@ export function placeThread(
  *  +, - or space in front. */
 export function hunkTail(diffHunk: string | null | undefined): string | undefined {
   if (!diffHunk) return undefined;
-  const last = diffHunk.replace(/\n+$/, "").split("\n").pop() ?? "";
+  const last = diffHunk.replace(/\n+$/u, "").split("\n").at(-1)!;
   return last.startsWith("@@") ? undefined : last.slice(1);
 }
 

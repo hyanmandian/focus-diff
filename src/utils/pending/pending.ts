@@ -69,6 +69,7 @@ export async function loadPending(d: PullRef): Promise<PendingReview | null> {
   // More than a hundred: the rest, a hundred a page.
   let cursor = review.comments.pageInfo.hasNextPage ? review.comments.pageInfo.endCursor : null;
   for (let page = 0; cursor && page < 50; page++) {
+    // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
     const more: { node: { comments: Page } | null } = await graphql(
       `query($id: ID!, $after: String) { node(id: $id) { ... on PullRequestReview { comments(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { ${FIELDS} } } } } }`,
       { id: review.id, after: cursor },
@@ -170,7 +171,7 @@ export const toPut = (pull: string, d: Draft): Extract<DraftChange, { op: "put" 
 /** Sends the review: every pending comment reaches GitHub first (Rust says when, or what it
  *  refused), then the review that holds them is submitted. With none, a review is made outright. */
 export async function submitPending(
-  d: Details,
+  d: Pick<Details, "id" | "owner" | "repo" | "number">,
   event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
   body: string,
   drafts: number,
@@ -201,7 +202,7 @@ export async function submitPending(
 }
 
 /** Throws the pending review away, here and on GitHub. */
-export async function discardPending(d: Details) {
+export async function discardPending(d: Pick<Details, "id" | "owner" | "repo" | "number">) {
   await bridge.draftsForget(d.id);
   const review = await loadPending(d);
   if (review)

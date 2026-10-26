@@ -6,6 +6,9 @@
 /** A short, stable hash of a string (djb2, base 36). */
 export const hash = (s: string) => {
   let h = 5381;
+  // `| 0` keeps it a 32-bit integer, wrapping as djb2 does, and UTF-16 code units keep the hashes
+  // already stored the same.
+  // oxlint-disable-next-line unicorn/prefer-math-trunc, unicorn/prefer-code-point -- see above
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return h.toString(36);
 };

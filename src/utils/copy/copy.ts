@@ -8,7 +8,7 @@ import type { T } from "@/utils/i18n/i18n";
 
 /** Someone by their first name, as people say it; their login without one. */
 export const firstName = (actor: Actor, t: T) =>
-  actor?.name?.trim().split(/\s+/)[0] || actor?.login || t("common.someone");
+  [actor?.name?.trim().split(/\s+/u)[0], actor?.login].find(Boolean) ?? t("common.someone");
 
 /** Each event's colour: t(`events.tag.${kind}`) is its tag, t(`events.long.${kind}`) its tooltip,
  *  t(`events.label.${kind}`) its name among a queue's notifications. */

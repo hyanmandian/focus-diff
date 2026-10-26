@@ -1,13 +1,9 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import type { InvokeArgs } from "@tauri-apps/api/core";
+import { mockIPC } from "@tauri-apps/api/mocks";
+import { describe, expect, it } from "vite-plus/test";
 
 import { fill, runAction } from "@/utils/actions/actions";
-import { bridge, github } from "@/utils/bridge/bridge";
-import type { Action } from "@/utils/config/config";
-
-vi.mock("@/utils/bridge/bridge", () => ({
-  github: vi.fn(async () => ({})),
-  bridge: { openUrl: vi.fn(async () => {}), runAction: vi.fn(async () => "sent") },
-}));
+import type { Action, ActionStep } from "@/utils/config/config";
 
 const pr = {
   number: 7,
@@ -17,6 +13,29 @@ const pr = {
   author: "ana",
   me: "me",
 };
+
+const action = (steps: ActionStep[]): Action => ({ id: "a", name: "Hand off", confirm: false, choices: [], steps });
+
+const fields = (args: InvokeArgs | undefined): Record<string, unknown> =>
+  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
+
+/** Answers Rust as it would, and keeps what was asked of it. */
+function rust(answers: { github?: { status: number; body: string }; run?: string; refuse?: string } = {}) {
+  const calls: Array<{ cmd: string; args: Record<string, unknown> }> = [];
+  mockIPC((cmd, args) => {
+    calls.push({ cmd, args: fields(args) });
+    // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's errors reach the page as strings
+    if (answers.refuse !== undefined) return Promise.reject(answers.refuse);
+    if (cmd === "github") return answers.github ?? { status: 200, body: "{}" };
+    if (cmd === "run_action") return answers.run ?? "";
+    return null;
+  });
+  const github = () =>
+    calls
+      .filter((c) => c.cmd === "github")
+      .map((c) => [c.args.method, c.args.path, JSON.parse(String(c.args.body)) as unknown]);
+  return { calls, github };
+}
 
 describe("fill", () => {
   it("fills text, and encodes values inside links", () => {
@@ -28,29 +47,52 @@ describe("fill", () => {
 });
 
 describe("runAction", () => {
-  it("runs the steps in order and stops at a failure", async () => {
-    const action: Action = {
-      id: "a",
-      name: "Hand off",
-      confirm: false,
-      choices: [],
-      steps: [
-        { kind: "request", reviewers: ["dana", "acme/frontend"] },
-        { kind: "unrequestMe" },
-        { kind: "comment", body: "@dana over to you ({title})" },
-        { kind: "run", command: "ignored here" },
-      ],
-    };
-    expect(await runAction(action, pr)).toBe("Hand off: sent");
-    expect(vi.mocked(github).mock.calls).toEqual([
+  it("runs the steps in order and says what the command said", async () => {
+    const ipc = rust({ run: "sent" });
+    const handOff = action([
+      { kind: "request", reviewers: ["dana", "acme/frontend"] },
+      { kind: "unrequestMe" },
+      { kind: "comment", body: "@dana over to you ({title})" },
+      { kind: "label", labels: ["ready"] },
+      { kind: "open", url: " https://x.test/{number} " },
+      { kind: "run", command: "ignored here" },
+    ]);
+    expect(await runAction(handOff, pr)).toBe("Hand off: sent");
+    expect(ipc.github()).toEqual([
       ["POST", "/repos/acme/web/pulls/7/requested_reviewers", { reviewers: ["dana"], team_reviewers: ["frontend"] }],
       ["DELETE", "/repos/acme/web/pulls/7/requested_reviewers", { reviewers: ["me"], team_reviewers: [] }],
       ["POST", "/repos/acme/web/issues/7/comments", { body: "@dana over to you (Fix a & b)" }],
+      ["POST", "/repos/acme/web/issues/7/labels", { labels: ["ready"] }],
     ]);
-    expect(vi.mocked(bridge.runAction)).toHaveBeenCalledWith(action, 3, pr);
+    expect(ipc.calls).toContainEqual({ cmd: "open_url", args: { url: "https://x.test/7" } });
+    expect(ipc.calls).toContainEqual({
+      cmd: "run_action",
+      args: { action: "a", name: "Hand off", step: 5, pr },
+    });
+  });
 
-    vi.mocked(github).mockClear().mockRejectedValueOnce(new Error("Not Found"));
-    await expect(runAction(action, pr)).rejects.toThrow("Ask for reviews: Not Found");
-    expect(vi.mocked(github)).toHaveBeenCalledTimes(1);
+  it("skips empty steps and says it's done when nothing had words", async () => {
+    const ipc = rust();
+    const empty = action([
+      { kind: "comment", body: "  " },
+      { kind: "request", reviewers: [] },
+      { kind: "label", labels: [] },
+      { kind: "open", url: " " },
+      { kind: "run", command: "true" },
+    ]);
+    expect(await runAction(empty, pr)).toBe("Hand off: done");
+    expect(ipc.calls.map((c) => c.cmd)).toEqual(["run_action"]);
+  });
+
+  it("names the failed step when there are several", async () => {
+    const ipc = rust({ github: { status: 404, body: JSON.stringify({ message: "Not Found" }) } });
+    const steps: ActionStep[] = [{ kind: "request", reviewers: ["dana"] }, { kind: "unrequestMe" }];
+    await expect(runAction(action(steps), pr)).rejects.toThrow("Ask for reviews: Not Found");
+    expect(ipc.github()).toHaveLength(1);
+  });
+
+  it("tells only what went wrong when it's the only step", async () => {
+    rust({ refuse: "no browser" });
+    await expect(runAction(action([{ kind: "open", url: "https://x.test" }]), pr)).rejects.toThrow(/^no browser$/u);
   });
 });

@@ -78,8 +78,13 @@ export function MergeBox({ details, pull }: Props) {
   const [deleteAfter, setDeleteAfter] = useState(false);
   if (!view || !m) return null;
   const message = chosen ? (edited[chosen] ?? defaultMessage(chosen, m, details, pull.commits?.commits ?? [])) : null;
-  const edit = (change: Partial<{ title: string; body: string }>) =>
-    chosen && message && setEdited((e) => ({ ...e, [chosen]: { ...message, ...change } }));
+  const edit = (
+    how: Method,
+    from: { title: string; body: string },
+    change: Partial<{ title: string; body: string }>,
+  ) => {
+    setEdited((e) => ({ ...e, [how]: { ...from, ...change } }));
+  };
   const s = STATUS_ICON[view.status];
   const open = details.state === "OPEN";
   const merging = view.canMerge || (bypass && view.canBypass);
@@ -222,13 +227,17 @@ export function MergeBox({ details, pull }: Props) {
                 <div className="flex flex-col gap-1.5 pt-2">
                   <Input
                     value={message.title}
-                    onChange={(e) => edit({ title: e.target.value })}
+                    onChange={(e) => {
+                      edit(chosen, message, { title: e.target.value });
+                    }}
                     aria-label={t("manage.commitTitle")}
                   />
                   <Textarea
                     rows={4}
                     value={message.body}
-                    onChange={(e) => edit({ body: e.target.value })}
+                    onChange={(e) => {
+                      edit(chosen, message, { body: e.target.value });
+                    }}
                     aria-label={t("manage.commitBody")}
                     className="resize-y font-mono text-callout"
                   />
@@ -244,7 +253,7 @@ export function MergeBox({ details, pull }: Props) {
           ) : null}
           <div className="flex flex-wrap items-center justify-end gap-2">
             {details.mergeMethods.length > 1 && (merging || view.canAutoMerge) ? (
-              <Select value={chosen} onValueChange={(v) => v && setMethod(v)}>
+              <Select value={chosen} onValueChange={setMethod}>
                 <SelectTrigger aria-label={t("manage.mergeMethod")}>
                   <SelectValue>{(v: Method) => t(`review.mergeMethod.${v}`)}</SelectValue>
                 </SelectTrigger>
@@ -277,7 +286,7 @@ export function MergeBox({ details, pull }: Props) {
               <Button
                 variant={bypass && !view.canMerge ? "destructive" : "default"}
                 onClick={() =>
-                  void pull.actions.merge(chosen, chosen === "rebase" ? undefined : (message ?? undefined), {
+                  void pull.actions.merge(chosen, chosen === "rebase" ? undefined : message!, {
                     bypass: bypass && !view.canMerge,
                     deleteAfter,
                   })
@@ -289,9 +298,7 @@ export function MergeBox({ details, pull }: Props) {
               </Button>
             ) : view.canAutoMerge ? (
               <Button
-                onClick={() =>
-                  void pull.actions.autoMerge(chosen, chosen === "rebase" ? undefined : (message ?? undefined))
-                }
+                onClick={() => void pull.actions.autoMerge(chosen, chosen === "rebase" ? undefined : message!)}
                 disabled={busy === "auto"}
               >
                 {busy === "auto" ? <Loader2 className="animate-spin" /> : null}

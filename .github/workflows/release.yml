@@ -1,5 +1,5 @@
-# Every merge to main updates a release pull request for each app that changed (apps/extension, tagged v1.x; and
-# apps/desktop, tagged desktop-v0.x), with the next version and its changelog, worked out from the conventional
+# Every merge to main updates a release pull request for each app that changed (packages/extension, tagged v1.x; and
+# packages/desktop, tagged desktop-v0.x), with the next version and its changelog, worked out from the conventional
 # pull request titles. Merging it tags the release and creates it as a draft; then, for the extension:
 #
 #   1. `build` checks, tests and zips the tagged commit, with read-only access.
@@ -23,7 +23,7 @@
 # One-time setup, in the repository's settings (not done by CI):
 #   - Releases can be made immutable (Settings → General → Releases): assets go on while the release is a draft.
 #   - Secrets TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD: the updater key whose public half is
-#     in apps/desktop/src-tauri/tauri.conf.json.
+#     in packages/desktop/src-tauri/tauri.conf.json.
 
 name: Release
 
@@ -46,11 +46,11 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      created: ${{ steps.release.outputs['apps/extension--release_created'] }}
-      tag: ${{ steps.release.outputs['apps/extension--tag_name'] }}
-      desktop-created: ${{ steps.release.outputs['apps/desktop--release_created'] }}
-      desktop-tag: ${{ steps.release.outputs['apps/desktop--tag_name'] }}
-      desktop-version: ${{ steps.release.outputs['apps/desktop--version'] }}
+      created: ${{ steps.release.outputs['packages/extension--release_created'] }}
+      tag: ${{ steps.release.outputs['packages/extension--tag_name'] }}
+      desktop-created: ${{ steps.release.outputs['packages/desktop--release_created'] }}
+      desktop-tag: ${{ steps.release.outputs['packages/desktop--tag_name'] }}
+      desktop-version: ${{ steps.release.outputs['packages/desktop--version'] }}
     steps:
       - name: Run release-please
         id: release
@@ -67,7 +67,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: apps/extension
+        working-directory: packages/extension
     steps:
       - name: Checkout the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -109,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
-          path: apps/extension/release/*.zip
+          path: packages/extension/release/*.zip
           if-no-files-found: error
 
   release-assets:
@@ -157,7 +157,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
-        working-directory: apps/desktop
+        working-directory: packages/desktop
     steps:
       - name: Checkout the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -175,7 +175,7 @@ jobs:
         run: npx vp test --coverage
 
       - name: Rust tests
-        working-directory: apps/desktop/src-tauri
+        working-directory: packages/desktop/src-tauri
         run: cargo test --locked
 
       - name: Add both Mac architectures to Rust
@@ -209,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: desktop-release
-          path: apps/desktop/release/*
+          path: packages/desktop/release/*
           if-no-files-found: error
 
   desktop-assets:

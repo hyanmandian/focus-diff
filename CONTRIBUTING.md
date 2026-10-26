@@ -9,22 +9,21 @@ By taking part, you agree to the [code of conduct](CODE_OF_CONDUCT.md).
 This repository holds everything Focus Diff is, as npm workspaces:
 
 ```text
-apps/
-  extension/   the browser extension: WXT and TypeScript, no runtime dependencies
-  desktop/     the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
-  site/        focus-diff.com, a static page
 packages/
-  core/          logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
-  design-system/ what makes them look like one product: the brand mark
+  extension/      the browser extension: WXT and TypeScript
+  desktop/        the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
+  site/           focus-diff.com, a static page
+  core/           logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
+  design-system/  what makes them one product: tokens, the brand mark and the UI components both apps draw with
 ```
 
-The apps import a package's files directly, as its `exports` name them (`@focus-diff/core/filters`), and bundle
+The apps import a shared package's files directly, as its `exports` name them (`@focus-diff/core/filters`), and bundle
 them; `npm run check` in `packages/core` is Oxfmt, Oxlint (as strict as the apps'), types and Vitest at 100%.
 
 `npm install` at the root installs everything. Run an app's commands from its folder (or with `--workspace`), and
 `npm run check`, `npm test`, `npm run build` or `npm run e2e` at the root to run them in every app.
 
-### The extension (`apps/extension`)
+### The extension (`packages/extension`)
 
 Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runtime dependencies.
 
@@ -53,7 +52,7 @@ src/
 tests/              Playwright end-to-end tests, on a local copy of a pull request page
 ```
 
-### The Mac app (`apps/desktop`)
+### The Mac app (`packages/desktop`)
 
 ```sh
 npm run tauri dev   # the app, with the menu bar icon, hot reload for the pages and Rust rebuilt on change

@@ -3,7 +3,7 @@
  * average daily users, and every download of a release's browser zips (the sources zip is for store reviewers, so it
  * doesn't count). A store the extension isn't listed on yet adds nothing. The site's deploy runs it daily:
  *
- *   node apps/site/installs.ts > apps/site/dist/badges/installs.json
+ *   node packages/site/installs.ts > packages/site/dist/badges/installs.json
  *
  * Env: GITHUB_REPOSITORY (owner/name), GITHUB_TOKEN (optional, for the rate limit).
  */

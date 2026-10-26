@@ -6,7 +6,6 @@
   "author": "Hyan Mandian",
   "type": "module",
   "workspaces": [
-    "apps/*",
     "packages/*"
   ],
   "scripts": {

@@ -1,18 +1,27 @@
-// The person's own action buttons on a pull request (set up in Settings → Actions).
+// The person's own action buttons on a pull request (set up in Settings → Actions): as toolbar
+// buttons while there's room, as items of a pull-down menu once there isn't. One that asks first
+// asks with a native alert, as the Mac does before something that can't be taken back.
 
 import { Loader2, Zap } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { runAction, STEP_LABELS } from "@/lib/actions";
-import type { ActionContext } from "@/lib/bridge";
+import { bridge, type ActionContext } from "@/lib/bridge";
 import type { Action } from "@/lib/config";
 
-function ActionButton({ action, pr, size, onResult }: { action: Action; pr: ActionContext; size: "xs" | "sm"; onResult: (message: string, ok: boolean) => void }) {
+type Result = (message: string, ok: boolean) => void;
+
+/** Runs an action, after asking when it's set to ask. */
+function useRun(action: Action, pr: ActionContext, onResult: Result) {
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
   const run = async () => {
-    setOpen(false);
+    if (action.confirm) {
+      const steps = action.steps
+        .map((step) => `${STEP_LABELS[step.kind]}${step.kind === "request" && step.reviewers.length ? `: ${step.reviewers.join(", ")}` : step.kind === "label" && step.labels.length ? `: ${step.labels.join(", ")}` : ""}`)
+        .join("\n");
+      if (!(await bridge.confirm(`${action.name} #${pr.number}?`, steps, action.name))) return;
+    }
     setBusy(true);
     try {
       onResult(await runAction(action, pr), true);
@@ -22,47 +31,47 @@ function ActionButton({ action, pr, size, onResult }: { action: Action; pr: Acti
       setBusy(false);
     }
   };
-  const icon = busy ? <Loader2 className="animate-spin" /> : <Zap />;
-  if (!action.confirm) {
-    return (
-      <Button variant="outline" size={size} disabled={busy || !action.steps.length} onClick={() => void run()}>
-        {icon} {action.name}
-      </Button>
-    );
-  }
+  return { busy, run };
+}
+
+function ActionButton({ action, pr, className, onResult }: { action: Action; pr: ActionContext; className?: string; onResult: Result }) {
+  const { busy, run } = useRun(action, pr, onResult);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="outline" size={size} disabled={busy || !action.steps.length} />}>
-        {icon} {action.name}
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-64">
-        <p className="text-[13px] font-medium">
-          {action.name} #{pr.number}?
-        </p>
-        <ol className="list-decimal pl-4 text-xs text-muted-foreground">
-          {action.steps.map((step, i) => (
-            <li key={i}>{STEP_LABELS[step.kind]}{step.kind === "request" && step.reviewers.length ? `: ${step.reviewers.join(", ")}` : step.kind === "label" && step.labels.length ? `: ${step.labels.join(", ")}` : ""}</li>
-          ))}
-        </ol>
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={() => void run()}>
-            Run
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+    <Button variant="ghost" className={className} disabled={busy || !action.steps.length} onClick={() => void run()}>
+      {busy ? <Loader2 className="animate-spin" /> : <Zap />} {action.name}
+      {action.confirm ? "…" : ""}
+    </Button>
   );
 }
 
-export function ActionButtons({ actions, pr, size = "sm", onResult }: { actions: Action[]; pr: ActionContext | null; size?: "xs" | "sm"; onResult: (message: string, ok: boolean) => void }) {
+function ActionItem({ action, pr, onResult }: { action: Action; pr: ActionContext; onResult: Result }) {
+  const { busy, run } = useRun(action, pr, onResult);
+  return (
+    <DropdownMenuItem disabled={busy || !action.steps.length} onClick={() => void run()}>
+      {action.name}
+      {action.confirm ? "…" : ""}
+    </DropdownMenuItem>
+  );
+}
+
+export function ActionButtons({ actions, pr, className, onResult }: { actions: Action[]; pr: ActionContext | null; className?: string; onResult: Result }) {
   if (!pr || !actions.length) return null;
   return (
     <>
       {actions.map((action) => (
-        <ActionButton key={action.id} action={action} pr={pr} size={size} onResult={onResult} />
+        <ActionButton key={action.id} action={action} pr={pr} className={className} onResult={onResult} />
+      ))}
+    </>
+  );
+}
+
+/** The same actions as menu items, for a pull-down menu. */
+export function ActionMenuItems({ actions, pr, onResult }: { actions: Action[]; pr: ActionContext | null; onResult: Result }) {
+  if (!pr || !actions.length) return null;
+  return (
+    <>
+      {actions.map((action) => (
+        <ActionItem key={action.id} action={action} pr={pr} onResult={onResult} />
       ))}
     </>
   );

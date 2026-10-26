@@ -105,6 +105,11 @@ export const bridge = {
   /** Downloads and installs it, then restarts. */
   installUpdate: () => invoke<void>("install_update"),
   hidePanel: () => invoke<void>("hide_panel"),
+  /** A native alert on this window (a sheet on the Mac) for something that can't be undone: true
+   *  when the person picks `ok`, the default button; Cancel answers Esc. */
+  confirm: (title: string, message: string, ok: string) => invoke<boolean>("confirm", { title, message, ok }),
+  /** Which of the menu bar's review commands this window can do now (src-tauri/src/menu.rs). */
+  menuState: (items: Record<string, boolean>) => invoke<void>("menu_state", { items }),
   quit: () => invoke<void>("quit"),
 
   on: <T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> =>

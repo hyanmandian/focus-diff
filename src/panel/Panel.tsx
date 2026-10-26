@@ -7,7 +7,7 @@ import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-
 import { type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bridge } from "@/lib/bridge";
@@ -16,6 +16,7 @@ import { ago } from "@/lib/copy";
 import type { Item } from "@/lib/engine";
 import { clearArrival, dismiss, isUnread, markQueueSeen, markSeen, refresh, useStore } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
+import { shortcut } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { tabKeys } from "@/lib/keys";
 import { Connect } from "@/shared/Connect";
@@ -77,8 +78,9 @@ const shortName = (repo: string, all: string[]) => {
 
 type Group = { repo: string; items: Item[] };
 
-/** The header's toolbar buttons: 28pt, a 16pt glyph in the secondary label color, a quiet hover. */
-const TOOL = "rounded-[8px] text-muted-foreground hover:bg-foreground/8 hover:text-foreground aria-expanded:bg-foreground/8 aria-expanded:text-foreground dark:hover:bg-foreground/10";
+/** The header's buttons: 28pt, a 16pt glyph in the secondary label color; a fill only while pressed
+ *  or while its menu is open (controls in a popover don't light up under the pointer). */
+const TOOL = "rounded-full text-muted-foreground active:bg-foreground/8 aria-expanded:bg-foreground/8 aria-expanded:text-foreground dark:active:bg-foreground/10";
 
 export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen, review } = useStore();
@@ -104,10 +106,7 @@ export function Panel() {
     const off = bridge.on<string>("update-available", setUpdate);
     return () => void off.then((f) => f());
   }, []);
-  // Which way a new list comes in: from the right when the pick moved right.
-  const [direction, setDirection] = useState(0);
   const choose = (id: string) => {
-    setDirection(Math.sign(queues.findIndex((q) => q.id === id) - queues.findIndex((q) => q.id === queue?.id)));
     setTab(id);
     setRepo("");
     remember("tab", id);
@@ -116,7 +115,11 @@ export function Panel() {
   // Esc closes the panel, like a menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) void bridge.hidePanel();
+      // The app's own shortcuts, which the menu bar would answer if a tray app had one showing.
+      if (e.metaKey && !e.altKey && !e.ctrlKey && (e.key === "," || e.key === "q")) {
+        e.preventDefault();
+        void (e.key === "," ? bridge.openSettings() : bridge.quit());
+      } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) void bridge.hidePanel();
       // Like a menu: ↑↓ walk the pull requests (from anywhere but a field or a tab row), Home/End
       // jump to the ends, Return opens the one focused.
       else if (/^(ArrowDown|ArrowUp|Home|End)$/.test(e.key) && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
@@ -187,22 +190,22 @@ export function Panel() {
     ) : null;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] animate-in fade-in-0 zoom-in-[0.98] duration-150 ease-out motion-reduce:animate-none">
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] animate-in fade-in-0 duration-(--duration) ease-out motion-reduce:animate-none">
       <header className="flex h-12 shrink-0 items-center gap-2 pr-2.5 pl-4" data-tauri-drag-region>
         <Mark className="size-4 text-primary" />
-        <h1 className="text-[13px] leading-4 font-semibold">Focus Diff</h1>
+        <h1 className="text-body leading-4 font-semibold">Focus Diff</h1>
         <div className="ml-auto flex items-center gap-0.5">
           {signedIn ? (
             status.phase === "error" ? (
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" className={TOOL} aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label={`Couldn't refresh: ${status.error}. Try again`} onClick={() => void refresh(true)} />}>
                   <AlertCircle className="text-destructive" />
                 </TooltipTrigger>
                 <TooltipContent>{status.error} · click to try again</TooltipContent>
               </Tooltip>
             ) : (
               <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon-sm" className={TOOL} aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
+                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label="Refresh" onClick={() => void refresh(true)} disabled={status.phase === "loading"} />}>
                   {status.phase === "loading" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                 </TooltipTrigger>
                 <TooltipContent>Refresh</TooltipContent>
@@ -210,14 +213,18 @@ export function Panel() {
             )
           ) : null}
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className={TOOL} aria-label="Menu" />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label="Menu" />}>
               <Settings />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => void bridge.openSettings()}>Settings…</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void bridge.openSetup()}>Run setup again…</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void bridge.openSettings()}>
+                Settings… <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void bridge.openSetup()}>Run Setup Again…</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void bridge.quit()}>Quit Focus Diff</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void bridge.quit()}>
+                Quit Focus Diff <DropdownMenuShortcut>{shortcut("Q", ["cmd"])}</DropdownMenuShortcut>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -248,16 +255,16 @@ export function Panel() {
         <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
           <Mark className="size-10 text-primary" />
           <div className="flex flex-col gap-1.5">
-            <h2 className="text-[15px] leading-5 font-semibold">Your reviews, without opening GitHub</h2>
-            <p className="text-[13px] leading-[18px] text-balance text-muted-foreground">Connect GitHub to see what's waiting on you, and hear about it as it happens.</p>
+            <h2 className="text-title3 leading-5 font-semibold">Your reviews, without opening GitHub</h2>
+            <p className="text-body leading-[18px] text-balance text-muted-foreground">Connect GitHub to see what's waiting on you, and hear about it as it happens.</p>
           </div>
           <Connect auth={auth} onConnected={() => void refresh(true)} />
         </div>
       ) : !queue ? (
         <div className="flex flex-col items-center gap-3 px-8 py-16 text-center">
-          <p className="text-[13px] text-muted-foreground">You have no queues turned on.</p>
+          <p className="text-body text-muted-foreground">You have no queues turned on.</p>
           <Button variant="outline" onClick={() => void bridge.openSettings()}>
-            Set up queues
+            Set Up Queues…
           </Button>
         </div>
       ) : (
@@ -279,8 +286,8 @@ export function Panel() {
                   data-pill={q.id}
                   onClick={() => choose(q.id)}
                   className={cn(
-                    "flex h-6 flex-auto shrink-0 items-center justify-center gap-1.5 rounded-[6px] px-2.5 text-[13px] leading-4 font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                    !selected && "hover:bg-foreground/6",
+                    // No highlight under the pointer: segmented controls don't have one.
+                    "flex h-6 flex-auto shrink-0 cursor-default items-center justify-center gap-1.5 rounded-[6px] px-2.5 text-body whitespace-nowrap outline-none focus-ring-inset",
                   )}
                 >
                   <span className="truncate">{q.name}</span>
@@ -303,14 +310,10 @@ export function Panel() {
                       aria-pressed={pressed}
                       title={value || undefined}
                       data-pill={value || "all"}
-                      onClick={() => {
-                        const order = ["", ...repos];
-                        setDirection(Math.sign(order.indexOf(value) - order.indexOf(repo && repos.includes(repo) ? repo : "")));
-                        setRepo(value);
-                      }}
+                      onClick={() => setRepo(value)}
                       className={cn(
-                        "flex h-6 max-w-44 shrink-0 items-center gap-1.5 rounded-[6px] px-2 text-[12px] leading-4 font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                        pressed ? "text-foreground" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                        "flex h-6 max-w-44 shrink-0 cursor-default items-center gap-1.5 rounded-[6px] px-2 text-callout outline-none focus-ring-inset",
+                        pressed ? "text-foreground" : "text-muted-foreground",
                       )}
                     >
                       <span className="truncate">{label}</span>
@@ -322,7 +325,8 @@ export function Panel() {
             ) : null}
 
             <div className="mx-4 h-px shrink-0 bg-(--panel-separator)" />
-            {/* Each queue's list, and each repository's, slides in from the side it was picked on. */}
+            {/* Each queue's list, and each repository's, shows at once: switching is frequent, so it
+                isn't animated. */}
             <div
               key={`${queue.id}:${repo}`}
               ref={listRef}
@@ -331,8 +335,7 @@ export function Panel() {
               onScroll={stick}
               className={cn(
                 "outline-none",
-                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-2 animate-in fade-in-0 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none",
-                direction > 0 ? "slide-in-from-right-3" : direction < 0 ? "slide-in-from-left-3" : "",
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-2",
               )}
             >
               {groups.length || drafts.length ? (
@@ -340,7 +343,7 @@ export function Panel() {
                   {groups.map((g, i) => (
                     <section key={g.repo} aria-label={g.repo} className={cn(i > 0 && "mt-2", groups.length === 1 && repos.length <= 1 && "pt-1")}>
                       {groups.length > 1 || repos.length > 1 ? (
-                        <h2 className="sticky top-0 z-10 -mx-1 flex items-center gap-1.5 px-4 pt-2 pb-1 text-[11px] leading-4 font-semibold text-muted-foreground data-stuck:bg-(--panel-sticky) data-stuck:backdrop-blur-xl">
+                        <h2 className="sticky top-0 z-10 -mx-1 flex items-center gap-1.5 px-4 pt-2 pb-1 text-subheadline leading-4 font-semibold text-muted-foreground data-stuck:bg-(--panel-sticky) data-stuck:backdrop-blur-xl">
                           <span className="min-w-0 truncate">
                             <span className="font-normal">{g.repo.slice(0, g.repo.indexOf("/") + 1)}</span>
                             <span className="text-foreground/85">{g.repo.slice(g.repo.indexOf("/") + 1)}</span>
@@ -353,7 +356,7 @@ export function Panel() {
                   ))}
                   {drafts.length ? (
                     <Collapsible open={draftsOpen} onOpenChange={setDraftsOpen} className={cn(groups.length && "mt-2")}>
-                      <CollapsibleTrigger className="flex w-full items-center gap-1 rounded-[6px] py-2 pr-3 pl-3 text-[11px] leading-4 font-semibold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                      <CollapsibleTrigger className="flex w-full cursor-default items-center gap-1 rounded-[6px] py-2 pr-3 pl-3 text-subheadline font-semibold text-muted-foreground outline-none focus-ring-inset">
                         <ChevronRight className={cn("size-3 transition-transform duration-200 motion-reduce:transition-none", draftsOpen && "rotate-90")} aria-hidden />
                         Drafts <span className="font-normal tabular-nums">{drafts.length}</span>
                       </CollapsibleTrigger>
@@ -364,18 +367,18 @@ export function Panel() {
                   ) : null}
                 </>
               ) : (
-                <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">{EMPTY[queue.kind]}</p>
+                <p className="px-4 py-10 text-center text-body text-muted-foreground">{EMPTY[queue.kind]}</p>
               )}
             </div>
           </div>
 
           <div className="mx-4 h-px shrink-0 bg-(--panel-separator)" />
-          <footer className="flex h-9 shrink-0 items-center gap-2 px-4 text-[11px] leading-4 text-muted-foreground">
+          <footer className="flex h-9 shrink-0 items-center gap-2 px-4 text-subheadline leading-4 text-muted-foreground">
             {update ? (
               <button
                 type="button"
                 disabled={updating}
-                className="flex items-center gap-1.5 rounded-sm font-medium text-success outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex cursor-default items-center gap-1.5 rounded-sm font-medium text-success outline-none focus-ring"
                 onClick={() => {
                   setUpdating(true);
                   void bridge.installUpdate().catch(() => setUpdating(false));
@@ -387,7 +390,7 @@ export function Panel() {
             ) : null}
             <p role="status" className={cn(update && "sr-only")}>{status.updatedAt ? `Updated ${ago(status.updatedAt) === "now" ? "just now" : `${ago(status.updatedAt)} ago`}` : status.phase === "loading" ? "Checking GitHub…" : ""}</p>
             {unreadHere ? (
-              <button type="button" className="ml-auto rounded-sm font-medium text-(--panel-link) outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" onClick={() => markQueueSeen(queue.id)}>
+              <button type="button" className="ml-auto cursor-default rounded-sm font-medium text-(--panel-link) outline-none focus-ring" onClick={() => markQueueSeen(queue.id)}>
                 Mark all as read
               </button>
             ) : null}

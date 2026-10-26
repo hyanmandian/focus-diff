@@ -27,7 +27,7 @@ const show = (target: Target) =>
   root.render(
     <StrictMode>
       <WorkerPoolContextProvider poolOptions={POOL} highlighterOptions={HIGHLIGHTER}>
-        <TooltipProvider delay={400}>
+        <TooltipProvider>
           <Review target={target} />
           <Viewer />
         </TooltipProvider>

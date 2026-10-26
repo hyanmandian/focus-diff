@@ -361,6 +361,8 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
     case "run_action":
       await new Promise((r) => setTimeout(r, 400));
       return "ok";
+    case "confirm":
+      return window.confirm(`${args.title as string}\n\n${args.message as string}`);
     case "plugin:event|listen":
       listeners.set(++callbackId, args.event as string);
       return callbackId;

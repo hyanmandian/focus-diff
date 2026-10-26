@@ -77,11 +77,11 @@ export function Viewer() {
       }}
     >
       <div className="flex shrink-0 items-center justify-end gap-1 p-3 text-white">
-        {picture.alt ? <p className="mr-auto truncate pl-2 text-sm text-white/80">{picture.alt}</p> : null}
+        {picture.alt ? <p className="mr-auto truncate pl-2 text-body text-white/80">{picture.alt}</p> : null}
         <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label="Zoom out" onClick={() => zoom(0.8)}>
           <Minus />
         </Button>
-        <span className="w-12 text-center text-xs text-white/80 tabular-nums" aria-live="polite">
+        <span className="w-12 text-center text-callout text-white/80 tabular-nums" aria-live="polite">
           {Math.round(scale * 100)}%
         </span>
         <Button variant="ghost" size="icon-sm" className="text-white hover:bg-white/15 hover:text-white" aria-label="Zoom in" onClick={() => zoom(1.25)}>

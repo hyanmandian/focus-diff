@@ -13,7 +13,7 @@ else if (import.meta.env.DEV) (await import("./dev/log")).forwardErrors();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <TooltipProvider delay={400}>
+    <TooltipProvider>
       <Panel />
     </TooltipProvider>
   </StrictMode>,

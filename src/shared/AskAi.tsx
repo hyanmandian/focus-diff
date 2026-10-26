@@ -41,7 +41,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
     <section aria-labelledby={headingId} className="flex flex-col gap-2.5 rounded-xl border bg-muted/40 p-3" aria-busy={busy}>
       <div className="flex items-center gap-2">
         <Sparkles className="size-3.5 text-violet" aria-hidden />
-        <h3 id={headingId} className="text-xs font-semibold">
+        <h3 id={headingId} className="text-headline font-bold">
           Ask {PROVIDERS[provider].name}
         </h3>
         {busy ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label="Thinking" /> : null}
@@ -61,27 +61,26 @@ export function AskAi({ config, details }: { config: Config; details: Details })
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask about this pull request…"
           aria-label={`Ask ${PROVIDERS[provider].name} about this pull request`}
-          className="h-7 text-xs"
           maxLength={2000}
         />
-        <Button type="submit" size="icon-xs" variant="secondary" disabled={busy || !question.trim()} aria-label="Ask">
+        <Button type="submit" size="icon-sm" variant="secondary" disabled={busy || !question.trim()} aria-label="Ask">
           <ArrowUp />
         </Button>
       </form>
       {state.phase !== "idle" ? (
         <div className="flex flex-col gap-1.5 border-t pt-2.5" aria-live="polite">
-          <p className="line-clamp-2 text-[11px] font-medium text-muted-foreground">{state.asked}</p>
+          <p className="line-clamp-2 text-subheadline font-medium text-muted-foreground">{state.asked}</p>
           {state.phase === "done" ? (
             <>
               <AiAnswer text={state.text} />
-              {state.note ? <p className="text-[11px] text-muted-foreground">{state.note}</p> : null}
+              {state.note ? <p className="text-subheadline text-muted-foreground">{state.note}</p> : null}
             </>
           ) : state.phase === "error" ? (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-callout text-destructive" role="alert">
               {state.text}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">{config.ai.project ? "Reading the project… this can take a few minutes." : "Reading the diff… this can take a minute."}</p>
+            <p className="text-callout text-muted-foreground">{config.ai.project ? "Reading the project… this can take a few minutes." : "Reading the diff… this can take a minute."}</p>
           )}
         </div>
       ) : null}

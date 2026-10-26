@@ -25,7 +25,7 @@ function Person({ actor, className }: { actor: Actor; className?: string }) {
   return (
     <Avatar className={cn("size-5", className)}>
       {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
-      <AvatarFallback className="text-[9px]">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
   );
 }
@@ -35,15 +35,16 @@ function Html({ html, className }: { html: string; className?: string }) {
   const clean = sanitize(html);
   const ref = useRef<HTMLDivElement>(null);
   useDiagrams(ref, clean);
-  if (!clean.trim()) return <p className="text-sm text-muted-foreground italic">No description.</p>;
+  if (!clean.trim()) return <p className="text-body text-muted-foreground italic">No description.</p>;
   return (
     <div
       ref={ref}
       className={cn(
-        "prose-sm text-[13px] leading-relaxed break-words",
-        "[&_a]:text-unread [&_a]:underline [&_a]:decoration-unread/40 [&_a]:underline-offset-2 hover:[&_a]:decoration-unread [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
-        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
-        "[&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:font-semibold [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[70vh] [&_video]:max-w-full [&_video]:rounded-lg [&_video]:bg-black [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
+        // Text to read and copy: selectable, 13pt with room between the lines, links in the link colour.
+        "selectable prose-sm text-body leading-(--type-reading-leading) break-words",
+        "[&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
+        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
+        "[&_h1]:text-title3 [&_h1]:font-semibold [&_h2]:text-headline [&_h2]:font-bold [&_h3]:font-semibold [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[70vh] [&_video]:max-w-full [&_video]:rounded-lg [&_video]:bg-black [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
         "[&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:px-2 [&_th]:border [&_th]:px-2",
         className,
       )}
@@ -90,32 +91,32 @@ function ReviewSummary({ config, review, reviewing, error, onJump }: { config: C
   const onLines = (review?.findings.length ?? 0) - elsewhere.length;
   return (
     <section aria-labelledby="ai-review" className="flex flex-col gap-2 rounded-xl border border-violet/30 bg-violet/5 p-3" aria-busy={reviewing}>
-      <h3 id="ai-review" className="flex items-center gap-2 text-xs font-semibold">
+      <h3 id="ai-review" className="flex items-center gap-2 text-headline font-bold">
         <Sparkles className="size-3.5 text-violet" aria-hidden /> AI review
         <span className="font-normal text-muted-foreground">by {PROVIDERS[config.ai.provider ?? "claude"].name}</span>
         {reviewing ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label="Reviewing" /> : null}
       </h3>
       {error ? (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-callout text-destructive" role="alert">
           {error}
         </p>
       ) : reviewing ? (
-        <p className="text-xs text-muted-foreground">{config.ai.project ? "Reading the project and the diff… this can take a few minutes." : "Reading the diff…"}</p>
+        <p className="text-callout text-muted-foreground">{config.ai.project ? "Reading the project and the diff… this can take a few minutes." : "Reading the diff…"}</p>
       ) : review ? (
         <>
           {review.summary ? <AiAnswer text={review.summary} /> : null}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-callout text-muted-foreground">
             {review.findings.length ? `${onLines} comment${onLines === 1 ? "" : "s"} on the diff${elsewhere.length ? `, ${elsewhere.length} elsewhere` : ""}.` : "Nothing worth raising."}
             {review.note ? ` ${review.note}.` : review.project ? " Read the whole project." : ""}
           </p>
           {elsewhere.map((f, i) => (
             <div key={`${f.path}:${f.line}:${i}`} className="rounded-lg border bg-background p-2">
               <div className="flex items-center gap-2">
-                <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+                <p className="min-w-0 flex-1 truncate font-mono text-subheadline text-muted-foreground">
                   {f.path}:{f.line}
                 </p>
-                <Button variant="ghost" size="xs" className="h-6 shrink-0 text-[11px]" onClick={() => onJump(f.path, null)} aria-label={`Show ${f.path} in the diff`}>
-                  <ArrowDownToLine /> Go to file
+                <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(f.path, null)} aria-label={`Show ${f.path} in the diff`}>
+                  <ArrowDownToLine /> Go to File
                 </Button>
               </div>
               <div className="mt-1">
@@ -149,12 +150,12 @@ type Props = {
 function Where({ path, line, onJump }: { path: string; line: number | null; onJump: Props["onJump"] }) {
   return (
     <div className="mb-1.5 flex items-center gap-2">
-      <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+      <p className="min-w-0 flex-1 truncate font-mono text-subheadline text-muted-foreground">
         {path}
         {line ? `:${line}` : ""}
       </p>
-      <Button variant="ghost" size="xs" className="h-6 shrink-0 text-[11px]" onClick={() => onJump(path, line)} aria-label={`Show ${path}${line ? ` line ${line}` : ""} in the diff`}>
-        <ArrowDownToLine /> {line ? "Go to line" : "Go to file"}
+      <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(path, line)} aria-label={`Show ${path}${line ? ` line ${line}` : ""} in the diff`}>
+        <ArrowDownToLine /> {line ? "Go to Line" : "Go to File"}
       </Button>
     </div>
   );
@@ -175,7 +176,7 @@ function AddComment({ onComment }: { onComment: Props["onComment"] }) {
     />
   ) : (
     <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
-      <MessageSquarePlus /> Add a comment
+      <MessageSquarePlus /> Add Comment
     </Button>
   );
 }
@@ -193,17 +194,17 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
           <h2 id="description" className="sr-only">
             Description
           </h2>
-          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="mb-3 flex items-center gap-2 text-callout text-muted-foreground">
             <Person actor={details.author} />
             <span>
               <span className="font-medium text-foreground">{firstName(details.author)}</span> opened it {ago(Date.parse(details.createdAt))} ago ·{" "}
               <span className="font-mono">{details.headRefName}</span> → <span className="font-mono">{details.baseRefName}</span>
             </span>
           </div>
-          <Html html={details.html} className="text-sm" />
+          <Html html={details.html} />
         </section>
         <section aria-labelledby="conversation" className="flex flex-col gap-5">
-          <h2 id="conversation" className="text-sm font-semibold">
+          <h2 id="conversation" className="text-headline font-bold">
             Conversation <span className="font-normal text-muted-foreground tabular-nums">{details.entries.length}</span>
           </h2>
               {details.entries.length ? (
@@ -222,7 +223,7 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                     <article key={entry.id} className="flex gap-2.5">
                       <Person actor={entry.author} className="mt-0.5 size-6" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-callout text-muted-foreground">
                           <span className="font-medium text-foreground">{firstName(entry.author)}</span>
                           {entry.kind === "review" ? <span className={cn(" ml-1", REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.className)}>{REVIEW_STATE[entry.state as keyof typeof REVIEW_STATE]?.label.toLowerCase()}</span> : null} · {ago(Date.parse(entry.at))}
                         </p>
@@ -245,7 +246,7 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                   );
                 })
               ) : (
-                <p className="text-sm text-muted-foreground">No conversation yet.</p>
+                <p className="text-body text-muted-foreground">No conversation yet.</p>
               )}
               <AddComment onComment={onComment} />
         </section>
@@ -254,26 +255,26 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
         {config?.ai.provider ? <ReviewSummary config={config} review={review} reviewing={reviewing} error={reviewError} onJump={onJump} /> : null}
         {config ? <AskAi config={config} details={details} /> : null}
         <section aria-labelledby="reviewers" className="flex flex-col gap-2">
-          <h3 id="reviewers" className="text-xs font-semibold text-muted-foreground">
+          <h3 id="reviewers" className="text-subheadline font-semibold text-muted-foreground">
             Reviewers
           </h3>
           {details.reviewers.length ? (
             <ul className="flex flex-col gap-1.5">
               {details.reviewers.map(({ actor, state, team }) => (
-                <li key={`${actor?.login}${team ?? ""}`} className="flex items-center gap-2 text-[13px]">
-                  {team ? <span className="grid size-5 place-items-center rounded-full bg-muted text-[9px] font-semibold">{team.slice(0, 2).toUpperCase()}</span> : <Person actor={actor} />}
+                <li key={`${actor?.login}${team ?? ""}`} className="flex items-center gap-2 text-body">
+                  {team ? <span className="grid size-5 place-items-center rounded-full bg-muted text-footnote font-semibold">{team.slice(0, 2).toUpperCase()}</span> : <Person actor={actor} />}
                   <span className="truncate">{team ?? firstName(actor)}</span>
-                  <span className={cn("ml-auto text-xs", REVIEW_STATE[state]?.className)}>{REVIEW_STATE[state]?.label ?? state}</span>
+                  <span className={cn("ml-auto text-callout", REVIEW_STATE[state]?.className)}>{REVIEW_STATE[state]?.label ?? state}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-muted-foreground">Nobody asked yet.</p>
+            <p className="text-callout text-muted-foreground">Nobody asked yet.</p>
           )}
         </section>
         {details.checks.length ? (
           <section aria-labelledby="checks" className="flex flex-col gap-2">
-            <h3 id="checks" className="text-xs font-semibold text-muted-foreground">
+            <h3 id="checks" className="text-subheadline font-semibold text-muted-foreground">
               Checks
             </h3>
             <ul className="flex flex-col gap-1">
@@ -286,9 +287,9 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                   </>
                 );
                 return (
-                  <li key={check.name} className="text-[13px]">
+                  <li key={check.name} className="text-body">
                     {check.url?.startsWith("https://") ? (
-                      <button type="button" className="flex w-full items-center gap-2 rounded text-left hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" onClick={() => void bridge.openUrl(check.url!)}>
+                      <button type="button" className="flex w-full cursor-default items-center gap-2 rounded text-left outline-none focus-ring" onClick={() => void bridge.openUrl(check.url!)}>
                         {row}
                       </button>
                     ) : (
@@ -298,7 +299,7 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
                 );
               })}
             </ul>
-            {details.checks.length > 12 ? <p className="text-xs text-muted-foreground">and {details.checks.length - 12} more</p> : null}
+            {details.checks.length > 12 ? <p className="text-callout text-muted-foreground">and {details.checks.length - 12} more</p> : null}
           </section>
         ) : null}
       </aside>

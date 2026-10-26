@@ -205,7 +205,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       <CodeView<Annotation, undefined>
         ref={viewer}
         items={items}
-        className="min-h-0 flex-1"
+        // The code can be selected and copied (it inherits into the library's shadow root).
+        className="selectable min-h-0 flex-1"
         // Room at the end for the filter bar that floats over it.
         style={{ height: "100%", overflow: "auto", paddingBottom: 72 }}
         options={options as never}
@@ -221,7 +222,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               const side = ("side" in line ? line.side : "additions") as SelectedLineRange["side"];
               setComposing({ path: item.id, range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side } });
             }}
-            className="flex size-5 items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] transition-transform hover:scale-110 motion-reduce:transition-none"
+            className="flex size-5 cursor-default items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] active:brightness-90"
           >
             <Plus className="size-3.5" strokeWidth={2.5} aria-hidden />
           </button>
@@ -230,9 +231,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           const file = byPath.get(item.id);
           if (!file) return null;
           return (
-            <span className="flex items-center font-sans text-foreground">
-              <label className="flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground" onClick={(e) => e.stopPropagation()}>
-                <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={`Viewed ${file.path}`} />
+            <span className="flex items-center font-sans text-foreground select-none">
+              <label className="flex items-center gap-1.5 px-1.5 py-1 text-body" onClick={(e) => e.stopPropagation()}>
+                <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={`Viewed ${file.path}`} className="size-3.5" />
                 Viewed
               </label>
             </span>
@@ -262,13 +263,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         }}
         renderCodeViewFooter={() =>
           binary.length ? (
-            <div className="flex flex-col gap-1 px-3 pb-6 font-sans text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 px-3 pb-6 font-sans text-body text-muted-foreground">
               {binary.map((f) => (
                 <p key={f.path} className="flex items-center gap-2">
-                  <FileWarning className="size-4" /> <span className="font-mono text-xs">{f.path}</span> isn't shown here (binary, or too large for GitHub's diff).
+                  <FileWarning className="size-4" /> <span className="font-mono text-callout">{f.path}</span> isn't shown here (binary, or too large for GitHub's diff).
                   {/* Still one to tick off, or the review never adds up. */}
-                  <label className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs hover:bg-foreground/5 hover:text-foreground">
-                    <Checkbox checked={isViewed(f)} onCheckedChange={(v) => props.onViewed(f, v)} aria-label={`Viewed ${f.path}`} />
+                  <label className="ml-auto flex items-center gap-1.5 px-1.5 py-1 text-body text-foreground select-none">
+                    <Checkbox checked={isViewed(f)} onCheckedChange={(v) => props.onViewed(f, v)} aria-label={`Viewed ${f.path}`} className="size-3.5" />
                     Viewed
                   </label>
                 </p>

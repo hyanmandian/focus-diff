@@ -17,6 +17,7 @@ import { useDiagrams } from "@/lib/diagrams";
 import { leadsElsewhere, sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { tabKeys } from "@/lib/keys";
+import { isMac } from "@/lib/platform";
 import { openViewer } from "@/shared/Viewer";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { AiAnswer } from "@/shared/AiAnswer";
@@ -25,7 +26,7 @@ function Person({ actor }: { actor: Actor }) {
   return (
     <Avatar className="size-5">
       {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
-      <AvatarFallback className="text-[9px]">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
   );
 }
@@ -37,7 +38,7 @@ function Html({ html }: { html: string }) {
   return (
     <div
       ref={ref}
-      className="text-[13px] leading-relaxed break-words [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[60vh] [&_video]:max-w-full [&_video]:rounded-lg [&_a]:text-unread [&_a]:underline [&_a]:decoration-unread/40 [&_a]:underline-offset-2 hover:[&_a]:decoration-unread [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
+      className="selectable text-body leading-(--type-reading-leading) break-words [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[60vh] [&_video]:max-w-full [&_video]:rounded-lg [&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
       onClick={(e) => {
         // A picture opens in the viewer (even one GitHub wrapped in a link to itself).
         const picture = (e.target as Element).closest("img");
@@ -113,10 +114,10 @@ export function Composer({
             onCancel();
           }
         }}
-        className="resize-y text-[13px]"
+        className="resize-y"
       />
       {error ? (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-callout text-destructive" role="alert">
           {error}
         </p>
       ) : null}
@@ -139,7 +140,8 @@ export function Composer({
 }
 
 const Box = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <div className={cn("mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-card-foreground shadow-sm", className)}>{children}</div>
+  // Chrome around what's said: not selectable itself (the code around it is), the comments are.
+  <div className={cn("mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none", className)}>{children}</div>
 );
 
 export function ThreadView({
@@ -170,7 +172,7 @@ export function ThreadView({
   if (!open) {
     return (
       <Box className={cn("py-2", className)}>
-        <button type="button" className="flex w-full items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:underline" onClick={() => setOpen(true)}>
+        <button type="button" className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground outline-none focus-ring" onClick={() => setOpen(true)}>
           <Check className="size-3.5 text-success" /> Resolved conversation · {thread.comments.length} {thread.comments.length === 1 ? "comment" : "comments"} · show
         </button>
       </Box>
@@ -178,13 +180,13 @@ export function ThreadView({
   }
   return (
     <Box className={className}>
-      {moved ? <p className="mb-2 text-xs text-muted-foreground">{thread.line ? `On line ${thread.line}, which this diff no longer shows` : "On the file"}</p> : null}
+      {moved ? <p className="mb-2 text-callout text-muted-foreground">{thread.line ? `On line ${thread.line}, which this diff no longer shows` : "On the file"}</p> : null}
       <div className="flex flex-col gap-3">
         {thread.comments.map((c) => (
           <div key={c.id} className="flex gap-2">
             <Person actor={c.author} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-callout text-muted-foreground">
                 <span className="font-medium text-foreground">{firstName(c.author)}</span> · {ago(Date.parse(c.at))}
                 {thread.outdated ? " · outdated" : ""}
               </p>
@@ -238,8 +240,8 @@ export function DraftView({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (
       ) : (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-unread">Pending · sent with your review</p>
-            <p className="mt-1 text-[13px] whitespace-pre-wrap">{draft.body}</p>
+            <p className="text-callout font-medium text-unread">Pending · sent with your review</p>
+            <p className="selectable mt-1 text-body whitespace-pre-wrap">{draft.body}</p>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="Edit comment" onClick={() => setEditing(true)}>
             <Pencil />
@@ -269,7 +271,6 @@ function lastMode(): Mode {
 /** One question about the selected lines, and what came back. */
 type Turn = { question: string; answer?: string; note?: string };
 
-const isMac = navigator.userAgent.includes("Mac");
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The box for selected lines: a comment for the author (into your review, or posted now), or a
@@ -363,8 +364,9 @@ export function NewComment({
   return (
     <Box className="p-0">
       <div className="flex items-center gap-3 px-3 pt-3">
-        <div role="tablist" onKeyDown={tabKeys} aria-label={`On ${lines}`} className="relative isolate flex gap-1 rounded-lg bg-muted p-0.5">
-          <SlidingPill selected={mode} className="bg-background shadow-sm" />
+        {/* A segmented control in content: the chosen segment in the accent, as Tahoe draws it. */}
+        <div role="tablist" onKeyDown={tabKeys} aria-label={`On ${lines}`} className="relative isolate flex rounded-(--radius-control) bg-fill">
+          <SlidingPill selected={mode} className="rounded-(--radius-control-sm) bg-selected" />
           {(
             [
               ["comment", "Comment", MessageSquare],
@@ -382,15 +384,15 @@ export function NewComment({
               aria-controls={`${tabs}-panel`}
               onClick={() => setMode(value)}
               className={cn(
-                "flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                mode === value ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body outline-none focus-ring",
+                mode === value ? "text-selected-foreground" : "text-foreground",
               )}
             >
               <Icon className="size-3.5" aria-hidden /> {label}
             </button>
           ))}
         </div>
-        <span className="text-xs text-muted-foreground">{lines}</span>
+        <span className="text-callout text-muted-foreground">{lines}</span>
       </div>
 
       <div role="tabpanel" id={`${tabs}-panel`} aria-labelledby={`${tabs}-${mode}`} className="flex flex-col gap-2 px-3 pt-2.5">
@@ -398,7 +400,7 @@ export function NewComment({
           <ol aria-label={`Conversation with ${askName}`} className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1">
             {turns.map((t, i) => (
               <li key={i} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
-                <p className="max-w-[85%] self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-[13px] whitespace-pre-wrap animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none">
+                <p className="selectable max-w-[85%] self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
                   <span className="sr-only">You: </span>
                   {t.question}
                 </p>
@@ -410,7 +412,7 @@ export function NewComment({
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5 animate-in fade-in-0 duration-300 motion-reduce:animate-none">
                       <span className="sr-only">{askName}: </span>
                       <AiAnswer text={t.answer} />
-                      {t.note ? <p className="text-[11px] text-muted-foreground">{t.note}</p> : null}
+                      {t.note ? <p className="text-subheadline text-muted-foreground">{t.note}</p> : null}
                       <div>
                         <Button
                           size="xs"
@@ -428,9 +430,9 @@ export function NewComment({
                   ) : (
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1" role="status">
                       <span className="sr-only">{askName} is reading the code…</span>
-                      <span aria-hidden className="h-3 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                      <span aria-hidden className="h-3 w-3/4 animate-pulse rounded bg-muted [animation-delay:150ms] motion-reduce:animate-none" />
-                      <span aria-hidden className="h-3 w-1/2 animate-pulse rounded bg-muted [animation-delay:300ms] motion-reduce:animate-none" />
+                      <span aria-hidden className="h-3 w-11/12 rounded bg-muted" />
+                      <span aria-hidden className="h-3 w-3/4 rounded bg-muted" />
+                      <span aria-hidden className="h-3 w-1/2 rounded bg-muted" />
                     </div>
                   )}
                 </div>
@@ -440,7 +442,7 @@ export function NewComment({
         ) : null}
 
         {asking && !ask ? (
-          <p className="py-2 text-[13px] text-muted-foreground">Set up Claude Code or Cursor in Settings to ask about code here.</p>
+          <p className="py-2 text-body text-muted-foreground">Set up Claude Code or Cursor in Settings to ask about code here.</p>
         ) : (
           <>
             <label htmlFor={`${tabs}-field`} className="sr-only">
@@ -463,19 +465,19 @@ export function NewComment({
                   onCancel();
                 }
               }}
-              className="resize-y text-[13px]"
+              className="resize-y"
             />
           </>
         )}
         {error ? (
-          <p className="text-xs text-destructive" role="alert">
+          <p className="text-callout text-destructive" role="alert">
             {error}
           </p>
         ) : null}
       </div>
 
       <div className="flex items-center gap-2 p-3">
-        <p className="mr-auto text-[11px] text-muted-foreground">
+        <p className="mr-auto text-subheadline text-muted-foreground">
           {asking ? (ask ? <>Enter to ask · Shift+Enter for a new line</> : null) : <>Goes into your review · {isMac ? "⌘" : "Ctrl+"}Enter</>}
         </p>
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy && !asking}>
@@ -514,7 +516,7 @@ const SEVERITY = { issue: "Issue", suggestion: "Suggestion", question: "Question
 export function FindingView({ finding, by, onAdd, onDismiss }: { finding: Finding; by: string; onAdd: () => void; onDismiss: () => void }) {
   return (
     <Box className="border-violet/40 bg-violet/5">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-violet">
+      <p className="flex items-center gap-1.5 text-callout font-medium text-violet">
         <Sparkles className="size-3.5" aria-hidden /> {by} · {SEVERITY[finding.severity]}
       </p>
       <div className="mt-1.5">

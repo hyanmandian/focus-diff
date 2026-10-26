@@ -63,36 +63,35 @@ export function FileTree({
 
   useLayoutEffect(() => {
     const el = box.current;
-    if (!el) return;
     const observer = new ResizeObserver(() => {
-      setHeight(el.clientHeight);
+      setHeight(el!.clientHeight);
     });
-    observer.observe(el);
+    // Not there while the files load.
+    if (el) observer.observe(el);
     return () => {
       observer.disconnect();
     };
   }, []);
 
-  /** Brings a row into view, as a list scrolls to its selection. */
-  const reveal = (index: number) => {
-    const el = box.current;
-    if (!el || index < 0) return;
-    if (index * ROW < el.scrollTop) el.scrollTop = index * ROW;
-    else if ((index + 1) * ROW > el.scrollTop + el.clientHeight) el.scrollTop = (index + 1) * ROW - el.clientHeight;
-  };
-
   // A file picked elsewhere (a comment jumped to, the next file to review): its folders open and
-  // its row is selected and brought into view.
+  // its row is selected (and brought into view, below). Done as it renders, so it shows at once.
+  const [shown, setShown] = useState(picked);
+  if (picked !== shown) {
+    setShown(picked);
+    if (picked) {
+      setCursor(`f:${picked}`);
+      setCollapsed((c) => {
+        const closed = foldersOf(picked).filter((p) => c.has(p));
+        return closed.length > 0 ? new Set([...c].filter((p) => !closed.includes(p))) : c;
+      });
+    }
+  }
+  // The selected row brought into view, as a list scrolls to its selection.
   useEffect(() => {
-    if (!picked) return;
-    setCursor(`f:${picked}`);
-    setCollapsed((c) => {
-      const closed = foldersOf(picked).filter((p) => c.has(p));
-      return closed.length > 0 ? new Set([...c].filter((p) => !closed.includes(p))) : c;
-    });
-  }, [picked]);
-  useEffect(() => {
-    reveal(at);
+    const el = box.current;
+    if (!el || at < 0) return;
+    if (at * ROW < el.scrollTop) el.scrollTop = at * ROW;
+    else if ((at + 1) * ROW > el.scrollTop + el.clientHeight) el.scrollTop = (at + 1) * ROW - el.clientHeight;
   }, [at]);
 
   const toggle = (path: string, open?: boolean) => {
@@ -155,7 +154,9 @@ export function FileTree({
       aria-label={t("review.files")}
       aria-activedescendant={at >= 0 ? `tree-row-${at}` : undefined}
       onKeyDown={onKeyDown}
-      onFocus={() => at < 0 && rows[0] && setCursor(keyOf(rows[0]))}
+      onFocus={() => {
+        if (at < 0 && rows[0]) setCursor(keyOf(rows[0]));
+      }}
       onScroll={(e) => {
         setTop(e.currentTarget.scrollTop);
       }}
@@ -175,6 +176,7 @@ export function FileTree({
           const old = file ? renamed(file, !flat) : null;
           const slash = flat ? node.path.lastIndexOf("/") : -1;
           return (
+            // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- the tree has the focus and the keys (aria-activedescendant), as an outline does.
             <div
               key={keyOf(row)}
               id={`tree-row-${index}`}

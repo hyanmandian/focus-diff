@@ -35,8 +35,9 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     const pressed = element.querySelectorAll<HTMLElement>('[aria-pressed="true"]');
     element.classList.toggle("combined", pressed.length > 1);
     const target = pressed[0];
-    const last = options().at(-1);
-    if (pressed.length !== 1 || !target?.offsetWidth || !last) return;
+    if (pressed.length !== 1 || !target?.offsetWidth) return;
+    // Only chips are pressed, so with one pressed there's a last chip.
+    const last = options().at(-1)!;
     // The indicator spans every chip, not just the visible part of the row, so it scrolls along with them.
     const width = last.offsetLeft + last.offsetWidth;
     indicator.style.width = `${width}px`;
@@ -73,8 +74,8 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
       event.key === "Home" ? 0 : event.key === "End" ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
     if (Number.isNaN(target)) return;
     event.preventDefault();
-    const next = list[(target + list.length) % list.length];
-    if (!next) return;
+    // The list has the focused chip in it, so the wrapped index is always in range.
+    const next = list[(target + list.length) % list.length]!;
     list.forEach((option) => {
       option.tabIndex = option === next ? 0 : -1;
     });
@@ -94,24 +95,19 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
       });
       chipObserver.disconnect();
       element.append(
-        ...list.map(({ id, name }) =>
-          h(
+        ...list.map(({ id, name }) => {
+          const button = h(
             "button",
-            {
-              type: "button",
-              className: "option",
-              "data-id": id,
-              onClick: (event: MouseEvent) => {
-                const button = event.currentTarget;
-                if (button instanceof Element && button.getAttribute("aria-disabled") === "true") return;
-                onToggle(id);
-              },
-            },
+            { type: "button", className: "option", "data-id": id },
             h("span", { className: "option-name", textContent: name }),
             h("span", { className: "option-count", "aria-hidden": "true" }),
             h("span", { className: "visually-hidden option-count-label" }),
-          ),
-        ),
+          );
+          button.addEventListener("click", () => {
+            if (button.getAttribute("aria-disabled") !== "true") onToggle(id);
+          });
+          return button;
+        }),
       );
       for (const option of options()) chipObserver.observe(option);
       if (keepFocus) requestAnimationFrame(() => element.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus());
@@ -119,24 +115,25 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
 
     const current = focused()?.classList.contains("option") ? focused() : null;
     for (const option of options()) {
-      const item = list.find(({ id }) => id === option.dataset.id);
-      const count = item?.count;
-      const countElement = option.querySelector(".option-count");
-      const countLabel = option.querySelector(".option-count-label");
-      if (countElement && countLabel && count !== undefined) {
+      // The chips were drawn from a list with the same ids, so each has its item and its parts.
+      const id = option.dataset.id!;
+      const item = list.find((each) => each.id === id)!;
+      const { count } = item;
+      if (count !== undefined) {
+        const countElement = option.querySelector(".option-count")!;
         const text = format(count);
         if (countElement.textContent !== text) countElement.textContent = text;
-        countLabel.textContent = ` ${i18n.t("fileCount", count, [text])}`;
+        option.querySelector(".option-count-label")!.textContent = ` ${i18n.t("fileCount", count, [text])}`;
         option.classList.toggle("empty", count === 0);
       }
-      const pressed = selected.includes(option.dataset.id ?? "");
+      const pressed = selected.includes(id);
       if (option.getAttribute("aria-pressed") !== String(pressed)) option.setAttribute("aria-pressed", String(pressed));
       // A filter with nothing to show can't be picked, and says why; one already on can still be turned off.
-      const disabled = count === 0 && !pressed && !item?.loading;
+      const disabled = count === 0 && !pressed && !item.loading;
       option.setAttribute("aria-disabled", String(disabled));
       // The reason shows as a tooltip and is read out as the chip's description.
-      const reason = disabled && item ? i18n.t("panelFilterEmpty", [item.name]) : "";
-      if (reason) {
+      if (disabled) {
+        const reason = i18n.t("panelFilterEmpty", [item.name]);
         option.dataset.tip = reason;
         option.setAttribute("aria-description", reason);
       } else {

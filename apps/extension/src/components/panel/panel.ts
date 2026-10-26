@@ -102,21 +102,20 @@ export const createPanel = (
   const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
   const status = h("span", { className: "visually-hidden", role: "status" });
   // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
-  container.append(
-    h(
-      "div",
-      { className: "panel" },
-      nextFile.element,
-      filters.element,
-      stats.element,
-      breakdown.toggle,
-      breakdown.popover,
-      conversations.element,
-      update.element,
-      settings,
-      status,
-    ),
+  const panelElement = h(
+    "div",
+    { className: "panel" },
+    nextFile.element,
+    filters.element,
+    stats.element,
+    breakdown.toggle,
+    breakdown.popover,
+    conversations.element,
+    update.element,
+    settings,
+    status,
   );
+  container.append(panelElement);
   const tooltip = createTooltip(context, container);
 
   // Last in the shadow root, so the reader's CSS wins over the bar's own at the same specificity.
@@ -128,10 +127,9 @@ export const createPanel = (
    * while it shows. Only set when it changes, since it touches the site's root element.
    */
   let padding = "";
-  const panelElement = container.querySelector<HTMLElement>(".panel");
   const reserveScrollRoom = () => {
     if (!floating) return;
-    const next = host.style.display === "none" || !panelElement ? "" : `${panelElement.offsetHeight + 32}px`;
+    const next = host.style.display === "none" ? "" : `${panelElement.offsetHeight + 32}px`;
     if (next === padding) return;
     padding = next;
     if (next) document.documentElement.style.setProperty("scroll-padding-bottom", next);
@@ -147,8 +145,8 @@ export const createPanel = (
     breakdown.reposition();
     conversations.reposition();
   });
-  for (const element of [filters.element, breakdown.popover, conversations.popover]) resizeObserver.observe(element);
-  if (panelElement) resizeObserver.observe(panelElement);
+  for (const element of [filters.element, breakdown.popover, conversations.popover, panelElement])
+    resizeObserver.observe(element);
   signal.addEventListener("abort", () => {
     resizeObserver.disconnect();
   });

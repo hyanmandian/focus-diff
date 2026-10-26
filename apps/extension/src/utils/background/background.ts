@@ -127,7 +127,8 @@ const showNotifications = async (events: InboxEvent[], delivery: Delivery) => {
   if (!(await browser.permissions.contains({ permissions: ["notifications"] }))) return;
   const iconUrl = browser.runtime.getURL("/icon/128.png");
   const options = deliveryOptions(delivery);
-  const links = await notificationLinksItem.getValue();
+  // A copy: with nothing stored, the item hands out its one fallback object, which mustn't fill up.
+  const links = { ...(await notificationLinksItem.getValue()) };
   // A notification shown under an id already on screen, or still in the system's list, only replaces it, without popping
   // up; each one gets an id of its own.
   const stamp = Date.now();
@@ -269,7 +270,8 @@ const schedule = async () => {
 
 const openLink = async (id: string) => {
   if (await onReviewNotification(id)) return;
-  const links = await notificationLinksItem.getValue();
+  // A copy: with nothing stored, the item hands out its one fallback object, which mustn't fill up.
+  const links = { ...(await notificationLinksItem.getValue()) };
   const url = links[id];
   if (url) await browser.tabs.create({ url });
   await browser.notifications?.clear(id);
@@ -297,6 +299,18 @@ const onCommand = async (command: string, tab?: Browser.tabs.Tab) => {
   if (!known) return;
   const message: Message = { type: "command", command: known };
   await browser.tabs.sendMessage(target.id, message).catch(() => {});
+};
+
+/** What a message from the popup asks of review time, or nothing for any other message. */
+const reviewTimeAction = (message: Message): (() => Promise<boolean | void>) | null => {
+  const type = message?.type;
+  if (type === "review-start-now") return () => startNow(message.minutes, message.session);
+  if (type === "review-start") return () => startRun({ fromPopup: true });
+  if (type === "review-snooze") return () => snoozeRun();
+  if (type === "review-end") return () => endRun("ended");
+  if (type === "review-skip") return () => endRun("skipped");
+  if (type === "review-open") return () => openPull(message.url, message.repo, false);
+  return null;
 };
 
 /** The background: checks GitHub on its alarms, sends notifications, keeps the badge and runs review time. */
@@ -354,15 +368,7 @@ export const startBackground = (): void => {
       return true;
     }
     // Answered once done, so the popup can say so; a failure answers too, with false.
-    const reviewTime = {
-      "review-start-now": () =>
-        message.type === "review-start-now" ? startNow(message.minutes, message.session) : undefined,
-      "review-start": () => startRun({ fromPopup: true }),
-      "review-snooze": () => snoozeRun(),
-      "review-end": () => endRun("ended"),
-      "review-skip": () => endRun("skipped"),
-      "review-open": () => (message.type === "review-open" ? openPull(message.url, message.repo, false) : undefined),
-    }[message?.type as string];
+    const reviewTime = reviewTimeAction(message);
     if (reviewTime) {
       void Promise.resolve(reviewTime()).then(
         (answer) => {

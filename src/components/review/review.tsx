@@ -443,7 +443,8 @@ export function Review({ target }: { target: Target }) {
   const filterField = useRef<HTMLInputElement>(null);
 
   const ref = useMemo(
-    () => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }),
+    // "owner/name", as GitHub writes a repository.
+    () => ({ owner: repo.split("/")[0]!, repo: repo.split("/")[1]!, number }),
     [repo, number],
   );
   // Your pending review, on GitHub (pending.ts); the conversations without its comments.

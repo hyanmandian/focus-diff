@@ -1,9 +1,9 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { keep, keptCurrent, readKept, type Kept } from "@/utils/kept/kept";
+import type { Args } from "@/utils/platform/platform";
 import type { ReviewFile, Thread } from "@/utils/review/review";
 
 const details: Details = {
@@ -56,7 +56,7 @@ const thread: Thread = {
 const kept = (files = [file("a.ts")]): Kept => ({ details, files, threads: [thread] });
 
 /** One of the arguments a command was sent with. */
-function sent(args: InvokeArgs | undefined, key: string): unknown {
+function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
@@ -66,7 +66,7 @@ function sent(args: InvokeArgs | undefined, key: string): unknown {
 function disk(initial: Record<string, string> = {}) {
   const files = new Map(Object.entries(initial));
   const writes: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     const id = String(sent(args, "id"));
     if (cmd === "kept_read") return files.get(id) ?? null;
     writes.push(id);
@@ -79,7 +79,7 @@ function disk(initial: Record<string, string> = {}) {
 describe("keeping a review", () => {
   it("keeps nothing under an id GitHub wouldn't give", async () => {
     const written: string[] = [];
-    mockIPC((cmd) => {
+    mockCommands((cmd) => {
       if (cmd === "kept_write") written.push(cmd);
       return null;
     });
@@ -125,7 +125,7 @@ describe("keeping a review", () => {
   });
 
   it("is only slower next time when the disk refuses", async () => {
-    mockIPC(() => {
+    mockCommands(() => {
       throw new Error("disk full");
     });
     await expect(keep("PR_1", kept(), "v1")).resolves.toBeUndefined();
@@ -164,7 +164,7 @@ describe("reading a kept review", () => {
   });
 
   it("has nothing when the disk can't be read", async () => {
-    mockIPC(() => {
+    mockCommands(() => {
       throw new Error("no disk");
     });
     expect(await readKept("PR_1")).toBeNull();

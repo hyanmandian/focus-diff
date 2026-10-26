@@ -1,9 +1,9 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { DIRECTION, useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import type { ReviewPull } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const pull = (id: string, number: number): ReviewPull => ({
   id,
@@ -27,7 +27,7 @@ const HERE: Visit = { pr: pull("PR_A", 1), teams: [], queue: "review" };
 /** Rust's side: the queues as `items` says (or a failure), and what was asked of it. */
 function rust(items: () => Record<string, unknown[]> | Error) {
   const calls: Array<[string, unknown]> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push([cmd, args]);
     if (cmd !== "snapshot") return null;
     const queues = items();

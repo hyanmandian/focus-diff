@@ -1,10 +1,12 @@
-// Development only: stands in for the Rust side when the pages run in a plain browser
-// (npm run dev, then open http://localhost:1420), with sample pull requests, so the interface can
-// be worked on and screenshotted without GitHub. Never part of a build (see entries/panel.tsx).
+// Development only: stands in for the app (the desktop's Rust side) when the pages run in a plain
+// browser (npm run dev, then open http://localhost:1420), with sample pull requests, so the interface
+// can be worked on and screenshotted without GitHub: a page's entry sets mockPlatform as its platform.
+// Never part of a build (see the desktop's entries/panel.tsx).
 
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
-import { type Args, fail, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
+import { type Args, fail, isRecord, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
 import { manageRoute } from "@/utils/mock-manage/mock-manage";
+import type { Args as PlatformArgs, InvokeOptions, Platform, Unlisten } from "@/utils/platform/platform";
 
 const now = Date.now();
 const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -615,19 +617,16 @@ const contents: Record<string, string> = {
   "base:data/promo-fixtures.json": fixtures(40),
   "abc123:data/promo-fixtures.json": fixtures(60),
 };
-const listeners = new Map<number, string>();
-const callbacks = new Map<number, (event: unknown) => void>();
-let callbackId = 0;
+const listeners = new Map<string, Set<(payload: unknown) => void>>();
 // Events from the sample's side (utils/mock-conversation/mock-conversation.ts) reach the page's listeners.
 const emit = (event: string, payload: unknown) => {
-  for (const [handler, name] of listeners)
-    if (name === event) callbacks.get(handler)?.({ event, id: handler, payload });
+  for (const heard of listeners.get(event) ?? []) heard(payload);
 };
 setEmitter(emit);
 // Signed in on github.com for attachments: nobody at first, so the sign-in is there to try.
 let webLogin: string | null = null;
 
-async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record<string, string> }): Promise<unknown> {
+async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise<unknown> {
   // Commenting (suggestions, the pending review, reactions…) answers first.
   const answered = await conversationMock(cmd, args, () => ({
     people,
@@ -757,27 +756,35 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
       return "ok";
     case "confirm":
       return window.confirm(`${str(args, "title")}\n\n${str(args, "message")}`);
-    case "plugin:event|listen":
-      listeners.set(Number(args.handler), str(args, "event"));
-      return args.handler;
     default:
       return null;
   }
 }
 
-export function installMock() {
-  // Pictures come straight from GitHub here: there's no app to keep them (utils/avatar/avatar.ts).
-  Object.assign(window, { __mock: true });
-  Object.assign(window, {
-    __TAURI_INTERNALS__: {
-      invoke,
-      transformCallback: (callback: (event: unknown) => void) => {
-        callbacks.set(++callbackId, callback);
-        return callbackId;
-      },
-      unregisterCallback: () => {},
-      metadata: { currentWindow: { label: "panel" }, currentWebview: { label: "panel", windowLabel: "panel" } },
-    },
-    __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
-  });
+// oxlint-disable-next-line typescript/require-await, typescript/no-unnecessary-type-parameters -- a promise, as the app's registering is; the caller names the payload
+async function listen<T>(event: string, handler: (payload: T) => void): Promise<Unlisten> {
+  // A listener of its own each time, as the app's, even for the same handler twice.
+  const heard = (payload: unknown) => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the sample sends the payload the listener names
+    handler(payload as T);
+  };
+  const set = listeners.get(event) ?? new Set();
+  listeners.set(event, set.add(heard));
+  return () => {
+    set.delete(heard);
+  };
 }
+
+/** The sample data as the pages' platform. Pictures come straight from GitHub (no mediaUrl): there's
+ *  no app to keep them. Telling another window something reaches nobody: each page is on its own. */
+export const mockPlatform: Platform = {
+  invoke: async <T>(command: string, args?: PlatformArgs, options?: InvokeOptions) =>
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the caller names the shape the sample answers in
+    (await answer(command, isRecord(args) ? args : {}, options)) as T,
+  listen,
+  listenToWindow: listen,
+  emitTo: () => Promise.resolve(),
+  // No version: Settings names the app alone.
+  version: () => Promise.resolve(""),
+  closeWindow: () => Promise.resolve(),
+};

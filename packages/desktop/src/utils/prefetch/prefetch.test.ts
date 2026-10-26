@@ -1,8 +1,8 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { loadCommits } from "@/utils/commits/commits";
 import type { Details, loadDetails } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { loadManage } from "@/utils/manage/manage";
 import type { loadFiles, loadThreads } from "@/utils/review/review";
 import { shelved } from "@/utils/shelf/shelf";
@@ -55,7 +55,7 @@ const commits = { commits: [], forcePushes: [], reviewed: null };
 /** The kept copies Rust was asked to write. */
 function disk() {
   const written: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "kept_write" && args && "id" in args) written.push(String(args.id));
     return null;
   });

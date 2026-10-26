@@ -1,5 +1,3 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -12,6 +10,7 @@ import {
   uploadMark,
   useWebSession,
 } from "@/utils/attachments/attachments";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 /** A PNG chunk: its length, type, data and a (blank) checksum. */
 const chunk = (type: string, data: number[]) => [
@@ -44,7 +43,7 @@ const decoded = (width: number) => {
 /** Rust answering who's signed in on github.com with `login`. */
 const session = (login: () => unknown) => (cmd: string) => (cmd === "github_web_session" ? login() : null);
 
-/** Unmounts, and lets it stop listening while Tauri's mock is still there. */
+/** Unmounts, and lets it stop listening while the fake platform is still there. */
 const stop = async (unmount: () => void) => {
   unmount();
   await act(async () => {});
@@ -136,10 +135,7 @@ describe("displayWidth", () => {
 
 describe("useWebSession", () => {
   it("is who's signed in on github.com, and follows changes", async () => {
-    mockIPC(
-      session(() => "ana"),
-      { shouldMockEvents: true },
-    );
+    mockCommands(session(() => "ana"));
     const { result, unmount } = renderHook(() => useWebSession());
     expect(result.current).toBeUndefined();
     await waitFor(() => {
@@ -151,7 +147,7 @@ describe("useWebSession", () => {
   });
 
   it("is nobody when it can't be told", async () => {
-    mockIPC(() => Promise.reject(new Error("offline")), { shouldMockEvents: true });
+    mockCommands(() => Promise.reject(new Error("offline")));
     const { result, unmount } = renderHook(() => useWebSession());
     await waitFor(() => {
       expect(result.current).toBeNull();
@@ -161,10 +157,7 @@ describe("useWebSession", () => {
 
   it("stops listening once gone", async () => {
     const answer = later<string>();
-    mockIPC(
-      session(() => answer.promise),
-      { shouldMockEvents: true },
-    );
+    mockCommands(session(() => answer.promise));
     const { result, unmount } = renderHook(() => useWebSession());
     await stop(unmount);
     answer.settle("late");

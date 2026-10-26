@@ -1,5 +1,3 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -7,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { MarkdownField } from "@/components/writer/writer";
 import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { emoji, mentionable, preview, referable, savedReplies } from "@/utils/writer/writer";
 
 // What the box asks GitHub for (utils/writer/writer.ts, tested on its own) is answered here.
@@ -20,7 +19,7 @@ vi.mock("@/utils/writer/writer", () => ({
 
 // The Mac's ⌘ or everyone else's Ctrl, switched per test (the page itself reads it once).
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("@/utils/platform/platform", async (original) => ({
+vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
   get isMac() {
     return platform.mac;
@@ -128,15 +127,12 @@ function rust({
   uploads = [],
 }: { session?: string | null; uploads?: Array<() => Promise<unknown>> } = {}) {
   const sent: string[] = [];
-  mockIPC(
-    (cmd) => {
-      sent.push(cmd);
-      if (cmd === "github_web_session") return session;
-      if (cmd === "upload_attachment") return uploads.shift()?.();
-      return null;
-    },
-    { shouldMockEvents: true },
-  );
+  mockCommands((cmd) => {
+    sent.push(cmd);
+    if (cmd === "github_web_session") return session;
+    if (cmd === "upload_attachment") return uploads.shift()?.();
+    return null;
+  });
   return sent;
 }
 

@@ -1,12 +1,11 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { AuthStatus } from "@/utils/bridge/bridge";
 import { defaultConfig } from "@/utils/config/config";
 import type { Item } from "@/utils/engine/engine";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const item = (queueId: string, id: string, keys: string[] = []): Item => ({
   queueId,
@@ -54,17 +53,14 @@ const signedOut: AuthStatus = { signed_in: false, source: null, login: null, dev
 
 /** Rust: answers the store's commands and keeps each one sent. */
 function rust(snapshot: Record<string, unknown> = live(), auth: AuthStatus = signedOut) {
-  const calls: Array<[string, InvokeArgs | undefined]> = [];
-  mockIPC(
-    (cmd, args) => {
-      calls.push([cmd, args]);
-      if (cmd === "snapshot") return snapshot;
-      if (cmd === "auth_status") return auth;
-      if (cmd === "read_file") return JSON.stringify(config);
-      return null;
-    },
-    { shouldMockEvents: true },
-  );
+  const calls: Array<[string, Args | undefined]> = [];
+  mockCommands((cmd, args) => {
+    calls.push([cmd, args]);
+    if (cmd === "snapshot") return snapshot;
+    if (cmd === "auth_status") return auth;
+    if (cmd === "read_file") return JSON.stringify(config);
+    return null;
+  });
   return { sent: (cmd: string) => calls.filter(([c]) => c === cmd).map(([, args]) => args) };
 }
 

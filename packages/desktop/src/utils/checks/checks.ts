@@ -2,10 +2,10 @@
 // with its summary, its annotations on lines and its steps, a GitHub Actions job's log (fetched by
 // Rust, logs.rs, and only its end when it's long), and re-running or approving workflow runs.
 
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { github, graphql } from "@/utils/bridge/bridge";
+import { invoke } from "@/utils/platform/platform";
 import type { PullRef } from "@/utils/review/review";
 
 export type CheckState = "failure" | "pending" | "neutral" | "success";

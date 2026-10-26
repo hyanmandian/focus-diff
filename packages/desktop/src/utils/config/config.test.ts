@@ -1,5 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -17,7 +15,9 @@ import {
   TEMPLATES,
   withSource,
 } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
+import type { Args } from "@/utils/platform/platform";
 
 describe("normalize", () => {
   it("falls back to the defaults for anything broken", () => {
@@ -388,7 +388,7 @@ describe("the next review time", () => {
 /** Rust with this file in the config folder; `written` gets what's saved. */
 function disk(text: string | null) {
   const written: string[] = [];
-  mockIPC((cmd, args?: InvokeArgs) => {
+  mockCommands((cmd, args?: Args) => {
     const sent =
       args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array) ? args : {};
     if (cmd === "write_file") written.push(String(sent.contents));

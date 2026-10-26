@@ -1,6 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
@@ -20,8 +17,10 @@ import { defaultConfig, loadConfig, type Config, type DiffFilter } from "@/utils
 import { mergeBase } from "@/utils/contents/contents";
 import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
 import { learnFiles } from "@/utils/estimate/estimate";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { patchHash } from "@/utils/hashes/hashes";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
+import type { Args } from "@/utils/platform/platform";
 import {
   commentNow,
   loadFiles,
@@ -145,7 +144,7 @@ const h = vi.hoisted(() => {
   return Object.assign(state, { see, make });
 });
 
-vi.mock("@/utils/platform/platform", () => ({
+vi.mock("@/utils/os/os", () => ({
   get isMac() {
     return h.mac;
   },
@@ -404,7 +403,7 @@ const stored = (key: string): unknown => JSON.parse(localStorage.getItem(key) ??
 
 // MARK: Rust's side
 
-let calls: Array<{ cmd: string; args: InvokeArgs | undefined }> = [];
+let calls: Array<{ cmd: string; args: Args | undefined }> = [];
 let confirmed = true;
 const sent = (cmd: string) => calls.filter((c) => c.cmd === cmd).map((c) => c.args);
 const fail = (message: string) => () => {
@@ -417,13 +416,10 @@ function answer(answers: Record<string, () => unknown> = {}) {
     confirm: () => confirmed,
     queued_viewed: () => ({}),
   };
-  mockIPC(
-    (cmd, args) => {
-      calls.push({ cmd, args });
-      return (answers[cmd] ?? usual[cmd])?.() ?? null;
-    },
-    { shouldMockEvents: true },
-  );
+  mockCommands((cmd, args) => {
+    calls.push({ cmd, args });
+    return (answers[cmd] ?? usual[cmd])?.() ?? null;
+  });
 }
 
 beforeEach(() => {
@@ -463,7 +459,7 @@ beforeEach(() => {
   answer();
 });
 
-// The menu bar's listener lets go after the window closes: before Tauri's mock is cleared.
+// The menu bar's listener lets go after the window closes: before the fake platform is cleared.
 afterEach(async () => {
   vi.useRealTimers();
   cleanup();

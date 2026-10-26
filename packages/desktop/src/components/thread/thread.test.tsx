@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -8,6 +7,7 @@ import { Composer, DraftView, FindingView, NewComment, ThreadView } from "@/comp
 import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Exchange } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, Thread, ThreadComment } from "@/utils/review/review";
 
 // The comment box's lookups (utils/writer/writer.ts) aren't what's tested here.
@@ -21,7 +21,7 @@ vi.mock("@/utils/writer/writer", () => ({
 
 // The Mac's ⌘ or everyone else's Ctrl, switched per test.
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("@/utils/platform/platform", async (original) => ({
+vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
   get isMac() {
     return platform.mac;
@@ -109,7 +109,7 @@ const draftOf = (more: Partial<Draft> = {}): Draft => ({
 /** Rust: the commands sent, by name and arguments. */
 function rust() {
   const sent: Array<[string, unknown]> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     sent.push([cmd, args]);
     return null;
   });

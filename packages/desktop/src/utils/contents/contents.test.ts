@@ -1,10 +1,10 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { BinaryFile, bothVersions, fileAt, isBinary, mergeBase, textAt, type Source } from "@/utils/contents/contents";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
-const field = (args: InvokeArgs | undefined, key: string): unknown =>
+const field = (args: Args | undefined, key: string): unknown =>
   args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array)
     ? args[key]
     : undefined;
@@ -14,7 +14,7 @@ const bytes = (text: string) => new TextEncoder().encode(text);
 /** Rust's file store: `files` by "sha:path"; a missing one is "absent", and `failing` paths fail. */
 function store(files: Record<string, Uint8Array | ArrayBuffer>, failing: string[] = []) {
   const asked: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd !== "github_file") return null;
     const key = `${String(field(args, "sha"))}:${String(field(args, "path"))}`;
     asked.push(`${String(field(args, "repo"))} ${key}`);
@@ -55,7 +55,7 @@ describe("fileAt", () => {
   });
 
   it("turns a failure that isn't an Error into one", async () => {
-    mockIPC(() => {
+    mockCommands(() => {
       // oxlint-disable-next-line eslint/no-throw-literal, typescript/only-throw-error -- as Rust's errors come
       throw "network down";
     });
@@ -85,7 +85,7 @@ describe("textAt", () => {
 /** GitHub's pull request and compare answers; `fail` fails the compare. */
 function githubPulls(fail = false) {
   const asked: string[] = [];
-  mockIPC((_cmd, args) => {
+  mockCommands((_cmd, args) => {
     const path = String(field(args, "path"));
     asked.push(path);
     if (path.includes("/compare/"))

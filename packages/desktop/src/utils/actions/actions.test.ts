@@ -1,9 +1,9 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { fill, runAction } from "@/utils/actions/actions";
 import type { Action, ActionStep } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const pr = {
   number: 7,
@@ -16,13 +16,13 @@ const pr = {
 
 const action = (steps: ActionStep[]): Action => ({ id: "a", name: "Hand off", confirm: false, choices: [], steps });
 
-const fields = (args: InvokeArgs | undefined): Record<string, unknown> =>
+const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 
 /** Answers Rust as it would, and keeps what was asked of it. */
 function rust(answers: { github?: { status: number; body: string }; run?: string; refuse?: string } = {}) {
   const calls: Array<{ cmd: string; args: Record<string, unknown> }> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, args: fields(args) });
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's errors reach the page as strings
     if (answers.refuse !== undefined) return Promise.reject(answers.refuse);

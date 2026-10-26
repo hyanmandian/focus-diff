@@ -1,23 +1,23 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ImageDiff, isImage, NoPatchFile, renamed } from "@/components/rich-diff/rich-diff";
 import type { Source } from "@/utils/contents/contents";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { later } from "@/utils/mock-render/mock-render";
+import type { Args } from "@/utils/platform/platform";
 import type { ReviewFile } from "@/utils/review/review";
 
 /** A command's named argument, as the page sent it. */
-const arg = (args: InvokeArgs | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
+const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 type Stored = Record<string, number | "absent" | Error>;
 
 /** Files at commits, by "sha:path": their size in bytes, absent, or a failure. Records what's asked. */
 function commits(stored: Stored) {
   const asked: string[] = [];
-  mockIPC((_, args) => {
+  mockCommands((_, args) => {
     const key = `${String(arg(args, "sha"))}:${String(arg(args, "path"))}`;
     asked.push(key);
     const found = stored[key] ?? "absent";

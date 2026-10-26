@@ -5,8 +5,6 @@ import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 // A pull request's review window. Made ahead of time as a spare (no pull request in its address),
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
-import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { StrictMode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -15,12 +13,19 @@ import { Review, type Target } from "@/components/review/review";
 import { Viewer } from "@/components/viewer/viewer";
 import { DIRECTION } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { followLanguage } from "@/utils/language/language";
+import { platform, setPlatform } from "@/utils/platform/platform";
+import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";
 
 import "@/index.css";
 
-// In a plain browser during development, sample data stands in for the app (src/utils/mock/mock.ts).
-if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) (await import("@/utils/mock/mock")).installMock();
-else if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardErrors();
+// The app the screens run in: Tauri, or in a plain browser during development, sample data
+// (src/utils/mock/mock.ts).
+if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window))
+  setPlatform((await import("@/utils/mock/mock")).mockPlatform);
+else {
+  setPlatform(tauriPlatform);
+  if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardErrors();
+}
 // The language picked in Settings, followed live.
 followLanguage();
 
@@ -55,8 +60,8 @@ const show = (target: Target) => {
 
 const params = new URLSearchParams(location.search);
 // Told which pull request to show: as a spare, the first; then the next of its queue (switch_review).
-// This window's own events only: the event module's listen hears every window's.
-void getCurrentWebviewWindow().listen<Target>("review-open", ({ payload }) => {
+// This window's own events only.
+void platform().listenToWindow<Target>("review-open", (payload) => {
   // From here to "loaded" is how long a click takes to show the pull request.
   performance.mark("opened");
   // In the address too, so reloading the window keeps the pull request.
@@ -97,7 +102,7 @@ if (params.get("id")) {
 } else {
   // Only now can it be told: until this, a click opens a fresh window instead.
   try {
-    await invoke("spare_ready");
+    await platform().invoke("spare_ready");
   } catch {
     // Nothing more to do: until it hears, a click just opens a fresh window.
   }

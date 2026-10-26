@@ -1,9 +1,9 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { ask, askAboutLines, commentable, linesFromPatch, newRun, review } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { ReviewFile } from "@/utils/review/review";
 
 const details: Details = {
@@ -57,7 +57,7 @@ const isAsked = (args: unknown): args is Asked =>
  *  asked lands in the list returned. */
 function agent(text: string) {
   const asked: Asked[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "ai_ask" && isAsked(args)) {
       asked.push(args);
       return { text, project: false };

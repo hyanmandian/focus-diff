@@ -1,10 +1,9 @@
 import { learnFile, normalizeLearned } from "@focus-diff/core/estimate";
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { estimateHint, pullMinutes } from "@/utils/estimate/estimate";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
 
 /** The module afresh, with nothing read yet. */
@@ -17,17 +16,14 @@ function fresh() {
 function disk(kept: () => string | null) {
   const writes: unknown[] = [];
   let reads = 0;
-  mockIPC(
-    (cmd, args) => {
-      if (cmd === "read_file") {
-        reads++;
-        return kept();
-      }
-      if (cmd === "write_file") writes.push(args);
-      return null;
-    },
-    { shouldMockEvents: true },
-  );
+  mockCommands((cmd, args) => {
+    if (cmd === "read_file") {
+      reads++;
+      return kept();
+    }
+    if (cmd === "write_file") writes.push(args);
+    return null;
+  });
   return { writes, reads: () => reads };
 }
 
@@ -93,7 +89,7 @@ describe("what's learned, kept in pace.json", () => {
   });
 
   it("learns from nothing when the file's unreadable, and shrugs off a failed write", async () => {
-    mockIPC(fullDisk);
+    mockCommands(fullDisk);
     const { learnFiles } = await fresh();
     await expect(learnFiles([{ path: "a.md", expected: 1, actual: 1 }])).resolves.toBeUndefined();
   });

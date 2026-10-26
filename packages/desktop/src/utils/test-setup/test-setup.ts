@@ -1,14 +1,18 @@
 // Run before every unit test file (vite.config.ts, test.setupFiles): a clean page between tests,
-// Tauri's own IPC mock instead of the app (each test answers the commands it needs with mockIPC),
+// a fake platform instead of the app (each test answers the commands it needs with mockCommands),
 // and what WebKit has that happy-dom doesn't.
 
-import { clearMocks } from "@tauri-apps/api/mocks";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
+import { clearMocks, fakePlatform } from "@/utils/fake-platform/fake-platform";
+import { setPlatform } from "@/utils/platform/platform";
+
+setPlatform(fakePlatform);
+
 afterEach(async () => {
   cleanup();
-  // Unmounting removes Tauri event listeners asynchronously: let that finish before the mock goes.
+  // Unmounting removes event listeners asynchronously: let that finish before the mock goes.
   await new Promise((resolve) => {
     setTimeout(resolve, 0);
   });

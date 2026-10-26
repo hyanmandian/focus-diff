@@ -3,7 +3,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@focus-diff/design-system/components/dropdown-menu";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -11,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
 import type { ActionContext } from "@/utils/bridge/bridge";
 import type { Action } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 // The real runner, which a test can make throw something other than an Error.
 type Run = (action: Action, pr: ActionContext) => Promise<string>;
@@ -64,7 +64,7 @@ function deferred() {
 /** Answers Rust; `confirm` with what the alert's answer should be. */
 function rust({ confirm = true, open }: { confirm?: boolean; open?: () => unknown } = {}) {
   const calls: Array<[string, unknown]> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push([cmd, args]);
     if (cmd === "confirm") return confirm;
     if (cmd === "open_url") return open?.() ?? null;

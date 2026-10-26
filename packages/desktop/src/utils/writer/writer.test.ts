@@ -1,11 +1,12 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vite-plus/test";
+
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 type Request = { method: string; path: string; body: string; accept: unknown };
 
 /** One of the arguments a command was sent with. */
-function sent(args: InvokeArgs | undefined, key: string): unknown {
+function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
@@ -14,7 +15,7 @@ function sent(args: InvokeArgs | undefined, key: string): unknown {
 /** Answers GitHub with what `answer` gives (thrown: the call fails), and keeps each request. */
 function github(answer: (request: Request) => unknown) {
   const asked: Request[] = [];
-  mockIPC((_cmd, args) => {
+  mockCommands((_cmd, args) => {
     const request = {
       method: String(sent(args, "method")),
       path: String(sent(args, "path")),

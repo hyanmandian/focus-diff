@@ -15,7 +15,7 @@ import type { DiffFilter } from "@/utils/config/config";
 import { estimateHint } from "@/utils/estimate/estimate";
 import { totals, type Totals } from "@/utils/filters/filters";
 import { useT, type T } from "@/utils/i18n/i18n";
-import { shortcut } from "@/utils/platform/platform";
+import { shortcut } from "@/utils/os/os";
 import type { ReviewFile } from "@/utils/review/review";
 
 /** A filter shortcut as the platform writes it: ⌥⇧J, or Alt+Shift+J. */

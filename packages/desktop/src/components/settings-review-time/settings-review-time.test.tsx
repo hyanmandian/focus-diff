@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
@@ -13,6 +12,7 @@ import {
   type ReviewSession,
   type ReviewTime,
 } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
 beforeEach(() => {
@@ -55,7 +55,7 @@ function titleOf(args: unknown): string {
 /** The pane as Settings holds it: each change kept, the latest readable, "Remove …?" answered with `confirm`. */
 function setup(review: Partial<ReviewTime> = {}, queues: Queue[] = [], confirm = true) {
   const asked: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "confirm") {
       asked.push(titleOf(args));
       return confirm;

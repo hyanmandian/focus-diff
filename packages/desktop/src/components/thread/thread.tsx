@@ -37,7 +37,7 @@ import { firstName } from "@/utils/copy/copy";
 import type { Actor } from "@/utils/engine/engine";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
-import { isMac } from "@/utils/platform/platform";
+import { isMac } from "@/utils/os/os";
 import type { Draft, Thread as ThreadData, ThreadComment } from "@/utils/review/review";
 import { linesFromPatch } from "@/utils/suggestion/suggestion";
 import { quote } from "@/utils/writing/writing";

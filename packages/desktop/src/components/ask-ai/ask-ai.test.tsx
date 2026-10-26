@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -7,6 +6,7 @@ import { AskAi } from "@/components/ask-ai/ask-ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 // Whether the AI is ready, and what it answers, are utils of their own (ai-ready.ts, ai.ts).
 const ai = vi.hoisted(() => ({
@@ -85,7 +85,7 @@ const send = () => screen.getByRole<HTMLButtonElement>("button", { name: "Ask" }
 /** What's asked of Rust to stop. */
 function cancels() {
   const runs: unknown[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "ai_cancel") runs.push(args);
   });
   return runs;

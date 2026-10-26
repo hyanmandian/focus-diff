@@ -1,4 +1,4 @@
-// Development only: reading what the page sends with a command, and answering it the way Tauri
+// Development only: reading what the page sends with a command, and answering it the way the app
 // does, for the sample data (utils/mock/mock.ts and its neighbours).
 
 /** A command's arguments, or any JSON object the page sent. */
@@ -41,6 +41,6 @@ export const wait = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
-/** A refusal, as a Tauri command's: what Rust returns as its error, not an Error. */
-// oxlint-disable-next-line eslint/prefer-promise-reject-errors, typescript/prefer-promise-reject-errors -- Tauri commands reject with their plain error value, and the page expects that shape.
+/** A refusal, as an app command's: what it returns as its error (Rust's, in the desktop), not an Error. */
+// oxlint-disable-next-line eslint/prefer-promise-reject-errors, typescript/prefer-promise-reject-errors -- the app's commands reject with their plain error value, and the page expects that shape.
 export const fail = (reason: unknown): Promise<never> => Promise.reject(reason);

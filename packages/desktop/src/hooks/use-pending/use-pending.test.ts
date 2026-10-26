@@ -1,11 +1,10 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { published, usePending } from "@/hooks/use-pending/use-pending";
 import type { DraftsState } from "@/utils/bridge/bridge";
 import type { Details } from "@/utils/details/details";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const REF: PullRef = { owner: "acme", repo: "api", number: 42 };
@@ -73,34 +72,31 @@ type World = {
 /** GitHub and Rust as the hook sees them; what was asked of them. */
 function world({ pending, state, failing = [] }: World) {
   const calls: Array<[string, Record<string, unknown>]> = [];
-  mockIPC(
-    (cmd, payload) => {
-      const args = fields(payload);
-      calls.push([cmd, args]);
-      if (failing.includes(cmd)) throw new Error(`${cmd} failed`);
-      if (cmd === "drafts_state") {
-        const s = state();
-        if (s instanceof Error) throw s;
-        return s;
-      }
-      if (cmd !== "github") return null;
-      const query = String(args.body);
-      if (!query.includes("PENDING")) return { status: 200, body: JSON.stringify({ data: {} }) };
-      const comments = pending();
-      if (comments instanceof Error) throw comments;
-      if (comments instanceof Promise) return comments;
-      const review = {
-        id: "REVIEW_1",
-        viewerDidAuthor: true,
-        comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: comments },
-      };
-      return {
-        status: 200,
-        body: JSON.stringify({ data: { repository: { pullRequest: { reviews: { nodes: [review] } } } } }),
-      };
-    },
-    { shouldMockEvents: true },
-  );
+  mockCommands((cmd, payload) => {
+    const args = fields(payload);
+    calls.push([cmd, args]);
+    if (failing.includes(cmd)) throw new Error(`${cmd} failed`);
+    if (cmd === "drafts_state") {
+      const s = state();
+      if (s instanceof Error) throw s;
+      return s;
+    }
+    if (cmd !== "github") return null;
+    const query = String(args.body);
+    if (!query.includes("PENDING")) return { status: 200, body: JSON.stringify({ data: {} }) };
+    const comments = pending();
+    if (comments instanceof Error) throw comments;
+    if (comments instanceof Promise) return comments;
+    const review = {
+      id: "REVIEW_1",
+      viewerDidAuthor: true,
+      comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: comments },
+    };
+    return {
+      status: 200,
+      body: JSON.stringify({ data: { repository: { pullRequest: { reviews: { nodes: [review] } } } } }),
+    };
+  });
   return {
     calls,
     asked: (command: string) => calls.filter(([cmd]) => cmd === command).map(([, args]) => args),

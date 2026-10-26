@@ -1,12 +1,12 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { confirmRemove } from "@/utils/confirm/confirm";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 describe("asking before removing", () => {
   it("asks natively, with Remove as the button, and answers what was chosen", async () => {
     const asked: unknown[] = [];
-    mockIPC((cmd, args) => {
+    mockCommands((cmd, args) => {
       asked.push({ cmd, args });
       return false;
     });

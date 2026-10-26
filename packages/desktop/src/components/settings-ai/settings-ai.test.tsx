@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
@@ -7,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { Ai } from "@/components/settings-ai/settings-ai";
 import type { AiStatus } from "@/utils/bridge/bridge";
 import { defaultConfig, REVIEW_PROMPT, type AiProvider, type Config } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
 afterEach(() => {
@@ -40,7 +40,7 @@ type Rust = {
 function setup(ai: Partial<Config["ai"]> = {}, rust: Rust = {}) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   let answer: ((statuses: AiStatus[]) => void) | undefined;
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, args });
     if (cmd === "ai_statuses")
       return (

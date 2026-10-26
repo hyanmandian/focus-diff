@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
@@ -12,6 +11,7 @@ import type { AiReview, Finding } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Conversation, ConversationEntry, Said } from "@/utils/conversation/conversation";
 import type { Details, Entry } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Thread } from "@/utils/review/review";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
@@ -275,7 +275,7 @@ function show(extra: Partial<Props> = {}, withApi: ConversationApi | null = null
 
 const openUrls = () => {
   const opened: unknown[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "open_url" && args && "url" in args) opened.push(args.url);
   });
   return opened;

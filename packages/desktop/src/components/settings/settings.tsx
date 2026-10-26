@@ -22,7 +22,6 @@ import {
 } from "@focus-diff/design-system/components/select";
 import { Switch } from "@focus-diff/design-system/components/switch";
 import { cn } from "@focus-diff/design-system/utils/cn";
-import { getVersion } from "@tauri-apps/api/app";
 import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -49,6 +48,7 @@ import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } f
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { interval } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
+import { platform } from "@/utils/platform/platform";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 import { useTheme } from "@/utils/theme/theme";
 
@@ -352,7 +352,7 @@ function Updates() {
       const v = await bridge.updateOffered();
       if (v) setState({ phase: "found", version: v });
     };
-    void getVersion().then(setVersion);
+    void platform().version().then(setVersion);
     void offered();
   }, []);
   const check = async () => {

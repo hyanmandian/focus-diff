@@ -3,9 +3,8 @@
 // holds never changes. The old version is the one at the commit the pull request branched from
 // (the merge base), which is what GitHub's diff compares against, not the base branch's tip.
 
-import { invoke } from "@tauri-apps/api/core";
-
 import { github } from "@/utils/bridge/bridge";
+import { invoke } from "@/utils/platform/platform";
 import type { PullRef } from "@/utils/review/review";
 
 /** What one pull request's files are compared between. */

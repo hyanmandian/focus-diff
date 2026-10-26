@@ -1,5 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -7,11 +5,13 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { Face, LabelChip, Sidebar } from "@/components/sidebar/sidebar";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { LinkedIssue, Manage, Reviewer } from "@/utils/manage/manage";
 import { fakeDetails, fakeManage, fakePull } from "@/utils/mock-pull/mock-pull";
+import type { Args } from "@/utils/platform/platform";
 
 /** A command's named argument, as the page sent it. */
-const arg = (args: InvokeArgs | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
+const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 const person = (login: string, name: string | null = null) => ({
   __typename: "User",
@@ -35,7 +35,7 @@ type Lists = {
 /** GitHub: the lists the pickers ask for, and the changes, which it records. */
 function github({ people = [ana, bo, cy], teams = [], labels = [], milestones = [], status = 200 }: Lists = {}) {
   const calls: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "open_url") {
       calls.push(`open ${String(arg(args, "url"))}`);
       return null;
@@ -262,7 +262,7 @@ describe("Reviewers", () => {
   });
 
   it("says what Rust said when the call itself failed", async () => {
-    mockIPC((_, args) => {
+    mockCommands((_, args) => {
       if (String(arg(args, "path")) === "/graphql") {
         return { status: 200, body: JSON.stringify({ data: { repository: { assignableUsers: { nodes: [bo] } } } }) };
       }

@@ -1,7 +1,6 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Manage } from "@/utils/manage/manage";
 import {
   defaultMessage,
@@ -15,16 +14,17 @@ import {
   mergeView,
   updateBranch,
 } from "@/utils/merging/merging";
+import type { Args } from "@/utils/platform/platform";
 
 type Call = { cmd: string; fields: Record<string, unknown> };
-const fields = (args: InvokeArgs | undefined): Record<string, unknown> =>
+const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
 /** Rust answering each call with the same reply, keeping what was asked. */
 function rust(reply: unknown = ok({ data: {} })) {
   const calls: Call[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, fields: fields(args) });
     return reply;
   });

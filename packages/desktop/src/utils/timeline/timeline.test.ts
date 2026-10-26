@@ -1,6 +1,6 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { byTime, loadTimeline, mapTimeline, type TimelineEvent, type TimelineNode } from "@/utils/timeline/timeline";
 
 const at = "2026-01-01T10:00:00Z";
@@ -32,7 +32,7 @@ const commitsOf = (event: TimelineEvent | undefined) => (event?.kind === "commit
 function answer(nodes: unknown[], older: string | null = null) {
   const asked: string[] = [];
   const pageInfo = { hasPreviousPage: older !== null, startCursor: older };
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd !== "github") return null;
     asked.push(JSON.stringify(args));
     const data = { repository: { pullRequest: { timelineItems: { pageInfo, nodes } } } };

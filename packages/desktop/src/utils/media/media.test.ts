@@ -1,27 +1,23 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
+import { fakePlatform } from "@/utils/fake-platform/fake-platform";
 import { isVideo, media } from "@/utils/media/media";
+import { setPlatform } from "@/utils/platform/platform";
 
 const url = "https://github.com/user-attachments/assets/a b.png";
 
 describe("pictures and videos from GitHub", () => {
-  it("load straight from GitHub outside the app", () => {
+  it("load straight from GitHub when the app keeps no copies", () => {
     expect(media(url)).toBe(url);
   });
 
-  it("come through the app, which holds the token", () => {
-    mockIPC(() => null);
-    expect(media(url)).toBe(`media://localhost/?u=${encodeURIComponent(url)}`);
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-    expect(media(url)).toBe(`http://media.localhost/?u=${encodeURIComponent(url)}`);
-  });
-
-  it("load straight from GitHub in the browser's sample mode", () => {
-    mockIPC(() => null);
-    vi.stubGlobal("__mock", true);
-    expect(media(url)).toBe(url);
-    vi.unstubAllGlobals();
+  it("come through the app where it can, which holds the token", () => {
+    setPlatform({ ...fakePlatform, mediaUrl: (kind, address) => `${kind}:${address}` });
+    try {
+      expect(media(url)).toBe(`media:${url}`);
+    } finally {
+      setPlatform(fakePlatform);
+    }
   });
 
   it("tells a video by its extension", () => {

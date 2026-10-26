@@ -1,5 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MouseEvent } from "react";
@@ -7,16 +5,18 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CommentHtml, openClicked } from "@/components/comment-html/comment-html";
 import { Viewer } from "@/components/viewer/viewer";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const PICTURE = "https://user-images.githubusercontent.com/1/shot.png";
 
 /** A command's named argument, as the page sent it. */
-const arg = (args: InvokeArgs | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
+const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 /** Records what's sent to Rust's open_url. */
 function opened() {
   const urls: unknown[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "open_url") urls.push(arg(args, "url"));
   });
   return urls;

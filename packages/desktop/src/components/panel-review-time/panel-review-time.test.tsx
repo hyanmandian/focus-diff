@@ -1,10 +1,10 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ReviewTime } from "@/components/panel-review-time/panel-review-time";
 import type { Item } from "@/utils/engine/engine";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 import type { ReviewRun, RunPull } from "@/utils/store/store";
 
@@ -58,7 +58,7 @@ const queued: Item = {
 
 function setup(run: ReviewRun, items: Record<string, Item[]> = {}) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, args });
     return null;
   });

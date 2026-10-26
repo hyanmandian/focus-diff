@@ -1,9 +1,9 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { GitHubError } from "@/utils/bridge/bridge";
 import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "@/utils/commit/commit";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 import type { Author } from "@/utils/suggestion/suggestion";
 
 const ana = { login: "ana", name: "Ana Lima", databaseId: 11 };
@@ -18,13 +18,13 @@ const item = (path: string, start: number, lines: string[], author: Author = ana
 });
 
 type Sent = Record<string, unknown>;
-const fields = (args: InvokeArgs | undefined): Sent =>
+const fields = (args: Args | undefined): Sent =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 
 /** GitHub as Rust passes it on: files read raw, and the commit mutation answered with `commit`. */
 function github(files: Record<string, string>, commit: { status: number; body: string }) {
   const sent: Sent[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     const call = fields(args);
     sent.push(call);
     if (call.path === "/graphql") return commit;
@@ -36,7 +36,7 @@ function github(files: Record<string, string>, commit: { status: number; body: s
 
 /** Files read, then the commit refused by Rust itself. */
 function offline() {
-  mockIPC((_, args) =>
+  mockCommands((_, args) =>
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's errors reach the page as strings
     fields(args).path === "/graphql" ? Promise.reject("offline") : { status: 200, body: "x\n" },
   );

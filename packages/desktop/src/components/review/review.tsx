@@ -85,7 +85,7 @@ import { i18n, useT } from "@/utils/i18n/i18n";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
 import { tabKeys } from "@/utils/keys/keys";
 import { stepFile } from "@/utils/navigate/navigate";
-import { isMac } from "@/utils/platform/platform";
+import { isMac } from "@/utils/os/os";
 import {
   commentNow,
   loadFiles,

@@ -1,11 +1,11 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
 import { describe as words, TimelineRow } from "@/components/timeline/timeline";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
+import type { Args } from "@/utils/platform/platform";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
 const at = "2026-10-20T10:00:00Z";
@@ -15,11 +15,11 @@ const red = { name: "bug", color: "d73a4a" };
 const blue = { name: "docs", color: "0075ca" };
 
 /** A command's named argument, as the page sent it. */
-const arg = (args: InvokeArgs | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
+const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 function opened() {
   const urls: unknown[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "open_url") urls.push(arg(args, "url"));
   });
   return urls;

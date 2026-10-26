@@ -1,10 +1,10 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { defaultConfig, type Config, type DiffFilter } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { exportFilters } from "@/utils/filters/filters";
 import { setLanguage } from "@/utils/i18n/i18n";
 
@@ -40,7 +40,7 @@ function setup(filters: DiffFilter[], changes = vi.fn<(c: Config) => void>()) {
 /** Answers the native "Remove?" alert. */
 function confirmWith(answer: boolean) {
   const asked = vi.fn<(args: unknown) => void>();
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "confirm") {
       asked(args);
       return answer;

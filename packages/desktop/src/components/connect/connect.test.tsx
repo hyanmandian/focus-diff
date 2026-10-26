@@ -1,10 +1,10 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { Connect } from "@/components/connect/connect";
 import type { AuthStatus, DeviceCode } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const auth = (over: Partial<AuthStatus> = {}): AuthStatus => ({
   signed_in: false,
@@ -26,7 +26,7 @@ const CODE: DeviceCode = {
 /** Answers the commands; a command given a promise waits for it. */
 function rust(answers: Record<string, unknown>) {
   const calls: Array<[string, unknown]> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push([cmd, args]);
     const answer = answers[cmd];
     if (answer instanceof Error) throw answer;

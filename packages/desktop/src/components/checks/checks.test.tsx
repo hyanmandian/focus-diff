@@ -1,5 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -7,13 +5,15 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { Checks } from "@/components/checks/checks";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { CheckItem } from "@/utils/checks/checks";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { fakeCheck, fakeChecks, fakeManage, fakePull } from "@/utils/mock-pull/mock-pull";
 import { later } from "@/utils/mock-render/mock-render";
+import type { Args } from "@/utils/platform/platform";
 
 const pr = { owner: "acme", repo: "shop", number: 42, state: "OPEN" };
 
 /** A command's named argument, as the page sent it. */
-const arg = (args: InvokeArgs | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
+const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 type Answers = {
   /** GraphQL's node for a check run's detail, or a failure. */
@@ -27,7 +27,7 @@ type Answers = {
 /** Answers what opening a check asks, recording the calls. */
 function answer({ detail = null, log = { text: "", truncated: false }, rerun = 201 }: Answers = {}) {
   const calls: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "job_log") {
       calls.push(`log ${String(arg(args, "job"))} ${String(arg(args, "done"))}`);
       // oxlint-disable-next-line typescript/only-throw-error -- Rust's errors reach the page as strings.
@@ -242,7 +242,7 @@ describe("Checks", () => {
 
     it("drops a detail that arrives after it's closed", async () => {
       const held = later();
-      mockIPC(() => held.promise.then(() => ({ status: 200, body: JSON.stringify({ data: { node: detail } }) })));
+      mockCommands(() => held.promise.then(() => ({ status: 200, body: JSON.stringify({ data: { node: detail } }) })));
       checks({ checks: [failing] });
       await userEvent.click(row(/test/u));
       await userEvent.click(row(/test/u));
@@ -338,7 +338,7 @@ describe("Checks", () => {
     });
 
     it("says what Rust said when the call itself failed", async () => {
-      mockIPC(() => {
+      mockCommands(() => {
         // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- Rust's errors reach the page as strings.
         throw "No network";
       });

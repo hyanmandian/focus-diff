@@ -1,5 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -16,19 +14,21 @@ import {
   type Commits,
   type Range,
 } from "@/utils/commits/commits";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 import { shelve, shelved } from "@/utils/shelf/shelf";
 
 const ref = { owner: "acme", repo: "web", number: 7 };
 
 type Call = { cmd: string; fields: Record<string, unknown> };
-const fields = (args: InvokeArgs | undefined): Record<string, unknown> =>
+const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
 /** Rust answering each call with the next reply, keeping what was asked. */
 function rust(...replies: unknown[]) {
   const calls: Call[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, fields: fields(args) });
     return replies[calls.length - 1];
   });

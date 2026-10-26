@@ -1,21 +1,17 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n, setLanguage } from "@/utils/i18n/i18n";
 import { followLanguage } from "@/utils/language/language";
 
 /** Rust with this settings file (null: none yet); `reads` counts how often it's read. */
 function settings(file: { text: string | null }) {
   const reads = { count: 0 };
-  mockIPC(
-    (cmd) => {
-      if (cmd !== "read_file") return null;
-      reads.count++;
-      return file.text;
-    },
-    { shouldMockEvents: true },
-  );
+  mockCommands((cmd) => {
+    if (cmd !== "read_file") return null;
+    reads.count++;
+    return file.text;
+  });
   return reads;
 }
 

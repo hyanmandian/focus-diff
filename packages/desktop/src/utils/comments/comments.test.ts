@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { GitHubError } from "@/utils/bridge/bridge";
@@ -14,6 +13,7 @@ import {
   type Reaction,
   type ReactionContent,
 } from "@/utils/comments/comments";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 type Sent = { query: string; variables: Record<string, unknown> };
 
@@ -30,7 +30,7 @@ function request(args: unknown): unknown {
 /** GitHub answering each GraphQL call with the next of `replies`; what was sent lands in the list. */
 function graphqlReplies(...replies: unknown[]) {
   const sent: Sent[] = [];
-  mockIPC((_cmd, args) => {
+  mockCommands((_cmd, args) => {
     const sending = request(args);
     if (isSent(sending)) sent.push(sending);
     return { status: 200, body: JSON.stringify(replies[sent.length - 1]) };

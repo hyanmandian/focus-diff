@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
@@ -6,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { Actions } from "@/components/settings-actions/settings-actions";
 import { defaultConfig, type Action, type ActionStep, type Config } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
 afterEach(() => {
@@ -38,7 +38,7 @@ function titleOf(args: unknown): string {
  *  "Remove …?" given by `confirm`. */
 function setup(actions: Action[], confirm = true) {
   const asked: string[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd === "confirm") {
       asked.push(titleOf(args));
       return confirm;

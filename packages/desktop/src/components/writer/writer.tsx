@@ -36,7 +36,7 @@ import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type UploadError } from "@/utils/bridge/bridge";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
-import { isMac } from "@/utils/platform/platform";
+import { isMac } from "@/utils/os/os";
 import { suggestionBlock } from "@/utils/suggestion/suggestion";
 import {
   emoji,

@@ -1,11 +1,10 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { AuthStatus } from "@/utils/bridge/bridge";
 import { defaultConfig, normalize, type Config, type Queue } from "@/utils/config/config";
+import { VERSION, emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
 import { Settings } from "./settings";
@@ -57,7 +56,7 @@ function app(answers: Answers = {}) {
         return answers.install?.() ?? null;
       case "confirm":
         return answers.confirm ?? true;
-      case "plugin:app|version":
+      case VERSION:
         return "1.2.3";
       case "ai_statuses":
         return [];
@@ -65,18 +64,15 @@ function app(answers: Answers = {}) {
         return null;
     }
   };
-  mockIPC(
-    (cmd, args) => {
-      calls.push({ cmd, args });
-      if (!answers.hold?.includes(cmd)) return answer(cmd);
-      return new Promise((resolve) => {
-        held.set(cmd, () => {
-          resolve(answer(cmd));
-        });
+  mockCommands((cmd, args) => {
+    calls.push({ cmd, args });
+    if (!answers.hold?.includes(cmd)) return answer(cmd);
+    return new Promise((resolve) => {
+      held.set(cmd, () => {
+        resolve(answer(cmd));
       });
-    },
-    { shouldMockEvents: true },
-  );
+    });
+  });
   const saved = (): Config | null => {
     const args = calls.findLast((c) => c.cmd === "write_file")?.args;
     return isRecord(args) && typeof args.contents === "string" ? normalize(JSON.parse(args.contents)) : null;
@@ -124,7 +120,7 @@ const tab = (name: RegExp | string) => within(sidebar()).getByRole("tab", { name
 const panel = () => screen.getByRole("tabpanel");
 
 afterEach(async () => {
-  // Unmounted while Tauri's mocks are still there, so the event listeners can let go of them.
+  // Unmounted while the fake platform's mocks are still there, so the event listeners can let go of them.
   cleanup();
   await new Promise((resolve) => {
     setTimeout(resolve, 0);
@@ -363,7 +359,7 @@ describe("General pane", () => {
   });
 
   it("names the app alone until the version is known", async () => {
-    await general({ hold: ["plugin:app|version"] });
+    await general({ hold: [VERSION] });
     expect(await screen.findByText("Focus Diff")).toBeTruthy();
   });
 

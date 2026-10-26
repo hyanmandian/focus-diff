@@ -1,9 +1,7 @@
-// Calls into the app's Rust side (src-tauri/src/lib.rs). The web views never hold the GitHub token:
+// Calls into the app's native side (the desktop's Rust, src-tauri/src/lib.rs), through its platform (utils/platform). The web views never hold the GitHub token:
 // they ask for API calls by path and Rust makes them.
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-
 import { i18n } from "@/utils/i18n/i18n";
+import { invoke, platform, type Unlisten } from "@/utils/platform/platform";
 
 export type AuthSource = "keychain" | "gh";
 
@@ -207,10 +205,7 @@ export const bridge = {
   quit: () => invoke<void>("quit"),
 
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the payload Rust sends
-  on: <T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> =>
-    listen<T>(event, (e) => {
-      handler(e.payload);
-    }),
+  on: <T>(event: string, handler: (payload: T) => void): Promise<Unlisten> => platform().listen<T>(event, handler),
 };
 
 /** A GitHub REST or GraphQL call. Throws GitHubError for HTTP errors, with GitHub's message. */

@@ -150,6 +150,7 @@ export default defineConfig({
         "src/utils/mock*/**",
         "src/utils/dev-log/**",
         "src/utils/test-setup/**",
+        "src/utils/fake-platform/**",
         "src/**/*.d.ts",
         "src/locales/**",
       ],

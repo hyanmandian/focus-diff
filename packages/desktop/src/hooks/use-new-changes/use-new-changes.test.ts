@@ -1,8 +1,8 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { useNewChanges, type NewChanges } from "@/hooks/use-new-changes/use-new-changes";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const T0 = new Date("2026-10-26T12:00:00Z").getTime();
 const UPDATED = "2026-10-26T11:00:00Z";
@@ -17,7 +17,7 @@ const response = (pr: Pull) => ({
 /** GitHub's pull request, as each look finds it (or why it can't, or later); counts the looks. */
 function github(answer: () => Pull | Error | Promise<Pull>) {
   const looks: unknown[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd !== "github") return null;
     looks.push(args);
     const pr = answer();

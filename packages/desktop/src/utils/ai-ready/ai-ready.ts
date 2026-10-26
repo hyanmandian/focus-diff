@@ -2,13 +2,13 @@
 // before anything is sent to it, so a click on an AI button says what's missing and leads to
 // Settings, rather than failing after a wait. The answer is kept a minute (it runs the CLI).
 
-import { emitTo } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 
 import { PROVIDERS } from "@/utils/ai/ai";
 import { bridge, type AiStatus } from "@/utils/bridge/bridge";
 import type { AiProvider, Config } from "@/utils/config/config";
 import { i18n } from "@/utils/i18n/i18n";
+import { platform } from "@/utils/platform/platform";
 
 let asked: { at: number; statuses: Promise<AiStatus[]> } | null = null;
 
@@ -65,7 +65,9 @@ export async function openAiSettings() {
   }
   await bridge.openSettings();
   // Already open on another pane: told to show this one.
-  void emitTo("settings", "settings-pane", "ai").catch(() => {});
+  void platform()
+    .emitTo("settings", "settings-pane", "ai")
+    .catch(() => {});
   // Asked again once they're back, set up or not.
   asked = null;
 }

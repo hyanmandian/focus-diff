@@ -1,9 +1,9 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { AiStatus } from "@/utils/bridge/bridge";
 import { defaultConfig, type AiProvider, type Config } from "@/utils/config/config";
+import { EMIT_TO, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const claude: AiStatus = {
   provider: "claude",
@@ -33,12 +33,12 @@ function fresh() {
  *  `ok`; every command asked lands in the list. */
 function mac(statuses: () => unknown, ok = false) {
   const commands: string[] = [];
-  mockIPC((cmd) => {
+  mockCommands((cmd) => {
     commands.push(cmd);
     if (cmd === "ai_statuses") return statuses();
     if (cmd === "confirm") return ok;
     // Settings isn't open to be told which pane.
-    if (cmd === "plugin:event|emit_to") return Promise.reject(new Error("no window"));
+    if (cmd === EMIT_TO) return Promise.reject(new Error("no window"));
     return null;
   });
   return commands;

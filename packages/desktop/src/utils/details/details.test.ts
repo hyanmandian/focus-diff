@@ -1,15 +1,15 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import { comment, leaveReview, loadDetails, markReady, merge, review, type Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const ana = { __typename: "User", login: "ana", avatarUrl: "a.png", name: "Ana" };
 const bruno = { __typename: "User", login: "bruno", avatarUrl: "b.png", name: null };
 
 type Sent = { method: unknown; path: unknown; body: unknown };
 
-const field = (args: InvokeArgs | undefined, key: string): unknown =>
+const field = (args: Args | undefined, key: string): unknown =>
   args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array)
     ? args[key]
     : undefined;
@@ -17,7 +17,7 @@ const field = (args: InvokeArgs | undefined, key: string): unknown =>
 /** Answers every GitHub call with `reply` and keeps what was sent. */
 function github(reply: unknown) {
   const sent: Sent[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd !== "github") return null;
     const body = field(args, "body");
     sent.push({

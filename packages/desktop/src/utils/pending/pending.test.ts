@@ -1,7 +1,6 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import {
   discardPending,
   loadPending,
@@ -11,12 +10,13 @@ import {
   unsent,
   type PendingReview,
 } from "@/utils/pending/pending";
+import type { Args } from "@/utils/platform/platform";
 import type { Draft, Thread } from "@/utils/review/review";
 
 const pull = { id: "PR_1", owner: "acme", repo: "web", number: 7 };
 
 type Call = { cmd: string; fields: Record<string, unknown> };
-const fields = (args: InvokeArgs | undefined): Record<string, unknown> =>
+const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
@@ -24,7 +24,7 @@ const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 function rust(...replies: unknown[]) {
   const calls: Call[] = [];
   let next = 0;
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, fields: fields(args) });
     return cmd === "github" ? replies[next++] : null;
   });

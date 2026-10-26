@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -13,6 +12,7 @@ import type { Reaction } from "@/utils/comments/comments";
 import { StaleHead, type Applied } from "@/utils/commit/commit";
 import type { Conversation } from "@/utils/conversation/conversation";
 import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, PullRef, ReviewFile, Thread, ThreadComment } from "@/utils/review/review";
 import { SuggestionError } from "@/utils/suggestion/suggestion";
 
@@ -173,7 +173,7 @@ function setup({ details = DETAILS, files = FILES, kept = () => null }: Setup = 
   const reloadAll = vi.fn<() => void>();
   const ipc: Array<[string, unknown]> = [];
   const answers: Record<string, () => unknown> = { kept_read: kept, kept_write: () => null, confirm: () => true };
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     ipc.push([cmd, args]);
     return answers[cmd]?.();
   });

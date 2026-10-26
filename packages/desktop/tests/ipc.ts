@@ -1,5 +1,6 @@
-// What the pages ask of "Rust": the sample data in src/utils/mock/mock.ts answers every invoke, and
-// this keeps a list of them, so a test can check that a click asked for a window, a save or a quit.
+// What the pages ask of "Rust": the sample data in src/utils/mock/mock.ts, the pages' platform in a
+// browser, answers every command, and this keeps a list of them, so a test can check that a click
+// asked for a window, a save or a quit.
 
 import type { Page } from "@playwright/test";
 
@@ -13,20 +14,20 @@ type Invoke = (cmd: string, args?: Record<string, unknown>, options?: unknown) =
 declare global {
   interface Window {
     recordedCalls?: Call[];
-    __TAURI_INTERNALS__: { invoke: Invoke };
+    focusDiffPlatform?: { invoke: Invoke };
   }
 }
 
-/** Records every invoke from now on. The page must have loaded (the mock is installed as it does). */
+/** Records every command from now on. The page must have loaded (its platform is set as it does). */
 export async function recordCalls(page: Page) {
-  await page.waitForFunction(() => "__TAURI_INTERNALS__" in window);
+  await page.waitForFunction(() => window.focusDiffPlatform !== undefined);
   await page.evaluate(() => {
     if (window.recordedCalls) return;
     const calls: Call[] = [];
     window.recordedCalls = calls;
-    const internals = window.__TAURI_INTERNALS__;
-    const invoke = internals.invoke;
-    internals.invoke = (cmd, args, options) => {
+    const platform = window.focusDiffPlatform!;
+    const invoke = platform.invoke;
+    platform.invoke = (cmd, args, options) => {
       calls.push({ cmd, args: args ?? {} });
       return invoke(cmd, args, options);
     };

@@ -1,5 +1,3 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -8,12 +6,14 @@ import {
   readKeptConversation,
   type Conversation,
 } from "@/utils/conversation/conversation";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const ref = { owner: "acme", repo: "shop", number: 7 };
 const ana = { __typename: "User", login: "ana", avatarUrl: "a.png", name: "Ana" };
 const at = (hour: number) => `2026-01-01T${String(hour).padStart(2, "0")}:00:00Z`;
 
-const field = (args: InvokeArgs | undefined, key: string): unknown =>
+const field = (args: Args | undefined, key: string): unknown =>
   args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array)
     ? args[key]
     : undefined;
@@ -39,7 +39,7 @@ const page = <T>(nodes: T[], next: string | null = null) => ({
 /** A query as sent: its text, its variables and, of them, the cursor it asks after. */
 type Query = { query: string; variables: unknown; after: unknown };
 
-function readQuery(args: InvokeArgs | undefined): Query {
+function readQuery(args: Args | undefined): Query {
   const body = field(args, "body");
   const sent: unknown = typeof body === "string" ? JSON.parse(body) : null;
   if (typeof sent !== "object" || sent === null || !("query" in sent) || !("variables" in sent))
@@ -53,7 +53,7 @@ function readQuery(args: InvokeArgs | undefined): Query {
 /** Answers GraphQL queries with `reply`, and keeps each query asked. */
 function graphql(reply: (q: Query) => unknown) {
   const asked: Query[] = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (cmd !== "github") return null;
     const q = readQuery(args);
     asked.push(q);
@@ -95,7 +95,7 @@ const goneReview = (q: Query) => (isReviewComments(q) ? { node: null } : pull(pa
 
 /** Rust's kept store, as a map; `fail` makes every call fail. */
 function kept(stored: Record<string, string> = {}, fail = false) {
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     if (fail) throw new Error("disk");
     const id = String(field(args, "id"));
     if (cmd === "kept_read") return stored[id] ?? null;

@@ -17,7 +17,6 @@ import { Skeleton } from "@focus-diff/design-system/components/skeleton";
 import { SlidingPill } from "@focus-diff/design-system/components/sliding-pill";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
 import { cn } from "@focus-diff/design-system/utils/cn";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -30,7 +29,8 @@ import type { Queue } from "@/utils/config/config";
 import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
-import { shortcut } from "@/utils/platform/platform";
+import { shortcut } from "@/utils/os/os";
+import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
 import {
   clearArrival,
@@ -60,7 +60,7 @@ function remember(key: string, value: string) {
 }
 
 /** Stops listening once the listener is in place. */
-async function unlisten(off: Promise<UnlistenFn>) {
+async function unlisten(off: Promise<Unlisten>) {
   (await off)();
 }
 

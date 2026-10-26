@@ -1,8 +1,7 @@
-import type { InvokeArgs } from "@tauri-apps/api/core";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import {
   addAssignees,
   addLabels,
@@ -26,12 +25,13 @@ import {
   type Manage,
   type Permission,
 } from "@/utils/manage/manage";
+import type { Args } from "@/utils/platform/platform";
 import { shelve, shelved } from "@/utils/shelf/shelf";
 
 type Request = { method: string; path: string; body: string };
 
 /** One of the arguments a command was sent with. */
-function sent(args: InvokeArgs | undefined, key: string): unknown {
+function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
@@ -40,7 +40,7 @@ function sent(args: InvokeArgs | undefined, key: string): unknown {
 /** Answers GitHub with what `answer` gives (thrown: the call fails), and keeps each request. */
 function github(answer: (request: Request) => unknown) {
   const asked: Request[] = [];
-  mockIPC(async (_cmd, args) => {
+  mockCommands(async (_cmd, args) => {
     const request = {
       method: String(sent(args, "method")),
       path: String(sent(args, "path")),
@@ -58,7 +58,7 @@ const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 /** GitHub not answering yet: each request's answer, given when the test says. */
 function heldAnswers() {
   const answers: Array<{ resolve: (value: unknown) => void; reject: (reason: Error) => void }> = [];
-  mockIPC(
+  mockCommands(
     () =>
       new Promise((resolve, reject) => {
         answers.push({ resolve, reject });
@@ -365,7 +365,7 @@ describe("the hook", () => {
   });
 
   it("changes it at once with a patch, and only once there's something to change", async () => {
-    mockIPC(() => {
+    mockCommands(() => {
       throw new Error("not yet");
     });
     const { result } = renderHook(() => useManage("PR_1", ref));
@@ -382,7 +382,7 @@ describe("the hook", () => {
   });
 
   it("says what went wrong", async () => {
-    mockIPC(() => {
+    mockCommands(() => {
       throw new Error("Bad credentials");
     });
     const { result } = renderHook(() => useManage("PR_1", ref));
@@ -390,7 +390,7 @@ describe("the hook", () => {
       expect(result.current.error).toBe("Bad credentials");
     });
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's command errors reach the page as plain strings
-    mockIPC(() => Promise.reject("offline"));
+    mockCommands(() => Promise.reject("offline"));
     await act(() => result.current.reload());
     expect(result.current.error).toBe("offline");
   });

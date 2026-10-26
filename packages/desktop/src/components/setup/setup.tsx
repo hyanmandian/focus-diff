@@ -14,7 +14,6 @@ import {
 } from "@focus-diff/design-system/components/select";
 import { Switch } from "@focus-diff/design-system/components/switch";
 import { cn } from "@focus-diff/design-system/utils/cn";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -34,7 +33,8 @@ import {
 } from "@/utils/config/config";
 import { interval } from "@/utils/copy/copy";
 import { i18n, useT } from "@/utils/i18n/i18n";
-import { isMac } from "@/utils/platform/platform";
+import { isMac } from "@/utils/os/os";
+import { platform } from "@/utils/platform/platform";
 import { useTheme } from "@/utils/theme/theme";
 
 const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
@@ -141,7 +141,7 @@ export function Setup() {
     setSaving(true);
     await saveConfig(finalConfig());
     await bridge.openPanel();
-    await getCurrentWindow().close();
+    await platform().closeWindow();
   };
 
   const canContinue = step === 0 ? Boolean(auth?.signed_in) : step === 1 ? kinds.size > 0 : true;

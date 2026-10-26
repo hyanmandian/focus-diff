@@ -1,4 +1,3 @@
-import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -6,11 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { Setup } from "@/components/setup/setup";
 import type { AiStatus, AuthStatus } from "@/utils/bridge/bridge";
 import { defaultConfig, normalize, TEMPLATES, type Config } from "@/utils/config/config";
+import { CLOSE_WINDOW, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
 // The window's last words differ between the Mac and the others; the test picks.
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("@/utils/platform/platform", async (importOriginal) => {
+vi.mock("@/utils/os/os", async (importOriginal) => {
   const real = await importOriginal<Record<string, unknown>>();
   return {
     ...real,
@@ -71,9 +71,8 @@ function answer({
   statuses = () => Promise.resolve([]),
   write = () => Promise.resolve(),
 }: Answers = {}) {
-  mockWindows("setup");
   const calls: Array<{ cmd: string; args: unknown }> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     calls.push({ cmd, args });
     switch (cmd) {
       case "auth_status":
@@ -218,7 +217,7 @@ describe("Setup", () => {
     await user.click(screen.getByRole("button", { name: "Open Focus Diff" }));
 
     await waitFor(() => {
-      expect(sent("plugin:window|close")).toHaveLength(1);
+      expect(sent(CLOSE_WINDOW)).toHaveLength(1);
     });
     expect(sent("open_panel")).toHaveLength(1);
     const final = saved();
@@ -300,7 +299,7 @@ describe("Setup", () => {
     enter(screen.getByRole("heading", { level: 1 }));
     enter(screen.getByRole("heading", { level: 1 }));
     await waitFor(() => {
-      expect(sent("plugin:window|close")).toHaveLength(1);
+      expect(sent(CLOSE_WINDOW)).toHaveLength(1);
     });
   });
 

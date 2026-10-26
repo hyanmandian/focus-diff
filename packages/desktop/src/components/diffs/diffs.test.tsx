@@ -1,5 +1,4 @@
 import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef, useImperativeHandle, useLayoutEffect, type ReactNode, type Ref } from "react";
@@ -9,6 +8,7 @@ import { Diffs, type DiffsHandle } from "@/components/diffs/diffs";
 import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, ReviewFile, Thread } from "@/utils/review/review";
 
 // MARK: @pierre/diffs' CodeView, at its boundary
@@ -415,7 +415,7 @@ function deferred<T>() {
 /** Rust: the commands sent, and the answer to the native alert. */
 function rust(confirmed = true) {
   const sent: Array<[string, unknown]> = [];
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     sent.push([cmd, args]);
     return cmd === "confirm" ? confirmed : null;
   });

@@ -1,4 +1,3 @@
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -8,6 +7,7 @@ import { GitHubError } from "@/utils/bridge/bridge";
 import type { CheckItem } from "@/utils/checks/checks";
 import type { Commit, Commits } from "@/utils/commits/commits";
 import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
 import type { PullRef, Thread } from "@/utils/review/review";
@@ -256,7 +256,7 @@ beforeEach(() => {
   manageNow = MANAGE;
   confirmAnswer = true;
   ipc.length = 0;
-  mockIPC((cmd, args) => {
+  mockCommands((cmd, args) => {
     ipc.push([cmd, args]);
     return cmd === "confirm" ? confirmAnswer : null;
   });

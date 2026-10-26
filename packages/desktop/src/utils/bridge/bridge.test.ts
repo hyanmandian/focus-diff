@@ -1,21 +1,17 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { bridge, github, GitHubError, graphql, type DeviceCode, type ReviewPull } from "@/utils/bridge/bridge";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 type Call = { cmd: string; args: unknown };
 
 /** Rust answering every command with `answer`; what it was asked lands in the list. */
 function rust(answer: (cmd: string, args: unknown) => unknown = () => null) {
   const calls: Call[] = [];
-  mockIPC(
-    (cmd, args) => {
-      calls.push({ cmd, args });
-      return answer(cmd, args);
-    },
-    { shouldMockEvents: true },
-  );
+  mockCommands((cmd, args) => {
+    calls.push({ cmd, args });
+    return answer(cmd, args);
+  });
   return calls;
 }
 

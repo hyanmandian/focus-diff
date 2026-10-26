@@ -1,5 +1,3 @@
-import { emit } from "@tauri-apps/api/event";
-import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
@@ -8,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { Panel } from "@/components/panel/panel";
 import { defaultConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/utils/config/config";
 import type { Event, Item, PullRequest } from "@/utils/engine/engine";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 import { start, type ReviewRun, type Status } from "@/utils/store/store";
 
@@ -111,33 +110,30 @@ type Options = {
 
 async function setup(state: Live, { config = makeConfig(QUEUES), update = null, failInstall, strict }: Options = {}) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
-  mockIPC(
-    (cmd, args) => {
-      calls.push({ cmd, args });
-      switch (cmd) {
-        case "read_file": {
-          return args && "name" in args && args.name === "config" ? JSON.stringify(config) : null;
-        }
-        case "snapshot": {
-          return state;
-        }
-        case "update_offered": {
-          return update;
-        }
-        case "auth_status": {
-          return { signed_in: false, source: null, login: null, device_flow: true, gh_available: true };
-        }
-        case "install_update": {
-          if (failInstall) throw new Error("offline");
-          return null;
-        }
-        default: {
-          return null;
-        }
+  mockCommands((cmd, args) => {
+    calls.push({ cmd, args });
+    switch (cmd) {
+      case "read_file": {
+        return args && "name" in args && args.name === "config" ? JSON.stringify(config) : null;
       }
-    },
-    { shouldMockEvents: true },
-  );
+      case "snapshot": {
+        return state;
+      }
+      case "update_offered": {
+        return update;
+      }
+      case "auth_status": {
+        return { signed_in: false, source: null, login: null, device_flow: true, gh_available: true };
+      }
+      case "install_update": {
+        if (failInstall) throw new Error("offline");
+        return null;
+      }
+      default: {
+        return null;
+      }
+    }
+  });
   const view = render(<Panel />, strict === false ? undefined : { wrapper: StrictMode });
   await act(async () => {
     await start();
@@ -165,7 +161,7 @@ beforeEach(() => {
 afterEach(async () => {
   Reflect.deleteProperty(HTMLElement.prototype, "offsetParent");
   vi.useRealTimers();
-  // Unmounted while Tauri's event mock is still there: the panel lets go of its listeners a tick later.
+  // Unmounted while the fake platform's events are still there: the panel lets go of its listeners a tick later.
   cleanup();
   await new Promise((resolve) => {
     setTimeout(resolve, 0);

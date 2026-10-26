@@ -67,6 +67,10 @@ export const startBackground = () => {
   // The GitHub commands once what was on its way to GitHub (pending comments, viewed marks) is read back.
   void startGitHubCommands(api, server.broadcast)
     .then((github) => Object.assign(commands, github))
+    .catch((error: unknown) => {
+      // Without them the other commands still answer; the pages say what GitHub's couldn't.
+      console.error(error);
+    })
     .finally(() => {
       ready.resolve(null);
     });

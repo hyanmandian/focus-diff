@@ -7,7 +7,7 @@ import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Tra
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -16,7 +16,7 @@ import { PROVIDERS } from "@/lib/ai";
 import { useWebSession } from "@/lib/attachments";
 import { avatar } from "@/lib/avatar";
 import { bridge, type AuthStatus } from "@/lib/bridge";
-import { loadConfig, saveConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/lib/config";
+import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "@/lib/config";
 import { interval } from "@/lib/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -54,12 +54,18 @@ function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => 
         <Plus /> {t("settings.addQueue")}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        {(Object.keys(TEMPLATES) as QueueKind[]).map((kind) => (
+        {PRESETS.map((kind) => (
           <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onAdd(TEMPLATES[kind].make())}>
             <span>{t(`config.queue.${kind}`)}</span>
             <span className="text-subheadline text-muted-foreground">{t(`config.queue.${kind}.hint`)}</span>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        {/* From nothing: every option there to choose, so any of the above can be made by hand too. */}
+        <DropdownMenuItem className={TWO_LINE_ITEM} onClick={() => onAdd(TEMPLATES.custom.make())}>
+          <span>{t("config.queue.blank")}</span>
+          <span className="text-subheadline text-muted-foreground">{t("config.queue.blank.hint")}</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -13,6 +13,8 @@ export const config: Dictionary["config"] = {
   "queue.merged": "Merge sem mim",
   "queue.merged.hint": "Pull requests que entraram com merge sem a sua aprovação: os pedidos a você ou ao seu time, nos arquivos que importam para você.",
   "queue.merged.name": "Com merge",
+  "queue.blank": "Fila personalizada",
+  "queue.blank.hint": "Escolha tudo você mesmo: de onde vêm os pull requests (revisões, os seus, os mergeados, qualquer busca), quais entram e o que merece notificação.",
   "queue.custom": "Busca personalizada",
   "queue.custom.hint": "Qualquer busca do GitHub: o repositório de um time, um label, um autor.",
   "queue.custom.name": "Busca",

@@ -14,6 +14,8 @@ export const config = {
   "queue.merged": "Merged without me",
   "queue.merged.hint": "Pull requests merged lately without your approval: the ones asked of you or your team, in the files you care about.",
   "queue.merged.name": "Merged",
+  "queue.blank": "Custom Queue",
+  "queue.blank.hint": "Choose everything yourself: where pull requests come from (reviews, your own, merged ones, any search), which ones, and what's worth a notification.",
   "queue.custom": "Custom search",
   "queue.custom.hint": "Any GitHub search: a team's repository, a label, an author.",
   "queue.custom.name": "Search",

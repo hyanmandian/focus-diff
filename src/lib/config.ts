@@ -257,6 +257,10 @@ export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
   },
 };
 
+/** The starting points the Add menu offers; any queue can still be made by hand from a custom one,
+ *  whose source and filters are all there to choose (Merged too). */
+export const PRESETS = ["review", "involved", "authored"] as const satisfies ReadonlyArray<QueueKind>;
+
 export const defaultConfig = (): Config => ({
   version: 1,
   queues: [TEMPLATES.review.make(), TEMPLATES.involved.make(), TEMPLATES.authored.make()],

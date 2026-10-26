@@ -1,68 +1,21 @@
-/* The settings window's own surfaces, after Raycast's and System Settings': a source-list sidebar a
-   step off the content, grouped sections a step off the content (darker in light mode, lighter in
-   dark), hairline separators inside them. All opaque, so Reduce Transparency has nothing to take
-   away. The accent (switches, radios, focus) is the system's, through --primary and --ring. */
-:root {
-  --settings-window: oklch(0.985 0 0);
-  --settings-sidebar: oklch(0.955 0 0);
-  --settings-group: oklch(0 0 0 / 3.5%);
-  --settings-group-edge: oklch(0 0 0 / 5%);
-  --settings-separator: oklch(0 0 0 / 9%);
-  --settings-selection: oklch(0 0 0 / 8%);
-  --settings-hover: oklch(0 0 0 / 4%);
-  --settings-field: oklch(0 0 0 / 6%);
-  --settings-switch-off: oklch(0 0 0 / 12%);
-}
+/* The settings window's own pieces; everything else (colours, controls, scroll bars, selection) is
+   the platform's, from index.css. The sidebar is opaque, a step off the window as System Settings'
+   is, so Reduce Transparency has nothing to take away. */
 
-.dark {
-  --settings-window: oklch(0.215 0 0);
-  --settings-sidebar: oklch(0.185 0 0);
-  --settings-group: oklch(1 0 0 / 4.5%);
-  --settings-group-edge: oklch(1 0 0 / 6%);
-  --settings-separator: oklch(1 0 0 / 9%);
-  --settings-selection: oklch(1 0 0 / 10%);
-  --settings-hover: oklch(1 0 0 / 5%);
-  --settings-field: oklch(1 0 0 / 8%);
-  --settings-switch-off: oklch(1 0 0 / 17%);
-}
-
-html.settings,
-html.settings body {
-  background: var(--settings-window);
-}
-html.settings ::selection {
-  background: color-mix(in oklab, var(--primary) 28%, transparent);
-}
-html.settings input,
-html.settings textarea {
-  caret-color: var(--primary);
-}
-
-/* The sidebar's tiles: a white glyph on a rounded square in one of the system colors (the light
-   and dark variants AppKit uses), with a faint top light, as System Settings draws its panes. */
+/* The sidebar's tiles: a white glyph on a rounded square in a system colour, with the faint top
+   light System Settings gives its panes. They keep their colour when selected or in the background,
+   as the system's do. */
 .settings-tile {
-  --tile: #8e8e93;
-  background: linear-gradient(to bottom, color-mix(in oklab, var(--tile) 88%, white), var(--tile));
-  box-shadow: inset 0 0 0 0.5px oklch(0 0 0 / 12%);
+  --tile: var(--gray);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--tile) 88%, white), var(--tile));
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.12);
 }
-.settings-tile[data-tile="blue"] { --tile: #007aff; }
-.settings-tile[data-tile="indigo"] { --tile: #5856d6; }
-.settings-tile[data-tile="orange"] { --tile: #ff9500; }
-.settings-tile[data-tile="purple"] { --tile: #af52de; }
-.settings-tile[data-tile="green"] { --tile: #34c759; }
-.settings-tile[data-tile="gray"] { --tile: #8e8e93; }
-.dark .settings-tile[data-tile="blue"] { --tile: #0a84ff; }
-.dark .settings-tile[data-tile="indigo"] { --tile: #5e5ce6; }
-.dark .settings-tile[data-tile="orange"] { --tile: #ff9f0a; }
-.dark .settings-tile[data-tile="purple"] { --tile: #bf5af2; }
-.dark .settings-tile[data-tile="green"] { --tile: #30d158; }
-.dark .settings-tile[data-tile="gray"] { --tile: #7c7c80; }
-
-/* The search field drops WebKit's own decorations; Escape clears it instead. */
-.settings-search::-webkit-search-decoration,
-.settings-search::-webkit-search-cancel-button {
-  appearance: none;
-}
+.settings-tile[data-tile="blue"] { --tile: var(--blue); }
+.settings-tile[data-tile="indigo"] { --tile: var(--indigo); }
+.settings-tile[data-tile="orange"] { --tile: var(--orange); }
+.settings-tile[data-tile="purple"] { --tile: var(--purple); }
+.settings-tile[data-tile="green"] { --tile: var(--green); }
+.settings-tile[data-tile="gray"] { --tile: var(--gray); }
 
 /* Hairlines between a group's rows, inset from its edges like the system's; rows can sit in a
    display: contents wrapper (a list, a radio group) and still get them. */
@@ -77,52 +30,12 @@ html.settings textarea {
   inset-inline: 12px;
   top: 0;
   height: 1px;
-  background: var(--settings-separator);
+  background: var(--separator);
   pointer-events: none;
 }
 .settings-group > .contents::before { content: none; }
 
-/* Fields and pop-up buttons read as white wells on the gray groups in light mode, as the system's do. */
-html.settings:not(.dark) .settings-group :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"], [data-slot="tag-input"]) {
-  background: var(--background);
-}
-
-/* Switches drawn like AppKit's: the accent when on, a quiet gray track when off, and a white knob
-   with a soft drop shadow in both appearances (never tinted). */
-html.settings [data-slot="switch"][data-checked] {
-  background: var(--primary);
-}
-html.settings [data-slot="switch"][data-unchecked] {
-  background: var(--settings-switch-off);
-}
-html.settings [data-slot="switch-thumb"] {
-  background: white;
-  box-shadow: 0 1px 2px oklch(0 0 0 / 22%), 0 0 0 0.5px oklch(0 0 0 / 8%);
-}
-
-/* Scrollbars that sit in the content like overlay ones, in the window's own grays. */
-.settings-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(0.5 0 0 / 35%) transparent;
-}
-
-/* With Increase Contrast, the groups, separators and off switches get a firmer edge. */
+/* With Increase Contrast, the groups get an edge as well as their fill. */
 @media (prefers-contrast: more) {
-  :root {
-    --settings-group-edge: oklch(0 0 0 / 25%);
-    --settings-separator: oklch(0 0 0 / 22%);
-    --settings-switch-off: oklch(0 0 0 / 30%);
-  }
-  .dark {
-    --settings-group-edge: oklch(1 0 0 / 30%);
-    --settings-separator: oklch(1 0 0 / 25%);
-    --settings-switch-off: oklch(1 0 0 / 35%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.settings [data-slot="switch"],
-  html.settings [data-slot="switch-thumb"] {
-    transition: none;
-  }
+  .settings-group { box-shadow: inset 0 0 0 1px var(--separator); }
 }

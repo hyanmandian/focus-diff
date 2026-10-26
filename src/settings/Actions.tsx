@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { STEP_LABELS } from "@/lib/actions";
 import { ACTION_TEMPLATES, STEP_KINDS, type Action, type ActionStep, type Config } from "@/lib/config";
-import { cn } from "@/lib/utils";
-import { Group, Intro, LinkRow, Pane, Row, useDetail } from "./Form";
+import { Group, Intro, LinkRow, Pane, Row, SwitchRow, TWO_LINE_ITEM, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
 
 const STEP_HINTS: Record<ActionStep["kind"], string> = {
@@ -50,8 +48,8 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
     case "comment":
       return (
         <div className="flex flex-col gap-1">
-          <Textarea aria-label="Comment" rows={3} className="text-[13px]" value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder="@dana could you take this one?" />
-          <p className="text-[11px] text-muted-foreground">Markdown. Fills in {PLACEHOLDERS}.</p>
+          <Textarea aria-label="Comment" rows={3} value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder="@dana could you take this one?" />
+          <p className="text-subheadline text-muted-foreground">Markdown. Fills in {PLACEHOLDERS}.</p>
         </div>
       );
     case "request":
@@ -63,8 +61,8 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
     case "open":
       return (
         <div className="flex flex-col gap-1">
-          <Input aria-label="Link" className="font-mono text-xs" spellCheck={false} value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value })} />
-          <p className="text-[11px] text-muted-foreground">An https link. Fills in {PLACEHOLDERS}.</p>
+          <Input aria-label="Link" className="font-mono text-callout" spellCheck={false} value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value })} />
+          <p className="text-subheadline text-muted-foreground">An https link. Fills in {PLACEHOLDERS}.</p>
         </div>
       );
     case "run":
@@ -76,13 +74,13 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
           <Textarea
             id={id}
             rows={3}
-            className="font-mono text-xs"
+            className="font-mono text-callout"
             spellCheck={false}
             value={step.command}
             onChange={(e) => onChange({ ...step, command: e.target.value })}
             placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
           />
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-subheadline text-muted-foreground">
             Runs with <code className="font-mono">sh</code> in your home folder, for up to two minutes. Gets <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>. Its last line of output is shown. The first time a command runs, or after it changes, you're asked to allow it.
           </p>
         </div>
@@ -109,11 +107,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
     <>
       <Group>
         <Row label="Button" htmlFor={nameId}>
-          <Input id={nameId} value={action.name} maxLength={30} onChange={(e) => onChange({ ...action, name: e.target.value })} className="h-7 w-56 text-[13px]" />
+          <Input id={nameId} value={action.name} maxLength={30} onChange={(e) => onChange({ ...action, name: e.target.value })} className="w-56" />
         </Row>
-        <Row label="Ask me to confirm" description="Before running." htmlFor={`${nameId}-confirm`}>
-          <Switch id={`${nameId}-confirm`} checked={action.confirm} onCheckedChange={(confirm) => onChange({ ...action, confirm })} />
-        </Row>
+        <SwitchRow checked={action.confirm} onChange={(confirm) => onChange({ ...action, confirm })} label="Ask me to confirm" hint="Before running." />
       </Group>
 
       <Group title="Steps" footer="In order. If one fails, the rest don't run.">
@@ -122,9 +118,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
             {action.steps.map((step, i) => (
               <li key={i} className="flex flex-col gap-2 px-3 py-3">
                 <div className="flex items-center gap-2">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/[0.08] text-[11px] font-medium tabular-nums">{i + 1}</span>
-                  <span className="shrink-0 text-[13px]">{STEP_LABELS[step.kind]}</span>
-                  <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">{STEP_HINTS[step.kind]}</span>
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-subheadline font-medium tabular-nums">{i + 1}</span>
+                  <span className="shrink-0 text-body">{STEP_LABELS[step.kind]}</span>
+                  <span className="hidden truncate text-subheadline text-muted-foreground sm:inline">{STEP_HINTS[step.kind]}</span>
                   <div className="ml-auto flex shrink-0">
                     <Button variant="ghost" size="icon-xs" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
                       <ArrowUp />
@@ -142,16 +138,16 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
             ))}
           </ol>
         ) : null}
-        <div className="px-1.5 py-1">
+        <div className="px-3 py-2">
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="text-[12px] font-normal" disabled={action.steps.length >= 10} />}>
-              <Plus /> Add step
+            <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={action.steps.length >= 10} />}>
+              <Plus /> Add Step
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72">
               {STEP_KINDS.map((kind) => (
-                <DropdownMenuItem key={kind} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
-                  <span className="font-medium">{STEP_LABELS[kind]}</span>
-                  <span className="text-[11px] text-muted-foreground">{STEP_HINTS[kind]}</span>
+                <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onChange({ ...action, steps: [...action.steps, newStep(kind)] })}>
+                  <span>{STEP_LABELS[kind]}</span>
+                  <span className="text-subheadline text-muted-foreground">{STEP_HINTS[kind]}</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -162,19 +158,18 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   );
 }
 
-function AddAction({ config, onAdd, variant = "ghost" }: { config: Config; onAdd: (action: Action) => void; variant?: "ghost" | "outline" }) {
+/** Small beside a group's heading, regular on its own in the empty pane. */
+function AddAction({ config, onAdd, small = false }: { config: Config; onAdd: (action: Action) => void; small?: boolean }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant={variant} size={variant === "ghost" ? "xs" : "sm"} className={cn(variant === "ghost" && "-mr-1.5 text-[12px] font-normal")} disabled={config.actions.length >= 12} />}
-      >
-        <Plus /> Add action
+      <DropdownMenuTrigger render={<Button variant="outline" size={small ? "xs" : "default"} disabled={config.actions.length >= 12} />}>
+        <Plus /> Add Action
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={variant === "ghost" ? "end" : "center"} className="w-72">
+      <DropdownMenuContent align={small ? "end" : "center"} className="w-72">
         {ACTION_TEMPLATES.map((template) => (
-          <DropdownMenuItem key={template.name} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onAdd(template.make())}>
-            <span className="font-medium">{template.name}</span>
-            <span className="text-[11px] text-muted-foreground">{template.description}</span>
+          <DropdownMenuItem key={template.name} className={TWO_LINE_ITEM} onClick={() => onAdd(template.make())}>
+            <span>{template.name}</span>
+            <span className="text-subheadline text-muted-foreground">{template.description}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -201,7 +196,7 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
         tools={
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`Delete ${selected.name}`}
             title="Delete action"
             onClick={() => {
@@ -222,13 +217,13 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
       {config.actions.length ? (
         <>
           <Intro>Your own buttons on pull requests, in each one's review window. Each runs its steps in order.</Intro>
-          <Group title="Buttons" accessory={<AddAction config={config} onAdd={add} />}>
+          <Group title="Buttons" accessory={<AddAction config={config} onAdd={add} small />}>
             {config.actions.map((action) => (
               <LinkRow
                 key={action.id}
                 ref={detail.rowRef(action.id)}
                 leading={
-                  <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-foreground/[0.07] text-muted-foreground" aria-hidden>
+                  <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-fill text-muted-foreground" aria-hidden>
                     <Zap className="size-3" strokeWidth={2.25} />
                   </span>
                 }
@@ -242,10 +237,10 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
       ) : (
         <div className="flex flex-col items-center gap-2 px-6 pt-20 text-center">
           <Zap className="size-5 text-muted-foreground" aria-hidden />
-          <p className="text-[13px] font-medium">Your own buttons on pull requests</p>
-          <p className="max-w-sm text-[12px] text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
+          <p className="text-body font-semibold">Your own buttons on pull requests</p>
+          <p className="max-w-sm text-callout text-muted-foreground">Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.</p>
           <div className="mt-2">
-            <AddAction config={config} onAdd={add} variant="outline" />
+            <AddAction config={config} onAdd={add} />
           </div>
         </div>
       )}

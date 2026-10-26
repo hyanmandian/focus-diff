@@ -33,18 +33,20 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
     <div className="flex flex-col gap-1">
       <div
         data-slot="tag-input"
+        // A text field (components/ui/input) that holds its values as tokens, as AppKit's token
+        // field does: the field's well and edge, 24pt tall until it wraps, the focus ring around it.
         className={cn(
-          "flex min-h-8 flex-wrap items-center gap-1 rounded-lg border bg-transparent px-1 py-[3px] transition-colors",
-          "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/40 dark:bg-input/30",
+          "flex min-h-(--field-h) flex-wrap items-center gap-[3px] rounded-(--radius-field) border border-input bg-(--field-bg) px-[3px] py-[2px]",
+          "focus-within:outline-3 focus-within:outline-(--focus-ring)",
           error && "border-destructive",
         )}
       >
         {value.map((v) => (
-          <span key={v} className="inline-flex h-[22px] items-center gap-1 rounded-md bg-muted pr-0.5 pl-2 font-mono text-xs">
+          <span key={v} className="inline-flex h-[18px] items-center gap-0.5 rounded-[4px] bg-fill pr-px pl-1.5 font-mono text-subheadline">
             {v}
             <button
               type="button"
-              className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="grid size-4 cursor-default place-items-center rounded-[3px] text-muted-foreground outline-none focus-ring active:bg-(--fill-control-pressed)"
               aria-label={`Remove ${v}`}
               onClick={() => onChange(value.filter((x) => x !== v))}
             >
@@ -56,7 +58,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
           aria-label={label}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className="h-6 min-w-32 flex-1 bg-transparent px-1 text-[13px] outline-none placeholder:text-muted-foreground"
+          className="h-[18px] min-w-32 flex-1 bg-transparent px-1 text-body caret-primary outline-none placeholder:text-muted-foreground"
           placeholder={value.length ? "" : placeholder}
           value={draft}
           spellCheck={false}
@@ -79,7 +81,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
         />
       </div>
       {error ? (
-        <p id={errorId} className="text-xs text-destructive" role="alert">
+        <p id={errorId} className="text-subheadline text-destructive" role="alert">
           {error}
         </p>
       ) : null}

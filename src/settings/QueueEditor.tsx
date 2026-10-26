@@ -5,12 +5,11 @@ import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LEAVE_OUT, TONES, validPattern, type EventKind, type LeaveOut, type Queue, type QueueKind } from "@/lib/config";
 import { EVENT_LABELS } from "@/lib/copy";
 import { cn } from "@/lib/utils";
-import { Group, radioKeys, Row } from "./Form";
+import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "./Form";
 import { TagInput } from "./TagInput";
 
 /** Path filters to start from, the same as Focus Diff's recipes. */
@@ -46,15 +45,6 @@ const LEAVE_OUT_LABELS: Record<LeaveOut, { label: string; hint?: string }> = {
   approved: { label: "Pull requests I've approved" },
 };
 
-const TONE_CLASS: Record<Queue["tone"], string> = {
-  blue: "bg-unread",
-  purple: "bg-violet",
-  green: "bg-success",
-  amber: "bg-warning",
-  red: "bg-destructive",
-  gray: "bg-muted-foreground",
-};
-
 const SKIP_LABELS: Record<Queue["skipIfI"], string> = {
   approved: "approved",
   reviewed: "reviewed in any way",
@@ -64,15 +54,6 @@ const SKIP_LABELS: Record<Queue["skipIfI"], string> = {
 const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/.test(v) ? null : "Use owner/name, or owner/* for all of an owner's repositories");
 const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/.test(v) ? null : "Use organization/team, as in GitHub's @org/team");
 const userError = (v: string) => (/^[\w-]+(\[bot\])?$/.test(v) ? null : "A GitHub username");
-
-function SwitchRow({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
-  const id = useId();
-  return (
-    <Row label={label} description={hint} htmlFor={id}>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
-    </Row>
-  );
-}
 
 const hours = (h: number) => (h === 0 ? "Never" : h < 24 ? `${h} hours` : `${h / 24} day${h === 24 ? "" : "s"}`);
 
@@ -85,7 +66,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
     <>
       <Group>
         <Row label="Name" htmlFor={ids.name}>
-          <Input id={ids.name} value={queue.name} maxLength={40} onChange={(e) => set("name", e.target.value)} className="h-7 w-56 text-[13px]" />
+          <Input id={ids.name} value={queue.name} maxLength={40} onChange={(e) => set("name", e.target.value)} className="w-56" />
         </Row>
         <Row label="Color">
           <div className="flex gap-2" role="radiogroup" aria-label="Color" onKeyDown={radioKeys}>
@@ -98,11 +79,8 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 tabIndex={queue.tone === tone ? 0 : -1}
                 aria-label={tone}
                 onClick={() => set("tone", tone)}
-                className={cn(
-                  "size-4 rounded-full outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring motion-safe:transition-transform motion-safe:hover:scale-110",
-                  TONE_CLASS[tone],
-                  queue.tone === tone && "outline-2 outline-foreground",
-                )}
+                // The picked colour ringed, as the accent colours in System Settings are; no change under the pointer.
+                className={cn("size-4 cursor-default rounded-full outline-offset-2 focus-ring", TONE_FILL[tone], queue.tone === tone && "outline-2 outline-(--label-secondary)")}
               />
             ))}
           </div>
@@ -112,7 +90,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
       <Group footer={queue.kind === "custom" ? "GitHub's search qualifiers, as on github.com/pulls. Pull requests only; the filters below still apply." : undefined}>
         <Row label="Pull requests where" description="What puts a pull request in this queue.">
           <Select value={queue.kind} onValueChange={(v) => set("kind", v as QueueKind)}>
-            <SelectTrigger size="sm" className="w-64" aria-label="Pull requests where">
+            <SelectTrigger className="w-64" aria-label="Pull requests where">
               <SelectValue>{(v: QueueKind) => KIND_LABELS[v]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -135,7 +113,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             ) : null}
             <Row label="Call out pull requests waiting on me for" description="Counted from when you (or your team) were last asked.">
               <Select value={String(queue.staleHours)} onValueChange={(v) => set("staleHours", Number(v))}>
-                <SelectTrigger size="sm" className="w-32" aria-label="Waiting long after">
+                <SelectTrigger className="w-32" aria-label="Waiting long after">
                   <SelectValue>{(v: string) => hours(Number(v))}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -154,7 +132,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <>
             <Row label="In the last">
               <Select value={String(queue.mergedDays)} onValueChange={(v) => set("mergedDays", Number(v))}>
-                <SelectTrigger size="sm" className="w-28" aria-label="Days">
+                <SelectTrigger className="w-28" aria-label="Days">
                   <SelectValue>{(v: string) => `${v} ${v === "1" ? "day" : "days"}`}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -168,7 +146,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             </Row>
             <Row label="Leave out those I" description="And those you took yourself off the review of.">
               <Select value={queue.skipIfI} onValueChange={(v) => set("skipIfI", v as Queue["skipIfI"])}>
-                <SelectTrigger size="sm" className="w-48" aria-label="Leave out those I">
+                <SelectTrigger className="w-48" aria-label="Leave out those I">
                   <SelectValue>{(v: Queue["skipIfI"]) => SKIP_LABELS[v]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -203,7 +181,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         ) : null}
         {queue.kind === "custom" ? (
           <Row stacked label="GitHub search" htmlFor={ids.query}>
-            <Input id={ids.query} className="h-7 font-mono text-xs" spellCheck={false} value={queue.query} onChange={(e) => set("query", e.target.value)} placeholder="is:open team-review-requested:acme/web" />
+            <Input id={ids.query} className="font-mono text-callout" spellCheck={false} value={queue.query} onChange={(e) => set("query", e.target.value)} placeholder="is:open team-review-requested:acme/web" />
           </Row>
         ) : null}
       </Group>
@@ -222,7 +200,8 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 key={preset.name}
                 type="button"
                 size="xs"
-                variant={queue.includePaths === preset.include && queue.excludePaths === preset.exclude ? "secondary" : "outline"}
+                variant="outline"
+                className={PRESSED_CHIP}
                 aria-pressed={queue.includePaths === preset.include && queue.excludePaths === preset.exclude}
                 onClick={() => onChange({ ...queue, includePaths: preset.include, excludePaths: preset.exclude })}
               >
@@ -230,7 +209,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
               </Button>
             ))}
             {queue.includePaths || queue.excludePaths ? (
-              <Button type="button" size="xs" variant="ghost" onClick={() => onChange({ ...queue, includePaths: "", excludePaths: "" })}>
+              <Button type="button" size="xs" variant="link" onClick={() => onChange({ ...queue, includePaths: "", excludePaths: "" })}>
                 Any file
               </Button>
             ) : null}
@@ -239,7 +218,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         <Row label="Include" htmlFor={ids.include}>
           <Input
             id={ids.include}
-            className="h-7 w-80 font-mono text-xs"
+            className="w-80 font-mono text-callout"
             spellCheck={false}
             value={queue.includePaths}
             aria-invalid={!validPattern(queue.includePaths)}
@@ -250,7 +229,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         <Row label="Exclude" htmlFor={ids.exclude}>
           <Input
             id={ids.exclude}
-            className="h-7 w-80 font-mono text-xs"
+            className="w-80 font-mono text-callout"
             spellCheck={false}
             value={queue.excludePaths}
             aria-invalid={!validPattern(queue.excludePaths)}
@@ -260,7 +239,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         </Row>
         {!validPattern(queue.includePaths) || !validPattern(queue.excludePaths) ? (
           <Row>
-            <p className="text-[11px] text-destructive" role="alert">
+            <p className="text-subheadline text-destructive" role="alert">
               That isn't a valid regular expression yet; it's ignored until it is.
             </p>
           </Row>

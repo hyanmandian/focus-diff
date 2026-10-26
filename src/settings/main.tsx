@@ -14,7 +14,8 @@ else if (import.meta.env.DEV) (await import("../dev/log")).forwardErrors();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <TooltipProvider delay={400}>
+    {/* AppKit's tooltip delay, about a second: the provider's default. */}
+    <TooltipProvider>
       <Settings />
     </TooltipProvider>
   </StrictMode>,

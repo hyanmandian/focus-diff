@@ -31,7 +31,7 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
 
   return (
     <section aria-label={run.name} className="mx-4 mb-2 shrink-0 rounded-[8px] bg-(--panel-fill) px-3 py-2">
-      <div className="flex items-center gap-1.5 text-[12px] leading-4">
+      <div className="flex items-center gap-1.5 text-callout">
         <Timer className="size-3.5 shrink-0 text-success" aria-hidden />
         <span className="min-w-0 truncate font-semibold">{run.name}</span>
         <span className="shrink-0 text-muted-foreground tabular-nums" role="timer" aria-live="off">
@@ -39,19 +39,20 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
         </span>
         <button
           type="button"
-          className="ml-auto shrink-0 rounded-sm font-medium text-(--panel-link) outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-auto shrink-0 cursor-default rounded-sm font-medium text-(--panel-link) outline-none focus-ring"
           onClick={() => void bridge.endReview()}
         >
           End
         </button>
       </div>
-      <ol className="mt-1 flex flex-col">
+      {/* Rows as the panel's: a light fill under the pointer, the accent for the keyboard. */}
+      <ol className="-mx-1.5 mt-1 flex flex-col">
         {run.pulls.map((pull) => (
           <li key={pull.id}>
             <button
               type="button"
               onClick={() => open(pull)}
-              className="flex w-full items-baseline gap-2 rounded-[4px] py-0.5 text-left text-[12px] leading-4 outline-none hover:text-(--panel-link) focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex w-full cursor-default items-baseline gap-2 rounded-[5px] px-1.5 py-0.5 text-left text-callout outline-none hover:bg-foreground/5 active:bg-foreground/9 focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg)"
             >
               <span className="min-w-0 flex-1 truncate">{pull.title}</span>
               {pull.again ? <span className="shrink-0 text-warning">Re-review</span> : null}

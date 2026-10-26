@@ -3,11 +3,12 @@
 // Changes save as you make them; the panel follows along.
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { ArrowDown, ArrowUp, CircleUserRound, Inbox, ListFilter, Loader2, LogOut, Plus, Search, Settings as SettingsIcon, Sparkles, Timer, Trash2, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleUserRound, Inbox, ListFilter, Loader2, LogOut, Plus, Search, Settings as SettingsIcon, Sparkles, Timer, Trash2, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { getVersion } from "@tauri-apps/api/app";
@@ -22,18 +23,9 @@ import { Connect } from "@/shared/Connect";
 import { Actions } from "./Actions";
 import { Ai } from "./Ai";
 import { Filters } from "./Filters";
-import { Group, Intro, LinkRow, Pane, Row, useDetail } from "./Form";
+import { Group, Intro, LinkRow, Pane, Row, TONE_FILL, TWO_LINE_ITEM, useDetail } from "./Form";
 import { QueueEditor } from "./QueueEditor";
 import { ReviewTimePane } from "./ReviewTime";
-
-const DOT: Record<Queue["tone"], string> = {
-  blue: "bg-unread",
-  purple: "bg-violet",
-  green: "bg-success",
-  amber: "bg-warning",
-  red: "bg-destructive",
-  gray: "bg-muted-foreground",
-};
 
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -53,14 +45,14 @@ function useConfig() {
 function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => void }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="-mr-1.5 text-[12px] font-normal" disabled={config.queues.length >= 12} />}>
-        <Plus /> Add queue
+      <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={config.queues.length >= 12} />}>
+        <Plus /> Add Queue
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         {(Object.keys(TEMPLATES) as QueueKind[]).map((kind) => (
-          <DropdownMenuItem key={kind} className="flex-col items-start gap-0.5 whitespace-normal" onClick={() => onAdd(TEMPLATES[kind].make())}>
-            <span className="font-medium">{TEMPLATES[kind].name}</span>
-            <span className="text-[11px] text-muted-foreground">{TEMPLATES[kind].description}</span>
+          <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onAdd(TEMPLATES[kind].make())}>
+            <span>{TEMPLATES[kind].name}</span>
+            <span className="text-subheadline text-muted-foreground">{TEMPLATES[kind].description}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -89,15 +81,15 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         back={{ label: "Queues", onBack: detail.close, ref: detail.backRef }}
         tools={
           <>
-            <Button variant="ghost" size="icon-sm" aria-label="Move up" title="Move up" disabled={index === 0} onClick={() => move(index, -1)}>
+            <Button variant="ghost" size="icon" aria-label="Move up" title="Move up" disabled={index === 0} onClick={() => move(index, -1)}>
               <ArrowUp />
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Move down" title="Move down" disabled={index === config.queues.length - 1} onClick={() => move(index, 1)}>
+            <Button variant="ghost" size="icon" aria-label="Move down" title="Move down" disabled={index === config.queues.length - 1} onClick={() => move(index, 1)}>
               <ArrowDown />
             </Button>
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               aria-label={`Delete ${selected.name}`}
               title="Delete queue"
               onClick={() => {
@@ -112,7 +104,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
       >
         <Group>
           <Row label="Show in the panel" description={selected.enabled ? undefined : "Hidden: it isn't checked or shown until you turn it back on."} htmlFor="queue-enabled">
-            <Switch id="queue-enabled" checked={selected.enabled} onCheckedChange={(enabled) => replace({ ...selected, enabled })} />
+            <Switch id="queue-enabled" size="sm" checked={selected.enabled} onCheckedChange={(enabled) => replace({ ...selected, enabled })} />
           </Row>
         </Group>
         <QueueEditor key={selected.id} queue={selected} onChange={replace} />
@@ -141,12 +133,12 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
             <LinkRow
               key={queue.id}
               ref={detail.rowRef(queue.id)}
-              leading={<span className={cn("size-2.5 shrink-0 rounded-full", DOT[queue.tone], !queue.enabled && "opacity-40")} aria-hidden />}
+              leading={<span className={cn("size-2.5 shrink-0 rounded-full", TONE_FILL[queue.tone], !queue.enabled && "opacity-40")} aria-hidden />}
               label={queue.name || "Untitled queue"}
               description={TEMPLATES[queue.kind].name}
               muted={!queue.enabled}
               onOpen={() => detail.open(queue.id)}
-              control={<Switch checked={queue.enabled} onCheckedChange={(enabled) => replace({ ...queue, enabled })} aria-label={`Show ${queue.name} in the panel`} />}
+              control={<Switch size="sm" checked={queue.enabled} onCheckedChange={(enabled) => replace({ ...queue, enabled })} aria-label={`Show ${queue.name} in the panel`} />}
             />
           ))
         ) : (
@@ -170,15 +162,14 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
             <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
               <Avatar className="size-9">
                 <AvatarImage src={avatarOf(auth.login)} alt="" />
-                <AvatarFallback className="text-[13px]">{auth.login.slice(0, 1).toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="text-body">{auth.login.slice(0, 1).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium">@{auth.login}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">{auth.source === "gh" ? "Using the GitHub CLI's login" : "Signed in with GitHub"}</div>
+                <div className="truncate text-body font-semibold">@{auth.login}</div>
+                <div className="mt-0.5 text-subheadline text-muted-foreground">{auth.source === "gh" ? "Using the GitHub CLI's login" : "Signed in with GitHub"}</div>
               </div>
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => {
                   void bridge.authSignOut().then(onChange);
                 }}
@@ -232,18 +223,17 @@ function Updates() {
     >
       {state.phase === "found" || state.phase === "installing" ? (
         <Button
-          size="sm"
           disabled={state.phase === "installing"}
           onClick={() => {
             setState({ phase: "installing" });
             void bridge.installUpdate().catch((e: unknown) => setState({ phase: "error", message: String(e) }));
           }}
         >
-          {state.phase === "installing" ? <Loader2 className="animate-spin" /> : null} Update and restart
+          {state.phase === "installing" ? <Loader2 className="animate-spin" /> : null} Update and Restart
         </Button>
       ) : (
-        <Button size="sm" variant="outline" disabled={state.phase === "checking"} onClick={() => void check()}>
-          {state.phase === "checking" ? <Loader2 className="animate-spin" /> : null} Check for updates
+        <Button variant="outline" disabled={state.phase === "checking"} onClick={() => void check()}>
+          {state.phase === "checking" ? <Loader2 className="animate-spin" /> : null} Check for Updates
         </Button>
       )}
     </Row>
@@ -259,7 +249,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
       <Group title="Behavior">
         <Row label="Check GitHub every" description="Also whenever you open the panel.">
           <Select value={String(config.pollSeconds)} onValueChange={(v) => onChange({ ...config, pollSeconds: Number(v) })}>
-            <SelectTrigger size="sm" className="w-36" aria-label="Refresh interval">
+            <SelectTrigger className="w-36" aria-label="Refresh interval">
               <SelectValue>{(v: string) => interval(Number(v))}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -273,7 +263,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
         </Row>
         <Row label="Appearance">
           <Select value={config.theme} onValueChange={(v) => onChange({ ...config, theme: v as Config["theme"] })}>
-            <SelectTrigger size="sm" className="w-36" aria-label="Appearance">
+            <SelectTrigger className="w-36" aria-label="Appearance">
               <SelectValue>{(v: string) => THEMES[v as Config["theme"]]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -286,7 +276,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           </Select>
         </Row>
         <Row label="Play a sound with notifications" htmlFor="sound">
-          <Switch id="sound" checked={config.sound} onCheckedChange={(sound) => onChange({ ...config, sound })} />
+          <Switch id="sound" size="sm" checked={config.sound} onCheckedChange={(sound) => onChange({ ...config, sound })} />
         </Row>
       </Group>
     </Pane>
@@ -368,10 +358,13 @@ function rememberedPane(): PaneId {
   }
 }
 
+// A source list's row: no highlight under the pointer; the open pane's row in the accent (white text)
+// while the list has focus, gray when it hasn't or the window isn't in front (index.css). The row
+// highlight is the focus indicator, so no ring on top of it.
 const sidebarItem = cn(
-  "group/item flex w-full items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none",
-  "hover:bg-[var(--settings-hover)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-  "data-[active]:bg-[var(--settings-selection)]",
+  "group/item flex w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 text-left text-body outline-none focus-ring-inset",
+  "data-[active]:bg-(--selection-bg-inactive) data-[active]:text-(--selection-fg-inactive)",
+  "group-focus-within/list:data-[active]:bg-(--selection-bg) group-focus-within/list:data-[active]:text-(--selection-fg) group-focus-within/list:data-[active]:**:text-(--selection-fg) group-focus-within/list:data-[active]:focus-visible:outline-none",
 );
 
 function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: AuthStatus | null; query: string; setQuery: (q: string) => void }) {
@@ -394,13 +387,14 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
   const nothing = !accountMatch && !panes.length;
 
   return (
-    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-[var(--settings-separator)] bg-[var(--settings-sidebar)]">
+    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-separator bg-(--under-page-bg)">
       {/* The traffic lights sit here (x 0-78, centred at y 26); the strip drags the window. */}
       <div data-tauri-drag-region className="h-[52px] shrink-0" />
       <div className="px-2.5 pb-2.5">
+        {/* A search field: a capsule, with a clear button once there's something in it. */}
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <input
+          <Input
             ref={searchRef}
             type="search"
             aria-label="Search settings"
@@ -419,11 +413,24 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
                 (listRef.current?.querySelector("[role=tab][aria-selected=true]") ?? listRef.current?.querySelector("[role=tab]"))?.closest<HTMLElement>("[role=tab]")?.focus();
               }
             }}
-            className="settings-search h-7 w-full rounded-md bg-[var(--settings-field)] pr-2 pl-7 text-[13px] outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-(--radius-capsule) pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
           />
+          {query ? (
+            <button
+              type="button"
+              aria-label="Clear"
+              onClick={() => {
+                setQuery("");
+                searchRef.current?.focus();
+              }}
+              className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background outline-none focus-ring"
+            >
+              <X className="size-2.5" strokeWidth={3} aria-hidden />
+            </button>
+          ) : null}
         </div>
       </div>
-      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label="Settings" className="settings-scroll flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 pb-3">
+      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label="Settings" className="group/list flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 pb-3">
         {accountMatch ? (
           <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-2 h-12 gap-2.5")}>
             <Avatar className="size-8">
@@ -433,24 +440,24 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
               </AvatarFallback>
             </Avatar>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] leading-4 font-medium">{auth?.signed_in && auth.login ? auth.login : "Not signed in"}</span>
-              <span className="block truncate text-[11px] leading-4 text-muted-foreground">{accountMatch.hint ?? "Account"}</span>
+              <span className="block truncate text-body font-semibold">{auth?.signed_in && auth.login ? auth.login : "Not signed in"}</span>
+              <span className="block truncate text-subheadline text-muted-foreground">{accountMatch.hint ?? "Account"}</span>
             </span>
           </TabsPrimitive.Tab>
         ) : null}
         {panes.map(({ value, label, icon: Icon, tile, found }) => (
-          <TabsPrimitive.Tab key={value} value={value} className={cn(sidebarItem, found?.hint ? "h-10" : "h-7")}>
+          <TabsPrimitive.Tab key={value} value={value} className={cn(sidebarItem, found?.hint ? "h-10" : "h-(--row-h)")}>
             <span className="settings-tile grid size-5 shrink-0 place-items-center rounded-[5px] text-white" data-tile={tile} aria-hidden>
               <Icon className="size-3" strokeWidth={2.25} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate leading-4">{label}</span>
-              {found?.hint ? <span className="block truncate text-[11px] leading-4 text-muted-foreground">{found.hint}</span> : null}
+              <span className="block truncate">{label}</span>
+              {found?.hint ? <span className="block truncate text-subheadline text-muted-foreground">{found.hint}</span> : null}
             </span>
           </TabsPrimitive.Tab>
         ))}
         {nothing ? (
-          <p className="px-2 py-6 text-center text-[12px] text-muted-foreground" role="status">
+          <p className="px-2 py-6 text-center text-callout text-muted-foreground" role="status">
             No settings match "{query.trim()}".
           </p>
         ) : null}
@@ -489,14 +496,14 @@ export function Settings() {
   if (!config)
     return (
       <div className="flex h-full">
-        <div data-tauri-drag-region className="h-full w-[220px] border-r border-[var(--settings-separator)] bg-[var(--settings-sidebar)]" />
+        <div data-tauri-drag-region className="h-full w-[220px] border-r border-separator bg-(--under-page-bg)" />
         <div data-tauri-drag-region className="h-[52px] flex-1" />
       </div>
     );
   return (
-    <TabsPrimitive.Root value={pane} onValueChange={(v: PaneId) => setPane(v)} orientation="vertical" className="flex h-full text-[13px]">
+    <TabsPrimitive.Root value={pane} onValueChange={(v: PaneId) => setPane(v)} orientation="vertical" className="flex h-full text-body">
       <Sidebar config={config} auth={auth} query={query} setQuery={search} />
-      <main className="min-w-0 flex-1 bg-[var(--settings-window)]">
+      <main className="min-w-0 flex-1">
         <TabsPrimitive.Panel value="queues" className="h-full outline-none">
           <Queues config={config} onChange={setConfig} />
         </TabsPrimitive.Panel>

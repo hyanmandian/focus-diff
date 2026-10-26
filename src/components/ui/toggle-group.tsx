@@ -18,8 +18,8 @@ const ToggleGroupContext = React.createContext<
   orientation: "horizontal",
 })
 
-// A row of toggles; with variant="outline", a segmented control: one track, equal segments, the
-// chosen one in the accent.
+// A row of toggles; with variant="outline", a segmented control: one track, equal segments (each as
+// wide as the widest label, so none spills out of its segment), the chosen one in the accent.
 function ToggleGroup({
   className,
   variant,
@@ -42,7 +42,7 @@ function ToggleGroup({
       data-orientation={orientation}
       style={{ "--gap": spacing } as React.CSSProperties}
       className={cn(
-        "group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-(--radius-control) data-vertical:flex-col data-vertical:items-stretch data-[variant=outline]:gap-0 data-[variant=outline]:bg-fill",
+        "group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-(--radius-control) data-vertical:flex-col data-vertical:items-stretch data-[variant=outline]:grid data-[variant=outline]:auto-cols-fr data-[variant=outline]:grid-flow-col data-[variant=outline]:gap-0 data-[variant=outline]:bg-fill",
         className
       )}
       {...props}

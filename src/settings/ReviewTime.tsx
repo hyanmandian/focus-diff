@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { newSession, nextReviewTime, REVIEW_MINUTES, REVIEW_ORDERS, validTime, type Config, type Queue, type ReviewOrder, type ReviewSession, type ReviewTime } from "@/lib/config";
-import { Group, Intro, LinkRow, Pane, Row, useDetail } from "./Form";
+import { Group, Intro, LinkRow, Pane, PRESSED_CHIP, Row, SwitchRow, useDetail } from "./Form";
 import { TagInput } from "./TagInput";
 
 const ORDERS: Record<ReviewOrder, { label: string; hint: string }> = {
@@ -34,15 +34,6 @@ function summary(session: ReviewSession) {
   return `${when} ${at} · ${session.minutes} min`;
 }
 
-function SwitchRow({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
-  const id = useId();
-  return (
-    <Row label={label} description={hint} htmlFor={id}>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
-    </Row>
-  );
-}
-
 const timeError = (v: string) => (validTime(v) ? null : "A time like 15:00, on a 24-hour clock");
 
 function SessionEditor({ session, queues, onChange }: { session: ReviewSession; queues: Queue[]; onChange: (session: ReviewSession) => void }) {
@@ -53,7 +44,7 @@ function SessionEditor({ session, queues, onChange }: { session: ReviewSession; 
     <>
       <Group>
         <Row label="Name" htmlFor={nameId}>
-          <Input id={nameId} value={session.name} maxLength={40} placeholder="Review time" onChange={(e) => set("name", e.target.value)} className="h-7 w-56 text-[13px]" />
+          <Input id={nameId} value={session.name} maxLength={40} placeholder="Review time" onChange={(e) => set("name", e.target.value)} className="w-56" />
         </Row>
         <SwitchRow checked={session.on} onChange={(v) => set("on", v)} label="On" />
       </Group>
@@ -81,7 +72,7 @@ function SessionEditor({ session, queues, onChange }: { session: ReviewSession; 
         </Row>
         <Row label="For">
           <Select value={String(session.minutes)} onValueChange={(v) => set("minutes", Number(v))}>
-            <SelectTrigger size="sm" className="w-32" aria-label="How long">
+            <SelectTrigger className="w-32" aria-label="How long">
               <SelectValue>{(v: string) => `${v} min`}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -98,7 +89,7 @@ function SessionEditor({ session, queues, onChange }: { session: ReviewSession; 
       <Group title="What to review" footer="Empty: every review queue. Each pull request is estimated at about 1,000 changed lines an hour, plus a couple of minutes to read it and write the review.">
         <Row label="What goes first" description={ORDERS[session.order].hint}>
           <Select value={session.order} onValueChange={(v) => set("order", v as ReviewOrder)}>
-            <SelectTrigger size="sm" className="w-40" aria-label="What goes first">
+            <SelectTrigger className="w-40" aria-label="What goes first">
               <SelectValue>{(v: ReviewOrder) => ORDERS[v].label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -118,7 +109,8 @@ function SessionEditor({ session, queues, onChange }: { session: ReviewSession; 
                 key={queue.id}
                 type="button"
                 size="xs"
-                variant={picked(queue.id) ? "secondary" : "outline"}
+                variant="outline"
+                className={PRESSED_CHIP}
                 aria-pressed={picked(queue.id)}
                 onClick={() => set("queues", picked(queue.id) ? session.queues.filter((q) => q !== queue.id) : [...session.queues, queue.id])}
               >
@@ -148,7 +140,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
         tools={
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             aria-label={`Delete ${selected.name || "review time"}`}
             title="Delete review time"
             onClick={() => {
@@ -179,7 +171,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
         }
       >
         <Row label="Remind me when it's review time" htmlFor={enabledId}>
-          <Switch id={enabledId} checked={review.enabled} onCheckedChange={(enabled) => set({ enabled })} />
+          <Switch id={enabledId} size="sm" checked={review.enabled} onCheckedChange={(enabled) => set({ enabled })} />
         </Row>
       </Group>
 
@@ -187,9 +179,8 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
         title="Your review times"
         accessory={
           <Button
-            variant="ghost"
+            variant="outline"
             size="xs"
-            className="-mr-1.5 text-[12px] font-normal"
             disabled={review.sessions.length >= 10}
             onClick={() => {
               const session = newSession();
@@ -197,7 +188,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
               detail.open(session.id);
             }}
           >
-            <Plus /> Add a review time
+            <Plus /> Add Review Time
           </Button>
         }
       >
@@ -207,7 +198,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
               key={session.id}
               ref={detail.rowRef(session.id)}
               leading={
-                <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-foreground/[0.07] text-muted-foreground" aria-hidden>
+                <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-fill text-muted-foreground" aria-hidden>
                   <Timer className="size-3" strokeWidth={2.25} />
                 </span>
               }
@@ -215,7 +206,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
               description={summary(session)}
               muted={!session.on}
               onOpen={() => detail.open(session.id)}
-              control={<Switch checked={session.on} onCheckedChange={(on) => setSessions(review.sessions.map((s) => (s.id === session.id ? { ...s, on } : s)))} aria-label={`${session.name || "Review time"} on`} />}
+              control={<Switch size="sm" checked={session.on} onCheckedChange={(on) => setSessions(review.sessions.map((s) => (s.id === session.id ? { ...s, on } : s)))} aria-label={`${session.name || "Review time"} on`} />}
             />
           ))
         ) : (

@@ -119,6 +119,7 @@
   --field-border: rgb(0 0 0 / 0.12);
   --fill-control: rgb(0 0 0 / 0.06); /* a push or pop-up button's flat fill */
   --fill-control-pressed: rgb(0 0 0 / 0.12);
+  --fill-tertiary: rgb(0 0 0 / 0.047); /* a grouped form's sections, on the window */
   --fill-quaternary: rgb(0 0 0 / 0.027);
   --selection-bg: #0064e1; /* selectedContentBackground: a focused list's row */
   --selection-fg: #fff;
@@ -142,6 +143,8 @@
   --red: #ff383c; --red-ic: #e9152d;
   --orange: #ff8d28; --orange-ic: #c55300;
   --green: #34c759; --green-ic: #008932;
+  --blue: #0088ff;
+  --indigo: #6155f5; /* no CSS keyword, so never live */
   --purple: #cb30e0; --purple-ic: #b02fc2;
   --gray: #8e8e93;
 
@@ -165,6 +168,7 @@
   --field-border: rgb(255 255 255 / 0.12);
   --fill-control: rgb(255 255 255 / 0.1);
   --fill-control-pressed: rgb(255 255 255 / 0.18);
+  --fill-tertiary: rgb(255 255 255 / 0.047);
   --fill-quaternary: rgb(255 255 255 / 0.027);
   --selection-bg: #0059d1;
   --selection-bg-inactive: #464646;
@@ -178,6 +182,8 @@
   --red: #ff4245; --red-ic: #ff6165;
   --orange: #ff9230; --orange-ic: #ffa056;
   --green: #30d158; --green-ic: #4ad968;
+  --blue: #0091ff;
+  --indigo: #6d7cff;
   --purple: #db34f2; --purple-ic: #ea8dff;
   --gray: #98989d;
 }
@@ -203,6 +209,7 @@
     --red: -apple-system-red;
     --orange: -apple-system-orange;
     --green: -apple-system-green;
+    --blue: -apple-system-blue;
     --purple: -apple-system-purple;
     --gray: -apple-system-gray;
   }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Group, Intro, Pane, Row } from "./Form";
+import { Group, Intro, Pane, Row, TWO_LINE_ITEM } from "./Form";
 import { TagInput } from "./TagInput";
 import { FILTER_RECIPES, isRepoPattern, newId, validPattern, type Config, type DiffFilter } from "@/lib/config";
 import { addImported, exportFilters, importFilters } from "@/lib/filters";
@@ -21,7 +21,7 @@ function Pattern({ label, value, onChange, placeholder }: { label: string; value
   const id = useId();
   return (
     <Row label={label} htmlFor={id} description={!valid ? <span className="text-destructive">Not a valid regular expression.</span> : undefined}>
-      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} spellCheck={false} aria-invalid={!valid} className="h-7 w-80 font-mono text-xs" />
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} spellCheck={false} aria-invalid={!valid} className="w-80 font-mono text-callout" />
     </Row>
   );
 }
@@ -37,7 +37,7 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
 
   const doImport = () => {
     const imported = importFilters(text);
-    if (!imported?.length) return setError(imported ? "That text has no filters in it. Ask for them to be copied again." : "That isn't a copied set of filters. Paste exactly what Copy filters gave.");
+    if (!imported?.length) return setError(imported ? "That text has no filters in it. Ask for them to be copied again." : "That isn't a copied set of filters. Paste exactly what Copy Filters gave.");
     const { filters: next, added, skipped } = addImported(filters, imported);
     onImport(next);
     setText("");
@@ -52,7 +52,6 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
       <Row label="Copy your filters" description="To send to a teammate, or paste into Focus Diff's settings.">
         <Button
           variant="outline"
-          size="sm"
           disabled={!filters.length}
           onClick={() =>
             void navigator.clipboard.writeText(exportFilters(filters)).then(
@@ -62,7 +61,7 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
           }
           onBlur={() => setCopied(false)}
         >
-          {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy filters"}
+          {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy Filters"}
         </Button>
       </Row>
       <Row stacked label="Import filters" htmlFor={id}>
@@ -79,18 +78,18 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
           spellCheck={false}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className="resize-y font-mono text-xs"
+          className="resize-y font-mono text-callout"
         />
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" disabled={!text.trim()} onClick={doImport}>
+          <Button variant="outline" disabled={!text.trim()} onClick={doImport}>
             Import
           </Button>
           {error ? (
-            <p id={errorId} className="text-xs text-destructive" role="alert">
+            <p id={errorId} className="text-subheadline text-destructive" role="alert">
               {error}
             </p>
           ) : done ? (
-            <p className="text-xs text-muted-foreground" role="status">
+            <p className="text-subheadline text-muted-foreground" role="status">
               {done}
             </p>
           ) : null}
@@ -122,7 +121,7 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
       {filters.map((f, i) => (
         <Group key={f.id}>
           <Row className="gap-1">
-            <Input aria-label="Filter name" className="h-7 max-w-52 text-[13px] font-medium" maxLength={24} value={f.name} onChange={(e) => update(f.id, { name: e.target.value })} />
+            <Input aria-label="Filter name" className="max-w-52" maxLength={24} value={f.name} onChange={(e) => update(f.id, { name: e.target.value })} />
             <div className="ml-auto flex">
               <Button variant="ghost" size="icon-xs" aria-label={`Move ${f.name} up`} disabled={i === 0} onClick={() => move(i, -1)}>
                 <ArrowUp />
@@ -143,14 +142,14 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
         </Group>
       ))}
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="self-start" disabled={filters.length >= 12} />}>
-          <Plus /> Add a filter
+        <DropdownMenuTrigger render={<Button variant="outline" className="self-start" disabled={filters.length >= 12} />}>
+          <Plus /> Add Filter
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           {FILTER_RECIPES.map((recipe) => (
-            <DropdownMenuItem key={recipe.title} onClick={() => add(recipe.filters)} className="flex-col items-start gap-0.5 whitespace-normal">
-              <span className="font-medium">{recipe.title}</span>
-              <span className="text-xs text-muted-foreground">{recipe.description}</span>
+            <DropdownMenuItem key={recipe.title} onClick={() => add(recipe.filters)} className={TWO_LINE_ITEM}>
+              <span>{recipe.title}</span>
+              <span className="text-subheadline text-muted-foreground">{recipe.description}</span>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />

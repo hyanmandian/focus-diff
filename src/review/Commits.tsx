@@ -79,7 +79,7 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
             {list.forcePushes.length ? <span className="truncate text-callout text-muted-foreground">{t("manage.forcePushes", { count: list.forcePushes.length })}</span> : null}
           </CollapsibleTrigger>
           {since ? (
-            <Button variant="outline" size="xs" className="shrink-0" onClick={() => onOpen(since.range)}>
+            <Button variant="outline" className="shrink-0" onClick={() => onOpen(since.range)}>
               <History /> {since.rewritten ? t("manage.sinceReviewRewritten") : t("manage.sinceReviewCount", { count: since.count })}
             </Button>
           ) : null}
@@ -206,7 +206,7 @@ export function RangeBanner({ pull, loading, error }: { pull: Pull; loading: boo
         {error ?? t("manage.showingRange", { range: rangeLabel(range, commits, since, t) })}
         {older && !error ? <span className="text-muted-foreground"> · {t("manage.olderVersion")}</span> : null}
       </span>
-      <Button variant="ghost" size="xs" className="shrink-0" onClick={() => setRange(null)}>
+      <Button variant="outline" className="shrink-0" onClick={() => setRange(null)}>
         {t("manage.showAllChanges")}
       </Button>
     </div>

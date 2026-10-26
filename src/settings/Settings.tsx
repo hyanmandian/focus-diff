@@ -50,7 +50,7 @@ function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => 
   const t = useT();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={config.queues.length >= 12} />}>
+      <DropdownMenuTrigger render={<Button variant="outline" disabled={config.queues.length >= 12} />}>
         <Plus /> {t("settings.addQueue")}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">

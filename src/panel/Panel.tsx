@@ -409,15 +409,15 @@ export function Panel() {
                 </p>
                 {pickedHere.length ? (
                   <>
-                    <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setPicked(new Set())}>
+                    <Button variant="ghost" className="text-muted-foreground" onClick={() => setPicked(new Set())}>
                       {t("panel.clear")}
                     </Button>
-                    <Button size="sm" onClick={markDone}>
+                    <Button onClick={markDone}>
                       {t("panel.markDone")}
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={undo}>
+                  <Button variant="outline" onClick={undo}>
                     {t("panel.undo")}
                   </Button>
                 )}

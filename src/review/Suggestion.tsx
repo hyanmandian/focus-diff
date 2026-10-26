@@ -50,7 +50,7 @@ function CommitPopover({ items, children, variant = "outline" }: { items: Applie
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button size="xs" variant={variant} />}>{children}</PopoverTrigger>
+      <PopoverTrigger render={<Button variant={variant} />}>{children}</PopoverTrigger>
       <PopoverContent align="start" className="w-96">
         <PopoverTitle>{t("review.commitTitle", { count: items.length })}</PopoverTitle>
         <Input
@@ -98,7 +98,7 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
       {batched ? null : <CommitPopover items={[item]}>{t("review.commitSuggestion")}</CommitPopover>}
-      <Button size="xs" variant="ghost" onClick={() => api.toggleBatch(item)}>
+      <Button variant="ghost" onClick={() => api.toggleBatch(item)}>
         {batched ? t("review.removeFromBatch") : t("review.addToBatch")}
       </Button>
       {batched ? (

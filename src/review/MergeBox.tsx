@@ -96,7 +96,7 @@ export function MergeBox({ details, pull }: Props) {
         </div>
         {view.canUpdateBranch ? (
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="shrink-0 gap-1" disabled={busy === "update"} />}>
+            <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0 gap-1" disabled={busy === "update"} />}>
               {busy === "update" ? <Loader2 className="animate-spin" /> : null}
               {t("manage.updateBranch")}
               <ChevronDown className="size-3 opacity-70" />
@@ -108,22 +108,22 @@ export function MergeBox({ details, pull }: Props) {
           </DropdownMenu>
         ) : null}
         {view.status === "conflicts" ? (
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => void bridge.openUrl(`${details.url}/conflicts`)}>
+          <Button variant="outline" className="shrink-0" onClick={() => void bridge.openUrl(`${details.url}/conflicts`)}>
             <ExternalLink /> {t("manage.resolveConflicts")}
           </Button>
         ) : null}
         {(view.status === "merged" || view.status === "closed") && canDelete ? (
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => void pull.actions.deleteBranch()} disabled={busy === "branch"}>
+          <Button variant="outline" className="shrink-0" onClick={() => void pull.actions.deleteBranch()} disabled={busy === "branch"}>
             {t("manage.deleteBranch")}
           </Button>
         ) : null}
         {view.status === "closed" && details.viewerCanUpdate ? (
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => void pull.actions.reopen()} disabled={busy === "close"}>
+          <Button variant="outline" className="shrink-0" onClick={() => void pull.actions.reopen()} disabled={busy === "close"}>
             {t("manage.reopen")}
           </Button>
         ) : null}
         {view.status === "draft" && details.viewerCanUpdate && open ? (
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => void pull.actions.ready()} disabled={busy === "ready"}>
+          <Button variant="outline" className="shrink-0" onClick={() => void pull.actions.ready()} disabled={busy === "ready"}>
             {t("review.markReady")}
           </Button>
         ) : null}

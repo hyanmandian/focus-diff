@@ -5,6 +5,7 @@ import { AlertCircle, Check, CloudUpload, CornerDownRight, Loader2, MessageSquar
 import { useEffect, useId, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Textarea } from "@/components/ui/textarea";
 import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer as Answer } from "@/lib/bridge";
@@ -82,15 +83,15 @@ export function Composer({
         </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+        <Button variant="outline" onClick={onCancel} disabled={busy}>
           {t("common.cancel")}
         </Button>
         {secondary ? (
-          <Button variant="outline" size="sm" onClick={() => void run(secondary.onClick)} disabled={busy}>
+          <Button variant="outline" onClick={() => void run(secondary.onClick)} disabled={busy}>
             {secondary.label}
           </Button>
         ) : null}
-        <Button size="sm" onClick={() => void run(onSubmit)} disabled={busy}>
+        <Button onClick={() => void run(onSubmit)} disabled={busy}>
           {busy ? <Loader2 className="animate-spin" /> : null}
           {submitLabel}
         </Button>
@@ -210,7 +211,7 @@ export function ThreadView({
           c ? (
             <CommentView key={c.id} thread={thread} comment={c} onQuote={(text) => setReplying(quote(text))} />
           ) : (
-            <Button key="more" variant="ghost" size="xs" className="self-start text-link" onClick={() => setWhole(true)}>
+            <Button key="more" variant="ghost" className="self-start text-link" onClick={() => setWhole(true)}>
               {t("review.showMoreReplies", { count: hidden })}
             </Button>
           ),
@@ -242,10 +243,10 @@ export function ThreadView({
           />
         ) : (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setReplying("")}>
+            <Button variant="ghost" onClick={() => setReplying("")}>
               <CornerDownRight /> {t("review.reply")}
             </Button>
-            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
+            <Button variant="ghost" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : thread.resolved ? <Undo2 /> : <Check />}
               {thread.resolved ? t("review.unresolve") : t("review.resolve")}
             </Button>
@@ -304,10 +305,10 @@ export function DraftView({ draft: drawn, onEdit, onRemove }: { draft: Draft; on
               </p>
             ) : null}
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label={t("review.editComment")} onClick={() => setEditing(true)}>
+          <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.editComment")} onClick={() => setEditing(true)}>
             <Pencil />
           </Button>
-          <Button variant="ghost" size="icon-sm" aria-label={t("review.removeComment")} onClick={onRemove}>
+          <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.removeComment")} onClick={onRemove}>
             <Trash2 />
           </Button>
         </div>
@@ -490,9 +491,8 @@ export function NewComment({
                       {turn.note ? <p className="text-subheadline text-muted-foreground">{turn.note}</p> : null}
                       <div>
                         <Button
-                          size="xs"
                           variant="ghost"
-                          className="-ml-2 text-muted-foreground"
+                          className="-ml-2.5 text-muted-foreground"
                           onClick={() => {
                             setBody(turn.answer ?? "");
                             setMode("comment");
@@ -566,26 +566,26 @@ export function NewComment({
         <p className="mr-auto text-subheadline text-muted-foreground">
           {asking ? (ask ? t("review.askHint") : null) : t("review.commentHint", { shortcut: `${isMac ? "⌘" : "Ctrl+"}Enter` })}
         </p>
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy && !asking}>
+        <Button variant="outline" onClick={onCancel} disabled={busy && !asking}>
           {t("review.close")}
         </Button>
         {asking ? (
           ask ? (
-            <Button size="sm" onClick={submit} disabled={busy || !question.trim()}>
+            <Button onClick={submit} disabled={busy || !question.trim()}>
               {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
               {t("review.ask")}
             </Button>
           ) : (
-            <Button size="sm" onClick={() => void bridge.openSettings()}>
+            <Button onClick={() => void bridge.openSettings()}>
               {t("review.openSettings")}
             </Button>
           )
         ) : (
           <>
-            <Button variant="outline" size="sm" onClick={() => void comment(true)} disabled={busy}>
+            <Button variant="outline" onClick={() => void comment(true)} disabled={busy}>
               {t("review.postNow")}
             </Button>
-            <Button size="sm" onClick={submit} disabled={busy}>
+            <Button onClick={submit} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : <MessageSquare />}
               {t("review.comment")}
             </Button>
@@ -607,14 +607,14 @@ export function FindingView({ finding, by, onAdd, onDismiss }: { finding: Findin
       <div className="mt-1.5">
         <AiAnswer text={finding.body} />
       </div>
-      <div className="mt-2.5 flex items-center gap-2">
-        <Button size="xs" variant="outline" onClick={onAdd}>
+      <ButtonGroup className="mt-2.5">
+        <Button variant="outline" onClick={onAdd}>
           {t("review.addToReview")}
         </Button>
-        <Button size="xs" variant="ghost" onClick={onDismiss}>
+        <Button variant="outline" onClick={onDismiss}>
           {t("review.dismiss")}
         </Button>
-      </div>
+      </ButtonGroup>
     </Box>
   );
 }

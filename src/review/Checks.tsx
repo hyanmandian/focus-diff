@@ -7,6 +7,7 @@
 import { ArrowDownToLine, ChevronDown, ChevronRight, CircleCheck, CircleDot, CircleMinus, CircleX, ExternalLink, Loader2, RotateCw, TriangleAlert, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bridge } from "@/lib/bridge";
@@ -150,9 +151,9 @@ function Opened({ pr, check, write, hasFile, onJump, say }: { pr: PullRef; check
           {logState}
         </p>
       ) : null}
-      <div className="flex flex-wrap gap-1.5">
+      <ButtonGroup>
         {check.job && !log ? (
-          <Button variant="outline" size="xs" onClick={() => void showLog()} disabled={logState === "loading" || !done}>
+          <Button variant="outline" onClick={() => void showLog()} disabled={logState === "loading" || !done}>
             {logState === "loading" ? <Loader2 className="animate-spin" /> : null}
             {done ? t("manage.showLog") : t("manage.logWhenDone")}
           </Button>
@@ -160,7 +161,6 @@ function Opened({ pr, check, write, hasFile, onJump, say }: { pr: PullRef; check
         {write && check.job && done ? (
           <Button
             variant="outline"
-            size="xs"
             onClick={() =>
               void rerunJob(pr, check.job!)
                 .then(() => say(t("manage.rerunning")))
@@ -171,11 +171,11 @@ function Opened({ pr, check, write, hasFile, onJump, say }: { pr: PullRef; check
           </Button>
         ) : null}
         {check.url?.startsWith("https://") ? (
-          <Button variant="ghost" size="xs" onClick={() => void bridge.openUrl(check.url!)}>
+          <Button variant="outline" onClick={() => void bridge.openUrl(check.url!)}>
             <ExternalLink /> {t("review.openOnGitHub")}
           </Button>
         ) : null}
-      </div>
+      </ButtonGroup>
     </div>
   );
 }
@@ -229,7 +229,7 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
           </CollapsibleTrigger>
           {write && checks.some((c) => c.run) ? (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="shrink-0 gap-1 text-muted-foreground" disabled={pull.busy === "rerun"} />}>
+              <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0 gap-1" disabled={pull.busy === "rerun"} />}>
                 <RotateCw /> {t("manage.rerun")}
                 <ChevronDown className="size-3 opacity-70" />
               </DropdownMenuTrigger>
@@ -246,7 +246,7 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
           <div className="mx-4 mb-2.5 flex items-center gap-2 rounded-lg bg-warning/10 px-3 py-2 text-callout">
             <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden />
             <span className="min-w-0 flex-1">{t("manage.awaitingApproval", { count: pull.awaiting.length })}</span>
-            <Button size="xs" onClick={pull.actions.approve} disabled={pull.busy === "approve"}>
+            <Button onClick={pull.actions.approve} disabled={pull.busy === "approve"}>
               {t("manage.approveAndRun")}
             </Button>
           </div>

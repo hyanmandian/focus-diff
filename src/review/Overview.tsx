@@ -210,7 +210,7 @@ function AddComment({ onComment, quoted, onQuoted }: { onComment: Props["onComme
       }}
     />
   ) : (
-    <Button variant="outline" size="sm" className="self-start" onClick={() => setOpen(true)}>
+    <Button variant="outline" className="self-start" onClick={() => setOpen(true)}>
       <MessageSquarePlus /> {t("review.addComment")}
     </Button>
   );
@@ -449,11 +449,11 @@ export function Overview({ config, details, conversation, review, reviewing, rev
                 <p className="text-body text-muted-foreground">{t("review.noConversation")}</p>
               )}
               {items.length > shown ? (
-                <Button variant="ghost" size="sm" className="self-start text-link" onClick={() => setShown((n) => n + PAGE * 3)}>
+                <Button variant="ghost" className="self-start text-link" onClick={() => setShown((n) => n + PAGE * 3)}>
                   {t("review.showOlder", { count: Math.min(items.length - shown, PAGE * 3) })}
                 </Button>
               ) : pull.older ? (
-                <Button variant="ghost" size="sm" className="self-start text-muted-foreground" onClick={() => void pull.loadOlder().catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))}>
+                <Button variant="ghost" className="self-start text-muted-foreground" onClick={() => void pull.loadOlder().catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))}>
                   {t("manage.olderEvents")}
                 </Button>
               ) : null}

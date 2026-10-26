@@ -219,7 +219,7 @@ export function NoPatchFile({
               <FileWarning className="size-4" aria-hidden /> {error ?? t("diff.tooLarge")}
             </p>
             {source && !error ? (
-              <Button variant="outline" size="sm" onClick={onLoad} disabled={loading}>
+              <Button variant="outline" onClick={onLoad} disabled={loading}>
                 {loading ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : null}
                 {t("diff.loadDiff")}
               </Button>

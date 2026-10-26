@@ -112,7 +112,7 @@ export function Connect({ auth, onConnected }: Props) {
           </Button>
         </form>
       ) : (
-        <Button variant="ghost" size="sm" onClick={() => setShowToken(true)}>
+        <Button variant="ghost" onClick={() => setShowToken(true)}>
           {t("shared.connectUseTokenInstead")}
         </Button>
       )}

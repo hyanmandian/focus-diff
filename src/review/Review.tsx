@@ -949,7 +949,7 @@ export function Review({ target }: { target: Target }) {
           ) : null}
           <DropdownMenu>
             <Tooltip>
-              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label={t("review.more")} />} />}>
+              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "bg-fill")} aria-label={t("review.more")} />} />}>
                 <MoreHorizontal />
               </TooltipTrigger>
               <TooltipContent>{t("review.more")}</TooltipContent>

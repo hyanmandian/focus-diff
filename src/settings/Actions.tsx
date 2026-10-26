@@ -127,7 +127,7 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
       ) : null}
       <div className="px-3 py-2">
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={steps.length >= 10} />}>
+          <DropdownMenuTrigger render={<Button variant="outline" disabled={steps.length >= 10} />}>
             <Plus /> {t("settings.addStep")}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-72">
@@ -227,7 +227,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
               }}
             />
           ))}
-          <Button variant="outline" size="sm" className="self-start" disabled={action.choices.length >= 12} onClick={() => setChoices([...action.choices, newChoice()])}>
+          <Button variant="outline" className="self-start" disabled={action.choices.length >= 12} onClick={() => setChoices([...action.choices, newChoice()])}>
             <Plus /> {t("settings.addChoice")}
           </Button>
         </>

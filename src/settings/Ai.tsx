@@ -82,7 +82,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
       <Group
         title={t("settings.codingAgent")}
         accessory={
-          <Button variant="outline" size="xs" onClick={() => void check()} disabled={checking}>
+          <Button variant="outline" onClick={() => void check()} disabled={checking}>
             {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />} {t("settings.checkAgain")}
           </Button>
         }
@@ -249,7 +249,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
             <div className="px-3 py-2">
               <Button
                 variant="outline"
-                size="xs"
                 disabled={ai.prompts.length >= 12}
                 onClick={() => setPrompts([...ai.prompts, { id: newId(), name: t("settings.newPrompt"), prompt: "What should I ask the author before approving?" }])}
               >

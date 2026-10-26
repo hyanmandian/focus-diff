@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils"
 // Buttons as AppKit draws them on macOS 27: a flat fill with no border or shadow, regular weight,
 // no hover (Mac buttons don't light up under the pointer), a darker fill while pressed and the
 // accent focus ring for the keyboard. Disabled keeps the shape and dims the label.
+//
+// One way everywhere, so the same kind of button looks the same wherever it is:
+// - Regular (the default size) for every button that does something: a form's, a card's or a
+//   section's actions, Settings. Cancel and Close are push buttons ("outline"), as in a Mac dialog,
+//   beside the one prominent ("default") button.
+// - Small ("xs") only within a line of small text: beside a file path, a chip, an editor's own
+//   bar. Glyphs alone: "icon-xs" in rows and headers, "icon" in toolbars.
+// - "ghost" for a quiet action that leads somewhere (Reply, Go to Line, Show Older), "link" only
+//   inside a sentence.
+// - Related actions side by side join in a ButtonGroup; the window toolbar has its own capsules.
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 cursor-default items-center justify-center font-normal whitespace-nowrap outline-none select-none focus-ring disabled:pointer-events-none disabled:text-(--label-tertiary) aria-disabled:text-(--label-tertiary) aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
@@ -24,7 +34,8 @@ const buttonVariants = cva(
       size: {
         /** Regular: 24pt, 13pt label. */
         default: "h-(--control-h) gap-1.5 rounded-(--radius-control) px-2.5 text-body",
-        sm: "h-(--control-h) gap-1.5 rounded-(--radius-control) px-2 text-body",
+        /** The same as regular (shadcn's name kept so nothing drifts). */
+        sm: "h-(--control-h) gap-1.5 rounded-(--radius-control) px-2.5 text-body",
         /** Small: 20pt, 11pt label. */
         xs: "h-(--control-h-sm) gap-1 rounded-(--radius-control-sm) px-2 text-subheadline [&_svg:not([class*='size-'])]:size-3.5",
         /** Large: 28pt and a capsule, as AppKit draws large controls. */

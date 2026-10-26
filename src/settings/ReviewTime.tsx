@@ -193,7 +193,6 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
         accessory={
           <Button
             variant="outline"
-            size="xs"
             disabled={review.sessions.length >= 10}
             onClick={() => {
               const session = newSession();

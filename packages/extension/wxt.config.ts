@@ -9,7 +9,9 @@ import { defineConfig } from "wxt";
 /** The React Compiler, as @vitejs/plugin-react's reactCompilerPreset() runs it for the desktop: only over files that
  *  have components or hooks, for the pages (not the background). WXT's own Vite turns JSX into React's runtime calls. */
 const reactCompiler = {
-  preset: () => ({ plugins: [[fileURLToPath(import.meta.resolve("babel-plugin-react-compiler")), {}]] }),
+  preset: () => ({
+    plugins: [[fileURLToPath(import.meta.resolve("babel-plugin-react-compiler")), {}] satisfies [string, object]],
+  }),
   rolldown: {
     filter: { code: /forwardRef|memo|\b(?:[A-Z]|use[A-Z0-9])/u },
     applyToEnvironmentHook: (env: { config: { consumer: string } }) => env.config.consumer === "client",
@@ -44,6 +46,8 @@ export default defineConfig({
     // The GitHub API, with the token the reader signs in with, and github.com for signing in with a code.
     host_permissions: ["https://api.github.com/*", "https://github.com/*"],
     action: { default_title: "__MSG_actionTitle__" },
+    // The review's syntax colouring compiles its grammars' patterns with WebAssembly (Shiki, through @pierre/diffs).
+    content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';" },
     minimum_chrome_version: "123",
     commands: {
       "next-filter": { suggested_key: { default: "Alt+Shift+Period" }, description: "__MSG_commandNext__" },

@@ -11,7 +11,7 @@ import { appFileCommands, fileKey, FILES, readAppFile } from "@/utils/app-files/
 import { browserCommands } from "@/utils/browser-commands/browser-commands";
 import { startCommandServer, type Commands } from "@/utils/command-server/command-server";
 import { createGitHubApi } from "@/utils/github-api/github-api";
-import { githubCommands } from "@/utils/github-commands/github-commands";
+import { startGitHubCommands } from "@/utils/github-commands/github-commands";
 import { legacyDismissals, migrate, takeLegacyDone } from "@/utils/migration/migration";
 import { startQueues } from "@/utils/queue-service/queue-service";
 import { windowCommands } from "@/utils/windows/windows";
@@ -42,7 +42,8 @@ export const applyLegacyDone = async (
 
 export const startBackground = () => {
   const commands: Commands = {};
-  const server = startCommandServer(commands);
+  const ready = Promise.withResolvers<null>();
+  const server = startCommandServer(commands, ready.promise);
   const api = createGitHubApi();
   let applying = false;
   const queues = startQueues({
@@ -62,14 +63,13 @@ export const startBackground = () => {
       },
     },
   });
-  Object.assign(
-    commands,
-    browserCommands(),
-    windowCommands(server),
-    appFileCommands(() => {}),
-    githubCommands({ api, emit: server.broadcast }),
-    queues.commands,
-  );
+  Object.assign(commands, browserCommands(), windowCommands(server), appFileCommands(), queues.commands);
+  // The GitHub commands once what was on its way to GitHub (pending comments, viewed marks) is read back.
+  void startGitHubCommands(api, server.broadcast)
+    .then((github) => Object.assign(commands, github))
+    .finally(() => {
+      ready.resolve(null);
+    });
 
   // The app's files: every page follows a change, whoever made it (the bar on github.com writes the pace too).
   void readAppFile("config").then(followConfig);

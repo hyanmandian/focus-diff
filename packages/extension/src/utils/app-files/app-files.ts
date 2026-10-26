@@ -20,8 +20,9 @@ export const readAppFile = (name: AppFile): Promise<string | null> => storage.ge
 export const writeAppFile = (name: AppFile, contents: string): Promise<void> =>
   storage.setItem(fileKey(name), contents);
 
-/** read_file and write_file. A write tells every page ("file-changed") and `changed`, which follows the setup. */
-export const appFileCommands = (changed: (name: AppFile, contents: string) => void | Promise<void>): Commands => ({
+/** read_file and write_file. Whoever writes (a page, or the bar on github.com), the background follows the change
+ *  from storage. */
+export const appFileCommands = (): Commands => ({
   read_file: ({ name }) => {
     if (!isAppFile(name)) throw new Error(UNKNOWN_FILE);
     return readAppFile(name);
@@ -29,6 +30,5 @@ export const appFileCommands = (changed: (name: AppFile, contents: string) => vo
   write_file: async ({ name, contents }) => {
     if (!isAppFile(name)) throw new Error(UNKNOWN_FILE);
     await writeAppFile(name, String(contents));
-    await changed(name, String(contents));
   },
 });

@@ -71,6 +71,22 @@ describe("the background's command server", () => {
     ]);
   });
 
+  it("waits for commands still being set up", async () => {
+    fakePorts();
+    const commands: Commands = {};
+    const ready = Promise.withResolvers<null>();
+    startCommandServer(commands, ready.promise);
+    const page = connect("focus-diff:panel");
+    const messages = heard(page);
+    send(page, { type: "invoke", id: 1, command: "snapshot", args: {} });
+    await settle();
+    expect(messages).toEqual([]);
+    commands.snapshot = () => 1;
+    ready.resolve(null);
+    await settle();
+    expect(messages).toEqual([{ type: "reply", id: 1, ok: true, value: 1 }]);
+  });
+
   it("knows the pages open, and the tab each is in", () => {
     const { ports, server } = start();
     const opened = vi.fn<(page: unknown) => void>();

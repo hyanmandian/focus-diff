@@ -42,8 +42,8 @@ export const notOpen = (window: string) => `No window named ${window}`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-/** Starts answering the pages' ports with `commands`. */
-export const startCommandServer = (commands: Commands): CommandServer => {
+/** Starts answering the pages' ports with `commands`, once `ready` (the commands still being set up) has settled. */
+export const startCommandServer = (commands: Commands, ready: Promise<unknown> = Promise.resolve()): CommandServer => {
   const ports = new Map<Browser.runtime.Port, Sender>();
   const connected: Array<(page: Sender) => void> = [];
 
@@ -73,6 +73,7 @@ export const startCommandServer = (commands: Commands): CommandServer => {
       if (message.type === "emit") {
         if (!emitTo(message.window, message.event, message.payload)) throw new Error(notOpen(message.window));
       } else {
+        await ready;
         const command = Object.hasOwn(commands, message.command) ? commands[message.command] : undefined;
         if (!command) throw new Error(unknownCommand(message.command));
         value = await command(isRecord(message.args) ? message.args : {}, page);

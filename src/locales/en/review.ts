@@ -279,4 +279,6 @@ export const review = {
   removeDraftConfirmButton: "Remove",
   stop: "Stop",
   waitedSeconds: "{seconds}s",
+  newChanges: "New changes were pushed",
+  update: "Update",
 } as const;

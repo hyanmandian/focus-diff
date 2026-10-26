@@ -3,7 +3,7 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
-import { ChevronDown, ChevronRight, ChevronUp, Columns2, GitMerge, Loader2, MoreHorizontal, Pilcrow, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Columns2, GitCommitHorizontal, GitMerge, Loader2, MoreHorizontal, Pilcrow, RefreshCw, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
@@ -52,6 +52,7 @@ import { RangeBanner, RangePicker } from "./Commits";
 import { MergeMenuItems, PullMenuItems } from "./PullMenus";
 import { useNextInQueue } from "./next";
 import { usePull } from "./usePull";
+import { useNewChanges } from "./newChanges";
 
 /** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
  *  ("org/slug"), for leaving the review. */
@@ -453,6 +454,18 @@ export function Review({ target }: { target: Target }) {
     setDetails(d);
     if (last.current) last.current = { ...last.current, details: d, threads: t };
   }, [ref, repo, number, reloadConversation]);
+
+  // Pushed to while it's open: said, with a way to show it (the diff doesn't change under you).
+  // Anything else new (comments, reviews, labels) comes in on its own.
+  const newChanges = useNewChanges(repo, number, details?.headRefOid, details?.updatedAt, () => void changed());
+  const [updating, setUpdating] = useState(false);
+  const update = async () => {
+    setUpdating(true);
+    void bridge.refresh(true);
+    await load();
+    void reloadConversation();
+    setUpdating(false);
+  };
 
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === patchHash(pullFileOf(f)), [viewed, pullFileOf]);
   // The filters for everywhere and this repository's own; the chosen ones that have files here. The
@@ -1022,7 +1035,18 @@ export function Review({ target }: { target: Target }) {
 
       {/* What the comments in both tabs can do (conversation.tsx). */}
       <ConversationProvider value={talk.api}>
-      <main className="flex min-h-0 flex-1 flex-col" onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}>
+      <main className="relative flex min-h-0 flex-1 flex-col" onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}>
+        {newChanges ? (
+          // Over the top of either tab, as GitHub's bar, without moving what's under it.
+          <div role="status" className="absolute top-2 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu) animate-in fade-in-0 slide-in-from-top-2 duration-(--duration) motion-reduce:animate-none">
+            <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">{t("review.newChanges")}</span>
+            <Button className="shrink-0 rounded-full" onClick={() => void update()} disabled={updating}>
+              {updating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {t("review.update")}
+            </Button>
+          </div>
+        ) : null}
         <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" hidden={tab !== "overview"} className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
           {details ? (
             <Overview
@@ -1125,7 +1149,7 @@ export function Review({ target }: { target: Target }) {
           </aside>
 
           <div className="relative min-w-0 flex-1 bg-muted/30">
-            <RangeBanner pull={pull} loading={Boolean(pull.range && !ranged.files && !ranged.error)} error={ranged.error} />
+            <RangeBanner pull={pull} below={Boolean(newChanges)} loading={Boolean(pull.range && !ranged.files && !ranged.error)} error={ranged.error} />
             {shownFiles ? (
               visible.length ? (
                 <Diffs

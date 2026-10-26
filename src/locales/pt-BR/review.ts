@@ -274,4 +274,6 @@ export const review: Dictionary["review"] = {
   removeDraftConfirmButton: "Remover",
   stop: "Parar",
   waitedSeconds: "{seconds}s",
+  newChanges: "Chegaram mudanças novas",
+  update: "Atualizar",
 };

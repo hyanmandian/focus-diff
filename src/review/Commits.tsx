@@ -193,14 +193,14 @@ function Choice({ selected, onPick, label, detail, mono }: { selected: boolean; 
 }
 
 /** Above the diff while a range shows: which, and the way back to all changes. */
-export function RangeBanner({ pull, loading, error }: { pull: Pull; loading: boolean; error: string | null }) {
+export function RangeBanner({ pull, loading, error, below = false }: { pull: Pull; loading: boolean; error: string | null; below?: boolean }) {
   const t = useT();
   const { range, setRange, commits, since } = pull;
   if (!range) return null;
   const older = commits && commits.commits.at(-1)?.oid !== range.to;
   return (
     // Floats over the top of the diff, as the filter bar does at its foot: the diff's layout stays.
-    <div className="absolute top-2 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu)" role="status">
+    <div className={cn("absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu)", below ? "top-12" : "top-2")} role="status">
       {loading ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden /> : <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />}
       <span className="min-w-0 flex-1 truncate">
         {error ?? t("manage.showingRange", { range: rangeLabel(range, commits, since, t) })}

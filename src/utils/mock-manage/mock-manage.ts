@@ -2,7 +2,8 @@
 // checks with their logs, commits and ranges, reviewers, labels and the timeline can be worked on
 // and screenshotted in a plain browser. Writes succeed and change what's asked next.
 
-type Args = Record<string, unknown>;
+import { type Args, isRecord, json, str, strings, wait } from "@/utils/mock-ipc/mock-ipc";
+
 type Reply = { status: number; body: string };
 
 const now = Date.now();
@@ -147,7 +148,7 @@ const manage = () => ({
 const run = (
   name: string,
   workflow: string,
-  run: number,
+  runId: number,
   job: number,
   status: string,
   conclusion: string | null,
@@ -160,12 +161,12 @@ const run = (
   name,
   status,
   conclusion,
-  detailsUrl: `https://github.com/acme/web/actions/runs/${run}/job/${job}`,
+  detailsUrl: `https://github.com/acme/web/actions/runs/${runId}/job/${job}`,
   startedAt: iso(30),
   completedAt: status === "COMPLETED" ? iso(30 - minutes) : null,
   title: conclusion === "FAILURE" ? "2 errors" : null,
   isRequired: required,
-  checkSuite: { app: { slug: "github-actions" }, workflowRun: { databaseId: run, workflow: { name: workflow } } },
+  checkSuite: { app: { slug: "github-actions" }, workflowRun: { databaseId: runId, workflow: { name: workflow } } },
 });
 let checks = [
   run("Unit tests", "CI", 11, 101, "COMPLETED", "SUCCESS", true, 4),
@@ -425,20 +426,18 @@ const compareFiles = [
 /** The sample's answer to a call of the app's, or undefined to leave it to mock.ts. */
 export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
   if (cmd === "job_log") {
-    await new Promise((r) => setTimeout(r, 300));
+    await wait(300);
     return { text: log, truncated: false };
   }
   if (cmd !== "github") return undefined;
-  const path = args.path as string;
-  const method = args.method as string;
-  const body = JSON.parse((args.body as string | null) ?? "{}") as {
-    query?: string;
-    variables?: Record<string, unknown>;
-  };
-  const query = body.query ?? "";
+  const path = str(args, "path");
+  const method = str(args, "method");
+  const body = json(args, "body");
+  const query = str(body, "query");
+  const variables = isRecord(body.variables) ? body.variables : undefined;
   if (query.trimStart().startsWith("mutation")) {
     if (query.includes("enablePullRequestAutoMerge"))
-      autoMerge = { mergeMethod: String(body.variables?.method), enabledBy: { login: "you" } };
+      autoMerge = { mergeMethod: String(variables?.method), enabledBy: { login: "you" } };
     if (query.includes("disablePullRequestAutoMerge")) autoMerge = null;
     if (query.includes("closePullRequest")) pr.state = "CLOSED";
     if (query.includes("reopenPullRequest")) pr.state = "OPEN";
@@ -470,7 +469,7 @@ export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
           },
         },
       });
-    if (query.includes("annotations(first: 50)")) return ok({ data: checkDetail(String(body.variables?.id)) });
+    if (query.includes("annotations(first: 50)")) return ok({ data: checkDetail(String(variables?.id)) });
     if (query.includes("PULL_REQUEST_COMMIT")) return ok({ data: timeline });
     if (query.includes("messageBody committedDate"))
       return ok({
@@ -541,17 +540,17 @@ export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
           : c,
       );
     if (path.endsWith("/labels") && method === "POST")
-      labels = [...labels, ...allLabels.filter((l) => (body as { labels?: string[] }).labels?.includes(l.name))];
+      labels = [...labels, ...allLabels.filter((l) => strings(body, "labels")?.includes(l.name))];
     if (path.includes("/labels/") && method === "DELETE")
       labels = labels.filter((l) => !path.endsWith(`/labels/${encodeURIComponent(l.name)}`));
     if (path.endsWith("/assignees")) {
-      const logins = (body as { assignees?: string[] }).assignees ?? [];
+      const logins = strings(body, "assignees") ?? [];
       assignees =
         method === "POST"
           ? [...assignees, ...Object.values(people).filter((p) => logins.includes(p.login))]
           : assignees.filter((a) => !logins.includes(a.login));
     }
-    await new Promise((r) => setTimeout(r, 250));
+    await wait(250);
     return ok({});
   }
   return undefined;

@@ -4,7 +4,8 @@
 // delete and react to, a long conversation, a long timeline, @mentions, #references, saved replies,
 // previews. Writes change what's answered next, for the page's life.
 
-type Args = Record<string, unknown>;
+import { type Args, fail, isRecord, json, maybeStr, str, texts, wait } from "@/utils/mock-ipc/mock-ipc";
+
 type Actor = { __typename: string; login: string; name: string; avatarUrl: string; databaseId?: number };
 type Reply = { status: number; body: string };
 
@@ -22,15 +23,19 @@ const groups = (given: Record<string, string[]> = {}) =>
     reactors: { totalCount: (given[content] ?? []).length, nodes: (given[content] ?? []).map((login) => ({ login })) },
   }));
 
+type Groups = ReturnType<typeof groups>;
+/** Everything that can be reacted to carries its groups (said() and comment() give them). */
+const isGroups = (value: unknown): value is Groups => Array.isArray(value);
+
 const escape = (s: string) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 /** Just enough of GitHub's Markdown for the sample: fences (a suggestion as GitHub's API renders
  *  it), quotes, code, bold, mentions and paragraphs. */
 function markdown(text: string) {
   const out: string[] = [];
-  const parts = text.replaceAll("\r\n", "\n").split(/^(`{3,}[^\n]*\n[\s\S]*?\n?`{3,})$/m);
+  const parts = text.replaceAll("\r\n", "\n").split(/^(`{3,}[^\n]*\n[\s\S]*?\n?`{3,})$/mu);
   for (const part of parts) {
-    const fence = part.match(/^`{3,}(\w*)\n([\s\S]*?)\n?`{3,}$/);
+    const fence = part.match(/^`{3,}(\w*)\n([\s\S]*?)\n?`{3,}$/u);
     if (fence) {
       out.push(
         fence[1] === "suggestion"
@@ -39,15 +44,15 @@ function markdown(text: string) {
       );
       continue;
     }
-    for (const block of part.split(/\n{2,}/).filter((b) => b.trim())) {
+    for (const block of part.split(/\n{2,}/u).filter((b) => b.trim())) {
       const inline = escape(block)
-        .replaceAll(/`([^`]+)`/g, "<code>$1</code>")
-        .replaceAll(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replaceAll(/(^|\s)@([\w-]+)/g, '$1<a href="https://github.com/$2">@$2</a>')
+        .replaceAll(/`([^`]+)`/gu, "<code>$1</code>")
+        .replaceAll(/\*\*([^*]+)\*\*/gu, "<strong>$1</strong>")
+        .replaceAll(/(^|\s)@([\w-]+)/gu, '$1<a href="https://github.com/$2">@$2</a>')
         .replaceAll("\n", "<br>");
       out.push(
         block.startsWith("&gt; ") || block.startsWith("> ")
-          ? `<blockquote><p>${inline.replaceAll(/^&gt; ?/gm, "").replaceAll(/<br>&gt; ?/g, "<br>")}</p></blockquote>`
+          ? `<blockquote><p>${inline.replaceAll(/^&gt; ?/gmu, "").replaceAll(/<br>&gt; ?/gu, "<br>")}</p></blockquote>`
           : `<p>${inline}</p>`,
       );
     }
@@ -104,8 +109,13 @@ type Item = Record<string, unknown> & { __typename: string; id: string };
 
 type Seed = {
   people: Record<string, Actor>;
-  threads: Array<Record<string, unknown>>;
-  details: { pullRequest: Record<string, unknown> };
+  threads: Array<{
+    id: string;
+    path: string;
+    line: number | null;
+    comments: { nodes: Array<{ id: string; author: Actor; bodyHTML: string; createdAt: string }> };
+  }>;
+  details: { pullRequest: { timelineItems: { nodes: Item[] }; bodyHTML: string } };
   files: Array<{ filename: string; patch?: string }>;
 };
 
@@ -175,12 +185,7 @@ function seed({ people, threads, details, files }: Seed) {
   const { me, ana, bruno, carla, dev } = people as Record<"me" | "ana" | "bruno" | "carla" | "dev", Actor>;
   for (const [i, p] of Object.values(people).entries()) p.databaseId = 100 + i;
   // mock.ts's conversation, with what the app reads of it now.
-  const first = threads[0] as {
-    id: string;
-    path: string;
-    line: number;
-    comments: { nodes: Array<{ id: string; author: Actor; bodyHTML: string; createdAt: string }> };
-  };
+  const first = threads[0]!;
   const opener = first.comments.nodes[0]!;
   const t1 = thread(first.path, first.line, [
     {
@@ -230,12 +235,12 @@ function seed({ people, threads, details, files }: Seed) {
       60 * 24 * 3 + (40 - i) * 30,
     ),
   }));
-  const pr = details.pullRequest as { timelineItems: { nodes: Item[] }; bodyHTML: string };
+  const pr = details.pullRequest;
   const timeline: Item[] = [
     ...older,
     ...pr.timelineItems.nodes.map((n) => ({
       ...n,
-      ...said(String(n.bodyHTML ?? "").replaceAll(/<[^>]+>/g, ""), 15),
+      ...said((typeof n.bodyHTML === "string" ? n.bodyHTML : "").replaceAll(/<[^>]+>/gu, ""), 15),
       ...(n.__typename === "IssueComment"
         ? { reactionGroups: groups({ HEART: ["octocat", "defunkt", "you"], ROCKET: ["mojombo"] }) }
         : {}),
@@ -283,7 +288,7 @@ function fileAt(path: string) {
   const lines = new Map<number, string>();
   let n = 0;
   for (const line of patch.split("\n")) {
-    const hunk = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)/);
+    const hunk = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)/u);
     if (hunk) n = Number(hunk[1]);
     else if (line[0] === " " || line[0] === "+") lines.set(n++, line.slice(1));
   }
@@ -300,23 +305,19 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
   const s = state!;
   if (cmd.startsWith("drafts_")) return drafts(cmd, args);
   if (cmd !== "github") return undefined;
-  const path = args.path as string;
+  const path = str(args, "path");
   if (path === "/markdown") {
-    const { text } = JSON.parse(args.body as string) as { text: string };
-    return new Promise((r) =>
-      setTimeout(() => {
-        r({ status: 200, body: markdown(text) });
-      }, 250),
-    );
+    const text = str(json(args, "body"), "text");
+    return wait(250).then(() => ({ status: 200, body: markdown(text) }));
   }
   if (path.includes("/contents/"))
     return { status: 200, body: fileAt(decodeURIComponent(path.split("/contents/")[1]!.split("?")[0]!)) };
   if (path !== "/graphql") return undefined;
-  const { query = "", variables = {} } = JSON.parse((args.body as string | null) ?? "{}") as {
-    query?: string;
-    variables?: Record<string, unknown>;
-  };
-  const v = variables as Record<string, string>;
+  const body = json(args, "body");
+  const query = str(body, "query");
+  const variables = isRecord(body.variables) ? body.variables : {};
+  // The variables this side reads are all text.
+  const v = texts(variables);
 
   if (query.includes("reviewThreads(first: 100"))
     return ok({
@@ -402,7 +403,7 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
             state: "MERGED",
           },
           { __typename: "Issue", number: 1702, title: "Expired codes say “invalid”", state: "CLOSED" },
-        ].filter((n) => !v.q?.match(/\d{3,}/) || String(n.number).startsWith(v.q.match(/\d+/)![0])),
+        ].filter((n) => !v.q?.match(/\d{3,}/u) || String(n.number).startsWith(v.q.match(/\d+/u)![0])),
       },
     });
   if (query.includes("savedReplies"))
@@ -419,14 +420,15 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     });
 
   // Writes
-  const reaction = query.match(/(addReaction|removeReaction)/)?.[1];
+  const reaction = query.match(/(addReaction|removeReaction)/u)?.[1];
   if (reaction) {
     const target =
       allComments().find((c) => c.id === v.id) ??
       s.timeline.find((n) => n.id === v.id) ??
       (v.id === "PR_1807" ? s.pull : null);
-    if (target) {
-      target.reactionGroups = (target.reactionGroups as ReturnType<typeof groups>).map((g) => {
+    const current = target?.reactionGroups;
+    if (target && isGroups(current)) {
+      target.reactionGroups = current.map((g) => {
         if (g.content !== v.content) return g;
         const on = reaction === "addReaction";
         const nodes = on
@@ -438,7 +440,7 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     return ok({ [reaction]: { clientMutationId: null } });
   }
   const edit = query.match(
-    /(updatePullRequestReviewComment|updateIssueComment|updatePullRequestReview|updatePullRequest)\(/,
+    /(updatePullRequestReviewComment|updateIssueComment|updatePullRequestReview|updatePullRequest)\(/u,
   )?.[1];
   if (edit) {
     const bodyHTML = markdown(v.body ?? "");
@@ -489,11 +491,7 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     return ok({ deletePullRequestReview: { clientMutationId: null } });
   }
   if (query.includes("createCommitOnBranch"))
-    return new Promise((r) =>
-      setTimeout(() => {
-        r(ok({ createCommitOnBranch: { commit: { oid: "def456" } } }));
-      }, 600),
-    );
+    return wait(600).then(() => ok({ createCommitOnBranch: { commit: { oid: "def456" } } }));
   return undefined;
 }
 
@@ -528,10 +526,15 @@ let emit: (event: string, payload: unknown) => void = () => {};
 /** How the page hears "drafts" events from here (mock.ts keeps its listeners). */
 export const setEmitter = (f: typeof emit) => void (emit = f);
 
+/** What drafts_put carries (the page always sends all of it). */
+const isPut = (value: unknown): value is Put =>
+  isRecord(value) && typeof value.key === "string" && typeof value.pull === "string" && typeof value.body === "string";
+
 function drafts(cmd: string, args: Args): unknown {
   switch (cmd) {
     case "drafts_put": {
-      const put = args.put as Put;
+      const put = args.put;
+      if (!isPut(put)) return null;
       queue.jobs = queue.jobs.filter((j) => !(j.change.op === "put" && j.change.key === put.key));
       queue.jobs.push({ change: { op: "put", ...put }, error: null });
       later();
@@ -540,7 +543,7 @@ function drafts(cmd: string, args: Args): unknown {
     case "drafts_remove":
       queue.jobs = queue.jobs.filter((j) => j.change.key !== args.key);
       queue.jobs.push({
-        change: { op: "remove", key: args.key as string, pull: args.pull as string, id: args.id as string | null },
+        change: { op: "remove", key: str(args, "key"), pull: str(args, "pull"), id: maybeStr(args, "id") },
         error: null,
       });
       later();
@@ -556,17 +559,18 @@ function drafts(cmd: string, args: Args): unknown {
       queue.ids = {};
       return null;
     case "drafts_flush":
-      return new Promise((resolve, reject) => {
-        const wait = () =>
-          queue.jobs.some((j) => j.error)
-            ? reject(queue.jobs.find((j) => j.error)!.error)
-            : queue.jobs.length > 0
-              ? setTimeout(wait, 100)
-              : resolve(null);
-        wait();
-      });
+      return flushed();
   }
   return undefined;
+}
+
+/** Settles once every queued change is sent, or fails with the first one GitHub refused. */
+async function flushed(): Promise<null> {
+  const refused = queue.jobs.find((j) => j.error);
+  if (refused) return fail(refused.error);
+  if (queue.jobs.length === 0) return null;
+  await wait(100);
+  return flushed();
 }
 
 /** Sent a moment later, as if over the network: one at a time, oldest first. */
@@ -576,15 +580,14 @@ function later() {
     if (!job) return;
     const s = state!;
     const change = job.change;
+    const id = change.id ?? queue.ids[change.key];
     if (change.op === "remove") {
-      const id = change.id ?? queue.ids[change.key];
       if (id) removeComment(id);
       delete queue.ids[change.key];
     } else {
-      const id = change.id ?? queue.ids[change.key];
       const existing = id ? allComments().find((c) => c.id === id) : undefined;
       if (existing) Object.assign(existing, { body: change.body, bodyHTML: markdown(change.body) });
-      else if (/fail/i.test(change.body)) {
+      else if (/fail/iu.test(change.body)) {
         // A way to see a refusal: write "fail" in a comment.
         job.error = "pull_request_review_thread.line must be part of the diff";
       } else {

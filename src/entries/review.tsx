@@ -1,5 +1,6 @@
 import { WorkerPoolContext } from "@pierre/diffs/react";
 import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
+// oxlint-disable-next-line import/default -- Vite makes the default export of a `?worker` import, which the rule can't see
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 // A pull request's review window. Made ahead of time as a spare (no pull request in its address),
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
@@ -81,7 +82,9 @@ void getCurrentWebviewWindow().listen<Target>("review-open", ({ payload }) => {
       show(payload);
     });
   });
-  void moving.finished.finally(() => delete document.documentElement.dataset.direction);
+  void moving.finished.finally(() => {
+    delete document.documentElement.dataset.direction;
+  });
 });
 if (params.get("id")) {
   show({
@@ -93,5 +96,9 @@ if (params.get("id")) {
   });
 } else {
   // Only now can it be told: until this, a click opens a fresh window instead.
-  void invoke("spare_ready").catch(() => {});
+  try {
+    await invoke("spare_ready");
+  } catch {
+    // Nothing more to do: until it hears, a click just opens a fresh window.
+  }
 }

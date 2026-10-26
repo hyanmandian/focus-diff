@@ -3,9 +3,8 @@
 // be worked on and screenshotted without GitHub. Never part of a build (see entries/panel.tsx).
 
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
+import { type Args, fail, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
 import { manageRoute } from "@/utils/mock-manage/mock-manage";
-
-type Args = Record<string, unknown>;
 
 const now = Date.now();
 const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -526,9 +525,9 @@ const item = (
   ],
   ...extra,
 });
-const [promo, invoices, flaky] = review as [Sample, Sample, Sample];
-const [billing, search, upgrade] = involved as [Sample, Sample, Sample];
-const [history, onboarding] = authored as [Sample, Sample];
+const [promo, invoices, flaky] = [review[0]!, review[1]!, review[2]!];
+const [billing, search, upgrade] = [involved[0]!, involved[1]!, involved[2]!];
+const [history, onboarding] = [authored[0]!, authored[1]!];
 const items = {
   review: [
     item("review", promo, [], { viaTeams: [], waitingSince: now - 25 * 60_000 }),
@@ -575,7 +574,7 @@ const files: Record<string, string | null> = { config: JSON.stringify(config), p
 
 // Both versions of a few files (utils/contents/contents.ts), so the lines between hunks expand, the picture
 // compares and the large file loads. "base" is the merge base, "abc123" the head.
-const before = (n: number) => Array.from({ length: n }, (_, i) => `// helper ${i + 1}`);
+const before = (count: number) => Array.from({ length: count }, (_, i) => `// helper ${i + 1}`);
 const cartOld = [
   ...before(8),
   "export function updateCart(cart: Cart, items: Item[]) {",
@@ -602,9 +601,9 @@ const cartNew = [
 ];
 const badge = (fill: string, label: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="64" viewBox="0 0 160 64"><rect width="160" height="64" rx="14" fill="${fill}"/><text x="80" y="40" font-family="-apple-system" font-size="20" fill="#fff" text-anchor="middle">${label}</text></svg>`;
-const fixtures = (n: number) =>
+const fixtures = (count: number) =>
   JSON.stringify(
-    Array.from({ length: n }, (_, i) => ({ code: `SAVE${i}`, minimum: i * 5 })),
+    Array.from({ length: count }, (_, i) => ({ code: `SAVE${i}`, minimum: i * 5 })),
     null,
     2,
   );
@@ -642,14 +641,14 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
   if (around !== undefined) return around;
   switch (cmd) {
     case "read_file":
-      return files[args.name as string] ?? null;
+      return files[str(args, "name")] ?? null;
     case "write_file":
-      files[args.name as string] = args.contents as string;
+      files[str(args, "name")] = str(args, "contents");
       return null;
     case "auth_status":
       return { signed_in: true, source: "gh", login: "you", device_flow: true, gh_available: true };
     case "github": {
-      const path = args.path as string;
+      const path = str(args, "path");
       if (path.includes("/files?")) return { status: 200, body: JSON.stringify(reviewFiles) };
       if (path.endsWith("/pulls/1807"))
         return { status: 200, body: JSON.stringify({ base: { sha: "tip" }, head: { sha: "abc123" } }) };
@@ -672,22 +671,17 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
           status: 200,
           body: "<h2>Applying a code</h2><p>A code applies to the whole cart.</p><p>Changing the cart keeps the code, and checks it again against the new total.</p>",
         };
-      const body = JSON.parse((args.body as string | null) ?? "{}") as {
-        query?: string;
-        variables?: Record<string, string>;
-      };
-      if (body.query?.includes("reviewThreads(first: 100"))
-        return { status: 200, body: JSON.stringify({ data: threads }) };
-      if (body.query?.includes("viewerViewedState"))
-        return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
-      if (body.query?.includes("squashMergeAllowed"))
+      const query = str(json(args, "body"), "query");
+      if (query.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
+      if (query.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
+      if (query.includes("squashMergeAllowed"))
         return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };
     }
     case "github_file": {
-      const text = contents[`${args.sha as string}:${args.path as string}`];
-      await new Promise((r) => setTimeout(r, 150));
-      if (text === undefined) throw "absent";
+      const text = contents[`${str(args, "sha")}:${str(args, "path")}`];
+      await wait(150);
+      if (text === undefined) return fail("absent");
       return new TextEncoder().encode(text);
     }
     case "github_web_session":
@@ -701,13 +695,14 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
       emit("web-session", (webLogin = null));
       return;
     case "upload_attachment": {
-      await new Promise((r) => setTimeout(r, 900));
-      if (!webLogin) throw { kind: "not_signed_in" };
+      await wait(900);
+      if (!webLogin) return fail({ kind: "not_signed_in" });
       const name = decodeURIComponent(options?.headers?.["x-name"] ?? "");
-      if (/fail/i.test(name)) throw { kind: "failed", message: "GitHub didn't take it: Size must be less than 10 MB" };
+      if (/fail/iu.test(name))
+        return fail({ kind: "failed", message: "GitHub didn't take it: Size must be less than 10 MB" });
       return {
         href: `https://github.com/user-attachments/assets/${crypto.randomUUID()}`,
-        kind: /\.(mp4|m4v|mov|webm)$/i.test(name) ? "video" : "image",
+        kind: /\.(mp4|m4v|mov|webm)$/iu.test(name) ? "video" : "image",
       };
     }
     case "queue_viewed":
@@ -730,7 +725,7 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
     case "ai_models":
       return ["fable", "opus", "sonnet", "haiku"];
     case "ai_ask":
-      await new Promise((r) => setTimeout(r, 400));
+      await wait(400);
       if (args.schema)
         return {
           project: true,
@@ -758,12 +753,12 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
         text: "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.",
       };
     case "run_action":
-      await new Promise((r) => setTimeout(r, 400));
+      await wait(400);
       return "ok";
     case "confirm":
-      return window.confirm(`${args.title as string}\n\n${args.message as string}`);
+      return window.confirm(`${str(args, "title")}\n\n${str(args, "message")}`);
     case "plugin:event|listen":
-      listeners.set(args.handler as number, args.event as string);
+      listeners.set(Number(args.handler), str(args, "event"));
       return args.handler;
     default:
       return null;
@@ -772,17 +767,17 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
 
 export function installMock() {
   // Pictures come straight from GitHub here: there's no app to keep them (utils/avatar/avatar.ts).
-  (window as unknown as { __mock: boolean }).__mock = true;
-  (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
-    invoke,
-    transformCallback: (callback: (event: unknown) => void) => {
-      callbacks.set(++callbackId, callback);
-      return callbackId;
+  Object.assign(window, { __mock: true });
+  Object.assign(window, {
+    __TAURI_INTERNALS__: {
+      invoke,
+      transformCallback: (callback: (event: unknown) => void) => {
+        callbacks.set(++callbackId, callback);
+        return callbackId;
+      },
+      unregisterCallback: () => {},
+      metadata: { currentWindow: { label: "panel" }, currentWebview: { label: "panel", windowLabel: "panel" } },
     },
-    unregisterCallback: () => {},
-    metadata: { currentWindow: { label: "panel" }, currentWebview: { label: "panel", windowLabel: "panel" } },
-  };
-  (window as unknown as { __TAURI_EVENT_PLUGIN_INTERNALS__: unknown }).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
-    unregisterListener: () => {},
-  };
+    __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
+  });
 }

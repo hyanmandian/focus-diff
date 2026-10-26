@@ -754,6 +754,17 @@ describe("startPopup", () => {
     expect($$("#panel-reviews .avatar img")).toHaveLength(0);
   });
 
+  it("gives each of an author's rows drawn together a picture of its own", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "bo" }), pull({ url: "b", author: "bo" })] }));
+    await start();
+    const images = $$<HTMLImageElement>("#panel-reviews .avatar img");
+    expect(images).toHaveLength(2);
+    expect(images[0]).not.toBe(images[1]);
+    // The copy has the same fallback as the first.
+    images[1]!.dispatchEvent(new Event("error"));
+    expect(images[1]!.src).toBe("https://github.com/bo.png?size=48");
+  });
+
   it("leaves the rows alone when a look finds the same", async () => {
     await inboxItem.setValue(inbox({ reviews: [pull()] }));
     await start();

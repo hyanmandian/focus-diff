@@ -13,7 +13,7 @@ import {
 import { renderReviewPanel } from "@/components/popup-review-time/popup-review-time";
 import { FADE, scrollRow } from "@/components/scroll-row/scroll-row";
 import { customThemeCss, normalizeAppearance, type Appearance } from "@/utils/appearance/appearance";
-import { cloneOf, h } from "@/utils/dom/dom";
+import { h } from "@/utils/dom/dom";
 import { $, reveal, translateDocument } from "@/utils/extension-page/extension-page";
 import { formatDuration } from "@/utils/format/format";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
@@ -212,34 +212,40 @@ export const startPopup = (): void => {
    * row drawn again reuses it instead of fetching it again.
    */
   const avatars = new Map<string, HTMLImageElement>();
+  /** Authors whose picture went into a row in the drawing under way. */
+  const drawnNow = new Set<string>();
   /** Authors whose picture loaded from neither address: they keep their initial. */
   const missingAvatars = new Set<string>();
   const avatar = (login: string) => {
     const slot = h("span", { className: "avatar", "aria-hidden": "true" }, login.charAt(0).toUpperCase());
     if (missingAvatars.has(login)) return slot;
+    // GitHub's avatar host by login: it answers at once and the browser keeps it a few minutes, where
+    // github.com/<login>.png redirects there on every open, uncached. That one is the fallback.
+    const name = encodeURIComponent(login);
+    const fallback = `https://github.com/${name}.png?size=48`;
+    const picture = (src: string) => {
+      const image = h("img", { src, alt: "", width: 24, height: 24 });
+      image.referrerPolicy = "no-referrer";
+      image.addEventListener("error", (event) => {
+        if (image.src === fallback) return;
+        event.stopImmediatePropagation();
+        image.src = fallback;
+      });
+      return image;
+    };
     let image = avatars.get(login);
     if (!image) {
-      // GitHub's avatar host by login: it answers at once and the browser keeps it a few minutes, where
-      // github.com/<login>.png redirects there on every open, uncached. That one is the fallback.
-      const name = encodeURIComponent(login);
-      const fallback = `https://github.com/${name}.png?size=48`;
-      const first = h("img", {
-        src: `https://avatars.githubusercontent.com/${name}?size=48`,
-        alt: "",
-        width: 24,
-        height: 24,
-      });
-      first.referrerPolicy = "no-referrer";
-      first.addEventListener("error", (event) => {
-        if (first.src === fallback) return;
-        event.stopImmediatePropagation();
-        first.src = fallback;
-      });
-      image = first;
+      image = picture(`https://avatars.githubusercontent.com/${name}?size=48`);
       avatars.set(login, image);
     }
-    // An image can only be in one place; a second row by the same author gets a copy, from the cache.
-    const placed = image.isConnected ? cloneOf(image, false) : image;
+    // An image can only be in one place: a second row by the same author, on the page or drawn in the
+    // same go (not on the page yet), gets its own, from the address that worked and with the same fallback.
+    const placed = image.isConnected || drawnNow.has(login) ? picture(image.src) : image;
+    if (drawnNow.size === 0)
+      queueMicrotask(() => {
+        drawnNow.clear();
+      });
+    drawnNow.add(login);
     const missing = () => {
       missingAvatars.add(login);
       placed.remove();

@@ -2,6 +2,10 @@
 // labels, milestone, the issues it closes and its deployments, each changed from a picker where
 // you're allowed to. Every change shows at once and goes back if GitHub refuses it.
 
+import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   CircleCheck,
   CircleDot,
@@ -15,14 +19,10 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
-import { Button } from "@/components/button/button";
 import { Picker, type Choice } from "@/components/picker/picker";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";

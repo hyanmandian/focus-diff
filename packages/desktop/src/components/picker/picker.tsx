@@ -3,12 +3,11 @@
 // arrows move through the list from the field, Return picks, Esc closes. What was chosen when it
 // opened stays at the top while it's open, so rows don't jump under the pointer.
 
+import { Input } from "@focus-diff/design-system/components/input";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@focus-diff/design-system/components/popover";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { Check, Loader2, Search } from "lucide-react";
 import { useId, useState, type ReactElement, type ReactNode } from "react";
-
-import { Input } from "@/components/input/input";
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
-import { cn } from "@/utils/cn/cn";
 
 export type Choice = { id: string; label: string; detail?: string | null; leading?: ReactNode; selected: boolean };
 

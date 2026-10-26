@@ -2,20 +2,26 @@
 // Opens on its own when there's no setup yet, and again from the panel's menu. Everything here
 // can be changed later in Settings; the choices here are saved when you finish.
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { Label } from "@focus-diff/design-system/components/label";
+import { Mark } from "@focus-diff/design-system/components/mark";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@focus-diff/design-system/components/select";
+import { Switch } from "@focus-diff/design-system/components/switch";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { Button } from "@/components/button/button";
 import { Connect } from "@/components/connect/connect";
-import { Label } from "@/components/label/label";
-import { Mark } from "@/components/mark/mark";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
-import { Switch } from "@/components/switch/switch";
 import { TagInput } from "@/components/tag-input/tag-input";
 import { PROVIDERS } from "@/utils/ai/ai";
 import { bridge, type AiStatus, type AuthStatus } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
   loadConfig,

@@ -3,6 +3,11 @@
 // a commit opens its own changes in the diff. In the toolbar, the range picker: all changes, what's
 // new since your last review, one commit, or a run of them (shift-click), as on GitHub.
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@focus-diff/design-system/components/collapsible";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@focus-diff/design-system/components/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   BadgeCheck,
   ChevronDown,
@@ -17,13 +22,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/button/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Face } from "@/components/sidebar/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Pull } from "@/hooks/use-pull/use-pull";
-import { cn } from "@/utils/cn/cn";
 import {
   commitRange,
   inRange,

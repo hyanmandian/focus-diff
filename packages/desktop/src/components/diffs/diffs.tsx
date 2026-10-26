@@ -6,6 +6,17 @@
 // them after the rest (rich-diff.tsx).
 
 import type { OnScreen } from "@focus-diff/core/active-time";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Checkbox } from "@focus-diff/design-system/components/checkbox";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@focus-diff/design-system/components/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
 import {
   getSingularPatch,
   parseDiffFromFile,
@@ -20,20 +31,9 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { BookOpen, Code, MessageSquarePlus, MoreHorizontal, Plus } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 
-import { Button } from "@/components/button/button";
-import { Checkbox } from "@/components/checkbox/checkbox";
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/context-menu/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
 import { isMarkdown, Rendered } from "@/components/rendered/rendered";
 import { NoPatchFile } from "@/components/rich-diff/rich-diff";
 import { DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";

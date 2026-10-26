@@ -3,12 +3,20 @@
 // down in the menu bar. Rust runs them (src-tauri/src/review.rs); this edits them.
 
 import { LINES_PER_HOUR } from "@focus-diff/core/estimate";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Input } from "@focus-diff/design-system/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@focus-diff/design-system/components/select";
+import { Switch } from "@focus-diff/design-system/components/switch";
+import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
 import { Plus, Timer, Trash2 } from "lucide-react";
 import { useId } from "react";
 
-import { Button } from "@/components/button/button";
-import { Input } from "@/components/input/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
 import {
   Group,
   Intro,
@@ -19,9 +27,7 @@ import {
   SwitchRow,
   useDetail,
 } from "@/components/settings-form/settings-form";
-import { Switch } from "@/components/switch/switch";
 import { TagInput } from "@/components/tag-input/tag-input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import {
   newSession,
   nextReviewTime,

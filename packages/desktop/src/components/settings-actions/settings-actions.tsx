@@ -1,18 +1,20 @@
 // The person's own buttons on pull requests: each runs its steps in order, from the panel and the
 // review window. Commands ask for permission the first time they run (in Rust, not here).
 
-import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
-import { useId } from "react";
-
-import { Button } from "@/components/button/button";
+import { Button } from "@focus-diff/design-system/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
-import { Input } from "@/components/input/input";
-import { Label } from "@/components/label/label";
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { Input } from "@focus-diff/design-system/components/input";
+import { Label } from "@focus-diff/design-system/components/label";
+import { Textarea } from "@focus-diff/design-system/components/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
+import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
+import { useId } from "react";
+
 import {
   Group,
   LinkRow,
@@ -23,8 +25,6 @@ import {
   useDetail,
 } from "@/components/settings-form/settings-form";
 import { TagInput } from "@/components/tag-input/tag-input";
-import { Textarea } from "@/components/textarea/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import {
   newAction,
   newId,

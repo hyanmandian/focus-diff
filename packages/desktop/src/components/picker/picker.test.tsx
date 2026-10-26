@@ -1,8 +1,8 @@
+import { Button } from "@focus-diff/design-system/components/button";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { Button } from "@/components/button/button";
 import { Picker, type Choice } from "@/components/picker/picker";
 
 const choices: Choice[] = [

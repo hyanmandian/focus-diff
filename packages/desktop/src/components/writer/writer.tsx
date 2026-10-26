@@ -4,12 +4,8 @@
 // text are the interface. Pictures and videos pasted, dropped or picked are uploaded as github.com
 // does, once you've signed in there (utils/attachments/attachments.ts).
 
-import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
-import { Button } from "@/components/button/button";
-import { CommentHtml } from "@/components/comment-html/comment-html";
+import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
+import { Button } from "@focus-diff/design-system/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +13,15 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
-import { Textarea } from "@/components/textarea/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { SlidingPill } from "@focus-diff/design-system/components/sliding-pill";
+import { Textarea } from "@focus-diff/design-system/components/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
+import { cn } from "@focus-diff/design-system/utils/cn";
+import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+
+import { CommentHtml } from "@/components/comment-html/comment-html";
 import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import {
   ACCEPT,
@@ -33,7 +34,6 @@ import {
 } from "@/utils/attachments/attachments";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type UploadError } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/platform/platform";

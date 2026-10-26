@@ -4,13 +4,13 @@
 
 import type { Estimator, Learned } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Kbd } from "@focus-diff/design-system/components/kbd";
+import { Popover, PopoverContent, PopoverTrigger } from "@focus-diff/design-system/components/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { ChartBarStacked, Check, ChevronsDown, CircleCheck, Clock, FileText, Info } from "lucide-react";
 
-import { Button } from "@/components/button/button";
-import { Kbd } from "@/components/kbd/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
-import { cn } from "@/utils/cn/cn";
 import type { DiffFilter } from "@/utils/config/config";
 import { estimateHint } from "@/utils/estimate/estimate";
 import { totals, type Totals } from "@/utils/filters/filters";

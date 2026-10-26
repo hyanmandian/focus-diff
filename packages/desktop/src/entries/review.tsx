@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@focus-diff/design-system/components/tooltip";
 import { WorkerPoolContext } from "@pierre/diffs/react";
 import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
 // oxlint-disable-next-line import/default -- Vite makes the default export of a `?worker` import, which the rule can't see
@@ -11,7 +12,6 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import { Review, type Target } from "@/components/review/review";
-import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { Viewer } from "@/components/viewer/viewer";
 import { DIRECTION } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { followLanguage } from "@/utils/language/language";

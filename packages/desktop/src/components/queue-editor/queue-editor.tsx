@@ -3,15 +3,21 @@
 
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS } from "@focus-diff/core/recipes";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Input } from "@focus-diff/design-system/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@focus-diff/design-system/components/select";
+import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { useId, type ReactNode } from "react";
 
-import { Button } from "@/components/button/button";
-import { Input } from "@/components/input/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
 import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "@/components/settings-form/settings-form";
 import { TagInput } from "@/components/tag-input/tag-input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
-import { cn } from "@/utils/cn/cn";
 import {
   canBe,
   LEAVE_OUT,

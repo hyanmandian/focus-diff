@@ -1,10 +1,14 @@
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@focus-diff/design-system/components/dropdown-menu";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
 import type { ActionContext } from "@/utils/bridge/bridge";
 import type { Action } from "@/utils/config/config";
 

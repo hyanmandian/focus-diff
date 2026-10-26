@@ -1,9 +1,9 @@
+import { DropdownMenu, DropdownMenuContent } from "@focus-diff/design-system/components/dropdown-menu";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { DropdownMenu, DropdownMenuContent } from "@/components/dropdown-menu/dropdown-menu";
 import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { fakeDetails, fakePull, fakeView } from "@/utils/mock-pull/mock-pull";

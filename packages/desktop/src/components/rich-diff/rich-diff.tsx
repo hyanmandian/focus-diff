@@ -2,13 +2,13 @@
 // does (side by side, a swipe between them, one faded over the other), and files too large for
 // its diff, offered to load from both versions. A file renamed without changes says so.
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { Checkbox } from "@focus-diff/design-system/components/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { FileWarning, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/button/button";
-import { Checkbox } from "@/components/checkbox/checkbox";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
-import { cn } from "@/utils/cn/cn";
 import { fileAt, type Source } from "@/utils/contents/contents";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";

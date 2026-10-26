@@ -1,6 +1,12 @@
 // What sits between a file's lines: a conversation (with replies and resolving), a comment written
 // for this review, or the box to write one.
 
+import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
+import { Button } from "@focus-diff/design-system/components/button";
+import { ButtonGroup } from "@focus-diff/design-system/components/button-group";
+import { SlidingPill } from "@focus-diff/design-system/components/sliding-pill";
+import { Textarea } from "@focus-diff/design-system/components/textarea";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   AlertCircle,
   Check,
@@ -17,14 +23,9 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
-import { ButtonGroup } from "@/components/button-group/button-group";
-import { Button } from "@/components/button/button";
 import { CommentHtml } from "@/components/comment-html/comment-html";
 import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 import { SuggestionActions } from "@/components/suggestion/suggestion";
-import { Textarea } from "@/components/textarea/textarea";
 import { MarkdownField } from "@/components/writer/writer";
 import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
@@ -32,7 +33,6 @@ import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
 import { avatar } from "@/utils/avatar/avatar";
 import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Actor } from "@/utils/engine/engine";
 import { i18n, useT } from "@/utils/i18n/i18n";

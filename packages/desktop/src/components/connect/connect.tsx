@@ -1,12 +1,12 @@
 // Connecting GitHub: signing in with GitHub (device flow) when this build has it, the GitHub CLI's
 // login when gh is installed, or a pasted token. Used by the panel on first run and by settings.
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { Input } from "@focus-diff/design-system/components/input";
+import { Label } from "@focus-diff/design-system/components/label";
 import { Check, Copy, ExternalLink, KeyRound, Loader2, Terminal } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/button/button";
-import { Input } from "@/components/input/input";
-import { Label } from "@/components/label/label";
 import { bridge, type AuthStatus, type DeviceCode } from "@/utils/bridge/bridge";
 import { i18n, useT } from "@/utils/i18n/i18n";
 

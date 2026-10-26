@@ -4,6 +4,16 @@
 // first error. Re-running and approving fork runs are here for those allowed; while anything runs,
 // the list follows it (checks.ts).
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { ButtonGroup } from "@focus-diff/design-system/components/button-group";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@focus-diff/design-system/components/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   ArrowDownToLine,
   ChevronDown,
@@ -20,15 +30,6 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { ButtonGroup } from "@/components/button-group/button-group";
-import { Button } from "@/components/button/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { bridge } from "@/utils/bridge/bridge";
 import {
@@ -43,7 +44,6 @@ import {
   type CheckState,
   type LogLine,
 } from "@/utils/checks/checks";
-import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import { canWrite } from "@/utils/manage/manage";
 import type { PullRef } from "@/utils/review/review";

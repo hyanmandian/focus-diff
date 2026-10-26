@@ -3,29 +3,29 @@
 // repository, drafts folded at the end. A click opens the pull request's review window, where the
 // reviewing happens.
 
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-
-import { Button } from "@/components/button/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
-import { Connect } from "@/components/connect/connect";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@focus-diff/design-system/components/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
-import { Mark } from "@/components/mark/mark";
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { Mark } from "@focus-diff/design-system/components/mark";
+import { Skeleton } from "@focus-diff/design-system/components/skeleton";
+import { SlidingPill } from "@focus-diff/design-system/components/sliding-pill";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
+import { cn } from "@focus-diff/design-system/utils/cn";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+import { Connect } from "@/components/connect/connect";
 import { ReviewTime } from "@/components/panel-review-time/panel-review-time";
 import { PullRow } from "@/components/pull-row/pull-row";
-import { Skeleton } from "@/components/skeleton/skeleton";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { arrange } from "@/utils/arrange/arrange";
 import { bridge } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import type { Queue } from "@/utils/config/config";
 import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";

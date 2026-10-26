@@ -8,7 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/dropdown-menu/dropdown-menu";
+} from "@focus-diff/design-system/components/dropdown-menu";
+
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { Details } from "@/utils/details/details";
 import { useT } from "@/utils/i18n/i18n";

@@ -1,12 +1,12 @@
 // Asking the person's AI about a pull request: their saved prompts as buttons, or a question of
 // their own. Shown only when they've chosen an AI in Settings.
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { Input } from "@focus-diff/design-system/components/input";
 import { ArrowUp, Loader2, Sparkles, Square } from "lucide-react";
 import { useId, useState, type SubmitEvent } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
-import { Button } from "@/components/button/button";
-import { Input } from "@/components/input/input";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { ensureAi, openAiSettings, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { ask, newRun, PROVIDERS } from "@/utils/ai/ai";

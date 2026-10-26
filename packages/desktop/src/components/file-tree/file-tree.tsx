@@ -4,13 +4,13 @@
 // are open in them. Only the rows on screen are drawn, so a pull request of thousands of files
 // scrolls as smoothly as one of ten.
 
+import { FileIcon } from "@focus-diff/design-system/components/file-icon";
+import { Skeleton } from "@focus-diff/design-system/components/skeleton";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { ChevronRight, Folder } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { FileIcon } from "@/components/file-icon/file-icon";
 import { renamed } from "@/components/rich-diff/rich-diff";
-import { Skeleton } from "@/components/skeleton/skeleton";
-import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
 import { buildTree, flatten, foldersOf, outlineKey, type TreeRow } from "@/utils/tree/tree";

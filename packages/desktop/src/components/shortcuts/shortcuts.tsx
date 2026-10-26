@@ -1,9 +1,10 @@
 // The review window's keyboard shortcuts, in a sheet (? opens it, as on GitHub; also Help ▸
 // Keyboard Shortcuts in the menu bar). The keys are written as macOS writes them in menus.
 
-import { Button } from "@/components/button/button";
-import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/dialog/dialog";
-import { Kbd } from "@/components/kbd/kbd";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@focus-diff/design-system/components/dialog";
+import { Kbd } from "@focus-diff/design-system/components/kbd";
+
 import { useT, type Key } from "@/utils/i18n/i18n";
 
 /** The sheet's words: none takes a placeholder. */

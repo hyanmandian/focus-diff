@@ -5,6 +5,26 @@
 
 import { createEstimator, LINES_PER_HOUR, reviewMinutes } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
+import { Badge } from "@focus-diff/design-system/components/badge";
+import { Button } from "@focus-diff/design-system/components/button";
+import { Checkbox } from "@focus-diff/design-system/components/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { Input } from "@focus-diff/design-system/components/input";
+import { Kbd } from "@focus-diff/design-system/components/kbd";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@focus-diff/design-system/components/popover";
+import { Progress } from "@focus-diff/design-system/components/progress";
+import { Skeleton } from "@focus-diff/design-system/components/skeleton";
+import { SlidingPill } from "@focus-diff/design-system/components/sliding-pill";
+import { Textarea } from "@focus-diff/design-system/components/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   ChevronDown,
   ChevronLeft,
@@ -27,33 +47,14 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
-import { Badge } from "@/components/badge/badge";
-import { Button } from "@/components/button/button";
-import { Checkbox } from "@/components/checkbox/checkbox";
 import { RangeBanner, RangePicker } from "@/components/commits/commits";
 import { Diffs, type DiffsHandle, type LinkTarget } from "@/components/diffs/diffs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
 import { FileTree } from "@/components/file-tree/file-tree";
 import { FilterBar, type Next } from "@/components/filter-bar/filter-bar";
-import { Input } from "@/components/input/input";
-import { Kbd } from "@/components/kbd/kbd";
 import { Overview } from "@/components/overview/overview";
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
-import { Progress } from "@/components/progress/progress";
 import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
 import { Shortcuts } from "@/components/shortcuts/shortcuts";
-import { Skeleton } from "@/components/skeleton/skeleton";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 import { SuggestionBatch } from "@/components/suggestion/suggestion";
-import { Textarea } from "@/components/textarea/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
 import { ConversationProvider, useConversation } from "@/hooks/use-conversation/use-conversation";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
@@ -63,7 +64,6 @@ import { usePull } from "@/hooks/use-pull/use-pull";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import { bridge } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import { useRangeFiles } from "@/utils/commits/commits";
 import { loadConfig, type Config } from "@/utils/config/config";
 import { mergeBase, type Source } from "@/utils/contents/contents";

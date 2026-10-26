@@ -3,6 +3,25 @@
 // (with the commit message, editable), merge when ready (auto-merge), the merge queue, update the
 // branch, bypass as an admin, delete the branch after. Merging asks first with a native alert.
 
+import { Button } from "@focus-diff/design-system/components/button";
+import { Checkbox } from "@focus-diff/design-system/components/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@focus-diff/design-system/components/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@focus-diff/design-system/components/dropdown-menu";
+import { Input } from "@focus-diff/design-system/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@focus-diff/design-system/components/select";
+import { Textarea } from "@focus-diff/design-system/components/textarea";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   ChevronDown,
   CircleAlert,
@@ -20,21 +39,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/button/button";
-import { Checkbox } from "@/components/checkbox/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/dropdown-menu/dropdown-menu";
-import { Input } from "@/components/input/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
-import { Textarea } from "@/components/textarea/textarea";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { bridge } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import type { Details } from "@/utils/details/details";
 import { useT } from "@/utils/i18n/i18n";
 import { defaultMessage, type Method, type Reason } from "@/utils/merging/merging";

@@ -1,13 +1,14 @@
 // The review window's Overview tab: the pull request's description and conversation, with the AI,
 // reviewers and checks beside them.
 
+import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
+import { Button } from "@focus-diff/design-system/components/button";
+import { cn } from "@focus-diff/design-system/utils/cn";
 import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
 import { AskAi } from "@/components/ask-ai/ask-ai";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
-import { Button } from "@/components/button/button";
 import { Checks } from "@/components/checks/checks";
 import { CommitsSection } from "@/components/commits/commits";
 import { MergeBox } from "@/components/merge-box/merge-box";
@@ -21,7 +22,6 @@ import type { Pull } from "@/hooks/use-pull/use-pull";
 import { PROVIDERS, type AiReview } from "@/utils/ai/ai";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
-import { cn } from "@/utils/cn/cn";
 import type { Range } from "@/utils/commits/commits";
 import type { Config } from "@/utils/config/config";
 import type { Conversation, ConversationEntry } from "@/utils/conversation/conversation";

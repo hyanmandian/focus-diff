@@ -1,9 +1,9 @@
+import { TooltipProvider } from "@focus-diff/design-system/components/tooltip";
 // The panel under the tray icon.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { Panel } from "@/components/panel/panel";
-import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { followLanguage } from "@/utils/language/language";
 import { start } from "@/utils/store/store";
 

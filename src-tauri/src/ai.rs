@@ -208,8 +208,14 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
 fn command(binary: &Path) -> Command {
     let mut command = Command::new(binary);
     command.env("PATH", search_path());
-    // Claude Code's default account (~/.claude), however the app was opened.
+    // Claude Code's default account (~/.claude), however the app was opened. When the terminal is
+    // set to another account, it's named outright, as the sign-in command we show names it: Claude
+    // Code keeps an account named that way apart from the unnamed default.
     command.env_remove("CLAUDE_CONFIG_DIR");
+    if login_env().claude_config_dir.is_some()
+        && let Some(home) = std::env::var_os("HOME") {
+            command.env("CLAUDE_CONFIG_DIR", PathBuf::from(home).join(".claude"));
+        }
     command
 }
 

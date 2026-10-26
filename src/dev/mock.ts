@@ -130,6 +130,14 @@ const config = {
     },
     { id: "slack", name: "Ask the team", confirm: false, steps: [{ kind: "run", command: 'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"' }] },
   ],
+  filters: [
+    { id: "frontend", name: "Frontend", include: "\\.(tsx?|jsx?|css)$", exclude: "\\.(test|spec|stories)\\." },
+    { id: "backend", name: "Backend", include: "\\.(py|go|rb|rs)$", exclude: "_test\\." },
+    { id: "tests", name: "Tests", include: "\\.(test|spec)\\.|_test\\.", exclude: "" },
+    { id: "checkout", name: "Checkout", include: "^src/checkout/", exclude: "", repos: ["acme/web"] },
+    { id: "jobs", name: "Jobs", include: "^jobs/", exclude: "", repos: ["acme/api"] },
+    { id: "no-generated", name: "No generated", include: "", exclude: "(^|/)package-lock\\.json$" },
+  ],
   queues: [
     { id: "review", name: "Review", tone: "blue", kind: "review", notify: ["new", "rerequest"] },
     { id: "updates", name: "Updates", tone: "purple", kind: "involved", drafts: "show", notify: ["commits", "reply", "mention"] },
@@ -214,7 +222,34 @@ const reviewFiles = [
     deletions: 0,
     patch: "@@ -0,0 +1,4 @@\n+test(\"keeps a valid code when the cart changes\", () => {\n+  const cart = updateCart(withPromo(\"SAVE10\"), [item(50)]);\n+  expect(cart.promo).toBe(\"SAVE10\");\n+});",
   },
+  {
+    filename: "api/promo.go",
+    status: "modified",
+    additions: 5,
+    deletions: 1,
+    patch: "@@ -20,4 +20,8 @@ func ValidatePromo(code string, total int) Check {\n \tpromo, ok := promos[code]\n-\tif !ok {\n+\tif !ok || promo.Expired() {\n+\t\treturn Check{Reason: \"expired\"}\n+\t}\n+\tif total < promo.Minimum {\n+\t\treturn Check{Reason: \"below minimum\"}\n \t}\n \treturn Check{OK: true}",
+  },
+  {
+    filename: "docs/promo-codes.md",
+    status: "modified",
+    additions: 2,
+    deletions: 0,
+    patch: "@@ -8,2 +8,4 @@ ## Applying a code\n \n A code applies to the whole cart.\n+\n+Changing the cart keeps the code, and checks it again against the new total.",
+  },
+  {
+    filename: "package-lock.json",
+    status: "modified",
+    additions: 3,
+    deletions: 3,
+    patch: "@@ -1,8 +1,8 @@\n {\n   \"name\": \"web\",\n-  \"version\": \"1.4.0\",\n+  \"version\": \"1.5.0\",\n   \"lockfileVersion\": 3,\n   \"packages\": {\n-    \"\": { \"version\": \"1.4.0\" }\n+    \"\": { \"version\": \"1.5.0\" }\n   }\n-}\n+}",
+  },
 ];
+
+// What github.com says you've viewed: marked there, so it shows ticked here too.
+const viewedOnGitHub = { repository: { pullRequest: { files: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: reviewFiles.map((f) => ({ path: f.filename, viewerViewedState: f.filename === "docs/promo-codes.md" ? "VIEWED" : "UNVIEWED" })) } } } };
+
+// A reader a bit slower than the starting pace on code, quicker on tests (lib/estimate.ts).
+const pace = { all: { actual: 52, expected: 40, files: 18 }, kinds: { code: { actual: 40, expected: 26, files: 11 }, tests: { actual: 6, expected: 9, files: 5 } } };
 
 const threads = {
   repository: {
@@ -271,7 +306,7 @@ const items = {
 const seen = Object.fromEntries([...items.review.slice(2), ...items.updates.slice(2), ...items.merged].flatMap((i) => i.events.map((e) => [e.key, true])));
 const snapshot = { ready: true, signedIn: true, me: "you", items, status: { phase: "idle", updatedAt: now }, arrivals: [promo.id], seen, dismissed: {} };
 
-const files: Record<string, string | null> = { config: JSON.stringify(config) };
+const files: Record<string, string | null> = { config: JSON.stringify(config), pace: JSON.stringify(pace) };
 const listeners = new Map<number, string>();
 let callbackId = 0;
 
@@ -289,6 +324,14 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
       if (path.includes("/files?")) return { status: 200, body: JSON.stringify(reviewFiles) };
       const body = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, string> };
       if (body.query?.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
+      if (body.query?.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
+      const mark = body.query?.match(/(markFileAsViewed|unmarkFileAsViewed)/)?.[1];
+      if (mark) {
+        await new Promise((r) => setTimeout(r, 300));
+        // Unmarking the lockfile fails, to see the mark go back.
+        if (mark === "unmarkFileAsViewed" && body.variables?.path === "package-lock.json") return { status: 200, body: JSON.stringify({ data: { [mark]: null }, errors: [{ message: "Something went wrong" }] }) };
+        return { status: 200, body: JSON.stringify({ data: { [mark]: { clientMutationId: null } } }) };
+      }
       if (body.query?.includes("squashMergeAllowed")) return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };
     }

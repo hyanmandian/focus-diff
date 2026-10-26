@@ -122,6 +122,40 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
   return threads;
 }
 
+/** What GitHub says you've viewed. DISMISSED: viewed once, changed since. */
+export type ViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED";
+
+/** Your viewed files on github.com, by path, so the app and the site agree. */
+export async function loadViewed(d: PullRef): Promise<Map<string, ViewedState>> {
+  type Raw = { repository: { pullRequest: { files: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Array<{ path: string; viewerViewedState: ViewedState }> } } } };
+  const states = new Map<string, ViewedState>();
+  let after: string | null = null;
+  // As many as the files list has, 100 a page.
+  for (let page = 0; page < 30; page++) {
+    const data: Raw = await graphql<Raw>(
+      `query($owner: String!, $name: String!, $number: Int!, $after: String) {
+        repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+          files(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { path viewerViewedState } }
+        } }
+      }`,
+      { owner: d.owner, name: d.repo, number: d.number, after },
+    );
+    const files = data.repository.pullRequest.files;
+    for (const f of files.nodes) states.set(f.path, f.viewerViewedState);
+    if (!files.pageInfo.hasNextPage) break;
+    after = files.pageInfo.endCursor;
+  }
+  return states;
+}
+
+/** Marks a file viewed, or not, on github.com. `pullId`: the pull request's node id. */
+export async function markViewed(pullId: string, path: string, viewed: boolean) {
+  const field = viewed ? "markFileAsViewed" : "unmarkFileAsViewed";
+  const data = await graphql<Record<string, unknown>>(`mutation($id: ID!, $path: String!) { ${field}(input: { pullRequestId: $id, path: $path }) { clientMutationId } }`, { id: pullId, path });
+  // A refusal still comes back with data, empty.
+  if (!data[field]) throw new Error("GitHub didn't mark it");
+}
+
 // MARK: Actions
 
 const base = (d: Details) => `/repos/${d.owner}/${d.repo}/pulls/${d.number}`;

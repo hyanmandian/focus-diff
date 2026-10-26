@@ -33,7 +33,12 @@ describe("normalize", () => {
     expect(config.ai.provider).toBeNull();
     expect(config.ai.effort).toBe("");
     expect(config.ai.project).toBe(true);
-    expect(config.filters).toMatchObject([{ name: "Web", include: "\\.tsx$", exclude: "" }]);
+    expect(config.filters).toMatchObject([{ name: "Web", include: "\\.tsx$", exclude: "", repos: [] }]);
+  });
+
+  it("keeps a filter's repositories only as owner/name or owner/*", () => {
+    const config = normalize({ filters: [{ name: "Pay", repos: ["acme/web", "acme/*", "acme", "a/b/c", 4] }] });
+    expect(config.filters[0]?.repos).toEqual(["acme/web", "acme/*"]);
   });
 });
 
@@ -44,5 +49,7 @@ describe("inFilter", () => {
     expect(inFilter(frontend, "src/app.test.tsx")).toBe(false);
     expect(inFilter(frontend, "api/main.go")).toBe(false);
     expect(inFilter({ include: "", exclude: "" }, "anything")).toBe(true);
+    // Case doesn't matter, as in Focus Diff.
+    expect(inFilter({ include: "dockerfile", exclude: "" }, "Dockerfile")).toBe(true);
   });
 });

@@ -102,8 +102,9 @@ export type Action = {
 };
 
 /** A part of a pull request to review on its own: the files whose paths match `include` and not
- *  `exclude` (regular expressions; empty matches all, or none). Like Focus Diff's filters. */
-export type DiffFilter = { id: string; name: string; include: string; exclude: string };
+ *  `exclude` (regular expressions; empty matches all, or none). Like Focus Diff's filters.
+ *  `repos`: "owner/name" or "owner/*" it's offered in. Empty: every repository. */
+export type DiffFilter = { id: string; name: string; include: string; exclude: string; repos: string[] };
 
 export type Config = {
   version: 1;
@@ -222,7 +223,7 @@ export const defaultConfig = (): Config => ({
 });
 
 /** Starting points for filters, from Focus Diff's recipes. */
-export const FILTER_RECIPES: Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id">> }> = [
+export const FILTER_RECIPES: Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> = [
   {
     title: "Frontend and backend",
     description: "Review each side of a full-stack change on its own.",
@@ -263,13 +264,14 @@ export const FILTER_RECIPES: Array<{ title: string; description: string; filters
 /** Fixed ids: until the person changes them, the defaults are made again each time the file is
  *  read, and the review window remembers a repository's filter by id. */
 export function defaultFilters(): DiffFilter[] {
-  return [...FILTER_RECIPES[0]!.filters, ...FILTER_RECIPES[2]!.filters].map((f) => ({ ...f, id: f.name.toLowerCase().replace(/\W+/g, "-") }));
+  return [...FILTER_RECIPES[0]!.filters, ...FILTER_RECIPES[2]!.filters].map((f) => ({ ...f, id: f.name.toLowerCase().replace(/\W+/g, "-"), repos: [] }));
 }
 
-/** Whether a file is in a filter. */
+/** Whether a file is in a filter. Case doesn't matter, as in Focus Diff, so a filter shared between
+ *  the two keeps the same files. */
 export function inFilter(filter: Pick<DiffFilter, "include" | "exclude">, path: string): boolean {
   try {
-    return (!filter.include || new RegExp(filter.include).test(path)) && !(filter.exclude && new RegExp(filter.exclude).test(path));
+    return (!filter.include || new RegExp(filter.include, "i").test(path)) && !(filter.exclude && new RegExp(filter.exclude, "i").test(path));
   } catch {
     return true;
   }
@@ -352,6 +354,8 @@ export function validPattern(pattern: string): boolean {
 }
 
 const isLogin = (s: string) => /^[\w-]+(\[bot\])?$/.test(s);
+/** "owner/name", or "owner/*" for all of an owner's repositories. */
+export const isRepoPattern = (s: string) => /^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s);
 
 function normalizeStep(raw: unknown): ActionStep | null {
   if (!raw || typeof raw !== "object") return null;
@@ -395,6 +399,7 @@ function normalizeFilter(raw: unknown): DiffFilter | null {
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : "Filter",
     include: pattern(r.include),
     exclude: pattern(r.exclude),
+    repos: strings(r.repos, 20).filter(isRepoPattern),
   };
 }
 

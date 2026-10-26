@@ -304,7 +304,7 @@ const PANES: Array<{ value: Exclude<PaneId, "account">; label: string; icon: typ
     tile: "blue",
     keywords: ["Tabs", "Review requests", "Pull requests where", "Repositories", "Changing files", "Drafts", "Bots", "Labels", "Teams", "Notify me when", "Notifications", "Color"],
   },
-  { value: "filters", label: "Filters", icon: ListFilter, tile: "indigo", keywords: ["Diff filters", "Include", "Leave out", "Regular expressions", "File paths", "Chips"] },
+  { value: "filters", label: "Filters", icon: ListFilter, tile: "indigo", keywords: ["Diff filters", "Include", "Leave out", "Regular expressions", "File paths", "Chips", "Only in", "Repositories", "Share", "Copy filters", "Import filters"] },
   { value: "actions", label: "Actions", icon: Zap, tile: "orange", keywords: ["Buttons", "Steps", "Post a comment", "Request review", "Labels", "Open a link", "Run a command", "Ask me to confirm"] },
   {
     value: "ai",

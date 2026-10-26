@@ -9,6 +9,7 @@ import { prefetch } from "@/lib/prefetch";
 import type { Queue } from "@/lib/config";
 import { avatar } from "@/lib/avatar";
 import { ago, EVENTS, firstName, STATUS } from "@/lib/copy";
+import { formatDuration, pullMinutes, useLearned } from "@/lib/estimate";
 import type { Actor, Item } from "@/lib/engine";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +94,9 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
   const teams = item.viaTeams?.length && !kinds.length ? item.viaTeams : [];
   const ci = (item.ci === "FAILURE" || item.ci === "ERROR") && !kinds.includes("ci-failed");
   const status = item.status && item.status !== "MENTIONED" && !kinds.length ? STATUS[item.status] : null;
+  // How long a review would take, for what's waiting on yours: from its totals, at your pace.
+  const learned = useLearned();
+  const minutes = queue.kind === "review" && pr.changedFiles ? pullMinutes(pr, learned) : null;
 
   return (
     <div ref={ref} className="group relative isolate rounded-[6px]">
@@ -155,6 +159,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
               </Part>
             ) : null}
             {ci ? <Part tone="red">CI failed</Part> : null}
+            {minutes !== null ? <Part title={`About ${formatDuration(minutes).replace(/^~/, "")} to review, at your pace`}>{formatDuration(minutes)}</Part> : null}
             {teams.length ? (
               <Part className="max-w-[24ch]">
                 <span className="truncate">

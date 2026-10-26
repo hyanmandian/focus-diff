@@ -21,7 +21,8 @@ export type DeviceCode = {
   expires_in: number;
 };
 
-export type StoredFile = "config";
+/** "pace": what the review time estimate has learned of the reader (estimate.ts). */
+export type StoredFile = "config" | "pace";
 
 export type AiStatus = {
   provider: "claude" | "cursor";

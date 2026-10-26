@@ -9,12 +9,21 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "reac
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Exchange, Finding } from "@/lib/ai";
 import type { AiAnswer } from "@/lib/bridge";
+import type { OnScreen } from "@/lib/estimate";
 import type { Draft, ReviewFile, Thread } from "@/lib/review";
 import { DraftView, FindingView, NewComment, ThreadView } from "./Thread";
 
 type Annotation = { kind: "thread"; thread: Thread; moved: boolean } | { kind: "draft"; draft: Draft } | { kind: "finding"; finding: Finding } | { kind: "new"; path: string; range: SelectedLineRange };
 
-export type DiffsHandle = { scrollToFile: (path: string) => void; scrollToLine: (path: string, line: number) => void; scrollToTop: () => void };
+export type DiffsHandle = {
+  scrollToFile: (path: string) => void;
+  scrollToLine: (path: string, line: number) => void;
+  scrollToTop: () => void;
+  /** The files on screen and how much of it each takes, for the time spent on them. */
+  onScreen: () => OnScreen;
+  /** The file at the top of the screen, and whether it's been brought all the way up. */
+  atTop: () => { path: string; reached: boolean } | null;
+};
 
 type Props = {
   files: ReviewFile[];
@@ -28,6 +37,8 @@ type Props = {
   onAsk: ((path: string, range: SelectedLineRange, question: string, earlier: Exchange[]) => Promise<AiAnswer>) | null;
   onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
+  /** Viewed files opened anyway (to show a comment in one): they don't fold. */
+  opened: Set<string>;
   diffStyle: "split" | "unified";
   wrap: boolean;
   dark: boolean;
@@ -73,7 +84,7 @@ function firstLine(diff: FileDiffMetadata): { side: Thread["side"]; line: number
 }
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
-  const { files, threads, drafts, findings, isViewed, diffStyle, wrap, dark } = props;
+  const { files, threads, drafts, findings, isViewed, opened, diffStyle, wrap, dark } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
   const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange } | null>(null);
   // Parsing a patch is the costly part: once per file and patch.
@@ -83,6 +94,24 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     scrollToFile: (path) => viewer.current?.scrollTo({ type: "item", id: path, align: "start" } as never),
     scrollToLine: (path, line) => viewer.current?.scrollTo({ type: "line", id: path, lineNumber: line, side: "additions", align: "center", behavior: "smooth" } as never),
     scrollToTop: () => viewer.current?.scrollTo({ type: "position", position: 0 }),
+    onScreen: () => {
+      const view = viewer.current?.getInstance();
+      const box = view?.getContainerElement()?.getBoundingClientRect();
+      if (!view || !box) return [];
+      return view.getRenderedItems().flatMap(({ id, element }): OnScreen => {
+        const r = element.getBoundingClientRect();
+        const height = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
+        return height > 0 ? [[id, height]] : [];
+      });
+    },
+    atTop: () => {
+      const view = viewer.current?.getInstance();
+      const box = view?.getContainerElement()?.getBoundingClientRect();
+      if (!view || !box) return null;
+      const top = view.getRenderedItems().find(({ element }) => element.getBoundingClientRect().bottom > box.top + 1);
+      // Brought up: its start is at the top (past the list's own padding), not still below it.
+      return top ? { path: top.id, reached: top.element.getBoundingClientRect().top <= box.top + 24 } : null;
+    },
   }));
 
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
@@ -112,7 +141,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
             ? [{ side: composing.range.endSide ?? composing.range.side ?? "additions", lineNumber: Math.max(composing.range.start, composing.range.end), metadata: { kind: "new" as const, path: f.path, range: composing.range } }]
             : []),
         ];
-        const viewed = isViewed(f);
+        const viewed = isViewed(f) && !opened.has(f.path);
         return {
           id: f.path,
           type: "diff" as const,
@@ -130,7 +159,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           ),
         };
       });
-  }, [files, threads, drafts, findings, composing, isViewed]);
+  }, [files, threads, drafts, findings, composing, isViewed, opened]);
 
   const options = useMemo(
     () => ({
@@ -237,6 +266,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               {binary.map((f) => (
                 <p key={f.path} className="flex items-center gap-2">
                   <FileWarning className="size-4" /> <span className="font-mono text-xs">{f.path}</span> isn't shown here (binary, or too large for GitHub's diff).
+                  {/* Still one to tick off, or the review never adds up. */}
+                  <label className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs hover:bg-foreground/5 hover:text-foreground">
+                    <Checkbox checked={isViewed(f)} onCheckedChange={(v) => props.onViewed(f, v)} aria-label={`Viewed ${f.path}`} />
+                    Viewed
+                  </label>
                 </p>
               ))}
             </div>

@@ -60,6 +60,8 @@ fn file_path<R: Runtime>(app: &AppHandle<R>, name: &str) -> Result<PathBuf, Stri
     let file = match name {
         "config" => "config.json",
         "auth" => "auth.json",
+        // The reader's review pace, learned from the files they mark as viewed (src/lib/estimate.ts).
+        "pace" => "pace.json",
         _ => return Err("Unknown file".into()),
     };
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;

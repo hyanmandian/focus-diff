@@ -4,7 +4,7 @@
 // on this machine, so closing the window loses nothing.
 
 import { ChevronDown, ChevronUp, Columns2, ExternalLink, GitMerge, Loader2, MoreHorizontal, Rows2, Search, Send, Sparkles, UserMinus, WrapText, Zap } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,13 +23,17 @@ import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
 import { comment, leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
-import { commentNow, loadFiles, loadThreads, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread } from "@/lib/review";
+import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/estimate";
+import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
+import { commentNow, loadFiles, loadThreads, loadViewed, markViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
 import { ActionButtons } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
 import { tabKeys } from "@/lib/keys";
 import { SlidingPill } from "@/shared/SlidingPill";
+import { useActiveTime } from "./activeTime";
 import { Diffs, type DiffsHandle } from "./Diffs";
+import { FilterBar, type Next } from "./FilterBar";
 import { Overview } from "./Overview";
 
 /** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
@@ -76,6 +80,10 @@ const hash = (s: string) => {
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return h.toString(36);
 };
+const without = (m: Record<string, string>, path: string) => (path in m ? Object.fromEntries(Object.entries(m).filter(([p]) => p !== path)) : m);
+
+/** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
+const MIN_REVIEW_SECONDS = 2;
 
 const useDark = (config: Config | null) => {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -182,8 +190,15 @@ export function Review({ target }: { target: Target }) {
   const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {});
   const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview");
   const [stop, setStop] = useState(-1);
-  // The part being reviewed, remembered per repository: its files are what shows.
-  const [part, setPart] = usePersisted(`filter:${repo}`, "");
+  // The parts being reviewed, remembered per repository: their files are what shows. (One filter's
+  // id, from before they could be combined, reads as a list of one.)
+  const [kept, setKept] = usePersisted<unknown>(`filter:${repo}`, []);
+  // Viewed files opened anyway, to show a comment in one: they don't fold until marked again.
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  // Viewed marks on their way to GitHub, by path: what GitHub said before they land doesn't undo them.
+  const sending = useRef(new Map<string, number>());
+  const learned = useLearned();
+  const minutesOf = useMemo(() => createEstimator(learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(`ai-review:${prId}`, null);
   const [reviewing, setReviewing] = useState<string | null>(null);
@@ -198,8 +213,25 @@ export function Review({ target }: { target: Target }) {
   // a click comes back from memory (github.rs).
   // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
   const shownOnce = useRef(false);
+  /** What you've viewed on github.com wins over what was kept here, but for marks still on their way. */
+  const followGitHub = useCallback(
+    (list: ReviewFile[], states: Map<string, ViewedState>) =>
+      setViewed((m) => {
+        const next = { ...m };
+        for (const f of list) {
+          const state = states.get(f.path);
+          if (!state || sending.current.has(f.path)) continue;
+          if (state === "VIEWED") next[f.path] = hash(f.patch);
+          else delete next[f.path];
+        }
+        return next;
+      }),
+    [setViewed],
+  );
   const load = useCallback(async () => {
     const fresh = { details: false, files: false, threads: false };
+    // Beside the rest, never in its way: without it, what's kept here stands.
+    const onGitHub = loadViewed(ref).catch(() => null);
     // Only for the first showing: a reload after you did something already has newer on screen.
     if (!shownOnce.current)
       void readKept(prId).then((kept) => {
@@ -219,10 +251,12 @@ export function Review({ target }: { target: Target }) {
       setError(null);
       performance.mark("loaded");
       void keep(prId, { details: d, files: f, threads: t }, d.updatedAt);
+      const states = await onGitHub;
+      if (states) followGitHub(f, states);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [prId, repo, number, ref]);
+  }, [prId, repo, number, ref, followGitHub]);
 
   useEffect(() => {
     void loadConfig().then(setConfig);
@@ -264,13 +298,73 @@ export function Review({ target }: { target: Target }) {
   }, [ref, repo, number]);
 
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === hash(f.patch), [viewed]);
-  const active = config?.filters.find((f) => f.id === part) ?? null;
-  const inPart = useMemo(() => (files ?? []).filter((f) => !active || inFilter(active, f.path)), [files, active]);
+  // The filters for everywhere and this repository's own; the chosen ones that have files here. The
+  // kept choice stays as it is, so another pull request in the repository gets the full set.
+  const repoFilters = useMemo(() => filtersFor(config?.filters ?? [], repo), [config, repo]);
+  const chosen = useMemo(() => {
+    const ids = keptSelection(kept);
+    return repoFilters.filter((f) => ids.includes(f.id) && (!files || files.some((x) => inFilter(f, x.path))));
+  }, [kept, repoFilters, files]);
+  const chosenIds = useMemo(() => chosen.map((f) => f.id), [chosen]);
+  const inPart = useMemo(() => (files ?? []).filter((f) => inAny(chosen, f.path)), [files, chosen]);
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return inPart.filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || viewed[f.path] !== hash(f.patch)));
-  }, [inPart, filter, hideViewed, viewed]);
+    return inPart.filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || viewed[f.path] !== hash(f.patch) || opened.has(f.path)));
+  }, [inPart, filter, hideViewed, viewed, opened]);
   const viewedCount = inPart.filter(isViewed).length;
+  const shown = useMemo(() => totals(inPart, isViewed, minutesOf), [inPart, isViewed, minutesOf]);
+  const next = useMemo<Next>(() => {
+    const left = visible.filter((f) => !isViewed(f)).length;
+    return { left, nextFilter: chosen.length && !left ? nextFilterWithWork(files ?? [], repoFilters, chosenIds, isViewed) : undefined };
+  }, [visible, isViewed, chosen, chosenIds, files, repoFilters]);
+
+  const choose = useCallback(
+    (ids: string[]) => {
+      setKept(ids);
+      // Another part starts at its top, not wherever the last one was scrolled to.
+      requestAnimationFrame(() => diffs.current?.scrollToTop());
+    },
+    [setKept],
+  );
+  // Next and previous filter stop only at filters with files here.
+  const stepPart = (by: 1 | -1) => choose(stepFilter(repoFilters.filter((f) => files?.some((x) => inFilter(f, x.path))).map((f) => f.id), chosenIds, by));
+  /** The next file left to review, after the one at the top of the screen; with none left in the
+   *  chosen filters, the next filter that has some. */
+  const goToNextFile = () => {
+    setTab("diff");
+    // Files GitHub sends no diff for aren't in the list to go to.
+    const target = nextFile(
+      visible.filter((f) => f.patch),
+      isViewed,
+      diffs.current?.atTop() ?? null,
+    );
+    if (target) requestAnimationFrame(() => diffs.current?.scrollToFile(target.path));
+    else if (next.nextFilter) choose([next.nextFilter.id]);
+  };
+
+  // The time spent on each file showing, to learn the reader's pace from the files they mark viewed.
+  const take = useActiveTime(() => diffs.current?.onScreen() ?? [], tab === "diff");
+  /** Marks a file viewed or not, here at once and on github.com after; if GitHub refuses, it goes back. */
+  const setFileViewed = (f: ReviewFile, v: boolean) => {
+    const before = viewed[f.path];
+    setViewed((m) => (v ? { ...m, [f.path]: hash(f.patch) } : without(m, f.path)));
+    if (v) {
+      setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));
+      const seconds = take(f.path);
+      if (seconds >= MIN_REVIEW_SECONDS) void learnFiles([{ path: f.path, expected: reviewMinutes(f.path, f), actual: seconds / 60 }]);
+    }
+    sending.current.set(f.path, (sending.current.get(f.path) ?? 0) + 1);
+    void markViewed(prId, f.path, v)
+      .catch(() => {
+        setViewed((m) => (before ? { ...m, [f.path]: before } : without(m, f.path)));
+        say(`Couldn't ${v ? "mark" : "unmark"} ${f.path.slice(f.path.lastIndexOf("/") + 1)} as viewed on GitHub`);
+      })
+      .finally(() => {
+        const left = (sending.current.get(f.path) ?? 1) - 1;
+        if (left) sending.current.set(f.path, left);
+        else sending.current.delete(f.path);
+      });
+  };
 
   const threadsByPath = useMemo(() => {
     const map = new Map<string, Thread[]>();
@@ -295,13 +389,14 @@ export function Review({ target }: { target: Target }) {
   const jump = useCallback(
     (path: string, line: number | null) => {
       setTab("diff");
-      if (active && !inFilter(active, path)) setPart("");
+      if (!inAny(chosen, path)) setKept([]);
       setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
-      setViewed((m) => (path in m ? Object.fromEntries(Object.entries(m).filter(([p]) => p !== path)) : m));
+      // Opened, not unmarked: it stays viewed, here and on GitHub.
+      setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
       // After the tab and the list have drawn.
       requestAnimationFrame(() => requestAnimationFrame(() => (line ? diffs.current?.scrollToLine(path, line) : diffs.current?.scrollToFile(path))));
     },
-    [active, setPart, setTab, setViewed],
+    [chosen, setKept, setTab],
   );
   const step = useCallback(
     (by: 1 | -1) => {
@@ -312,10 +407,26 @@ export function Review({ target }: { target: Target }) {
     },
     [stop, stops, jump],
   );
-  // n and p step through the comments, like a reader's next and previous.
+  // n and p step through the comments, like a reader's next and previous. The filters' shortcuts are
+  // Focus Diff's own (⌥⇧. and ⌥⇧, for next and previous filter, ⌥⇧0 for all files, ⌥⇧J for the next
+  // file to review), read by key position, since ⌥ changes the character typed.
+  const filterKeys = useRef({ stepPart, choose, goToNextFile });
+  useLayoutEffect(() => {
+    filterKeys.current = { stepPart, choose, goToNextFile };
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (tab !== "diff" || typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (typing(e.target) || e.metaKey || e.ctrlKey) return;
+      if (e.altKey && e.shiftKey) {
+        const keys = filterKeys.current;
+        const action = { Period: () => keys.stepPart(1), Comma: () => keys.stepPart(-1), Digit0: () => keys.choose([]), KeyJ: keys.goToNextFile }[e.code];
+        if (!action || !files) return;
+        e.preventDefault();
+        setTab("diff");
+        action();
+        return;
+      }
+      if (tab !== "diff" || e.altKey) return;
       if (e.key === "n" || e.key === "p") {
         e.preventDefault();
         step(e.key === "n" ? 1 : -1);
@@ -323,7 +434,7 @@ export function Review({ target }: { target: Target }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tab, step]);
+  }, [tab, step, files, setTab]);
 
   if (error && !details) {
     return (
@@ -732,7 +843,8 @@ export function Review({ target }: { target: Target }) {
                   diffStyle={diffStyle}
                   wrap={wrap}
                   dark={dark}
-                  onViewed={(f, v) => setViewed((m) => (v ? { ...m, [f.path]: hash(f.patch) } : Object.fromEntries(Object.entries(m).filter(([p]) => p !== f.path))))}
+                  opened={opened}
+                  onViewed={setFileViewed}
                   onAddDraft={(draft) => setDrafts((list) => [...list, { ...draft, key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }])}
                   onEditDraft={(key, body) => setDrafts((list) => list.map((d) => (d.key === key ? { ...d, body } : d)))}
                   onRemoveDraft={(key) => setDrafts((list) => list.filter((d) => d.key !== key))}
@@ -753,7 +865,7 @@ export function Review({ target }: { target: Target }) {
                   }}
                 />
               ) : (
-                <p className="p-10 text-center text-sm text-muted-foreground">{active && !inPart.length ? `No files in ${active.name}.` : "No files match."}</p>
+                <p className="p-10 text-center text-sm text-muted-foreground">{chosen.length && !inPart.length ? `No files in ${chosen.map((f) => f.name).join(" + ")}.` : "No files match."}</p>
               )
             ) : (
               <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label="Loading files">
@@ -762,36 +874,19 @@ export function Review({ target }: { target: Target }) {
                 ))}
               </div>
             )}
-            {files && config?.filters.length ? (
-              // Focus Diff's bar: the parts of the pull request, and how much of it is in view.
-              <div role="group" aria-label="Review one part" className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1 overflow-x-auto rounded-xl border bg-popover/95 p-1 shadow-xl backdrop-blur [scrollbar-width:none]">
-                <SlidingPill selected={active?.id || "all"} />
-                {[{ id: "", name: "All", count: files.length }, ...config.filters.map((f) => ({ id: f.id, name: f.name, count: files.filter((x) => inFilter(f, x.path)).length }))].map((chip) => (
-                  <button
-                    key={chip.id || "all"}
-                    type="button"
-                    aria-pressed={(active?.id ?? "") === chip.id}
-                    data-pill={chip.id || "all"}
-                    onClick={() => {
-                      setPart(chip.id);
-                      // Another part starts at its top, not wherever the last one was scrolled to.
-                      requestAnimationFrame(() => diffs.current?.scrollToTop());
-                    }}
-                    className={cn(
-                      "flex h-7 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-                      (active?.id ?? "") === chip.id ? "text-selected-foreground" : "hover:bg-foreground/6",
-                      chip.count === 0 && (active?.id ?? "") !== chip.id && "text-muted-foreground",
-                    )}
-                  >
-                    {chip.name}
-                    <span className={cn("rounded-full px-1.5 text-[11px] leading-[18px] tabular-nums", (active?.id ?? "") === chip.id ? "bg-black/16" : "bg-muted text-muted-foreground")}>{chip.count}</span>
-                  </button>
-                ))}
-                <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
-                <span className="shrink-0 pr-2 font-mono text-[11px] whitespace-nowrap tabular-nums" aria-label="Lines in view">
-                  <span className="text-success">+{inPart.reduce((n, f) => n + f.additions, 0)}</span> <span className="text-destructive">−{inPart.reduce((n, f) => n + f.deletions, 0)}</span>
-                </span>
-              </div>
+            {files?.length ? (
+              <FilterBar
+                files={files}
+                filters={repoFilters}
+                chosen={chosenIds}
+                shown={shown}
+                next={next}
+                isViewed={isViewed}
+                minutesOf={minutesOf}
+                learned={learned}
+                onToggle={(id) => choose(toggled(chosenIds, id))}
+                onNextFile={goToNextFile}
+              />
             ) : null}
           </div>
         </div>

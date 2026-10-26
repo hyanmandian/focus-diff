@@ -147,19 +147,19 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
     }));
   const fetch = (query: string) => {
     setLoading(true);
-    const done = () => {
+    void (async () => {
+      await Promise.allSettled([
+        loadPeople(pr, query, (people) => {
+          setCandidates((c) => ({ ...c, people }));
+        }),
+        m?.orgOwned
+          ? loadTeams(pr, query, (teams) => {
+              setCandidates((c) => ({ ...c, teams }));
+            })
+          : Promise.resolve(),
+      ]);
       setLoading(false);
-    };
-    void Promise.allSettled([
-      loadPeople(pr, query, (people) => {
-        setCandidates((c) => ({ ...c, people }));
-      }),
-      m?.orgOwned
-        ? loadTeams(pr, query, (teams) => {
-            setCandidates((c) => ({ ...c, teams }));
-          })
-        : Promise.resolve(),
-    ]).then(done);
+    })();
   };
   const requested = new Set(list.filter((r) => r.requested).map((r) => r.key));
   const author = details.author?.login;
@@ -197,26 +197,27 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
     const person = candidates.people.find((p) => p.login === id) ?? null;
     const known = candidates.teams.find((x) => x.slug === team) ?? null;
     void change(
-      (m) => {
-        const others = m.reviewers.filter((r) => r.key !== id);
-        const existing = m.reviewers.find((r) => r.key === id);
+      (now) => {
+        const others = now.reviewers.filter((r) => r.key !== id);
+        const existing = now.reviewers.find((r) => r.key === id);
         if (!on)
           return {
-            ...m,
+            ...now,
             reviewers: existing?.state
-              ? m.reviewers.map((r) => (r.key === id ? { ...r, requested: false } : r))
+              ? now.reviewers.map((r) => (r.key === id ? { ...r, requested: false } : r))
               : others,
           };
         return {
-          ...m,
+          ...now,
           reviewers: existing
-            ? m.reviewers.map((r) => (r.key === id ? { ...r, requested: true } : r))
+            ? now.reviewers.map((r) => (r.key === id ? { ...r, requested: true } : r))
             : [
-                ...m.reviewers,
+                ...now.reviewers,
                 {
                   key: id,
                   actor: team ? null : person,
-                  team: team ? (known ?? { slug: team, name: team, combinedSlug: team }) : null,
+                  // Picked from the list: a team asked here is one of its teams.
+                  team: known,
                   state: null,
                   requested: true,
                   codeOwner: false,
@@ -243,7 +244,9 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
               toggle(c.id, !c.selected);
             }}
             onQuery={fetch}
-            onOpenChange={(open) => open && fetch("")}
+            onOpenChange={(open) => {
+              if (open) fetch("");
+            }}
             trigger={gear(t("manage.editReviewers"))}
           >
             <Settings2 />
@@ -346,13 +349,13 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
   const toggle = (login: string, on: boolean) => {
     const person = people.find((p) => p.login === login) ?? assigned.find((p) => p.login === login);
     void change(
-      (m) => ({
-        ...m,
+      (now) => ({
+        ...now,
         assignees: on
           ? person
-            ? [...m.assignees, person]
-            : m.assignees
-          : m.assignees.filter((a) => a.login !== login),
+            ? [...now.assignees, person]
+            : now.assignees
+          : now.assignees.filter((a) => a.login !== login),
       }),
       () => (on ? addAssignees(pr, [login]) : removeAssignees(pr, [login])),
     );
@@ -373,7 +376,9 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
               toggle(c.id, !c.selected);
             }}
             onQuery={fetch}
-            onOpenChange={(open) => open && fetch("")}
+            onOpenChange={(open) => {
+              if (open) fetch("");
+            }}
             trigger={gear(t("manage.editAssignees"))}
           >
             <Settings2 />
@@ -429,11 +434,12 @@ function Labels({ pr, pull, onError }: Props) {
     selected: chosen.some((c) => c.name === l.name),
   }));
   const toggle = (name: string, on: boolean) => {
-    const label = all.find((l) => l.name === name);
+    // Picked from the list, so it's there.
+    const label = all.filter((l) => l.name === name);
     void change(
-      (m) => ({
-        ...m,
-        labels: on ? (label ? [...m.labels, label] : m.labels) : m.labels.filter((l) => l.name !== name),
+      (now) => ({
+        ...now,
+        labels: on ? [...now.labels, ...label] : now.labels.filter((l) => l.name !== name),
       }),
       () => (on ? addLabels(pr, [name]) : removeLabel(pr, name)),
     );
@@ -502,10 +508,11 @@ function MilestoneSection({ pr, pull, onError }: Props) {
   if (current && !choices.some((c) => c.selected))
     choices.unshift({ id: String(current.number), label: current.title, selected: true });
   const pick = (c: Choice) => {
-    const next = c.selected ? null : (all.find((x) => String(x.number) === c.id) ?? null);
+    // One not chosen is from the list (the closed one kept at its top is the chosen one).
+    const next = c.selected ? null : all.find((x) => String(x.number) === c.id)!;
     setOpen(false);
     void change(
-      (m) => ({ ...m, milestone: next }),
+      (now) => ({ ...now, milestone: next }),
       () => setMilestone(pr, next?.number ?? null),
     );
   };

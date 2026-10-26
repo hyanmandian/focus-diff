@@ -138,7 +138,7 @@ export const createDemo = (
       else row.removeAttribute("aria-current");
     }
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (file) rows.get(file)?.scrollIntoView({ block: "nearest", behavior: reduce ? "instant" : "smooth" });
+    if (file) rows.get(file)!.scrollIntoView({ block: "nearest", behavior: reduce ? "instant" : "smooth" });
   };
 
   const panel = createPanel(
@@ -156,25 +156,18 @@ export const createDemo = (
         if (threads.length === 0) return;
         const index = stepFrom(conversation, direction, threads.length);
         conversation = index + 1;
-        goTo(shown.find((file) => file.path === threads[index]?.path) ?? null);
+        // The conversations are those of the shown files, so the step lands on one of them.
+        const { path } = threads[index]!;
+        goTo(shown.find((file) => file.path === path)!);
         apply();
-        panel.announceText(
-          i18n.t("panelJumpedToComment", [String(conversation), String(threads.length), threads[index]?.path ?? ""]),
-        );
+        panel.announceText(i18n.t("panelJumpedToComment", [String(conversation), String(threads.length), path]));
       },
       onUpdateSeen: () => {},
     },
   );
   const showReview = createReviewView(panel);
   // The bar's tooltip, for the files' buttons too: a disabled Viewed button says why.
-  const tooltip = createTooltip(
-    {
-      host: target,
-      signal: controller.signal,
-      focused: () => (root.activeElement instanceof HTMLElement ? root.activeElement : null),
-    },
-    list,
-  );
+  const tooltip = createTooltip({ signal: controller.signal }, list);
   root.addEventListener(
     "keydown",
     (event) => {
@@ -195,12 +188,11 @@ export const createDemo = (
     for (const [file, row] of rows) {
       const out = !now.matches(file.path);
       row.toggleAttribute("data-out", out);
-      const toggle = row.querySelector<HTMLElement>(".demo-viewed");
-      toggle?.setAttribute("aria-disabled", String(out));
-      if (toggle && out) toggle.dataset.tip = outside;
-      else if (toggle) delete toggle.dataset.tip;
-      const note = row.querySelector(".visually-hidden");
-      if (note) note.textContent = out ? outside : "";
+      const toggle = row.querySelector<HTMLElement>(".demo-viewed")!;
+      toggle.setAttribute("aria-disabled", String(out));
+      if (out) toggle.dataset.tip = outside;
+      else delete toggle.dataset.tip;
+      row.querySelector(".visually-hidden")!.textContent = out ? outside : "";
       for (const talk of row.querySelectorAll<HTMLElement>(".demo-talk"))
         talk.toggleAttribute("data-current", file.path === at?.path && talk.dataset.line === String(at.line));
     }
@@ -223,13 +215,12 @@ export const createDemo = (
   function nextFile() {
     const left = shown.filter((file) => !file.viewed);
     if (left.length === 0) {
-      const then = ids.length > 0 ? nextFilterWithWork(files, filters, ids) : undefined;
-      if (then) choose([then.id]);
+      // The bar's button is only enabled here when a filter is shown and a later one has files left.
+      choose([nextFilterWithWork(files, filters, ids)!.id]);
       return;
     }
     const from = current ? shown.indexOf(current) : -1;
-    const upNext = left.find((file) => shown.indexOf(file) > from) ?? left[0];
-    if (!upNext) return;
+    const upNext = left.find((file) => shown.indexOf(file) > from) ?? left[0]!;
     goTo(upNext);
     panel.announceText(i18n.t("panelJumpedToFile", left.length, [upNext.path, format(left.length)]));
   }
@@ -239,8 +230,7 @@ export const createDemo = (
    * is measured as it would lay out with all the room it wants.
    */
   const fit = () => {
-    const bar = container.querySelector(".panel");
-    if (!bar) return;
+    const bar = container.querySelector(".panel")!;
     panel.setCompact(false);
     const room = { "--fd-max-width": "none", width: "max-content", "max-width": "none" };
     for (const [name, value] of Object.entries(room)) host.style.setProperty(name, value);

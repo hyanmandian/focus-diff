@@ -17,7 +17,7 @@ const ARROW_EDGE = 14;
 const targetOf = (event: Event) =>
   event.target instanceof Element ? event.target.closest<HTMLElement>("[data-tip]") : null;
 
-export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => {
+export const createTooltip = ({ signal }: Pick<PanelContext, "signal">, within: HTMLElement) => {
   const tip = h("div", { className: "tip", "aria-hidden": "true", hidden: true });
   within.append(tip);
   let current: HTMLElement | null = null;

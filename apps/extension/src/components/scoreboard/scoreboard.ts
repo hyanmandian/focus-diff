@@ -13,7 +13,7 @@ const isSeparator = (character = "") => SEPARATOR.test(character);
 const layout = (text: string, widest: string[]): string[] | null => {
   const characters = Array.from(text);
   const cells = widest.toReversed().map((cell) => {
-    if (isSeparator(cell)) return isSeparator(characters.at(-1)) ? (characters.pop() ?? "").trim() : "";
+    if (isSeparator(cell)) return isSeparator(characters.at(-1)) ? characters.pop()!.trim() : "";
     while (isSeparator(characters.at(-1))) characters.pop();
     return characters.pop() ?? "";
   });
@@ -48,7 +48,8 @@ export const createScoreboard = (className: string) => {
     let characters = layout(text, cells);
     if (!characters) {
       cells = Array.from(text);
-      characters = layout(text, cells) ?? [];
+      // Laid out on its own characters, a text always fits.
+      characters = layout(text, cells)!;
     }
     const nextShape = cells.map((character) => (isSeparator(character) ? "," : "0")).join("");
     if (nextShape !== shape) {
@@ -60,8 +61,8 @@ export const createScoreboard = (className: string) => {
     }
     characters.forEach((character, index) => {
       if (character === shown[index]) return;
-      const cell = element.children[index];
-      if (!cell) return;
+      // One cell per character: both come from the same widest text.
+      const cell = element.children[index]!;
       cell.textContent = character;
       if (character) flip(cell);
     });

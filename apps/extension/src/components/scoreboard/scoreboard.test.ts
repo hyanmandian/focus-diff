@@ -47,3 +47,19 @@ describe("createScoreboard", () => {
     expect(shown(board.element)).toBe("[+][1](,)[0][0][0]");
   });
 });
+
+describe("createScoreboard's flips", () => {
+  it("flips only the cells whose character changed, unless motion is reduced", () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    const animate = vi.fn<Element["animate"]>();
+    vi.spyOn(HTMLElement.prototype, "animate").mockImplementation(animate);
+    const board = createScoreboard("additions");
+    board.set("12", "99");
+    expect(animate).toHaveBeenCalledTimes(2);
+    board.set("13", "99");
+    expect(animate).toHaveBeenCalledTimes(3);
+    board.set("3", "99");
+    // The first cell empties without a flip; the second keeps its 3.
+    expect(animate).toHaveBeenCalledTimes(3);
+  });
+});

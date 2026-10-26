@@ -2,8 +2,9 @@
 // since a web view's console isn't visible there.
 import { invoke } from "@tauri-apps/api/core";
 
+const send = (message: string) => void invoke("log", { message }).catch(() => {});
+
 export function forwardErrors() {
-  const send = (message: string) => void invoke("log", { message }).catch(() => {});
   const original = console.error.bind(console);
   console.error = (...args: unknown[]) => {
     original(...args);

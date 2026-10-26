@@ -2,7 +2,7 @@
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { WorkerPoolContextProvider } from "@pierre/diffs/react";
+import { WorkerPoolContext } from "@pierre/diffs/react";
 import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import { StrictMode } from "react";
@@ -23,18 +23,20 @@ followLanguage();
 // spare window warms them up before it's needed); the themes are the ones Diffs.tsx shows.
 const POOL = { workerFactory: () => new DiffsWorker(), poolSize: Math.min(4, Math.max(2, (navigator.hardwareConcurrency || 4) >> 1)) };
 const HIGHLIGHTER = { theme: { dark: "github-dark-default", light: "github-light-default" }, lineDiffType: "word" as const };
-getOrCreateWorkerPoolSingleton({ poolOptions: POOL, highlighterOptions: HIGHLIGHTER });
+// Lives as long as the window. Handed down directly rather than through WorkerPoolContextProvider,
+// which ends the pool when it unmounts, as StrictMode's rehearsal unmount does in development.
+const pool = getOrCreateWorkerPoolSingleton({ poolOptions: POOL, highlighterOptions: HIGHLIGHTER });
 
 const root = createRoot(document.getElementById("root")!);
 const show = (target: Target) =>
   root.render(
     <StrictMode>
-      <WorkerPoolContextProvider poolOptions={POOL} highlighterOptions={HIGHLIGHTER}>
+      <WorkerPoolContext.Provider value={pool}>
         <TooltipProvider>
           <Review target={target} />
           <Viewer />
         </TooltipProvider>
-      </WorkerPoolContextProvider>
+      </WorkerPoolContext.Provider>
     </StrictMode>,
   );
 

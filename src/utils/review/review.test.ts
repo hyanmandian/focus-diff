@@ -188,6 +188,15 @@ function twoPages(request: Request) {
 }
 
 describe("loading conversations", () => {
+  it("keeps a conversation that comes without its hunk", async () => {
+    github(() => threadsPage([thread("T1", { hunk: null }), thread("T2", { hunk: undefined })]));
+    const threads = await loadThreads(ref);
+    expect(threads.map((t) => [t.id, t.context])).toEqual([
+      ["T1", undefined],
+      ["T2", undefined],
+    ]);
+  });
+
   it("reads each conversation's place, state and comments", async () => {
     github(() =>
       threadsPage([

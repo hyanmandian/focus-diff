@@ -133,11 +133,10 @@ const heldSection = (held: HeldEvent[]) => {
 /** The run's head: the time left, or set aside, how far along, and what to do. */
 const runHead = (run: ReviewRun, reviewed: number) => {
   const total = run.pulls.reduce((sum, pull) => sum + pull.minutes, 0);
-  const started = run.startedAt !== null;
+  const { startedAt } = run;
+  const started = startedAt !== null;
   const left = Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
-  const elapsed = started
-    ? Math.min(100, Math.round(((Date.now() - (run.startedAt ?? 0)) / (run.minutes * 60_000)) * 100))
-    : 0;
+  const elapsed = started ? Math.min(100, Math.round(((Date.now() - startedAt) / (run.minutes * 60_000)) * 100)) : 0;
   const head = h(
     "div",
     { className: "run-head" },
@@ -244,8 +243,9 @@ const nextLine = (settings: ReviewTimeSettings, skipUntil: number, skip: Options
       ]),
     }),
     skipNext,
-    // Skipping the rest of today only differs from skipping the next one with more than one left today.
-    (nextOccurrence(settings, next.at)?.at ?? Infinity) < tomorrow ? rest : "",
+    // Skipping the rest of today only differs from skipping the next one with more than one left today. There's always
+    // one after the next: the same a week on.
+    nextOccurrence(settings, next.at)!.at < tomorrow ? rest : "",
   );
   return line;
 };

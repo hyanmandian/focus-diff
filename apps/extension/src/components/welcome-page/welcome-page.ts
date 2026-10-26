@@ -27,7 +27,8 @@ import {
   saveReviewTime,
 } from "@/utils/storage/storage";
 
-const recipeIds = (recipe: Recipe) => recipe.filters.map((_, index) => `recipe-${recipe.id}-${index}`);
+const recipeId = (recipe: Recipe, index: number) => `recipe-${recipe.id}-${index}`;
+const recipeIds = (recipe: Recipe) => recipe.filters.map((_, index) => recipeId(recipe, index));
 
 const names = (recipe: Recipe) => recipe.filters.map((filter) => message(filter.name)).join(", ");
 
@@ -57,7 +58,11 @@ export const startWelcome = (): void => {
     const global = adding
       ? [
           ...config.global,
-          ...recipe.filters.map((filter, index) => ({ ...filter, id: ids[index] ?? "", name: message(filter.name) })),
+          ...recipe.filters.map((filter, index) => ({
+            ...filter,
+            id: recipeId(recipe, index),
+            name: message(filter.name),
+          })),
         ]
       : config.global.filter((filter) => !ids.includes(filter.id));
     const next = normalize({ ...config, global });
@@ -130,6 +135,7 @@ export const startWelcome = (): void => {
    * itself; taking it back leaves the reader's own review times as they are.
    */
   let reviewTime: ReviewTimeSettings = normalizeReviewTime({});
+  /** The title and description of each of REVIEW_PRESETS. */
   const PRESET_NAMES: Record<string, [string, string]> = {
     twice: [i18n.t("presetTwiceTitle"), i18n.t("presetTwiceDescription")],
     every: [i18n.t("presetEveryTitle"), i18n.t("presetEveryDescription")],
@@ -144,7 +150,7 @@ export const startWelcome = (): void => {
     reviewTime.enabled && reviewTime.sessions.some((session) => session.id === `preset-${preset.id}` && session.on);
 
   const togglePreset = async (preset: ReviewPreset) => {
-    const [title] = PRESET_NAMES[preset.id] ?? [""];
+    const [title] = PRESET_NAMES[preset.id]!;
     const id = `preset-${preset.id}`;
     const adding = !presetOn(preset);
     if (adding && browser.runtime.getManifest().optional_permissions?.includes("notifications")) {
@@ -175,7 +181,7 @@ export const startWelcome = (): void => {
     const focused = document.activeElement?.closest<HTMLElement>("[data-preset]")?.dataset.preset;
     $("#review-presets").replaceChildren(
       ...REVIEW_PRESETS.map((preset) => {
-        const [title, description] = PRESET_NAMES[preset.id] ?? ["", ""];
+        const [title, description] = PRESET_NAMES[preset.id]!;
         const session = presetSession(preset, title);
         const on = presetOn(preset);
         const item = document.createElement("li");

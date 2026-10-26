@@ -6,6 +6,7 @@ import { github, graphql } from "./bridge";
 import type { Details } from "./details";
 import type { Actor } from "./engine";
 import { i18n } from "./i18n";
+import { hunkTail } from "./placement";
 
 export type ReviewFile = {
   path: string;
@@ -27,16 +28,21 @@ export type Thread = {
   line: number;
   resolved: boolean;
   outdated: boolean;
+  /** The commented line's code when the comment was made (the end of GitHub's diffHunk), to tell whether an
+   *  outdated conversation's line is still that code (placement.ts). */
+  context?: string;
   comments: ThreadComment[];
 };
 
 /** A comment written during this review, sent with it. */
-export type Draft = { key: string; path: string; side: "additions" | "deletions"; line: number; startLine?: number; body: string };
+export type Draft = { key: string; path: string; side: "additions" | "deletions"; line: number; startLine?: number; startSide?: "additions" | "deletions"; body: string };
 
 const header = (f: { filename: string; previous_filename?: string; status: string }) => {
   const old = f.previous_filename ?? f.filename;
   return [
     `diff --git a/${old} b/${f.filename}`,
+    // Named a rename, the file's header says "old → new" and its old version is read under the old name.
+    ...(old !== f.filename ? [`rename from ${old}`, `rename to ${f.filename}`] : []),
     f.status === "added" ? "--- /dev/null" : `--- a/${old}`,
     f.status === "removed" ? "+++ /dev/null" : `+++ b/${f.filename}`,
   ].join("\n");
@@ -45,12 +51,27 @@ const header = (f: { filename: string; previous_filename?: string; status: strin
 /** What finds a pull request: enough to load its files and conversations before its details. */
 export type PullRef = Pick<Details, "owner" | "repo" | "number">;
 
-export async function loadFiles(d: PullRef): Promise<ReviewFile[]> {
+/** GitHub lists at most 3,000 files, 100 a page. */
+const PAGES = 30;
+
+/** `count`: how many files the pull request has, when known (its details): every page past the
+ *  first is then asked for at once. Otherwise they're asked for a few at a time until one isn't full. */
+export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[]> {
   type Raw = { filename: string; previous_filename?: string; status: ReviewFile["status"]; additions: number; deletions: number; patch?: string };
+  const page = (n: number) => github<Raw[]>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}/files?per_page=100&page=${n}`);
+  const pages = [await page(1)];
+  if (pages[0]!.length === 100) {
+    const known = count ? Math.min(PAGES, Math.ceil(count / 100)) : 0;
+    if (known > 1) pages.push(...(await Promise.all(Array.from({ length: known - 1 }, (_, i) => page(i + 2)))));
+    // Carry on while pages come back full: a few at a time without a count, one by one past a
+    // count that's behind what's there now.
+    const step = known ? 1 : 4;
+    for (let next = Math.max(2, known + 1); next <= PAGES && pages[pages.length - 1]!.length === 100; next += step) {
+      pages.push(...(await Promise.all(Array.from({ length: Math.min(step, PAGES - next + 1) }, (_, i) => page(next + i)))));
+    }
+  }
   const files: ReviewFile[] = [];
-  // GitHub lists at most 3,000 files, 100 a page.
-  for (let page = 1; page <= 30; page++) {
-    const batch = await github<Raw[]>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}/files?per_page=100&page=${page}`);
+  for (const batch of pages) {
     for (const f of batch) {
       files.push({
         path: f.filename,
@@ -82,6 +103,7 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
             line: number | null;
             originalLine: number | null;
             diffSide: "LEFT" | "RIGHT";
+            hunk: { nodes: Array<{ diffHunk: string | null }> };
             comments: { nodes: Array<{ id: string; databaseId: number; author: Actor; bodyHTML: string; createdAt: string; url: string }> };
           }>;
         };
@@ -97,6 +119,7 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
           reviewThreads(first: 100, after: $after) {
             pageInfo { hasNextPage endCursor }
             nodes { id isResolved isOutdated path line originalLine diffSide
+              hunk: comments(first: 1) { nodes { diffHunk } }
               comments(first: 50) { nodes { id databaseId author { ${ACTOR} } bodyHTML createdAt url } } }
           }
         } }
@@ -114,6 +137,7 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
         line,
         resolved: t.isResolved,
         outdated: t.isOutdated,
+        context: hunkTail(t.hunk?.nodes[0]?.diffHunk),
         comments: t.comments.nodes.map((c) => ({ id: c.id, databaseId: c.databaseId, author: c.author, html: c.bodyHTML, at: c.createdAt, url: c.url })),
       });
     }
@@ -159,7 +183,8 @@ const draftPayload = (draft: Draft) => ({
   body: draft.body,
   line: draft.line,
   side: toSide(draft.side),
-  ...(draft.startLine !== undefined && draft.startLine !== draft.line ? { start_line: draft.startLine, start_side: toSide(draft.side) } : {}),
+  // Several lines: where they start, on the side they start on (the old side's, across the two).
+  ...(draft.startLine !== undefined && (draft.startLine !== draft.line || (draft.startSide ?? draft.side) !== draft.side) ? { start_line: draft.startLine, start_side: toSide(draft.startSide ?? draft.side) } : {}),
 });
 
 /** The review, with the comments written during it. */

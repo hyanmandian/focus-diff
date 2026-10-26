@@ -3,7 +3,7 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
-import { ChevronDown, ChevronUp, Columns2, GitMerge, Loader2, MoreHorizontal, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Columns2, GitMerge, Loader2, MoreHorizontal, Pilcrow, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { keep, readKept } from "@/lib/kept";
+import { keep, readKept, type Kept } from "@/lib/kept";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/lib/ai";
 import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
@@ -28,15 +28,21 @@ import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/es
 import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
 import { commentNow, loadFiles, loadThreads, loadViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
 import { useTheme } from "@/lib/theme";
+import { mergeBase, type Source } from "@/lib/contents";
+import { patchHash } from "@/lib/hashes";
+import { stepFile } from "@/lib/navigate";
+import { inTreeOrder } from "@/lib/tree";
 import { ActionButtons, ActionMenuItems } from "@/shared/Actions";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import { tabKeys } from "@/lib/keys";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { useActiveTime } from "./activeTime";
-import { Diffs, type DiffsHandle } from "./Diffs";
+import { Diffs, type DiffsHandle, type LinkTarget } from "./Diffs";
+import { FileTree } from "./FileTree";
 import { FilterBar, type Next } from "./FilterBar";
 import { Overview } from "./Overview";
+import { Shortcuts } from "./Shortcuts";
 
 /** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
  *  ("org/slug"), for leaving the review. */
@@ -74,13 +80,6 @@ function usePersisted<T>(key: string, fallback: T) {
   );
   return [value, set] as const;
 }
-
-/** A file stays viewed until its changes do: keyed by a hash of its patch. */
-const hash = (s: string) => {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return h.toString(36);
-};
 
 /** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
 const MIN_REVIEW_SECONDS = 2;
@@ -183,7 +182,7 @@ function SubmitReview({ details, drafts, open, onOpenChange, onSubmitted }: { de
 }
 
 /** Where a comment is, to step through them: a conversation, a pending comment, an AI comment. */
-type Stop = { path: string; line: number; kind: "conversation" | "pending" | "ai" };
+type Stop = { path: string; line: number; side: Thread["side"]; kind: "conversation" | "pending" | "ai"; thread?: Thread };
 
 export function Review({ target }: { target: Target }) {
   const t = useT();
@@ -198,6 +197,9 @@ export function Review({ target }: { target: Target }) {
   const [hideViewed, setHideViewed] = useState(false);
   const [diffStyle, setDiffStyle] = usePersisted<"split" | "unified">("diff-style", "split");
   const [wrap, setWrap] = usePersisted("diff-wrap", false);
+  // Whitespace changes hidden, as GitHub's ?w=1; kept like the layout and wrapping.
+  const [whitespace, setWhitespace] = usePersisted("diff-whitespace", false);
+  const [shortcuts, setShortcuts] = useState(false);
   const [drafts, setDrafts] = usePersisted<Draft[]>(`drafts:${prId}`, []);
   const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {});
   const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview");
@@ -227,8 +229,11 @@ export function Review({ target }: { target: Target }) {
   const filterField = useRef<HTMLInputElement>(null);
 
   const ref = useMemo(() => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }), [repo, number]);
-  // All three at once: each needs only the pull request's address. What the panel fetched ahead of
-  // a click comes back from memory (github.rs).
+  // Both versions of the files (to expand context, show pictures, load large files) and links to
+  // them, once the head commit is known.
+  const head = details?.headRefOid;
+  const source = useMemo<Source | null>(() => (head ? { repo, head, base: () => mergeBase(ref, head) } : null), [repo, ref, head]);
+  const link = useMemo<LinkTarget | null>(() => (head ? { ...ref, head } : null), [ref, head]);
   // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
   const shownOnce = useRef(false);
   /** What you've viewed on github.com, for the files not marked here; what's marked here goes to GitHub. */
@@ -242,38 +247,55 @@ export function Review({ target }: { target: Target }) {
           if (!state || f.path in queued) continue;
           // Marked here (viewed, at these changes, or unmarked): the app's mark wins and goes to
           // GitHub if it says otherwise. Untouched here, or marked before the file changed: GitHub's.
-          if (mine === "" || mine === hash(f.patch)) {
+          if (mine === "" || mine === patchHash(f)) {
             if ((state === "VIEWED") !== (mine !== "")) void bridge.queueViewed(prId, f.path, mine !== "");
-          } else if (state === "VIEWED") next[f.path] = hash(f.patch);
+          } else if (state === "VIEWED") next[f.path] = patchHash(f);
           else delete next[f.path];
         }
         return next;
       }),
     [setViewed, prId],
   );
+  // What's on screen, to fetch only what changed since: the copy kept on disk for the first
+  // showing, what was last loaded after that.
+  const last = useRef<Kept | null>(null);
   const load = useCallback(async () => {
-    const fresh = { details: false, files: false, threads: false };
     // Beside the rest, never in its way: without it, what's kept here stands.
     const onGitHub = loadViewed(ref).catch(() => null);
-    // Only for the first showing: a reload after you did something already has newer on screen.
-    if (!shownOnce.current)
-      void readKept(prId).then((kept) => {
-        if (!kept || shownOnce.current) return;
-        if (!fresh.details) setDetails(kept.details);
-        if (!fresh.files) setFiles(kept.files);
-        if (!fresh.threads) setThreads(kept.threads);
-        performance.mark("kept");
-      });
+    const asked = loadDetails(repo, number);
     try {
-      const [d, f, t] = await Promise.all([
-        loadDetails(repo, number).then((d) => ((fresh.details = true), setDetails(d), d)),
-        loadFiles(ref).then((f) => ((fresh.files = true), setFiles(f), f)),
-        loadThreads(ref).then((t) => ((fresh.threads = true), setThreads(t), t)),
-      ]);
+      // Only for the first showing: a reload after you did something already has newer on screen.
+      let before = last.current;
+      if (!shownOnce.current) {
+        before = await readKept(prId);
+        if (before && !last.current) {
+          setDetails(before.details);
+          setFiles(before.files);
+          setThreads(before.threads);
+          performance.mark("kept");
+        }
+      }
+      let d: Details, f: ReviewFile[], t: Thread[];
+      if (before) {
+        // Shown already: ask for the details, then only what changed. The files change only with
+        // the head commit (or another base branch); the conversations, with the pull request.
+        d = await asked;
+        setDetails(d);
+        const sameFiles = before.details.headRefOid === d.headRefOid && before.details.baseRefName === d.baseRefName;
+        [f, t] = await Promise.all([
+          sameFiles ? before.files : loadFiles(ref, d.changedFiles).then((f) => (setFiles(f), f)),
+          before.details.updatedAt === d.updatedAt ? before.threads : loadThreads(ref).then((t) => (setThreads(t), t)),
+        ]);
+      } else {
+        // Nothing yet: all three at once, each needs only the pull request's address. What the
+        // panel fetched ahead of a click comes back from memory (github.rs).
+        [d, f, t] = await Promise.all([asked.then((d) => (setDetails(d), d)), loadFiles(ref).then((f) => (setFiles(f), f)), loadThreads(ref).then((t) => (setThreads(t), t))]);
+      }
       shownOnce.current = true;
+      last.current = { details: d, files: f, threads: t };
       setError(null);
       performance.mark("loaded");
-      void keep(prId, { details: d, files: f, threads: t }, d.updatedAt);
+      void keep(prId, last.current, d.updatedAt);
       const [states, queued] = await Promise.all([onGitHub, bridge.queuedViewed(prId).catch(() => ({}))]);
       if (states) followGitHub(f, states, queued);
     } catch (e) {
@@ -318,9 +340,10 @@ export function Review({ target }: { target: Target }) {
     const [t, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
     setThreads(t);
     setDetails(d);
+    if (last.current) last.current = { ...last.current, details: d, threads: t };
   }, [ref, repo, number]);
 
-  const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === hash(f.patch), [viewed]);
+  const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === patchHash(f), [viewed]);
   // The filters for everywhere and this repository's own; the chosen ones that have files here. The
   // kept choice stays as it is, so another pull request in the repository gets the full set.
   const repoFilters = useMemo(() => filtersFor(config?.filters ?? [], repo), [config, repo]);
@@ -329,11 +352,13 @@ export function Review({ target }: { target: Target }) {
     return repoFilters.filter((f) => ids.includes(f.id) && (!files || files.some((x) => inFilter(f, x.path))));
   }, [kept, repoFilters, files]);
   const chosenIds = useMemo(() => chosen.map((f) => f.id), [chosen]);
-  const inPart = useMemo(() => (files ?? []).filter((f) => inAny(chosen, f.path)), [files, chosen]);
+  // In the sidebar's order (folders first), so the diff reads as the tree lists it.
+  const ordered = useMemo(() => (files ? inTreeOrder(files) : []), [files]);
+  const inPart = useMemo(() => ordered.filter((f) => inAny(chosen, f.path)), [ordered, chosen]);
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return inPart.filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || viewed[f.path] !== hash(f.patch) || opened.has(f.path)));
-  }, [inPart, filter, hideViewed, viewed, opened]);
+    return inPart.filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || !isViewed(f) || opened.has(f.path)));
+  }, [inPart, filter, hideViewed, isViewed, opened]);
   const viewedCount = inPart.filter(isViewed).length;
   const shown = useMemo(() => totals(inPart, isViewed, minutesOf), [inPart, isViewed, minutesOf]);
   const next = useMemo<Next>(() => {
@@ -365,12 +390,26 @@ export function Review({ target }: { target: Target }) {
     else if (next.nextFilter) choose([next.nextFilter.id]);
   };
 
+  /** j and k: the next or previous file in the list (files with a diff). */
+  const stepToFile = (by: 1 | -1) => {
+    const target = stepFile(diffs.current?.listed() ?? [], diffs.current?.atTop() ?? null, by);
+    if (!target) return;
+    setPicked(target);
+    diffs.current?.scrollToFile(target);
+  };
+  /** v: the file at the top of the screen, marked viewed or not. */
+  const toggleViewedAtTop = () => {
+    const top = diffs.current?.atTop();
+    const file = top && visible.find((f) => f.path === top.path);
+    if (file) setFileViewed(file, !isViewed(file));
+  };
+
   // The time spent on each file showing, to learn the reader's pace from the files they mark viewed.
   const take = useActiveTime(() => diffs.current?.onScreen() ?? [], tab === "diff");
   /** Marks a file viewed or not, here at once and on github.com after; if GitHub refuses, it goes back. */
   const setFileViewed = (f: ReviewFile, v: boolean) => {
     // Unmarked stays as "", so GitHub's older mark doesn't come back over it.
-    setViewed((m) => ({ ...m, [f.path]: v ? hash(f.patch) : "" }));
+    setViewed((m) => ({ ...m, [f.path]: v ? patchHash(f) : "" }));
     if (v) {
       setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));
       const seconds = take(f.path);
@@ -389,19 +428,19 @@ export function Review({ target }: { target: Target }) {
   // The comments to step through, in the order of the files: open conversations, your pending
   // comments, the AI's. Resolved conversations are done with.
   const stops = useMemo<Stop[]>(() => {
-    const order = new Map((files ?? []).map((f, i) => [f.path, i]));
+    const order = new Map(ordered.map((f, i) => [f.path, i]));
     const all: Stop[] = [
-      ...threads.filter((t) => !t.resolved).map((t) => ({ path: t.path, line: t.line, kind: "conversation" as const })),
-      ...drafts.map((d) => ({ path: d.path, line: d.line, kind: "pending" as const })),
-      ...(current?.findings.filter((f) => f.inDiff).map((f) => ({ path: f.path, line: f.line, kind: "ai" as const })) ?? []),
+      ...threads.filter((t) => !t.resolved).map((t) => ({ path: t.path, line: t.line, side: t.side, kind: "conversation" as const, thread: t })),
+      ...drafts.map((d) => ({ path: d.path, line: d.line, side: d.side, kind: "pending" as const })),
+      ...(current?.findings.filter((f) => f.inDiff).map((f) => ({ path: f.path, line: f.line, side: "additions" as const, kind: "ai" as const })) ?? []),
     ];
     return all.filter((x) => order.has(x.path)).sort((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
-  }, [files, threads, drafts, current]);
+  }, [ordered, threads, drafts, current]);
 
   /** Shows a file (at a line) in the Diff tab, bringing it into view if a filter, a search or its
    *  folding as viewed hides it. */
   const jump = useCallback(
-    (path: string, line: number | null) => {
+    (path: string, line: number | null, side?: Thread["side"], thread?: Thread) => {
       setTab("diff");
       setPicked(path);
       if (!inAny(chosen, path)) setKept([]);
@@ -409,7 +448,9 @@ export function Review({ target }: { target: Target }) {
       // Opened, not unmarked: it stays viewed, here and on GitHub.
       setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
       // After the tab and the list have drawn.
-      requestAnimationFrame(() => requestAnimationFrame(() => (line ? diffs.current?.scrollToLine(path, line) : diffs.current?.scrollToFile(path))));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => (thread ? diffs.current?.scrollToThread(thread) : line ? diffs.current?.scrollToLine(path, line, side) : diffs.current?.scrollToFile(path))),
+      );
     },
     [chosen, setKept, setTab],
   );
@@ -418,20 +459,22 @@ export function Review({ target }: { target: Target }) {
       if (!stops.length) return;
       const next = (stop + by + stops.length) % stops.length;
       setStop(next);
-      jump(stops[next]!.path, stops[next]!.line);
+      const at = stops[next]!;
+      jump(at.path, at.line, at.side, at.thread);
     },
     [stop, stops, jump],
   );
   // n and p step through the comments, like a reader's next and previous. The filters' shortcuts are
   // Focus Diff's own (⌥⇧. and ⌥⇧, for next and previous filter, ⌥⇧0 for all files, ⌥⇧J for the next
   // file to review), read by key position, since ⌥ changes the character typed.
-  const filterKeys = useRef({ stepPart, choose, goToNextFile });
+  const filterKeys = useRef({ stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop });
   useLayoutEffect(() => {
-    filterKeys.current = { stepPart, choose, goToNextFile };
+    filterKeys.current = { stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target) || e.metaKey || e.ctrlKey) return;
+      // Taken already (a menu's type-to-select, the file tree's arrows): not a shortcut.
+      if (e.defaultPrevented || typing(e.target) || e.metaKey || e.ctrlKey) return;
       if (e.altKey && e.shiftKey) {
         const keys = filterKeys.current;
         const action = { Period: () => keys.stepPart(1), Comma: () => keys.stepPart(-1), Digit0: () => keys.choose([]), KeyJ: keys.goToNextFile }[e.code];
@@ -441,10 +484,21 @@ export function Review({ target }: { target: Target }) {
         action();
         return;
       }
+      // ? shows every shortcut, from either tab, as on GitHub.
+      if (e.key === "?") {
+        e.preventDefault();
+        setShortcuts(true);
+        return;
+      }
       if (tab !== "diff" || e.altKey) return;
       if (e.key === "n" || e.key === "p") {
         e.preventDefault();
         step(e.key === "n" ? 1 : -1);
+      } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
+        // j, k and v as on GitHub: next file, previous file, viewed.
+        e.preventDefault();
+        if (e.key === "v") filterKeys.current.toggleViewedAtTop();
+        else filterKeys.current.stepToFile(e.key === "j" ? 1 : -1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -498,6 +552,17 @@ export function Review({ target }: { target: Target }) {
       overview: () => setTab("overview"),
       diff: () => setTab("diff"),
       wrap: () => setWrap(!wrap),
+      whitespace: () => setWhitespace(!whitespace),
+      "file-next": () => {
+        setTab("diff");
+        requestAnimationFrame(() => stepToFile(1));
+      },
+      "file-previous": () => {
+        setTab("diff");
+        requestAnimationFrame(() => stepToFile(-1));
+      },
+      "toggle-viewed": toggleViewedAtTop,
+      shortcuts: () => setShortcuts(true),
       "next-file": goToNextFile,
       "next-comment": () => step(1),
       "previous-comment": () => step(-1),
@@ -514,6 +579,9 @@ export function Review({ target }: { target: Target }) {
   }, []);
   const isOpen = details?.state === "OPEN";
   const allowed = {
+    "file-next": Boolean(files?.length),
+    "file-previous": Boolean(files?.length),
+    "toggle-viewed": tab === "diff" && Boolean(files?.length),
     "next-file": Boolean(files?.length),
     "next-comment": stops.length > 0,
     "previous-comment": stops.length > 0,
@@ -669,6 +737,14 @@ export function Review({ target }: { target: Target }) {
                 </TooltipTrigger>
                 <TooltipContent>{t("review.wrapTip")}</TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")} aria-pressed={whitespace} aria-label={t("diff.hideWhitespace")} onClick={() => setWhitespace(!whitespace)} />}
+                >
+                  <Pilcrow />
+                </TooltipTrigger>
+                <TooltipContent>{t("diff.hideWhitespaceTip")}</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -759,6 +835,7 @@ export function Review({ target }: { target: Target }) {
             </Tooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>{t("review.openOnGitHub")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShortcuts(true)}>{t("diff.shortcuts")}</DropdownMenuItem>
               {canLeave ? (
                 <>
                   <DropdownMenuSeparator />
@@ -861,52 +938,17 @@ export function Review({ target }: { target: Target }) {
                 <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} className="size-3.5" /> {t("review.hideViewed")}
               </label>
             </div>
-            {/* A source list: no highlight under the pointer; the picked file's row in the accent while
-                the list has focus, gray otherwise (and in a window that isn't in front). */}
-            <div className="group/list min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <ul className="flex flex-col px-2.5 py-1.5" aria-busy={!files}>
-                {!files
-                  ? [0, 1, 2, 3, 4, 5].map((i) => (
-                      <li key={i} className="flex h-(--row-h-sm) items-center gap-2 px-2">
-                        <Skeleton className="h-3.5 flex-1" style={{ maxWidth: `${70 - i * 6}%` }} />
-                        <Skeleton className="h-3 w-10" />
-                      </li>
-                    ))
-                  : null}
-                {visible.map((f) => {
-                  const slash = f.path.lastIndexOf("/");
-                  const comments = threadsByPath.get(f.path)?.filter((t) => !t.resolved).length ?? 0;
-                  return (
-                    <li key={f.path}>
-                      <button
-                        type="button"
-                        data-selected={picked === f.path}
-                        aria-current={picked === f.path || undefined}
-                        className={cn(
-                          "flex h-(--row-h-sm) w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 text-left text-callout outline-none focus-ring-inset",
-                          "data-[selected=true]:bg-(--selection-bg-inactive) group-focus-within/list:data-[selected=true]:bg-(--selection-bg) group-focus-within/list:data-[selected=true]:text-(--selection-fg) group-focus-within/list:data-[selected=true]:**:text-(--selection-fg) group-focus-within/list:data-[selected=true]:focus-visible:outline-none",
-                          isViewed(f) && "text-muted-foreground",
-                        )}
-                        onClick={() => {
-                          setPicked(f.path);
-                          diffs.current?.scrollToFile(f.path);
-                        }}
-                        title={f.path}
-                      >
-                        <span className="min-w-0 flex-1 truncate font-mono">
-                          <span className="text-muted-foreground">{f.path.slice(0, slash + 1)}</span>
-                          {f.path.slice(slash + 1)}
-                        </span>
-                        {comments ? <span className="text-subheadline text-unread tabular-nums" aria-label={t("review.openConversations", { count: comments })}>{comments}</span> : null}
-                        <span className="shrink-0 font-mono text-subheadline tabular-nums">
-                          <span className="text-success">+{f.additions}</span> <span className="text-destructive">−{f.deletions}</span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            <FileTree
+              files={files ? visible : null}
+              flat={Boolean(filter.trim())}
+              picked={picked}
+              isViewed={isViewed}
+              comments={(path) => threadsByPath.get(path)?.filter((t) => !t.resolved).length ?? 0}
+              onPick={(path) => {
+                setPicked(path);
+                diffs.current?.scrollToFile(path);
+              }}
+            />
           </aside>
 
           <div className="relative min-w-0 flex-1 bg-muted/30">
@@ -919,8 +961,8 @@ export function Review({ target }: { target: Target }) {
                   drafts={drafts}
                   findings={current?.findings ?? []}
                   findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}
-                  onAcceptFinding={(f) => {
-                    setDrafts((list) => [...list, { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, path: f.path, side: "additions", line: f.line, body: f.body }]);
+                  onAcceptFinding={(f, side) => {
+                    setDrafts((list) => [...list, { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, path: f.path, side, line: f.line, body: f.body }]);
                     dropFinding(f);
                   }}
                   onDismissFinding={dropFinding}
@@ -933,6 +975,10 @@ export function Review({ target }: { target: Target }) {
                   isViewed={isViewed}
                   diffStyle={diffStyle}
                   wrap={wrap}
+                  whitespace={whitespace}
+                  source={source}
+                  link={link}
+                  onSay={say}
                   dark={dark}
                   opened={opened}
                   onViewed={setFileViewed}
@@ -982,7 +1028,7 @@ export function Review({ target }: { target: Target }) {
           </div>
         </div>
       </main>
-
+      <Shortcuts open={shortcuts} onOpenChange={setShortcuts} />
     </div>
   );
 }

@@ -237,6 +237,26 @@ const reviewFiles = [
     patch: "@@ -8,2 +8,4 @@ ## Applying a code\n \n A code applies to the whole cart.\n+\n+Changing the cart keeps the code, and checks it again against the new total.",
   },
   {
+    filename: "src/checkout/ui/PromoField.tsx",
+    status: "renamed",
+    previous_filename: "src/checkout/PromoInput.tsx",
+    additions: 1,
+    deletions: 1,
+    patch: "@@ -1,3 +1,3 @@\n-export function PromoInput({ code }: Props) {\n+export function PromoField({ code }: Props) {\n   return <input value={code} />;\n }",
+  },
+  {
+    // Only re-indented, but for one line: "Hide whitespace changes" leaves that one.
+    filename: "src/checkout/totals.ts",
+    status: "modified",
+    additions: 4,
+    deletions: 4,
+    patch: "@@ -1,6 +1,6 @@\n export function total(items: Item[]) {\n-let sum = 0;\n-for (const i of items) sum += i.price;\n-return sum;\n+  let sum = 0;\n+  for (const i of items) sum += i.price * i.quantity;\n+  return sum;\n+\n-\n }",
+  },
+  // GitHub sends no patch for these: a picture, compared side by side, and a file too large.
+  { filename: "public/promo-badge.svg", status: "modified", additions: 3, deletions: 3 },
+  { filename: "data/promo-fixtures.json", status: "modified", additions: 1200, deletions: 900 },
+  { filename: "src/checkout/old-helpers.ts", status: "renamed", previous_filename: "src/legacy/helpers.ts", additions: 0, deletions: 0 },
+  {
     filename: "package-lock.json",
     status: "modified",
     additions: 3,
@@ -265,7 +285,32 @@ const threads = {
             line: 15,
             originalLine: 15,
             diffSide: "RIGHT",
+            hunk: { nodes: [{ diffHunk: "@@ -10,6 +10,11 @@\n+    next.promo = check.ok ? cart.promo : null;" }] },
             comments: { nodes: [{ id: "tc1", databaseId: 1, author: people.bruno, bodyHTML: "<p>Should <code>promoError</code> be cleared when the code is removed by hand?</p>", createdAt: iso(9), url: "https://github.com/acme/web/pull/1807#tc1" }] },
+          },
+          {
+            // On the old side: the line that dropped the code.
+            id: "t2",
+            isResolved: false,
+            isOutdated: false,
+            path: "src/checkout/cart.ts",
+            line: 11,
+            originalLine: 11,
+            diffSide: "LEFT",
+            hunk: { nodes: [{ diffHunk: "@@ -10,6 +10,11 @@\n   const next = { ...cart, items };\n-  next.promo = null;" }] },
+            comments: { nodes: [{ id: "tc2", databaseId: 2, author: people.carla, bodyHTML: "<p>Glad this goes: it was the whole bug.</p>", createdAt: iso(7), url: "https://github.com/acme/web/pull/1807#tc2" }] },
+          },
+          {
+            // Made on an earlier version, on a line 12 that held other code then: shown at the top.
+            id: "t3",
+            isResolved: false,
+            isOutdated: true,
+            path: "src/checkout/cart.ts",
+            line: null,
+            originalLine: 12,
+            diffSide: "RIGHT",
+            hunk: { nodes: [{ diffHunk: "@@ -10,4 +10,4 @@\n+  const total = recalc(next, { promo: true });" }] },
+            comments: { nodes: [{ id: "tc3", databaseId: 3, author: people.dev, bodyHTML: "<p>Why pass <code>promo: true</code> here?</p>", createdAt: iso(60 * 20), url: "https://github.com/acme/web/pull/1807#tc3" }] },
           },
         ],
       },
@@ -307,6 +352,33 @@ const seen = Object.fromEntries([...items.review.slice(2), ...items.updates.slic
 const snapshot = { ready: true, signedIn: true, me: "you", items, status: { phase: "idle", updatedAt: now }, arrivals: [promo.id], seen, dismissed: {}, review: null };
 
 const files: Record<string, string | null> = { config: JSON.stringify(config), pace: JSON.stringify(pace) };
+
+// Both versions of a few files (lib/contents.ts), so the lines between hunks expand, the picture
+// compares and the large file loads. "base" is the merge base, "abc123" the head.
+const before = (n: number) => Array.from({ length: n }, (_, i) => `// helper ${i + 1}`);
+const cartOld = [...before(8), "export function updateCart(cart: Cart, items: Item[]) {", "  const next = { ...cart, items };", "  next.promo = null;", "  return recalculate(next);", "}", "", "export function clearCart(cart: Cart) {", "  return { ...cart, items: [], promo: null };", "}", ...before(12)];
+const cartNew = [
+  ...cartOld.slice(0, 10),
+  "  const total = recalculate(next);",
+  "  if (cart.promo) {",
+  "    const check = validatePromo(cart.promo, total);",
+  "    next.promo = check.ok ? cart.promo : null;",
+  "    next.promoError = check.ok ? null : check.reason;",
+  "  }",
+  "  return total;",
+  ...cartOld.slice(12),
+];
+const badge = (fill: string, label: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="64" viewBox="0 0 160 64"><rect width="160" height="64" rx="14" fill="${fill}"/><text x="80" y="40" font-family="-apple-system" font-size="20" fill="#fff" text-anchor="middle">${label}</text></svg>`;
+const fixtures = (n: number) => JSON.stringify(Array.from({ length: n }, (_, i) => ({ code: `SAVE${i}`, minimum: i * 5 })), null, 2);
+const contents: Record<string, string> = {
+  "base:src/checkout/cart.ts": cartOld.join("\n") + "\n",
+  "abc123:src/checkout/cart.ts": cartNew.join("\n") + "\n",
+  "base:public/promo-badge.svg": badge("#8e8e93", "PROMO"),
+  "abc123:public/promo-badge.svg": badge("#007aff", "SAVE 10%"),
+  "base:data/promo-fixtures.json": fixtures(40),
+  "abc123:data/promo-fixtures.json": fixtures(60),
+};
 const listeners = new Map<number, string>();
 let callbackId = 0;
 
@@ -322,11 +394,21 @@ async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
     case "github": {
       const path = args.path as string;
       if (path.includes("/files?")) return { status: 200, body: JSON.stringify(reviewFiles) };
+      if (path.endsWith("/pulls/1807")) return { status: 200, body: JSON.stringify({ base: { sha: "tip" }, head: { sha: "abc123" } }) };
+      if (path.includes("/compare/")) return { status: 200, body: JSON.stringify({ merge_base_commit: { sha: "base" } }) };
+      if (path.includes("/contents/docs/promo-codes.md"))
+        return { status: 200, body: "<h2>Applying a code</h2><p>A code applies to the whole cart.</p><p>Changing the cart keeps the code, and checks it again against the new total.</p>" };
       const body = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, string> };
       if (body.query?.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (body.query?.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
       if (body.query?.includes("squashMergeAllowed")) return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };
+    }
+    case "github_file": {
+      const text = contents[`${args.sha as string}:${args.path as string}`];
+      await new Promise((r) => setTimeout(r, 150));
+      if (text === undefined) throw "absent";
+      return new TextEncoder().encode(text);
     }
     case "queue_viewed":
       return;

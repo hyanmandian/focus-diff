@@ -173,7 +173,8 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
             startLine: number | null;
             subjectType: "LINE" | "FILE" | null;
             diffSide: "LEFT" | "RIGHT";
-            hunk: { nodes: Array<{ diffHunk: string | null }> };
+            /** Absent on some threads (one whose first comment is gone). */
+            hunk?: { nodes: Array<{ diffHunk: string | null }> } | null;
             comments: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] };
           }>;
         };
@@ -210,7 +211,7 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
         startLine: t.startLine,
         resolved: t.isResolved,
         outdated: t.isOutdated,
-        context: hunkTail(t.hunk.nodes[0]?.diffHunk),
+        context: hunkTail(t.hunk?.nodes[0]?.diffHunk),
         comments: t.comments.nodes.map(toComment),
         pending: t.comments.nodes[0]?.state === "PENDING",
       };

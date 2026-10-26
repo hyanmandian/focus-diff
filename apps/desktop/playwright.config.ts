@@ -26,7 +26,8 @@ export default defineConfig({
   webServer: {
     command: `npx vp dev --port ${port} --strictPort`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Always its own: one left running from another checkout would test other code.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

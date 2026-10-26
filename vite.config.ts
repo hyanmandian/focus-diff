@@ -73,6 +73,11 @@ export default defineConfig({
       "react-perf/jsx-no-new-object-as-prop": "off",
       "react-perf/jsx-no-new-array-as-prop": "off",
       "react-perf/jsx-no-jsx-as-prop": "off",
+      "react/jsx-no-constructed-context-values": "off",
+      // Immutable state updates copy with a spread on purpose.
+      "oxc/no-map-spread": "off",
+      // `void p.then(() => {...})` ends a chain on purpose.
+      "promise/always-return": ["error", { ignoreLastCallback: true }],
       "jsdoc/require-param": "off",
       "jsdoc/require-returns": "off",
       "eslint/max-lines-per-function": "off",
@@ -126,6 +131,7 @@ export default defineConfig({
           "vitest/no-conditional-in-test": "off",
           "unicorn/consistent-function-scoping": "off",
           "eslint/prefer-promise-reject-errors": "off",
+          "typescript/prefer-promise-reject-errors": "off",
         },
       },
     ],

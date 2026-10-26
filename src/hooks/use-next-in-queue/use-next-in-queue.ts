@@ -16,6 +16,8 @@ type Live = { items: Record<string, Item[]>; seen: Record<string, true> };
 export type Visit = { pr: ReviewPull; teams: string[]; queue: string | null };
 
 const BACK = "review-back";
+/** Which way the window is going, for the page to slide that way (entries/review.tsx). */
+export const DIRECTION = "review-direction";
 function visits(): Visit[] {
   try {
     const list: unknown = JSON.parse(sessionStorage.getItem(BACK) ?? "[]");
@@ -68,6 +70,7 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     }
     void bridge.markSeen(item.queueId, item.pr.id);
     if (here) keepVisits([...visits(), here]);
+    sessionStorage.setItem(DIRECTION, "forward");
     await bridge.switchReview(item.pr, item.viaTeams ?? [], item.queueId);
     return true;
   }, [queue, current, next, here]);
@@ -78,6 +81,7 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     const last = list.pop();
     if (!last) return;
     keepVisits(list);
+    sessionStorage.setItem(DIRECTION, "back");
     await bridge.switchReview(last.pr, last.teams, last.queue);
   }, []);
 

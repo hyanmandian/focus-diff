@@ -575,3 +575,48 @@ div a[data-button]:active {
   border-start-end-radius: 0;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 22%, transparent);
 }
+
+/* Going through a queue in a review window (entries/review.tsx): the page slides the way it went,
+   on to the next from the right, back from the left; the toolbar only cross-fades its title. */
+::view-transition-group(page),
+::view-transition-old(page),
+::view-transition-new(page) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+:root[data-direction="forward"]::view-transition-old(page) {
+  animation-name: page-out-left;
+}
+:root[data-direction="forward"]::view-transition-new(page) {
+  animation-name: page-in-right;
+}
+:root[data-direction="back"]::view-transition-old(page) {
+  animation-name: page-out-right;
+}
+:root[data-direction="back"]::view-transition-new(page) {
+  animation-name: page-in-left;
+}
+@keyframes page-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-12%);
+  }
+}
+@keyframes page-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(12%);
+  }
+}
+@keyframes page-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(12%);
+  }
+}
+@keyframes page-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12%);
+  }
+}

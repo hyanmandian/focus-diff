@@ -1503,7 +1503,7 @@ export function Review({ target }: { target: Target }) {
       {/* What the comments in both tabs can do (use-conversation.tsx). */}
       <ConversationProvider value={talk.api}>
         <main
-          className="relative flex min-h-0 flex-1 flex-col"
+          className="relative flex min-h-0 flex-1 flex-col [view-transition-name:page]"
           onScrollCapture={(e) => {
             setScrolled((e.target as HTMLElement).scrollTop > 0);
           }}

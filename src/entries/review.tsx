@@ -6,11 +6,13 @@ import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { StrictMode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import { Review, type Target } from "@/components/review/review";
 import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { Viewer } from "@/components/viewer/viewer";
+import { DIRECTION } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { followLanguage } from "@/utils/language/language";
 
 import "@/index.css";
@@ -65,7 +67,19 @@ void getCurrentWebviewWindow().listen<Target>("review-open", ({ payload }) => {
     queue: payload.queue ?? "",
   });
   history.replaceState(null, "", `?${query}`);
-  show(payload);
+  // Moving through a queue slides the page the way it went: on to the next from the right, back
+  // from the left (index.css); a first showing, or with Reduce Motion, just shows.
+  const direction = sessionStorage.getItem(DIRECTION);
+  sessionStorage.removeItem(DIRECTION);
+  if (!direction || matchMedia("(prefers-reduced-motion: reduce)").matches || !("startViewTransition" in document)) {
+    show(payload);
+    return;
+  }
+  document.documentElement.dataset.direction = direction;
+  const moving = document.startViewTransition(() => {
+    flushSync(() => show(payload));
+  });
+  void moving.finished.finally(() => delete document.documentElement.dataset.direction);
 });
 if (params.get("id")) {
   show({

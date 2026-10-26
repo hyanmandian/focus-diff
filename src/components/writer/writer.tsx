@@ -479,7 +479,8 @@ export function MarkdownField({
           accept={ACCEPT}
           hidden
           onChange={(e) => {
-            attach([...(e.target.files ?? [])]);
+            // A file input always has its list.
+            attach([...e.target.files!]);
             e.target.value = "";
           }}
         />

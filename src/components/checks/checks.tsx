@@ -95,16 +95,17 @@ function LogView({ lines, truncated }: { lines: LogLine[]; truncated: boolean })
   const box = useRef<HTMLDivElement>(null);
   // At the first error, where a failure is explained; at the end otherwise.
   useEffect(() => {
-    const el = box.current;
-    if (!el) return;
+    const el = box.current!;
     const error = el.querySelector<HTMLElement>("[data-kind=error]");
     el.scrollTop = error ? error.offsetTop - 24 : el.scrollHeight;
-  }, [lines]);
+    // A log is shown once, as it was loaded: placed when it appears.
+  }, []);
   return (
     <div className="flex flex-col gap-1">
       {truncated ? <p className="text-subheadline text-muted-foreground">{t("manage.logTruncated")}</p> : null}
       <div
         ref={box}
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a box that scrolls: the keyboard needs the focus in it to scroll it.
         tabIndex={0}
         role="log"
         aria-label={t("manage.log")}
@@ -112,6 +113,7 @@ function LogView({ lines, truncated }: { lines: LogLine[]; truncated: boolean })
       >
         {lines.map((line, i) => (
           <div
+            // oxlint-disable-next-line react/no-array-index-key -- a log's lines repeat, and a log never changes once shown.
             key={i}
             data-kind={line.kind}
             className={cn(
@@ -148,27 +150,44 @@ function Opened({
   const t = useT();
   const [detail, setDetail] = useState<CheckDetail | null>(null);
   const [log, setLog] = useState<{ lines: LogLine[]; truncated: boolean } | null>(null);
-  const [logState, setLogState] = useState<"idle" | "loading" | string>("idle");
+  const [logLoading, setLogLoading] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
   const done = check.state !== "pending";
+  // Asked again as the check's state changes: what it says of itself grows as it finishes.
   useEffect(() => {
     if (check.kind !== "run") return;
     let live = true;
-    void loadCheckDetail(check.id)
-      .then((d) => live && setDetail(d))
-      .catch(() => {});
+    void (async () => {
+      try {
+        const d = await loadCheckDetail(check.id);
+        if (live) setDetail(d);
+      } catch {
+        // Only the list's own words, then.
+      }
+    })();
     return () => {
       live = false;
     };
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- check.state is that "again".
   }, [check.id, check.kind, check.state]);
-  const showLog = async () => {
-    if (!check.job) return;
-    setLogState("loading");
+  const showLog = async (job: number) => {
+    setLogLoading(true);
+    setLogError(null);
     try {
-      const got = await loadLog(pr, check.job, done);
+      const got = await loadLog(pr, job, done);
       setLog({ lines: parseLog(got.text), truncated: got.truncated });
-      setLogState("idle");
     } catch (e) {
-      setLogState(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+      setLogError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLogLoading(false);
+    }
+  };
+  const rerun = async (job: number) => {
+    try {
+      await rerunJob(pr, job);
+      say(t("manage.rerunning"));
+    } catch (e) {
+      say(e instanceof Error ? e.message : String(e));
     }
   };
   const failedSteps = detail?.steps.filter((s) => s.state === "failure") ?? [];
@@ -190,6 +209,7 @@ function Opened({
           {detail.annotations.map((a, i) => {
             const s = LEVEL[a.level];
             return (
+              // oxlint-disable-next-line react/no-array-index-key -- GitHub can say the same of one line twice; the list never changes order.
               <li key={i} className="rounded-lg border bg-background p-2">
                 <div className="flex items-center gap-1.5">
                   <s.icon className={cn("size-3.5 shrink-0", s.className)} aria-hidden />
@@ -228,31 +248,20 @@ function Opened({
         </p>
       ) : null}
       {log ? <LogView lines={log.lines} truncated={log.truncated} /> : null}
-      {logState !== "idle" && logState !== "loading" ? (
+      {logError === null ? null : (
         <p className="text-callout text-muted-foreground" role="alert">
-          {logState}
+          {logError}
         </p>
-      ) : null}
+      )}
       <ButtonGroup>
         {check.job && !log ? (
-          <Button variant="outline" onClick={() => void showLog()} disabled={logState === "loading" || !done}>
-            {logState === "loading" ? <Loader2 className="animate-spin" /> : null}
+          <Button variant="outline" onClick={() => void showLog(check.job!)} disabled={logLoading || !done}>
+            {logLoading ? <Loader2 className="animate-spin" /> : null}
             {done ? t("manage.showLog") : t("manage.logWhenDone")}
           </Button>
         ) : null}
         {write && check.job && done ? (
-          <Button
-            variant="outline"
-            onClick={() =>
-              void rerunJob(pr, check.job!)
-                .then(() => {
-                  say(t("manage.rerunning"));
-                })
-                .catch((e: unknown) => {
-                  say(e instanceof Error ? e.message : String(e));
-                })
-            }
-          >
+          <Button variant="outline" onClick={() => void rerun(check.job!)}>
             <RotateCw /> {t("manage.rerunJob")}
           </Button>
         ) : null}

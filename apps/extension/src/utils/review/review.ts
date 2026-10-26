@@ -1,12 +1,14 @@
+import { reviewMinutes, type Estimator } from "@focus-diff/core/estimate";
+import type { Matcher } from "@focus-diff/core/filters";
+
 import { i18n } from "#i18n";
 import type { BreakdownRow } from "@/components/breakdown/breakdown";
 import type { PanelOption } from "@/components/filters/filters";
 import type { NextFile } from "@/components/next-file/next-file";
 import type { Panel } from "@/components/panel/panel";
 import { isDone, type Totals } from "@/components/stats/stats";
-import { ALL, type Matcher } from "@/utils/filters/filters";
+import { ALL } from "@/utils/filters/filters";
 import type { FileStats } from "@/utils/provider/provider";
-import { reviewMinutes, type Estimator } from "@/utils/review-time/review-time";
 
 /**
  * What the bar shows for a pull request and a selection of filters, worked out from the files alone. The content script

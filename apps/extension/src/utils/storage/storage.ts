@@ -1,3 +1,5 @@
+import type { Learned } from "@focus-diff/core/estimate";
+
 import { storage } from "#imports";
 import { DEFAULT_APPEARANCE, normalizeAppearance, type Appearance } from "@/utils/appearance/appearance";
 import { ALL, normalize, type Config } from "@/utils/filters/filters";
@@ -21,7 +23,6 @@ import {
   type ReviewRun,
   type ReviewTimeSettings,
 } from "@/utils/review-sessions/review-sessions";
-import type { Learned } from "@/utils/review-time/review-time";
 
 /** Selected filter ids per repository. An empty list means "All". */
 export type Selections = Record<string, string[]>;

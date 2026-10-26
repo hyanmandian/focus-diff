@@ -1,3 +1,5 @@
+import { KINDS, normalizeLearned, paceFactors, type Kind, type Learned } from "@focus-diff/core/estimate";
+
 import { i18n } from "#i18n";
 import { chevronIcon, closeIcon } from "@/components/icons/icons";
 import {
@@ -27,15 +29,7 @@ import {
   type ReviewTimeSettings,
 } from "@/utils/review-sessions/review-sessions";
 import { dayName, language, sessionSummary, time, WEEK } from "@/utils/review-summary/review-summary";
-import {
-  KINDS,
-  normalizeLearned,
-  paceFactors,
-  PACES,
-  type Kind,
-  type Learned,
-  type Pace,
-} from "@/utils/review-time/review-time";
+import { PACES, type Pace } from "@/utils/review-time/review-time";
 import { learnedItem } from "@/utils/storage/storage";
 
 const ORDER_NAMES: Record<Order, [string, string]> = {

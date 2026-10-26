@@ -1,3 +1,5 @@
+import { createEstimator, learnFile, normalizeLearned, reviewMinutes, type Estimator } from "@focus-diff/core/estimate";
+import { toMatcher, type Matcher } from "@focus-diff/core/filters";
 import { browser } from "wxt/browser";
 
 import { i18n } from "#i18n";
@@ -7,21 +9,14 @@ import type { Totals } from "@/components/stats/stats";
 import { createActiveTime, type OnScreen } from "@/utils/active-time/active-time";
 import { createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
 import { cloneOf } from "@/utils/dom/dom";
-import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from "@/utils/filters/filters";
+import { ALL, filtersFor, normalize, type Config } from "@/utils/filters/filters";
 import { formatNumber as format } from "@/utils/format/format";
 import type { Message } from "@/utils/messages/messages";
 import type { PageCounters, Provider } from "@/utils/provider/provider";
 import { collectFiles, type FileInfo, type Files } from "@/utils/review-files/review-files";
 import { createNavigation, goToFile } from "@/utils/review-navigation/review-navigation";
 import { normalizeReviewTime, type ReviewTimeSettings } from "@/utils/review-sessions/review-sessions";
-import {
-  createEstimator,
-  learnFile,
-  normalizeLearned,
-  PACES,
-  reviewMinutes,
-  type Estimator,
-} from "@/utils/review-time/review-time";
+import { PACES } from "@/utils/review-time/review-time";
 import { createReviewView, nextFilterWithWork, review, toggled, type Option } from "@/utils/review/review";
 import { scrollToTop, waitFor } from "@/utils/scroll/scroll";
 import {

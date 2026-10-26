@@ -1,6 +1,6 @@
 {
   "extensionName": "Focus Diff",
-  "extensionDescription": "Filter GitHub pull request diffs with your own filters and see how much is left to review.",
+  "extensionDescription": "Your pull request reviews in one place: queues, notifications, review time, a full review page, and filters on GitHub's diffs.",
   "actionTitle": "Focus Diff: your pull requests",
   "commandNext": "Next filter",
   "commandPrevious": "Previous filter",

@@ -77,6 +77,18 @@ function disk(initial: Record<string, string> = {}) {
 }
 
 describe("keeping a review", () => {
+  it("keeps nothing under an id GitHub wouldn't give", async () => {
+    const written: string[] = [];
+    mockIPC((cmd) => {
+      if (cmd === "kept_write") written.push(cmd);
+      return null;
+    });
+    await keep("__proto__", kept());
+    await keep("../outside", kept());
+    expect(written).toEqual([]);
+    expect(localStorage.length).toBe(0);
+  });
+
   it("writes the files apart from the rest and reads them back together", async () => {
     const { files } = disk();
     await keep("PR_1", kept());

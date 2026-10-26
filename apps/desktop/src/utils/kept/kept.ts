@@ -67,7 +67,19 @@ export async function readKept(id: string): Promise<Kept | null> {
 const filesSignature = (files: ReviewFile[]) =>
   hash(files.map((f) => `${f.path}\u0000${f.previousPath ?? ""}\u0000${patchHash(f)}`).join("\n"));
 
+/** A pull request's id as GitHub gives it (and kept.rs takes): letters, digits, `_` and `-`. */
+const isId = (id: string) => /^[\w-]{1,128}$/u.test(id) && id !== "__proto__";
+
+/** `list` with `key` set to `value`, the most recent couple hundred kept. */
+const withLatest = <T>(list: Record<string, T>, key: string, value: T) => {
+  const entries = new Map(Object.entries(list));
+  entries.delete(key);
+  entries.set(key, value);
+  return Object.fromEntries([...entries].slice(-200));
+};
+
 export async function keep(id: string, kept: Kept, updatedAt?: string) {
+  if (!isId(id)) return;
   try {
     const written = read<Written>(WRITTEN, {});
     const before = written[id];
@@ -79,14 +91,12 @@ export async function keep(id: string, kept: Kept, updatedAt?: string) {
       await invoke("kept_write", { id: filesId(id), contents: JSON.stringify(kept.files) });
     if (!fresh || before.rest !== now.rest) await invoke("kept_write", { id, contents: rest });
     // The most recent couple hundred are enough to know.
-    localStorage.setItem(
-      WRITTEN,
-      JSON.stringify(Object.fromEntries(Object.entries({ ...written, [id]: now }).slice(-200))),
-    );
-    if (updatedAt) {
-      const all = Object.entries({ ...read<Record<string, string>>(VERSIONS, {}), [id]: updatedAt }).slice(-200);
-      localStorage.setItem(VERSIONS, JSON.stringify(Object.fromEntries(all)));
-    }
+    localStorage.setItem(WRITTEN, JSON.stringify(withLatest(written, id, now)));
+    if (updatedAt)
+      localStorage.setItem(
+        VERSIONS,
+        JSON.stringify(withLatest(read<Record<string, string>>(VERSIONS, {}), id, updatedAt)),
+      );
   } catch {
     // Only slower next time.
   }

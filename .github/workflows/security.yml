@@ -69,6 +69,10 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
+          # GHSA-wrw7-89jp-8q8g: glib 0.18 (unsound VariantStrIter). It's in the desktop app's Cargo.lock only through
+          # Tauri's GTK stack for Linux, which Tauri 2 pins to gtk-rs 0.18; the app is built and shipped for macOS only,
+          # where none of it is compiled. Look again when Tauri moves to a newer gtk-rs, or before a Linux build.
+          allow-ghsas: GHSA-wrw7-89jp-8q8g
 
   secrets:
     name: Scan for committed secrets

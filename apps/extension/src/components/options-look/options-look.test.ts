@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import page from "@/entrypoints/options/index.html?raw";
 import { normalizeAppearance, PROVIDER_THEME, type Appearance } from "@/utils/appearance/appearance";
 import { $ } from "@/utils/extension-page/extension-page";
+import { pageBody } from "@/utils/page-body/page-body";
 
 import type { createLook as CreateLook } from "./options-look";
 
@@ -55,7 +56,7 @@ const setUp = async (appearance: Appearance = mine) => {
 describe("createLook", () => {
   beforeEach(async () => {
     ({ createLook } = await import("./options-look"));
-    document.body.innerHTML = page.replaceAll(/^[\s\S]*<body>|<script[\s\S]*$/gu, "");
+    document.body.innerHTML = pageBody(page);
     // happy-dom has no Option constructor.
     vi.stubGlobal("Option", function Option(text: string, value: string) {
       return Object.assign(document.createElement("option"), { textContent: text, value });

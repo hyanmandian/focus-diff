@@ -1,5 +1,5 @@
-import { normalizeLearned } from "@focus-diff/core/estimate";
 // @vitest-environment happy-dom
+import { normalizeLearned } from "@focus-diff/core/estimate";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
@@ -10,6 +10,7 @@ import { $ } from "@/utils/extension-page/extension-page";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
 import { DEFAULT_NOTIFY, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
+import { pageBody } from "@/utils/page-body/page-body";
 import { DEFAULT_REVIEW_TIME, type ReviewRun } from "@/utils/review-sessions/review-sessions";
 import {
   appearanceItem,
@@ -106,10 +107,10 @@ const press = (target: Element, key: string) => {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "requestAnimationFrame", "Date"] });
   vi.setSystemTime(NOW);
-  const body = /<body>([\s\S]*)<\/body>/u.exec(html)?.[1] ?? "";
+
   document.head.replaceChildren();
   document.documentElement.removeAttribute("style");
-  document.body.innerHTML = body.replace(/<script[\s\S]*?<\/script>/u, "");
+  document.body.innerHTML = pageBody(html);
   localStorage.clear();
   resized = [];
   vi.stubGlobal(

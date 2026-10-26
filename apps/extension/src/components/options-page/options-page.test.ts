@@ -7,6 +7,7 @@ import page from "@/entrypoints/options/index.html?raw";
 import { $ as find } from "@/utils/extension-page/extension-page";
 import { normalizeNotify } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
+import { pageBody } from "@/utils/page-body/page-body";
 import { normalizeReviewTime } from "@/utils/review-sessions/review-sessions";
 import { appearanceItem, configItem, notifyItem, popupItem, reviewTimeItem } from "@/utils/storage/storage";
 
@@ -58,7 +59,7 @@ const open = async (hash = "") => {
 describe("startOptions", () => {
   beforeEach(async () => {
     ({ startOptions } = await import("./options-page"));
-    document.body.innerHTML = page.replaceAll(/^[\s\S]*<body>|<script[\s\S]*$/gu, "");
+    document.body.innerHTML = pageBody(page);
     document.documentElement.classList.add("pending");
     // happy-dom has no Option constructor.
     vi.stubGlobal("Option", function Option(text: string, value: string) {

@@ -41,11 +41,7 @@ describe("translations", () => {
 
   it("leave no message empty", () => {
     const empty = [...messages(en), ...messages(ptBR)]
-      .filter(([, value]) =>
-        JSON.stringify(value)
-          .replaceAll(/"(one|other|zero|many)":/gu, "")
-          .includes('""'),
-      )
+      .filter(([, value]) => (typeof value === "string" ? [value] : Object.values(value)).includes(""))
       .map(([key]) => key);
     expect(empty).toEqual([]);
   });

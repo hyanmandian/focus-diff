@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import page from "@/entrypoints/options/index.html?raw";
 import { normalizePopup } from "@/utils/inbox/inbox";
+import { pageBody } from "@/utils/page-body/page-body";
 
 import type { createPopupSettings as CreatePopupSettings } from "./options-popup-settings";
 
@@ -17,7 +18,7 @@ const type = (input: HTMLInputElement, text: string) => {
 describe("createPopupSettings", () => {
   beforeEach(async () => {
     ({ createPopupSettings } = await import("./options-popup-settings"));
-    document.body.innerHTML = page.replaceAll(/^[\s\S]*<body>|<script[\s\S]*$/gu, "");
+    document.body.innerHTML = pageBody(page);
   });
 
   it("shows the saved repositories and team setting, and gives back what the reader changed", () => {

@@ -240,7 +240,10 @@ function seed({ people, threads, details, files }: Seed) {
     ...older,
     ...pr.timelineItems.nodes.map((n) => ({
       ...n,
-      ...said((typeof n.bodyHTML === "string" ? n.bodyHTML : "").replaceAll(/<[^>]+>/gu, ""), 15),
+      ...said(
+        new DOMParser().parseFromString(typeof n.bodyHTML === "string" ? n.bodyHTML : "", "text/html").body.textContent,
+        15,
+      ),
       ...(n.__typename === "IssueComment"
         ? { reactionGroups: groups({ HEART: ["octocat", "defunkt", "you"], ROCKET: ["mojombo"] }) }
         : {}),

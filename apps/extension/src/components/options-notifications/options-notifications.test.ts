@@ -6,6 +6,7 @@ import page from "@/entrypoints/options/index.html?raw";
 import { $ } from "@/utils/extension-page/extension-page";
 import { samplePull } from "@/utils/github-sample-pull/github-sample-pull";
 import { EXCEPTIONS, normalizeNotify, type NotifySettings } from "@/utils/inbox/inbox";
+import { pageBody } from "@/utils/page-body/page-body";
 import { inboxItem } from "@/utils/storage/storage";
 
 import type { createNotifications as CreateNotifications } from "./options-notifications";
@@ -35,7 +36,7 @@ const setUp = async (saved: unknown = {}) => {
 describe("createNotifications", () => {
   beforeEach(async () => {
     ({ createNotifications } = await import("./options-notifications"));
-    document.body.innerHTML = page.replaceAll(/^[\s\S]*<body>|<script[\s\S]*$/gu, "");
+    document.body.innerHTML = pageBody(page);
     vi.spyOn(fakeBrowser.runtime, "getManifest").mockReturnValue({
       manifest_version: 3,
       name: "Focus Diff",

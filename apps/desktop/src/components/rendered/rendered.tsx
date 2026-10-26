@@ -41,8 +41,15 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
   const t = useT();
   // What was loaded, and for which file: anything else (the first render, or after the file
   // changed) shows as loading.
-  const [loaded, setLoaded] = useState<{ file: ReviewFile; source: Source; html: string | Error } | null>(null);
-  const html = loaded?.file === file && loaded.source === source ? loaded.html : null;
+  // The sanitized page, or what went wrong (shown as text), kept apart.
+  const [loaded, setLoaded] = useState<{
+    file: ReviewFile;
+    source: Source;
+    html: string | null;
+    error: string;
+  } | null>(null);
+  const current = loaded?.file === file && loaded.source === source ? loaded : null;
+  const html = current?.html ?? null;
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let live = true;
@@ -51,25 +58,25 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
         const removed = file.status === "removed";
         const sha = removed ? await source.base() : source.head;
         const text = await renderedAt(source.repo, sha, removed ? (file.previousPath ?? file.path) : file.path);
-        if (live) setLoaded({ file, source, html: sanitize(text) });
+        if (live) setLoaded({ file, source, html: sanitize(text), error: "" });
       } catch (e) {
-        if (live) setLoaded({ file, source, html: e instanceof Error ? e : new Error(String(e)) });
+        if (live) setLoaded({ file, source, html: null, error: e instanceof Error ? e.message : String(e) });
       }
     })();
     return () => {
       live = false;
     };
   }, [file, source]);
-  useDiagrams(ref, typeof html === "string" ? html : "");
-  if (html === null)
+  useDiagrams(ref, html ?? "");
+  if (current === null)
     return (
       <output className="flex items-center gap-2 px-4 py-3 font-sans text-body text-muted-foreground">
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> {t("diff.loading")}
       </output>
     );
-  if (html instanceof Error)
+  if (html === null)
     return (
-      <p className="px-4 py-3 font-sans text-body text-destructive">{t("diff.loadFailed", { error: html.message })}</p>
+      <p className="px-4 py-3 font-sans text-body text-destructive">{t("diff.loadFailed", { error: current.error })}</p>
     );
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only catches clicks bubbling from the links inside, which the keyboard reaches and activates itself.

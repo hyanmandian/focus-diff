@@ -29,7 +29,7 @@ const COUNTER_RESCAN_MS = 2000;
 const COUNTER_GIVE_UP_MS = 20000;
 
 const toNumber = (value: string) => Number(value.replaceAll(",", ""));
-const textOf = (element: Element) => (element.textContent ?? "").trim();
+const textOf = (element: Element) => element.textContent.trim();
 const byId = (id: string | null) => (id ? document.querySelector<HTMLElement>(`#${CSS.escape(id)}`) : null);
 const isLeaf = (element: Element) => element.children.length === 0;
 
@@ -38,13 +38,12 @@ export const repository = (): string | null => {
   return owner ? `${owner}/${name}` : null;
 };
 
-const cleanPath = (value = "") => {
-  const parts = value
+/** The path without invisible marks, and of a renamed file, only the new path after the arrow. */
+const cleanPath = (value: string) =>
+  value
     .replace(INVISIBLE, "")
     .trim()
-    .split(/\s+→\s+/u);
-  return (parts.at(-1) ?? "").trim();
-};
+    .replace(/^[\s\S]*\s→\s+/u, "");
 
 const pathOf = (diff: HTMLElement) =>
   cleanPath(
@@ -67,7 +66,7 @@ const containerOf = (diff: HTMLElement): HTMLElement => {
 
 const labelledStats = (header: Element): FileStats | null => {
   for (const element of header.querySelectorAll(".sr-only, [aria-label], [title]")) {
-    const label = element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent || "";
+    const label = element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent;
     const [, additions, deletions] = (label.length < 160 ? label.match(FILE_STATS) : null) ?? [];
     if (additions && deletions) return { additions: toNumber(additions), deletions: toNumber(deletions) };
   }
@@ -127,7 +126,7 @@ export const diffs = (): Diff[] => {
       container: containerOf(element),
       stats: () => statsOf(element, path),
       viewed: () => viewed(element),
-      anchor: element.id.startsWith("diff-") ? element.id.slice("diff-".length) : "",
+      anchor: element.id.slice("diff-".length),
     });
   }
   return [...byPath.values()];
@@ -137,8 +136,8 @@ export const diffs = (): Diff[] => {
 const labelOf = (item: Element) =>
   (item.querySelector(":scope > div")?.textContent || item.getAttribute("aria-label") || "")
     .trim()
-    .split("\n")[0]
-    ?.trim() ?? "";
+    .replace(/\n[\s\S]*/u, "")
+    .trim();
 
 const folderPathOf = (item: Element | null | undefined): string => {
   const parts: string[] = [];
@@ -170,7 +169,7 @@ export const treeFolders = (): TreeFolder[] =>
 const findFilesCounter = (): HTMLElement | null =>
   document.querySelector<HTMLElement>("#files_tab_counter") ??
   [...document.querySelectorAll('a, [role="tab"]')]
-    .find((element) => /^\s*Files changed/iu.test(element.textContent ?? ""))
+    .find((element) => /^\s*Files changed/iu.test(element.textContent))
     ?.querySelector<HTMLElement>('.Counter, [class*="Counter"]') ??
   null;
 
@@ -186,8 +185,9 @@ const findLineCounters = (): [HTMLElement | null, HTMLElement | null] => {
     (element) => isLeaf(element) && ADDITIONS.test(textOf(element)) && !element.closest(`${DIFF}, [role="tree"]`),
   );
   if (!additions) return [null, null];
-  const near = additions.parentElement?.parentElement ?? additions.parentElement;
-  const deletions = [...(near?.querySelectorAll<HTMLElement>("span, div") ?? [])].find(
+  // Found in the page's body, so it has a parent and a grandparent.
+  const near = additions.parentElement!.parentElement!;
+  const deletions = [...near.querySelectorAll<HTMLElement>("span, div")].find(
     (element) => isLeaf(element) && DELETIONS.test(textOf(element)),
   );
   return [additions, deletions ?? null];
@@ -233,7 +233,7 @@ const viewed = (diff: Element): boolean | null => {
         VIEWED_LABEL.test(control.closest("label")?.textContent?.trim() ?? "")
       )
         return control.checked;
-    } else if (VIEWED_LABEL.test((control.getAttribute("aria-label") ?? control.textContent ?? "").trim())) {
+    } else if (VIEWED_LABEL.test((control.getAttribute("aria-label") ?? control.textContent).trim())) {
       return control.getAttribute("aria-pressed") === "true";
     }
   }
@@ -323,9 +323,7 @@ export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
     if (!first || !cell) return [];
     const side = cell.dataset.diffSide === "left" ? "L" : "R";
     const line = `${side}${cell.dataset.lineNumber}`;
-    return [
-      { id: element.dataset.markerId ?? "", line, state: threadState(element, login), comment: first.id.slice(1) },
-    ];
+    return [{ id: element.dataset.markerId!, line, state: threadState(element, login), comment: first.id.slice(1) }];
   });
 };
 
@@ -475,7 +473,7 @@ export const pullRequestData = (): PullRequestData | null => {
   for (const script of document.querySelectorAll(EMBEDDED)) {
     let data = parsed.get(script);
     if (data === undefined) {
-      data = parse(script.textContent ?? "");
+      data = parse(script.textContent);
       parsed.set(script, data);
     }
     if (data) return data;

@@ -5,13 +5,13 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { openViewer } from "@/components/viewer/viewer";
-import { bridge, github } from "@/utils/bridge/bridge";
+import { openClicked } from "@/components/comment-html/comment-html";
+import { github } from "@/utils/bridge/bridge";
 import type { Source } from "@/utils/contents/contents";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
-import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
+import { sanitize } from "@/utils/sanitize/sanitize";
 
 const rendered = new Map<string, Promise<string>>();
 
@@ -22,7 +22,10 @@ function renderedAt(repo: string, sha: string, path: string) {
   if (!known) {
     known = github<string>(
       "GET",
-      `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${sha}`,
+      `/repos/${repo}/contents/${path
+        .split("/")
+        .map((part) => encodeURIComponent(part))
+        .join("/")}?ref=${sha}`,
       undefined,
       "application/vnd.github.html+json",
     );
@@ -32,23 +35,25 @@ function renderedAt(repo: string, sha: string, path: string) {
   return known;
 }
 
-export const isMarkdown = (path: string) => /\.(md|markdown|mdx)$/i.test(path);
+export const isMarkdown = (path: string) => /\.(md|markdown|mdx)$/iu.test(path);
 
 export function Rendered({ file, source }: { file: ReviewFile; source: Source }) {
   const t = useT();
-  const [html, setHtml] = useState<string | Error | null>(null);
+  // What was loaded, and for which file: anything else (the first render, or after the file
+  // changed) shows as loading.
+  const [loaded, setLoaded] = useState<{ file: ReviewFile; source: Source; html: string | Error } | null>(null);
+  const html = loaded?.file === file && loaded.source === source ? loaded.html : null;
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let live = true;
-    setHtml(null);
     void (async () => {
       try {
         const removed = file.status === "removed";
         const sha = removed ? await source.base() : source.head;
         const text = await renderedAt(source.repo, sha, removed ? (file.previousPath ?? file.path) : file.path);
-        if (live) setHtml(sanitize(text));
+        if (live) setLoaded({ file, source, html: sanitize(text) });
       } catch (e) {
-        if (live) setHtml(e instanceof Error ? e : new Error(String(e)));
+        if (live) setLoaded({ file, source, html: e instanceof Error ? e : new Error(String(e)) });
       }
     })();
     return () => {
@@ -58,15 +63,16 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
   useDiagrams(ref, typeof html === "string" ? html : "");
   if (html === null)
     return (
-      <p className="flex items-center gap-2 px-4 py-3 font-sans text-body text-muted-foreground" role="status">
+      <output className="flex items-center gap-2 px-4 py-3 font-sans text-body text-muted-foreground">
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> {t("diff.loading")}
-      </p>
+      </output>
     );
   if (html instanceof Error)
     return (
       <p className="px-4 py-3 font-sans text-body text-destructive">{t("diff.loadFailed", { error: html.message })}</p>
     );
   return (
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only catches clicks bubbling from the links inside, which the keyboard reaches and activates itself.
     <div
       ref={ref}
       className={
@@ -77,19 +83,7 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
         "[&_h1]:my-3 [&_h1]:text-title2 [&_h1]:font-semibold [&_h2]:my-3 [&_h2]:text-title3 [&_h2]:font-semibold [&_h3]:my-2 [&_h3]:font-semibold [&_img]:max-w-full [&_img]:rounded-md [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 " +
         "[&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:px-2 [&_th]:border [&_th]:px-2"
       }
-      onClick={(e) => {
-        const picture = (e.target as Element).closest("img");
-        if (picture && !leadsElsewhere(picture)) {
-          e.preventDefault();
-          openViewer({ src: picture.src, alt: picture.alt });
-          return;
-        }
-        const link = (e.target as Element).closest("a[href]");
-        if (link) {
-          e.preventDefault();
-          void bridge.openUrl((link as HTMLAnchorElement).href);
-        }
-      }}
+      onClick={openClicked}
       // Sanitized above: an allowlist of tags and attributes, https links and GitHub images only.
       dangerouslySetInnerHTML={{ __html: html }}
     />

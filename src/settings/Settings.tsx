@@ -529,6 +529,11 @@ export function Settings() {
   const loadAuth = useCallback(() => void bridge.authStatus().then(setAuth), []);
   useEffect(loadAuth, [loadAuth]);
   useTheme(config?.theme);
+  // Another window sending the person here for something (the AI's setup, say).
+  useEffect(() => {
+    const off = bridge.on<PaneId>("settings-pane", (p) => PANE_IDS.includes(p) && setPane(p));
+    return () => void off.then((stop) => stop());
+  }, []);
   // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {
     document.title = t(`settings.pane.${pane}`);

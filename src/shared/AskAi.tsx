@@ -6,6 +6,7 @@ import { useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ask, PROVIDERS } from "@/lib/ai";
+import { ensureAi, openAiSettings, useAiProblem } from "@/lib/aiReady";
 import type { Config } from "@/lib/config";
 import type { Details } from "@/lib/details";
 import { useT } from "@/lib/i18n";
@@ -18,11 +19,13 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   const [question, setQuestion] = useState("");
   const headingId = useId();
   const t = useT();
+  const problem = useAiProblem(config);
   const provider = config.ai.provider;
   if (!provider) return null;
   const busy = state.phase === "busy";
 
   const run = async (asked: string, prompt: string) => {
+    if (!(await ensureAi(config))) return;
     setState({ phase: "busy", asked });
     try {
       const answer = await ask(config, details, prompt);
@@ -35,8 +38,12 @@ export function AskAi({ config, details }: { config: Config; details: Details })
     e.preventDefault();
     const q = question.trim();
     if (!q || busy) return;
-    setQuestion("");
-    void run(q, q);
+    // Kept in the field when the AI can't take it, to send once it's set up.
+    void ensureAi(config).then((ok) => {
+      if (!ok) return;
+      setQuestion("");
+      void run(q, q);
+    });
   };
 
   return (
@@ -48,6 +55,15 @@ export function AskAi({ config, details }: { config: Config; details: Details })
         </h3>
         {busy ? <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("shared.askThinking")} /> : null}
       </div>
+      {/* Said before anything's asked, with the way to fix it: asking would only end in the same alert. */}
+      {problem ? (
+        <p className="flex flex-wrap items-center gap-x-2 text-callout text-muted-foreground">
+          {t("shared.aiNotReady", { provider: PROVIDERS[provider].name })}
+          <Button variant="link" size="xs" className="h-auto p-0" onClick={() => void openAiSettings()}>
+            {t("shared.aiOpenSettings")}
+          </Button>
+        </p>
+      ) : null}
       {config.ai.prompts.length ? (
         <div className="flex flex-wrap gap-1.5">
           {config.ai.prompts.map((p) => (

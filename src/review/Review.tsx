@@ -19,6 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { keep, readKept, type Kept } from "@/lib/kept";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/lib/ai";
+import { aiProblem, ensureAi, useAiProblem } from "@/lib/aiReady";
 import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
@@ -394,8 +395,11 @@ export function Review({ target }: { target: Target }) {
 
   const ai = config?.ai.provider ? config : null;
   const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;
-  const runReview = useCallback(async () => {
+  const aiProblemNow = useAiProblem(ai);
+  // Asked for: says what's missing when the AI can't answer. On its own: only when it can.
+  const runReview = useCallback(async (asked = true) => {
     if (!ai || !details || !files) return;
+    if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
     setReviewing(details.headRefOid);
     setReviewError(null);
     try {
@@ -408,7 +412,7 @@ export function Review({ target }: { target: Target }) {
   }, [ai, details, files, setReviewed]);
   // On its own when the person asked for that, once per head commit.
   useEffect(() => {
-    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN") void runReview();
+    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN") void runReview(false);
   }, [ai, details, files, current, reviewing, reviewError, runReview]);
   const dropFinding = (finding: Finding) =>
     setReviewed((r) => (r ? { ...r, review: { ...r.review, findings: r.review.findings.filter((f) => f !== finding && !(f.path === finding.path && f.line === finding.line && f.body === finding.body)) } } : r));
@@ -921,7 +925,7 @@ export function Review({ target }: { target: Target }) {
                     {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
                     <span className="@max-[1360px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
                   </TooltipTrigger>
-                  <TooltipContent>{current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
+                  <TooltipContent>{aiProblemNow ? aiProblemNow.title : current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
                 </Tooltip>
               ) : null}
               {details && details.viewerCanUpdate && isOpen && details.isDraft ? (
@@ -1133,8 +1137,10 @@ export function Review({ target }: { target: Target }) {
                   onDismissFinding={dropFinding}
                   onAsk={
                     ai && details && files
-                      ? (path, range, question, earlier) =>
-                          askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question, earlier)
+                      ? async (path, range, question, earlier) => {
+                          if (!(await ensureAi(ai))) throw new Error(i18n()("shared.aiNotReady", { provider: PROVIDERS[ai.ai.provider!].name }));
+                          return askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question, earlier);
+                        }
                       : null
                   }
                   isViewed={isViewed}

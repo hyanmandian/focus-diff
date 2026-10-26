@@ -1,4 +1,4 @@
-import { PROVIDERS, type ProviderInfo } from '@/providers/providers';
+import { PROVIDERS, type ProviderInfo } from '@/utils/providers/providers';
 import { newId } from '@/utils/filters/filters';
 
 /** The bar's colours a theme of the reader's own can change, each a `--fd-*` property of the bar. */

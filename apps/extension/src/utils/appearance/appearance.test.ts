@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROVIDERS, providerNames } from '@/providers/providers';
+import { PROVIDERS, providerNames } from '@/utils/providers/providers';
 import {
   appearanceCss,
   createStyler,
@@ -9,7 +9,7 @@ import {
   shareTheme,
   PROVIDER_THEME,
   themeOf,
-} from '@/utils/appearance/appearance';
+} from './appearance';
 
 const pink = { id: 'pink', name: 'Pink', colors: { accent: '#bf3989', 'selected-bg': '#bf3989' } };
 

@@ -1,5 +1,5 @@
 import type { PanelContext } from '@/components/panel/panel';
-import { h } from '@/utils/dom';
+import { h } from '@/utils/dom/dom';
 
 const DELAY_MS = 350;
 /** Long enough to move the pointer onto the tooltip, which keeps it open. */

@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, type BrowserContext, type Page } from '@playwright/test';
-import { RECIPES } from '../src/utils/recipes.ts';
+import { RECIPES } from '../src/utils/recipes/recipes.ts';
 import en from '../src/locales/en.json' with { type: 'json' };
 
 const url = process.argv[2];

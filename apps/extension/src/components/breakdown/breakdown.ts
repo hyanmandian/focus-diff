@@ -1,11 +1,11 @@
 import { i18n } from '#i18n';
-import { breakdownIcon, checkIcon, infoIcon } from '@/components/icons';
-import { h } from '@/utils/dom';
+import { breakdownIcon, checkIcon, infoIcon } from '@/components/icons/icons';
+import { h } from '@/utils/dom/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format/format';
 import { LINES_PER_HOUR } from '@/utils/review-time/review-time';
 import type { PanelOption } from '@/components/filters/filters';
 import type { PanelContext } from '@/components/panel/panel';
-import { centreOver, returnFocus } from '@/components/popover';
+import { centreOver, returnFocus } from '@/components/popover/popover';
 import type { Totals } from '@/components/stats/stats';
 
 /** One filter's share of the pull request. */

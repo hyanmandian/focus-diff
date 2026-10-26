@@ -27,6 +27,6 @@ export default defineConfig({
   build: {
     outDir: '.output/demo',
     emptyOutDir: true,
-    lib: { entry: 'src/components/demo/embed.ts', formats: ['es'], fileName: () => 'focus-diff-demo.js' },
+    lib: { entry: 'src/components/demo-embed/demo-embed.ts', formats: ['es'], fileName: () => 'focus-diff-demo.js' },
   },
 });

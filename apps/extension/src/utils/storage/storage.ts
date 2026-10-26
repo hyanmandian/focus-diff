@@ -21,7 +21,7 @@ import {
   type FilesRecord,
   type ReviewRun,
   type ReviewTimeSettings,
-} from '@/utils/review-time/sessions';
+} from '@/utils/review-sessions/review-sessions';
 
 /** Selected filter ids per repository. An empty list means "All". */
 export type Selections = Record<string, string[]>;

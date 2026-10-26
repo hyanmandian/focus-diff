@@ -1,6 +1,6 @@
 import { i18n } from '#i18n';
-import { nextFileIcon } from '@/components/icons';
-import { h } from '@/utils/dom';
+import { nextFileIcon } from '@/components/icons/icons';
+import { h } from '@/utils/dom/dom';
 import { formatNumber as format } from '@/utils/format/format';
 
 /** What's left to review: files in the shown filters, or else the next filter in the bar that still has some. */

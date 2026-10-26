@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { createDemo } from './demo';
-import { SAMPLE_PULL_REQUEST } from './sample';
-import theme from '@/providers/github/theme.css?inline';
+import { SAMPLE_PULL_REQUEST } from '@/utils/demo-sample/demo-sample';
+import theme from '@/components/github-theme/github-theme.css?inline';
 
 const mount = () => {
   const target = document.createElement('div');

@@ -1,5 +1,5 @@
 import { defineContentScript } from '#imports';
-import { closeUpList } from '@/providers/github/virtual-list';
+import { closeUpList } from '@/utils/github-virtual-list/github-virtual-list';
 
 /**
  * In the page's own world, beside GitHub's scripts, for the one thing the bar's content script can't reach: the layout

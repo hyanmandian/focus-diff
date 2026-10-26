@@ -1,14 +1,14 @@
 import { i18n } from '#i18n';
-import { commentIcon } from '@/components/icons';
+import { commentIcon } from '@/components/icons/icons';
 import { createPanel } from '@/components/panel/panel';
 import { createTooltip } from '@/components/tooltip/tooltip';
-import { createReviewView, nextFilterWithWork, review, stepFrom, toggled, type Option } from '@/content/review';
-import { h } from '@/utils/dom';
+import { createReviewView, nextFilterWithWork, review, stepFrom, toggled, type Option } from '@/utils/review/review';
+import { h } from '@/utils/dom/dom';
 import { ALL, toMatcher } from '@/utils/filters/filters';
 import { formatNumber as format } from '@/utils/format/format';
-import { message } from '@/utils/i18n';
-import type { DemoFile, DemoPullRequest } from './sample';
-import themeStyles from '@/components/theme.css?inline';
+import { message } from '@/utils/i18n/i18n';
+import type { DemoFile, DemoPullRequest } from '@/utils/demo-sample/demo-sample';
+import themeStyles from '@/components/theme/theme.css?inline';
 import tooltipStyles from '@/components/tooltip/tooltip.css?inline';
 import demoStyles from './demo.css?inline';
 

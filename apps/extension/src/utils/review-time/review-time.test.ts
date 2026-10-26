@@ -10,7 +10,7 @@ import {
   paceFactors,
   reviewMinutes,
   type Learned,
-} from '@/utils/review-time/review-time';
+} from './review-time';
 
 describe('reviewMinutes', () => {
   it('reads added lines at the review pace, plus a moment to open the file', () => {

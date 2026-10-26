@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import en from '@/locales/en.json';
-import ptBR from '@/locales/pt_BR.json';
+import en from './en.json';
+import ptBR from './pt_BR.json';
 
 type Messages = Record<string, string | Record<string, string>>;
 

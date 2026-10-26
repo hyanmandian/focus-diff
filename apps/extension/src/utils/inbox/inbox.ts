@@ -1,4 +1,4 @@
-import type { Activity, Detail, InboxProblem, PullRequest } from '@/providers/github/inbox';
+import type { Activity, Detail, InboxProblem, PullRequest } from '@/utils/github-inbox/github-inbox';
 import { REPO_PATTERN, repoMatches } from '@/utils/filters/filters';
 import { normalizeSound, type SoundSetting } from '@/utils/sound/sound';
 

@@ -1,5 +1,5 @@
 import { i18n } from '#i18n';
-import { uiLanguage } from '@/utils/i18n';
+import { uiLanguage } from '@/utils/i18n/i18n';
 
 let numberFormat: Intl.NumberFormat | null = null;
 

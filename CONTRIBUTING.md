@@ -36,14 +36,14 @@ npm run screenshots -- <pull request files URL>  # store and README images in st
 
 ```text
 src/
-  entrypoints/      what the browser loads: background, a content script per supported site, options and welcome pages
-  content/          the content script's logic, the same on every site: filtering the page, moving between files
-                    and conversations
-  providers/        one folder per supported site: how to read its pages, and its theme; providers.ts lists them
-  components/       the UI: functions that build elements and return how to update them; panel/ lays the
-                    others out in a shadow root
+  entrypoints/      what the browser loads: background, a content script per supported site, the popup, options,
+                    welcome and offscreen pages; each only wires up a component or util
+  components/       the UI: functions that build elements and return how to update them; panel/ lays the bar's
+                    others out in a shadow root, mount-bar/ puts it on a review page, *-page/ are the extension's pages
+  utils/            the logic: the review and its moves (review/, review-controller/, review-navigation/), one
+                    <site>-provider/ per supported site with its page reading (github-page/), filters, storage,
+                    inbox, review time, the background's work (background/, review-scheduler/)
   assets/           global.css: the extension pages' colours, reset and type
-  utils/            filters, storage, the bar's appearance, formatting
   locales/          English and Brazilian Portuguese messages
 tests/              Playwright end-to-end tests, on a local copy of a pull request page
 ```
@@ -63,9 +63,9 @@ Its code follows one layout: `src/components/<name>/<name>.tsx`, `src/hooks/<nam
 `src/utils/<name>/<name>.ts`, each with its `<name>.test.tsx` beside it, kebab-case, imported directly (no index
 files); `tests/` is only for end-to-end tests; `src-tauri/` is the Rust side.
 
-The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`content/review.ts`) as on a review site. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
+The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`utils/review/review.ts`) as on a review site. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
 
-Unit tests (Vitest with WXT's fake browser) sit next to the file they cover, as `<name>.test.ts`. A module gets a folder named after it only when it has more than one file, like its test or its CSS (`utils/format/format.ts` and `format.test.ts`); a module of one file stays flat. Import the file itself, never an index.
+Its code follows the same layout as the Mac app's: `src/components/<name>/<name>.ts` (UI that builds elements) and `src/utils/<name>/<name>.ts` (logic), kebab-case, one folder per module even when it has a single file, each with its unit test (Vitest with WXT's fake browser) beside it as `<name>.test.ts`. Import the file itself, never an index. `src/entrypoints/` stays thin: WXT needs it, and its files only wire up a component or util.
 
 The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
 
@@ -73,9 +73,9 @@ The end-to-end tests serve a saved pull request page in place of github.com, so 
 
 The bar, its numbers and its moves are the same on every site. What differs is where a site keeps a review's files, counters, file tree and conversations, and that's a provider's job. To add a site, say GitLab:
 
-1. `src/providers/gitlab/gitlab.ts` exports a `Provider` (see `src/providers/provider.ts`) that reads its merge request pages. Keep the reading of the page in a module of its own, with unit tests next to it, like `providers/github/page.ts`.
-2. `src/providers/gitlab/theme.css` sets the bar's `--fd-*` properties from the site's own design tokens, with the site's light and dark values as fallbacks, like `providers/github/theme.css`.
-3. `src/providers/providers.ts` lists it, with its name and its theme, which loads only when it's needed.
+1. `src/utils/gitlab-provider/gitlab-provider.ts` exports a `Provider` (see `src/utils/provider/provider.ts`) that reads its merge request pages. Keep the reading of the page in a module of its own, with unit tests next to it, like `utils/github-page/github-page.ts`.
+2. `src/components/gitlab-theme/gitlab-theme.css` sets the bar's `--fd-*` properties from the site's own design tokens, with the site's light and dark values as fallbacks, like `components/github-theme/github-theme.css` (and `components/mount-bar/mount-bar.ts` leaves it out of the bar's own styles).
+3. `src/utils/providers/providers.ts` lists it, with its name and its theme, which loads only when it's needed.
 4. `src/entrypoints/gitlab.content.ts` runs the bar there, like `github.content.ts`: each site's content script carries only its own provider.
 5. A saved page in `tests/fixtures/` and end-to-end tests on it, like the GitHub ones.
 6. The places that name the supported sites by hand: the manifest description in the locales, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and the store listings.

@@ -1,6 +1,6 @@
 import { defineContentScript } from '#imports';
-import { mountBar } from '@/content/mount';
-import { github } from '@/providers/github/github';
+import { mountBar } from '@/components/mount-bar/mount-bar';
+import { github } from '@/utils/github-provider/github-provider';
 
 export default defineContentScript({
   matches: github.matches,

@@ -1,10 +1,10 @@
 import { i18n } from '#i18n';
-import { chevronIcon, commentIcon, targetIcon, threadStateIcons } from '@/components/icons';
-import { h } from '@/utils/dom';
+import { chevronIcon, commentIcon, targetIcon, threadStateIcons } from '@/components/icons/icons';
+import { h } from '@/utils/dom/dom';
 import { formatNumber as format } from '@/utils/format/format';
 import type { PanelContext } from '@/components/panel/panel';
-import { centreOver, returnFocus } from '@/components/popover';
-import type { ThreadState } from '@/providers/provider';
+import { centreOver, returnFocus } from '@/components/popover/popover';
+import type { ThreadState } from '@/utils/provider/provider';
 
 export interface Conversation {
   path: string;

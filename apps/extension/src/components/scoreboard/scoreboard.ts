@@ -1,4 +1,4 @@
-import { h } from '@/utils/dom';
+import { h } from '@/utils/dom/dom';
 
 const FLIP_MS = 260;
 /** Thousands separators, the slash of a count and the colon of a clock sit between cells instead of filling one. */

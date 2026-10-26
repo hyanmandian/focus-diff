@@ -1,6 +1,6 @@
 import { i18n } from '#i18n';
-import { h } from '@/utils/dom';
-import { FADE, scrollBehavior, scrollRow } from '@/components/scroll-row';
+import { h } from '@/utils/dom/dom';
+import { FADE, scrollBehavior, scrollRow } from '@/components/scroll-row/scroll-row';
 import { formatNumber as format } from '@/utils/format/format';
 import type { PanelContext } from '@/components/panel/panel';
 

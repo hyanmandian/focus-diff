@@ -1,7 +1,7 @@
 import { i18n } from '#i18n';
-import { confetti } from '@/components/confetti';
-import { settingsIcon } from '@/components/icons';
-import { h } from '@/utils/dom';
+import { confetti } from '@/components/confetti/confetti';
+import { settingsIcon } from '@/components/icons/icons';
+import { h } from '@/utils/dom/dom';
 import { formatDuration, formatNumber as format } from '@/utils/format/format';
 import { createBreakdown, type BreakdownRow } from '@/components/breakdown/breakdown';
 import { createConversations, type Conversations } from '@/components/conversations/conversations';

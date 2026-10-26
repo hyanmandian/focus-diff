@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createScoreboard } from '@/components/scoreboard/scoreboard';
+import { createScoreboard } from './scoreboard';
 
 const shown = (element: HTMLElement) =>
   [...element.children].map((cell) => (cell.classList.contains('separator') ? `(${cell.textContent})` : `[${cell.textContent}]`)).join('');

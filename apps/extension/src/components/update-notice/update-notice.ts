@@ -1,6 +1,6 @@
 import { i18n } from '#i18n';
-import { closeIcon } from '@/components/icons';
-import { h } from '@/utils/dom';
+import { closeIcon } from '@/components/icons/icons';
+import { h } from '@/utils/dom/dom';
 import type { PanelContext } from '@/components/panel/panel';
 
 const RELEASES = 'https://github.com/hyanmandian/focus-diff/releases';

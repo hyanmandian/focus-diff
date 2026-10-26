@@ -1,12 +1,12 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: 'tests',
+  testDir: "tests",
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI ? "github" : "list",
   use: {
-    trace: 'on-first-retry',
+    trace: "on-first-retry",
   },
 });

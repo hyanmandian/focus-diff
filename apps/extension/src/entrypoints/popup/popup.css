@@ -125,15 +125,15 @@ body {
 .tab:hover {
   background: var(--fd-hover);
 }
-.tab[aria-selected='true'],
-.tab[aria-selected='true']:hover {
+.tab[aria-selected="true"],
+.tab[aria-selected="true"]:hover {
   background: transparent;
   color: var(--fd-selected-fg);
 }
 .tab:focus-visible {
   outline-offset: 1px;
 }
-.tab[aria-selected='true'] .option-count {
+.tab[aria-selected="true"] .option-count {
   background: rgba(0, 0, 0, 0.16);
   color: var(--fd-selected-fg);
 }
@@ -207,13 +207,13 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chip[aria-pressed='true'] {
+.chip[aria-pressed="true"] {
   color: var(--fd-selected-fg);
 }
-.chip[aria-pressed='true']:hover {
+.chip[aria-pressed="true"]:hover {
   background: transparent;
 }
-.chip[aria-pressed='true'] .option-count {
+.chip[aria-pressed="true"] .option-count {
   background: rgba(0, 0, 0, 0.16);
   color: var(--fd-selected-fg);
 }
@@ -331,7 +331,7 @@ a.pull:focus-visible {
 }
 /* What changed since the reader last looked: a dot at the row's edge, level with the title. */
 .unread::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 16px;
   left: 4px;
@@ -369,9 +369,9 @@ a.pull:focus-visible {
   text-overflow: ellipsis;
 }
 .pull-meta > * + *::before {
-  content: '·';
+  content: "·";
   /* A separator to see, not to hear. */
-  content: '·' / '';
+  content: "·" / "";
   margin: 0 6px;
 }
 .pull-draft {
@@ -511,7 +511,7 @@ a.pull:focus-visible {
   display: none;
 }
 .done-section summary::before {
-  content: '';
+  content: "";
   width: 6px;
   height: 6px;
   margin: 0 2px;
@@ -546,7 +546,7 @@ a.pull:focus-visible {
 }
 .skeleton .pull-body::before,
 .skeleton .pull-body::after {
-  content: '';
+  content: "";
   height: 12px;
   border-radius: 4px;
   background: var(--fd-track);
@@ -727,7 +727,7 @@ a.pull:focus-visible {
 #review-now {
   position: relative;
 }
-#review-now[data-count]:not([data-count=''])::after {
+#review-now[data-count]:not([data-count=""])::after {
   content: attr(data-count);
   position: absolute;
   top: 4px;
@@ -837,7 +837,7 @@ a.pull:focus-visible {
   line-height: 18px;
 }
 .run-over::before {
-  content: '';
+  content: "";
   display: inline-block;
   width: 8px;
   height: 8px;
@@ -873,8 +873,8 @@ a.pull:focus-visible {
   border: 1px solid var(--fd-border-muted);
 }
 /* Nothing slides between these, so the picked one carries its own background. */
-.minutes .chip[aria-pressed='true'],
-.minutes .chip[aria-pressed='true']:hover {
+.minutes .chip[aria-pressed="true"],
+.minutes .chip[aria-pressed="true"]:hover {
   border-color: transparent;
   background: var(--fd-selected-bg);
 }
@@ -943,27 +943,27 @@ a.pull:focus-visible {
 
 @media (forced-colors: active) {
   .tab-indicator,
-  .tab[aria-selected='true'],
+  .tab[aria-selected="true"],
   .filter-slot .indicator,
-  .chip[aria-pressed='true'] {
+  .chip[aria-pressed="true"] {
     forced-color-adjust: none;
   }
   .tab-indicator,
   .filter-slot .indicator {
     background: Highlight;
   }
-  .chip[aria-pressed='true'],
-  .chip[aria-pressed='true'] .option-count {
+  .chip[aria-pressed="true"],
+  .chip[aria-pressed="true"] .option-count {
     color: HighlightText;
   }
-  .tab[aria-selected='true'],
-  .tab[aria-selected='true'] .option-count {
+  .tab[aria-selected="true"],
+  .tab[aria-selected="true"] .option-count {
     color: HighlightText;
   }
   .unread::before {
     background: CanvasText;
   }
-  .chip[aria-pressed='true'] {
+  .chip[aria-pressed="true"] {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;

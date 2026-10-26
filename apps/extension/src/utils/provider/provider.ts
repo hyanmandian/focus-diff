@@ -1,4 +1,4 @@
-import type { FileInfo } from '@/utils/review-files/review-files';
+import type { FileInfo } from "@/utils/review-files/review-files";
 
 /**
  * What Focus Diff needs from a code review site. The bar, its numbers and its moves are the same on every site; a
@@ -66,7 +66,7 @@ export interface FileStats {
 }
 
 /** Waiting on the reader, answered by them (they wrote or reacted to the last comment), or resolved. */
-export type ThreadState = 'waiting' | 'answered' | 'resolved';
+export type ThreadState = "waiting" | "answered" | "resolved";
 
 /** A file diff the site has drawn. */
 export interface Diff {

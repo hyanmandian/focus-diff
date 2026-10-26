@@ -12,10 +12,10 @@
  * Anything unexpected leaves GitHub's own layout in place.
  */
 
-export const HIDDEN_ROWS = 'data-focus-diff-hidden-rows';
+export const HIDDEN_ROWS = "data-focus-diff-hidden-rows";
 /** How much of each anchor the content script sends: enough to tell the files apart. */
 export const DIGEST = 12;
-const ROW = '[data-index][data-path-digest]';
+const ROW = "[data-index][data-path-digest]";
 
 interface Options {
   count: number;
@@ -37,26 +37,26 @@ interface Virtualizer {
 const isVirtualizer = (value: unknown): value is Virtualizer => {
   const candidate = value as Partial<Virtualizer> | null;
   return (
-    typeof candidate === 'object' &&
+    typeof candidate === "object" &&
     candidate !== null &&
-    typeof candidate.getVirtualItems === 'function' &&
-    typeof candidate.resizeItem === 'function' &&
-    typeof candidate.setOptions === 'function' &&
-    typeof candidate.options?.gap === 'number' &&
-    typeof candidate.options.estimateSize === 'function' &&
-    typeof candidate.options.getItemKey === 'function'
+    typeof candidate.getVirtualItems === "function" &&
+    typeof candidate.resizeItem === "function" &&
+    typeof candidate.setOptions === "function" &&
+    typeof candidate.options?.gap === "number" &&
+    typeof candidate.options.estimateSize === "function" &&
+    typeof candidate.options.getItemKey === "function"
   );
 };
 
 /** The virtualizer behind a list, from React's records on its element: the hook state of a component above it. */
 const virtualizerOf = (list: Element): Virtualizer | null => {
-  const key = Object.keys(list).find((name) => name.startsWith('__reactFiber$'));
+  const key = Object.keys(list).find((name) => name.startsWith("__reactFiber$"));
   type Hook = { memoizedState?: unknown; next?: Hook | null };
   type Fiber = { memoizedState?: Hook | null; return?: Fiber | null };
   let fiber = key ? (list as unknown as Record<string, Fiber | undefined>)[key] : undefined;
   for (let depth = 0; fiber && depth < 40; depth++, fiber = fiber.return ?? undefined) {
     let hook = fiber.memoizedState;
-    for (let index = 0; hook && typeof hook === 'object' && index < 100; index++, hook = hook.next) {
+    for (let index = 0; hook && typeof hook === "object" && index < 100; index++, hook = hook.next) {
       const state = hook.memoizedState as { current?: unknown } | null | undefined;
       for (const value of [state, state?.current]) if (isVirtualizer(value)) return value;
     }
@@ -72,10 +72,10 @@ interface Hidden {
 const NONE: Hidden = { count: 0, files: new Map() };
 
 const parse = (value: string | null): Hidden => {
-  const [count, ...pairs] = (value ?? '').split(' ');
+  const [count, ...pairs] = (value ?? "").split(" ");
   const files = new Map(
     pairs.flatMap((pair) => {
-      const [index, digest] = pair.split(':');
+      const [index, digest] = pair.split(":");
       return index && digest ? [[Number(index), digest] as const] : [];
     }),
   );
@@ -95,7 +95,11 @@ export const closeUpList = (): void => {
   const closing = () => hidden.size > 0;
   const adapt = (options: Options): Options =>
     closing()
-      ? { ...options, gap: 0, estimateSize: (index) => (hidden.has(index) ? 0 : options.estimateSize(index) + options.gap) }
+      ? {
+          ...options,
+          gap: 0,
+          estimateSize: (index) => (hidden.has(index) ? 0 : options.estimateSize(index) + options.gap),
+        }
       : options;
 
   const rows = () => (list ? [...list.querySelectorAll<HTMLElement>(`:scope > ${ROW}`)] : []);
@@ -106,14 +110,14 @@ export const closeUpList = (): void => {
     const digests = new Set(hidden.values());
     return rows().every((row) => {
       const digest = hidden.get(indexOf(row));
-      const own = row.dataset.pathDigest ?? '';
+      const own = row.dataset.pathDigest ?? "";
       return digest === undefined ? !digests.has(own.slice(0, DIGEST)) : own.startsWith(digest);
     });
   };
 
   const pad = () => {
     for (const row of rows()) {
-      const padding = closing() && !hidden.has(indexOf(row)) ? `${gap}px` : '';
+      const padding = closing() && !hidden.has(indexOf(row)) ? `${gap}px` : "";
       if (row.style.paddingBottom !== padding) row.style.paddingBottom = padding;
     }
   };
@@ -201,10 +205,13 @@ export const closeUpList = (): void => {
       else pad();
     }
   }).observe(document.body, { childList: true, subtree: true });
-  new MutationObserver(() => update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)))).observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: [HIDDEN_ROWS],
-  });
+  new MutationObserver(() => update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)))).observe(
+    document.documentElement,
+    {
+      attributes: true,
+      attributeFilter: [HIDDEN_ROWS],
+    },
+  );
   attach();
   update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)));
 };

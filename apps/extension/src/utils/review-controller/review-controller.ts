@@ -1,15 +1,28 @@
-import { i18n } from '#i18n';
-import type { ContentScriptContext } from '#imports';
-import { browser } from 'wxt/browser';
-import type { Panel } from '@/components/panel/panel';
-import type { Totals } from '@/components/stats/stats';
-import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from '@/utils/filters/filters';
-import { formatNumber as format } from '@/utils/format/format';
-import type { Provider } from '@/utils/provider/provider';
-import { createStyler, normalizeAppearance } from '@/utils/appearance/appearance';
-import { createEstimator, learnFile, normalizeLearned, PACES, reviewMinutes, type Estimator } from '@/utils/review-time/review-time';
-import { normalizeReviewTime, type ReviewTimeSettings } from '@/utils/review-sessions/review-sessions';
-import type { Message } from '@/utils/messages/messages';
+import { browser } from "wxt/browser";
+
+import { i18n } from "#i18n";
+import type { ContentScriptContext } from "#imports";
+import type { Panel } from "@/components/panel/panel";
+import type { Totals } from "@/components/stats/stats";
+import { createActiveTime, type OnScreen } from "@/utils/active-time/active-time";
+import { createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
+import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from "@/utils/filters/filters";
+import { formatNumber as format } from "@/utils/format/format";
+import type { Message } from "@/utils/messages/messages";
+import type { Provider } from "@/utils/provider/provider";
+import { collectFiles, type FileInfo, type Files } from "@/utils/review-files/review-files";
+import { createNavigation, goToFile } from "@/utils/review-navigation/review-navigation";
+import { normalizeReviewTime, type ReviewTimeSettings } from "@/utils/review-sessions/review-sessions";
+import {
+  createEstimator,
+  learnFile,
+  normalizeLearned,
+  PACES,
+  reviewMinutes,
+  type Estimator,
+} from "@/utils/review-time/review-time";
+import { createReviewView, nextFilterWithWork, review, toggled, type Option } from "@/utils/review/review";
+import { scrollToTop, waitFor } from "@/utils/scroll/scroll";
 import {
   appearanceItem,
   configItem,
@@ -21,19 +34,14 @@ import {
   selectionsItem,
   updateItem,
   type Selections,
-} from '@/utils/storage/storage';
-import { createActiveTime, type OnScreen } from '@/utils/active-time/active-time';
-import { collectFiles, type FileInfo, type Files } from '@/utils/review-files/review-files';
-import { createNavigation, goToFile } from '@/utils/review-navigation/review-navigation';
-import { createReviewView, nextFilterWithWork, review, toggled, type Option } from '@/utils/review/review';
-import { scrollToTop, waitFor } from '@/utils/scroll/scroll';
-import { canTransition, removeTransitionStyle, withTransition } from '@/utils/transition/transition';
+} from "@/utils/storage/storage";
+import { canTransition, removeTransitionStyle, withTransition } from "@/utils/transition/transition";
 
 /** A site keeps drawing while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
 
 const show = (element: HTMLElement, visible: boolean) => {
-  const display = visible ? '' : 'none';
+  const display = visible ? "" : "none";
   if (element.style.display !== display) element.style.display = display;
 };
 
@@ -46,7 +54,7 @@ const present = (diff: { element: HTMLElement; container: HTMLElement }, visible
   for (const element of new Set([diff.container, diff.element])) show(element, visible || element !== hidden);
 };
 
-const COUNTER_COPY = 'data-focus-diff-counter';
+const COUNTER_COPY = "data-focus-diff-counter";
 
 /**
  * Shows `value` in place of one of the site's counters through a copy beside it, so the site keeps updating its own node.
@@ -65,9 +73,9 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
   }
   if (!copy) {
     copy = original.cloneNode(false) as HTMLElement;
-    copy.removeAttribute('id');
-    copy.removeAttribute('title');
-    copy.setAttribute(COUNTER_COPY, '');
+    copy.removeAttribute("id");
+    copy.removeAttribute("title");
+    copy.setAttribute(COUNTER_COPY, "");
     original.after(copy);
   }
   if (copy.textContent !== value) copy.textContent = value;
@@ -75,10 +83,17 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
 };
 
 /** Hides tree files outside the filter, and folders left with nothing to show. */
-const filterTree = (provider: Provider, matches: Matcher, filtering: boolean, shownPaths: string[], pathByAnchor: Map<string, string>) => {
+const filterTree = (
+  provider: Provider,
+  matches: Matcher,
+  filtering: boolean,
+  shownPaths: string[],
+  pathByAnchor: Map<string, string>,
+) => {
   const folders = new Set<string>();
   const keepFoldersOf = (path: string) => {
-    for (let end = path.lastIndexOf('/'); end > 0; end = path.lastIndexOf('/', end - 1)) folders.add(path.slice(0, end));
+    for (let end = path.lastIndexOf("/"); end > 0; end = path.lastIndexOf("/", end - 1))
+      folders.add(path.slice(0, end));
   };
   shownPaths.forEach(keepFoldersOf);
   for (const file of provider.tree.files()) {
@@ -134,7 +149,11 @@ export interface Controller {
 }
 
 /** Runs the bar on one review site: reads its page through `provider`, and filters it as the reader picks filters. */
-export const startController = async (ctx: ContentScriptContext, panel: Panel, provider: Provider): Promise<Controller> => {
+export const startController = async (
+  ctx: ContentScriptContext,
+  panel: Panel,
+  provider: Provider,
+): Promise<Controller> => {
   const restyle = createStyler(panel.setTheme, provider.id);
   await restyle(await loadAppearance());
   let config: Config = await loadConfig();
@@ -145,7 +164,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
   let estimator: Estimator = reviewMinutes;
   const reestimate = () => (estimator = createEstimator(PACES[reviewTime.pace], reviewTime.learn ? learned : null));
   reestimate();
-  let pending: 'frame' | 'idle' | null = null;
+  let pending: "frame" | "idle" | null = null;
   let announceNext = false;
 
   let compiled: { config: Config; repo: string; filters: Option[] } | null = null;
@@ -159,7 +178,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     return list;
   };
 
-  const optionsFor = (repo: string): Option[] => [{ id: ALL, name: i18n.t('filterAll') }, ...filters(repo)];
+  const optionsFor = (repo: string): Option[] => [{ id: ALL, name: i18n.t("filterAll") }, ...filters(repo)];
 
   let files: Files = { list: [], complete: false };
 
@@ -212,13 +231,14 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
 
   const openSettings = () => {
     const repo = provider.repository();
-    const message: Message = repo && filters(repo).length > 0 ? { type: 'open-options', repo } : { type: 'open-welcome' };
+    const message: Message =
+      repo && filters(repo).length > 0 ? { type: "open-options", repo } : { type: "open-welcome" };
     void browser.runtime.sendMessage(message);
   };
 
   const covered = () => provider.coveredTop();
   let pageChanged = false;
-  let selectionKey = '';
+  let selectionKey = "";
   let shown: FileInfo[] = [];
   const navigation = createNavigation(provider, panel, () => schedule());
   const showReview = createReviewView(panel);
@@ -242,11 +262,12 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     const atTop = shown.findIndex((file) => (file.diff?.container.getBoundingClientRect().bottom ?? 0) > top + 1);
     const current = shown[atTop];
     // The file at the top counts when it hasn't been brought all the way up yet.
-    const currentIsNext = current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
+    const currentIsNext =
+      current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
     const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? left[0]);
     if (!target) return;
     void goToFile(provider, target);
-    panel.announceText(i18n.t('panelJumpedToFile', left.length, [target.path, format(left.length)]));
+    panel.announceText(i18n.t("panelJumpedToFile", left.length, [target.path, format(left.length)]));
   };
 
   /**
@@ -266,7 +287,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
    * Files seen not viewed on this page: only those can be learned from once marked. GitHub loads the list a bit at a
    * time, so a file already viewed can turn up later, and that's not the reader marking it.
    */
-  let unviewed = { pathname: '', paths: new Set<string>() };
+  let unviewed = { pathname: "", paths: new Set<string>() };
   const learnFromViewed = async (list: FileInfo[]) => {
     if (unviewed.pathname !== location.pathname) unviewed = { pathname: location.pathname, paths: new Set() };
     const marked = list.filter((file) => file.viewed && unviewed.paths.has(file.path));
@@ -277,7 +298,13 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     const samples = marked.flatMap((file) => {
       const seconds = activeTime.take(file.path);
       return file.stats && seconds >= MIN_REVIEW_SECONDS
-        ? [{ path: file.path, expected: reviewMinutes(file.path, file.stats, PACES[reviewTime.pace]), actual: seconds / 60 }]
+        ? [
+            {
+              path: file.path,
+              expected: reviewMinutes(file.path, file.stats, PACES[reviewTime.pace]),
+              actual: seconds / 60,
+            },
+          ]
         : [];
     });
     if (!samples.length) return;
@@ -303,7 +330,11 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     files = collectFiles(provider);
     void learnFromViewed(files.list);
     const reported = provider.reportedFileCount();
-    const current = review(files, optionsFor(repo), selectedIds(repo), { reported, loading: loading(), minutes: estimator });
+    const current = review(files, optionsFor(repo), selectedIds(repo), {
+      reported,
+      loading: loading(),
+      minutes: estimator,
+    });
     const { filtering, matches, selection, totals } = current;
     const virtualized = provider.isVirtualized();
     shown = current.shown;
@@ -311,7 +342,9 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     // Places in the list are only known from the site's data, which lists every file in order.
     provider.closeUp?.(
       virtualized && files.complete && filtering
-        ? files.list.flatMap((file, index) => (matches(file.path) || !file.anchor ? [] : [{ index, anchor: file.anchor }]))
+        ? files.list.flatMap((file, index) =>
+            matches(file.path) || !file.anchor ? [] : [{ index, anchor: file.anchor }],
+          )
         : [],
       files.list.length,
     );
@@ -345,8 +378,8 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
   let ticket = 0;
   /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
   let chosen = false;
-  const schedule = (when: 'frame' | 'idle' = 'frame') => {
-    if (ctx.isInvalid || pending === 'frame' || pending === when) return;
+  const schedule = (when: "frame" | "idle" = "frame") => {
+    if (ctx.isInvalid || pending === "frame" || pending === when) return;
     pending = when;
     const mine = ++ticket;
     const run = () => {
@@ -356,9 +389,11 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
       chosen = false;
       let pending: FileInfo | undefined;
       const pieces = () =>
-        files.list.flatMap((file) => (file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : []));
+        files.list.flatMap((file) =>
+          file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : [],
+        );
       // Inside a transition the move is the animation, so the scroll itself is instant.
-      const behavior = canTransition() ? 'instant' : undefined;
+      const behavior = canTransition() ? "instant" : undefined;
       void withTransition(() => {
         apply();
         // Picked again while this change was being prepared: that pick gets its own turn.
@@ -372,21 +407,24 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
       });
     };
     // A tab in the background draws no frames, so there even the reader's changes wait for idle time.
-    if (when === 'frame' && !document.hidden) ctx.requestAnimationFrame(run);
+    if (when === "frame" && !document.hidden) ctx.requestAnimationFrame(run);
     // Safari has no requestIdleCallback; a short timeout keeps page changes batched there.
-    else if ('requestIdleCallback' in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
+    else if ("requestIdleCallback" in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
     else ctx.setTimeout(run, IDLE_TIMEOUT_MS / 4);
   };
 
   const changesElements = (record: MutationRecord) =>
-    record.type === 'attributes' || [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element);
+    record.type === "attributes" ||
+    [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element);
 
   /** New diffs get filtered on the next frame so they never flash in; text-only changes, like ticking timestamps, are ignored. */
   const pageObserver = new MutationObserver((records) => {
     const relevant = records.filter(changesElements);
     if (!relevant.length) return;
-    const urgent = relevant.some((record) => record.type === 'attributes' || [...record.addedNodes].some(provider.containsDiff));
-    schedule(urgent ? 'frame' : 'idle');
+    const urgent = relevant.some(
+      (record) => record.type === "attributes" || [...record.addedNodes].some(provider.containsDiff),
+    );
+    schedule(urgent ? "frame" : "idle");
   });
   let observing = false;
   const observe = (active: boolean) => {
@@ -404,13 +442,13 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
   };
 
   const onMessage = (message: Message) => {
-    if (message?.type !== 'command') return;
-    if (message.command === 'next-filter') step(1);
-    if (message.command === 'previous-filter') step(-1);
-    if (message.command === 'show-all') select(ALL);
-    if (message.command === 'next-unviewed') nextUnviewed();
-    if (message.command === 'next-comment') comment(1);
-    if (message.command === 'previous-comment') comment(-1);
+    if (message?.type !== "command") return;
+    if (message.command === "next-filter") step(1);
+    if (message.command === "previous-filter") step(-1);
+    if (message.command === "show-all") select(ALL);
+    if (message.command === "next-unviewed") nextUnviewed();
+    if (message.command === "next-comment") comment(1);
+    if (message.command === "previous-comment") comment(-1);
   };
   browser.runtime.onMessage.addListener(onMessage);
 
@@ -437,13 +475,13 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
   const unwatchAppearance = appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
   const dismissUpdate = () => void updateItem.setValue(null);
 
-  ctx.addEventListener(window, 'wxt:locationchange', () => schedule());
+  ctx.addEventListener(window, "wxt:locationchange", () => schedule());
 
   // A file picked in the site's tree scrolls smoothly from where the page was, and lines up below the sticky bar
   // instead of under it. The site still updates the address and the tree; a jump of its own is undone before it's painted.
   ctx.addEventListener(
     document,
-    'click',
+    "click",
     (event) => {
       const anchor = provider.tree.anchorAt(event.target);
       if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -455,7 +493,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
       const diff = provider.diffAt(anchor);
       if (diff) {
         event.preventDefault();
-        history.pushState(history.state, '', provider.hashOf(anchor));
+        history.pushState(history.state, "", provider.hashOf(anchor));
         ctx.requestAnimationFrame(() => bringIn(diff));
       } else {
         // Not drawn yet: the site brings it in, then it's lined up.
@@ -464,7 +502,7 @@ export const startController = async (ctx: ContentScriptContext, panel: Panel, p
     },
     { capture: true },
   );
-  ctx.addEventListener(document, 'change', () => schedule(), { capture: true });
+  ctx.addEventListener(document, "change", () => schedule(), { capture: true });
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
     removeTransitionStyle();

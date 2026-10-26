@@ -8,7 +8,7 @@ const FLASH_MS = 2000;
 const HOLD_MS = 5000;
 const SETTLED_MS = 600;
 const DRIFT_PX = 24;
-const READER_INPUT = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+const READER_INPUT = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
 
 /** Resolves with what `find` finds once the site has drawn it, checking every frame, or `null` after `timeout`. */
 export const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): Promise<T | null> =>
@@ -22,7 +22,8 @@ export const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): P
     check();
   });
 
-const scrollBehavior = (): ScrollBehavior => (matchMedia('(prefers-reduced-motion: no-preference)').matches ? 'smooth' : 'auto');
+const scrollBehavior = (): ScrollBehavior =>
+  matchMedia("(prefers-reduced-motion: no-preference)").matches ? "smooth" : "auto";
 
 /** Lets go of the element held by the last jump, so two never pull the page different ways. */
 let releaseHold = () => {};
@@ -77,14 +78,17 @@ const scrollAndHold = (element: Element, offsetOf: (box: DOMRect) => number, beh
 };
 
 /** Brings an element to the top of the screen, right below the `covered` part. */
-export const scrollToTop = (element: Element, covered: () => number, behavior: ScrollBehavior = scrollBehavior()): void =>
-  scrollAndHold(element, covered, behavior);
+export const scrollToTop = (
+  element: Element,
+  covered: () => number,
+  behavior: ScrollBehavior = scrollBehavior(),
+): void => scrollAndHold(element, covered, behavior);
 
 /** Brings an element to the middle of the screen, clear of the `covered` part. */
 export const scrollToCenter = (element: Element, covered: () => number): void =>
   scrollAndHold(element, (box) => Math.max(covered(), (innerHeight - box.height) / 2), scrollBehavior());
 
-const FLASH_ID = 'focus-diff-flash';
+const FLASH_ID = "focus-diff-flash";
 
 const ring = (color: string, alpha: number, glow: number) =>
   `0 0 0 2px color-mix(in srgb, ${color} ${alpha}%, transparent), 0 0 0 ${glow}px color-mix(in srgb, ${color} ${alpha / 4}%, transparent)`;
@@ -96,7 +100,7 @@ const ring = (color: string, alpha: number, glow: number) =>
 export const flash = (element: HTMLElement, color: string): void => {
   for (const animation of element.getAnimations()) if (animation.id === FLASH_ID) animation.cancel();
   // With reduced motion the ring doesn't grow; it shows, holds and fades.
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const animation = element.animate(
     [
       { boxShadow: ring(color, 0, still ? 6 : 0), offset: 0 },
@@ -104,7 +108,7 @@ export const flash = (element: HTMLElement, color: string): void => {
       { boxShadow: ring(color, 100, 6), offset: 0.7 },
       { boxShadow: ring(color, 0, still ? 6 : 0), offset: 1 },
     ],
-    { duration: FLASH_MS, easing: 'ease-out' },
+    { duration: FLASH_MS, easing: "ease-out" },
   );
   animation.id = FLASH_ID;
 };

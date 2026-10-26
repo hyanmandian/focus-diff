@@ -1,6 +1,5 @@
-import { i18n } from '#i18n';
-import type { Demo } from '@/components/demo/demo';
-import { PROVIDERS } from '@/utils/providers/providers';
+import { i18n } from "#i18n";
+import type { Demo } from "@/components/demo/demo";
 import {
   appearanceCss,
   createStyler,
@@ -13,25 +12,26 @@ import {
   type Appearance,
   type CustomTheme,
   type ThemeColor,
-} from '@/utils/appearance/appearance';
-import { newId } from '@/utils/filters/filters';
-import { $, translate } from '@/utils/extension-page/extension-page';
+} from "@/utils/appearance/appearance";
+import { $, translate } from "@/utils/extension-page/extension-page";
+import { newId } from "@/utils/filters/filters";
+import { PROVIDERS } from "@/utils/providers/providers";
 
 const COLOR_NAMES: Record<ThemeColor, string> = {
-  bg: i18n.t('colorBg'),
-  fg: i18n.t('colorFg'),
-  muted: i18n.t('colorMuted'),
-  border: i18n.t('colorBorder'),
-  'border-muted': i18n.t('colorBorderMuted'),
-  hover: i18n.t('colorHover'),
-  focus: i18n.t('colorFocus'),
-  'selected-bg': i18n.t('colorSelectedBg'),
-  'selected-fg': i18n.t('colorSelectedFg'),
-  track: i18n.t('colorTrack'),
-  accent: i18n.t('colorAccent'),
-  add: i18n.t('colorAdd'),
-  del: i18n.t('colorDel'),
-  attention: i18n.t('colorAttention'),
+  bg: i18n.t("colorBg"),
+  fg: i18n.t("colorFg"),
+  muted: i18n.t("colorMuted"),
+  border: i18n.t("colorBorder"),
+  "border-muted": i18n.t("colorBorderMuted"),
+  hover: i18n.t("colorHover"),
+  focus: i18n.t("colorFocus"),
+  "selected-bg": i18n.t("colorSelectedBg"),
+  "selected-fg": i18n.t("colorSelectedFg"),
+  track: i18n.t("colorTrack"),
+  accent: i18n.t("colorAccent"),
+  add: i18n.t("colorAdd"),
+  del: i18n.t("colorDel"),
+  attention: i18n.t("colorAttention"),
 };
 
 /** A computed `rgb()` or `rgba()` colour as hex, with its alpha when it has one. */
@@ -39,13 +39,13 @@ const hexOf = (color: string): string | null => {
   const [r, g, b, a = 1] = color.match(/[\d.]+/g)?.map(Number) ?? [];
   if (r === undefined || g === undefined || b === undefined) return null;
   const channels = a < 1 ? [r, g, b, Math.round(a * 255)] : [r, g, b];
-  return `#${channels.map((channel) => Math.round(channel).toString(16).padStart(2, '0')).join('')}`;
+  return `#${channels.map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
 };
 
 /** `#rgb`, `#rgba` and `#rrggbbaa` as the `#rrggbb` a colour picker takes; its alpha, if any, is left out. */
 const pickerValue = (hex: string): string => {
   const digits = hex.slice(1);
-  const full = digits.length <= 4 ? [...digits].map((digit) => digit + digit).join('') : digits;
+  const full = digits.length <= 4 ? [...digits].map((digit) => digit + digit).join("") : digits;
   return `#${full.slice(0, 6).toLowerCase()}`;
 };
 
@@ -70,27 +70,27 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     showDefaults();
   });
 
-  const select = $<HTMLSelectElement>('#theme');
-  const editor = $('#theme-editor');
-  const name = $<HTMLInputElement>('#theme-name');
-  const nameError = $('#theme-name-error');
-  const list = $('#colors');
+  const select = $<HTMLSelectElement>("#theme");
+  const editor = $("#theme-editor");
+  const name = $<HTMLInputElement>("#theme-name");
+  const nameError = $("#theme-name-error");
+  const list = $("#colors");
   const current = () => appearance.themes.find((theme) => theme.id === appearance.theme);
 
   /** The colours as the preview shows them, so a colour left to the provider's theme still shows what it is. */
   const showDefaults = () => {
-    const host = $('#preview').shadowRoot?.querySelector<HTMLElement>('.demo-bar');
+    const host = $("#preview").shadowRoot?.querySelector<HTMLElement>(".demo-bar");
     if (!host) return;
     // A colour can be `light-dark()` or a site's variable; a probe inside the bar resolves it to the colour shown.
-    const probe = document.createElement('span');
+    const probe = document.createElement("span");
     (host.shadowRoot ?? host).append(probe);
-    for (const row of list.querySelectorAll<HTMLElement>('.color')) {
+    for (const row of list.querySelectorAll<HTMLElement>(".color")) {
       probe.style.color = `var(--fd-${row.dataset.color})`;
       const value = hexOf(getComputedStyle(probe).color);
       if (!value) continue;
-      const hex = $<HTMLInputElement>('.color-hex', row);
+      const hex = $<HTMLInputElement>(".color-hex", row);
       hex.placeholder = value;
-      if (!hex.value) $<HTMLInputElement>('.color-pick', row).value = pickerValue(value);
+      if (!hex.value) $<HTMLInputElement>(".color-pick", row).value = pickerValue(value);
     }
     probe.remove();
   };
@@ -107,47 +107,49 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   };
 
   const colorRow = (color: ThemeColor) => {
-    const template = $<HTMLTemplateElement>('#color-template').content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const template = $<HTMLTemplateElement>("#color-template").content.firstElementChild!.cloneNode(
+      true,
+    ) as HTMLElement;
     translate(template);
     template.dataset.color = color;
     const id = `color-${color}`;
-    const label = $<HTMLLabelElement>('.color-label', template);
-    const pick = $<HTMLInputElement>('.color-pick', template);
-    const hex = $<HTMLInputElement>('.color-hex', template);
-    const reset = $<HTMLButtonElement>('.color-reset', template);
-    const error = $('.color-error', template);
+    const label = $<HTMLLabelElement>(".color-label", template);
+    const pick = $<HTMLInputElement>(".color-pick", template);
+    const hex = $<HTMLInputElement>(".color-hex", template);
+    const reset = $<HTMLButtonElement>(".color-reset", template);
+    const error = $(".color-error", template);
     label.textContent = COLOR_NAMES[color];
     label.htmlFor = id;
     hex.id = id;
     error.id = `${id}-error`;
-    hex.setAttribute('aria-describedby', error.id);
-    pick.setAttribute('aria-label', i18n.t('colorPick', [COLOR_NAMES[color]]));
-    reset.setAttribute('aria-label', i18n.t('colorResetLabel', [COLOR_NAMES[color]]));
-    hex.value = drafts[color] ?? '';
+    hex.setAttribute("aria-describedby", error.id);
+    pick.setAttribute("aria-label", i18n.t("colorPick", [COLOR_NAMES[color]]));
+    reset.setAttribute("aria-label", i18n.t("colorResetLabel", [COLOR_NAMES[color]]));
+    hex.value = drafts[color] ?? "";
     if (hex.value && HEX_COLOR.test(hex.value)) pick.value = pickerValue(hex.value);
 
     const check = () => {
       const valid = !hex.value || HEX_COLOR.test(hex.value);
-      error.textContent = valid ? '' : i18n.t('errorColor');
-      if (valid) hex.removeAttribute('aria-invalid');
-      else hex.setAttribute('aria-invalid', 'true');
+      error.textContent = valid ? "" : i18n.t("errorColor");
+      if (valid) hex.removeAttribute("aria-invalid");
+      else hex.setAttribute("aria-invalid", "true");
       return valid;
     };
-    hex.addEventListener('input', () => {
+    hex.addEventListener("input", () => {
       drafts[color] = hex.value.trim();
       if (HEX_COLOR.test(drafts[color]!)) pick.value = pickerValue(drafts[color]!);
-      if (hex.hasAttribute('aria-invalid')) check();
+      if (hex.hasAttribute("aria-invalid")) check();
       sync();
     });
-    hex.addEventListener('blur', check);
-    pick.addEventListener('input', () => {
+    hex.addEventListener("blur", check);
+    pick.addEventListener("input", () => {
       hex.value = pick.value;
       drafts[color] = pick.value;
       check();
       sync();
     });
-    reset.addEventListener('click', () => {
-      hex.value = '';
+    reset.addEventListener("click", () => {
+      hex.value = "";
       delete drafts[color];
       check();
       sync();
@@ -160,11 +162,11 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   const renderEditor = () => {
     const theme = current();
     editor.hidden = !theme;
-    $('#theme-export-fallback').hidden = true;
+    $("#theme-export-fallback").hidden = true;
     if (!theme) return;
     name.value = theme.name;
-    nameError.textContent = '';
-    name.removeAttribute('aria-invalid');
+    nameError.textContent = "";
+    name.removeAttribute("aria-invalid");
     drafts = { ...theme.colors };
     list.replaceChildren(...THEME_COLORS.map(colorRow));
     showDefaults();
@@ -172,9 +174,9 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
 
   const renderSelect = () => {
     select.replaceChildren(
-      new Option(i18n.t('themeProvider'), PROVIDER_THEME),
+      new Option(i18n.t("themeProvider"), PROVIDER_THEME),
       ...PROVIDERS.map((provider) => new Option(provider.name, provider.id)),
-      ...appearance.themes.map((theme) => new Option(theme.name.trim() || i18n.t('untitledTheme'), theme.id)),
+      ...appearance.themes.map((theme) => new Option(theme.name.trim() || i18n.t("untitledTheme"), theme.id)),
     );
     select.value = appearance.theme;
   };
@@ -191,20 +193,24 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     onChange();
   };
 
-  select.addEventListener('change', () => choose(select.value));
-  name.addEventListener('input', () => {
+  select.addEventListener("change", () => choose(select.value));
+  name.addEventListener("input", () => {
     if (name.value.trim()) {
-      nameError.textContent = '';
-      name.removeAttribute('aria-invalid');
+      nameError.textContent = "";
+      name.removeAttribute("aria-invalid");
     }
     const option = select.selectedOptions[0];
-    if (option) option.textContent = name.value.trim() || i18n.t('untitledTheme');
+    if (option) option.textContent = name.value.trim() || i18n.t("untitledTheme");
     sync();
   });
 
   /** A new theme starts as the provider's: every colour left to it, until one is picked. */
-  $('#theme-new').addEventListener('click', () => {
-    const theme: CustomTheme = { id: newId(), name: i18n.t('newThemeName', [String(appearance.themes.length + 1)]), colors: {} };
+  $("#theme-new").addEventListener("click", () => {
+    const theme: CustomTheme = {
+      id: newId(),
+      name: i18n.t("newThemeName", [String(appearance.themes.length + 1)]),
+      colors: {},
+    };
     appearance = { theme: theme.id, themes: [...appearance.themes, theme] };
     render();
     onChange();
@@ -212,55 +218,55 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     name.select();
   });
 
-  $('#theme-delete').addEventListener('click', () => {
+  $("#theme-delete").addEventListener("click", () => {
     const theme = current();
     if (!theme) return;
     appearance = { theme: PROVIDER_THEME, themes: appearance.themes.filter((each) => each !== theme) };
     render();
     onChange();
-    notify(i18n.t('themeDeleted', [theme.name.trim() || i18n.t('untitledTheme')]));
+    notify(i18n.t("themeDeleted", [theme.name.trim() || i18n.t("untitledTheme")]));
     select.focus();
   });
 
-  $('#theme-copy').addEventListener('click', async () => {
+  $("#theme-copy").addEventListener("click", async () => {
     const theme = current();
     if (!theme) return;
     const json = shareTheme(theme);
     try {
       await navigator.clipboard.writeText(json);
-      $('#theme-export-fallback').hidden = true;
-      notify(i18n.t('themeCopied', [theme.name.trim() || i18n.t('untitledTheme')]));
+      $("#theme-export-fallback").hidden = true;
+      notify(i18n.t("themeCopied", [theme.name.trim() || i18n.t("untitledTheme")]));
     } catch {
-      const fallback = $<HTMLTextAreaElement>('#theme-export');
+      const fallback = $<HTMLTextAreaElement>("#theme-export");
       fallback.value = json;
-      $('#theme-export-fallback').hidden = false;
+      $("#theme-export-fallback").hidden = false;
       fallback.focus();
       fallback.select();
     }
   });
 
-  const importBox = $<HTMLTextAreaElement>('#theme-json');
-  const importButton = $<HTMLButtonElement>('#theme-import');
-  const importError = $('#theme-json-error');
-  importBox.addEventListener('input', () => {
+  const importBox = $<HTMLTextAreaElement>("#theme-json");
+  const importButton = $<HTMLButtonElement>("#theme-import");
+  const importError = $("#theme-json-error");
+  importBox.addEventListener("input", () => {
     importButton.disabled = !importBox.value.trim();
-    importError.textContent = '';
-    importBox.removeAttribute('aria-invalid');
+    importError.textContent = "";
+    importBox.removeAttribute("aria-invalid");
   });
-  importButton.addEventListener('click', () => {
+  importButton.addEventListener("click", () => {
     const themes = importThemes(importBox.value);
     if (!themes?.length) {
-      importError.textContent = i18n.t('themeImportInvalid', [i18n.t('themeCopy')]);
-      importBox.setAttribute('aria-invalid', 'true');
+      importError.textContent = i18n.t("themeImportInvalid", [i18n.t("themeCopy")]);
+      importBox.setAttribute("aria-invalid", "true");
       importBox.focus();
       return;
     }
     appearance = { theme: themes[0]!.id, themes: [...appearance.themes, ...themes] };
-    importBox.value = '';
+    importBox.value = "";
     importButton.disabled = true;
     render();
     onChange();
-    notify(i18n.t('themesImported', themes.length, [themes.length]));
+    notify(i18n.t("themesImported", themes.length, [themes.length]));
     select.focus();
   });
 
@@ -271,14 +277,14 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   let previewLoading: Promise<void> | null = null;
   const loadPreview = async () => {
     const [{ createDemo }, { SAMPLE_PULL_REQUEST }] = await Promise.all([
-      import('@/components/demo/demo'),
-      import('@/utils/demo-sample/demo-sample'),
+      import("@/components/demo/demo"),
+      import("@/utils/demo-sample/demo-sample"),
     ]);
     preview = createDemo(
-      $('#preview'),
+      $("#preview"),
       { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 2) },
       // Settings are this page; the button goes to the filters.
-      { onSettings: () => $('#global-h').focus(), theme: await appearanceCss(appearance) },
+      { onSettings: () => $("#global-h").focus(), theme: await appearanceCss(appearance) },
     );
     showDefaults();
   };
@@ -294,12 +300,12 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     check: (): boolean => {
       const theme = current();
       if (!theme) return true;
-      const rows = [...list.querySelectorAll<HTMLElement & { check: () => boolean }>('.color')];
+      const rows = [...list.querySelectorAll<HTMLElement & { check: () => boolean }>(".color")];
       const colorsOk = rows.map((row) => row.check()).every(Boolean);
       const named = Boolean(name.value.trim());
-      nameError.textContent = named ? '' : i18n.t('errorThemeName');
-      if (named) name.removeAttribute('aria-invalid');
-      else name.setAttribute('aria-invalid', 'true');
+      nameError.textContent = named ? "" : i18n.t("errorThemeName");
+      if (named) name.removeAttribute("aria-invalid");
+      else name.setAttribute("aria-invalid", "true");
       if (!named) name.focus();
       else if (!colorsOk) document.querySelector<HTMLElement>('.color-hex[aria-invalid="true"]')?.focus();
       return named && colorsOk;

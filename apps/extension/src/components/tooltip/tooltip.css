@@ -16,7 +16,7 @@
 }
 /* An arrow under the tooltip, pointing at its control. */
 .tip::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -5px;
   left: var(--fd-tip-arrow-x, 50%);

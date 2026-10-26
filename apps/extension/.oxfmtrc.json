@@ -1,11 +1,13 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "singleQuote": true,
-  "printWidth": 140,
+  "printWidth": 120,
+  "sortImports": true,
+  "sortPackageJson": true,
   "ignorePatterns": [
     ".output/**",
     ".wxt/**",
     "store/**",
+    "tests/fixtures/**",
     "playwright-report/**",
     "test-results/**",
     "coverage/**",

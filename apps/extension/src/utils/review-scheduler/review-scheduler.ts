@@ -1,9 +1,10 @@
-import { i18n } from '#i18n';
-import { browser, type Browser } from 'wxt/browser';
-import { fetchFiles, type InboxProblem, type PullRequest } from '@/utils/github-inbox/github-inbox';
-import { pool } from '@/utils/inbox-check/inbox-check';
-import { isDone, type HeldEvent, type InboxEvent, type When } from '@/utils/inbox/inbox';
-import { createEstimator, normalizeLearned, PACES } from '@/utils/review-time/review-time';
+import { browser, type Browser } from "wxt/browser";
+
+import { i18n } from "#i18n";
+import { isSilent, play } from "@/utils/background-sound/background-sound";
+import { fetchFiles, type InboxProblem, type PullRequest } from "@/utils/github-inbox/github-inbox";
+import { pool } from "@/utils/inbox-check/inbox-check";
+import { isDone, type HeldEvent, type InboxEvent, type When } from "@/utils/inbox/inbox";
 import {
   candidates,
   estimate,
@@ -21,7 +22,8 @@ import {
   type ReviewRun,
   type ReviewSession,
   type ReviewTimeSettings,
-} from '@/utils/review-sessions/review-sessions';
+} from "@/utils/review-sessions/review-sessions";
+import { createEstimator, normalizeLearned, PACES } from "@/utils/review-time/review-time";
 import {
   doneItem,
   heldItem,
@@ -34,8 +36,7 @@ import {
   reviewRunItem,
   reviewSkipItem,
   selectionsItem,
-} from '@/utils/storage/storage';
-import { isSilent, play } from '@/utils/background-sound/background-sound';
+} from "@/utils/storage/storage";
 
 /**
  * Review time in the background: an alarm for the next one; when it comes, the pull requests that fit, offered in a
@@ -44,12 +45,12 @@ import { isSilent, play } from '@/utils/background-sound/background-sound';
  */
 
 /** The next review time's alarm carries its session, so it's offered even if the clock changed since, like for DST. */
-const NEXT_ALARM = 'review-time:next:';
-const SNOOZE_ALARM = 'review-time:snooze:';
-const END_ALARM = 'review-time:end';
-const TICK_ALARM = 'review-time:tick';
-const OFFER_NOTIFICATION = 'review-time:offer';
-const END_NOTIFICATION = 'review-time:end';
+const NEXT_ALARM = "review-time:next:";
+const SNOOZE_ALARM = "review-time:snooze:";
+const END_ALARM = "review-time:end";
+const TICK_ALARM = "review-time:tick";
+const OFFER_NOTIFICATION = "review-time:offer";
+const END_NOTIFICATION = "review-time:end";
 
 /** Files pages read for one plan at most; pull requests past it get a rough estimate this time. */
 const FILES_LIMIT = 30;
@@ -97,26 +98,27 @@ const changeHeld = <T>(change: (held: HeldEvent[]) => { held: HeldEvent[]; resul
 const release = async (events: HeldEvent[]) => {
   if (!events.length) return;
   if (await hooks.release(events)) return;
-  await hold(events.map((event) => ({ ...event, until: 'review' as const })));
+  await hold(events.map((event) => ({ ...event, until: "review" as const })));
 };
 
 /** The next review time's alarm, or none; with none to come, what was kept for one shows now. */
 export const scheduleReviewTime = async (settings?: ReviewTimeSettings): Promise<void> => {
   const [current, skipUntil] = await Promise.all([settings ?? loadReviewTime(), reviewSkipItem.getValue()]);
   const next = nextOccurrence(current, Math.max(Date.now(), skipUntil - 1));
-  const name = next ? `${NEXT_ALARM}${next.session.id}` : '';
+  const name = next ? `${NEXT_ALARM}${next.session.id}` : "";
   for (const alarm of await browser.alarms.getAll()) {
     if (alarm.name.startsWith(NEXT_ALARM) && (alarm.name !== name || alarm.scheduledTime !== next?.at))
       await browser.alarms.clear(alarm.name);
   }
   if (next) {
-    if ((await browser.alarms.get(name))?.scheduledTime !== next.at) await browser.alarms.create(name, { when: next.at });
+    if ((await browser.alarms.get(name))?.scheduledTime !== next.at)
+      await browser.alarms.create(name, { when: next.at });
     return;
   }
   if (isScheduled(current) || (await liveRun())) return;
   const waiting = await changeHeld((held) => ({
-    held: held.filter((event) => event.until !== 'review'),
-    result: held.filter((event) => event.until === 'review'),
+    held: held.filter((event) => event.until !== "review"),
+    result: held.filter((event) => event.until === "review"),
   }));
   await release(waiting);
 };
@@ -127,10 +129,11 @@ export const scheduleReviewTime = async (settings?: ReviewTimeSettings): Promise
  */
 export const recoverReviewTime = async (): Promise<void> => {
   const run = await reviewRunItem.getValue();
-  if (run && runEndsAt(run) <= Date.now()) await endRun(run.startedAt ? 'time' : 'lapsed');
+  if (run && runEndsAt(run) <= Date.now()) await endRun(run.startedAt ? "time" : "lapsed");
   else if (run) {
     if (!(await browser.alarms.get(END_ALARM))) await browser.alarms.create(END_ALARM, { when: runEndsAt(run) });
-    if (run.startedAt && !(await browser.alarms.get(TICK_ALARM))) await browser.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
+    if (run.startedAt && !(await browser.alarms.get(TICK_ALARM)))
+      await browser.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
   }
   await scheduleReviewTime();
 };
@@ -158,7 +161,10 @@ const readFiles = async (pulls: PullRequest[], reviews: PullRequest[], viewed: b
   const queue = pool(FILES_CONCURRENCY);
   let budget = FILES_LIMIT;
   const fresh = (record: FilesRecord | undefined, pull: PullRequest) =>
-    record && pull.headSha && record.sha === pull.headSha && (!viewed || Date.now() - (record.readAt ?? 0) < VIEWED_FRESH_MS);
+    record &&
+    pull.headSha &&
+    record.sha === pull.headSha &&
+    (!viewed || Date.now() - (record.readAt ?? 0) < VIEWED_FRESH_MS);
   const read = await Promise.all(
     pulls.map(async (pull) => {
       const cached = cache[pull.url];
@@ -191,7 +197,10 @@ export const readQueueFiles = async (reviews: PullRequest[]): Promise<void> => {
  * reviews asked of their teams when the queue leaves those out. A pull request whose files couldn't be read still
  * counts, at a rough guess, so a change on GitHub's side doesn't silence review time.
  */
-const planFor = async (session: ReviewSession, settings: ReviewTimeSettings): Promise<{ result: Plan; problem: InboxProblem | null }> => {
+const planFor = async (
+  session: ReviewSession,
+  settings: ReviewTimeSettings,
+): Promise<{ result: Plan; problem: InboxProblem | null }> => {
   await hooks.refreshLists();
   const [snapshot, done, config, learned, popup] = await Promise.all([
     inboxItem.getValue(),
@@ -210,12 +219,18 @@ const planFor = async (session: ReviewSession, settings: ReviewTimeSettings): Pr
   const items: Planned[] = waiting.map((pull, index) => {
     const record = files[index];
     if (!record) return { pull, estimate: { minutes: settings.perPull + UNREAD_MINUTES, files: 0, guessed: true } };
-    return { pull, estimate: estimate(record.files, sessionMatchers(config, pull.repo, session.filters), settings, estimator) };
+    return {
+      pull,
+      estimate: estimate(record.files, sessionMatchers(config, pull.repo, session.filters), settings, estimator),
+    };
   });
-  return { result: plan(items, session.minutes, session.order, settings.againFirst), problem: snapshot?.problem ?? null };
+  return {
+    result: plan(items, session.minutes, session.order, settings.againFirst),
+    problem: snapshot?.problem ?? null,
+  };
 };
 
-const name = (session: ReviewSession) => session.name || i18n.t('reviewTimeName');
+const name = (session: ReviewSession) => session.name || i18n.t("reviewTimeName");
 
 const runFrom = (session: ReviewSession, result: Plan, startedAt: number | null): ReviewRun => ({
   session: session.id,
@@ -229,10 +244,14 @@ const runFrom = (session: ReviewSession, result: Plan, startedAt: number | null)
   filters: session.filters,
 });
 
-const iconUrl = () => browser.runtime.getURL('/icon/128.png');
+const iconUrl = () => browser.runtime.getURL("/icon/128.png");
 
-const notify = async (id: string, options: Browser.notifications.NotificationCreateOptions, settings: ReviewTimeSettings) => {
-  if (!browser.notifications || !(await browser.permissions.contains({ permissions: ['notifications'] }))) return;
+const notify = async (
+  id: string,
+  options: Browser.notifications.NotificationCreateOptions,
+  settings: ReviewTimeSettings,
+) => {
+  if (!browser.notifications || !(await browser.permissions.contains({ permissions: ["notifications"] }))) return;
   await browser.notifications.clear(id);
   const chrome = import.meta.env.FIREFOX ? {} : { silent: isSilent(settings.sound) };
   await browser.notifications.create(id, { ...options, ...chrome });
@@ -242,30 +261,30 @@ const notify = async (id: string, options: Browser.notifications.NotificationCre
 
 const offerMessage = (run: ReviewRun, held: number) => {
   const lines = run.pulls.map((pull) => `${pull.title} · ~${pull.minutes} min`);
-  if (run.overBy) lines.unshift(i18n.t('reviewTimeOver', [run.pulls[0]?.minutes ?? 0, run.overBy, run.minutes]));
-  if (held) lines.push(i18n.t('reviewTimeHeld', held, [held]));
-  return lines.join('\n');
+  if (run.overBy) lines.unshift(i18n.t("reviewTimeOver", [run.pulls[0]?.minutes ?? 0, run.overBy, run.minutes]));
+  if (held) lines.push(i18n.t("reviewTimeHeld", held, [held]));
+  return lines.join("\n");
 };
 
 /** Offers a review time: what fits, in a notification to start it or put it off. */
 const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
   const { result, problem } = await planFor(session, settings);
   // Signed out, there's no queue to read: say so, rather than that there's nothing to review.
-  if (problem === 'signed-out') {
+  if (problem === "signed-out") {
     await notify(
       OFFER_NOTIFICATION,
       {
-        type: 'basic',
+        type: "basic",
         iconUrl: iconUrl(),
-        title: i18n.t('reviewTimeSignedOut'),
-        message: i18n.t('popupSignedOut'),
+        title: i18n.t("reviewTimeSignedOut"),
+        message: i18n.t("popupSignedOut"),
         contextMessage: name(session),
       },
       settings,
     );
     return;
   }
-  const held = (await heldItem.getValue()).filter((event) => event.until === 'review').length;
+  const held = (await heldItem.getValue()).filter((event) => event.until === "review").length;
   if (!result.picked.length && settings.skipEmpty && !held) return;
   // Planning takes a few seconds; one started from the popup meanwhile wins.
   if (await liveRun()) return;
@@ -278,9 +297,11 @@ const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
   await notify(
     OFFER_NOTIFICATION,
     {
-      type: 'basic',
+      type: "basic",
       iconUrl: iconUrl(),
-      title: run.pulls.length ? i18n.t('reviewTimeOffer', run.pulls.length, [run.pulls.length, total]) : i18n.t('reviewTimeNothing'),
+      title: run.pulls.length
+        ? i18n.t("reviewTimeOffer", run.pulls.length, [run.pulls.length, total])
+        : i18n.t("reviewTimeNothing"),
       message: offerMessage(run, held),
       contextMessage: run.name,
       ...(import.meta.env.FIREFOX
@@ -288,7 +309,10 @@ const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
         : {
             requireInteraction: true,
             buttons: run.pulls.length
-              ? [{ title: i18n.t('reviewTimeStart') }, { title: i18n.t('reviewTimeLater', settings.snooze, [settings.snooze]) }]
+              ? [
+                  { title: i18n.t("reviewTimeStart") },
+                  { title: i18n.t("reviewTimeLater", settings.snooze, [settings.snooze]) },
+                ]
               : [],
           }),
     },
@@ -298,7 +322,12 @@ const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
 
 /** Turns on the session's filters in the bar for the pull request's repository, then opens it on its files. */
 export const openPull = async (url: string, repo: string, active: boolean): Promise<void> => {
-  const [run, settings, config, selections] = await Promise.all([liveRun(), loadReviewTime(), loadConfig(), selectionsItem.getValue()]);
+  const [run, settings, config, selections] = await Promise.all([
+    liveRun(),
+    loadReviewTime(),
+    loadConfig(),
+    selectionsItem.getValue(),
+  ]);
   const ids = run && settings.applyFilters ? sessionFilterIds(config, repo, run.filters) : [];
   if (ids.length) await selectionsItem.setValue({ ...selections, [repo]: ids });
   await browser.tabs.create({ url: `${url}/changes`, active });
@@ -319,7 +348,7 @@ const afterStart = async (run: ReviewRun, settings: ReviewTimeSettings, fromPopu
   await browser.alarms.create(END_ALARM, { when: runEndsAt(run) });
   await browser.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
   await hooks.updateBadge();
-  const opened = settings.opens === 'all' ? run.pulls : settings.opens === 'first' ? run.pulls.slice(0, 1) : [];
+  const opened = settings.opens === "all" ? run.pulls : settings.opens === "first" ? run.pulls.slice(0, 1) : [];
   // From the popup, tabs open behind it; from a notification, the first comes to the front.
   for (const [index, pull] of opened.entries()) await openPull(pull.url, pull.repo, !fromPopup && index === 0);
 };
@@ -328,7 +357,7 @@ const afterStart = async (run: ReviewRun, settings: ReviewTimeSettings, fromPopu
 export const startNow = async (minutes: number, sessionId: string): Promise<boolean> => {
   const settings = await loadReviewTime();
   const like = settings.sessions.find((session) => session.id === sessionId);
-  const session: ReviewSession = { ...(like ?? newSession()), id: like?.id ?? '', name: like?.name ?? '', minutes };
+  const session: ReviewSession = { ...(like ?? newSession()), id: like?.id ?? "", name: like?.name ?? "", minutes };
   const { result } = await planFor(session, settings);
   if (!result.picked.length) return false;
   const run = runFrom(session, result, Date.now());
@@ -358,18 +387,18 @@ const clearRun = async () => {
  * What was kept for review time and offered with it is let go, since the reader saw it there; anything kept since, or
  * from an offer that lapsed without them looking, waits for the next. What waited for the end of it shows now.
  */
-export type Ending = 'time' | 'ended' | 'skipped' | 'lapsed';
+export type Ending = "time" | "ended" | "skipped" | "lapsed";
 
 export const endRun = async (ending: Ending): Promise<void> => {
   const [run, settings] = await Promise.all([reviewRunItem.getValue(), loadReviewTime()]);
   await clearRun();
-  const seen = (event: HeldEvent) => ending !== 'lapsed' && run !== null && event.heldAt <= run.offeredAt;
+  const seen = (event: HeldEvent) => ending !== "lapsed" && run !== null && event.heldAt <= run.offeredAt;
   const ended = await changeHeld((held) => ({
-    held: held.filter((event) => event.until === 'review' && !seen(event)),
-    result: held.filter((event) => event.until === 'end'),
+    held: held.filter((event) => event.until === "review" && !seen(event)),
+    result: held.filter((event) => event.until === "end"),
   }));
   await release(ended);
-  if (ending !== 'time' || !run || !settings.remindEnd || !run.pulls.length) return;
+  if (ending !== "time" || !run || !settings.remindEnd || !run.pulls.length) return;
   await hooks.refreshLists();
   const [snapshot, done] = await Promise.all([inboxItem.getValue(), doneItem.getValue()]);
   const total = run.pulls.length;
@@ -377,29 +406,30 @@ export const endRun = async (ending: Ending): Promise<void> => {
   const reviewed = run.pulls.filter((pull) => !waiting.has(pull.url)).length;
   // Without the queue as it stands now, there's no telling how far the reader got.
   const message = snapshot?.problem
-    ? i18n.t('reviewTimeUpUnknown')
+    ? i18n.t("reviewTimeUpUnknown")
     : reviewed === total
-      ? i18n.t('reviewTimeAllDone')
-      : i18n.t('reviewTimeReviewed', total, [reviewed, total]);
+      ? i18n.t("reviewTimeAllDone")
+      : i18n.t("reviewTimeReviewed", total, [reviewed, total]);
   await notify(
     END_NOTIFICATION,
-    { type: 'basic', iconUrl: iconUrl(), title: i18n.t('reviewTimeUp'), message, contextMessage: run.name },
+    { type: "basic", iconUrl: iconUrl(), title: i18n.t("reviewTimeUp"), message, contextMessage: run.name },
     settings,
   );
 };
 
 /** What decides whether a notification waits: for the reader's next review time, or for the end of the one under way. */
-export const holding = async (): Promise<(when: When) => HeldEvent['until'] | null> => {
+export const holding = async (): Promise<(when: When) => HeldEvent["until"] | null> => {
   const [settings, run, skipUntil] = await Promise.all([loadReviewTime(), liveRun(), reviewSkipItem.getValue()]);
   const scheduled = Boolean(nextOccurrence(settings, Math.max(Date.now(), skipUntil - 1)));
-  return (when) => (run?.startedAt && settings.holdWhileReviewing ? 'end' : when === 'review' && scheduled ? 'review' : null);
+  return (when) =>
+    run?.startedAt && settings.holdWhileReviewing ? "end" : when === "review" && scheduled ? "review" : null;
 };
 
 /** Keeps notifications for later, the latest fifty; one kept for the end of a review time that's over shows now. */
 export const hold = async (events: HeldEvent[]): Promise<void> => {
   if (!events.length) return;
   const reviewing = Boolean((await liveRun())?.startedAt);
-  const late = reviewing ? [] : events.filter((event) => event.until === 'end');
+  const late = reviewing ? [] : events.filter((event) => event.until === "end");
   const kept = events.filter((event) => !late.includes(event));
   await changeHeld((held) => {
     const key = (event: HeldEvent) => `${event.kind} ${event.url}`;
@@ -428,7 +458,7 @@ export const onReviewAlarm = async (alarm: { name: string; scheduledTime: number
   }
   if (alarm.name === END_ALARM) {
     const run = await reviewRunItem.getValue();
-    await endRun(run?.startedAt ? 'time' : 'lapsed');
+    await endRun(run?.startedAt ? "time" : "lapsed");
     return true;
   }
   if (alarm.name === TICK_ALARM) {
@@ -458,7 +488,7 @@ export const onReviewNotification = async (id: string, button?: number): Promise
 export const runBadge = async (): Promise<{ text: string; color: string } | null> => {
   const run = await liveRun();
   if (!run) return null;
-  if (!run.startedAt) return { text: '▶', color: '#1a7f37' };
+  if (!run.startedAt) return { text: "▶", color: "#1a7f37" };
   const left = Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
-  return { text: `${left}m`, color: '#1a7f37' };
+  return { text: `${left}m`, color: "#1a7f37" };
 };

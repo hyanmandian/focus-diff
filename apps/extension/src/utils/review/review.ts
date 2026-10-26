@@ -1,12 +1,12 @@
-import { i18n } from '#i18n';
-import type { BreakdownRow } from '@/components/breakdown/breakdown';
-import type { PanelOption } from '@/components/filters/filters';
-import type { NextFile } from '@/components/next-file/next-file';
-import type { Panel } from '@/components/panel/panel';
-import { isDone, type Totals } from '@/components/stats/stats';
-import { ALL, type Matcher } from '@/utils/filters/filters';
-import type { FileStats } from '@/utils/provider/provider';
-import { reviewMinutes, type Estimator } from '@/utils/review-time/review-time';
+import { i18n } from "#i18n";
+import type { BreakdownRow } from "@/components/breakdown/breakdown";
+import type { PanelOption } from "@/components/filters/filters";
+import type { NextFile } from "@/components/next-file/next-file";
+import type { Panel } from "@/components/panel/panel";
+import { isDone, type Totals } from "@/components/stats/stats";
+import { ALL, type Matcher } from "@/utils/filters/filters";
+import type { FileStats } from "@/utils/provider/provider";
+import { reviewMinutes, type Estimator } from "@/utils/review-time/review-time";
 
 /**
  * What the bar shows for a pull request and a selection of filters, worked out from the files alone. The content script
@@ -55,8 +55,8 @@ const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: num
   totals.pending += unrendered;
   if (matches === everything) {
     totals.visible = total;
-    totals.minutes += unrendered * minutesOf('', null);
-    totals.minutesLeft += unrendered * minutesOf('', null);
+    totals.minutes += unrendered * minutesOf("", null);
+    totals.minutesLeft += unrendered * minutesOf("", null);
   }
   return totals;
 };
@@ -106,7 +106,11 @@ export const review = <T extends ReviewFile>(
   files: FileList<T>,
   options: Option[],
   ids: string[],
-  { reported = 0, loading = false, minutes = reviewMinutes }: { reported?: number; loading?: boolean; minutes?: Estimator } = {},
+  {
+    reported = 0,
+    loading = false,
+    minutes = reviewMinutes,
+  }: { reported?: number; loading?: boolean; minutes?: Estimator } = {},
 ): Review<T> => {
   const selected = options.filter((option) => option.id !== ALL && ids.includes(option.id));
   const filtering = selected.length > 0;
@@ -118,7 +122,7 @@ export const review = <T extends ReviewFile>(
     filtering,
     matches,
     selection: filtering ? selected.map((option) => option.id) : [ALL],
-    name: filtering ? selected.map((option) => option.name).join(' + ') : i18n.t('filterAll'),
+    name: filtering ? selected.map((option) => option.name).join(" + ") : i18n.t("filterAll"),
     shown: files.list.filter((file) => matches(file.path)),
     totals,
     all: filtering ? totalsFor(files, everything, reported, minutes) : totals,
@@ -130,7 +134,11 @@ export const review = <T extends ReviewFile>(
     })),
     nextFile: { left, nextFilter: filtering && !left ? nextFilterWithWork(files.list, filters, ids) : undefined },
     rows: () =>
-      options.map((option) => ({ id: option.id, name: option.name, ...totalsFor(files, option.matches ?? everything, reported, minutes) })),
+      options.map((option) => ({
+        id: option.id,
+        name: option.name,
+        ...totalsFor(files, option.matches ?? everything, reported, minutes),
+      })),
   };
 };
 
@@ -139,7 +147,7 @@ export const review = <T extends ReviewFile>(
  * celebrated, once. The conversations are left to the caller, which knows where they are.
  */
 export const createReviewView = (panel: Panel) => {
-  let unfinished = '';
+  let unfinished = "";
   return (current: Review, key: string, { announce = false } = {}) => {
     panel.renderOptions(current.options, current.selection);
     panel.renderNextFile(current.nextFile);
@@ -148,6 +156,6 @@ export const createReviewView = (panel: Panel) => {
     if (announce) panel.announce({ name: current.name, ...current.totals });
     const done = isDone(current.totals);
     if (done && unfinished === key) panel.celebrate(current.name);
-    unfinished = done ? '' : key;
+    unfinished = done ? "" : key;
   };
 };

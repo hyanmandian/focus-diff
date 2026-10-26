@@ -1,10 +1,10 @@
-const PANEL = 'focus-diff-panel';
-const FILE_CLASS = 'focus-diff-file';
-const ACTIVE = 'data-focus-diff-filtering';
-const STYLE_ID = 'focus-diff-transition';
+const PANEL = "focus-diff-panel";
+const FILE_CLASS = "focus-diff-file";
+const ACTIVE = "data-focus-diff-filtering";
+const STYLE_ID = "focus-diff-transition";
 /** Morphing more files than fit on a screen adds work without anything to see. */
 const MAX_PIECES = 24;
-const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
 const MOVE_MS = 520;
 const ENTER_MS = 460;
 const EXIT_MS = 240;
@@ -43,7 +43,7 @@ export interface Piece {
 
 /** Names the panel so a page transition leaves it out. */
 export const keepOutOfTransitions = (host: HTMLElement): void => {
-  host.style.setProperty('view-transition-name', PANEL);
+  host.style.setProperty("view-transition-name", PANEL);
 };
 
 const onScreen = (pieces: Piece[]) =>
@@ -61,14 +61,14 @@ const onScreen = (pieces: Piece[]) =>
  */
 /** Whether a change can be animated: the browser has view transitions, the tab is on screen, and motion is welcome. */
 export const canTransition = (): boolean =>
-  typeof document.startViewTransition === 'function' &&
-  document.visibilityState === 'visible' &&
-  !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  typeof document.startViewTransition === "function" &&
+  document.visibilityState === "visible" &&
+  !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export const withTransition = async (update: () => void, pieces: () => Piece[]): Promise<void> => {
   if (!canTransition()) return update();
   if (!document.getElementById(STYLE_ID)) {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = CSS;
     document.head.append(style);
@@ -81,23 +81,23 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
   const named = new Map<HTMLElement, string>();
   const name = (list: { key: string; element: HTMLElement }[]) =>
     list.map(({ key, element }) => {
-      element.style.setProperty('view-transition-name', nameOf(key));
-      element.style.setProperty('view-transition-class', FILE_CLASS);
+      element.style.setProperty("view-transition-name", nameOf(key));
+      element.style.setProperty("view-transition-class", FILE_CLASS);
       named.set(element, nameOf(key));
       return nameOf(key);
     });
   const unname = () => {
     for (const [element, value] of named) {
-      if (element.style.getPropertyValue('view-transition-name') !== value) continue;
-      element.style.removeProperty('view-transition-name');
-      element.style.removeProperty('view-transition-class');
+      if (element.style.getPropertyValue("view-transition-name") !== value) continue;
+      element.style.removeProperty("view-transition-name");
+      element.style.removeProperty("view-transition-class");
     }
     named.clear();
   };
   const animations: Animation[] = [];
 
   const root = document.documentElement;
-  root.setAttribute(ACTIVE, '');
+  root.setAttribute(ACTIVE, "");
   const before = name(onScreen(pieces()));
   let after: string[] = [];
   const transition = document.startViewTransition(() => {
@@ -113,19 +113,19 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
     for (const key of leaving)
       animations.push(
         root.animate(
-          { opacity: [1, 0], transform: ['none', 'scale(0.96)'], filter: ['none', 'blur(3px)'] },
-          { duration: EXIT_MS, easing: 'ease-in', fill: 'both', pseudoElement: `::view-transition-old(${key})` },
+          { opacity: [1, 0], transform: ["none", "scale(0.96)"], filter: ["none", "blur(3px)"] },
+          { duration: EXIT_MS, easing: "ease-in", fill: "both", pseudoElement: `::view-transition-old(${key})` },
         ),
       );
     arriving.forEach((key, index) =>
       animations.push(
         root.animate(
-          { opacity: [0, 1], transform: ['translateY(28px) scale(0.98)', 'none'] },
+          { opacity: [0, 1], transform: ["translateY(28px) scale(0.98)", "none"] },
           {
             duration: ENTER_MS,
             delay: EXIT_MS / 2 + Math.min(index, MAX_STAGGER) * STAGGER_MS,
             easing: EASE_OUT,
-            fill: 'both',
+            fill: "both",
             pseudoElement: `::view-transition-new(${key})`,
           },
         ),

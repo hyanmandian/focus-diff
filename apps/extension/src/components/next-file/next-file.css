@@ -4,7 +4,7 @@
   margin-inline-end: 6px;
 }
 .next-file::after {
-  content: '';
+  content: "";
   position: absolute;
   inset-block: 8px;
   inset-inline-end: -5px;

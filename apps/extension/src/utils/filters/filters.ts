@@ -1,4 +1,4 @@
-export const ALL = 'all';
+export const ALL = "all";
 
 /** A repository's path, `owner/name`, or deeper where a site nests groups, like `group/subgroup/name`. */
 export const REPO_PATTERN = /^[^/\s]+(?:\/[^/\s]+)+$/;
@@ -29,13 +29,13 @@ export const newId = (): string => Math.random().toString(36).slice(2, 10);
 export const compile = (source: string): Compiled => {
   if (!source) return { ok: true, regex: null };
   try {
-    return { ok: true, regex: new RegExp(source, 'i') };
+    return { ok: true, regex: new RegExp(source, "i") };
   } catch (error) {
-    return { ok: false, error: (error as Error).message.replace(/^Invalid regular expression: /, '') };
+    return { ok: false, error: (error as Error).message.replace(/^Invalid regular expression: /, "") };
   }
 };
 
-export const toMatcher = (filter: Pick<Filter, 'include' | 'exclude'>): Matcher | null => {
+export const toMatcher = (filter: Pick<Filter, "include" | "exclude">): Matcher | null => {
   const include = compile(filter.include);
   const exclude = compile(filter.exclude);
   if (!include.ok || !exclude.ok) return null;
@@ -45,7 +45,7 @@ export const toMatcher = (filter: Pick<Filter, 'include' | 'exclude'>): Matcher 
 export const repoMatches = (pattern: string, repo: string): boolean => {
   const key = pattern.trim().toLowerCase();
   const target = repo.toLowerCase();
-  return key === target || (key.endsWith('/*') && target.startsWith(key.slice(0, -1)));
+  return key === target || (key.endsWith("/*") && target.startsWith(key.slice(0, -1)));
 };
 
 export const filtersFor = (config: Config, repo: string): Filter[] => [
@@ -53,21 +53,21 @@ export const filtersFor = (config: Config, repo: string): Filter[] => [
   ...config.repos.filter((entry) => entry.repo && repoMatches(entry.repo, repo)).flatMap((entry) => entry.filters),
 ];
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+const text = (value: unknown): string => (typeof value === "string" ? value : "");
 
 export const normalize = (input: unknown): Config => {
   const seen = new Set([ALL]);
   const uniqueId = (id: unknown) => {
-    let next = typeof id === 'string' && id ? id : newId();
+    let next = typeof id === "string" && id ? id : newId();
     while (seen.has(next)) next = newId();
     seen.add(next);
     return next;
   };
   const filters = (list: unknown): Filter[] =>
     (Array.isArray(list) ? list : [])
-      .filter((filter): filter is Record<string, unknown> => isRecord(filter) && typeof filter.name === 'string')
+      .filter((filter): filter is Record<string, unknown> => isRecord(filter) && typeof filter.name === "string")
       .map((filter) => ({
         id: uniqueId(filter.id),
         name: text(filter.name).trim(),
@@ -78,7 +78,7 @@ export const normalize = (input: unknown): Config => {
   return {
     global: filters(config.global),
     repos: (Array.isArray(config.repos) ? config.repos : [])
-      .filter((entry): entry is Record<string, unknown> => isRecord(entry) && typeof entry.repo === 'string')
+      .filter((entry): entry is Record<string, unknown> => isRecord(entry) && typeof entry.repo === "string")
       .map((entry) => ({ repo: text(entry.repo).trim(), filters: filters(entry.filters) })),
   };
 };

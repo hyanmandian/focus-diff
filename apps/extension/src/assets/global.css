@@ -29,8 +29,8 @@
   --input: rgba(1, 4, 9, 0.55);
   --code: rgba(110, 118, 129, 0.24);
   --shadow: 0 16px 40px rgba(1, 4, 9, 0.5);
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --target: 32px;
   --radius: 12px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -183,8 +183,8 @@ textarea::placeholder {
   color: var(--muted);
   opacity: 0.85;
 }
-input[aria-invalid='true'],
-textarea[aria-invalid='true'] {
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
   border-color: var(--danger);
 }
 textarea {
@@ -201,8 +201,8 @@ textarea {
   textarea {
     border: 1px solid ButtonText;
   }
-  input[aria-invalid='true'],
-  textarea[aria-invalid='true'] {
+  input[aria-invalid="true"],
+  textarea[aria-invalid="true"] {
     border: 2px solid Mark;
   }
 }

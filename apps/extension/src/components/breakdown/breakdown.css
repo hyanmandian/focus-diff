@@ -63,7 +63,7 @@
   font-weight: 400;
 }
 .row + .row::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -1px 8px auto;
   border-top: 1px solid var(--fd-border-muted);
@@ -76,7 +76,7 @@
   display: grid;
   color: var(--fd-accent);
 }
-.row[aria-pressed='true'] .row-name {
+.row[aria-pressed="true"] .row-name {
   font-weight: 600;
 }
 .row-lines {
@@ -112,7 +112,7 @@
 }
 
 @media (forced-colors: active) {
-  .row[aria-pressed='true'] {
+  .row[aria-pressed="true"] {
     outline: 2px solid Highlight;
   }
   /* Focus has to stand out from the pressed outline. */
@@ -124,8 +124,8 @@
     border: 1px solid CanvasText;
   }
 }
-.row[aria-disabled='true']:hover::before,
-.row[aria-disabled='true']:hover + .row::before {
+.row[aria-disabled="true"]:hover::before,
+.row[aria-disabled="true"]:hover + .row::before {
   border-color: var(--fd-border-muted);
 }
 @media (pointer: coarse) {

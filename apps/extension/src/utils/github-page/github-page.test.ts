@@ -1,18 +1,19 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from 'vitest';
-import { pullRequestData, treeFiles, treePathOf } from './github-page';
+import { beforeEach, describe, expect, it } from "vitest";
+
+import { pullRequestData, treeFiles, treePathOf } from "./github-page";
 
 const embed = (data: unknown) => {
-  document.head.innerHTML = '';
-  const script = document.createElement('script');
-  script.type = 'application/json';
-  script.dataset.target = 'react-app.embeddedData';
+  document.head.innerHTML = "";
+  const script = document.createElement("script");
+  script.type = "application/json";
+  script.dataset.target = "react-app.embeddedData";
   script.textContent = JSON.stringify(data);
   document.head.append(script);
 };
 
-describe('pullRequestData', () => {
-  beforeEach(() => history.replaceState(null, '', `/octo/web/pull/${Math.random().toString(36).slice(2)}/changes`));
+describe("pullRequestData", () => {
+  beforeEach(() => history.replaceState(null, "", `/octo/web/pull/${Math.random().toString(36).slice(2)}/changes`));
 
   it("reads files, counts, viewed state and threads and the reader's part in them wherever GitHub nests them", () => {
     embed({
@@ -20,8 +21,8 @@ describe('pullRequestData', () => {
         route: {
           diffSummaries: [
             {
-              path: 'a.ts',
-              pathDigest: 'aa',
+              path: "a.ts",
+              pathDigest: "aa",
               linesAdded: 3,
               linesDeleted: 1,
               markedAsViewed: true,
@@ -31,7 +32,7 @@ describe('pullRequestData', () => {
                 R50: { threads: [{ id: 3 }, { id: 4 }] },
               },
             },
-            { path: 'b.ts', pathDigest: 'bb', linesAdded: 0, linesDeleted: 9, markedAsViewed: false, markersMap: {} },
+            { path: "b.ts", pathDigest: "bb", linesAdded: 0, linesDeleted: 9, markedAsViewed: false, markersMap: {} },
             { notAFile: true },
           ],
           markers: {
@@ -42,7 +43,11 @@ describe('pullRequestData', () => {
                 commentsData: {
                   comments: [
                     { databaseId: 20, viewerDidAuthor: true },
-                    { databaseId: 21, viewerDidAuthor: false, reactionGroups: [{ reaction: { viewerHasReacted: true } }] },
+                    {
+                      databaseId: 21,
+                      viewerDidAuthor: false,
+                      reactionGroups: [{ reaction: { viewerHasReacted: true } }],
+                    },
                   ],
                 },
               },
@@ -56,32 +61,32 @@ describe('pullRequestData', () => {
     const data = pullRequestData();
     expect(data?.files).toEqual([
       {
-        path: 'a.ts',
-        anchor: 'aa',
+        path: "a.ts",
+        anchor: "aa",
         additions: 3,
         deletions: 1,
         viewed: true,
         threads: [
-          { id: '1', line: 'R3', state: 'resolved', comment: '10' },
-          { id: '2', line: 'R40', state: 'answered', comment: '20' },
-          { id: '3', line: 'R50', state: 'waiting', comment: '30' },
-          { id: '4', line: 'R50', state: 'waiting', comment: '' },
+          { id: "1", line: "R3", state: "resolved", comment: "10" },
+          { id: "2", line: "R40", state: "answered", comment: "20" },
+          { id: "3", line: "R50", state: "waiting", comment: "30" },
+          { id: "4", line: "R50", state: "waiting", comment: "" },
         ],
       },
-      { path: 'b.ts', anchor: 'bb', additions: 0, deletions: 9, viewed: false, threads: [] },
+      { path: "b.ts", anchor: "bb", additions: 0, deletions: 9, viewed: false, threads: [] },
     ]);
   });
 
-  it('is absent on the classic view or with unreadable data', () => {
-    document.head.innerHTML = '';
+  it("is absent on the classic view or with unreadable data", () => {
+    document.head.innerHTML = "";
     expect(pullRequestData()).toBeNull();
     embed({ unrelated: true });
     expect(pullRequestData()).toBeNull();
   });
 });
 
-describe('treePathOf', () => {
-  it('keeps folder and file names with spaces whole', () => {
+describe("treePathOf", () => {
+  it("keeps folder and file names with spaces whole", () => {
     document.body.innerHTML = `
       <ul role="tree">
         <li role="treeitem" aria-expanded="true"><div>my docs</div>
@@ -89,6 +94,6 @@ describe('treePathOf', () => {
         </li>
       </ul>`;
     const [file] = treeFiles();
-    expect(treePathOf(file!.element)).toBe('my docs/getting started.md');
+    expect(treePathOf(file!.element)).toBe("my docs/getting started.md");
   });
 });

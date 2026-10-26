@@ -1,6 +1,3 @@
-import type { FileInfo } from '@/utils/review-files/review-files';
-import { waitFor } from '@/utils/scroll/scroll';
-import type { ConversationTarget, ThreadSummary } from '@/utils/provider/provider';
 import {
   collapsedThreadToggle,
   commentIndicators,
@@ -10,7 +7,10 @@ import {
   threadRemoved,
   threads,
   type Thread,
-} from '@/utils/github-page/github-page';
+} from "@/utils/github-page/github-page";
+import type { ConversationTarget, ThreadSummary } from "@/utils/provider/provider";
+import type { FileInfo } from "@/utils/review-files/review-files";
+import { waitFor } from "@/utils/scroll/scroll";
 
 const EXPAND_TIMEOUT_MS = 1500;
 const MARKER_TIMEOUT_MS = 600;
@@ -32,12 +32,16 @@ const knownThreads = (files: FileInfo[]) =>
     const diff = file.diff?.element;
     const open = diff ? openThreads(diff) : [];
     const openIds = new Set(open.map((thread) => thread.id));
-    const kept = diff ? file.threads.filter((thread) => openIds.has(thread.id) || !threadRemoved(diff, thread.line)) : file.threads;
+    const kept = diff
+      ? file.threads.filter((thread) => openIds.has(thread.id) || !threadRemoved(diff, thread.line))
+      : file.threads;
     if (!open.length) return kept.map((thread) => ({ file, thread }));
-    const answered = new Set(open.filter((thread) => thread.state === 'answered').map((thread) => thread.id));
+    const answered = new Set(open.filter((thread) => thread.state === "answered").map((thread) => thread.id));
     const known = new Set(file.threads.map((thread) => thread.id));
     return [
-      ...kept.map((thread) => (thread.state === 'waiting' && answered.has(thread.id) ? { ...thread, state: 'answered' as const } : thread)),
+      ...kept.map((thread) =>
+        thread.state === "waiting" && answered.has(thread.id) ? { ...thread, state: "answered" as const } : thread,
+      ),
       ...open.filter((thread) => !known.has(thread.id)),
     ]
       .toSorted((a, b) => lineOf(a) - lineOf(b))
@@ -55,15 +59,18 @@ const known = (file: FileInfo, thread: ThreadSummary): ConversationTarget => ({
   element: null,
   open: async ({ goToFile, stale }) => {
     if (thread.comment) {
-      history.replaceState(history.state, '', `#r${thread.comment}`);
-      dispatchEvent(new HashChangeEvent('hashchange'));
+      history.replaceState(history.state, "", `#r${thread.comment}`);
+      dispatchEvent(new HashChangeEvent("hashchange"));
       const found = await waitFor(() => openThread(thread.id), EXPAND_TIMEOUT_MS);
       if (found || stale()) return found;
     }
     const element = await goToFile(file);
     if (!element || stale()) return null;
     const lines = [...new Set(file.threads.map(({ line }) => line))];
-    return (await waitFor(() => commentIndicators(element)[lines.indexOf(thread.line)] ?? null, MARKER_TIMEOUT_MS)) ?? element;
+    return (
+      (await waitFor(() => commentIndicators(element)[lines.indexOf(thread.line)] ?? null, MARKER_TIMEOUT_MS)) ??
+      element
+    );
   },
 });
 

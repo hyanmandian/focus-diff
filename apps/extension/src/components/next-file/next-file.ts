@@ -1,7 +1,7 @@
-import { i18n } from '#i18n';
-import { nextFileIcon } from '@/components/icons/icons';
-import { h } from '@/utils/dom/dom';
-import { formatNumber as format } from '@/utils/format/format';
+import { i18n } from "#i18n";
+import { nextFileIcon } from "@/components/icons/icons";
+import { h } from "@/utils/dom/dom";
+import { formatNumber as format } from "@/utils/format/format";
 
 /** What's left to review: files in the shown filters, or else the next filter in the bar that still has some. */
 export interface NextFile {
@@ -15,25 +15,25 @@ export interface NextFile {
  */
 export const createNextFile = (onNext: () => void) => {
   const element = h(
-    'button',
+    "button",
     {
-      type: 'button',
-      className: 'icon-button next-file',
-      'aria-keyshortcuts': 'Alt+Shift+J',
-      onClick: () => element.getAttribute('aria-disabled') !== 'true' && onNext(),
+      type: "button",
+      className: "icon-button next-file",
+      "aria-keyshortcuts": "Alt+Shift+J",
+      onClick: () => element.getAttribute("aria-disabled") !== "true" && onNext(),
     },
     nextFileIcon(),
   );
 
   const render = ({ left, nextFilter }: NextFile) => {
     const label = left
-      ? i18n.t('panelNextFile', left, [format(left)])
+      ? i18n.t("panelNextFile", left, [format(left)])
       : nextFilter
-        ? i18n.t('panelNextFilter', nextFilter.left, [nextFilter.name, format(nextFilter.left)])
-        : i18n.t('panelAllReviewed');
-    element.setAttribute('aria-label', label);
+        ? i18n.t("panelNextFilter", nextFilter.left, [nextFilter.name, format(nextFilter.left)])
+        : i18n.t("panelAllReviewed");
+    element.setAttribute("aria-label", label);
     element.dataset.tip = label;
-    element.setAttribute('aria-disabled', String(!left && !nextFilter));
+    element.setAttribute("aria-disabled", String(!left && !nextFilter));
   };
 
   return { element, render };

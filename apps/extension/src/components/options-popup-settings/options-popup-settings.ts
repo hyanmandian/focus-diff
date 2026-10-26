@@ -1,7 +1,7 @@
-import { i18n } from '#i18n';
-import { normalizePopup, type PopupSettings } from '@/utils/inbox/inbox';
-import { $ } from '@/utils/extension-page/extension-page';
-import { repoPickers } from '@/components/options-widgets/options-widgets';
+import { i18n } from "#i18n";
+import { repoPickers } from "@/components/options-widgets/options-widgets";
+import { $ } from "@/utils/extension-page/extension-page";
+import { normalizePopup, type PopupSettings } from "@/utils/inbox/inbox";
 
 /**
  * Settings' Popup section: the repositories whose pull requests the popup lists, the ones it never does, and whether it
@@ -10,8 +10,8 @@ import { repoPickers } from '@/components/options-widgets/options-widgets';
 export const createPopupSettings = ({ onChange }: { onChange: () => void }) => {
   let settings: PopupSettings = normalizePopup({});
   const pickers = repoPickers(onChange);
-  const teams = $<HTMLInputElement>('#popup-teams');
-  teams.addEventListener('change', () => {
+  const teams = $<HTMLInputElement>("#popup-teams");
+  teams.addEventListener("change", () => {
     settings.teams = teams.checked;
     onChange();
   });
@@ -21,13 +21,18 @@ export const createPopupSettings = ({ onChange }: { onChange: () => void }) => {
       settings = structuredClone(next);
       teams.checked = settings.teams;
       pickers.clear();
-      $('#popup-repos').replaceChildren(
-        pickers.picker('popup-repos-only', i18n.t('popupReposOnly'), settings.repos, (repos) => (settings.repos = repos)),
-      );
-      $('#popup-repos-never').replaceChildren(
+      $("#popup-repos").replaceChildren(
         pickers.picker(
-          'popup-repos-never-list',
-          i18n.t('popupReposNever'),
+          "popup-repos-only",
+          i18n.t("popupReposOnly"),
+          settings.repos,
+          (repos) => (settings.repos = repos),
+        ),
+      );
+      $("#popup-repos-never").replaceChildren(
+        pickers.picker(
+          "popup-repos-never-list",
+          i18n.t("popupReposNever"),
           settings.excludeRepos,
           (repos) => (settings.excludeRepos = repos),
         ),

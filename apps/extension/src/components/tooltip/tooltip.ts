@@ -1,5 +1,5 @@
-import type { PanelContext } from '@/components/panel/panel';
-import { h } from '@/utils/dom/dom';
+import type { PanelContext } from "@/components/panel/panel";
+import { h } from "@/utils/dom/dom";
 
 const DELAY_MS = 350;
 /** Long enough to move the pointer onto the tooltip, which keeps it open. */
@@ -15,7 +15,7 @@ const ARROW_EDGE = 14;
  * to read it. Controls carry the same words as their accessible name or description, so screen readers skip it.
  */
 export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => {
-  const tip = h('div', { className: 'tip', 'aria-hidden': 'true', hidden: true });
+  const tip = h("div", { className: "tip", "aria-hidden": "true", hidden: true });
   within.append(tip);
   let current: HTMLElement | null = null;
   let showing = 0;
@@ -25,12 +25,15 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
     const box = target.getBoundingClientRect();
     const { width, height } = tip.getBoundingClientRect();
     const screen = document.documentElement.clientWidth;
-    const left = Math.min(Math.max(box.left + box.width / 2 - width / 2, SCREEN_MARGIN), screen - SCREEN_MARGIN - width);
+    const left = Math.min(
+      Math.max(box.left + box.width / 2 - width / 2, SCREEN_MARGIN),
+      screen - SCREEN_MARGIN - width,
+    );
     tip.style.left = `${left}px`;
     tip.style.top = `${box.top - height - GAP}px`;
     // The arrow points at the control's centre, even when the tooltip is held on screen.
     const arrow = Math.min(Math.max(box.left + box.width / 2 - left, ARROW_EDGE), width - ARROW_EDGE);
-    tip.style.setProperty('--fd-tip-arrow-x', `${arrow}px`);
+    tip.style.setProperty("--fd-tip-arrow-x", `${arrow}px`);
   };
 
   const show = (target: HTMLElement) => {
@@ -55,22 +58,22 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
     else show(target);
   };
 
-  const targetOf = (event: Event) => (event.target as Element | null)?.closest<HTMLElement>('[data-tip]') ?? null;
+  const targetOf = (event: Event) => (event.target as Element | null)?.closest<HTMLElement>("[data-tip]") ?? null;
 
   within.addEventListener(
-    'pointerover',
+    "pointerover",
     (event) => {
       clearTimeout(hiding);
       if (tip.contains(event.target as Node)) return;
       const target = targetOf(event);
       if (target === current) return;
       if (!target) return hide();
-      open(target, 'tipInstant' in target.dataset ? 0 : DELAY_MS);
+      open(target, "tipInstant" in target.dataset ? 0 : DELAY_MS);
     },
     { signal },
   );
   within.addEventListener(
-    'pointerout',
+    "pointerout",
     (event) => {
       const next = event.relatedTarget as Node | null;
       if (!current || current.contains(next) || tip.contains(next)) return;
@@ -80,29 +83,29 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
     { signal },
   );
   within.addEventListener(
-    'focusin',
+    "focusin",
     (event) => {
       const target = targetOf(event);
-      if (target?.matches(':focus-visible')) open(target, 0);
+      if (target?.matches(":focus-visible")) open(target, 0);
       else hide();
     },
     { signal },
   );
-  within.addEventListener('focusout', hide, { signal });
+  within.addEventListener("focusout", hide, { signal });
   within.addEventListener(
-    'pointerdown',
+    "pointerdown",
     (event) => {
       const target = targetOf(event);
-      if (!tip.contains(event.target as Node) && !(target && 'tipInstant' in target.dataset)) hide();
+      if (!tip.contains(event.target as Node) && !(target && "tipInstant" in target.dataset)) hide();
     },
     { signal },
   );
   // An (i) works as a toggletip too: clicking or tapping it shows or hides its tooltip, for touch and switch users.
   within.addEventListener(
-    'click',
+    "click",
     (event) => {
       const target = targetOf(event);
-      if (!target || !('tipInstant' in target.dataset)) return;
+      if (!target || !("tipInstant" in target.dataset)) return;
       if (current === target && !tip.hidden) hide();
       else open(target, 0);
     },

@@ -3,7 +3,7 @@ const DURATION_MS = 2200;
 const GRAVITY = 1400;
 const DRAG = 1.6;
 /** The theme's colours, as the panel reads them. */
-const COLORS = ['--fd-add', '--fd-accent', '--fd-attention', '--fd-done', '--fd-del'];
+const COLORS = ["--fd-add", "--fd-accent", "--fd-attention", "--fd-done", "--fd-del"];
 
 interface Piece {
   x: number;
@@ -22,18 +22,18 @@ interface Piece {
  * for readers who prefer reduced motion.
  */
 export const confetti = (parent: HTMLElement, from: { x: number; y: number }): void => {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const styles = getComputedStyle(parent);
   const colors = COLORS.map((name) => styles.getPropertyValue(name).trim()).filter(Boolean);
-  const canvas = document.createElement('canvas');
-  canvas.setAttribute('aria-hidden', 'true');
-  canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:-1';
+  const canvas = document.createElement("canvas");
+  canvas.setAttribute("aria-hidden", "true");
+  canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:-1";
   const scale = devicePixelRatio || 1;
   canvas.width = Math.round(innerWidth * scale);
   canvas.height = Math.round(innerHeight * scale);
   // Behind the panel, so it bursts out from under it.
   parent.append(canvas);
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext("2d");
   if (!context) return canvas.remove();
   context.scale(scale, scale);
 
@@ -50,7 +50,7 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
       rotation: Math.random() * Math.PI,
       spin: (Math.random() - 0.5) * 12,
       flutter: Math.random() * Math.PI * 2,
-      color: colors[index % colors.length] ?? '#2da44e',
+      color: colors[index % colors.length] ?? "#2da44e",
     };
   });
 

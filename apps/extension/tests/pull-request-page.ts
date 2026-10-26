@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page } from "@playwright/test";
 
 /** The fixture pull request page with the Focus Diff panel on top of it. */
 export class PullRequestPage {
@@ -12,14 +12,14 @@ export class PullRequestPage {
   readonly breakdownRows: Locator;
 
   constructor(readonly page: Page) {
-    this.panel = page.locator('focus-diff-panel');
-    this.options = this.panel.locator('.option .option-name');
+    this.panel = page.locator("focus-diff-panel");
+    this.options = this.panel.locator(".option .option-name");
     this.pressed = this.panel.locator('.option[aria-pressed="true"] .option-name');
-    this.stats = this.panel.locator('.stats');
+    this.stats = this.panel.locator(".stats");
     this.status = this.panel.locator('[role="status"]');
-    this.settings = this.panel.locator('.settings');
-    this.breakdownToggle = this.panel.locator('.breakdown-toggle');
-    this.breakdownRows = this.panel.locator('.row');
+    this.settings = this.panel.locator(".settings");
+    this.breakdownToggle = this.panel.locator(".breakdown-toggle");
+    this.breakdownRows = this.panel.locator(".row");
   }
 
   option(name: string) {
@@ -28,7 +28,7 @@ export class PullRequestPage {
 
   /** Shows only `name`, or adds it to the current filters with `combine`. */
   async pick(name: string, { combine = false } = {}) {
-    if (!combine && name !== 'All') await this.option('All').click();
+    if (!combine && name !== "All") await this.option("All").click();
     await this.option(name).click();
   }
 
@@ -36,13 +36,15 @@ export class PullRequestPage {
     return this.stats.evaluate((element) => {
       // What's read out: parts hidden by the current state, like the Done badge, and the scoreboards, which are only
       // for the eye, are left out.
-      const hidden = [...element.querySelectorAll('*')].map((child) => {
+      const hidden = [...element.querySelectorAll("*")].map((child) => {
         const style = getComputedStyle(child);
-        return style.display === 'none' || style.visibility === 'hidden' || child.getAttribute('aria-hidden') === 'true';
+        return (
+          style.display === "none" || style.visibility === "hidden" || child.getAttribute("aria-hidden") === "true"
+        );
       });
       const copy = element.cloneNode(true) as HTMLElement;
-      [...copy.querySelectorAll('*')].forEach((child, index) => hidden[index] && child.remove());
-      return (copy.textContent ?? '').replace(/\s+/g, ' ').trim();
+      [...copy.querySelectorAll("*")].forEach((child, index) => hidden[index] && child.remove());
+      return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
     });
   }
 
@@ -50,7 +52,9 @@ export class PullRequestPage {
     return this.page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>('[role="region"][id^="diff-"]:not([id$="-hunk"])')]
         .filter((region) => region.offsetParent !== null)
-        .map((region) => (document.getElementById(region.getAttribute('aria-labelledby') ?? '')?.textContent ?? '').replace(/‎/g, '')),
+        .map((region) =>
+          (document.getElementById(region.getAttribute("aria-labelledby") ?? "")?.textContent ?? "").replace(/‎/g, ""),
+        ),
     );
   }
 
@@ -58,16 +62,16 @@ export class PullRequestPage {
     return this.page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>('[role="treeitem"]:not([aria-expanded])')]
         .filter((item) => item.offsetParent !== null)
-        .map((item) => (item.textContent ?? '').trim()),
+        .map((item) => (item.textContent ?? "").trim()),
     );
   }
 
   filesCounter() {
-    return this.page.locator('[aria-current="page"] .Counter').locator('visible=true');
+    return this.page.locator('[aria-current="page"] .Counter').locator("visible=true");
   }
 
   lineCounters() {
-    const shown = this.page.locator('.summary span').locator('visible=true');
+    const shown = this.page.locator(".summary span").locator("visible=true");
     return { additions: shown.first(), deletions: shown.last() };
   }
 }

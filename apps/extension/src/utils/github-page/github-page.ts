@@ -1,4 +1,4 @@
-import { DIGEST, HIDDEN_ROWS } from '@/utils/github-virtual-list/github-virtual-list';
+import { DIGEST, HIDDEN_ROWS } from "@/utils/github-virtual-list/github-virtual-list";
 import type {
   Diff,
   FileStats,
@@ -8,7 +8,7 @@ import type {
   ThreadSummary,
   TreeFile,
   TreeFolder,
-} from '@/utils/provider/provider';
+} from "@/utils/provider/provider";
 
 /**
  * Reads GitHub's pull request pages, in both of its diff views. The classic one draws every file and its conversations
@@ -27,8 +27,8 @@ const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿]/g;
 const COUNTER_RESCAN_MS = 2000;
 const COUNTER_GIVE_UP_MS = 20000;
 
-const toNumber = (value: string) => Number(value.replace(/,/g, ''));
-const textOf = (element: Element) => (element.textContent ?? '').trim();
+const toNumber = (value: string) => Number(value.replace(/,/g, ""));
+const textOf = (element: Element) => (element.textContent ?? "").trim();
 const isLeaf = (element: Element) => element.children.length === 0;
 
 export const repository = (): string | null => {
@@ -36,21 +36,21 @@ export const repository = (): string | null => {
   return owner ? `${owner}/${name}` : null;
 };
 
-const cleanPath = (value = '') => {
+const cleanPath = (value = "") => {
   const parts = value
-    .replace(INVISIBLE, '')
+    .replace(INVISIBLE, "")
     .trim()
     .split(/\s+→\s+/);
-  return (parts.at(-1) ?? '').trim();
+  return (parts.at(-1) ?? "").trim();
 };
 
 const pathOf = (diff: HTMLElement) =>
   cleanPath(
-    diff.querySelector<HTMLElement>('[data-file-path]')?.dataset.filePath ||
+    diff.querySelector<HTMLElement>("[data-file-path]")?.dataset.filePath ||
       diff.dataset.tagsearchPath ||
-      document.getElementById(diff.getAttribute('aria-labelledby') ?? '')?.textContent ||
+      document.getElementById(diff.getAttribute("aria-labelledby") ?? "")?.textContent ||
       diff.querySelector('h3, a[href^="#diff-"]')?.textContent ||
-      '',
+      "",
   );
 
 const containerOf = (diff: HTMLElement): HTMLElement => {
@@ -64,8 +64,8 @@ const containerOf = (diff: HTMLElement): HTMLElement => {
 };
 
 const labelledStats = (header: Element): FileStats | null => {
-  for (const element of header.querySelectorAll('.sr-only, [aria-label], [title]')) {
-    const label = element.getAttribute('aria-label') || element.getAttribute('title') || element.textContent || '';
+  for (const element of header.querySelectorAll(".sr-only, [aria-label], [title]")) {
+    const label = element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent || "";
     const [, additions, deletions] = (label.length < 160 && label.match(FILE_STATS)) || [];
     if (additions && deletions) return { additions: toNumber(additions), deletions: toNumber(deletions) };
   }
@@ -73,15 +73,18 @@ const labelledStats = (header: Element): FileStats | null => {
 };
 
 const visibleStats = (header: Element): FileStats => {
-  const leaves = [...header.querySelectorAll('span, div')].filter(isLeaf).map(textOf);
+  const leaves = [...header.querySelectorAll("span, div")].filter(isLeaf).map(textOf);
   const additions = leaves.find((value) => ADDITIONS.test(value));
   const deletions = leaves.find((value) => DELETIONS.test(value));
-  return { additions: additions ? toNumber(additions.slice(1)) : 0, deletions: deletions ? toNumber(deletions.slice(1)) : 0 };
+  return {
+    additions: additions ? toNumber(additions.slice(1)) : 0,
+    deletions: deletions ? toNumber(deletions.slice(1)) : 0,
+  };
 };
 
 /** Stats survive GitHub unmounting a diff while scrolling. Only labelled stats are kept, and only for the current pull request. */
 const statsByPath = new Map<string, FileStats>();
-let statsPathname = '';
+let statsPathname = "";
 const statsOf = (diff: Element, path: string): FileStats | null => {
   if (statsPathname !== location.pathname) {
     statsByPath.clear();
@@ -89,7 +92,7 @@ const statsOf = (diff: Element, path: string): FileStats | null => {
   }
   const cached = statsByPath.get(path);
   if (cached) return cached;
-  const header = diff.querySelector('[data-diff-header-wrapper], .file-header');
+  const header = diff.querySelector("[data-diff-header-wrapper], .file-header");
   if (!header) return null;
   const labelled = labelledStats(header);
   if (labelled) statsByPath.set(path, labelled);
@@ -107,7 +110,8 @@ const cachedPathOf = (element: HTMLElement) => {
 };
 
 /** Whether a node GitHub just added is, or contains, a file diff. */
-export const containsDiff = (node: Node): boolean => node instanceof Element && (node.matches(DIFF) || node.querySelector(DIFF) !== null);
+export const containsDiff = (node: Node): boolean =>
+  node instanceof Element && (node.matches(DIFF) || node.querySelector(DIFF) !== null);
 
 export const diffs = (): Diff[] => {
   const byPath = new Map<string, Diff>();
@@ -121,7 +125,7 @@ export const diffs = (): Diff[] => {
       container: containerOf(element),
       stats: () => statsOf(element, path),
       viewed: () => viewed(element),
-      anchor: element.id.startsWith('diff-') ? element.id.slice('diff-'.length) : '',
+      anchor: element.id.startsWith("diff-") ? element.id.slice("diff-".length) : "",
     });
   }
   return [...byPath.values()];
@@ -129,14 +133,17 @@ export const diffs = (): Diff[] => {
 
 /** A tree item's name: its row's first line of text, which keeps names with spaces whole. */
 const labelOf = (item: Element) =>
-  (item.querySelector(':scope > div')?.textContent || item.getAttribute('aria-label') || '').trim().split('\n')[0]?.trim() ?? '';
+  (item.querySelector(":scope > div")?.textContent || item.getAttribute("aria-label") || "")
+    .trim()
+    .split("\n")[0]
+    ?.trim() ?? "";
 
 const folderPathOf = (item: Element | null | undefined): string => {
   const parts: string[] = [];
   for (let folder = item; folder; folder = folder.parentElement?.closest(TREE_ITEM)) {
     parts.unshift(labelOf(folder));
   }
-  return parts.join('/');
+  return parts.join("/");
 };
 
 /** A file's path as the tree spells it out, for trees without `#diff-` links. */
@@ -149,7 +156,7 @@ export const treePathOf = (item: Element): string => {
 export const treeFiles = (): TreeFile[] =>
   [...document.querySelectorAll<HTMLElement>(`${TREE_ITEM}:not([aria-expanded])`)].map((element) => ({
     element,
-    anchor: element.querySelector('a[href^="#diff-"]')?.getAttribute('href')?.slice('#diff-'.length) ?? '',
+    anchor: element.querySelector('a[href^="#diff-"]')?.getAttribute("href")?.slice("#diff-".length) ?? "",
   }));
 
 export const treeFolders = (): TreeFolder[] =>
@@ -159,22 +166,26 @@ export const treeFolders = (): TreeFolder[] =>
   }));
 
 const findFilesCounter = (): HTMLElement | null =>
-  document.getElementById('files_tab_counter') ||
+  document.getElementById("files_tab_counter") ||
   [...document.querySelectorAll('a, [role="tab"]')]
-    .find((element) => /^\s*Files changed/i.test(element.textContent ?? ''))
+    .find((element) => /^\s*Files changed/i.test(element.textContent ?? ""))
     ?.querySelector<HTMLElement>('.Counter, [class*="Counter"]') ||
   null;
 
 const findLineCounters = (): [HTMLElement | null, HTMLElement | null] => {
-  const summary = document.getElementById('diffstat');
-  if (summary) return [summary.querySelector<HTMLElement>('.color-fg-success'), summary.querySelector<HTMLElement>('.color-fg-danger')];
+  const summary = document.getElementById("diffstat");
+  if (summary)
+    return [
+      summary.querySelector<HTMLElement>(".color-fg-success"),
+      summary.querySelector<HTMLElement>(".color-fg-danger"),
+    ];
 
-  const additions = [...document.querySelectorAll<HTMLElement>('span, div')].find(
+  const additions = [...document.querySelectorAll<HTMLElement>("span, div")].find(
     (element) => isLeaf(element) && ADDITIONS.test(textOf(element)) && !element.closest(`${DIFF}, [role="tree"]`),
   );
   if (!additions) return [null, null];
   const near = additions.parentElement?.parentElement ?? additions.parentElement;
-  const deletions = [...(near?.querySelectorAll<HTMLElement>('span, div') ?? [])].find(
+  const deletions = [...(near?.querySelectorAll<HTMLElement>("span, div") ?? [])].find(
     (element) => isLeaf(element) && DELETIONS.test(textOf(element)),
   );
   return [additions, deletions ?? null];
@@ -183,7 +194,7 @@ const findLineCounters = (): [HTMLElement | null, HTMLElement | null] => {
 let counters: PageCounters = { files: null, additions: null, deletions: null };
 let scannedAt = 0;
 let firstScanAt = 0;
-let scannedPathname = '';
+let scannedPathname = "";
 
 /** GitHub's own counters. The full-page search runs at most every couple of seconds, and gives up on a page after a while. */
 export const pageCounters = (): PageCounters => {
@@ -203,8 +214,8 @@ export const pageCounters = (): PageCounters => {
 
 /** The number of changed files GitHub reports, which counts files it hasn't rendered yet. */
 export const reportedFileCount = (): number => {
-  const text = pageCounters().files?.textContent ?? '';
-  return Number(text.replace(/[^\d]/g, '')) || 0;
+  const text = pageCounters().files?.textContent ?? "";
+  return Number(text.replace(/[^\d]/g, "")) || 0;
 };
 
 /** The classic view's checkbox, or the newer view's toggle button, found by its label rather than its styling. */
@@ -215,28 +226,34 @@ const VIEWED_LABEL = /^(not )?viewed$/i;
 const viewed = (diff: Element): boolean | null => {
   for (const control of diff.querySelectorAll<HTMLElement>(VIEWED)) {
     if (control instanceof HTMLInputElement) {
-      if (control.classList.contains('js-reviewed-checkbox') || VIEWED_LABEL.test(control.closest('label')?.textContent?.trim() ?? ''))
+      if (
+        control.classList.contains("js-reviewed-checkbox") ||
+        VIEWED_LABEL.test(control.closest("label")?.textContent?.trim() ?? "")
+      )
         return control.checked;
-    } else if (VIEWED_LABEL.test((control.getAttribute('aria-label') ?? control.textContent ?? '').trim())) {
-      return control.getAttribute('aria-pressed') === 'true';
+    } else if (VIEWED_LABEL.test((control.getAttribute("aria-label") ?? control.textContent ?? "").trim())) {
+      return control.getAttribute("aria-pressed") === "true";
     }
   }
   return null;
 };
 
 /** The newer diff view positions each file absolutely in a tall list and only renders the ones near the screen. */
-export const isVirtualized = (): boolean => document.querySelector('[data-index][data-path-digest]') !== null;
+export const isVirtualized = (): boolean => document.querySelector("[data-index][data-path-digest]") !== null;
 
 /** For virtual-list.ts, in the page's world: the files hidden, as `count index:digest…`, with enough digest to check. */
 export const closeUp = (hidden: { index: number; anchor: string }[], count: number): void => {
-  const value = hidden.length ? [count, ...hidden.map(({ index, anchor }) => `${index}:${anchor.slice(0, DIGEST)}`)].join(' ') : null;
+  const value = hidden.length
+    ? [count, ...hidden.map(({ index, anchor }) => `${index}:${anchor.slice(0, DIGEST)}`)].join(" ")
+    : null;
   const root = document.documentElement;
   if (root.getAttribute(HIDDEN_ROWS) === value) return;
   if (value === null) root.removeAttribute(HIDDEN_ROWS);
   else root.setAttribute(HIDDEN_ROWS, value);
 };
 
-export const diffAt = (anchor: string): HTMLElement | null => (anchor ? document.getElementById(`diff-${anchor}`) : null);
+export const diffAt = (anchor: string): HTMLElement | null =>
+  anchor ? document.getElementById(`diff-${anchor}`) : null;
 
 /** The file tree's link to a file, which makes GitHub scroll to it and render it. */
 const treeLink = (anchor: string): HTMLAnchorElement | null =>
@@ -252,7 +269,7 @@ export const reveal = (anchor: string): void => {
 /** The file a click in the tree went to, by the anchor of its link. */
 export const treeAnchorAt = (target: EventTarget | null): string | null => {
   const link = target instanceof Element ? target.closest('[role="tree"] a[href^="#diff-"]') : null;
-  return link?.getAttribute('href')?.slice('#diff-'.length) || null;
+  return link?.getAttribute("href")?.slice("#diff-".length) || null;
 };
 
 /** Conversation markers beside the lines of a rendered diff in the newer view, top to bottom. */
@@ -263,7 +280,7 @@ export const commentIndicators = (diff: Element): HTMLElement[] =>
     .map(({ element }) => element);
 
 /** Review conversations in the classic view; the class is a fallback for the custom element. */
-const THREAD = 'review-thread-collapsible, .js-resolvable-timeline-thread-container';
+const THREAD = "review-thread-collapsible, .js-resolvable-timeline-thread-container";
 
 export interface Thread {
   element: HTMLElement;
@@ -278,18 +295,18 @@ export const threadComments = (thread: HTMLElement): HTMLElement[] =>
   [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].filter((element) => /^r\d+$/.test(element.id));
 
 const threadState = (thread: HTMLElement, login: string | null): ThreadState => {
-  if (thread.dataset.resolved === 'true') return 'resolved';
+  if (thread.dataset.resolved === "true") return "resolved";
   const last = threadComments(thread).at(-1);
-  if (!login || !last) return 'waiting';
+  if (!login || !last) return "waiting";
   const author = [...last.querySelectorAll('a[data-hovercard-type="user"]')].find((link) => link.textContent?.trim());
   const reacted = last.querySelector('button[data-reaction-content][aria-pressed="true"]') !== null;
-  return author?.textContent?.trim() === login || reacted ? 'answered' : 'waiting';
+  return author?.textContent?.trim() === login || reacted ? "answered" : "waiting";
 };
 
 /** The new-version line a classic thread hangs under: the last line number on the row above it. */
 const threadLine = (thread: HTMLElement): number | null => {
-  const numbers = thread.closest('tr')?.previousElementSibling?.querySelectorAll('[data-line-number]');
-  return Number(numbers?.[numbers.length - 1]?.getAttribute('data-line-number')) || null;
+  const numbers = thread.closest("tr")?.previousElementSibling?.querySelectorAll("[data-line-number]");
+  return Number(numbers?.[numbers.length - 1]?.getAttribute("data-line-number")) || null;
 };
 
 /**
@@ -298,13 +315,15 @@ const threadLine = (thread: HTMLElement): number | null => {
  */
 export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
   const login = viewer();
-  return [...diff.querySelectorAll<HTMLElement>('[data-marker-id]')].flatMap((element) => {
+  return [...diff.querySelectorAll<HTMLElement>("[data-marker-id]")].flatMap((element) => {
     const [first] = threadComments(element);
-    const cell = element.closest<HTMLElement>('[data-line-number]');
+    const cell = element.closest<HTMLElement>("[data-line-number]");
     if (!first || !cell) return [];
-    const side = cell.dataset.diffSide === 'left' ? 'L' : 'R';
+    const side = cell.dataset.diffSide === "left" ? "L" : "R";
     const line = `${side}${cell.dataset.lineNumber}`;
-    return [{ id: element.dataset.markerId ?? '', line, state: threadState(element, login), comment: first.id.slice(1) }];
+    return [
+      { id: element.dataset.markerId ?? "", line, state: threadState(element, login), comment: first.id.slice(1) },
+    ];
   });
 };
 
@@ -313,14 +332,15 @@ export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
  * line is drawn, without a marker. A line that isn't drawn, say in a collapsed file, tells nothing, so it counts as there.
  */
 export const threadRemoved = (diff: HTMLElement, line: string): boolean => {
-  const side = line.startsWith('L') ? 'left' : 'right';
+  const side = line.startsWith("L") ? "left" : "right";
   const cell = diff.querySelector(`[data-line-number="${CSS.escape(line.slice(1))}"][data-diff-side="${side}"]`);
-  const row = cell?.closest('tr');
+  const row = cell?.closest("tr");
   return Boolean(row && !row.querySelector('[class*="CommentIndicator-module__commentIn"], [data-marker-id]'));
 };
 
 /** A conversation open in the newer view, found by its thread id. */
-export const threadById = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-marker-id="${CSS.escape(id)}"]`);
+export const threadById = (id: string): HTMLElement | null =>
+  document.querySelector<HTMLElement>(`[data-marker-id="${CSS.escape(id)}"]`);
 
 /** The control that expands a collapsed classic thread, like a resolved one, or `null` when it's already open. */
 export const collapsedThreadToggle = (thread: HTMLElement): HTMLButtonElement | null => {
@@ -338,7 +358,7 @@ export const threads = (diff: HTMLElement): Thread[] => {
 
 /** Used when no file header says where GitHub's sticky bar ends. */
 const STICKY_FALLBACK_PX = 80;
-const FILE_HEADER = '[data-diff-header-wrapper], .file-header';
+const FILE_HEADER = "[data-diff-header-wrapper], .file-header";
 
 /**
  * Where GitHub's sticky bar ends: each file's header sticks right below it, so its `top` says. A file brought to the
@@ -371,7 +391,7 @@ export interface PullRequestData {
 const EMBEDDED = 'script[data-target="react-app.embeddedData"]';
 
 type Json = Record<string, unknown>;
-const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null;
+const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null;
 
 /** Finds the object that holds `key`, wherever GitHub nests it. */
 const holderOf = (value: unknown, key: string, depth = 0): Json | null => {
@@ -391,14 +411,16 @@ const commentsOf = (detail: unknown): Json[] =>
 
 /** Same rule as the classic view: answered when the reader wrote or reacted to the last comment. */
 const stateOf = (detail: unknown): ThreadState => {
-  if (!isObject(detail)) return 'waiting';
-  if (detail.isResolved === true) return 'resolved';
+  if (!isObject(detail)) return "waiting";
+  if (detail.isResolved === true) return "resolved";
   const last = commentsOf(detail).at(-1);
-  if (!last) return 'waiting';
+  if (!last) return "waiting";
   const reacted =
     Array.isArray(last.reactionGroups) &&
-    last.reactionGroups.some((group) => isObject(group) && isObject(group.reaction) && group.reaction.viewerHasReacted === true);
-  return last.viewerDidAuthor === true || reacted ? 'answered' : 'waiting';
+    last.reactionGroups.some(
+      (group) => isObject(group) && isObject(group.reaction) && group.reaction.viewerHasReacted === true,
+    );
+  return last.viewerDidAuthor === true || reacted ? "answered" : "waiting";
 };
 
 const lineNumber = (anchor: string) => Number(anchor.slice(1)) || 0;
@@ -410,19 +432,19 @@ const parse = (text: string): PullRequestData | null => {
   } catch {
     return null;
   }
-  const holder = holderOf(json, 'diffSummaries');
+  const holder = holderOf(json, "diffSummaries");
   if (!holder || !Array.isArray(holder.diffSummaries)) return null;
   const threadDetails = isObject(holder.markers) && isObject(holder.markers.threads) ? holder.markers.threads : {};
   const files: FileSummary[] = holder.diffSummaries.filter(isObject).flatMap((summary) => {
-    if (typeof summary.path !== 'string') return [];
+    if (typeof summary.path !== "string") return [];
     const markers = isObject(summary.markersMap) ? summary.markersMap : {};
     const threads = Object.entries(markers)
       .flatMap(([line, marker]) =>
         isObject(marker) && Array.isArray(marker.threads)
           ? marker.threads.filter(isObject).map((thread) => {
-              const id = String(thread.id ?? '');
+              const id = String(thread.id ?? "");
               const detail = threadDetails[id];
-              return { id, line, state: stateOf(detail), comment: String(commentsOf(detail)[0]?.databaseId ?? '') };
+              return { id, line, state: stateOf(detail), comment: String(commentsOf(detail)[0]?.databaseId ?? "") };
             })
           : [],
       )
@@ -430,7 +452,7 @@ const parse = (text: string): PullRequestData | null => {
     return [
       {
         path: summary.path,
-        anchor: typeof summary.pathDigest === 'string' ? summary.pathDigest : '',
+        anchor: typeof summary.pathDigest === "string" ? summary.pathDigest : "",
         additions: Number(summary.linesAdded) || 0,
         deletions: Number(summary.linesDeleted) || 0,
         viewed: summary.markedAsViewed === true,
@@ -451,7 +473,7 @@ export const pullRequestData = (): PullRequestData | null => {
   for (const script of document.querySelectorAll(EMBEDDED)) {
     let data = parsed.get(script);
     if (data === undefined) {
-      data = parse(script.textContent ?? '');
+      data = parse(script.textContent ?? "");
       parsed.set(script, data);
     }
     if (data) return data;

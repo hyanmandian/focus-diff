@@ -1,10 +1,10 @@
-import { i18n } from '#i18n';
-import { chevronIcon, commentIcon, targetIcon, threadStateIcons } from '@/components/icons/icons';
-import { h } from '@/utils/dom/dom';
-import { formatNumber as format } from '@/utils/format/format';
-import type { PanelContext } from '@/components/panel/panel';
-import { centreOver, returnFocus } from '@/components/popover/popover';
-import type { ThreadState } from '@/utils/provider/provider';
+import { i18n } from "#i18n";
+import { chevronIcon, commentIcon, targetIcon, threadStateIcons } from "@/components/icons/icons";
+import type { PanelContext } from "@/components/panel/panel";
+import { centreOver, returnFocus } from "@/components/popover/popover";
+import { h } from "@/utils/dom/dom";
+import { formatNumber as format } from "@/utils/format/format";
+import type { ThreadState } from "@/utils/provider/provider";
 
 export interface Conversation {
   path: string;
@@ -27,39 +27,52 @@ interface ConversationActions {
   fallback: HTMLElement;
 }
 
-const STATE_LABEL = { waiting: 'panelStateWaiting', answered: 'panelStateAnswered', resolved: 'panelStateResolved' } as const;
+const STATE_LABEL = {
+  waiting: "panelStateWaiting",
+  answered: "panelStateAnswered",
+  resolved: "panelStateResolved",
+} as const;
 
 /**
  * The conversations button and its card: which file and line the reader is on, whether it waits on them, and arrows to
  * the previous and next one. The card stays open while they step through.
  */
-export const createConversations = ({ host, focused }: PanelContext, { onStep, onOpen, fallback }: ConversationActions) => {
-  const count = h('span', { className: 'option-count', 'aria-hidden': 'true' });
+export const createConversations = (
+  { host, focused }: PanelContext,
+  { onStep, onOpen, fallback }: ConversationActions,
+) => {
+  const count = h("span", { className: "option-count", "aria-hidden": "true" });
   const toggle = h(
-    'button',
-    { type: 'button', className: 'comments', 'aria-expanded': 'false', 'aria-controls': 'focus-diff-conversations' },
-    h('span', { className: 'comments-icon', 'aria-hidden': 'true' }, commentIcon()),
+    "button",
+    { type: "button", className: "comments", "aria-expanded": "false", "aria-controls": "focus-diff-conversations" },
+    h("span", { className: "comments-icon", "aria-hidden": "true" }, commentIcon()),
     count,
   );
-  const icon = h('span', { className: 'conversation-icon', 'aria-hidden': 'true' });
-  const file = h('span', { className: 'conversation-file' });
-  const state = h('span', { className: 'conversation-state' });
-  const position = h('span', { className: 'conversation-position', 'aria-hidden': 'true' });
+  const icon = h("span", { className: "conversation-icon", "aria-hidden": "true" });
+  const file = h("span", { className: "conversation-file" });
+  const state = h("span", { className: "conversation-state" });
+  const position = h("span", { className: "conversation-position", "aria-hidden": "true" });
   const step = (direction: 1 | -1) => {
-    const label = i18n.t(direction > 0 ? 'panelNextComment' : 'panelPreviousComment');
+    const label = i18n.t(direction > 0 ? "panelNextComment" : "panelPreviousComment");
     return h(
-      'button',
-      { type: 'button', className: 'icon-button step', 'aria-label': label, 'data-tip': label, onClick: () => onStep(direction) },
-      chevronIcon(direction > 0 ? 'right' : 'left'),
+      "button",
+      {
+        type: "button",
+        className: "icon-button step",
+        "aria-label": label,
+        "data-tip": label,
+        onClick: () => onStep(direction),
+      },
+      chevronIcon(direction > 0 ? "right" : "left"),
     );
   };
   const popover = h(
-    'div',
+    "div",
     {
-      className: 'conversations popover',
-      id: 'focus-diff-conversations',
-      role: 'dialog',
-      'aria-label': i18n.t('panelComments'),
+      className: "conversations popover",
+      id: "focus-diff-conversations",
+      role: "dialog",
+      "aria-label": i18n.t("panelComments"),
       hidden: true,
     },
     icon,
@@ -67,18 +80,18 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     state,
     position,
     h(
-      'span',
-      { className: 'conversation-steps' },
+      "span",
+      { className: "conversation-steps" },
       step(-1),
       step(1),
       // With a single conversation there's nowhere to step to, only back to it.
       h(
-        'button',
+        "button",
         {
-          type: 'button',
-          className: 'icon-button go-to',
-          'aria-label': i18n.t('panelGoToComment'),
-          'data-tip': i18n.t('panelGoToComment'),
+          type: "button",
+          className: "icon-button go-to",
+          "aria-label": i18n.t("panelGoToComment"),
+          "data-tip": i18n.t("panelGoToComment"),
           onClick: () => onStep(1),
         },
         targetIcon(),
@@ -86,7 +99,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     ),
   );
   // Like the breakdown, the card follows its toggle and is positioned against the host.
-  const element = h('div', { className: 'navigation' }, toggle, popover);
+  const element = h("div", { className: "navigation" }, toggle, popover);
 
   let source: Conversations = { current: 0, list: [] };
 
@@ -96,11 +109,11 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     const { current, list } = source;
     const target = list[current - 1] ?? list[0];
     if (!target) return;
-    const name = target.path.slice(target.path.lastIndexOf('/') + 1);
+    const name = target.path.slice(target.path.lastIndexOf("/") + 1);
     // The name gives way to an ellipsis; the line number always shows.
     file.replaceChildren(
-      h('span', { className: 'conversation-name', textContent: name }),
-      target.line ? h('span', { className: 'conversation-line', textContent: `:${format(target.line)}` }) : '',
+      h("span", { className: "conversation-name", textContent: name }),
+      target.line ? h("span", { className: "conversation-line", textContent: `:${format(target.line)}` }) : "",
     );
     file.dataset.tip = target.path;
     if (popover.dataset.state !== target.state) {
@@ -109,12 +122,12 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     }
     state.textContent = i18n.t(STATE_LABEL[target.state]);
     const single = list.length === 1;
-    if (single !== popover.hasAttribute('data-single')) {
+    if (single !== popover.hasAttribute("data-single")) {
       // The step arrows and Go to swap places; focus moves to whichever is left, instead of falling to the page.
       const had = focused();
-      popover.toggleAttribute('data-single', single);
-      if (had && popover.contains(had) && had.matches('.step, .go-to'))
-        popover.querySelector<HTMLElement>(single ? '.go-to' : '.step:last-child')?.focus();
+      popover.toggleAttribute("data-single", single);
+      if (had && popover.contains(had) && had.matches(".step, .go-to"))
+        popover.querySelector<HTMLElement>(single ? ".go-to" : ".step:last-child")?.focus();
     }
     position.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
   };
@@ -126,7 +139,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     if (popover.hidden === !open) return;
     if (!open) returnFocus(popover, toggle, fallback, focused());
     popover.hidden = !open;
-    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute("aria-expanded", String(open));
     if (open) {
       onOpen();
       // Opening lands on a conversation straight away, so the card always has one to show.
@@ -136,7 +149,7 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
     }
   };
   const isOpen = () => !popover.hidden;
-  toggle.addEventListener('click', () => {
+  toggle.addEventListener("click", () => {
     if (source.list.length) setOpen(!isOpen());
   });
 
@@ -144,15 +157,15 @@ export const createConversations = ({ host, focused }: PanelContext, { onStep, o
   const render = (conversations: Conversations, most = conversations.list.length) => {
     const total = conversations.list.length;
     // Without conversations it stays in place, disabled, so the bar keeps its shape; it stays focusable to explain why.
-    toggle.setAttribute('aria-disabled', String(total === 0));
+    toggle.setAttribute("aria-disabled", String(total === 0));
     // The tooltip names the button, or says why it's disabled.
-    toggle.dataset.tip = total === 0 ? i18n.t('panelNoComments') : i18n.t('panelComments');
+    toggle.dataset.tip = total === 0 ? i18n.t("panelNoComments") : i18n.t("panelComments");
     if (!total) setOpen(false);
     count.textContent = format(total);
     count.style.minWidth = `calc(${format(Math.max(most, total)).length}ch + 12px)`;
     // The name stays put while it has focus; where a jump lands is said by the status message instead.
-    const where = total ? i18n.t('panelCommentCount', total, [format(total)]) : i18n.t('panelNoComments');
-    toggle.setAttribute('aria-label', `${i18n.t('panelComments')}, ${where}`);
+    const where = total ? i18n.t("panelCommentCount", total, [format(total)]) : i18n.t("panelNoComments");
+    toggle.setAttribute("aria-label", `${i18n.t("panelComments")}, ${where}`);
     source = conversations;
     draw();
   };

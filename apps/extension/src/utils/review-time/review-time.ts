@@ -1,4 +1,4 @@
-import type { FileStats } from '@/utils/provider/provider';
+import type { FileStats } from "@/utils/provider/provider";
 
 /**
  * Our assumption, not measured: a working review pace. SmartBear's study of 2,500 reviews at Cisco puts careful
@@ -33,24 +33,24 @@ export type Estimator = (path: string, stats: FileStats | null) => number;
  * Kinds of file, which one reader may go through at different paces: tests skimmed, code studied, docs read. What's
  * learned is learned per kind. A path is the first kind it matches, in this order.
  */
-export const KINDS = ['generated', 'tests', 'docs', 'styles', 'config', 'code'] as const;
+export const KINDS = ["generated", "tests", "docs", "styles", "config", "code"] as const;
 export type Kind = (typeof KINDS)[number];
 
 const KIND_PATTERNS: [Kind, RegExp][] = [
   [
-    'tests',
+    "tests",
     /(^|\/)(__tests__|__mocks__|tests?|specs?|e2e|cypress|playwright)\/|\.(test|spec|stories|e2e)\.[^/]+$|(_test\.(go|py|rb|exs?)|_spec\.rb)$|(^|\/)test_[^/]+\.py$/i,
   ],
-  ['docs', /\.(md|mdx|markdown|rst|adoc|txt)$|(^|\/)(docs?|documentation)\//i],
-  ['styles', /\.(css|scss|sass|less|styl|pcss)$/i],
+  ["docs", /\.(md|mdx|markdown|rst|adoc|txt)$|(^|\/)(docs?|documentation)\//i],
+  ["styles", /\.(css|scss|sass|less|styl|pcss)$/i],
   [
-    'config',
+    "config",
     /\.(json|jsonc|ya?ml|toml|ini|cfg|conf|properties|xml|plist|env|lock)$|(^|\/)(Dockerfile|Makefile|Procfile|\.[\w.-]+rc|\.gitignore|\.editorconfig)$/i,
   ],
 ];
 
 export const kindOf = (path: string): Kind =>
-  isGenerated(path) ? 'generated' : (KIND_PATTERNS.find(([, pattern]) => pattern.test(path))?.[0] ?? 'code');
+  isGenerated(path) ? "generated" : (KIND_PATTERNS.find(([, pattern]) => pattern.test(path))?.[0] ?? "code");
 
 /** Minutes spent on files, next to the minutes the starting pace gave them; both fade as newer reviews come in. */
 interface Tally {
@@ -79,14 +79,14 @@ const FADE = 0.98;
 const MOST_OFF = 6;
 
 const tally = (value: unknown): Tally => {
-  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const number = (key: string) => (Number.isFinite(raw[key]) && Number(raw[key]) >= 0 ? Number(raw[key]) : 0);
-  return { actual: number('actual'), expected: number('expected'), files: number('files') };
+  return { actual: number("actual"), expected: number("expected"), files: number("files") };
 };
 
 export const normalizeLearned = (value: unknown): Learned => {
-  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-  const kinds = raw.kinds && typeof raw.kinds === 'object' ? (raw.kinds as Record<string, unknown>) : {};
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const kinds = raw.kinds && typeof raw.kinds === "object" ? (raw.kinds as Record<string, unknown>) : {};
   return {
     all: tally(raw.all),
     kinds: Object.fromEntries(KINDS.filter((kind) => kinds[kind]).map((kind) => [kind, tally(kinds[kind])])),

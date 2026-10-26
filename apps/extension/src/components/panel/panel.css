@@ -53,11 +53,11 @@
   background: var(--fd-hover);
 }
 /* Disabled controls stay focusable so their tooltip can say why; they fade back and stop reacting. */
-:where(.panel) button[aria-disabled='true'] {
+:where(.panel) button[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }
-:where(.panel) button[aria-disabled='true']:hover {
+:where(.panel) button[aria-disabled="true"]:hover {
   background: none;
 }
 :where(.panel) button:focus-visible,
@@ -77,7 +77,7 @@
   padding: 0;
   color: var(--fd-muted);
 }
-.icon-button[aria-expanded='true'] {
+.icon-button[aria-expanded="true"] {
   background: var(--fd-hover);
   color: var(--fd-fg);
 }
@@ -240,7 +240,7 @@
 
 /* An arrow under a popover, pointing at the button that opened it. */
 .popover::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -6px;
   left: var(--fd-arrow-x, calc(100% - 24px));

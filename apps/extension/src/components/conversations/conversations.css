@@ -11,14 +11,14 @@
   gap: 6px;
   padding: 0 8px 0 10px;
 }
-.comments[aria-expanded='true'] {
+.comments[aria-expanded="true"] {
   background: var(--fd-hover);
 }
 .comments-icon {
   display: inline-grid;
   color: var(--fd-muted);
 }
-.comments[aria-expanded='true'] .comments-icon {
+.comments[aria-expanded="true"] .comments-icon {
   color: var(--fd-fg);
 }
 
@@ -39,10 +39,10 @@
   grid-row: 1 / span 2;
   color: var(--fd-attention);
 }
-.conversations[data-state='answered'] .conversation-icon {
+.conversations[data-state="answered"] .conversation-icon {
   color: var(--fd-accent);
 }
-.conversations[data-state='resolved'] .conversation-icon {
+.conversations[data-state="resolved"] .conversation-icon {
   color: var(--fd-add);
 }
 .conversation-file {

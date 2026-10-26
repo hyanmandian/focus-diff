@@ -3,12 +3,12 @@
  * oscillators shaped by envelopes, short and soft, so a notification is heard without startling anyone.
  */
 
-const SOUNDS = ['chime', 'bowl', 'marimba', 'pop', 'droplet'] as const;
+const SOUNDS = ["chime", "bowl", "marimba", "pop", "droplet"] as const;
 export type SoundId = (typeof SOUNDS)[number];
 
 /** One of ours, the system's own notification sound, or none at all. */
-export type SoundChoice = SoundId | 'system' | 'none';
-export const SOUND_CHOICES: SoundChoice[] = [...SOUNDS, 'system', 'none'];
+export type SoundChoice = SoundId | "system" | "none";
+export const SOUND_CHOICES: SoundChoice[] = [...SOUNDS, "system", "none"];
 
 export interface SoundSetting {
   id: SoundChoice;
@@ -19,7 +19,7 @@ export interface SoundSetting {
 export const isOwnSound = (choice: SoundChoice): choice is SoundId => (SOUNDS as readonly string[]).includes(choice);
 
 export const normalizeSound = (value: unknown, fallback: SoundSetting): SoundSetting => {
-  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const id = SOUND_CHOICES.find((choice) => choice === raw.id) ?? fallback.id;
   const volume = Number(raw.volume);
   return { id, volume: Number.isFinite(volume) ? Math.min(100, Math.max(0, Math.round(volume))) : fallback.volume };
@@ -37,9 +37,16 @@ interface Partial {
 }
 
 /** One struck note: its partials start together with a quick attack and fade each at their own pace. */
-const strike = (context: BaseAudioContext, out: AudioNode, frequency: number, at: number, partials: Partial[], attack = 0.004) => {
+const strike = (
+  context: BaseAudioContext,
+  out: AudioNode,
+  frequency: number,
+  at: number,
+  partials: Partial[],
+  attack = 0.004,
+) => {
   let end = at;
-  for (const { ratio, gain, decay, type = 'sine', detune = 0 } of partials) {
+  for (const { ratio, gain, decay, type = "sine", detune = 0 } of partials) {
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
     oscillator.type = type;
@@ -56,7 +63,15 @@ const strike = (context: BaseAudioContext, out: AudioNode, frequency: number, at
 };
 
 /** A note whose pitch glides, like a bubble's or a drop's. */
-const glide = (context: BaseAudioContext, out: AudioNode, from: number, to: number, at: number, length: number, gain: number) => {
+const glide = (
+  context: BaseAudioContext,
+  out: AudioNode,
+  from: number,
+  to: number,
+  at: number,
+  length: number,
+  gain: number,
+) => {
   const oscillator = context.createOscillator();
   const envelope = context.createGain();
   oscillator.frequency.setValueAtTime(from, at);
@@ -79,7 +94,7 @@ const room = (context: BaseAudioContext, out: AudioNode) => {
   const wet = context.createGain();
   delay.delayTime.value = 0.16;
   feedback.gain.value = 0.28;
-  tone.type = 'lowpass';
+  tone.type = "lowpass";
   tone.frequency.value = 2400;
   wet.gain.value = 0.3;
   input.connect(out);
@@ -121,7 +136,9 @@ const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: nu
     ];
     const wet = room(context, out);
     let end = at;
-    [783.99, 987.77, 1174.66].forEach((frequency, index) => (end = strike(context, wet, frequency, at + index * 0.085, bar, 0.003)));
+    [783.99, 987.77, 1174.66].forEach(
+      (frequency, index) => (end = strike(context, wet, frequency, at + index * 0.085, bar, 0.003)),
+    );
     return end + 0.4;
   },
   /** Two quick bubbles, the second higher. */

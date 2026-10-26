@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Page } from "@playwright/test";
 
 /** GitHub's pull requests dashboard as it answers with `Accept: application/json`. */
 export const dashboard = (results: unknown[]) =>
@@ -7,12 +7,14 @@ export const dashboard = (results: unknown[]) =>
 /** The rest of GitHub the background and the popup read: authors' pictures, missing, sign-in, and an empty inbox. */
 export const routeGitHubRest = async (context: BrowserContext) => {
   // Authors' pictures, which the popup does without when they don't load.
-  await context.route(/^https:\/\/(github\.com\/[\w-]+\.png|avatars\.githubusercontent\.com\/)/, (route) => route.fulfill({ status: 404 }));
+  await context.route(/^https:\/\/(github\.com\/[\w-]+\.png|avatars\.githubusercontent\.com\/)/, (route) =>
+    route.fulfill({ status: 404 }),
+  );
   await context.route(/^https:\/\/github\.com\/login/, (route) =>
-    route.fulfill({ contentType: 'text/html', body: '<title>Sign in</title>' }),
+    route.fulfill({ contentType: "text/html", body: "<title>Sign in</title>" }),
   );
   await context.route(/^https:\/\/github\.com\/notifications/, (route) =>
-    route.fulfill({ contentType: 'text/html', body: '<meta name="user-login" content="me-too"><ul></ul>' }),
+    route.fulfill({ contentType: "text/html", body: '<meta name="user-login" content="me-too"><ul></ul>' }),
   );
 };
 

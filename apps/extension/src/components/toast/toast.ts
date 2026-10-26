@@ -1,4 +1,4 @@
-import './toast.css';
+import "./toast.css";
 
 const TOAST_MS = 2800;
 const FADE_MS = 250;
@@ -9,11 +9,11 @@ export const toaster = (toast: HTMLElement) => {
   return (text: string) => {
     clearTimeout(timer);
     toast.textContent = text;
-    toast.classList.add('visible');
+    toast.classList.add("visible");
     timer = setTimeout(() => {
-      toast.classList.remove('visible');
+      toast.classList.remove("visible");
       // Once faded it's gone for screen readers too.
-      timer = setTimeout(() => (toast.textContent = ''), FADE_MS);
+      timer = setTimeout(() => (toast.textContent = ""), FADE_MS);
     }, TOAST_MS);
   };
 };

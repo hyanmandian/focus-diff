@@ -1,4 +1,4 @@
-import type { ContentScriptContext } from '#imports';
+import type { ContentScriptContext } from "#imports";
 
 /**
  * How long the reader actually spends on each file of a pull request, to learn their pace from. Only time they're
@@ -12,7 +12,7 @@ import type { ContentScriptContext } from '#imports';
 const STILL_LIMIT_MS = 90_000;
 /** Activity is taken in at most this often; a moving mouse fires many times a second. */
 const SAMPLE_MS = 1000;
-const EVENTS = ['scroll', 'wheel', 'keydown', 'pointerdown', 'pointermove', 'selectionchange'] as const;
+const EVENTS = ["scroll", "wheel", "keydown", "pointerdown", "pointermove", "selectionchange"] as const;
 
 /** The time spent on a file between two moments of activity `gap` apart. */
 export const creditFor = (gap: number): number => Math.max(0, Math.min(gap, STILL_LIMIT_MS));
@@ -53,8 +53,11 @@ export const createActiveTime = (ctx: ContentScriptContext, filesOnScreen: () =>
   };
 
   for (const type of EVENTS)
-    ctx.addEventListener(type === 'selectionchange' ? document : window, type, () => sample(), { passive: true, capture: true });
-  ctx.addEventListener(document, 'visibilitychange', () => {
+    ctx.addEventListener(type === "selectionchange" ? document : window, type, () => sample(), {
+      passive: true,
+      capture: true,
+    });
+  ctx.addEventListener(document, "visibilitychange", () => {
     const now = Date.now();
     if (document.hidden) {
       settle(now);

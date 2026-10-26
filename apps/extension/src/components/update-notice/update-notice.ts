@@ -1,31 +1,34 @@
-import { i18n } from '#i18n';
-import { closeIcon } from '@/components/icons/icons';
-import { h } from '@/utils/dom/dom';
-import type { PanelContext } from '@/components/panel/panel';
+import { i18n } from "#i18n";
+import { closeIcon } from "@/components/icons/icons";
+import type { PanelContext } from "@/components/panel/panel";
+import { h } from "@/utils/dom/dom";
 
-const RELEASES = 'https://github.com/hyanmandian/focus-diff/releases';
+const RELEASES = "https://github.com/hyanmandian/focus-diff/releases";
 
 /** "New in 1.1", linking to that release's notes, until the reader opens or dismisses it. */
-export const createUpdateNotice = ({ focused }: PanelContext, { onSeen, fallback }: { onSeen: () => void; fallback: HTMLElement }) => {
-  const text = h('span');
+export const createUpdateNotice = (
+  { focused }: PanelContext,
+  { onSeen, fallback }: { onSeen: () => void; fallback: HTMLElement },
+) => {
+  const text = h("span");
   const link = h(
-    'a',
+    "a",
     // Every release's notes until a version is set, so the link always goes somewhere.
-    { className: 'update-link', href: RELEASES, target: '_blank', rel: 'noopener', onClick: () => onSeen() },
-    h('span', { className: 'update-dot', 'aria-hidden': 'true' }),
+    { className: "update-link", href: RELEASES, target: "_blank", rel: "noopener", onClick: () => onSeen() },
+    h("span", { className: "update-dot", "aria-hidden": "true" }),
     text,
   );
   const element = h(
-    'div',
-    { className: 'update', hidden: true },
+    "div",
+    { className: "update", hidden: true },
     link,
     h(
-      'button',
+      "button",
       {
-        type: 'button',
-        className: 'icon-button update-dismiss',
-        'aria-label': i18n.t('panelUpdateDismiss'),
-        'data-tip': i18n.t('panelUpdateDismiss'),
+        type: "button",
+        className: "icon-button update-dismiss",
+        "aria-label": i18n.t("panelUpdateDismiss"),
+        "data-tip": i18n.t("panelUpdateDismiss"),
         onClick: () => onSeen(),
       },
       closeIcon(),
@@ -39,7 +42,7 @@ export const createUpdateNotice = ({ focused }: PanelContext, { onSeen, fallback
       return;
     }
     link.href = `${RELEASES}/tag/v${version}`;
-    text.textContent = i18n.t('panelUpdate', [version.split('.').slice(0, 2).join('.')]);
+    text.textContent = i18n.t("panelUpdate", [version.split(".").slice(0, 2).join(".")]);
     element.hidden = false;
   };
 

@@ -1,14 +1,14 @@
-import { createShadowRootUi, type ContentScriptContext } from '#imports';
-import { createPanel } from '@/components/panel/panel';
-import { startController, type Controller } from '@/utils/review-controller/review-controller';
-import { keepOutOfTransitions } from '@/utils/transition/transition';
-import type { Provider } from '@/utils/provider/provider';
-import { uiLanguage } from '@/utils/i18n/i18n';
+import { createShadowRootUi, type ContentScriptContext } from "#imports";
+import { createPanel } from "@/components/panel/panel";
+import { uiLanguage } from "@/utils/i18n/i18n";
+import type { Provider } from "@/utils/provider/provider";
+import { startController, type Controller } from "@/utils/review-controller/review-controller";
+import { keepOutOfTransitions } from "@/utils/transition/transition";
 
 // The bar's styles, every component's, which the content script injects into the bar's shadow root. They're imported
 // here rather than by each component, so the extension's pages, which show the bar only in the demo (with its own copies
 // in its shadow roots), don't load them as page styles.
-import.meta.glob(['../**/*.css', '!../demo/**', '!../toast/**', '!../button/**', '!../github-theme/**'], {
+import.meta.glob(["../**/*.css", "!../demo/**", "!../toast/**", "!../button/**", "!../github-theme/**"], {
   eager: true,
 });
 
@@ -16,10 +16,10 @@ import.meta.glob(['../**/*.css', '!../demo/**', '!../toast/**', '!../button/**',
 export const mountBar = async (ctx: ContentScriptContext, provider: Provider): Promise<void> => {
   let controller: Controller | null = null;
   const ui = await createShadowRootUi(ctx, {
-    name: 'focus-diff-panel',
-    position: 'inline',
-    anchor: 'html',
-    append: 'last',
+    name: "focus-diff-panel",
+    position: "inline",
+    anchor: "html",
+    append: "last",
     inheritStyles: true,
     onMount: (container, root, host) => {
       keepOutOfTransitions(host);

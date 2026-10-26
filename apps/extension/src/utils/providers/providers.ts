@@ -10,12 +10,12 @@ export interface ProviderInfo {
 /** The review sites Focus Diff supports, in the order the extension's pages list them. */
 export const PROVIDERS: ProviderInfo[] = [
   {
-    id: 'github',
-    name: 'GitHub',
-    theme: () => import('@/components/github-theme/github-theme.css?inline').then((module) => module.default),
+    id: "github",
+    name: "GitHub",
+    theme: () => import("@/components/github-theme/github-theme.css?inline").then((module) => module.default),
   },
 ];
 
 /** The supported sites by name, as a list in a sentence of the reader's language, like "GitHub and GitLab". */
 export const providerNames = (locale?: string): string =>
-  new Intl.ListFormat(locale, { type: 'conjunction' }).format(PROVIDERS.map((provider) => provider.name));
+  new Intl.ListFormat(locale, { type: "conjunction" }).format(PROVIDERS.map((provider) => provider.name));

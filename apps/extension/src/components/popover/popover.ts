@@ -6,7 +6,7 @@ const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
   const box = popover.getBoundingClientRect();
   const target = trigger.getBoundingClientRect();
   const x = Math.min(Math.max(target.left + target.width / 2 - box.left, EDGE), box.width - EDGE);
-  popover.style.setProperty('--fd-arrow-x', `${Math.round(x)}px`);
+  popover.style.setProperty("--fd-arrow-x", `${Math.round(x)}px`);
 };
 
 const SCREEN_MARGIN = 16;
@@ -30,11 +30,16 @@ export const centreOver = (popover: HTMLElement, trigger: HTMLElement, offsetPar
   const left = Math.min(Math.max(ideal, min), max);
   // Unrounded, so a popover held against the panel's edge lines up with it exactly.
   popover.style.left = `${left - parent.left}px`;
-  popover.style.right = 'auto';
+  popover.style.right = "auto";
   pointAt(popover, trigger);
 };
 
 /** Focus inside a closing popover goes back to its toggle, or to `fallback` when the toggle is gone too. */
-export const returnFocus = (popover: HTMLElement, toggle: HTMLElement, fallback: HTMLElement, focused: HTMLElement | null): void => {
+export const returnFocus = (
+  popover: HTMLElement,
+  toggle: HTMLElement,
+  fallback: HTMLElement,
+  focused: HTMLElement | null,
+): void => {
   if (popover.contains(focused)) (toggle.hidden ? fallback : toggle).focus();
 };

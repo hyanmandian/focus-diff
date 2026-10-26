@@ -1,5 +1,5 @@
-import type { FileList, ReviewFile } from '@/utils/review/review';
-import type { Provider, ThreadSummary } from '@/utils/provider/provider';
+import type { Provider, ThreadSummary } from "@/utils/provider/provider";
+import type { FileList, ReviewFile } from "@/utils/review/review";
 
 export interface FileInfo extends ReviewFile {
   /** How the site points to the file, for its links and its tree; empty when unknown. */
@@ -13,7 +13,7 @@ export interface FileInfo extends ReviewFile {
 export type Files = FileList<FileInfo>;
 
 const viewedByPath = new Map<string, boolean>();
-let viewedPathname = '';
+let viewedPathname = "";
 
 /**
  * Every changed file the page knows about. A site's embedded data lists them all, with exact line counts; otherwise

@@ -1,4 +1,10 @@
-import { InboxError, type Activity, type Detail, type PullList, type PullRequest } from '@/utils/github-inbox/github-inbox';
+import {
+  InboxError,
+  type Activity,
+  type Detail,
+  type PullList,
+  type PullRequest,
+} from "@/utils/github-inbox/github-inbox";
 import {
   activityKind,
   freshActivity,
@@ -14,7 +20,7 @@ import {
   type InboxMemory,
   type InboxSnapshot,
   type NotifySettings,
-} from '@/utils/inbox/inbox';
+} from "@/utils/inbox/inbox";
 
 /** How the background reads GitHub; tests hand in their own. */
 export interface InboxSource {
@@ -54,8 +60,8 @@ export interface CheckResult {
 
 /** The kinds a thread's latest event could turn out to be, before its page says what the review was. */
 const possibleKinds = (activity: Activity): EventKind[] =>
-  activity.kind === 'review' && activity.reason === 'author'
-    ? ['approved', 'changes-requested', 'comment-mine']
+  activity.kind === "review" && activity.reason === "author"
+    ? ["approved", "changes-requested", "comment-mine"]
     : [activityKind(activity, null)].filter((kind): kind is EventKind => Boolean(kind));
 
 /**
@@ -84,20 +90,20 @@ export const checkInbox = async (
   try {
     const watching = isWatching(settings);
     const [listed, mine, inbox] = await Promise.all([
-      source.pulls('reviews'),
-      source.pulls('authored'),
+      source.pulls("reviews"),
+      source.pulls("authored"),
       watching ? source.notifications() : null,
     ]);
     const requests = watching && inbox ? reviewListEvents(memory?.reviews ?? null, listed) : [];
     // Without the list of the ones asked of the reader by name, none is known to be a team's.
     const reviews =
       skipTeams || requests.length
-        ? await source.pulls('direct').then(
+        ? await source.pulls("direct").then(
             (direct) => markTeams(listed, direct),
             () => listed,
           )
         : listed;
-    const me = inbox?.me ?? '';
+    const me = inbox?.me ?? "";
     const snapshot: InboxSnapshot = { me, reviews, mine, checkedAt, problem: null };
     if (!watching || !inbox) return { snapshot, memory: null, events: [] };
 
@@ -116,8 +122,8 @@ export const checkInbox = async (
       .filter((event) => mayNotify(settings, event.kind, event.repo))
       .map(async (event) => {
         if (needsDetail(settings, event.kind, event.repo)) {
-          const found = await detail(event.repo, event.number, '');
-          event.approvedByMe = found?.myReview === 'approved';
+          const found = await detail(event.repo, event.number, "");
+          event.approvedByMe = found?.myReview === "approved";
         }
         return wants(settings, event) ? event : null;
       });
@@ -139,7 +145,7 @@ export const checkInbox = async (
           actor: found.actor,
           bot: found.bot,
           draft: drafts.get(`https://github.com/${activity.repo}/pull/${activity.number}`) ?? false,
-          approvedByMe: found.myReview === 'approved',
+          approvedByMe: found.myReview === "approved",
           team: byUrl.get(`https://github.com/${activity.repo}/pull/${activity.number}`)?.team ?? false,
           again: false,
           excerpt: found.excerpt,
@@ -152,7 +158,7 @@ export const checkInbox = async (
     );
     return { snapshot, memory: { threads: rememberThreads(inbox.activity, memory?.threads ?? null), reviews }, events };
   } catch (error) {
-    const problem = error instanceof InboxError ? error.problem : 'unreadable';
-    return { snapshot: { me: '', reviews: [], mine: [], checkedAt, problem }, memory: null, events: [] };
+    const problem = error instanceof InboxError ? error.problem : "unreadable";
+    return { snapshot: { me: "", reviews: [], mine: [], checkedAt, problem }, memory: null, events: [] };
   }
 };

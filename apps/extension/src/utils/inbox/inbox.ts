@@ -1,43 +1,43 @@
-import type { Activity, Detail, InboxProblem, PullRequest } from '@/utils/github-inbox/github-inbox';
-import { REPO_PATTERN, repoMatches } from '@/utils/filters/filters';
-import { normalizeSound, type SoundSetting } from '@/utils/sound/sound';
+import { REPO_PATTERN, repoMatches } from "@/utils/filters/filters";
+import type { Activity, Detail, InboxProblem, PullRequest } from "@/utils/github-inbox/github-inbox";
+import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
 /** Something on a pull request the reader can be told about. */
 export type EventKind =
-  | 'review-requested'
-  | 'ready-for-review'
-  | 'comment-mine'
-  | 'comment-reviewing'
-  | 'mention'
-  | 'approved'
-  | 'changes-requested';
+  | "review-requested"
+  | "ready-for-review"
+  | "comment-mine"
+  | "comment-reviewing"
+  | "mention"
+  | "approved"
+  | "changes-requested";
 
 /** What a rule can leave out. */
-export type Exception = 'drafts' | 'approved' | 'bots';
+export type Exception = "drafts" | "approved" | "bots";
 
 export const EVENT_KINDS: EventKind[] = [
-  'review-requested',
-  'ready-for-review',
-  'comment-reviewing',
-  'comment-mine',
-  'approved',
-  'changes-requested',
-  'mention',
+  "review-requested",
+  "ready-for-review",
+  "comment-reviewing",
+  "comment-mine",
+  "approved",
+  "changes-requested",
+  "mention",
 ];
 
 /** The exceptions that mean something for each kind of event, in the order settings offer them. */
 export const EXCEPTIONS: Record<EventKind, Exception[]> = {
-  'review-requested': ['drafts', 'approved'],
-  'ready-for-review': ['approved'],
-  'comment-mine': ['drafts', 'bots'],
-  'comment-reviewing': ['drafts', 'approved', 'bots'],
-  mention: ['bots'],
-  approved: ['bots'],
-  'changes-requested': ['bots'],
+  "review-requested": ["drafts", "approved"],
+  "ready-for-review": ["approved"],
+  "comment-mine": ["drafts", "bots"],
+  "comment-reviewing": ["drafts", "approved", "bots"],
+  mention: ["bots"],
+  approved: ["bots"],
+  "changes-requested": ["bots"],
 };
 
 /** Right away, or kept for the next review time, when the reader has review times set. */
-export type When = 'now' | 'review';
+export type When = "now" | "review";
 
 /** Whether an event is wanted, and what to leave out of it. */
 interface EventSetting {
@@ -84,13 +84,13 @@ export interface NotifySettings {
 
 /** What most reviewers want, to start from. */
 const DEFAULT_EVENTS: Record<EventKind, EventSetting> = {
-  'review-requested': { on: true, except: ['drafts'], repos: [], when: 'review' },
-  'ready-for-review': { on: true, except: ['approved'], repos: [], when: 'review' },
-  'comment-reviewing': { on: false, except: ['bots'], repos: [], when: 'now' },
-  'comment-mine': { on: true, except: ['bots'], repos: [], when: 'now' },
-  approved: { on: true, except: [], repos: [], when: 'now' },
-  'changes-requested': { on: true, except: [], repos: [], when: 'now' },
-  mention: { on: false, except: ['bots'], repos: [], when: 'now' },
+  "review-requested": { on: true, except: ["drafts"], repos: [], when: "review" },
+  "ready-for-review": { on: true, except: ["approved"], repos: [], when: "review" },
+  "comment-reviewing": { on: false, except: ["bots"], repos: [], when: "now" },
+  "comment-mine": { on: true, except: ["bots"], repos: [], when: "now" },
+  approved: { on: true, except: [], repos: [], when: "now" },
+  "changes-requested": { on: true, except: [], repos: [], when: "now" },
+  mention: { on: false, except: ["bots"], repos: [], when: "now" },
 };
 
 export const DEFAULT_NOTIFY: NotifySettings = {
@@ -99,8 +99,8 @@ export const DEFAULT_NOTIFY: NotifySettings = {
   excludeRepos: [],
   events: DEFAULT_EVENTS,
   interval: 2,
-  quiet: { on: false, from: '19:00', to: '09:00', weekends: true },
-  delivery: { grouped: false, sticky: false, sound: { id: 'chime', volume: 60 } },
+  quiet: { on: false, from: "19:00", to: "09:00", weekends: true },
+  delivery: { grouped: false, sticky: false, sound: { id: "chime", volume: 60 } },
 };
 
 /** The repositories typed in one field, apart: `octo/web, octo/*` or one per line. */
@@ -110,9 +110,10 @@ export const splitRepos = (text: string): string[] => [...new Set(text.split(/[\
 export const invalidRepos = (repos: string[]): string[] => repos.filter((repo) => !REPO_PATTERN.test(repo));
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const record = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
+const record = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 export const repoList = (value: unknown): string[] =>
-  Array.isArray(value) ? splitRepos(value.filter((repo) => typeof repo === 'string').join(' ')) : [];
+  Array.isArray(value) ? splitRepos(value.filter((repo) => typeof repo === "string").join(" ")) : [];
 
 export const normalizeNotify = (value: unknown): NotifySettings => {
   const raw = record(value);
@@ -121,8 +122,10 @@ export const normalizeNotify = (value: unknown): NotifySettings => {
     EVENT_KINDS.map((kind): [EventKind, EventSetting] => {
       const setting = record(saved[kind]);
       if (!saved[kind]) return [kind, { ...DEFAULT_EVENTS[kind] }];
-      const except = Array.isArray(setting.except) ? setting.except.filter((each) => EXCEPTIONS[kind].includes(each)) : [];
-      const when = setting.when === 'now' || setting.when === 'review' ? setting.when : DEFAULT_EVENTS[kind].when;
+      const except = Array.isArray(setting.except)
+        ? setting.except.filter((each) => EXCEPTIONS[kind].includes(each))
+        : [];
+      const when = setting.when === "now" || setting.when === "review" ? setting.when : DEFAULT_EVENTS[kind].when;
       return [kind, { on: setting.on === true, except: [...new Set(except)], repos: repoList(setting.repos), when }];
     }),
   ) as Record<EventKind, EventSetting>;
@@ -137,15 +140,18 @@ export const normalizeNotify = (value: unknown): NotifySettings => {
     interval: INTERVALS.find((interval) => interval === raw.interval) ?? DEFAULT_NOTIFY.interval,
     quiet: {
       on: quiet.on === true,
-      from: typeof quiet.from === 'string' && TIME.test(quiet.from) ? quiet.from : defaults.from,
-      to: typeof quiet.to === 'string' && TIME.test(quiet.to) ? quiet.to : defaults.to,
+      from: typeof quiet.from === "string" && TIME.test(quiet.from) ? quiet.from : defaults.from,
+      to: typeof quiet.to === "string" && TIME.test(quiet.to) ? quiet.to : defaults.to,
       weekends: quiet.weekends === undefined ? defaults.weekends : quiet.weekends === true,
     },
     delivery: {
       grouped: delivery.grouped === true,
       sticky: delivery.sticky === true,
       // Before there were sounds to pick, there was only quiet or not.
-      sound: normalizeSound(delivery.sound, delivery.silent === true ? { id: 'none', volume: 60 } : DEFAULT_NOTIFY.delivery.sound),
+      sound: normalizeSound(
+        delivery.sound,
+        delivery.silent === true ? { id: "none", volume: 60 } : DEFAULT_NOTIFY.delivery.sound,
+      ),
     },
   };
 };
@@ -164,7 +170,8 @@ export const isQuiet = ({ quiet }: NotifySettings, now: Date): boolean => {
 };
 
 /** Whether a look should read the notifications inbox at all. */
-export const isWatching = (settings: NotifySettings): boolean => settings.enabled && EVENT_KINDS.some((kind) => settings.events[kind].on);
+export const isWatching = (settings: NotifySettings): boolean =>
+  settings.enabled && EVENT_KINDS.some((kind) => settings.events[kind].on);
 
 export interface InboxEvent {
   kind: EventKind;
@@ -188,7 +195,7 @@ export interface InboxEvent {
 
 /** An event kept for later: for the next review time, or for the end of the one under way. */
 export interface HeldEvent extends InboxEvent {
-  until: 'review' | 'end';
+  until: "review" | "end";
   /** When it was kept, to tell the ones a review time offered from the ones that came after. */
   heldAt: number;
 }
@@ -211,14 +218,15 @@ export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: strin
 
 /** Whether the reader wants to be told about this event. */
 export const wants = (settings: NotifySettings, event: InboxEvent): boolean =>
-  mayNotify(settings, event.kind, event.repo) && !settings.events[event.kind].except.some((exception) => excludes(exception, event));
+  mayNotify(settings, event.kind, event.repo) &&
+  !settings.events[event.kind].except.some((exception) => excludes(exception, event));
 
 /** Whether working an event out takes a look at its pull request's page, to know if the reader approved it. */
 export const needsDetail = (settings: NotifySettings, kind: EventKind, repo: string): boolean =>
-  mayNotify(settings, kind, repo) && settings.events[kind].except.includes('approved');
+  mayNotify(settings, kind, repo) && settings.events[kind].except.includes("approved");
 
 /** The events about pull requests on the review queue, which follow it in leaving out the reviews asked of a team. */
-export const QUEUE_KINDS: EventKind[] = ['review-requested', 'ready-for-review', 'comment-reviewing'];
+export const QUEUE_KINDS: EventKind[] = ["review-requested", "ready-for-review", "comment-reviewing"];
 
 /** What the background remembers between looks, to tell what's new. */
 export interface InboxMemory {
@@ -243,7 +251,7 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
   const before = new Map(previous.map((pull) => [pull.url, pull]));
   return current.flatMap((pull): InboxEvent[] => {
     const earlier = before.get(pull.url);
-    const kind = !earlier ? 'review-requested' : earlier.draft && !pull.draft ? 'ready-for-review' : null;
+    const kind = !earlier ? "review-requested" : earlier.draft && !pull.draft ? "ready-for-review" : null;
     if (!kind) return [];
     return [
       {
@@ -258,7 +266,7 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
         approvedByMe: false,
         team: pull.team ?? false,
         again: false,
-        excerpt: '',
+        excerpt: "",
       },
     ];
   });
@@ -268,25 +276,29 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
 export const freshActivity = (previous: Record<string, string> | null, current: Activity[]): Activity[] =>
   previous
     ? current.filter(
-        (activity) => previous[activity.thread] !== activity.updatedAt && activity.updatedAt > (previous[activity.thread] ?? ''),
+        (activity) =>
+          previous[activity.thread] !== activity.updatedAt && activity.updatedAt > (previous[activity.thread] ?? ""),
       )
     : [];
 
 /** What a thread's latest event was, for the reader: a comment or review on their own pull request, or on one they review. */
-export const activityKind = (activity: Activity, review: Detail['review']): EventKind | null => {
-  if (activity.kind === 'other') return null;
-  if (activity.reason === 'mention' || activity.reason === 'team_mention') return 'mention';
-  if (activity.reason === 'author' && review === 'approved') return 'approved';
-  if (activity.reason === 'author' && review === 'changes-requested') return 'changes-requested';
-  if (activity.reason === 'author') return 'comment-mine';
-  if (activity.reason === 'review_requested') return 'comment-reviewing';
+export const activityKind = (activity: Activity, review: Detail["review"]): EventKind | null => {
+  if (activity.kind === "other") return null;
+  if (activity.reason === "mention" || activity.reason === "team_mention") return "mention";
+  if (activity.reason === "author" && review === "approved") return "approved";
+  if (activity.reason === "author" && review === "changes-requested") return "changes-requested";
+  if (activity.reason === "author") return "comment-mine";
+  if (activity.reason === "review_requested") return "comment-reviewing";
   return null;
 };
 
 /** The thread updates a notification inbox remembers, at most this many, the latest first. */
 const MEMORY_LIMIT = 300;
 
-export const rememberThreads = (activity: Activity[], previous: Record<string, string> | null): Record<string, string> => {
+export const rememberThreads = (
+  activity: Activity[],
+  previous: Record<string, string> | null,
+): Record<string, string> => {
   const merged = { ...previous, ...Object.fromEntries(activity.map((each) => [each.thread, each.updatedAt])) };
   return Object.fromEntries(
     Object.entries(merged)
@@ -332,9 +344,11 @@ export const normalizePopup = (value: unknown): PopupSettings => {
 };
 
 /** Whether the popup lists a pull request: from the repositories picked, and not only a team's to review if left out. */
-export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, 'repo' | 'team'>): boolean => {
+export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, "repo" | "team">): boolean => {
   const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, pull.repo));
-  return (!settings.repos.length || among(settings.repos)) && !among(settings.excludeRepos) && (settings.teams || !pull.team);
+  return (
+    (!settings.repos.length || among(settings.repos)) && !among(settings.excludeRepos) && (settings.teams || !pull.team)
+  );
 };
 
 /** When each pull request left the review queue, or came back to it after that: by its url, in ms. */

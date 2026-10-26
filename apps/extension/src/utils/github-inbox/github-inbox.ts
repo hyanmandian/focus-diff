@@ -5,9 +5,9 @@
  * It runs in the background service worker, which has no DOMParser, so the HTML is read with patterns.
  */
 
-import type { PullFile } from '@/utils/review-sessions/review-sessions';
+import type { PullFile } from "@/utils/review-sessions/review-sessions";
 
-const ORIGIN = 'https://github.com';
+const ORIGIN = "https://github.com";
 
 /** A pull request on one of the reader's lists. */
 export interface PullRequest {
@@ -37,7 +37,7 @@ export interface PullRequest {
 }
 
 /** What the latest event on a notification thread was. */
-type ActivityKind = 'comment' | 'review' | 'other';
+type ActivityKind = "comment" | "review" | "other";
 
 /** A pull request's thread in the notifications inbox, as of its latest event. */
 export interface Activity {
@@ -55,7 +55,7 @@ export interface Activity {
   updatedAt: string;
 }
 
-type ReviewState = 'approved' | 'changes-requested' | 'commented';
+type ReviewState = "approved" | "changes-requested" | "commented";
 
 /** Who did the latest thing on a pull request, and where the reader's own review stands. */
 export interface Detail {
@@ -69,7 +69,7 @@ export interface Detail {
   excerpt: string;
 }
 
-export type InboxProblem = 'signed-out' | 'unreadable' | 'offline';
+export type InboxProblem = "signed-out" | "unreadable" | "offline";
 
 export class InboxError extends Error {
   readonly problem: InboxProblem;
@@ -79,54 +79,55 @@ export class InboxError extends Error {
   }
 }
 
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 const decode = (text: string) =>
   text.replace(/&(#x[\da-f]+|#\d+|\w+);/gi, (entity, code: string) => {
-    if (code[0] !== '#') return ENTITIES[code.toLowerCase()] ?? entity;
-    const point = code[1]?.toLowerCase() === 'x' ? Number.parseInt(code.slice(2), 16) : Number(code.slice(1));
+    if (code[0] !== "#") return ENTITIES[code.toLowerCase()] ?? entity;
+    const point = code[1]?.toLowerCase() === "x" ? Number.parseInt(code.slice(2), 16) : Number(code.slice(1));
     return Number.isFinite(point) ? String.fromCodePoint(point) : entity;
   });
 const textOf = (html: string) =>
-  decode(html.replace(/<[^>]*>/g, ' '))
-    .replace(/\s+/g, ' ')
+  decode(html.replace(/<[^>]*>/g, " "))
+    .replace(/\s+/g, " ")
     .trim();
 
 const PULL_URL = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/;
 
-const record = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
+const record = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 
 /** A dashboard list as GitHub sends it with `Accept: application/json`: its results, whatever route holds them. */
 export const parsePulls = (data: unknown): PullRequest[] => {
   const routes = Object.values(record(record(data).payload));
   const results = routes.map((route) => record(route).results).find(Array.isArray);
-  if (!results) throw new InboxError('unreadable');
+  if (!results) throw new InboxError("unreadable");
   return results.flatMap((value) => {
     const item = record(value);
-    const url = typeof item.permalink === 'string' ? item.permalink : '';
+    const url = typeof item.permalink === "string" ? item.permalink : "";
     const [, repo, number] = url.match(PULL_URL) ?? [];
-    if (item.itemType !== 'pull_request' || !repo || !number) return [];
+    if (item.itemType !== "pull_request" || !repo || !number) return [];
     return [
       {
         repo,
         number: Number(number),
-        title: typeof item.title === 'string' ? item.title : '',
+        title: typeof item.title === "string" ? item.title : "",
         url,
-        author: String(record(item.author).displayLogin ?? ''),
+        author: String(record(item.author).displayLogin ?? ""),
         draft: item.isDraft === true,
-        comments: typeof item.commentCount === 'number' ? item.commentCount : 0,
-        createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
-        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : '',
+        comments: typeof item.commentCount === "number" ? item.commentCount : 0,
+        createdAt: typeof item.createdAt === "string" ? item.createdAt : "",
+        updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : "",
         unread: item.isReadByCurrentUser === false,
-        headSha: typeof item.headSha === 'string' ? item.headSha : '',
+        headSha: typeof item.headSha === "string" ? item.headSha : "",
       },
     ];
   });
 };
 
 const KINDS: Record<string, ActivityKind> = {
-  IssueComment: 'comment',
-  PullRequestReviewComment: 'comment',
-  PullRequestReview: 'review',
+  IssueComment: "comment",
+  PullRequestReviewComment: "comment",
+  PullRequestReview: "review",
 };
 
 /** The pull requests in the notifications inbox, each as of its latest event. Issues, releases and the rest are left out. */
@@ -136,22 +137,22 @@ export const parseNotifications = (html: string): Activity[] =>
     .slice(1)
     .flatMap((item) => {
       const thread = item.match(/data-notification-id="([^"]+)"/)?.[1];
-      const link = item.match(/<a\b[^>]*\bnotification-list-item-link\b[^>]*>/)?.[0] ?? '';
-      const href = decode(link.match(/\bhref="([^"]+)"/)?.[1] ?? '');
+      const link = item.match(/<a\b[^>]*\bnotification-list-item-link\b[^>]*>/)?.[0] ?? "";
+      const href = decode(link.match(/\bhref="([^"]+)"/)?.[1] ?? "");
       const [, repo, number] = href.match(PULL_URL) ?? [];
-      const hydro = decode(link.match(/\bdata-hydro-click="([^"]+)"/)?.[1] ?? '');
-      const field = (name: string) => hydro.match(new RegExp(`"${name}":"([^"]*)"`))?.[1] ?? '';
-      const updatedAt = field('last_updated_at') || (item.match(/<relative-time[^>]*datetime="([^"]+)"/)?.[1] ?? '');
+      const hydro = decode(link.match(/\bdata-hydro-click="([^"]+)"/)?.[1] ?? "");
+      const field = (name: string) => hydro.match(new RegExp(`"${name}":"([^"]*)"`))?.[1] ?? "";
+      const updatedAt = field("last_updated_at") || (item.match(/<relative-time[^>]*datetime="([^"]+)"/)?.[1] ?? "");
       if (!thread || !repo || !number || !updatedAt) return [];
       return [
         {
           thread,
           repo,
           number: Number(number),
-          title: textOf(item.match(/<p\b[^>]*\bmarkdown-title\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ''),
+          title: textOf(item.match(/<p\b[^>]*\bmarkdown-title\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ""),
           url: href,
-          reason: field('reason'),
-          kind: KINDS[field('comment_type')] ?? 'other',
+          reason: field("reason"),
+          kind: KINDS[field("comment_type")] ?? "other",
           anchor: new URL(href).hash.slice(1),
           updatedAt,
         },
@@ -159,16 +160,16 @@ export const parseNotifications = (html: string): Activity[] =>
     });
 
 const reviewState = (text: string): ReviewState =>
-  /approved these changes/.test(text) ? 'approved' : /requested changes/.test(text) ? 'changes-requested' : 'commented';
+  /approved these changes/.test(text) ? "approved" : /requested changes/.test(text) ? "changes-requested" : "commented";
 
 /** How much of a comment a notification quotes. */
 const EXCERPT = 140;
 
 /** The text of the first comment body in an event's part of the page, cut short to fit a notification. */
 const excerptOf = (event: string) => {
-  const body = event.match(/<td\b[^>]*\bjs-comment-body\b[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? '';
+  const body = event.match(/<td\b[^>]*\bjs-comment-body\b[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "";
   // A quote of an earlier comment, or a block of code, says less than the words around it.
-  const text = textOf(body.replace(/<(blockquote|pre)\b[\s\S]*?<\/\1>/g, ' '));
+  const text = textOf(body.replace(/<(blockquote|pre)\b[\s\S]*?<\/\1>/g, " "));
   return text.length > EXCERPT ? `${text.slice(0, EXCERPT - 1).trimEnd()}…` : text;
 };
 
@@ -176,36 +177,41 @@ const excerptOf = (event: string) => {
 export const parseDetail = (html: string, anchor: string, me: string): Detail => {
   const start = anchor ? html.indexOf(`id="${anchor}"`) : -1;
   // The event's part of the page, up to the next event's.
-  const next = start === -1 ? -1 : html.slice(start + anchor.length + 5).search(/id="(issuecomment|pullrequestreview)-\d+"/);
-  const event = start === -1 ? '' : html.slice(start, next === -1 ? undefined : start + anchor.length + 5 + next);
+  const next =
+    start === -1 ? -1 : html.slice(start + anchor.length + 5).search(/id="(issuecomment|pullrequestreview)-\d+"/);
+  const event = start === -1 ? "" : html.slice(start, next === -1 ? undefined : start + anchor.length + 5 + next);
   // The event's header: its author's link, a Bot label, and for a review, what it did. The header ends at its permalink.
-  const header = start === -1 ? '' : html.slice(start, html.indexOf(`id="${anchor}-permalink"`, start) + 1 || start + 4000);
+  const header =
+    start === -1 ? "" : html.slice(start, html.indexOf(`id="${anchor}-permalink"`, start) + 1 || start + 4000);
   const author = header.match(/<a\b[^>]*\bclass="author\b[^>]*\bhref="\/(apps\/)?([^"/]+)"/);
   const status = me ? html.indexOf(`id="review-status-${me}"`) : -1;
-  const mine = status === -1 ? '' : textOf(html.slice(status, status + 3000));
-  const said = new RegExp(`\\b${me}\\s+(approved these changes|requested changes|left review comments|reviewed)`).exec(mine)?.[1];
+  const mine = status === -1 ? "" : textOf(html.slice(status, status + 3000));
+  const said = new RegExp(`\\b${me}\\s+(approved these changes|requested changes|left review comments|reviewed)`).exec(
+    mine,
+  )?.[1];
   return {
-    actor: author?.[2] ?? '',
+    actor: author?.[2] ?? "",
     bot: Boolean(author?.[1]) || /\bLabel\b[^>]*>\s*Bot\b/.test(header),
-    review: anchor.startsWith('pullrequestreview-') && header ? reviewState(textOf(header)) : null,
+    review: anchor.startsWith("pullrequestreview-") && header ? reviewState(textOf(header)) : null,
     myReview: said ? reviewState(said) : null,
     excerpt: excerptOf(event),
   };
 };
 
 /** The signed-in reader's login, from any of GitHub's pages. */
-export const parseLogin = (html: string): string => html.match(/<meta name="user-login" content="([^"]*)"/)?.[1] ?? '';
+export const parseLogin = (html: string): string => html.match(/<meta name="user-login" content="([^"]*)"/)?.[1] ?? "";
 
-const get = async (path: string, accept: 'text/html' | 'application/json') => {
+const get = async (path: string, accept: "text/html" | "application/json") => {
   let response: Response;
   try {
-    response = await fetch(`${ORIGIN}${path}`, { credentials: 'include', headers: { Accept: accept } });
+    response = await fetch(`${ORIGIN}${path}`, { credentials: "include", headers: { Accept: accept } });
   } catch {
-    throw new InboxError('offline');
+    throw new InboxError("offline");
   }
   // Signed out, GitHub sends its sign-in page instead.
-  if (response.status === 401 || new URL(response.url).pathname.startsWith('/login')) throw new InboxError('signed-out');
-  if (!response.ok) throw new InboxError('unreadable');
+  if (response.status === 401 || new URL(response.url).pathname.startsWith("/login"))
+    throw new InboxError("signed-out");
+  if (!response.ok) throw new InboxError("unreadable");
   return response;
 };
 
@@ -215,27 +221,31 @@ const PAGES = 4;
 /** The number of pages a dashboard list has, or 1 when it doesn't say. */
 export const pageCount = (data: unknown): number => {
   const routes = Object.values(record(record(data).payload));
-  const total = routes.map((route) => record(record(route).pageInfo).totalPages).find((pages) => typeof pages === 'number');
-  return typeof total === 'number' && total > 1 ? Math.floor(total) : 1;
+  const total = routes
+    .map((route) => record(record(route).pageInfo).totalPages)
+    .find((pages) => typeof pages === "number");
+  return typeof total === "number" && total > 1 ? Math.floor(total) : 1;
 };
 
-export type PullList = 'reviews' | 'authored' | 'direct';
+export type PullList = "reviews" | "authored" | "direct";
 
 const LISTS: Record<PullList, string> = {
-  reviews: '/pulls/reviews',
-  authored: '/pulls/authored',
+  reviews: "/pulls/reviews",
+  authored: "/pulls/authored",
   // The review requests made of the reader by name, leaving out the ones made of their teams.
-  direct: `/pulls/search?q=${encodeURIComponent('is:open is:pr user-review-requested:@me archived:false')}`,
+  direct: `/pulls/search?q=${encodeURIComponent("is:open is:pr user-review-requested:@me archived:false")}`,
 };
 
 /** The pull requests waiting for the reader's review, the ones asked of them by name, or the open ones they wrote. */
 export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
   const read = async (page: number) => {
-    const path = page === 1 ? LISTS[list] : `${LISTS[list]}${LISTS[list].includes('?') ? '&' : '?'}page=${page}`;
-    return (await get(path, 'application/json')).json().catch(() => null);
+    const path = page === 1 ? LISTS[list] : `${LISTS[list]}${LISTS[list].includes("?") ? "&" : "?"}page=${page}`;
+    return (await get(path, "application/json")).json().catch(() => null);
   };
   const first = await read(1);
-  const rest = await Promise.all(Array.from({ length: Math.min(pageCount(first), PAGES) - 1 }, (_, index) => read(index + 2)));
+  const rest = await Promise.all(
+    Array.from({ length: Math.min(pageCount(first), PAGES) - 1 }, (_, index) => read(index + 2)),
+  );
   // A pull request updated between two pages' reads moves up a page, and would be read twice.
   const pulls = new Map([first, ...rest].flatMap(parsePulls).map((pull) => [pull.url, pull]));
   return [...pulls.values()];
@@ -243,14 +253,14 @@ export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
 
 /** The notifications inbox, and who's signed in. */
 export const fetchNotifications = async (): Promise<{ me: string; activity: Activity[] }> => {
-  const html = await (await get('/notifications?query=', 'text/html')).text();
+  const html = await (await get("/notifications?query=", "text/html")).text();
   const me = parseLogin(html);
-  if (!me) throw new InboxError('signed-out');
+  if (!me) throw new InboxError("signed-out");
   return { me, activity: parseNotifications(html) };
 };
 
 export const fetchDetail = async (repo: string, number: number, anchor: string, me: string): Promise<Detail> => {
-  const html = await (await get(`/${repo}/pull/${number}`, 'text/html')).text();
+  const html = await (await get(`/${repo}/pull/${number}`, "text/html")).text();
   return parseDetail(html, anchor, me);
 };
 
@@ -261,15 +271,22 @@ export const fetchDetail = async (repo: string, number: number, anchor: string, 
 export const parseFiles = (data: unknown): PullFile[] => {
   const routes = Object.values(record(record(data).payload));
   const summaries = routes.map((route) => record(route).diffSummaries).find(Array.isArray);
-  if (!summaries) throw new InboxError('unreadable');
+  if (!summaries) throw new InboxError("unreadable");
   return summaries.flatMap((value) => {
     const summary = record(value);
-    if (typeof summary.path !== 'string') return [];
-    return [[summary.path, Number(summary.linesAdded) || 0, Number(summary.linesDeleted) || 0, summary.markedAsViewed === true]];
+    if (typeof summary.path !== "string") return [];
+    return [
+      [
+        summary.path,
+        Number(summary.linesAdded) || 0,
+        Number(summary.linesDeleted) || 0,
+        summary.markedAsViewed === true,
+      ],
+    ];
   });
 };
 
 export const fetchFiles = async (repo: string, number: number): Promise<PullFile[]> => {
-  const response = await get(`/${repo}/pull/${number}/changes`, 'application/json');
+  const response = await get(`/${repo}/pull/${number}/changes`, "application/json");
   return parseFiles(await response.json().catch(() => null));
 };

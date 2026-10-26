@@ -16,8 +16,8 @@
   font:
     400 14px/20px -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
-    'Noto Sans',
+    "Segoe UI",
+    "Noto Sans",
     Helvetica,
     Arial,
     sans-serif;
@@ -45,10 +45,10 @@
   font:
     12px/18px ui-monospace,
     SFMono-Regular,
-    'SF Mono',
+    "SF Mono",
     Menlo,
     Consolas,
-    'Liberation Mono',
+    "Liberation Mono",
     monospace;
 }
 /* Outside the filter: on a review site it's hidden; here it stays in place, set back and struck through, its colours muted. */
@@ -72,7 +72,7 @@
   }
 }
 /* Where the bar took the reader. */
-.demo-file[aria-current='true'] {
+.demo-file[aria-current="true"] {
   border-color: var(--fd-accent);
   box-shadow: 0 0 0 1px var(--fd-accent);
 }
@@ -125,21 +125,21 @@
   font:
     500 12px/18px -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
-    'Noto Sans',
+    "Segoe UI",
+    "Noto Sans",
     Helvetica,
     Arial,
     sans-serif;
   cursor: pointer;
 }
-.demo-viewed[aria-pressed='true'] {
+.demo-viewed[aria-pressed="true"] {
   border-color: var(--fd-add);
   color: var(--fd-add);
 }
-.demo-viewed[aria-pressed='true']::before {
-  content: '✓ ';
+.demo-viewed[aria-pressed="true"]::before {
+  content: "✓ ";
 }
-.demo-viewed[aria-disabled='true'] {
+.demo-viewed[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -175,7 +175,7 @@
 }
 
 @media (forced-colors: active) {
-  .demo-file[aria-current='true'] {
+  .demo-file[aria-current="true"] {
     outline: 2px solid Highlight;
   }
 }

@@ -1,20 +1,21 @@
-import { i18n } from '#i18n';
-import { commentIcon } from '@/components/icons/icons';
-import { createPanel } from '@/components/panel/panel';
-import { createTooltip } from '@/components/tooltip/tooltip';
-import { createReviewView, nextFilterWithWork, review, stepFrom, toggled, type Option } from '@/utils/review/review';
-import { h } from '@/utils/dom/dom';
-import { ALL, toMatcher } from '@/utils/filters/filters';
-import { formatNumber as format } from '@/utils/format/format';
-import { message } from '@/utils/i18n/i18n';
-import type { DemoFile, DemoPullRequest } from '@/utils/demo-sample/demo-sample';
-import themeStyles from '@/components/theme/theme.css?inline';
-import tooltipStyles from '@/components/tooltip/tooltip.css?inline';
-import demoStyles from './demo.css?inline';
+import { i18n } from "#i18n";
+import { commentIcon } from "@/components/icons/icons";
+import { createPanel } from "@/components/panel/panel";
+import { createTooltip } from "@/components/tooltip/tooltip";
+import type { DemoFile, DemoPullRequest } from "@/utils/demo-sample/demo-sample";
+import { h } from "@/utils/dom/dom";
+import { ALL, toMatcher } from "@/utils/filters/filters";
+import { formatNumber as format } from "@/utils/format/format";
+import { message } from "@/utils/i18n/i18n";
+import { createReviewView, nextFilterWithWork, review, stepFrom, toggled, type Option } from "@/utils/review/review";
+
+import demoStyles from "./demo.css?inline";
+import themeStyles from "@/components/theme/theme.css?inline";
+import tooltipStyles from "@/components/tooltip/tooltip.css?inline";
 
 /** The bar's own styles, every component's, adopted into its shadow root the way the content script injects them. */
 const componentStyles = Object.values(
-  import.meta.glob<string>(['../**/*.css', '!./**'], { query: '?inline', import: 'default', eager: true }),
+  import.meta.glob<string>(["../**/*.css", "!./**"], { query: "?inline", import: "default", eager: true }),
 );
 
 const sheet = (css: string) => {
@@ -43,9 +44,13 @@ export interface Demo {
  * built from the same components and the same review logic as on a review site. It renders into a shadow root on
  * `target`, so it looks the same on any page; it needs no extension API beyond the messages.
  */
-export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { onSettings, theme }: DemoOptions): Demo => {
+export const createDemo = (
+  target: HTMLElement,
+  pullRequest: DemoPullRequest,
+  { onSettings, theme }: DemoOptions,
+): Demo => {
   const controller = new AbortController();
-  const root = target.shadowRoot ?? target.attachShadow({ mode: 'open' });
+  const root = target.shadowRoot ?? target.attachShadow({ mode: "open" });
   // The sample files take the theme's colours too; the bar gets its own copy, in its shadow root.
   const themeSheet = sheet(theme);
   root.adoptedStyleSheets = [sheet(themeStyles), sheet(tooltipStyles), sheet(demoStyles), themeSheet];
@@ -54,7 +59,7 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
     const matches = toMatcher(filter);
     return matches ? [{ id: filter.id, name: message(filter.name), matches }] : [];
   });
-  const options: Option[] = [{ id: ALL, name: i18n.t('filterAll') }, ...filters];
+  const options: Option[] = [{ id: ALL, name: i18n.t("filterAll") }, ...filters];
   const files = pullRequest.files.map((file: DemoFile) => ({
     ...file,
     stats: { additions: file.additions, deletions: file.deletions },
@@ -77,39 +82,39 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
       const toggleId = `demo-viewed-${index}`;
       const outsideId = `demo-outside-${index}`;
       const viewed = h(
-        'button',
+        "button",
         {
-          type: 'button',
+          type: "button",
           id: toggleId,
-          className: 'demo-viewed',
-          'aria-pressed': String(file.viewed),
-          'aria-labelledby': `${toggleId} ${pathId}`,
-          'aria-describedby': outsideId,
+          className: "demo-viewed",
+          "aria-pressed": String(file.viewed),
+          "aria-labelledby": `${toggleId} ${pathId}`,
+          "aria-describedby": outsideId,
           onClick: () => {
-            if (viewed.getAttribute('aria-disabled') === 'true') return;
+            if (viewed.getAttribute("aria-disabled") === "true") return;
             file.viewed = !file.viewed;
-            viewed.setAttribute('aria-pressed', String(file.viewed));
+            viewed.setAttribute("aria-pressed", String(file.viewed));
             apply();
           },
         },
-        i18n.t('demoViewed'),
+        i18n.t("demoViewed"),
       );
       // A marker for each conversation, by its line; the bar's status says which one the reader is on.
       const talks = (file.conversations ?? []).map(({ line }) =>
-        h('span', { className: 'demo-talk', 'data-line': String(line) }, commentIcon(), `L${format(line)}`),
+        h("span", { className: "demo-talk", "data-line": String(line) }, commentIcon(), `L${format(line)}`),
       );
       const row = h(
-        'li',
-        { className: 'demo-file' },
-        h('span', { className: 'demo-path', id: pathId, textContent: file.path }),
+        "li",
+        { className: "demo-file" },
+        h("span", { className: "demo-path", id: pathId, textContent: file.path }),
         // Said after the path for files outside the filter; empty otherwise.
-        h('span', { className: 'visually-hidden', id: outsideId }),
-        talks.length ? h('span', { className: 'demo-talks', 'aria-hidden': 'true' }, ...talks) : null,
+        h("span", { className: "visually-hidden", id: outsideId }),
+        talks.length ? h("span", { className: "demo-talks", "aria-hidden": "true" }, ...talks) : null,
         h(
-          'span',
-          { className: 'demo-lines' },
-          h('span', { className: 'demo-add', textContent: `+${format(file.additions)}` }),
-          h('span', { className: 'demo-del', textContent: `−${format(file.deletions)}` }),
+          "span",
+          { className: "demo-lines" },
+          h("span", { className: "demo-add", textContent: `+${format(file.additions)}` }),
+          h("span", { className: "demo-del", textContent: `−${format(file.deletions)}` }),
         ),
         viewed,
       );
@@ -117,23 +122,23 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
     }),
   );
 
-  const host = h('div', { className: 'demo-bar' });
-  const panelRoot = host.attachShadow({ mode: 'open' });
-  const container = h('div');
+  const host = h("div", { className: "demo-bar" });
+  const panelRoot = host.attachShadow({ mode: "open" });
+  const container = h("div");
   // A style element, as the content script's, so the theme the bar adds after it wins the same way.
-  panelRoot.append(h('style', { textContent: componentStyles.join('\n') }), container);
-  const list = h('ul', { className: 'demo-files' }, ...rows.values());
-  root.replaceChildren(h('div', { className: 'demo', role: 'group', 'aria-label': i18n.t('demoLabel') }, list, host));
+  panelRoot.append(h("style", { textContent: componentStyles.join("\n") }), container);
+  const list = h("ul", { className: "demo-files" }, ...rows.values());
+  root.replaceChildren(h("div", { className: "demo", role: "group", "aria-label": i18n.t("demoLabel") }, list, host));
 
   /** Puts the reader at a file, the way the bar scrolls a review page to it. */
   const goTo = (file: File | null) => {
     current = file;
     for (const [each, row] of rows) {
-      if (each === file) row.setAttribute('aria-current', 'true');
-      else row.removeAttribute('aria-current');
+      if (each === file) row.setAttribute("aria-current", "true");
+      else row.removeAttribute("aria-current");
     }
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (file) rows.get(file)?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'instant' : 'smooth' });
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (file) rows.get(file)?.scrollIntoView({ block: "nearest", behavior: reduce ? "instant" : "smooth" });
   };
 
   const panel = createPanel(
@@ -149,15 +154,22 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
         conversation = index + 1;
         goTo(shown.find((file) => file.path === list[index]?.path) ?? null);
         apply();
-        panel.announceText(i18n.t('panelJumpedToComment', [String(conversation), String(list.length), list[index]?.path ?? '']));
+        panel.announceText(
+          i18n.t("panelJumpedToComment", [String(conversation), String(list.length), list[index]?.path ?? ""]),
+        );
       },
       onUpdateSeen: () => {},
     },
   );
   const showReview = createReviewView(panel);
   // The bar's tooltip, for the files' buttons too: a disabled Viewed button says why.
-  const tooltip = createTooltip({ host: target, signal: controller.signal, focused: () => root.activeElement as HTMLElement | null }, list);
-  root.addEventListener('keydown', (event) => (event as KeyboardEvent).key === 'Escape' && tooltip.hide(), { signal: controller.signal });
+  const tooltip = createTooltip(
+    { host: target, signal: controller.signal, focused: () => root.activeElement as HTMLElement | null },
+    list,
+  );
+  root.addEventListener("keydown", (event) => (event as KeyboardEvent).key === "Escape" && tooltip.hide(), {
+    signal: controller.signal,
+  });
 
   function apply(announce = false) {
     const now = review({ list: files, complete: true }, options, ids);
@@ -165,20 +177,23 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
     const conversations = conversationsIn(shown);
     const at = conversations[conversation - 1];
     // Files outside the filter stay where they are, set back, so nothing on the page moves; on a review site they're hidden.
-    const outside = now.filtering ? i18n.t('demoOutside', [now.name]) : '';
+    const outside = now.filtering ? i18n.t("demoOutside", [now.name]) : "";
     for (const [file, row] of rows) {
       const out = !now.matches(file.path);
-      row.toggleAttribute('data-out', out);
-      const toggle = row.querySelector<HTMLElement>('.demo-viewed');
-      toggle?.setAttribute('aria-disabled', String(out));
+      row.toggleAttribute("data-out", out);
+      const toggle = row.querySelector<HTMLElement>(".demo-viewed");
+      toggle?.setAttribute("aria-disabled", String(out));
       if (toggle && out) toggle.dataset.tip = outside;
       else if (toggle) delete toggle.dataset.tip;
-      const note = row.querySelector('.visually-hidden');
-      if (note) note.textContent = out ? outside : '';
-      for (const talk of row.querySelectorAll<HTMLElement>('.demo-talk'))
-        talk.toggleAttribute('data-current', file.path === at?.path && talk.dataset.line === String(at.line));
+      const note = row.querySelector(".visually-hidden");
+      if (note) note.textContent = out ? outside : "";
+      for (const talk of row.querySelectorAll<HTMLElement>(".demo-talk"))
+        talk.toggleAttribute("data-current", file.path === at?.path && talk.dataset.line === String(at.line));
     }
-    panel.renderConversations({ list: conversations, current: conversation }, now.filtering ? conversationsIn(files).length : undefined);
+    panel.renderConversations(
+      { list: conversations, current: conversation },
+      now.filtering ? conversationsIn(files).length : undefined,
+    );
     showReview(now, now.selection.join(), { announce });
   }
 
@@ -202,7 +217,7 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
     const target = left.find((file) => shown.indexOf(file) > from) ?? left[0];
     if (!target) return;
     goTo(target);
-    panel.announceText(i18n.t('panelJumpedToFile', left.length, [target.path, format(left.length)]));
+    panel.announceText(i18n.t("panelJumpedToFile", left.length, [target.path, format(left.length)]));
   }
 
   /**
@@ -210,10 +225,10 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
    * is measured as it would lay out with all the room it wants.
    */
   const fit = () => {
-    const bar = container.querySelector('.panel');
+    const bar = container.querySelector(".panel");
     if (!bar) return;
     panel.setCompact(false);
-    const room = { '--fd-max-width': 'none', width: 'max-content', 'max-width': 'none' };
+    const room = { "--fd-max-width": "none", width: "max-content", "max-width": "none" };
     for (const [name, value] of Object.entries(room)) host.style.setProperty(name, value);
     const needed = bar.getBoundingClientRect().width;
     for (const name of Object.keys(room)) host.style.removeProperty(name);
@@ -221,7 +236,7 @@ export const createDemo = (target: HTMLElement, pullRequest: DemoPullRequest, { 
   };
   const resizeObserver = new ResizeObserver(fit);
   resizeObserver.observe(list);
-  controller.signal.addEventListener('abort', () => resizeObserver.disconnect());
+  controller.signal.addEventListener("abort", () => resizeObserver.disconnect());
 
   apply();
   panel.setTheme(theme);

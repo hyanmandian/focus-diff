@@ -1,8 +1,9 @@
-import { browser } from 'wxt/browser';
-import type { Message } from '@/utils/messages/messages';
-import { isOwnSound, playSound, type SoundSetting } from '@/utils/sound/sound';
+import { browser } from "wxt/browser";
 
-const OFFSCREEN = '/offscreen.html';
+import type { Message } from "@/utils/messages/messages";
+import { isOwnSound, playSound, type SoundSetting } from "@/utils/sound/sound";
+
+const OFFSCREEN = "/offscreen.html";
 
 /** Firefox's background is a page, with audio of its own. */
 let context: AudioContext | null = null;
@@ -15,10 +16,14 @@ let creating: Promise<void> | null = null;
  */
 const ensureOffscreen = async () => {
   const url = browser.runtime.getURL(OFFSCREEN);
-  const existing = await browser.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'], documentUrls: [url] });
+  const existing = await browser.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"], documentUrls: [url] });
   if (existing.length) return;
   creating ??= browser.offscreen
-    .createDocument({ url: OFFSCREEN, reasons: ['AUDIO_PLAYBACK'], justification: 'Plays the notification sound the reader picked.' })
+    .createDocument({
+      url: OFFSCREEN,
+      reasons: ["AUDIO_PLAYBACK"],
+      justification: "Plays the notification sound the reader picked.",
+    })
     .finally(() => (creating = null));
   await creating;
 };
@@ -34,7 +39,7 @@ export const play = async ({ id, volume }: SoundSetting): Promise<void> => {
       return;
     }
     await ensureOffscreen();
-    const message: Message = { type: 'play-sound', sound: id, volume };
+    const message: Message = { type: "play-sound", sound: id, volume };
     await browser.runtime.sendMessage(message);
   } catch {
     // A sound is a nicety; the notification still shows.
@@ -42,4 +47,4 @@ export const play = async ({ id, volume }: SoundSetting): Promise<void> => {
 };
 
 /** Chrome keeps a notification quiet when asked; it is whenever the sound is ours, or none. */
-export const isSilent = ({ id }: SoundSetting): boolean => id !== 'system';
+export const isSilent = ({ id }: SoundSetting): boolean => id !== "system";

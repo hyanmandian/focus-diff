@@ -1,8 +1,8 @@
-import type { PullRequest } from '@/utils/github-inbox/github-inbox';
-import { filtersFor, newId, repoMatches, toMatcher, type Config, type Matcher } from '@/utils/filters/filters';
-import { repoList } from '@/utils/inbox/inbox';
-import { normalizeSound, type SoundSetting } from '@/utils/sound/sound';
-import { PACES, type Estimator, type Pace } from '@/utils/review-time/review-time';
+import { filtersFor, newId, repoMatches, toMatcher, type Config, type Matcher } from "@/utils/filters/filters";
+import type { PullRequest } from "@/utils/github-inbox/github-inbox";
+import { repoList } from "@/utils/inbox/inbox";
+import { PACES, type Estimator, type Pace } from "@/utils/review-time/review-time";
+import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
 /**
  * Review time: times the reader sets aside to review, like every weekday at 15:00 for half an hour. When one comes,
@@ -11,11 +11,11 @@ import { PACES, type Estimator, type Pace } from '@/utils/review-time/review-tim
  */
 
 /** Which of the pull requests that fit go first, and so which are left out when not all of them do. */
-export type Order = 'oldest' | 'quickest' | 'fill';
-export const ORDERS: Order[] = ['oldest', 'quickest', 'fill'];
+export type Order = "oldest" | "quickest" | "fill";
+export const ORDERS: Order[] = ["oldest", "quickest", "fill"];
 
 /** At set times of the day, or every few hours between two. */
-type Repeat = 'times' | 'every';
+type Repeat = "times" | "every";
 
 export const MINUTE_PRESETS = [15, 30, 45, 60, 90] as const;
 export const EVERY_HOURS = [1, 2, 3, 4] as const;
@@ -50,7 +50,7 @@ export interface ReviewSession {
 }
 
 /** What Start opens: the first pull request, all of them in tabs, or nothing, for the popup's list. */
-export type Opens = 'first' | 'all' | 'none';
+export type Opens = "first" | "all" | "none";
 
 export interface ReviewTimeSettings {
   enabled: boolean;
@@ -83,18 +83,18 @@ export interface ReviewTimeSettings {
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const WEEKDAYS = [1, 2, 3, 4, 5];
 
-export const newSession = (name = ''): ReviewSession => ({
+export const newSession = (name = ""): ReviewSession => ({
   id: newId(),
   name,
   on: true,
   days: WEEKDAYS,
-  repeat: 'times',
-  times: ['15:00'],
+  repeat: "times",
+  times: ["15:00"],
   every: 2,
-  from: '09:00',
-  to: '18:00',
+  from: "09:00",
+  to: "18:00",
   minutes: 30,
-  order: 'oldest',
+  order: "oldest",
   filters: [],
   repos: [],
   excludeRepos: [],
@@ -104,45 +104,55 @@ export const newSession = (name = ''): ReviewSession => ({
 export const DEFAULT_REVIEW_TIME: ReviewTimeSettings = {
   enabled: false,
   sessions: [],
-  pace: 'steady',
+  pace: "steady",
   learn: true,
   perPull: 2,
   unviewedOnly: true,
   againFirst: true,
   queueEstimates: true,
-  opens: 'first',
+  opens: "first",
   applyFilters: true,
   snooze: 10,
   remindEnd: true,
   skipEmpty: true,
   holdWhileReviewing: false,
-  sound: { id: 'bowl', volume: 70 },
+  sound: { id: "bowl", volume: 70 },
 };
 
-const record = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' ? (value as Record<string, unknown>) : {});
-const oneOf = <T>(list: readonly T[], value: unknown, fallback: T): T => list.find((each) => each === value) ?? fallback;
-const time = (value: unknown, fallback: string) => (typeof value === 'string' && TIME.test(value) ? value : fallback);
-const flag = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
+const record = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+const oneOf = <T>(list: readonly T[], value: unknown, fallback: T): T =>
+  list.find((each) => each === value) ?? fallback;
+const time = (value: unknown, fallback: string) => (typeof value === "string" && TIME.test(value) ? value : fallback);
+const flag = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
 
 const normalizeSession = (value: unknown): ReviewSession => {
   const raw = record(value);
   const base = newSession();
-  const days = Array.isArray(raw.days) ? raw.days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6) : base.days;
-  const times = Array.isArray(raw.times) ? raw.times.filter((each) => typeof each === 'string' && TIME.test(each)) : base.times;
+  const days = Array.isArray(raw.days)
+    ? raw.days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    : base.days;
+  const times = Array.isArray(raw.times)
+    ? raw.times.filter((each) => typeof each === "string" && TIME.test(each))
+    : base.times;
   const minutes = Number(raw.minutes);
   return {
-    id: typeof raw.id === 'string' && raw.id ? raw.id : base.id,
-    name: typeof raw.name === 'string' ? raw.name.trim().slice(0, 60) : '',
+    id: typeof raw.id === "string" && raw.id ? raw.id : base.id,
+    name: typeof raw.name === "string" ? raw.name.trim().slice(0, 60) : "",
     on: flag(raw.on, true),
     days: [...new Set(days as number[])].toSorted(),
-    repeat: oneOf(['times', 'every'] as const, raw.repeat, base.repeat),
+    repeat: oneOf(["times", "every"] as const, raw.repeat, base.repeat),
     times: [...new Set(times as string[])].toSorted().slice(0, MAX_TIMES),
     every: oneOf(EVERY_HOURS, raw.every, 2),
     from: time(raw.from, base.from),
     to: time(raw.to, base.to),
-    minutes: Number.isFinite(minutes) ? Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(minutes))) : base.minutes,
+    minutes: Number.isFinite(minutes)
+      ? Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(minutes)))
+      : base.minutes,
     order: oneOf(ORDERS, raw.order, base.order),
-    filters: Array.isArray(raw.filters) ? [...new Set(raw.filters.filter((id): id is string => typeof id === 'string'))] : [],
+    filters: Array.isArray(raw.filters)
+      ? [...new Set(raw.filters.filter((id): id is string => typeof id === "string"))]
+      : [],
     repos: repoList(raw.repos),
     excludeRepos: repoList(raw.excludeRepos),
     drafts: flag(raw.drafts, false),
@@ -168,7 +178,7 @@ export const normalizeReviewTime = (value: unknown): ReviewTimeSettings => {
     unviewedOnly: flag(raw.unviewedOnly, defaults.unviewedOnly),
     againFirst: flag(raw.againFirst, defaults.againFirst),
     queueEstimates: flag(raw.queueEstimates, defaults.queueEstimates),
-    opens: oneOf(['first', 'all', 'none'] as const, raw.opens, defaults.opens),
+    opens: oneOf(["first", "all", "none"] as const, raw.opens, defaults.opens),
     applyFilters: flag(raw.applyFilters, defaults.applyFilters),
     snooze: oneOf(SNOOZE_MINUTES, raw.snooze, defaults.snooze),
     remindEnd: flag(raw.remindEnd, defaults.remindEnd),
@@ -180,13 +190,14 @@ export const normalizeReviewTime = (value: unknown): ReviewTimeSettings => {
 
 /** Whether any review time is coming at all. */
 export const isScheduled = (settings: ReviewTimeSettings): boolean =>
-  settings.enabled && settings.sessions.some((session) => session.on && session.days.length > 0 && startsOf(session).length > 0);
+  settings.enabled &&
+  settings.sessions.some((session) => session.on && session.days.length > 0 && startsOf(session).length > 0);
 
 const toMinutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
 
 /** The minutes after midnight a session starts at, on a day it's on. */
 export const startsOf = (session: ReviewSession): number[] => {
-  if (session.repeat === 'times') return session.times.map(toMinutes);
+  if (session.repeat === "times") return session.times.map(toMinutes);
   const starts: number[] = [];
   for (let at = toMinutes(session.from); at <= toMinutes(session.to); at += session.every * 60) starts.push(at);
   return starts;
@@ -220,7 +231,9 @@ export const nextOccurrence = (settings: ReviewTimeSettings, after: number): Occ
 export const sessionsAt = (settings: ReviewTimeSettings, at: number): ReviewSession[] => {
   const day = new Date(at);
   const minute = day.getHours() * 60 + day.getMinutes();
-  return settings.sessions.filter((session) => session.on && session.days.includes(day.getDay()) && startsOf(session).includes(minute));
+  return settings.sessions.filter(
+    (session) => session.on && session.days.includes(day.getDay()) && startsOf(session).includes(minute),
+  );
 };
 
 /** A changed file as review time knows it: its path, line counts, and whether the reader marked it viewed. */
@@ -259,11 +272,20 @@ export const sessionFilterIds = (config: Config, repo: string, ids: string[]): s
     .map((filter) => filter.id);
 
 /** A pull request's minutes: its files in the session's filters, at the reader's pace, and a moment for the pull request. */
-export const estimate = (files: PullFile[], matchers: Matcher[] | null, settings: ReviewTimeSettings, minutesOf: Estimator): Estimate => {
+export const estimate = (
+  files: PullFile[],
+  matchers: Matcher[] | null,
+  settings: ReviewTimeSettings,
+  minutesOf: Estimator,
+): Estimate => {
   const counted = files.filter(
-    ([path, , , viewed]) => (!matchers || matchers.some((matches) => matches(path))) && !(settings.unviewedOnly && viewed),
+    ([path, , , viewed]) =>
+      (!matchers || matchers.some((matches) => matches(path))) && !(settings.unviewedOnly && viewed),
   );
-  const reading = counted.reduce((sum, [path, additions, deletions]) => sum + minutesOf(path, { additions, deletions }), 0);
+  const reading = counted.reduce(
+    (sum, [path, additions, deletions]) => sum + minutesOf(path, { additions, deletions }),
+    0,
+  );
   return { minutes: counted.length ? settings.perPull + reading : 0, files: counted.length };
 };
 
@@ -309,7 +331,8 @@ export interface Plan {
   overBy: number;
 }
 
-const byAge = (a: Planned, b: Planned) => (a.pull.createdAt || a.pull.updatedAt).localeCompare(b.pull.createdAt || b.pull.updatedAt);
+const byAge = (a: Planned, b: Planned) =>
+  (a.pull.createdAt || a.pull.updatedAt).localeCompare(b.pull.createdAt || b.pull.updatedAt);
 const bySize = (a: Planned, b: Planned) => a.estimate.minutes - b.estimate.minutes || byAge(a, b);
 
 /** The most minutes of review that fit in `budget`, and among those, the most pull requests: a small knapsack. */
@@ -323,7 +346,8 @@ const bestFill = (items: Planned[], budget: number): Planned[] => {
       const [used, count, picks] = best[room - size(item)]!;
       const candidate: [number, number, Planned[]] = [used + size(item), count + 1, [...picks, item]];
       const current = next[room]!;
-      if (candidate[0] > current[0] || (candidate[0] === current[0] && candidate[1] > current[1])) next[room] = candidate;
+      if (candidate[0] > current[0] || (candidate[0] === current[0] && candidate[1] > current[1]))
+        next[room] = candidate;
     }
     best = next;
   }
@@ -338,13 +362,13 @@ const bestFill = (items: Planned[], budget: number): Planned[] => {
 export const plan = (items: Planned[], minutes: number, order: Order, againFirst = false): Plan => {
   const counts = (item: Planned) => item.estimate.files > 0 || item.estimate.guessed === true;
   const nothing = items.filter((item) => !counts(item)).map((item) => item.pull);
-  const sorted = items.filter(counts).toSorted(order === 'oldest' ? byAge : bySize);
+  const sorted = items.filter(counts).toSorted(order === "oldest" ? byAge : bySize);
   const again = (item: Planned) => againFirst && item.pull.again === true;
   const first = sorted.filter(again);
   const rest = sorted.filter((item) => !again(item));
   const ordered = [...first, ...rest];
   const fit = (list: Planned[], room: number): Planned[] => {
-    if (order === 'fill') return bestFill(list, room).toSorted(byAge);
+    if (order === "fill") return bestFill(list, room).toSorted(byAge);
     const fits: Planned[] = [];
     for (const item of list) {
       if (item.estimate.minutes > room) continue;
@@ -413,9 +437,9 @@ export interface ReviewPreset {
 }
 
 export const REVIEW_PRESETS: ReviewPreset[] = [
-  { id: 'twice', session: { times: ['10:00', '15:00'], minutes: 30, order: 'oldest' } },
-  { id: 'every', session: { repeat: 'every', every: 2, from: '09:00', to: '17:00', minutes: 15, order: 'quickest' } },
-  { id: 'end', session: { times: ['17:00'], minutes: 45, order: 'fill' } },
+  { id: "twice", session: { times: ["10:00", "15:00"], minutes: 30, order: "oldest" } },
+  { id: "every", session: { repeat: "every", every: 2, from: "09:00", to: "17:00", minutes: 15, order: "quickest" } },
+  { id: "end", session: { times: ["17:00"], minutes: 45, order: "fill" } },
 ];
 
 /** A preset as a session of the reader's own: its id says which, so the welcome page can tell it's on. */

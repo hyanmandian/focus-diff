@@ -1,15 +1,15 @@
-import { i18n } from '#i18n';
-import { confetti } from '@/components/confetti/confetti';
-import { settingsIcon } from '@/components/icons/icons';
-import { h } from '@/utils/dom/dom';
-import { formatDuration, formatNumber as format } from '@/utils/format/format';
-import { createBreakdown, type BreakdownRow } from '@/components/breakdown/breakdown';
-import { createConversations, type Conversations } from '@/components/conversations/conversations';
-import { createFilters, type PanelOption } from '@/components/filters/filters';
-import { createNextFile, type NextFile } from '@/components/next-file/next-file';
-import { createStats, type Totals } from '@/components/stats/stats';
-import { createTooltip } from '@/components/tooltip/tooltip';
-import { createUpdateNotice } from '@/components/update-notice/update-notice';
+import { i18n } from "#i18n";
+import { createBreakdown, type BreakdownRow } from "@/components/breakdown/breakdown";
+import { confetti } from "@/components/confetti/confetti";
+import { createConversations, type Conversations } from "@/components/conversations/conversations";
+import { createFilters, type PanelOption } from "@/components/filters/filters";
+import { settingsIcon } from "@/components/icons/icons";
+import { createNextFile, type NextFile } from "@/components/next-file/next-file";
+import { createStats, type Totals } from "@/components/stats/stats";
+import { createTooltip } from "@/components/tooltip/tooltip";
+import { createUpdateNotice } from "@/components/update-notice/update-notice";
+import { h } from "@/utils/dom/dom";
+import { formatDuration, formatNumber as format } from "@/utils/format/format";
 
 /** What every part of the panel shares: where it's mounted, when it's torn down, and what has focus inside it. */
 export interface PanelContext {
@@ -71,23 +71,31 @@ export const createPanel = (
 ): Panel => {
   const context: PanelContext = { host, signal, focused: () => root.activeElement as HTMLElement | null };
 
-  const settings = h('button', {
-    type: 'button',
-    className: 'settings icon-button',
+  const settings = h("button", {
+    type: "button",
+    className: "settings icon-button",
     onClick: () => onSettings(),
   });
   const nextFile = createNextFile(onNextFile);
   const filters = createFilters(context, onToggle);
   const stats = createStats();
-  const breakdown = createBreakdown(context, { onToggle, onOpen: () => conversations.setOpen(false), fallback: settings });
-  const conversations = createConversations(context, { onStep: onComment, onOpen: () => breakdown.setOpen(false), fallback: settings });
+  const breakdown = createBreakdown(context, {
+    onToggle,
+    onOpen: () => conversations.setOpen(false),
+    fallback: settings,
+  });
+  const conversations = createConversations(context, {
+    onStep: onComment,
+    onOpen: () => breakdown.setOpen(false),
+    fallback: settings,
+  });
   const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
-  const status = h('span', { className: 'visually-hidden', role: 'status' });
+  const status = h("span", { className: "visually-hidden", role: "status" });
   // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
   container.append(
     h(
-      'div',
-      { className: 'panel' },
+      "div",
+      { className: "panel" },
       nextFile.element,
       filters.element,
       stats.element,
@@ -102,24 +110,24 @@ export const createPanel = (
   const tooltip = createTooltip(context, container);
 
   // Last in the shadow root, so the reader's CSS wins over the bar's own at the same specificity.
-  const theme = h('style', { 'data-focus-diff-theme': '' });
+  const theme = h("style", { "data-focus-diff-theme": "" });
   root.append(theme);
 
   /**
    * Keyboard focus on the review page scrolls clear of the bar: the page gets bottom scroll padding as tall as the bar
    * while it shows. Only set when it changes, since it touches the site's root element.
    */
-  let padding = '';
-  const panelElement = container.querySelector<HTMLElement>('.panel');
+  let padding = "";
+  const panelElement = container.querySelector<HTMLElement>(".panel");
   const reserveScrollRoom = () => {
     if (!floating) return;
-    const next = host.style.display === 'none' || !panelElement ? '' : `${panelElement.offsetHeight + 32}px`;
+    const next = host.style.display === "none" || !panelElement ? "" : `${panelElement.offsetHeight + 32}px`;
     if (next === padding) return;
     padding = next;
-    if (next) document.documentElement.style.setProperty('scroll-padding-bottom', next);
-    else document.documentElement.style.removeProperty('scroll-padding-bottom');
+    if (next) document.documentElement.style.setProperty("scroll-padding-bottom", next);
+    else document.documentElement.style.removeProperty("scroll-padding-bottom");
   };
-  signal.addEventListener('abort', () => document.documentElement.style.removeProperty('scroll-padding-bottom'));
+  signal.addEventListener("abort", () => document.documentElement.style.removeProperty("scroll-padding-bottom"));
 
   const resizeObserver = new ResizeObserver(() => {
     reserveScrollRoom();
@@ -129,12 +137,12 @@ export const createPanel = (
   });
   for (const element of [filters.element, breakdown.popover, conversations.popover]) resizeObserver.observe(element);
   if (panelElement) resizeObserver.observe(panelElement);
-  signal.addEventListener('abort', () => resizeObserver.disconnect());
+  signal.addEventListener("abort", () => resizeObserver.disconnect());
 
   document.addEventListener(
-    'keydown',
+    "keydown",
     (event) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== "Escape") return;
       // One thing at a time: the tooltip, then the breakdown, then the conversations.
       if (tooltip.isVisible()) tooltip.hide();
       else if (breakdown.isOpen()) breakdown.setOpen(false);
@@ -144,7 +152,7 @@ export const createPanel = (
     { signal },
   );
   document.addEventListener(
-    'pointerdown',
+    "pointerdown",
     (event) => {
       if (breakdown.isOpen() && !event.composedPath().includes(host)) breakdown.setOpen(false);
     },
@@ -155,15 +163,15 @@ export const createPanel = (
   const renderOptions = (list: PanelOption[], selected: string[]) => {
     if (!filters.render(list, selected)) return;
     const configured = list.length > 1;
-    settings.classList.toggle('labelled', !configured);
+    settings.classList.toggle("labelled", !configured);
     breakdown.toggle.hidden = !configured;
     if (configured) {
       settings.replaceChildren(settingsIcon());
-      settings.setAttribute('aria-label', i18n.t('panelSettings'));
-      settings.dataset.tip = i18n.t('panelSettings');
+      settings.setAttribute("aria-label", i18n.t("panelSettings"));
+      settings.dataset.tip = i18n.t("panelSettings");
     } else {
-      settings.textContent = i18n.t('panelSetUp');
-      settings.removeAttribute('aria-label');
+      settings.textContent = i18n.t("panelSetUp");
+      settings.removeAttribute("aria-label");
       delete settings.dataset.tip;
       breakdown.setOpen(false);
     }
@@ -171,27 +179,27 @@ export const createPanel = (
 
   const announce = ({ name, visible, total, additions, deletions, pending, minutes }: Totals & { name: string }) => {
     const parts = [
-      i18n.t('panelAnnounce', [name, format(visible), format(total), format(additions), format(deletions)]),
+      i18n.t("panelAnnounce", [name, format(visible), format(total), format(additions), format(deletions)]),
       // The estimate's ~ would be read out as "tilde"; the sentence already says "about".
-      i18n.t('panelAnnounceTime', [formatDuration(minutes).replace(/^~/, '')]),
+      i18n.t("panelAnnounceTime", [formatDuration(minutes).replace(/^~/, "")]),
     ];
-    if (pending > 0) parts.push(i18n.t('panelAnnouncePartial', pending, [format(pending)]));
-    status.textContent = parts.join(' ');
+    if (pending > 0) parts.push(i18n.t("panelAnnouncePartial", pending, [format(pending)]));
+    status.textContent = parts.join(" ");
   };
 
   const setCompact = (compact: boolean) => {
-    if (host.hasAttribute('data-compact') === compact) return;
-    host.toggleAttribute('data-compact', compact);
+    if (host.hasAttribute("data-compact") === compact) return;
+    host.toggleAttribute("data-compact", compact);
     requestAnimationFrame(filters.moveIndicator);
   };
   if (floating) {
-    const narrow = matchMedia('(max-width: 480px), (max-height: 420px)');
+    const narrow = matchMedia("(max-width: 480px), (max-height: 420px)");
     setCompact(narrow.matches);
-    narrow.addEventListener('change', () => setCompact(narrow.matches), { signal });
-  } else host.setAttribute('data-inline', '');
+    narrow.addEventListener("change", () => setCompact(narrow.matches), { signal });
+  } else host.setAttribute("data-inline", "");
 
   const setVisible = (visible: boolean) => {
-    const display = visible ? '' : 'none';
+    const display = visible ? "" : "none";
     if (host.style.display === display) return;
     host.style.display = display;
     reserveScrollRoom();
@@ -226,11 +234,11 @@ export const createPanel = (
       theme.textContent = css;
       filters.moveIndicator();
     },
-    accent: () => getComputedStyle(host).getPropertyValue('--fd-accent').trim() || 'currentColor',
+    accent: () => getComputedStyle(host).getPropertyValue("--fd-accent").trim() || "currentColor",
     celebrate: (name) => {
       const box = stats.done.getBoundingClientRect();
       confetti(container, { x: box.left + box.width / 2, y: box.top });
-      status.textContent = i18n.t('panelAnnounceDone', [name]);
+      status.textContent = i18n.t("panelAnnounceDone", [name]);
     },
   };
 };

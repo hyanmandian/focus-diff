@@ -1,10 +1,10 @@
-import { i18n } from '#i18n';
-import type { Conversation } from '@/components/conversations/conversations';
-import type { Panel } from '@/components/panel/panel';
-import type { FileInfo } from '@/utils/review-files/review-files';
-import { stepFrom } from '@/utils/review/review';
-import { flash, scrollToCenter, scrollToTop, waitFor } from '@/utils/scroll/scroll';
-import type { ConversationTarget, Provider } from '@/utils/provider/provider';
+import { i18n } from "#i18n";
+import type { Conversation } from "@/components/conversations/conversations";
+import type { Panel } from "@/components/panel/panel";
+import type { ConversationTarget, Provider } from "@/utils/provider/provider";
+import type { FileInfo } from "@/utils/review-files/review-files";
+import { stepFrom } from "@/utils/review/review";
+import { flash, scrollToCenter, scrollToTop, waitFor } from "@/utils/scroll/scroll";
 
 /** Brings a file to the top of the screen. Files the site hasn't drawn are opened through the site first. */
 export const goToFile = async (provider: Provider, file: FileInfo): Promise<HTMLElement | null> => {
@@ -38,7 +38,9 @@ export const createNavigation = (provider: Provider, panel: Panel, schedule: () 
       scrollToCenter(found, () => provider.coveredTop(found));
       flash(found, panel.accent());
     }
-    panel.announceText(i18n.t('panelJumpedToComment', [String(commentIndex), String(targets.length), target.file.path]));
+    panel.announceText(
+      i18n.t("panelJumpedToComment", [String(commentIndex), String(targets.length), target.file.path]),
+    );
     schedule();
   };
 

@@ -20,7 +20,8 @@
     "./queue-watch": "./src/queue-watch/queue-watch.ts",
     "./queue-words": "./src/queue-words/queue-words.ts",
     "./recipes": "./src/recipes/recipes.ts",
-    "./repos": "./src/repos/repos.ts"
+    "./repos": "./src/repos/repos.ts",
+    "./review-time": "./src/review-time/review-time.ts"
   },
   "scripts": {
     "check": "tsc --noEmit && oxlint && oxfmt --check && vitest run --coverage",

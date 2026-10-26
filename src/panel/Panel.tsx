@@ -7,7 +7,7 @@ import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { bridge } from "@/lib/bridge";
@@ -107,6 +107,22 @@ export function Panel() {
   // The rows in the order they show, and the one last picked or unpicked, for shift-click.
   const shownRef = useRef<Item[]>([]);
   const lastPick = useRef<string | null>(null);
+  // While Shift is down, the rows a click on the one under the pointer would pick, shown ahead.
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [shift, setShift] = useState(false);
+  useEffect(() => {
+    const keys = (e: KeyboardEvent) => setShift(e.shiftKey);
+    const off = () => setShift(false);
+    window.addEventListener("keydown", keys);
+    window.addEventListener("keyup", keys);
+    window.addEventListener("blur", off);
+    return () => {
+      window.removeEventListener("keydown", keys);
+      window.removeEventListener("keyup", keys);
+      window.removeEventListener("blur", off);
+    };
+  }, []);
   const pick = useCallback((item: Item, on: boolean, range = false) => {
     setMarked([]);
     const rows = shownRef.current;
@@ -115,6 +131,7 @@ export function Panel() {
     // From the last one to this, all as this one goes.
     const ids = from >= 0 && to >= 0 ? rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((i) => i.pr.id) : [item.pr.id];
     lastPick.current = item.pr.id;
+    setAnchor(item.pr.id);
     setPicked((now) => {
       const next = new Set(now);
       for (const id of ids) {
@@ -187,6 +204,13 @@ export function Panel() {
   const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
   const { groups, drafts } = arrange(narrowed, unread);
   shownRef.current = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
+  const pending = new Set<string>();
+  if (shift && anchor && hovered && anchor !== hovered) {
+    const rows = shownRef.current;
+    const from = rows.findIndex((i) => i.pr.id === anchor);
+    const to = rows.findIndex((i) => i.pr.id === hovered);
+    if (from >= 0 && to >= 0) for (const i of rows.slice(Math.min(from, to), Math.max(from, to) + 1)) pending.add(i.pr.id);
+  }
   const unreadHere = list.filter(unread).length;
   // What's picked and has since gone (done elsewhere, off the list) isn't picked any more.
   const pickedHere = list.filter((i) => picked.has(i.pr.id));
@@ -227,18 +251,56 @@ export function Panel() {
           onDismiss={dismiss}
           onArrived={clearArrival}
           picked={picked.has(item.pr.id)}
+          pending={pending.has(item.pr.id)}
           selecting={pickedHere.length > 0}
           onPick={pick}
+          onHover={setHovered}
         />
       </li>
     ) : null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] animate-in fade-in-0 duration-(--duration) ease-out motion-reduce:animate-none">
-      <header className="flex h-12 shrink-0 items-center gap-2 pr-2.5 pl-4" data-tauri-drag-region>
-        <Mark className="size-4 text-primary" />
-        <h1 className="text-body leading-4 font-semibold">Focus Diff</h1>
-        <div className="ml-auto flex items-center gap-0.5">
+      {/* No name: the panel was opened from its own icon. The queues straight away, and beside them
+          refreshing and the menu, on the same 12px inset as everything under them. */}
+      <header className="flex min-h-14 shrink-0 items-center gap-1.5 px-3 pt-3 pb-2.5" data-tauri-drag-region>
+        <h1 className="sr-only">Focus Diff</h1>
+        {!ready ? (
+          <Skeleton className="h-9 min-w-0 flex-1 rounded-[12px] bg-(--panel-fill)" />
+        ) : signedIn && queue ? (
+      <>
+      {/* The queues as the extension draws them: on a raised pane, the chosen one on an accent pill
+          that slides to the next (concentric: 12px pane, 4px in, 8px pill). */}
+      <div role="tablist" onKeyDown={tabKeys} aria-label={t("panel.queues")} className={cn(PANE, "relative isolate flex min-w-0 flex-1 gap-0.5 overflow-x-auto p-1 [scrollbar-width:none]")}>
+        <SlidingPill selected={queue.id} className="rounded-[8px] bg-primary" />
+        {queues.map((q) => {
+          const its = items[q.id] ?? [];
+          const selected = q.id === queue.id;
+          return (
+            <button
+              key={q.id}
+              type="button"
+              role="tab"
+              tabIndex={selected ? 0 : -1}
+              aria-selected={selected}
+              data-pill={q.id}
+              onClick={() => choose(q.id)}
+              className={cn(
+                "flex h-7 flex-auto shrink-0 cursor-default items-center justify-center gap-1.5 rounded-[8px] pr-1.5 pl-2.5 text-body font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-ring-inset",
+                selected ? "text-primary-foreground" : "hover:bg-foreground/6",
+              )}
+            >
+              <span className="truncate">{q.name}</span>
+              <Count n={its.length} on={selected} />
+            </button>
+          );
+        })}
+      </div>
+      </>
+        ) : (
+          <div className="flex-1" data-tauri-drag-region />
+        )}
+        <div className="flex shrink-0 items-center gap-0.5">
           {signedIn ? (
             status.phase === "error" ? (
               <Tooltip>
@@ -256,6 +318,7 @@ export function Panel() {
               </Tooltip>
             )
           ) : null}
+          {/* Settings and Quit, nothing else. */}
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.menu")} />}>
               <Settings />
@@ -264,8 +327,6 @@ export function Panel() {
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>
                 {t("panel.settings")} <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void bridge.openSetup()}>{t("panel.setupAgain")}</DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => void bridge.quit()}>
                 {t("panel.quit")} <DropdownMenuShortcut>{shortcut("Q", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
@@ -279,8 +340,6 @@ export function Panel() {
       {!ready ? (
         // The shape of what's coming, at its size: nothing moves when it arrives.
         <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label={t("panel.loading")}>
-          <Skeleton className="mx-4 h-7 shrink-0 rounded-[8px] bg-(--panel-fill)" />
-          <div className="mx-4 mt-3 h-px shrink-0 bg-(--panel-separator)" />
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pt-1">
             {[0, 1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-start gap-2.5 py-2 pr-3 pl-3" style={{ opacity: 1 - i * 0.18 }}>
@@ -313,35 +372,7 @@ export function Panel() {
         </div>
       ) : (
         <main className="flex min-h-0 flex-1 flex-col">
-          {/* The queues as the extension draws them: on a raised pane, the chosen one on an accent pill
-              that slides to the next (concentric: 12px pane, 4px in, 8px pill). */}
-          <div role="tablist" onKeyDown={tabKeys} aria-label={t("panel.queues")} className={cn(PANE, "relative isolate mx-3 flex shrink-0 gap-0.5 overflow-x-auto p-1 [scrollbar-width:none]")}>
-            <SlidingPill selected={queue.id} className="rounded-[8px] bg-primary" />
-            {queues.map((q) => {
-              const its = items[q.id] ?? [];
-              const selected = q.id === queue.id;
-              return (
-                <button
-                  key={q.id}
-                  type="button"
-                  role="tab"
-                  tabIndex={selected ? 0 : -1}
-                  aria-selected={selected}
-                  data-pill={q.id}
-                  onClick={() => choose(q.id)}
-                  className={cn(
-                    "flex h-7 flex-auto shrink-0 cursor-default items-center justify-center gap-1.5 rounded-[8px] pr-2 pl-3 text-body font-medium whitespace-nowrap outline-none transition-colors duration-150 focus-ring-inset",
-                    selected ? "text-primary-foreground" : "hover:bg-foreground/6",
-                  )}
-                >
-                  <span className="truncate">{q.name}</span>
-                  <Count n={its.length} on={selected} />
-                </button>
-              );
-            })}
-          </div>
-
-          <div role="tabpanel" aria-label={queue.name} className={cn(PANE, "mx-3 mt-2.5 flex min-h-0 flex-1 flex-col overflow-hidden")}>
+          <div role="tabpanel" aria-label={queue.name} className={cn(PANE, "mx-3 flex min-h-0 flex-1 flex-col overflow-hidden")}>
             {repos.length > 1 ? (
               <div role="group" aria-label={t("panel.repositories")} className="relative isolate flex shrink-0 gap-0.5 overflow-x-auto border-b border-(--panel-separator) p-1.5 [scrollbar-width:none]">
                 <SlidingPill selected={(repo && repos.includes(repo) ? repo : "") || "all"} className="rounded-[8px] bg-primary" />
@@ -391,7 +422,7 @@ export function Panel() {
                           <span className="text-callout font-normal text-muted-foreground tabular-nums">{g.items.length}</span>
                         </h2>
                       ) : null}
-                      <ul>{g.items.map(row)}</ul>
+                      <ul data-join="column">{g.items.map(row)}</ul>
                     </section>
                   ))}
                   {drafts.length ? (
@@ -401,7 +432,7 @@ export function Panel() {
                         {t("panel.drafts")} <span className="text-callout font-normal tabular-nums">{drafts.length}</span>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <ul>{drafts.map(row)}</ul>
+                        <ul data-join="column">{drafts.map(row)}</ul>
                       </CollapsibleContent>
                     </Collapsible>
                   ) : null}

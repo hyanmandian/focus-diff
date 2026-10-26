@@ -177,8 +177,11 @@ export function FilterBar(props: Props) {
       {filters.length ? (
         <>
           <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
-          {chip("", t("review.all"), files.length)}
-          {filters.map((f) => chip(f.id, f.name, counts.get(f.id) ?? 0))}
+          {/* Neighbours both on read as one pill, as in the extension (index.css). */}
+          <span data-join="row" className="flex shrink-0 items-center gap-1">
+            {chip("", t("review.all"), files.length)}
+            {filters.map((f) => chip(f.id, f.name, counts.get(f.id) ?? 0))}
+          </span>
         </>
       ) : null}
       {/* The files left, the lines they change and the time they take, each after its icon. */}

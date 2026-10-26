@@ -63,9 +63,12 @@ type Props = {
   selecting: boolean;
   /** `range`: shift-clicked, to pick everything from the last one picked to this. */
   onPick: (item: Item, on: boolean, range?: boolean) => void;
+  /** Would be picked by a shift-click on the row under the pointer. */
+  pending?: boolean;
+  onHover?: (id: string | null) => void;
 };
 
-export const PullRow = memo(function PullRow({ item, queue, unread, arriving, onOpen, onDismiss, onArrived, picked, selecting, onPick }: Props) {
+export const PullRow = memo(function PullRow({ item, queue, unread, arriving, onOpen, onDismiss, onArrived, picked, selecting, onPick, pending = false, onHover }: Props) {
   const { pr } = item;
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
@@ -109,7 +112,15 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
   return (
     // As Focus Diff's popup: over the picture, a box to pick the row to mark done, on hover, on the
     // focused row, and on every row once one is picked; a picked row takes a tint of the accent.
-    <div ref={ref} data-picked={picked || undefined} data-selecting={selecting || undefined} className="group relative isolate rounded-[8px]">
+    <div
+      ref={ref}
+      data-picked={picked || undefined}
+      data-pending={pending || undefined}
+      data-selecting={selecting || undefined}
+      onPointerEnter={() => onHover?.(pr.id)}
+      onPointerLeave={() => onHover?.(null)}
+      className="group relative isolate rounded-[8px]"
+    >
       {/* The box takes clicks over the whole picture column, top to bottom, so one aimed at it never
           opens the pull request; shift-click picks a run of rows, as in Finder. */}
       <div
@@ -124,7 +135,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
         checked={picked}
         onChange={(e) => onPick(item, e.target.checked)}
         aria-label={t("panel.select", { title: pr.title })}
-        className="pointer-events-none absolute top-3 left-[18px] z-10 m-0 size-4 cursor-default accent-(--primary) opacity-0 group-hover:opacity-100 group-has-[[data-row]:focus-visible]:opacity-100 group-data-picked:opacity-100 group-data-selecting:opacity-100"
+        className="pointer-events-none absolute top-3 left-[18px] z-10 m-0 size-4 cursor-default accent-(--primary) opacity-0 group-hover:opacity-100 group-has-[[data-row]:focus-visible]:opacity-100 group-data-picked:opacity-100 group-data-pending:opacity-100 group-data-selecting:opacity-100"
       />
       <button
         type="button"
@@ -137,14 +148,14 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
         className={cn(
           // The extension's row: the picture on a 14pt inset, a quiet rounded highlight under the
           // pointer and on the keyboard's row (a ring would fight the tint of a picked one).
-          "relative flex w-full cursor-default items-start gap-2.5 rounded-[8px] py-2 pr-2.5 pl-3.5 text-left outline-none transition-colors duration-100 group-hover:bg-foreground/6 active:bg-foreground/9 focus-visible:bg-foreground/8 group-data-picked:bg-primary/15",
+          "relative flex w-full cursor-default items-start gap-2.5 rounded-[8px] py-2 pr-2.5 pl-3.5 text-left outline-none transition-colors duration-100 group-hover:bg-foreground/6 active:bg-foreground/9 focus-visible:bg-foreground/8 group-data-pending:bg-primary/8! group-data-picked:bg-primary/15!",
         )}
       >
         {/* What changed since you last looked: a dot at the row's edge, level with the title. */}
         {unread ? <span data-dot className="absolute top-4 left-1 size-1.5 rounded-full bg-primary" aria-hidden /> : null}
         {unread ? <span className="sr-only">{t("panel.unread")}</span> : null}
         {/* The picture gives way to the box over it. */}
-        <span className="contents group-hover:[&>*]:invisible group-has-[[data-row]:focus-visible]:[&>*]:invisible group-data-picked:[&>*]:invisible group-data-selecting:[&>*]:invisible">
+        <span className="contents group-hover:[&>*]:invisible group-has-[[data-row]:focus-visible]:[&>*]:invisible group-data-picked:[&>*]:invisible group-data-pending:[&>*]:invisible group-data-selecting:[&>*]:invisible">
           {mine ? (
             <span className="grid size-6 shrink-0 place-items-center rounded-full bg-foreground/8 text-muted-foreground" aria-hidden>
               <GitPullRequest className="size-3.5" />

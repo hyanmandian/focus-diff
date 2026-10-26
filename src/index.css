@@ -405,3 +405,36 @@ div a[data-button] {
 }
 div a[data-button]::after { content: "↗"; font-size: var(--type-subheadline); opacity: 0.6; }
 div a[data-button]:active { background: var(--fill-control-pressed); }
+
+/* Neighbours that are both on read as one shape, as in Focus Diff's extension: the corners between
+   them go square, the gap between them fills in, and a hairline divides them. Side by side (the
+   filter bar's chips, 4px apart) and one above the other (the panel's picked rows, touching). */
+[data-join="row"] > [aria-pressed="true"]:has(+ [aria-pressed="true"]) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  box-shadow: 4px 0 0 var(--primary);
+}
+[data-join="row"] > [aria-pressed="true"] + [aria-pressed="true"] {
+  position: relative;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+[data-join="row"] > [aria-pressed="true"] + [aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: -2.5px;
+  width: 1px;
+  background: color-mix(in srgb, var(--primary-foreground) 45%, transparent);
+}
+[data-join="column"] > li:has(> [data-picked]):has(+ li > [data-picked]) [data-row],
+[data-join="column"] > li:has(> [data-pending]):has(+ li > [data-pending]) [data-row] {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+[data-join="column"] > li:has(> [data-picked]) + li:has(> [data-picked]) [data-row],
+[data-join="column"] > li:has(> [data-pending]) + li:has(> [data-pending]) [data-row] {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 22%, transparent);
+}

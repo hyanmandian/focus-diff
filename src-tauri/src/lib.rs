@@ -54,7 +54,7 @@ use tauri_plugin_opener::OpenerExt;
 pub(crate) const PANEL: &str = "panel";
 const SETTINGS: &str = "settings";
 const SETUP: &str = "setup";
-const PANEL_SIZE: (f64, f64) = (420.0, 600.0);
+const PANEL_SIZE: (f64, f64) = (470.0, 600.0);
 /// The panel's corners, as the page draws them (Panel.tsx); what's inside follows them in.
 const PANEL_RADIUS: f64 = 18.0;
 /// How long a hidden panel's web view is kept, to open again instantly; after that it's closed

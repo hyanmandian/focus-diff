@@ -39,7 +39,7 @@ export function shows(diff: FileDiffMetadata, side: Side, line: number) {
 }
 
 /** Lines compared as code: the line ending and trailing spaces don't count. */
-const same = (a: string, b: string) => a.replace(/\s+$/u, "") === b.replace(/\s+$/u, "");
+const same = (a: string, b: string) => a.trimEnd() === b.trimEnd();
 
 /** `lineNumber` 0: the top of the file. `moved`: not at its line, so it says where it was. */
 export type Placement = { side: Side; lineNumber: number; moved: boolean };
@@ -62,7 +62,9 @@ export function placeThread(
  *  +, - or space in front. */
 export function hunkTail(diffHunk: string | null | undefined): string | undefined {
   if (!diffHunk) return undefined;
-  const last = diffHunk.replace(/\n+$/u, "").split("\n").at(-1)!;
+  let end = diffHunk.length;
+  while (diffHunk[end - 1] === "\n") end--;
+  const last = diffHunk.slice(0, end).split("\n").at(-1)!;
   return last.startsWith("@@") ? undefined : last.slice(1);
 }
 

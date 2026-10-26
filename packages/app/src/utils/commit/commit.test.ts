@@ -28,7 +28,7 @@ function github(files: Record<string, string>, commit: { status: number; body: s
     const call = fields(args);
     sent.push(call);
     if (call.path === "/graphql") return commit;
-    const path = decodeURIComponent(String(call.path).replace(/^.*\/contents\/(.*)\?ref=.*$/u, "$1"));
+    const path = decodeURIComponent(String(call.path).split("/contents/")[1]?.split("?ref=")[0] ?? "");
     return cmd === "github" ? { status: 200, body: files[path] } : null;
   });
   return sent;

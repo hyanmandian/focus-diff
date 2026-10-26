@@ -277,10 +277,10 @@ function clean(node: Node, base?: string[]) {
 
 /** `base`: the lines a previewed suggestion replaces, to show them removed. */
 export function sanitize(html: string, base?: string[]): string {
-  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
-  const root = doc.body.firstElementChild!;
-  clean(root, base);
-  return root.innerHTML;
+  // Parsed into a document of its own, inert: nothing in it loads or runs while it's cleaned.
+  const { body } = new DOMParser().parseFromString(html, "text/html");
+  clean(body, base);
+  return body.innerHTML;
 }
 
 /** Whether a picture is in a link to somewhere else (a page, not the picture at full size): a

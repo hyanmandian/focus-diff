@@ -29,17 +29,19 @@ const IMAGE_TYPES: Record<string, string> = {
 const extension = (path: string) => path.slice(path.lastIndexOf(".") + 1).toLowerCase();
 export const isImage = (path: string) => extension(path) in IMAGE_TYPES;
 
+const dir = (p: string) => p.slice(0, p.lastIndexOf("/") + 1);
+const base = (p: string) => p.slice(p.lastIndexOf("/") + 1);
+
 /** What a renamed file was called, for "old → new": the old name alone when only the name changed
  *  (or `short`, in the tree, where the folders say where it is), the old path when it moved. */
 export function renamed(file: Pick<ReviewFile, "path" | "previousPath">, short = false) {
   if (!file.previousPath || file.previousPath === file.path) return null;
-  const dir = (p: string) => p.slice(0, p.lastIndexOf("/") + 1);
-  const base = (p: string) => p.slice(p.lastIndexOf("/") + 1);
   if (dir(file.previousPath) === dir(file.path)) return base(file.previousPath);
   return short && base(file.previousPath) !== base(file.path) ? base(file.previousPath) : file.previousPath;
 }
 
-type Mode = "two-up" | "swipe" | "onion";
+const MODES = ["two-up", "swipe", "onion"] as const;
+type Mode = (typeof MODES)[number];
 const MODE = "image-diff-mode";
 
 function storedMode(): Mode {
@@ -51,37 +53,38 @@ function storedMode(): Mode {
   }
 }
 
-/** A picture at a commit, as a URL the page can show; let go when it's no longer shown. */
-function usePicture(source: Source | null, file: ReviewFile, side: "old" | "new") {
-  const [state, setState] = useState<{ url: string; bytes: number } | null | "loading" | Error>("loading");
+type Picture = { url: string; bytes: number };
+
+/** A picture at a commit, as a URL the page can show; let go when it's no longer shown. Null when
+ *  there's none on that side (added, or deleted). */
+function usePicture(source: Source | null, file: ReviewFile, side: "old" | "new"): Picture | null | "loading" | Error {
+  // What was loaded, and for which file: anything else is still loading.
+  const [loaded, setLoaded] = useState<{ source: Source; file: ReviewFile; picture: Picture | null | Error } | null>(
+    null,
+  );
+  const none = (side === "old" && file.status === "added") || (side === "new" && file.status === "removed");
   useEffect(() => {
-    if (!source || (side === "old" && file.status === "added") || (side === "new" && file.status === "removed")) {
-      setState(null);
-      return;
-    }
     let url: string | null = null;
     let live = true;
-    void (async () => {
+    const load = async (from: Source) => {
       try {
-        const sha = side === "old" ? await source.base() : source.head;
-        const bytes = await fileAt(source.repo, sha, side === "old" ? (file.previousPath ?? file.path) : file.path);
+        const sha = side === "old" ? await from.base() : from.head;
+        const bytes = await fileAt(from.repo, sha, side === "old" ? (file.previousPath ?? file.path) : file.path);
         if (!live) return;
-        if (!bytes) {
-          setState(null);
-          return;
-        }
-        url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: IMAGE_TYPES[extension(file.path)] }));
-        setState({ url, bytes: bytes.length });
+        if (bytes) url = URL.createObjectURL(new Blob([bytes.slice()], { type: IMAGE_TYPES[extension(file.path)] }));
+        setLoaded({ source: from, file, picture: bytes && url ? { url, bytes: bytes.length } : null });
       } catch (e) {
-        if (live) setState(e instanceof Error ? e : new Error(String(e)));
+        if (live) setLoaded({ source: from, file, picture: e instanceof Error ? e : new Error(String(e)) });
       }
-    })();
+    };
+    if (source && !none) void load(source);
     return () => {
       live = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [source, file, side]);
-  return state;
+  }, [source, file, side, none]);
+  if (!source || none) return null;
+  return loaded?.source === source && loaded.file === file ? loaded.picture : "loading";
 }
 
 const bytesText = (n: number) =>
@@ -137,14 +140,17 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
   const [amount, setAmount] = useState(50);
   if (before === "loading" || after === "loading")
     return (
-      <p className="flex items-center gap-2 text-body text-muted-foreground" role="status">
+      <output className="flex items-center gap-2 text-body text-muted-foreground">
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> {t("diff.loading")}
-      </p>
+      </output>
     );
-  const failed = [before, after].find((p): p is Error => p instanceof Error);
-  if (failed) return <p className="text-body text-destructive">{t("diff.loadFailed", { error: failed.message })}</p>;
-  const old = before as { url: string; bytes: number } | null;
-  const fresh = after as { url: string; bytes: number } | null;
+  const failed = (e: Error) => (
+    <p className="text-body text-destructive">{t("diff.loadFailed", { error: e.message })}</p>
+  );
+  if (before instanceof Error) return failed(before);
+  if (after instanceof Error) return failed(after);
+  const old = before;
+  const fresh = after;
   if (!old || !fresh) {
     // Only one side: added or deleted.
     const only = old ?? fresh;
@@ -164,7 +170,11 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
     <div className="flex flex-col items-center gap-3">
       <ToggleGroup
         value={[mode]}
-        onValueChange={(v: string[]) => v[0] && choose(v[0] as Mode)}
+        onValueChange={(v: string[]) => {
+          // Empty when the one pressed is pressed again: it stays.
+          const next = MODES.find((m) => m === v[0]);
+          if (next) choose(next);
+        }}
         variant="outline"
         size="sm"
         aria-label={t("diff.compare")}

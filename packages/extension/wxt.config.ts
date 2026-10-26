@@ -32,6 +32,9 @@ export default defineConfig({
       "import.meta.env.FOCUS_DIFF_GITHUB_CLIENT_ID": JSON.stringify(process.env.FOCUS_DIFF_GITHUB_CLIENT_ID ?? ""),
     },
     build: { target: "es2022", chunkSizeWarningLimit: 4096 },
+    // The review's syntax colouring worker loads each language's grammar when it's needed, as a module, rather than
+    // carrying them all in one file (which Firefox Add-ons can't review).
+    worker: { format: "es" },
   }),
   manifest: ({ browser }) => ({
     name: "__MSG_extensionName__",

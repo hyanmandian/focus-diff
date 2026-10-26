@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [WxtVitest()],
   oxc: { jsx: { runtime: "automatic" } },
   test: {
+    environment: "happy-dom",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["vitest.setup.ts"],
     restoreMocks: true,

@@ -46,10 +46,13 @@ impl Provider {
         }
     }
 
-    fn login_command(self) -> &'static str {
+    /// What to run in Terminal to sign in, for the account this app uses: Claude Code's default
+    /// one (~/.claude), named outright when the person's terminal is set to another.
+    fn login_command(self) -> String {
         match self {
-            Provider::Claude => "claude auth login",
-            Provider::Cursor => "agent login",
+            Provider::Claude if login_env().claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR=~/.claude claude auth login".into(),
+            Provider::Claude => "claude auth login".into(),
+            Provider::Cursor => "agent login".into(),
         }
     }
 
@@ -71,12 +74,13 @@ pub struct Status {
     installed: bool,
     signed_in: bool,
     version: Option<String>,
-    login_command: &'static str,
+    login_command: String,
 }
 
 /// What the person's login shell has that apps opened from the Finder or a launcher don't: its
-/// PATH (these CLIs usually live in ~/.local/bin, Homebrew or a Node version manager), and which of
-/// their Claude Code accounts the terminal uses (CLAUDE_CONFIG_DIR), so the app asks the same one.
+/// PATH (these CLIs usually live in ~/.local/bin, Homebrew or a Node version manager), and whether
+/// the terminal uses another Claude Code account than the default (CLAUDE_CONFIG_DIR), to say how
+/// to sign in to the one the app uses.
 struct LoginEnv {
     path: String,
     claude_config_dir: Option<String>,
@@ -109,6 +113,9 @@ fn login_env() -> &'static LoginEnv {
             }
             path.push_str(":/opt/homebrew/bin:/usr/local/bin");
         }
+        // The default account isn't another one.
+        let default = std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".claude"));
+        let claude_config_dir = claude_config_dir.filter(|d| default.as_deref() != Some(Path::new(d.trim_end_matches('/'))));
         LoginEnv { path, claude_config_dir }
     })
 }
@@ -201,9 +208,8 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
 fn command(binary: &Path) -> Command {
     let mut command = Command::new(binary);
     command.env("PATH", search_path());
-    if let Some(dir) = &login_env().claude_config_dir {
-        command.env("CLAUDE_CONFIG_DIR", dir);
-    }
+    // Claude Code's default account (~/.claude), however the app was opened.
+    command.env_remove("CLAUDE_CONFIG_DIR");
     command
 }
 

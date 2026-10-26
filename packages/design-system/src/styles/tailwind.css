@@ -1,0 +1,3 @@
+/* A new app's whole stylesheet setup in one import: Tailwind v4, then the design system. */
+@import "tailwindcss";
+@import "./styles.css";

@@ -1,5 +1,5 @@
 /* The settings window's own pieces; everything else (colours, controls, scroll bars, selection) is
-   the platform's, from index.css. */
+   the platform's, from the design system (through index.css). */
 
 /* Liquid Glass, as Tahoe's own settings and Raycast's: the window has the system's sidebar material
    behind it (lib.rs); the content side paints the window's colour over it, nearly opaque, and the

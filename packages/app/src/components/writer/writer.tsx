@@ -294,9 +294,13 @@ export function MarkdownField({
         document.execCommand("insertText", false, change.insert)
       : // oxlint-disable-next-line typescript/no-deprecated -- the one way to keep ⌘Z (above)
         document.execCommand("delete");
-    if (!typed) onChange(value.slice(0, change.from) + change.insert + value.slice(change.to));
+    const text = value.slice(0, change.from) + change.insert + value.slice(change.to);
+    if (!typed) onChange(text);
+    el.setSelectionRange(...change.select);
+    // Again once React has drawn the new value, which can put the caret at the end; but not if
+    // typing went on meanwhile, or the caret would jump back behind what was just typed.
     requestAnimationFrame(() => {
-      el.setSelectionRange(...change.select);
+      if (el.value === text) el.setSelectionRange(...change.select);
     });
   };
 

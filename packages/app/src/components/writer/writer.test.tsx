@@ -293,6 +293,20 @@ describe("MarkdownField", () => {
       expect(screen.queryByRole("listbox")).toBeNull();
     });
 
+    it("keeps the caret after what's typed straight after picking, before the next frame", async () => {
+      // No pause between keys: the typing lands before the frame the pick waits for.
+      const user = userEvent.setup({ delay: null });
+      vi.mocked(mentionable).mockResolvedValue([]);
+      render(<Field initial="Thanks " />);
+      await user.click(field());
+      await user.keyboard("{End}@an");
+      await screen.findByRole("listbox", { name: "People to mention" });
+      await user.keyboard("{Enter}this");
+      await nextFrame();
+      expect(valueNow()).toBe("Thanks @ana this");
+      expect(field().selectionStart).toBe("Thanks @ana this".length);
+    });
+
     it("picks with Tab or a click, and the pointer moves the choice", async () => {
       const user = userEvent.setup();
       vi.mocked(mentionable).mockResolvedValue([]);

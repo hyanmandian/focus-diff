@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { complete, link, quote, rankPeople, tokenAt, wrap } from "./writing";
+import { complete, emojiList, link, quote, rankEmoji, rankPeople, tokenAt, wrap } from "./writing";
 
 describe("tokenAt", () => {
   it("finds the mention or reference being typed", () => {
@@ -57,5 +57,34 @@ describe("link", () => {
 describe("quote", () => {
   it("quotes each line", () => {
     expect(quote("a\nb\n")).toBe("> a\n> b\n\n");
+  });
+});
+
+describe("emoji", () => {
+  it("are completed after two letters, not in times or labels", () => {
+    expect(tokenAt("nice :ta", 8)).toEqual({ kind: "emoji", query: "ta", start: 5 });
+    expect(tokenAt(":+1", 3)).toEqual({ kind: "emoji", query: "+1", start: 0 });
+    expect(tokenAt("nice :t", 7)).toBeNull();
+    expect(tokenAt("at 10:30", 8)).toBeNull();
+    expect(tokenAt("Note:ab", 7)).toBeNull();
+  });
+
+  it("go in by name, as GitHub writes them", () => {
+    expect(complete("nice :ta", { kind: "emoji", query: "ta", start: 5 }, 8, "tada")).toEqual({ text: "nice :tada: ", caret: 12 });
+  });
+
+  it("come from GitHub's list as characters, ranked by name", () => {
+    const list = emojiList({
+      tada: "https://github.githubassets.com/images/icons/emoji/unicode/1f389.png?v8",
+      brazil: "https://github.githubassets.com/images/icons/emoji/unicode/1f1e7-1f1f7.png?v8",
+      octocat: "https://github.githubassets.com/images/icons/emoji/octocat.png?v8",
+      potato: "https://github.githubassets.com/images/icons/emoji/unicode/1f954.png?v8",
+    });
+    expect(list).toEqual([
+      { name: "tada", char: "🎉" },
+      { name: "brazil", char: "🇧🇷" },
+      { name: "potato", char: "🥔" },
+    ]);
+    expect(rankEmoji(list, "ta").map((e) => e.name)).toEqual(["tada", "potato"]);
   });
 });

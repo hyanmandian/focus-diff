@@ -104,12 +104,23 @@ export function Panel() {
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [marked, setMarked] = useState<Item[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const pick = useCallback((item: Item, on: boolean) => {
+  // The rows in the order they show, and the one last picked or unpicked, for shift-click.
+  const shownRef = useRef<Item[]>([]);
+  const lastPick = useRef<string | null>(null);
+  const pick = useCallback((item: Item, on: boolean, range = false) => {
     setMarked([]);
+    const rows = shownRef.current;
+    const from = range && lastPick.current ? rows.findIndex((i) => i.pr.id === lastPick.current) : -1;
+    const to = rows.findIndex((i) => i.pr.id === item.pr.id);
+    // From the last one to this, all as this one goes.
+    const ids = from >= 0 && to >= 0 ? rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((i) => i.pr.id) : [item.pr.id];
+    lastPick.current = item.pr.id;
     setPicked((now) => {
       const next = new Set(now);
-      if (on) next.add(item.pr.id);
-      else next.delete(item.pr.id);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
       return next;
     });
   }, []);
@@ -175,6 +186,7 @@ export function Panel() {
   );
   const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
   const { groups, drafts } = arrange(narrowed, unread);
+  shownRef.current = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
   const unreadHere = list.filter(unread).length;
   // What's picked and has since gone (done elsewhere, off the list) isn't picked any more.
   const pickedHere = list.filter((i) => picked.has(i.pr.id));

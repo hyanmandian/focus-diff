@@ -13,7 +13,7 @@ import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "./For
 import { TagInput } from "./TagInput";
 
 /** Path filters to start from, the same as Focus Diff's recipes; `name` keys their words (settings.preset.*). */
-const PATH_PRESETS: Array<{ name: "frontend" | "backend" | "code" | "infra" | "database" | "docs"; include: string; exclude: string }> = [
+export const PATH_PRESETS: Array<{ name: "frontend" | "backend" | "code" | "infra" | "database" | "docs"; include: string; exclude: string }> = [
   { name: "frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
   { name: "backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
   { name: "code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
@@ -300,4 +300,17 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
       ) : null}
     </>
   );
+}
+
+/** A queue in a line, from how it's set up, for its row in the list: where its pull requests come
+ *  from, then what narrows them. Made from the settings, so it fits any queue. */
+export function queueSummary(queue: Queue, t: T): string {
+  const parts = [queue.kind === "custom" && queue.query.trim() ? queue.query.trim() : t(`settings.kind.${queue.kind}`)];
+  if (queue.repos.length) parts.push(queue.repos.length === 1 ? queue.repos[0]! : t("settings.summaryRepos", { count: queue.repos.length }));
+  if (queue.includePaths || queue.excludePaths) {
+    const preset = PATH_PRESETS.find((p) => p.include === queue.includePaths && p.exclude === queue.excludePaths);
+    parts.push(preset ? t(`settings.preset.${preset.name}`) : t("settings.summaryFiles"));
+  }
+  if (queue.includeLabels.length) parts.push(queue.includeLabels.join(", "));
+  return parts.join(" · ");
 }

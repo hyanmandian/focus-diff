@@ -340,4 +340,6 @@ export const settings: Dictionary["settings"] = {
   removeChoiceConfirm: "Remover “{name}”?",
   dropChoicesConfirm: { one: "Transformar em botão e remover a outra opção?", other: "Transformar em botão e remover as outras {count} opções?" },
   menuOf: "Menu: {choices}",
+  summaryRepos: { one: "{count} repositório", other: "{count} repositórios" },
+  summaryFiles: "Alguns arquivos",
 };

@@ -271,8 +271,12 @@ export function Review({ target }: { target: Target }) {
   );
   const { next: nextPull, go: goNext, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
   const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
-  const goNextRef = useRef(goNext);
-  goNextRef.current = goNext;
+  // On to the next, or saying the queue's done when there's none.
+  const nextInQueue = async () => {
+    if (!(await goNext())) say(t("review.queueDone", { queue: queueName || t("review.theQueue") }));
+  };
+  const goNextRef = useRef(nextInQueue);
+  goNextRef.current = nextInQueue;
   const goBackRef = useRef(goBack);
   goBackRef.current = goBack;
   const minutesOf = useMemo(() => createEstimator(learned), [learned]);
@@ -1047,10 +1051,10 @@ export function Review({ target }: { target: Target }) {
                     <Button
                       variant="ghost"
                       className={cn(TOOL, "gap-1 pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                      disabled={!nextPull}
+                      aria-disabled={!nextPull}
                       aria-label={nextPull ? t("review.nextPullLabel", { queue: queueName, number: String(nextPull.pr.number), title: nextPull.pr.title }) : t("review.nextPull")}
                       aria-keyshortcuts="Meta+]"
-                      onClick={() => void goNext()}
+                      onClick={() => void nextInQueue()}
                     />
                   }
                 >
@@ -1061,11 +1065,9 @@ export function Review({ target }: { target: Target }) {
                   <span className="block font-semibold">
                     {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")} <Kbd>⌘]</Kbd>
                   </span>
-                  {nextPull ? (
-                    <span className="block truncate">
-                      #{nextPull.pr.number} · {nextPull.pr.title}
-                    </span>
-                  ) : null}
+                  <span className="block truncate">
+                    {nextPull ? `#${nextPull.pr.number} · ${nextPull.pr.title}` : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
+                  </span>
                 </TooltipContent>
               </Tooltip>
             </div>

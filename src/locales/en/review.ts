@@ -284,4 +284,7 @@ export const review = {
   back: "Back",
   backToLabel: "Back to #{number} {title}",
   pullNavigation: "Pull requests",
+  pickEmoji: "Emoji",
+  queueDone: "Nothing else waiting in {queue}",
+  theQueue: "this queue",
 } as const;

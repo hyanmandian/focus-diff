@@ -279,4 +279,7 @@ export const review: Dictionary["review"] = {
   back: "Voltar",
   backToLabel: "Voltar para #{number} {title}",
   pullNavigation: "Pull requests",
+  pickEmoji: "Emoji",
+  queueDone: "Nada mais esperando em {queue}",
+  theQueue: "esta fila",
 };

@@ -2,23 +2,27 @@
 // the Markdown that ⌘B, ⌘I, ⌘E and ⌘K wrap around a selection. Pure, so the field (review/Writer.tsx)
 // stays about the field.
 
-/** An @login or #number being typed, from its trigger to the caret. */
-export type Token = { kind: "mention" | "reference"; query: string; start: number };
+/** An @login, #number or :emoji being typed, from its trigger to the caret. */
+export type Token = { kind: "mention" | "reference" | "emoji"; query: string; start: number };
+
+const TRIGGERS = { "@": "mention", "#": "reference", ":": "emoji" } as const;
 
 /** What's being typed at the caret, when it's something to complete: "@an" or "#12". Only after a
  *  space, a line's start or an opening bracket (so an email address isn't a mention), and never in
  *  code. */
 export function tokenAt(text: string, caret: number): Token | null {
   let i = caret;
-  while (i > 0 && /[\w-]/.test(text[i - 1]!)) i--;
+  while (i > 0 && /[\w+-]/.test(text[i - 1]!)) i--;
   const trigger = text[i - 1];
-  if (trigger !== "@" && trigger !== "#") return null;
+  if (trigger !== "@" && trigger !== "#" && trigger !== ":") return null;
   const before = text[i - 2];
   if (before !== undefined && !/[\s([{]/.test(before)) return null;
   const query = text.slice(i, caret);
-  // GitHub's logins are 39 characters at most.
+  // GitHub's logins are 39 characters at most. An emoji after two letters, as GitHub offers them
+  // (so a time like 10:30 or a "Note:" isn't one).
   if (query.length > 39 || inCode(text, i - 1)) return null;
-  return { kind: trigger === "@" ? "mention" : "reference", query, start: i - 1 };
+  if (trigger === ":" ? !/^[a-z0-9_+-]{2,}$/i.test(query) : /\+/.test(query)) return null;
+  return { kind: TRIGGERS[trigger], query, start: i - 1 };
 }
 
 /** Whether a place in the text is inside `code` or a fenced block. */
@@ -32,8 +36,7 @@ function inCode(text: string, at: number) {
 
 /** The text with the token replaced by what was picked (and a space after), and where the caret goes. */
 export function complete(text: string, token: Token, caret: number, value: string): { text: string; caret: number } {
-  const trigger = token.kind === "mention" ? "@" : "#";
-  const insert = `${trigger}${value} `;
+  const insert = token.kind === "emoji" ? `:${value}: ` : `${token.kind === "mention" ? "@" : "#"}${value} `;
   // A space already there isn't doubled.
   const rest = text.slice(caret);
   const next = rest.startsWith(" ") ? insert.slice(0, -1) : insert;
@@ -105,3 +108,33 @@ export const quote = (text: string) =>
     .split("\n")
     .map((l) => `> ${l}`)
     .join("\n")}\n\n`;
+
+/** An emoji as GitHub names it, and the character it stands for. */
+export type Emoji = { name: string; char: string };
+
+/** GitHub's emoji (GET /emojis: name → picture), as characters: the picture's file is named after
+ *  the code points ("1f389.png", "1f1e7-1f1f7.png"). GitHub's own (:octocat:) have none and are
+ *  left out. */
+export function emojiList(pictures: Record<string, string>): Emoji[] {
+  const list: Emoji[] = [];
+  for (const [name, url] of Object.entries(pictures)) {
+    const code = /\/unicode\/([0-9a-f-]+)\.png/i.exec(url)?.[1];
+    if (!code) continue;
+    try {
+      list.push({ name, char: String.fromCodePoint(...code.split("-").map((h) => parseInt(h, 16))) });
+    } catch {
+      // Not a character after all.
+    }
+  }
+  return list;
+}
+
+/** The emoji whose name starts with what's typed, then those with it later in the name; the
+ *  shortest names first within each, as GitHub's list does. */
+export function rankEmoji(list: Emoji[], query: string, limit = 8): Emoji[] {
+  const q = query.toLowerCase();
+  const starts = list.filter((e) => e.name.startsWith(q));
+  const within = list.filter((e) => !e.name.startsWith(q) && e.name.includes(q));
+  const byLength = (a: Emoji, b: Emoji) => a.name.length - b.name.length || a.name.localeCompare(b.name);
+  return [...starts.sort(byLength), ...within.sort(byLength)].slice(0, limit);
+}

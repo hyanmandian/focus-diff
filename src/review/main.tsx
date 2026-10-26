@@ -1,7 +1,7 @@
 // A pull request's review window. Made ahead of time as a spare (no pull request in its address),
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { WorkerPoolContext } from "@pierre/diffs/react";
 import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
@@ -43,7 +43,8 @@ const show = (target: Target) =>
 
 const params = new URLSearchParams(location.search);
 // Told which pull request to show: as a spare, the first; then the next of its queue (switch_review).
-void listen<Target>("review-open", ({ payload }) => {
+// This window's own events only: the event module's listen hears every window's.
+void getCurrentWebviewWindow().listen<Target>("review-open", ({ payload }) => {
   // From here to "loaded" is how long a click takes to show the pull request.
   performance.mark("opened");
   // In the address too, so reloading the window keeps the pull request.

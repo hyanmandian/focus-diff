@@ -4,7 +4,7 @@
 // for a day, previews and searches for the window's life.
 
 import { github, graphql } from "./bridge";
-import type { Person } from "./writing";
+import { emojiList, type Emoji, type Person } from "./writing";
 
 /** In memory, the oldest out first past a few hundred. */
 function cache<T>(most = 300) {
@@ -38,6 +38,20 @@ function store(key: string, value: unknown) {
 }
 
 const previews = cache<Promise<string>>(100);
+
+let emojiAsked: Promise<Emoji[]> | null = null;
+/** GitHub's emoji, as characters: asked once, then kept a day (they rarely change). */
+export function emoji(): Promise<Emoji[]> {
+  const kept = stored<Emoji[]>("emoji");
+  if (kept) return Promise.resolve(kept);
+  emojiAsked ??= github<Record<string, string>>("GET", "/emojis").then((pictures) => {
+    const list = emojiList(pictures);
+    store("emoji", list);
+    return list;
+  });
+  emojiAsked.catch(() => (emojiAsked = null));
+  return emojiAsked;
+}
 
 /** The Markdown as GitHub renders it in this repository (so #12 and @ana link as they will). */
 export function preview(text: string, repo: string): Promise<string> {

@@ -103,7 +103,7 @@ export function TimelineRow({ event: e }: { event: TimelineEvent }) {
             <span>{text}</span>
           )}
           {e.kind === "commits" && e.commits.length === 1 ? <span className="truncate text-foreground">{e.commits[0]!.headline}</span> : null}
-          {e.kind === "labels" ? [...e.added, ...e.removed].map((l) => <LabelChip key={l.name} label={l} className={cn("h-4.5", e.removed.includes(l) && "line-through opacity-70")} />) : null}
+          {e.kind === "labels" ? [...e.added, ...e.removed].map((l, i) => <LabelChip key={`${i}:${l.name}`} label={l} className={cn("h-4.5", e.removed.includes(l) && "line-through opacity-70")} />) : null}
           <span aria-hidden>·</span>
           <time dateTime={e.at}>{t.since(Date.parse(e.at))}</time>
         </p>

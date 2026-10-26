@@ -26,7 +26,7 @@ import { Actions } from "./Actions";
 import { Ai } from "./Ai";
 import { Filters } from "./Filters";
 import { Group, LinkRow, Pane, Row, TONE_FILL, TWO_LINE_ITEM, useDetail } from "./Form";
-import { QueueEditor } from "./QueueEditor";
+import { QueueEditor, queueSummary } from "./QueueEditor";
 import { PANE_META, type PaneId } from "./panes";
 import { ReviewTimePane } from "./ReviewTime";
 import { confirmRemove } from "@/lib/confirm";
@@ -147,7 +147,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               ref={detail.rowRef(queue.id)}
               leading={<span className={cn("size-2.5 shrink-0 rounded-full", TONE_FILL[queue.tone], !queue.enabled && "opacity-40")} aria-hidden />}
               label={queue.name || t("settings.untitledQueue")}
-              description={t(`config.queue.${queue.kind}`)}
+              description={queueSummary(queue, t)}
               muted={!queue.enabled}
               onOpen={() => detail.open(queue.id)}
               control={<Switch size="sm" checked={queue.enabled} onCheckedChange={(enabled) => replace({ ...queue, enabled })} aria-label={t("settings.showNamedInPanel", { name: queue.name })} />}

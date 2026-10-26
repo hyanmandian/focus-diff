@@ -351,4 +351,6 @@ export const settings = {
   removeChoiceConfirm: "Remove “{name}”?",
   dropChoicesConfirm: { one: "Make it a button and remove the other choice?", other: "Make it a button and remove the other {count} choices?" },
   menuOf: "Menu: {choices}",
+  summaryRepos: { one: "{count} repository", other: "{count} repositories" },
+  summaryFiles: "Some files",
 } as const;

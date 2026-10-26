@@ -19,13 +19,13 @@ import { tabKeys } from "@/lib/keys";
 import { isMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { suggestionBlock } from "@/lib/suggestion";
-import { mentionable, preview, referable, savedReplies, type Reference, type SavedReply } from "@/lib/writer";
-import { complete, link, rankPeople, tokenAt, wrap, type Change, type Person, type Token } from "@/lib/writing";
+import { emoji, mentionable, preview, referable, savedReplies, type Reference, type SavedReply } from "@/lib/writer";
+import { complete, link, rankEmoji, rankPeople, tokenAt, wrap, type Change, type Emoji, type Person, type Token } from "@/lib/writing";
 import { SlidingPill } from "@/shared/SlidingPill";
 import { useConversationApi } from "./conversation";
 import { CommentHtml } from "./CommentHtml";
 
-type Option = { kind: "person"; person: Person } | { kind: "reference"; reference: Reference };
+type Option = { kind: "person"; person: Person } | { kind: "reference"; reference: Reference } | { kind: "emoji"; emoji: Emoji };
 
 /** Where the caret is drawn in a text field, measured on a copy of it laid out the same way. */
 function caretAt(field: HTMLTextAreaElement, index: number) {
@@ -160,7 +160,11 @@ export function MarkdownField({
     setAt(caretAt(field.current, next.start));
     const turn = ++asked.current;
     const found: Promise<Option[]> =
-      next.kind === "mention"
+      next.kind === "emoji"
+        ? emoji()
+            .catch(() => [])
+            .then((list) => rankEmoji(list, next.query).map((e) => ({ kind: "emoji", emoji: e })))
+        : next.kind === "mention"
         ? mentionable(api.repo, next.query)
             .catch(() => [])
             .then((more) => rankPeople([...api.people, ...more], next.query).map((person) => ({ kind: "person", person })))
@@ -247,7 +251,7 @@ export function MarkdownField({
   const pick = (option: Option | undefined) => {
     const el = field.current;
     if (!option || !token || !el) return;
-    const done = complete(value, token, el.selectionStart, option.kind === "person" ? option.person.login : String(option.reference.number));
+    const done = complete(value, token, el.selectionStart, option.kind === "person" ? option.person.login : option.kind === "emoji" ? option.emoji.name : String(option.reference.number));
     apply({ from: token.start, to: el.selectionStart, insert: done.text.slice(token.start, done.caret), select: [done.caret, done.caret] });
     setToken(null);
     setOptions([]);
@@ -425,7 +429,7 @@ export function MarkdownField({
               <ul
                 id={listId}
                 role="listbox"
-                aria-label={token?.kind === "mention" ? t("review.mentionSomeone") : t("review.referenceIssue")}
+                aria-label={token?.kind === "mention" ? t("review.mentionSomeone") : token?.kind === "emoji" ? t("review.pickEmoji") : t("review.referenceIssue")}
                 className="mac-menu absolute z-50 w-72 max-w-[calc(100%-8px)] p-(--menu-pad) text-popover-foreground"
                 style={{ top: at.top + at.height + 4, left: Math.min(at.left, Math.max(0, (field.current?.clientWidth ?? 288) - 288)) }}
                 // A click picks without taking the focus from the field.
@@ -433,7 +437,7 @@ export function MarkdownField({
               >
                 {options.map((o, i) => (
                   <li
-                    key={o.kind === "person" ? o.person.login : o.reference.number}
+                    key={o.kind === "person" ? o.person.login : o.kind === "emoji" ? o.emoji.name : o.reference.number}
                     id={`${listId}-${i}`}
                     role="option"
                     aria-selected={i === active}
@@ -449,6 +453,13 @@ export function MarkdownField({
                         </Avatar>
                         <span className="font-medium">{o.person.login}</span>
                         {o.person.name ? <span className="truncate text-muted-foreground">{o.person.name}</span> : null}
+                      </>
+                    ) : o.kind === "emoji" ? (
+                      <>
+                        <span aria-hidden className="w-4 shrink-0 text-center text-[15px] leading-none">
+                          {o.emoji.char}
+                        </span>
+                        <span className="truncate">:{o.emoji.name}:</span>
                       </>
                     ) : (
                       <>

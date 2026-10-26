@@ -70,6 +70,15 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
   const errorId = useId();
   const t = useT();
 
+  const copy = async (exported: string) => {
+    try {
+      await navigator.clipboard.writeText(exported);
+      setCopied(true);
+    } catch {
+      setDone(t("settings.noClipboard"));
+    }
+  };
+
   const doImport = () => {
     const imported = importFilters(text);
     if (!imported?.length) {
@@ -97,16 +106,9 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
         <Button
           variant="outline"
           disabled={filters.length === 0}
-          onClick={() =>
-            void navigator.clipboard.writeText(exportFilters(filters)).then(
-              () => {
-                setCopied(true);
-              },
-              () => {
-                setDone(t("settings.noClipboard"));
-              },
-            )
-          }
+          onClick={() => {
+            void copy(exportFilters(filters));
+          }}
           onBlur={() => {
             setCopied(false);
           }}
@@ -139,9 +141,7 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
               {error}
             </p>
           ) : done ? (
-            <p className="text-subheadline text-muted-foreground" role="status">
-              {done}
-            </p>
+            <output className="block text-subheadline text-muted-foreground">{done}</output>
           ) : null}
         </div>
       </Row>
@@ -159,12 +159,16 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
   };
   const move = (index: number, by: number) => {
     const next = [...filters];
+    // The buttons only move what's there: the first can't go up, the last can't go down.
     const [f] = next.splice(index, 1);
-    if (!f) return;
-    next.splice(index + by, 0, f);
+    next.splice(index + by, 0, f!);
     set(next);
   };
   const t = useT();
+  const remove = async (f: DiffFilter) => {
+    if (await confirmRemove(t("settings.removeFilterConfirm", { name: f.name })))
+      set(filters.filter((x) => x.id !== f.id));
+  };
   const add = (list: Array<Omit<DiffFilter, "id" | "repos">>) => {
     set([...filters, ...list.map((f) => ({ ...f, id: newId(), repos: [] }))].slice(0, 12));
   };
@@ -211,10 +215,9 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
                 variant="ghost"
                 size="icon-xs"
                 aria-label={t("settings.removeNamed", { name: f.name })}
-                onClick={async () =>
-                  (await confirmRemove(t("settings.removeFilterConfirm", { name: f.name }))) &&
-                  set(filters.filter((x) => x.id !== f.id))
-                }
+                onClick={() => {
+                  void remove(f);
+                }}
               >
                 <Trash2 />
               </Button>

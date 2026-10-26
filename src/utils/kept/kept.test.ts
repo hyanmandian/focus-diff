@@ -158,3 +158,16 @@ describe("reading a kept review", () => {
     expect(await readKept("PR_1")).toBeNull();
   });
 });
+
+describe("when storage can't be read", () => {
+  it("knows no copy is current, rather than failing whoever asked", () => {
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage off");
+    });
+    try {
+      expect(keptCurrent("PR_1", "2026-01-01T00:00:00Z")).toBe(false);
+    } finally {
+      getItem.mockRestore();
+    }
+  });
+});

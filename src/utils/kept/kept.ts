@@ -33,7 +33,14 @@ function parse<T>(text: string | null | undefined, fallback: T): T {
   }
 }
 
-const read = <T>(key: string, fallback: T) => parse(localStorage.getItem(key), fallback);
+/** What's stored under `key`; `fallback` when it can't be read (storage off or full). */
+function read<T>(key: string, fallback: T): T {
+  try {
+    return parse(localStorage.getItem(key), fallback);
+  } catch {
+    return fallback;
+  }
+}
 
 /** Whether the copy kept is of this version of the pull request. */
 export const keptCurrent = (id: string, updatedAt: string) =>

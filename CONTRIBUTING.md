@@ -6,10 +6,24 @@ By taking part, you agree to the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Development
 
+This repository holds everything Focus Diff is, as npm workspaces:
+
+```text
+apps/
+  extension/   the browser extension: WXT and TypeScript, no runtime dependencies
+  desktop/     the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
+  site/        focus-diff.com, a static page
+packages/      code the apps share
+```
+
+`npm install` at the root installs everything. Run an app's commands from its folder (or with `--workspace`), and
+`npm run check`, `npm test`, `npm run build` or `npm run e2e` at the root to run them in every app.
+
+### The extension (`apps/extension`)
+
 Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runtime dependencies.
 
 ```sh
-npm install         # also generates WXT's types
 npm run dev         # Chrome with the extension loaded and hot reload (dev:firefox for Firefox)
 npm run check       # types, Oxlint, Oxfmt, jscpd (no copy-paste), no runtime dependencies, the lockfile, Knip (unused code)
 npm test            # unit tests with Vitest (test:coverage adds coverage, with a floor it can't drop below)
@@ -34,6 +48,21 @@ src/
 tests/              Playwright end-to-end tests, on a local copy of a pull request page
 ```
 
+### The Mac app (`apps/desktop`)
+
+```sh
+npm run tauri dev   # the app, with the menu bar icon, hot reload for the pages and Rust rebuilt on change
+npx vp dev          # the pages alone in a browser, on sample data (no Rust, no GitHub)
+npx vp check        # Oxfmt, Oxlint (strict, type-aware) and types
+npx vp test --coverage   # unit tests, at 100% coverage
+npm run e2e         # Playwright on the pages, in Chromium and WebKit
+npm run tauri build # a signed .app in src-tauri/target/release/bundle (needs the updater key, see Releasing)
+```
+
+Its code follows one layout: `src/components/<name>/<name>.tsx`, `src/hooks/<name>/<name>.ts` and
+`src/utils/<name>/<name>.ts`, each with its `<name>.test.tsx` beside it, kebab-case, imported directly (no index
+files); `tests/` is only for end-to-end tests; `src-tauri/` is the Rust side.
+
 The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`content/review.ts`) as on a review site. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
 
 Unit tests (Vitest with WXT's fake browser) sit next to the file they cover, as `<name>.test.ts`. A module gets a folder named after it only when it has more than one file, like its test or its CSS (`utils/format/format.ts` and `format.test.ts`); a module of one file stays flat. Import the file itself, never an index.
@@ -54,6 +83,8 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 ## Releasing
 
 Pull requests are merged with all their commits, so every commit message follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. A maintainer then uploads the zips to the Chrome Web Store and Firefox Add-ons by hand.
+
+The Mac app has its own release pull request (tagged `desktop-v…`). Merging it builds the app on macOS (one universal build for Apple Silicon and Intel), attaches `Focus-Diff.dmg` and the updater's archive, publishes the release without making it the latest (the site's download links follow the extension's), and puts `latest.json`, where installed apps look for updates, on the `desktop-latest` release. The updater's key goes in the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ## Supply chain
 

@@ -33,3 +33,18 @@ updates:
         patterns: ['*']
     commit-message:
       prefix: chore(deps)
+  - package-ecosystem: cargo
+    directory: /apps/desktop/src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Sao_Paulo
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    groups:
+      rust:
+        patterns: ['*']
+    commit-message:
+      prefix: chore(deps)

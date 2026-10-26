@@ -1,3 +1,4 @@
 {
-  ".": "1.2.0"
+  "apps/extension": "1.2.0",
+  "apps/desktop": "0.1.0"
 }

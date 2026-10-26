@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="store/logo/focus-diff-1024.png" width="112" alt="">
+  <img src="apps/extension/store/logo/focus-diff-1024.png" width="112" alt="">
   <h1>Focus Diff</h1>
   <p><strong>Review what matters.</strong><br>Filter GitHub pull request diffs down to the files you need to review.</p>
   <p>
@@ -18,7 +18,7 @@
   </p>
 </div>
 
-<img src="store/screenshots/readme.png" alt="A GitHub pull request with 83 changed files, narrowed by the Focus Diff bar to its 56 frontend files: Files changed shows 56/83, and the bar shows 56 files to review, +2,010 and −545 lines, and about 2 hours 20 minutes of review">
+<img src="apps/extension/store/screenshots/readme.png" alt="A GitHub pull request with 83 changed files, narrowed by the Focus Diff bar to its 56 frontend files: Files changed shows 56/83, and the bar shows 56 files to review, +2,010 and −545 lines, and about 2 hours 20 minutes of review">
 
 ## Why
 
@@ -78,7 +78,11 @@ Every [release](https://github.com/hyanmandian/focus-diff/releases/latest) also 
 - **Safari (Mac with Xcode):** unzip `focus-diff-safari.zip`, run `xcrun safari-web-extension-converter focus-diff-safari --app-name "Focus Diff" --macos-only` and click **Run** in Xcode. In Safari, turn on **Settings › Advanced › Show features for web developers**, then **Develop › Allow Unsigned Extensions**, and enable Focus Diff in **Settings › Extensions**.
 - **Chromium, without the store:** unzip `focus-diff-chromium.zip`, open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder. It won't update itself.
 
-To build from source instead, run `npm install` and `npm run build` (or `build:firefox`, `build:safari`); the builds land in `.output/`.
+To build from source instead, run `npm install`, then `npm run build` (or `build:firefox`, `build:safari`) in `apps/extension`; the builds land in `apps/extension/.output/`.
+
+## Focus Diff for Mac
+
+The desktop app lives in the menu bar: your review queues at a glance, and every pull request opens in its own window to review it whole (overview, diff, conversations, checks, merging), without github.com. Download `Focus-Diff.dmg` from the newest [`desktop-v` release](https://github.com/hyanmandian/focus-diff/releases), drag it to Applications and open it. It isn't signed with an Apple Developer ID yet, so the first time macOS asks you to confirm: right-click it and choose **Open** (or **System Settings › Privacy & Security › Open Anyway**). After that it updates itself.
 
 ## Contributing
 

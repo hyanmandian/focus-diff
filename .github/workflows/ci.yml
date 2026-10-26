@@ -13,10 +13,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Check, test and build
+  extension:
+    name: Extension — check, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/extension
 
     steps:
       - name: Checkout code
@@ -49,11 +52,73 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: extension
-          path: .output/*.zip
+          path: apps/extension/.output/*.zip
 
       - name: Upload the Playwright traces
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-traces
-          path: test-results/
+          path: apps/extension/test-results/
+
+  desktop:
+    name: Desktop — check, test and end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Format, lint and typecheck
+        run: npx vp check
+
+      - name: Unit tests, at full coverage
+        run: npx vp test --coverage
+
+      - name: Install the browsers for the end-to-end tests
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Upload the Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: desktop-playwright-traces
+          path: apps/desktop/test-results/
+
+  desktop-rust:
+    name: Desktop — Rust lint and tests
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The app's pages are built into the binary, so the front end has to be there first.
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build the pages
+        working-directory: apps/desktop
+        run: npx vp build
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --locked

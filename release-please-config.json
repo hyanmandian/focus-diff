@@ -3,24 +3,85 @@
   "draft": true,
   "force-tag-creation": true,
   "changelog-sections": [
-    { "type": "feat", "section": "Features" },
-    { "type": "fix", "section": "Bug Fixes" },
-    { "type": "perf", "section": "Performance" },
-    { "type": "revert", "section": "Reverts" },
-    { "type": "docs", "section": "Documentation", "hidden": true },
-    { "type": "chore", "section": "Miscellaneous", "hidden": true },
-    { "type": "refactor", "section": "Refactoring", "hidden": true },
-    { "type": "test", "section": "Tests", "hidden": true },
-    { "type": "build", "section": "Build System", "hidden": true },
-    { "type": "ci", "section": "CI", "hidden": true },
-    { "type": "style", "section": "Style", "hidden": true }
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes"
+    },
+    {
+      "type": "perf",
+      "section": "Performance"
+    },
+    {
+      "type": "revert",
+      "section": "Reverts"
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": true
+    },
+    {
+      "type": "chore",
+      "section": "Miscellaneous",
+      "hidden": true
+    },
+    {
+      "type": "refactor",
+      "section": "Refactoring",
+      "hidden": true
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": true
+    },
+    {
+      "type": "build",
+      "section": "Build System",
+      "hidden": true
+    },
+    {
+      "type": "ci",
+      "section": "CI",
+      "hidden": true
+    },
+    {
+      "type": "style",
+      "section": "Style",
+      "hidden": true
+    }
   ],
   "packages": {
-    ".": {
+    "apps/extension": {
       "release-type": "node",
       "package-name": "focus-diff",
+      "component": "extension",
       "include-component-in-tag": false,
-      "exclude-paths": ["site", "store"]
+      "exclude-paths": [
+        "store"
+      ]
+    },
+    "apps/desktop": {
+      "release-type": "node",
+      "package-name": "focus-diff-desktop",
+      "component": "desktop",
+      "include-component-in-tag": true,
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "src-tauri/tauri.conf.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "toml",
+          "path": "src-tauri/Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
     }
   }
 }

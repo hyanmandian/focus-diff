@@ -18,7 +18,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "app",
+      "dmg"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -30,14 +33,15 @@
     "shortDescription": "Your pull request reviews, from the menu bar.",
     "createUpdaterArtifacts": true,
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
     }
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEREMDM5OEQzMUQ2REFCQUYKUldTdnEyMGQwNWdEM1lzVzhQdUdUUW5yVkNDNUUyRlpGTEJhMXRmVllmRVp6V2NWa3A4eFV0cVEK",
       "endpoints": [
-        "https://github.com/hyanmandian/focus-diff/releases/latest/download/latest.json"
+        "https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/latest.json"
       ]
     }
   }

@@ -244,8 +244,8 @@ export const startController = async (
       .filter((option) => hasFiles(option.matches))
       .map((option) => option.id);
     const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
-    const next = ids[(index + offset + ids.length) % ids.length];
-    if (next) select(next);
+    // All is always among them, so there's always a next one.
+    select(ids[(index + offset + ids.length) % ids.length]!);
   };
 
   const openSettings = () => {
@@ -273,7 +273,8 @@ export const startController = async (
     const repo = provider.repository();
     if (!repo) return;
     const left = shown.filter((file) => !file.viewed);
-    if (left.length === 0) {
+    const [first] = left;
+    if (!first) {
       const ids = selectedIds(repo);
       const then = ids.length > 0 ? nextFilterWithWork(files.list, filters(repo), ids) : undefined;
       if (then) choose([then.id]);
@@ -285,8 +286,7 @@ export const startController = async (
     // The file at the top counts when it hasn't been brought all the way up yet.
     const currentIsNext =
       current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
-    const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? left[0]);
-    if (!target) return;
+    const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? first);
     void goToFile(provider, target);
     panel.announceText(i18n.t("panelJumpedToFile", left.length, [target.path, format(left.length)]));
   };

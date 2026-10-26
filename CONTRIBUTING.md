@@ -26,7 +26,7 @@ Focus Diff is built with [WXT](https://wxt.dev) and TypeScript, and has no runti
 ```sh
 npm run dev         # Chrome with the extension loaded and hot reload (dev:firefox for Firefox)
 npm run check       # types, Oxlint, Oxfmt, jscpd (no copy-paste), no runtime dependencies, the lockfile, Knip (unused code)
-npm test            # unit tests with Vitest (test:coverage adds coverage, with a floor it can't drop below)
+npm test            # unit tests with Vitest (test:coverage adds coverage, which must be 100%)
 npm run e2e         # builds, then runs Playwright against the real extension, with axe accessibility checks
 npm run fmt         # format everything
 npm run zip         # store zips in .output/ (zip:firefox also packs the sources for review)

@@ -737,10 +737,11 @@ impl<R: Runtime> Worker<R> {
     fn start_run(&self, state: &mut State, session: &Session, now: i64) {
         let Some(config) = state.config.clone() else { return };
         let mut ids = HashSet::new();
+        let pace = review::pace_factor(&read(config_dir(&self.app).map(|d| d.join("pace.json"))).unwrap_or_default());
         let candidates: Vec<Candidate> = Self::session_items(state, Some(session))
             .into_iter()
             .filter(|i| (session.drafts || !i.pr.is_draft) && ids.insert(i.pr.id.as_str()))
-            .map(|i| Candidate::new(&i.pr, i.events.iter().any(|e| e.kind == "rerequest")))
+            .map(|i| Candidate::new(&i.pr, i.events.iter().any(|e| e.kind == "rerequest"), pace))
             .collect();
         let plan = review::plan(candidates, session.minutes, session.order, config.review_time.again_first);
         let waited = take_held(state, Until::Review);

@@ -86,14 +86,25 @@ pub fn due<'a>(settings: &'a ReviewTime, last: i64, now: i64, offset: &dyn Fn(i6
 
 /// Our assumption, not measured, the same as Focus Diff's own: a working review pace.
 pub const LINES_PER_HOUR: f64 = 1000.0;
-/// Reading the description and writing the review, on top of the lines.
-const PER_PULL_MINUTES: f64 = 2.0;
+/// Removed code is read, not studied.
+const REMOVED_LINE_WEIGHT: f64 = 0.2;
+/// Opening a file and getting oriented in it.
+const MINUTES_PER_FILE: f64 = 0.25;
+/// How sure the starting pace is before anything's learned, in minutes of review.
+const PRIOR_MINUTES: f64 = 20.0;
 
-/// Minutes to review a pull request, from its changed lines. The one place an estimate is made,
-/// so a better one (a pace learned from the person's own reviews) can take its place.
-pub fn estimate_minutes(pr: &PullRequest) -> f64 {
-    let lines = (pr.additions + pr.deletions).max(0) as f64;
-    PER_PULL_MINUTES + lines / LINES_PER_HOUR * 60.0
+/// How many times the starting pace the reader takes, from pace.json, which the review window
+/// learns from the files they mark as viewed (src/lib/estimate.ts paceFactors); 1 until then.
+pub fn pace_factor(learned: &serde_json::Value) -> f64 {
+    let tally = |key: &str| learned["all"][key].as_f64().filter(|n| n.is_finite() && *n >= 0.0).unwrap_or(0.0);
+    (tally("actual") + PRIOR_MINUTES) / (tally("expected") + PRIOR_MINUTES)
+}
+
+/// Minutes to review a pull request from its totals, the same sum as the panel's estimate
+/// (src/lib/estimate.ts pullMinutes), so the two agree.
+pub fn estimate_minutes(pr: &PullRequest, pace: f64) -> f64 {
+    let lines = pr.additions.max(0) as f64 + pr.deletions.max(0) as f64 * REMOVED_LINE_WEIGHT;
+    (pr.changed_files.max(0) as f64 * MINUTES_PER_FILE + lines / LINES_PER_HOUR * 60.0) * pace
 }
 
 // MARK: What fits
@@ -123,8 +134,8 @@ pub struct Candidate {
 }
 
 impl Candidate {
-    pub fn new(pr: &PullRequest, again: bool) -> Candidate {
-        let minutes = estimate_minutes(pr);
+    pub fn new(pr: &PullRequest, again: bool, pace: f64) -> Candidate {
+        let minutes = estimate_minutes(pr, pace);
         let pull = RunPull {
             id: pr.id.clone(),
             title: pr.title.clone(),
@@ -359,8 +370,11 @@ mod tests {
 
     #[test]
     fn estimates_from_changed_lines() {
-        let pr: PullRequest = serde_json::from_value(json!({ "additions": 400, "deletions": 100 })).unwrap();
-        assert_eq!(estimate_minutes(&pr), 32.0, "500 lines at 1,000 an hour, plus 2 minutes");
+        let pr: PullRequest = serde_json::from_value(json!({ "additions": 480, "deletions": 100, "changedFiles": 4 })).unwrap();
+        assert_eq!(estimate_minutes(&pr, 1.0), 31.0, "500 weighted lines at 1,000 an hour, plus a minute for 4 files");
+        assert_eq!(estimate_minutes(&pr, 2.0), 62.0);
+        assert_eq!(pace_factor(&json!(null)), 1.0);
+        assert_eq!(pace_factor(&json!({ "all": { "actual": 60, "expected": 20 } })), 2.0);
     }
 
     #[test]

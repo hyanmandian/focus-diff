@@ -77,7 +77,9 @@ void getCurrentWebviewWindow().listen<Target>("review-open", ({ payload }) => {
   }
   document.documentElement.dataset.direction = direction;
   const moving = document.startViewTransition(() => {
-    flushSync(() =>{  show(payload); });
+    flushSync(() => {
+      show(payload);
+    });
   });
   void moving.finished.finally(() => delete document.documentElement.dataset.direction);
 });

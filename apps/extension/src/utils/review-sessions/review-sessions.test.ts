@@ -9,17 +9,23 @@ import {
   candidates,
   DEFAULT_REVIEW_TIME,
   estimate,
+  isScheduled,
   newSession,
   nextOccurrence,
   normalizeReviewTime,
   plan,
+  presetSession,
   pullMinutes,
+  REVIEW_PRESETS,
+  runEndsAt,
+  runPulls,
   sessionFilterIds,
   sessionMatchers,
   sessionsAt,
   startsOf,
   type Planned,
   type PullFile,
+  type ReviewRun,
   type ReviewSession,
 } from "./review-sessions";
 
@@ -65,6 +71,38 @@ describe("normalizeReviewTime", () => {
     expect(value.sound).toEqual({ id: "bowl", volume: 70 });
   });
 
+  it("starts afresh from what isn't settings at all", () => {
+    expect(normalizeReviewTime(null)).toEqual(DEFAULT_REVIEW_TIME);
+    const value = normalizeReviewTime({ sessions: [{ id: "", name: 7, days: "weekdays", times: null, filters: "x" }] });
+    expect(value.sessions[0]).toMatchObject({ name: "", days: [1, 2, 3, 4, 5], times: ["15:00"], filters: [] });
+    expect(value.sessions[0]?.id).not.toBe("");
+  });
+
+  it("keeps a name trimmed and short, valid times, and each filter once", () => {
+    const value = normalizeReviewTime({
+      sessions: [
+        {
+          name: `  ${"x".repeat(70)}  `,
+          from: "8:00",
+          to: "17:30",
+          minutes: "soon",
+          filters: ["a", 1, "a", "b"],
+          on: false,
+          drafts: true,
+        },
+      ],
+    });
+    expect(value.sessions[0]).toMatchObject({
+      name: "x".repeat(60),
+      from: "09:00",
+      to: "17:30",
+      minutes: 30,
+      filters: ["a", "b"],
+      on: false,
+      drafts: true,
+    });
+  });
+
   it("keeps two sessions apart even when another device gave them the same id", () => {
     const value = normalizeReviewTime({ sessions: [{ id: "a" }, { id: "a" }] });
     expect(new Set(value.sessions.map((each) => each.id)).size).toBe(2);
@@ -84,6 +122,27 @@ describe("schedule", () => {
     expect(nextOccurrence(weekdays, at(9, 15))?.at).toBe(at(12, 15));
     expect(nextOccurrence({ ...weekdays, enabled: false }, at(9, 10))).toBeNull();
     expect(nextOccurrence(settings({ on: false }), at(9, 10))).toBeNull();
+  });
+
+  it("picks the earliest of two sessions on the same day", () => {
+    const value = {
+      ...DEFAULT_REVIEW_TIME,
+      enabled: true,
+      sessions: [session({ id: "late", times: ["16:00"] }), session({ id: "early", times: ["11:00"] })],
+    };
+    expect(nextOccurrence(value, at(9, 10))?.session.id).toBe("early");
+  });
+
+  it("finds none in a week with no days on", () => {
+    expect(nextOccurrence(settings({ days: [] }), at(9, 10))).toBeNull();
+  });
+
+  it("is scheduled only when on, with a session on that has days and times", () => {
+    expect(isScheduled(settings())).toBe(true);
+    expect(isScheduled({ ...settings(), enabled: false })).toBe(false);
+    expect(isScheduled(settings({ on: false }))).toBe(false);
+    expect(isScheduled(settings({ days: [] }))).toBe(false);
+    expect(isScheduled(settings({ times: [] }))).toBe(false);
   });
 
   it("knows which sessions are due at a minute", () => {
@@ -121,6 +180,12 @@ describe("estimate", () => {
       minutes: 0,
       files: 0,
     });
+  });
+
+  it("counts every file without filters, and leaves out a filter that doesn't compile", () => {
+    expect(sessionMatchers(config, "octo/web", [])).toBeNull();
+    const broken: Config = { global: [{ id: "bad", name: "Bad", include: "(", exclude: "" }], repos: [] };
+    expect(sessionMatchers(broken, "octo/web", ["bad"])).toBeNull();
   });
 
   it("reviews a repository whole when none of the filters are for it", () => {
@@ -213,9 +278,59 @@ describe("plan", () => {
     ).toEqual([2]);
   });
 
+  it("orders by when a pull request was updated when it has no creation date, and equal sizes by age", () => {
+    const undated = (number: number, minutes: number, updatedAt: string) =>
+      planned(number, minutes, { createdAt: "", updatedAt });
+    const dated = [undated(1, 5, "2026-10-05T00:00:00Z"), undated(2, 5, "2026-10-02T00:00:00Z")];
+    expect(plan(dated, 30, "oldest").picked.map((item) => item.pull.number)).toEqual([2, 1]);
+    expect(plan(dated, 30, "quickest").picked.map((item) => item.pull.number)).toEqual([2, 1]);
+  });
+
+  it("fills the time with more pull requests when the minutes come to the same", () => {
+    const sizes = [planned(1, 10), planned(2, 5), planned(3, 5), planned(4, 10)];
+    expect(plan(sizes, 10, "fill").picked.map((item) => item.pull.number)).toEqual([2, 3]);
+  });
+
   it("fills with the smallest when even that one doesn’t fit", () => {
     const result = plan([planned(1, 50), planned(2, 40)], 30, "fill");
     expect(result.picked.map((item) => item.pull.number)).toEqual([2]);
     expect(result.overBy).toBe(10);
+  });
+});
+
+describe("runs", () => {
+  it("lists what was picked as the popup shows it, at least a minute each", () => {
+    const pulls = runPulls([
+      planned(1, 0.2),
+      { pull: pull(2, { again: true }), estimate: { minutes: 12, files: 0, guessed: true } },
+    ]);
+    expect(pulls).toEqual([
+      expect.objectContaining({ number: 1, minutes: 1, files: 1 }),
+      expect.objectContaining({ number: 2, minutes: 12, files: null, again: true }),
+    ]);
+    expect(pulls[0]).not.toHaveProperty("again");
+  });
+
+  it("ends its minutes after it started, or after it was offered when it never did", () => {
+    const run: ReviewRun = {
+      session: "s1",
+      name: "",
+      minutes: 30,
+      offeredAt: 1000,
+      startedAt: null,
+      pulls: [],
+      left: 0,
+      overBy: 0,
+      filters: [],
+    };
+    expect(runEndsAt(run)).toBe(1000 + 30 * 60_000);
+    expect(runEndsAt({ ...run, startedAt: 5000 })).toBe(5000 + 30 * 60_000);
+  });
+});
+
+describe("presetSession", () => {
+  it("makes a session of the reader's own, named, whose id says which preset", () => {
+    const value = presetSession(REVIEW_PRESETS[1]!, "Afternoons");
+    expect(value).toMatchObject({ id: "preset-every", name: "Afternoons", repeat: "every", minutes: 15 });
   });
 });

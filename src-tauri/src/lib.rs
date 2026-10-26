@@ -465,7 +465,7 @@ struct ReviewTarget {
 /// A pull request in its own window, one per pull request; opening one that's already open brings
 /// it back.
 #[tauri::command]
-fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>) -> Result<(), String> {
+fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, from: Option<Card>) -> Result<(), String> {
     let name = |s: &String| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
     if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') || !name(&repo) || !teams.iter().all(name) {
         return Err("Bad pull request".into());
@@ -505,7 +505,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         }
     };
     reviews.open.lock().unwrap().insert(id, window.label().to_string());
-    window.show().map_err(|e| e.to_string())?;
+    show_growing(&app, &window, from).map_err(|e| e.to_string())?;
     update_presence(&app);
     // The next one ready too, while the panel's in use.
     if app.get_webview_window(PANEL).is_some() {
@@ -515,6 +515,65 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     window.set_focus().map_err(|e| e.to_string())
 }
 
+
+/// The card a review was opened from, in the panel's points from its top left.
+#[derive(Clone, Copy, serde::Deserialize)]
+struct Card {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+/// Shows a review window growing out of the card that was clicked to its full size, the way a Mac
+/// window zooms from where it came from; with Reduce Motion it only fades in. Main thread.
+fn show_growing<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>, from: Option<Card>) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    if let (Some(card), Some(panel)) = (from, app.get_webview_window(PANEL)) {
+        use objc2_foundation::{NSPoint, NSRect, NSSize};
+        let mut start = None;
+        with_ns_window(&panel, |p| {
+            // AppKit counts from the bottom left.
+            let f = p.frame();
+            start = Some(NSRect::new(NSPoint::new(f.origin.x + card.x, f.origin.y + f.size.height - card.y - card.height), NSSize::new(card.width, card.height)));
+        });
+        let mut target = None;
+        if let Some(start) = start {
+            with_ns_window(window, |w| {
+                target = Some(w.frame());
+                w.setAlphaValue(0.0);
+                w.setFrame_display(start, false);
+            });
+        }
+        if let Some(target) = target {
+            window.show()?;
+            with_ns_window(window, |w| grow(w, target));
+            return Ok(());
+        }
+    }
+    window.show()
+}
+
+#[cfg(target_os = "macos")]
+fn grow(window: &objc2_app_kit::NSWindow, to: objc2_foundation::NSRect) {
+    use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext, NSWorkspace};
+    use objc2_quartz_core::CAMediaTimingFunction;
+    let still = NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion();
+    if still {
+        window.setFrame_display(to, true);
+    }
+    NSAnimationContext::beginGrouping();
+    let context = NSAnimationContext::currentContext();
+    context.setDuration(if still { 0.15 } else { 0.32 });
+    // Quick out of the card, settling gently: the curve the app's own transitions use.
+    context.setTimingFunction(Some(&CAMediaTimingFunction::functionWithControlPoints(0.16, 1.0, 0.3, 1.0)));
+    let animator = window.animator();
+    if !still {
+        animator.setFrame_display(to, true);
+    }
+    animator.setAlphaValue(1.0);
+    NSAnimationContext::endGrouping();
+}
 
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<String>, String> {

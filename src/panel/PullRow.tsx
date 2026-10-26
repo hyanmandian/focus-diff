@@ -53,7 +53,8 @@ type Props = {
   queue: Queue;
   unread: boolean;
   arriving: boolean;
-  onOpen: (item: Item) => void;
+  /** `from`: the row, for the review window to grow out of. */
+  onOpen: (item: Item, from?: DOMRect) => void;
   onDismiss: (item: Item) => void;
   onArrived: (prId: string) => void;
 };
@@ -104,7 +105,7 @@ export const PullRow = memo(function PullRow({ item, queue, unread, arriving, on
       <button
         type="button"
         data-row
-        onClick={() => onOpen(item)}
+        onClick={(e) => onOpen(item, e.currentTarget.getBoundingClientRect())}
         onPointerEnter={() => (intent.current = setTimeout(ahead, 120))}
         onPointerLeave={() => clearTimeout(intent.current)}
         onFocus={ahead}

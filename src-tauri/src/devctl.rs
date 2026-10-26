@@ -82,7 +82,7 @@ fn run(app: &AppHandle, command: &str) {
         (Some("open"), Some("review"), Some(rest)) => {
             let parts: Vec<&str> = rest.split(' ').collect();
             match parts.as_slice() {
-                [id, repo, number] => crate::open_review(app.clone(), id.to_string(), repo.to_string(), number.parse().unwrap_or(0), format!("#{number}"), vec![]),
+                [id, repo, number] => crate::open_review(app.clone(), id.to_string(), repo.to_string(), number.parse().unwrap_or(0), format!("#{number}"), vec![], None),
                 _ => Err("open review <id> <owner/name> <number>".into()),
             }
         }

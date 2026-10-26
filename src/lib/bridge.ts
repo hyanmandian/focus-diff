@@ -97,8 +97,10 @@ export const bridge = {
   openPanel: () => invoke<void>("open_panel"),
   /** A pull request's review window: its overview, conversation and diff. `teams`: the ones its
    *  review was asked of on your behalf, for leaving the review. */
-  openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }, teams: string[] = []) =>
+  /** `from`: the card clicked, so the window grows out of it. */
+  openReview: (pr: { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null }, teams: string[] = [], from?: DOMRect) =>
     invoke<void>("open_review", {
+      from: from && { x: from.x, y: from.y, width: from.width, height: from.height },
       id: pr.id,
       repo: pr.repository.nameWithOwner,
       number: pr.number,

@@ -130,9 +130,9 @@ export function Panel() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const open = useCallback((item: Item) => {
+  const open = useCallback((item: Item, from?: DOMRect) => {
     markSeen(item);
-    void bridge.openReview(item.pr, item.viaTeams ?? []);
+    void bridge.openReview(item.pr, item.viaTeams ?? [], from);
   }, []);
 
   const list = queue ? (items[queue.id] ?? []) : [];

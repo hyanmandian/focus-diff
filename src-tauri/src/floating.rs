@@ -41,15 +41,24 @@ static ORIGINAL: Mutex<Option<&'static AnyClass>> = Mutex::new(None);
 /// # Safety
 /// `window` is a live NSWindow made by Tauri; call on the main thread.
 pub unsafe fn make(window: &NSWindow) {
-    if NSPanel::class().instance_size() != NSWindow::class().instance_size() {
-        return;
-    }
     let object: &AnyObject = window;
-    if object.class() == Floating::class() {
+    let original = object.class();
+    if original == Floating::class() {
         return;
     }
-    // SAFETY: same layout (checked above), and Floating only adds methods.
-    let original = unsafe { AnyObject::set_class(object, Floating::class()) };
+    // Tauri's window is tao's NSWindow subclass, which keeps its own state after NSWindow's. NSPanel
+    // and Floating add nothing to NSWindow's, so as a Floating everything AppKit reads is where it
+    // was, and tao's state stays in place untouched (tao reads it by offset; its overrides are
+    // the key/main ones Floating gives, and a drag-by-background the panel doesn't use).
+    if NSPanel::class().instance_size() != NSWindow::class().instance_size()
+        || Floating::class().instance_size() != NSWindow::class().instance_size()
+        || original.instance_size() < NSWindow::class().instance_size()
+    {
+        return;
+    }
+    // SAFETY: as above. objc2's set_class insists on equal sizes, which tao's extra state rules
+    // out, so the runtime's own call.
+    unsafe { objc2::ffi::object_setClass(object as *const AnyObject as *mut AnyObject, Floating::class()) };
     *ORIGINAL.lock().unwrap() = Some(original);
     window.setStyleMask(window.styleMask() | NSWindowStyleMask::NonactivatingPanel);
     // SAFETY: it's an NSPanel now.
@@ -75,7 +84,7 @@ pub unsafe fn unmake(window: &NSWindow) {
         return;
     }
     if let Some(original) = ORIGINAL.lock().unwrap().take() {
-        // SAFETY: the class it had before `make`, same layout.
-        unsafe { AnyObject::set_class(object, original) };
+        // SAFETY: the class it had before `make`, so tao's own dealloc frees its state.
+        unsafe { objc2::ffi::object_setClass(object as *const AnyObject as *mut AnyObject, original) };
     }
 }

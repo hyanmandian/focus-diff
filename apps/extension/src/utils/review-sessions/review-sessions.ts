@@ -1,8 +1,12 @@
-import { filtersFor, newId, repoMatches, toMatcher, type Config, type Matcher } from "@/utils/filters/filters";
+import type { Estimator } from "@focus-diff/core/estimate";
+import { toMatcher, type Matcher } from "@focus-diff/core/filters";
+import { repoMatches } from "@focus-diff/core/repos";
+
+import { filtersFor, newId, type Config } from "@/utils/filters/filters";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
 import { repoList } from "@/utils/inbox/inbox";
 import { asRecord, keysOf, oneOf } from "@/utils/record/record";
-import { PACES, type Estimator, type Pace } from "@/utils/review-time/review-time";
+import { PACES, type Pace } from "@/utils/review-time/review-time";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
 /**

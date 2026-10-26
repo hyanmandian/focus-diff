@@ -13,8 +13,13 @@ apps/
   extension/   the browser extension: WXT and TypeScript, no runtime dependencies
   desktop/     the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
   site/        focus-diff.com, a static page
-packages/      code the apps share
+packages/
+  core/          logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
+  design-system/ what makes them look like one product: the brand mark
 ```
+
+The apps import a package's files directly, as its `exports` name them (`@focus-diff/core/filters`), and bundle
+them; `npm run check` in `packages/core` is Oxfmt, Oxlint (as strict as the apps'), types and Vitest at 100%.
 
 `npm install` at the root installs everything. Run an app's commands from its folder (or with `--workspace`), and
 `npm run check`, `npm test`, `npm run build` or `npm run e2e` at the root to run them in every app.

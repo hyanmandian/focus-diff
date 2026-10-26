@@ -2,6 +2,7 @@
 // in the review window, for every repository or only some. Like Focus Diff's, with its recipes as
 // starting points, and shared with it (and teammates) as the same text.
 
+import { isValidPattern } from "@focus-diff/core/filters";
 import { ArrowDown, ArrowUp, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -17,7 +18,7 @@ import { Input } from "@/components/input/input";
 import { Group, Intro, Pane, Row, TWO_LINE_ITEM } from "@/components/settings-form/settings-form";
 import { TagInput } from "@/components/tag-input/tag-input";
 import { Textarea } from "@/components/textarea/textarea";
-import { filterRecipes, isRepoPattern, newId, validPattern, type Config, type DiffFilter } from "@/utils/config/config";
+import { filterRecipes, isRepoPattern, newId, type Config, type DiffFilter } from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { addImported, exportFilters, importFilters } from "@/utils/filters/filters";
 import { i18n, useT } from "@/utils/i18n/i18n";
@@ -36,7 +37,7 @@ function Pattern({
   onChange: (v: string) => void;
   placeholder: string;
 }) {
-  const valid = validPattern(value);
+  const valid = isValidPattern(value);
   const id = useId();
   const t = useT();
   return (

@@ -1,85 +1,44 @@
-interface RecipeFilter {
+import type { PathPatterns } from "@focus-diff/core/filters";
+import { PATH_FILTERS, RECIPES as RECIPE_FILTERS, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
+
+interface RecipeFilter extends PathPatterns {
   name: string;
-  include: string;
-  exclude: string;
 }
 
 export interface Recipe {
-  id: string;
+  id: RecipeId;
   title: string;
   description: string;
   filters: RecipeFilter[];
 }
 
-export const RECIPES: Recipe[] = [
-  {
-    id: "stack",
-    title: "recipeStackTitle",
-    description: "recipeStackDescription",
-    filters: [
-      {
-        name: "recipeStackFrontend",
-        include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$",
-        exclude: "\\.(test|spec|stories)\\.",
-      },
-      {
-        name: "recipeStackBackend",
-        include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$",
-        exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\.",
-      },
-    ],
-  },
-  {
-    id: "area",
-    title: "recipeAreaTitle",
-    description: "recipeAreaDescription",
-    filters: [{ name: "recipeAreaName", include: "^(apps|packages|services)/payments/", exclude: "" }],
-  },
-  {
-    id: "tests",
-    title: "recipeTestsTitle",
-    description: "recipeTestsDescription",
-    filters: [
-      { name: "recipeTestsCode", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
-      { name: "recipeTestsOnly", include: "\\.(test|spec)\\.|(^|/)(tests?|__tests__)/", exclude: "" },
-    ],
-  },
-  {
-    id: "generated",
-    title: "recipeGeneratedTitle",
-    description: "recipeGeneratedDescription",
-    filters: [
-      {
-        name: "recipeGeneratedName",
-        include: "",
-        exclude:
-          "(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/",
-      },
-    ],
-  },
-  {
-    id: "infra",
-    title: "recipeInfraTitle",
-    description: "recipeInfraDescription",
-    filters: [
-      {
-        name: "recipeInfraName",
-        include:
-          "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$",
-        exclude: "",
-      },
-    ],
-  },
-  {
-    id: "database",
-    title: "recipeDatabaseTitle",
-    description: "recipeDatabaseDescription",
-    filters: [{ name: "recipeDatabaseName", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" }],
-  },
-  {
-    id: "docs",
-    title: "recipeDocsTitle",
-    description: "recipeDocsDescription",
-    filters: [{ name: "recipeDocsName", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }],
-  },
+/** The recipes' words (message keys), in the order the welcome page offers them. */
+const WORDS: [RecipeId, title: string, description: string][] = [
+  ["stack", "recipeStackTitle", "recipeStackDescription"],
+  ["area", "recipeAreaTitle", "recipeAreaDescription"],
+  ["tests", "recipeTestsTitle", "recipeTestsDescription"],
+  ["generated", "recipeGeneratedTitle", "recipeGeneratedDescription"],
+  ["infra", "recipeInfraTitle", "recipeInfraDescription"],
+  ["database", "recipeDatabaseTitle", "recipeDatabaseDescription"],
+  ["docs", "recipeDocsTitle", "recipeDocsDescription"],
 ];
+
+/** Each filter's name (a message key). */
+const NAMES: Record<PathFilterName, string> = {
+  frontend: "recipeStackFrontend",
+  backend: "recipeStackBackend",
+  payments: "recipeAreaName",
+  code: "recipeTestsCode",
+  tests: "recipeTestsOnly",
+  generated: "recipeGeneratedName",
+  infra: "recipeInfraName",
+  database: "recipeDatabaseName",
+  docs: "recipeDocsName",
+};
+
+export const RECIPES: Recipe[] = WORDS.map(([id, title, description]) => ({
+  id,
+  title,
+  description,
+  filters: RECIPE_FILTERS[id].map((name) => ({ name: NAMES[name], ...PATH_FILTERS[name] })),
+}));

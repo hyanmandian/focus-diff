@@ -1,3 +1,5 @@
+import { LINES_PER_HOUR } from "@focus-diff/core/estimate";
+
 import { i18n } from "#i18n";
 import type { PanelOption } from "@/components/filters/filters";
 import { breakdownIcon, checkIcon, infoIcon } from "@/components/icons/icons";
@@ -6,7 +8,6 @@ import { centreOver, returnFocus } from "@/components/popover/popover";
 import type { Totals } from "@/components/stats/stats";
 import { h } from "@/utils/dom/dom";
 import { formatDuration, formatNumber as format } from "@/utils/format/format";
-import { LINES_PER_HOUR } from "@/utils/review-time/review-time";
 
 /** One filter's share of the pull request. */
 export interface BreakdownRow extends PanelOption, Totals {}

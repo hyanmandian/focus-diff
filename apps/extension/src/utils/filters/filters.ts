@@ -1,3 +1,5 @@
+import { repoMatches } from "@focus-diff/core/repos";
+
 import { isRecord } from "@/utils/record/record";
 
 export const ALL = "all";
@@ -22,37 +24,7 @@ export interface Config {
   repos: RepoFilters[];
 }
 
-export type Matcher = (path: string) => boolean;
-
-export type Compiled = { ok: true; regex: RegExp | null } | { ok: false; error: string };
-
 export const newId = (): string => Math.random().toString(36).slice(2, 10);
-
-export const compile = (source: string): Compiled => {
-  if (!source) return { ok: true, regex: null };
-  try {
-    // oxlint-disable-next-line eslint/require-unicode-regexp -- the reader's own patterns: the u flag would reject some that work today.
-    return { ok: true, regex: new RegExp(source, "i") };
-  } catch (error) {
-    return {
-      ok: false,
-      error: (error instanceof Error ? error.message : String(error)).replace(/^Invalid regular expression: /u, ""),
-    };
-  }
-};
-
-export const toMatcher = (filter: Pick<Filter, "include" | "exclude">): Matcher | null => {
-  const include = compile(filter.include);
-  const exclude = compile(filter.exclude);
-  if (!include.ok || !exclude.ok) return null;
-  return (path) => (!include.regex || include.regex.test(path)) && !exclude.regex?.test(path);
-};
-
-export const repoMatches = (pattern: string, repo: string): boolean => {
-  const key = pattern.trim().toLowerCase();
-  const target = repo.toLowerCase();
-  return key === target || (key.endsWith("/*") && target.startsWith(key.slice(0, -1)));
-};
 
 export const filtersFor = (config: Config, repo: string): Filter[] => [
   ...config.global,

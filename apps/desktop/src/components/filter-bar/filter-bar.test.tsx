@@ -1,3 +1,4 @@
+import type { Learned } from "@focus-diff/core/estimate";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -6,7 +7,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { chord, FilterBar, type Next } from "@/components/filter-bar/filter-bar";
 import { TooltipProvider } from "@/components/tooltip/tooltip";
 import type { DiffFilter } from "@/utils/config/config";
-import type { Learned } from "@/utils/estimate/estimate";
 import type { Totals } from "@/utils/filters/filters";
 import type { ReviewFile } from "@/utils/review/review";
 

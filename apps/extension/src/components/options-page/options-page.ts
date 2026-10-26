@@ -1,3 +1,5 @@
+import { compile, toMatcher } from "@focus-diff/core/filters";
+import { repoMatches } from "@focus-diff/core/repos";
 import { browser } from "wxt/browser";
 
 import { i18n } from "#i18n";
@@ -9,14 +11,11 @@ import { toaster } from "@/components/toast/toast";
 import { normalizeAppearance } from "@/utils/appearance/appearance";
 import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
 import {
-  compile,
   filtersFor,
   isEmpty,
   newId,
   normalize,
   REPO_PATTERN,
-  repoMatches,
-  toMatcher,
   type Config,
   type Filter,
   type RepoFilters,

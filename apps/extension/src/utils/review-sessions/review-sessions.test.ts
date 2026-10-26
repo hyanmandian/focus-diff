@@ -1,9 +1,9 @@
+import { createEstimator, LINES_PER_HOUR, reviewMinutes } from "@focus-diff/core/estimate";
 import { describe, expect, it } from "vitest";
 
 import type { Config } from "@/utils/filters/filters";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
 import { samplePull } from "@/utils/github-sample-pull/github-sample-pull";
-import { createEstimator, LINES_PER_HOUR, reviewMinutes } from "@/utils/review-time/review-time";
 
 import {
   candidates,

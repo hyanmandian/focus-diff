@@ -2,6 +2,8 @@
 // on at once; none is All), the lines in view with the time left to review them, and a breakdown of
 // what each filter holds.
 
+import type { Estimator, Learned } from "@focus-diff/core/estimate";
+import { inFilter } from "@focus-diff/core/filters";
 import { ChartBarStacked, Check, ChevronsDown, CircleCheck, Clock, FileText, Info } from "lucide-react";
 
 import { Button } from "@/components/button/button";
@@ -9,8 +11,8 @@ import { Kbd } from "@/components/kbd/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { cn } from "@/utils/cn/cn";
-import { inFilter, type DiffFilter } from "@/utils/config/config";
-import { estimateHint, type Estimator, type Learned } from "@/utils/estimate/estimate";
+import type { DiffFilter } from "@/utils/config/config";
+import { estimateHint } from "@/utils/estimate/estimate";
 import { totals, type Totals } from "@/utils/filters/filters";
 import { useT, type T } from "@/utils/i18n/i18n";
 import { shortcut } from "@/utils/platform/platform";

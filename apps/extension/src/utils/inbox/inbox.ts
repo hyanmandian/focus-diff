@@ -1,4 +1,6 @@
-import { REPO_PATTERN, repoMatches } from "@/utils/filters/filters";
+import { repoMatches } from "@focus-diff/core/repos";
+
+import { REPO_PATTERN } from "@/utils/filters/filters";
 import type { Activity, Detail, InboxProblem, PullRequest } from "@/utils/github-inbox/github-inbox";
 import { asRecord, recordOf } from "@/utils/record/record";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";

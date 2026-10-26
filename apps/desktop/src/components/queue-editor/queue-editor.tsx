@@ -1,6 +1,8 @@
 // Editing one queue: what puts a pull request in it, where, what to leave out, and what's worth a
 // notification. Every change applies right away (Settings saves it).
 
+import { isValidPattern } from "@focus-diff/core/filters";
+import { PATH_FILTERS } from "@focus-diff/core/recipes";
 import { useId, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
@@ -17,7 +19,6 @@ import {
   sourceOf,
   STATES,
   TONES,
-  validPattern,
   withSource,
   type EventKind,
   type LeaveOut,
@@ -28,23 +29,10 @@ import {
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
 /** Path filters to start from, the same as Focus Diff's recipes; `name` keys their words (settings.preset.*). */
-export const PATH_PRESETS: Array<{
-  name: "frontend" | "backend" | "code" | "infra" | "database" | "docs";
-  include: string;
-  exclude: string;
-}> = [
-  { name: "frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
-  { name: "backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
-  { name: "code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
-  {
-    name: "infra",
-    include:
-      "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$",
-    exclude: "",
-  },
-  { name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" },
-  { name: "docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" },
-];
+export const PATH_PRESETS = (["frontend", "backend", "code", "infra", "database", "docs"] as const).map((name) => ({
+  name,
+  ...PATH_FILTERS[name],
+}));
 
 /** The events that can happen to the pull requests of each kind of queue. */
 const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
@@ -383,7 +371,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             className="w-80 font-mono text-callout"
             spellCheck={false}
             value={queue.includePaths}
-            aria-invalid={!validPattern(queue.includePaths)}
+            aria-invalid={!isValidPattern(queue.includePaths)}
             onChange={(e) => {
               set("includePaths", e.target.value);
             }}
@@ -396,14 +384,14 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             className="w-80 font-mono text-callout"
             spellCheck={false}
             value={queue.excludePaths}
-            aria-invalid={!validPattern(queue.excludePaths)}
+            aria-invalid={!isValidPattern(queue.excludePaths)}
             onChange={(e) => {
               set("excludePaths", e.target.value);
             }}
             placeholder={t("settings.nothingPlaceholder")}
           />
         </Row>
-        {!validPattern(queue.includePaths) || !validPattern(queue.excludePaths) ? (
+        {!isValidPattern(queue.includePaths) || !isValidPattern(queue.excludePaths) ? (
           <Row>
             <p className="text-subheadline text-destructive" role="alert">
               {t("settings.invalidPattern")}

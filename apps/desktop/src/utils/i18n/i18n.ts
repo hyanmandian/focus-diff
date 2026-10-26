@@ -7,6 +7,7 @@
 // Components read the words through useT(), so the React Compiler sees the translator as an input
 // and a language change re-renders what it changed, in every open window, without remounting.
 
+import { durationParts } from "@focus-diff/core/duration";
 import { useSyncExternalStore } from "react";
 
 import { en } from "@/locales/en/index";
@@ -121,12 +122,10 @@ export function translator(locale: Locale): T {
     number: (value: number, options?: Intl.NumberFormatOptions) =>
       options ? new Intl.NumberFormat(locale, options).format(value) : numbers.format(value),
     duration: (minutes: number) => {
-      if (minutes < 1) return t("common.underMinute");
-      if (minutes < 60) return t("common.aboutMinutes", { minutes: Math.round(minutes) });
-      const rounded = Math.round(minutes / 5) * 5;
-      const hours = Math.floor(rounded / 60);
-      const rest = rounded % 60;
-      return rest ? t("common.aboutHoursMinutes", { hours, minutes: rest }) : t("common.aboutHours", { hours });
+      const parts = durationParts(minutes);
+      if (!parts) return t("common.underMinute");
+      if (!parts.hours) return t("common.aboutMinutes", { minutes: parts.minutes });
+      return parts.minutes ? t("common.aboutHoursMinutes", parts) : t("common.aboutHours", { hours: parts.hours });
     },
     ago: (time: number, now = Date.now()) => {
       const ms = Math.max(0, now - time);

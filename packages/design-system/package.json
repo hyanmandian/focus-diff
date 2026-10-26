@@ -1,0 +1,12 @@
+{
+  "name": "@focus-diff/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What makes Focus Diff's extension and desktop app look like one product: plain assets both can import.",
+  "license": "MIT",
+  "author": "Hyan Mandian",
+  "type": "module",
+  "exports": {
+    "./mark.svg": "./src/mark/mark.svg"
+  }
+}

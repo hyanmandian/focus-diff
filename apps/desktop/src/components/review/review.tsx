@@ -3,6 +3,8 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
+import { createEstimator, LINES_PER_HOUR, reviewMinutes } from "@focus-diff/core/estimate";
+import { inFilter } from "@focus-diff/core/filters";
 import {
   ChevronDown,
   ChevronLeft,
@@ -65,11 +67,11 @@ import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Findi
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { useRangeFiles } from "@/utils/commits/commits";
-import { inFilter, loadConfig, type Config } from "@/utils/config/config";
+import { loadConfig, type Config } from "@/utils/config/config";
 import { mergeBase, type Source } from "@/utils/contents/contents";
 import { firstName } from "@/utils/copy/copy";
 import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
-import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/utils/estimate/estimate";
+import { learnFiles, useLearned } from "@/utils/estimate/estimate";
 import {
   filtersFor,
   inAny,
@@ -413,7 +415,7 @@ export function Review({ target }: { target: Target }) {
     goNextRef.current = nextInQueue;
     goBackRef.current = goBack;
   });
-  const minutesOf = useMemo(() => createEstimator(learned), [learned]);
+  const minutesOf = useMemo(() => createEstimator(LINES_PER_HOUR, learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(
     `ai-review:${prId}`,

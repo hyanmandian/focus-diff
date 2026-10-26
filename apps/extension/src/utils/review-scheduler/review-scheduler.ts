@@ -1,3 +1,4 @@
+import { createEstimator, normalizeLearned } from "@focus-diff/core/estimate";
 import { browser, type Browser } from "wxt/browser";
 
 import { i18n } from "#i18n";
@@ -23,7 +24,7 @@ import {
   type ReviewSession,
   type ReviewTimeSettings,
 } from "@/utils/review-sessions/review-sessions";
-import { createEstimator, normalizeLearned, PACES } from "@/utils/review-time/review-time";
+import { PACES } from "@/utils/review-time/review-time";
 import {
   doneItem,
   heldItem,

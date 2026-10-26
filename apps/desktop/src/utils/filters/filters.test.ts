@@ -1,7 +1,7 @@
+import { reviewMinutes } from "@focus-diff/core/estimate";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { DiffFilter } from "@/utils/config/config";
-import { reviewMinutes } from "@/utils/estimate/estimate";
 import {
   addImported,
   exportFilters,
@@ -11,7 +11,6 @@ import {
   keptSelection,
   nextFile,
   nextFilterWithWork,
-  repoMatches,
   stepFilter,
   toggled,
   totals,
@@ -31,13 +30,6 @@ const payments = filter("payments", "^payments/", ["acme/web", "acme/*"]);
 const shared = (id: string, f: DiffFilter) => ({ id, name: f.name, include: f.include, exclude: f.exclude });
 
 describe("per repository", () => {
-  it("matches owner/name and owner/*, ignoring case", () => {
-    expect(repoMatches("acme/web", "Acme/Web")).toBe(true);
-    expect(repoMatches("acme/*", "acme/api")).toBe(true);
-    expect(repoMatches("acme/*", "acmeinc/api")).toBe(false);
-    expect(repoMatches("acme/web", "acme/website")).toBe(false);
-  });
-
   it("gives a repository the filters for everywhere and its own", () => {
     const solo = filter("solo", "", ["other/repo"]);
     expect(filtersFor([frontend, payments, solo], "acme/api").map((f) => f.id)).toEqual(["frontend", "payments"]);

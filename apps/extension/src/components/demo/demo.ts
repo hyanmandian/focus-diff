@@ -1,10 +1,12 @@
+import { toMatcher } from "@focus-diff/core/filters";
+
 import { i18n } from "#i18n";
 import { commentIcon } from "@/components/icons/icons";
 import { createPanel } from "@/components/panel/panel";
 import { createTooltip } from "@/components/tooltip/tooltip";
 import type { DemoFile, DemoPullRequest } from "@/utils/demo-sample/demo-sample";
 import { h } from "@/utils/dom/dom";
-import { ALL, toMatcher } from "@/utils/filters/filters";
+import { ALL } from "@/utils/filters/filters";
 import { formatNumber as format } from "@/utils/format/format";
 import { message } from "@/utils/i18n/i18n";
 import { createReviewView, nextFilterWithWork, review, stepFrom, toggled, type Option } from "@/utils/review/review";

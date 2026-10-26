@@ -2,6 +2,9 @@
 // Everything read from disk goes through `normalize`, so a hand-edited or older file can't break the
 // app: unknown fields are dropped, missing ones get defaults.
 
+import { isValidPattern } from "@focus-diff/core/filters";
+import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
+
 import { bridge } from "@/utils/bridge/bridge";
 import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
 
@@ -393,118 +396,32 @@ export function nextReviewTime(review: ReviewTime, after: Date): { session: Revi
   return best;
 }
 
-type RecipeId = "stack" | "tests" | "generated" | "area" | "infra" | "database" | "docs";
-type FilterName = "frontend" | "backend" | "code" | "tests" | "generated" | "payments" | "infra" | "database" | "docs";
-
-/** Starting points for filters, from Focus Diff's recipes. `name` keys its words (config.filter.*);
- *  `id` stays the same in every language, since the review window remembers a filter by it. */
-const RECIPES: Array<{
-  id: RecipeId;
-  filters: Array<{ id: string; name: FilterName; include: string; exclude: string }>;
-}> = [
-  {
-    id: "stack",
-    filters: [
-      {
-        id: "frontend",
-        name: "frontend",
-        include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$",
-        exclude: "\\.(test|spec|stories)\\.",
-      },
-      {
-        id: "backend",
-        name: "backend",
-        include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$",
-        exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\.",
-      },
-    ],
-  },
-  {
-    id: "tests",
-    filters: [
-      {
-        id: "code",
-        name: "code",
-        include: "",
-        exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/",
-      },
-      { id: "tests", name: "tests", include: "\\.(test|spec)\\.|(^|/)(tests?|__tests__)/", exclude: "" },
-    ],
-  },
-  {
-    id: "generated",
-    filters: [
-      {
-        id: "no-generated",
-        name: "generated",
-        include: "",
-        exclude:
-          "(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/",
-      },
-    ],
-  },
-  {
-    id: "area",
-    filters: [{ id: "payments", name: "payments", include: "^(apps|packages|services)/payments/", exclude: "" }],
-  },
-  {
-    id: "infra",
-    filters: [
-      {
-        id: "infra",
-        name: "infra",
-        include:
-          "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$",
-        exclude: "",
-      },
-    ],
-  },
-  {
-    id: "database",
-    filters: [
-      { id: "database", name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" },
-    ],
-  },
-  { id: "docs", filters: [{ id: "docs", name: "docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }] },
-];
+/** The recipes in the order Settings offers them. */
+const RECIPE_ORDER: RecipeId[] = ["stack", "tests", "generated", "area", "infra", "database", "docs"];
+/** A recipe filter's id: its name, but for the one that leaves generated files out. It stays the same
+ *  in every language, since the review window remembers a filter by it. */
+const filterId = (name: PathFilterName) => (name === "generated" ? "no-generated" : name);
 
 /** The recipes in words, for Settings. */
 export const filterRecipes = (
   t: T,
 ): Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> =>
-  RECIPES.map((recipe) => ({
-    title: t(`config.recipe.${recipe.id}`),
-    description: t(`config.recipe.${recipe.id}.hint`),
-    filters: recipe.filters.map((f) => ({
-      name: t(`config.filter.${f.name}`),
-      include: f.include,
-      exclude: f.exclude,
-    })),
+  RECIPE_ORDER.map((id) => ({
+    title: t(`config.recipe.${id}`),
+    description: t(`config.recipe.${id}.hint`),
+    filters: RECIPES[id].map((name) => ({ name: t(`config.filter.${name}`), ...PATH_FILTERS[name] })),
   }));
 
 /** Fixed ids: until the person changes them, the defaults are made again each time the file is
  *  read, and the review window remembers a repository's filter by id. */
 export function defaultFilters(): DiffFilter[] {
   const t = i18n();
-  return [...RECIPES[0]!.filters, ...RECIPES[2]!.filters].map((f) => ({
-    id: f.id,
-    name: t(`config.filter.${f.name}`),
-    include: f.include,
-    exclude: f.exclude,
+  return [...RECIPES.stack, ...RECIPES.generated].map((name) => ({
+    id: filterId(name),
+    name: t(`config.filter.${name}`),
+    ...PATH_FILTERS[name],
     repos: [],
   }));
-}
-
-/** Whether a file is in a filter. Case doesn't matter, as in Focus Diff, so a filter shared between
- *  the two keeps the same files. */
-export function inFilter(filter: Pick<DiffFilter, "include" | "exclude">, path: string): boolean {
-  const include = filter.include ? compile(filter.include, "i") : undefined;
-  // A broken pattern leaves every file in.
-  if (include === null) return true;
-  if (include && !include.test(path)) return false;
-  if (!filter.exclude) return true;
-  const exclude = compile(filter.exclude, "i");
-  return exclude === null || !exclude.test(path);
 }
 
 export const REVIEW_PROMPT = `Review it like a careful senior engineer. Comment only on what matters: bugs, unhandled edge cases, callers or features this change breaks, security or data risks, performance traps, missing tests for risky logic. No praise, no style nitpicks, no comments on what's fine.`;
@@ -568,25 +485,12 @@ const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fa
 const int = (v: unknown, fallback: number, min: number, max: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : fallback;
 
-/** The person's own pattern compiled, or null when it isn't valid. Without the u flag: patterns
- *  written for Focus Diff can use escapes the u flag turns into errors. */
-function compile(pattern: string, flags = ""): RegExp | null {
-  try {
-    return new RegExp(pattern, flags);
-  } catch {
-    return null;
-  }
-}
-
-/** A valid regular expression, or empty. */
-export const validPattern = (pattern: string): boolean => !pattern || compile(pattern) !== null;
-
 const isLogin = (s: string) => /^[\w-]+(\[bot\])?$/u.test(s);
 /** "owner/name", or "owner/*" for all of an owner's repositories. */
 export const isRepoPattern = (s: string) => /^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(s);
 
 const clipped = (v: unknown, max: number) => (isString(v) ? v.slice(0, max) : "");
-const pattern = (v: unknown) => (isString(v) && validPattern(v) ? v.slice(0, 1000) : "");
+const pattern = (v: unknown) => (isString(v) && isValidPattern(v) ? v.slice(0, 1000) : "");
 const ID = /^[\w-]{1,64}$/u;
 const id = (v: unknown, fallback: () => string) => (isString(v) && ID.test(v) ? v : fallback());
 

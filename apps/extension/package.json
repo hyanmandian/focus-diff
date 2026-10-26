@@ -26,10 +26,13 @@
     "e2e": "wxt build && npm run build:demo && playwright test",
     "postinstall": "wxt prepare",
     "duplicates": "jscpd",
-    "check:dependencies": "node -e \"const d=Object.keys(require('./package.json').dependencies||{});if(d.length){console.error('Runtime dependencies are not allowed:',d.join(', '));process.exit(1)}\"",
+    "check:dependencies": "node -e \"const d=Object.keys(require('./package.json').dependencies||{}).filter((n)=>!n.startsWith('@focus-diff/'));if(d.length){console.error('Runtime dependencies are not allowed:',d.join(', '));process.exit(1)}\"",
     "check:lockfile": "lockfile-lint --path ../../package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity",
     "check:unused": "knip",
     "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@focus-diff/core": "*"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

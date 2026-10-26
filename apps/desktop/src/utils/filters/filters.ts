@@ -2,15 +2,11 @@
 // gets, several on at once, what each holds (files viewed, lines, time left), the next file left to
 // review, and filters shared as text with Focus Diff in both directions.
 
-import { inFilter, isRepoPattern, newId, normalize, type DiffFilter } from "@/utils/config/config";
-import type { Estimator } from "@/utils/estimate/estimate";
+import type { Estimator } from "@focus-diff/core/estimate";
+import { inFilter } from "@focus-diff/core/filters";
+import { repoMatches } from "@focus-diff/core/repos";
 
-/** Whether "owner/name" or "owner/*" covers a repository. Case doesn't matter, as on GitHub. */
-export function repoMatches(pattern: string, repo: string): boolean {
-  const key = pattern.trim().toLowerCase();
-  const target = repo.toLowerCase();
-  return key === target || (key.endsWith("/*") && target.startsWith(key.slice(0, -1)));
-}
+import { isRepoPattern, newId, normalize, type DiffFilter } from "@/utils/config/config";
 
 /** The filters a repository gets: those for everywhere, and its own. */
 export const filtersFor = (filters: DiffFilter[], repo: string) =>

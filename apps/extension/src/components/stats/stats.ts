@@ -1,9 +1,10 @@
+import { LINES_PER_HOUR } from "@focus-diff/core/estimate";
+
 import { i18n } from "#i18n";
 import { clockIcon, diffIcon, doneIcon, fileIcon } from "@/components/icons/icons";
 import { createScoreboard } from "@/components/scoreboard/scoreboard";
 import { h } from "@/utils/dom/dom";
 import { formatClock, formatDuration, formatNumber as format } from "@/utils/format/format";
-import { LINES_PER_HOUR } from "@/utils/review-time/review-time";
 
 export interface Totals {
   visible: number;

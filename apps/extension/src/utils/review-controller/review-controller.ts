@@ -1,3 +1,4 @@
+import type { OnScreen } from "@focus-diff/core/active-time";
 import { createEstimator, learnFile, normalizeLearned, reviewMinutes, type Estimator } from "@focus-diff/core/estimate";
 import { toMatcher, type Matcher } from "@focus-diff/core/filters";
 import { browser } from "wxt/browser";
@@ -6,7 +7,7 @@ import { i18n } from "#i18n";
 import type { ContentScriptContext } from "#imports";
 import type { Panel } from "@/components/panel/panel";
 import type { Totals } from "@/components/stats/stats";
-import { createActiveTime, type OnScreen } from "@/utils/active-time/active-time";
+import { createActiveTime } from "@/utils/active-time/active-time";
 import { createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
 import { cloneOf } from "@/utils/dom/dom";
 import { ALL, filtersFor, normalize, type Config } from "@/utils/filters/filters";

@@ -28,25 +28,6 @@ export function pullMinutes(pr: LineCounts & { changedFiles: number }, learned: 
 /** What the estimate assumes, for its tooltip. (An estimate in words is t.duration, lib/i18n.ts.) */
 export const estimateHint = (t: T) => t("config.estimateHint", { lines: LINES_PER_HOUR });
 
-// MARK: Time spent on files
-
-/** The longest still moment counted as reading: time to think a tricky change through, short of
- *  leaving the desk. */
-const STILL_LIMIT_MS = 90_000;
-
-/** The time spent on files between two moments of activity `gap` apart. */
-export const creditFor = (gap: number) => Math.max(0, Math.min(gap, STILL_LIMIT_MS));
-
-/** Files on screen, and how much of it each takes, in pixels. */
-export type OnScreen = Array<[path: string, height: number]>;
-
-/** Shares `credit` among the files on screen by how much of it each takes, so a short file read
- *  beside a long one gets its part. */
-export function share(credit: number, onScreen: OnScreen): OnScreen {
-  const total = onScreen.reduce((sum, [, height]) => sum + height, 0);
-  return total > 0 ? onScreen.map(([path, height]) => [path, (credit * height) / total]) : [];
-}
-
 // MARK: Kept
 
 let learned: Learned | null = null;

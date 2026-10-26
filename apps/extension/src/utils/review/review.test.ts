@@ -1,8 +1,8 @@
+import { reviewMinutes } from "@focus-diff/core/estimate";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Panel } from "@/components/panel/panel";
 import { ALL } from "@/utils/filters/filters";
-import { reviewMinutes } from "@/utils/review-time/review-time";
 
 import {
   createReviewView,

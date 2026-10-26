@@ -5,6 +5,7 @@
 // Markdown can be read rendered, and files GitHub sends no patch for show what can be shown of
 // them after the rest (rich-diff.tsx).
 
+import type { OnScreen } from "@focus-diff/core/active-time";
 import {
   getSingularPatch,
   parseDiffFromFile,
@@ -37,7 +38,6 @@ import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
-import type { OnScreen } from "@/utils/estimate/estimate";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 import { diffLink, permalink } from "@/utils/permalink/permalink";
 import { findingSide, placeThread, shows, type Placement } from "@/utils/placement/placement";

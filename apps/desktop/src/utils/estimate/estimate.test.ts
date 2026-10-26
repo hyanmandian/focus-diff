@@ -4,7 +4,7 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { creditFor, estimateHint, pullMinutes, share } from "@/utils/estimate/estimate";
+import { estimateHint, pullMinutes } from "@/utils/estimate/estimate";
 import { i18n } from "@/utils/i18n/i18n";
 
 /** The module afresh, with nothing read yet. */
@@ -45,27 +45,6 @@ describe("review time", () => {
 
   it("says what it assumes", () => {
     expect(estimateHint(i18n())).toContain("1,000");
-  });
-});
-
-describe("time spent on files", () => {
-  it("counts a still moment only up to a limit", () => {
-    expect(creditFor(30_000)).toBe(30_000);
-    expect(creditFor(10 * 60_000)).toBe(90_000);
-    expect(creditFor(-5)).toBe(0);
-  });
-
-  it("shares it by how much of the screen each file takes", () => {
-    expect(
-      share(900, [
-        ["a", 200],
-        ["b", 100],
-      ]),
-    ).toEqual([
-      ["a", 600],
-      ["b", 300],
-    ]);
-    expect(share(900, [])).toEqual([]);
   });
 });
 

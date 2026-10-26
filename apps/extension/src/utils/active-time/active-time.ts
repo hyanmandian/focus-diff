@@ -1,3 +1,5 @@
+import { creditFor, share, type OnScreen } from "@focus-diff/core/active-time";
+
 import type { ContentScriptContext } from "#imports";
 
 /**
@@ -8,23 +10,9 @@ import type { ContentScriptContext } from "#imports";
  * file read beside a long one gets its part.
  */
 
-/** The longest still moment counted as reading: time to think a tricky change through, short of leaving the desk. */
-const STILL_LIMIT_MS = 90_000;
 /** Activity is taken in at most this often; a moving mouse fires many times a second. */
 const SAMPLE_MS = 1000;
 const EVENTS = ["scroll", "wheel", "keydown", "pointerdown", "pointermove", "selectionchange"] as const;
-
-/** The time spent on a file between two moments of activity `gap` apart. */
-export const creditFor = (gap: number): number => Math.max(0, Math.min(gap, STILL_LIMIT_MS));
-
-/** A file on screen, and how much of the screen it takes, in pixels. */
-export type OnScreen = [path: string, height: number][];
-
-/** Shares `credit` among the files on screen by how much of it each takes. */
-export const share = (credit: number, onScreen: OnScreen): OnScreen => {
-  const total = onScreen.reduce((sum, [, height]) => sum + height, 0);
-  return total > 0 ? onScreen.map(([path, height]) => [path, (credit * height) / total]) : [];
-};
 
 export const createActiveTime = (ctx: ContentScriptContext, filesOnScreen: () => OnScreen) => {
   const spent = new Map<string, number>();

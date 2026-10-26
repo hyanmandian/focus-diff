@@ -1,33 +1,10 @@
+import type { OnScreen } from "@focus-diff/core/active-time";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // @vitest-environment happy-dom
 import { ContentScriptContext } from "#imports";
 
-import { createActiveTime, creditFor, share, type OnScreen } from "./active-time";
-
-describe("creditFor", () => {
-  it("counts a still moment as reading, up to a minute and a half", () => {
-    expect(creditFor(800)).toBe(800);
-    expect(creditFor(40_000)).toBe(40_000);
-    expect(creditFor(30 * 60_000)).toBe(90_000);
-    expect(creditFor(-5)).toBe(0);
-  });
-});
-
-describe("share", () => {
-  it("splits the time among the files on screen by how much of it each takes", () => {
-    expect(
-      share(9000, [
-        ["a.ts", 600],
-        ["b.ts", 300],
-      ]),
-    ).toEqual([
-      ["a.ts", 6000],
-      ["b.ts", 3000],
-    ]);
-    expect(share(9000, [])).toEqual([]);
-  });
-});
+import { createActiveTime } from "./active-time";
 
 describe("createActiveTime", () => {
   let hidden = false;

@@ -4,9 +4,8 @@
 // through takes stillness; past it they've likely stepped away. The time is shared by the files on
 // screen, each by how much of it it takes.
 
+import { creditFor, share, type OnScreen } from "@focus-diff/core/active-time";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-
-import { creditFor, share, type OnScreen } from "@/utils/estimate/estimate";
 
 /** Activity is taken in at most this often; a moving mouse fires many times a second. */
 const SAMPLE_MS = 1000;

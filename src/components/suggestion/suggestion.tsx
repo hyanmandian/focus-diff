@@ -4,15 +4,16 @@
 
 import { GitCommitHorizontal, Loader2, X } from "lucide-react";
 import { useState } from "react";
+
 import { Button } from "@/components/button/button";
 import { Input } from "@/components/input/input";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Textarea } from "@/components/textarea/textarea";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { defaultHeadline, type Applied } from "@/utils/commit/commit";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread, ThreadComment } from "@/utils/review/review";
 import { suggestionsIn } from "@/utils/suggestion/suggestion";
-import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 
 /** Why a comment's suggestion can't be committed, if it can't. Their words: t(`review.cantApply.${why}`). */
 function whyNot(thread: Thread, comment: ThreadComment, count: number) {
@@ -25,7 +26,15 @@ function whyNot(thread: Thread, comment: ThreadComment, count: number) {
 }
 
 /** The commit's message, then the commit: a popover from the button that opened it. */
-function CommitPopover({ items, children, variant = "outline" }: { items: Applied[]; children: React.ReactNode; variant?: "outline" | "default" }) {
+function CommitPopover({
+  items,
+  children,
+  variant = "outline",
+}: {
+  items: Applied[];
+  children: React.ReactNode;
+  variant?: "outline" | "default";
+}) {
   const t = useT();
   const api = useConversationApi();
   const [open, setOpen] = useState(false);
@@ -60,7 +69,14 @@ function CommitPopover({ items, children, variant = "outline" }: { items: Applie
           aria-label={t("review.commitHeadline")}
           onKeyDown={(e) => e.key === "Enter" && void commit()}
         />
-        <Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder={t("review.commitBody")} aria-label={t("review.commitBody")} className="resize-y" />
+        <Textarea
+          rows={3}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder={t("review.commitBody")}
+          aria-label={t("review.commitBody")}
+          className="resize-y"
+        />
         <p className="text-callout text-muted-foreground">{t("review.commitsTo", { branch: api?.branch ?? "" })}</p>
         {error ? (
           <p className="text-callout text-destructive" role="alert">
@@ -117,7 +133,11 @@ export function SuggestionBatch() {
   const api = useConversationApi();
   if (!api?.batch.length) return null;
   return (
-    <div role="region" aria-label={t("review.batch")} className="absolute right-4 bottom-20 z-20 flex items-center gap-1 rounded-full bg-popover py-1 pr-1 pl-3 text-body shadow-(--shadow-menu)">
+    <div
+      role="region"
+      aria-label={t("review.batch")}
+      className="absolute right-4 bottom-20 z-20 flex items-center gap-1 rounded-full bg-popover py-1 pr-1 pl-3 text-body shadow-(--shadow-menu)"
+    >
       <span className="text-muted-foreground tabular-nums">{t("review.inBatch", { count: api.batch.length })}</span>
       <CommitPopover items={api.batch} variant="default">
         {t("review.commitBatch", { count: api.batch.length })}

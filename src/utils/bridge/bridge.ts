@@ -2,6 +2,7 @@
 // they ask for API calls by path and Rust makes them.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+
 import { i18n } from "@/utils/i18n/i18n";
 
 export type AuthSource = "keychain" | "gh";
@@ -72,7 +73,13 @@ export class GitHubError extends Error {
   }
 }
 
-export type ReviewPull = { id: string; number: number; title: string; repository: { nameWithOwner: string }; author: { login: string; name?: string | null } | null };
+export type ReviewPull = {
+  id: string;
+  number: number;
+  title: string;
+  repository: { nameWithOwner: string };
+  author: { login: string; name?: string | null } | null;
+};
 
 const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string | null) => ({
   id: pr.id,
@@ -133,14 +140,23 @@ export const bridge = {
   aiModels: (provider: AiStatus["provider"]) => invoke<string[]>("ai_models", { provider }),
   /** `project`: the pull request whose code it may read; `schema`: a JSON Schema the answer follows. */
   /** `run`: an id to stop it by (aiCancel). */
-  aiAsk: (q: { provider: AiStatus["provider"]; model: string; effort: string; prompt: string; input: string; project: { repo: string; number: number; head: string } | null; schema: string | null; run?: string }) =>
-    invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null, run: q.run ?? null }),
+  aiAsk: (q: {
+    provider: AiStatus["provider"];
+    model: string;
+    effort: string;
+    prompt: string;
+    input: string;
+    project: { repo: string; number: number; head: string } | null;
+    schema: string | null;
+    run?: string;
+  }) => invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null, run: q.run ?? null }),
   aiCancel: (run: string) => invoke<void>("ai_cancel", { run }),
   /** Fetches a pull request's code in the background, so questions about it can read it at once. */
   aiPrepare: (project: { repo: string; number: number; head: string }) => invoke<void>("ai_prepare", { project }),
 
   /** Runs a "run" step of a saved action: Rust reads the command from the config and asks first. */
-  runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) => invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),
+  runAction: (action: { id: string; name: string }, step: number, pr: ActionContext) =>
+    invoke<string>("run_action", { action: action.id, name: action.name, step, pr }),
 
   /** The queues' live state, kept by Rust (src-tauri/src/watch.rs); changes come as "snapshot" events. */
   snapshot: <T>() => invoke<T>("snapshot"),
@@ -164,9 +180,13 @@ export const bridge = {
   /** `from`: the card clicked, so the window grows out of it. `queue`: the queue it was opened
    *  from, whose next one the window offers. */
   openReview: (pr: ReviewPull, teams: string[] = [], from?: DOMRect, queue?: string) =>
-    invoke<void>("open_review", { from: from && { x: from.x, y: from.y, width: from.width, height: from.height }, ...reviewArgs(pr, teams, queue) }),
+    invoke<void>("open_review", {
+      from: from && { x: from.x, y: from.y, width: from.width, height: from.height },
+      ...reviewArgs(pr, teams, queue),
+    }),
   /** This review window, on to another pull request of its queue (or to its own window, if open). */
-  switchReview: (pr: ReviewPull, teams: string[], queue: string | null) => invoke<void>("switch_review", reviewArgs(pr, teams, queue)),
+  switchReview: (pr: ReviewPull, teams: string[], queue: string | null) =>
+    invoke<void>("switch_review", reviewArgs(pr, teams, queue)),
   /** A newer version, if there is one (checking GitHub's releases now). */
   checkUpdate: () => invoke<string | null>("check_update"),
   /** The newer version found by the last check, if any. */
@@ -195,7 +215,9 @@ export async function github<T = unknown>(method: string, path: string, body?: u
   });
   const parsed = response.body && !accept ? safeJson(response.body) : response.body;
   if (response.status >= 400) {
-    const message = (parsed as { message?: string } | null)?.message ?? i18n()("common.githubReturned", { status: String(response.status) });
+    const message =
+      (parsed as { message?: string } | null)?.message ??
+      i18n()("common.githubReturned", { status: String(response.status) });
     throw new GitHubError(response.status, message);
   }
   return parsed as T;
@@ -211,7 +233,10 @@ function safeJson(text: string): unknown {
 
 /** A GraphQL query. Throws on errors when there's no data at all; partial data comes back as is. */
 export async function graphql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const reply = await github<{ data?: T; errors?: Array<{ message: string }> }>("POST", "/graphql", { query, variables });
+  const reply = await github<{ data?: T; errors?: Array<{ message: string }> }>("POST", "/graphql", {
+    query,
+    variables,
+  });
   if (!reply.data) throw new GitHubError(200, reply.errors?.[0]?.message ?? i18n()("common.githubNoData"));
   return reply.data;
 }

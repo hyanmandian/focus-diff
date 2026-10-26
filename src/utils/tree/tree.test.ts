@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
+
 import { buildTree, flatten, foldersOf, inTreeOrder, outlineKey } from "@/utils/tree/tree";
 
-const files = ["src/checkout/cart.ts", "src/checkout/promo.ts", "src/app.ts", "README.md", "docs/guide/intro.md", "src/checkout/a10.ts", "src/checkout/a9.ts"].map((path) => ({ path }));
+const files = [
+  "src/checkout/cart.ts",
+  "src/checkout/promo.ts",
+  "src/app.ts",
+  "README.md",
+  "docs/guide/intro.md",
+  "src/checkout/a10.ts",
+  "src/checkout/a9.ts",
+].map((path) => ({ path }));
 
 describe("the file tree", () => {
   const tree = buildTree(files);
@@ -11,7 +20,12 @@ describe("the file tree", () => {
     const src = tree[1]!;
     expect(src.kind === "folder" && src.children.map((n) => n.name)).toEqual(["checkout", "app.ts"]);
     const checkout = src.kind === "folder" ? src.children[0]! : null;
-    expect(checkout?.kind === "folder" && checkout.children.map((n) => n.name)).toEqual(["a9.ts", "a10.ts", "cart.ts", "promo.ts"]);
+    expect(checkout?.kind === "folder" && checkout.children.map((n) => n.name)).toEqual([
+      "a9.ts",
+      "a10.ts",
+      "cart.ts",
+      "promo.ts",
+    ]);
   });
 
   it("reads one folder in a folder as one row, keyed by the inner path", () => {
@@ -25,11 +39,26 @@ describe("the file tree", () => {
 
   it("hides what's in a closed folder", () => {
     expect(flatten(tree, new Set()).length).toBe(10);
-    expect(flatten(tree, new Set(["src/checkout"])).map((r) => r.node.name)).toEqual(["docs/guide", "intro.md", "src", "checkout", "app.ts", "README.md"]);
+    expect(flatten(tree, new Set(["src/checkout"])).map((r) => r.node.name)).toEqual([
+      "docs/guide",
+      "intro.md",
+      "src",
+      "checkout",
+      "app.ts",
+      "README.md",
+    ]);
   });
 
   it("orders the files as the tree shows them", () => {
-    expect(inTreeOrder(files).map((f) => f.path)).toEqual(["docs/guide/intro.md", "src/checkout/a9.ts", "src/checkout/a10.ts", "src/checkout/cart.ts", "src/checkout/promo.ts", "src/app.ts", "README.md"]);
+    expect(inTreeOrder(files).map((f) => f.path)).toEqual([
+      "docs/guide/intro.md",
+      "src/checkout/a9.ts",
+      "src/checkout/a10.ts",
+      "src/checkout/cart.ts",
+      "src/checkout/promo.ts",
+      "src/app.ts",
+      "README.md",
+    ]);
   });
 
   it("names the folders a file is in", () => {

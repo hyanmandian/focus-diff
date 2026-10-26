@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
+
 import { countChecks, failedRuns, groupChecks, parseLog, toCheck, type CheckItem } from "@/utils/checks/checks";
 
 const run = (name: string, status: string, conclusion: string | null, required = false, runId = 1) =>
-  toCheck({ __typename: "CheckRun", id: name, databaseId: 10, name, status, conclusion, isRequired: required, checkSuite: { app: { slug: "github-actions" }, workflowRun: { databaseId: runId, workflow: { name: "CI" } } } });
+  toCheck({
+    __typename: "CheckRun",
+    id: name,
+    databaseId: 10,
+    name,
+    status,
+    conclusion,
+    isRequired: required,
+    checkSuite: { app: { slug: "github-actions" }, workflowRun: { databaseId: runId, workflow: { name: "CI" } } },
+  });
 
 describe("checks", () => {
   it("reads check runs and commit statuses", () => {
@@ -10,15 +20,34 @@ describe("checks", () => {
     expect(run("b", "IN_PROGRESS", null)).toMatchObject({ state: "pending", detail: "in_progress" });
     expect(run("c", "COMPLETED", "TIMED_OUT")).toMatchObject({ state: "failure", detail: "timed_out" });
     expect(run("d", "COMPLETED", "CANCELLED")).toMatchObject({ state: "neutral" });
-    expect(toCheck({ __typename: "StatusContext", id: "s", context: "ci/vercel", state: "PENDING", isRequired: true })).toMatchObject({ kind: "status", name: "ci/vercel", state: "pending", required: true, job: null });
+    expect(
+      toCheck({ __typename: "StatusContext", id: "s", context: "ci/vercel", state: "PENDING", isRequired: true }),
+    ).toMatchObject({ kind: "status", name: "ci/vercel", state: "pending", required: true, job: null });
   });
 
   it("has no job to log or re-run for other apps' check runs", () => {
-    expect(toCheck({ __typename: "CheckRun", id: "x", databaseId: 5, name: "x", status: "COMPLETED", conclusion: "FAILURE", isRequired: false, checkSuite: { app: { slug: "circleci" }, workflowRun: null } })).toMatchObject({ job: null, run: null });
+    expect(
+      toCheck({
+        __typename: "CheckRun",
+        id: "x",
+        databaseId: 5,
+        name: "x",
+        status: "COMPLETED",
+        conclusion: "FAILURE",
+        isRequired: false,
+        checkSuite: { app: { slug: "circleci" }, workflowRun: null },
+      }),
+    ).toMatchObject({ job: null, run: null });
   });
 
   it("groups as GitHub does, required first in each", () => {
-    const list: CheckItem[] = [run("z", "COMPLETED", "SUCCESS"), run("lint", "COMPLETED", "FAILURE"), run("build", "COMPLETED", "FAILURE", true), run("e2e", "QUEUED", null), run("docs", "COMPLETED", "SKIPPED")];
+    const list: CheckItem[] = [
+      run("z", "COMPLETED", "SUCCESS"),
+      run("lint", "COMPLETED", "FAILURE"),
+      run("build", "COMPLETED", "FAILURE", true),
+      run("e2e", "QUEUED", null),
+      run("docs", "COMPLETED", "SKIPPED"),
+    ];
     expect(groupChecks(list).map((g) => [g.state, g.checks.map((c) => c.name)])).toEqual([
       ["failure", ["build", "lint"]],
       ["pending", ["e2e"]],
@@ -29,7 +58,14 @@ describe("checks", () => {
   });
 
   it("re-runs each failed workflow run once", () => {
-    expect(failedRuns([run("a", "COMPLETED", "FAILURE", false, 7), run("b", "COMPLETED", "FAILURE", false, 7), run("c", "COMPLETED", "FAILURE", false, 8), run("d", "COMPLETED", "SUCCESS", false, 9)])).toEqual([7, 8]);
+    expect(
+      failedRuns([
+        run("a", "COMPLETED", "FAILURE", false, 7),
+        run("b", "COMPLETED", "FAILURE", false, 7),
+        run("c", "COMPLETED", "FAILURE", false, 8),
+        run("d", "COMPLETED", "SUCCESS", false, 9),
+      ]),
+    ).toEqual([7, 8]);
   });
 });
 

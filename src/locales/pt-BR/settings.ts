@@ -8,12 +8,16 @@ export const settings: Dictionary["settings"] = {
   "pane.actions": "Ações",
   "pane.ai": "IA",
   "pane.general": "Geral",
-  "keywords.queues": "Abas|Pedidos de revisão|Pull requests em que|Repositórios|Arquivos alterados|Rascunhos|Bots|Labels|Times|Me notificar quando|Notificações|Deixar fora das notificações|No review time|Imediatamente|Cor",
-  "keywords.review": "Agenda|Me avisar|Dias|Horários|Quanto tempo|O que vem primeiro|Re-reviews primeiro|Fim do tempo|Segurar notificações|Contagem regressiva",
-  "keywords.filters": "Filtros do diff|Incluir|Deixar de fora|Expressões regulares|Caminhos de arquivo|Chips|Só em|Repositórios|Compartilhar|Copiar filtros|Importar filtros",
+  "keywords.queues":
+    "Abas|Pedidos de revisão|Pull requests em que|Repositórios|Arquivos alterados|Rascunhos|Bots|Labels|Times|Me notificar quando|Notificações|Deixar fora das notificações|No review time|Imediatamente|Cor",
+  "keywords.review":
+    "Agenda|Me avisar|Dias|Horários|Quanto tempo|O que vem primeiro|Re-reviews primeiro|Fim do tempo|Segurar notificações|Contagem regressiva",
+  "keywords.filters":
+    "Filtros do diff|Incluir|Deixar de fora|Expressões regulares|Caminhos de arquivo|Chips|Só em|Repositórios|Compartilhar|Copiar filtros|Importar filtros",
   "keywords.actions": "Botões|Passos|Comentar|Pedir revisão|Labels|Abrir um link|Rodar um comando|Pedir confirmação",
   "keywords.ai": "Agente de código|Modelo|Esforço|Ler o projeto inteiro|Revisão da IA|Diretrizes de revisão|Prompts",
-  "keywords.general": "Atualização de software|Buscar atualizações|Versão|Checar o GitHub a cada|Intervalo|Aparência|Tema|Escuro|Claro|Idioma|English|Português|Tocar um som com as notificações",
+  "keywords.general":
+    "Atualização de software|Buscar atualizações|Versão|Checar o GitHub a cada|Intervalo|Aparência|Tema|Escuro|Claro|Idioma|English|Português|Tocar um som com as notificações",
   "keywords.account": "Conta|GitHub|Entrar|Desconectar|Sair|Token|Login|Anexos|Enviar|Imagens|Vídeos|github.com",
   search: "Buscar nos ajustes",
   searchPlaceholder: "Buscar nos ajustes…",
@@ -58,7 +62,8 @@ export const settings: Dictionary["settings"] = {
   "kind.authored": "Fui eu que abri",
   "kind.merged": "Entraram com merge",
   "kind.custom": "Combinam com uma busca do GitHub",
-  customFooter: "Os qualificadores de busca do GitHub, como em github.com/pulls. Só pull requests; os filtros abaixo continuam valendo.",
+  customFooter:
+    "Os qualificadores de busca do GitHub, como em github.com/pulls. Só pull requests; os filtros abaixo continuam valendo.",
   pullRequestsWhere: "Pull requests em que",
   pullRequestsWhereHint: "O que coloca um pull request nesta fila.",
   hideOnceReviewed: "Sair depois que eu revisar ou comentar",
@@ -126,7 +131,8 @@ export const settings: Dictionary["settings"] = {
   withoutLabelsLabel: "Labels para deixar de fora",
   notifyWhen: "Me notificar quando",
   notifyWhenFooter: "Os cartões continuam mostrando tudo o que é novo.",
-  notifyAtFooter: "No review time, elas esperam o próximo e chegam junto com o que revisar. Sem review time configurado, aparecem imediatamente.",
+  notifyAtFooter:
+    "No review time, elas esperam o próximo e chegam junto com o que revisar. Sem review time configurado, aparecem imediatamente.",
   tellMe: "Avisar",
   whenToTellMe: "Quando me avisar",
   rightAway: "Imediatamente",
@@ -141,12 +147,14 @@ export const settings: Dictionary["settings"] = {
   notifyReposHint: "Vazio: todos os repositórios desta fila.",
   notifyReposLabel: "Repositórios para notificar",
 
-  githubFooter: "O Focus Diff lê e age nos pull requests como você. Seu token fica nas Chaves do sistema e só é enviado ao GitHub.",
+  githubFooter:
+    "O Focus Diff lê e age nos pull requests como você. Seu token fica nas Chaves do sistema e só é enviado ao GitHub.",
   usingGh: "Usando o login do GitHub CLI",
   signedIn: "Conectado com o GitHub",
   disconnect: "Desconectar",
   attachments: "Anexos",
-  attachmentsFooter: "O GitHub não tem como apps enviarem imagens e vídeos, então o Focus Diff os anexa como o github.com faz, com você conectado lá. Você entra na própria página do GitHub; a sessão fica nas Chaves do sistema e só é enviada ao github.com.",
+  attachmentsFooter:
+    "O GitHub não tem como apps enviarem imagens e vídeos, então o Focus Diff os anexa como o github.com faz, com você conectado lá. Você entra na própria página do GitHub; a sessão fica nas Chaves do sistema e só é enviada ao github.com.",
   webSignedIn: "Conectado no github.com, para anexar imagens e vídeos",
   webSignedOut: "Entre para anexar imagens e vídeos aos comentários.",
   webSignIn: "Entrar no github.com",
@@ -196,12 +204,14 @@ export const settings: Dictionary["settings"] = {
   howLong: "Quanto tempo",
   minutes: "{minutes} min",
   whatToReview: "O que revisar",
-  whatToReviewFooter: "Vazio: todas as filas de revisão. Cada pull request é estimado em cerca de {lines} linhas alteradas por hora, mais uns minutos para ler e escrever a revisão.",
+  whatToReviewFooter:
+    "Vazio: todas as filas de revisão. Cada pull request é estimado em cerca de {lines} linhas alteradas por hora, mais uns minutos para ler e escrever a revisão.",
   whatGoesFirst: "O que vem primeiro",
   includeDrafts: "Incluir rascunhos",
   fromQueues: "Destas filas",
   deleteReviewTime: "Apagar review time",
-  reviewIntro: "Reserve um tempo para revisar. Quando chegar a hora, o Focus Diff escolhe os pull requests que cabem, pelo tempo que cada um leva, avisa com um som próprio e faz a contagem regressiva na barra de menus.",
+  reviewIntro:
+    "Reserve um tempo para revisar. Quando chegar a hora, o Focus Diff escolhe os pull requests que cabem, pelo tempo que cada um leva, avisa com um som próprio e faz a contagem regressiva na barra de menus.",
   next: "Próximo: {day} às {time}, “{name}” por {minutes} min.",
   noneOn: "Nenhum review time está ligado. Ligue um, ou dê a ele um dia e um horário.",
   remindMe: "Me avisar quando for review time",
@@ -210,8 +220,10 @@ export const settings: Dictionary["settings"] = {
   sessionOn: "{name} ligado",
   noSessions: "Nenhum ainda. Adicione um, como dias úteis às 15:00 por meia hora.",
   whenItsTime: "Quando chegar a hora",
-  waitingQueues: "As notificações de {queues} esperam o review time; mude isso em cada fila. O som toca quando “Tocar um som com as notificações” está ligado, em Geral.",
-  noWaitingQueues: "As notificações de cada fila podem esperar o review time; configure isso na fila. O som toca quando “Tocar um som com as notificações” está ligado, em Geral.",
+  waitingQueues:
+    "As notificações de {queues} esperam o review time; mude isso em cada fila. O som toca quando “Tocar um som com as notificações” está ligado, em Geral.",
+  noWaitingQueues:
+    "As notificações de cada fila podem esperar o review time; configure isso na fila. O som toca quando “Tocar um som com as notificações” está ligado, em Geral.",
   againFirst: "Re-reviews primeiro",
   againFirstHint: "Quando pedem para você revisar um pull request de novo, ele vem antes dos outros, se couber.",
   remindEnd: "Me avisar quando o tempo acabar",
@@ -227,7 +239,8 @@ export const settings: Dictionary["settings"] = {
   noRoom: "Sem espaço: o app guarda 12 filtros.",
   haveAll: "Você já tem todos eles.",
   share: "Compartilhar",
-  shareFooter: "O mesmo texto do Focus Diff no navegador, então os filtros passam de um para o outro nos dois sentidos. Filtros importados são somados aos seus; os que você já tem são pulados.",
+  shareFooter:
+    "O mesmo texto do Focus Diff no navegador, então os filtros passam de um para o outro nos dois sentidos. Filtros importados são somados aos seus; os que você já tem são pulados.",
   copyYours: "Copiar seus filtros",
   copyYoursHint: "Para mandar a alguém do time, ou colar nas configurações do Focus Diff.",
   noClipboard: "Não foi possível acessar a área de transferência.",
@@ -236,7 +249,8 @@ export const settings: Dictionary["settings"] = {
   importFilters: "Importar filtros",
   importPlaceholder: "Cole o que alguém do time, ou o Focus Diff, copiou",
   import: "Importar",
-  filtersIntro: "Revise uma parte do pull request de cada vez. Cada filtro mantém os arquivos cujo caminho combina com o que incluir e não com o que deixar de fora (expressões regulares; vazio inclui tudo). Eles viram chips na parte de baixo da janela de revisão: ligue vários para vê-los juntos.",
+  filtersIntro:
+    "Revise uma parte do pull request de cada vez. Cada filtro mantém os arquivos cujo caminho combina com o que incluir e não com o que deixar de fora (expressões regulares; vazio inclui tudo). Eles viram chips na parte de baixo da janela de revisão: ligue vários para vê-los juntos.",
   filterName: "Nome do filtro",
   onlyIn: "Só em",
   onlyInHint: "Todos os repositórios. Adicione dono/nome, ou dono/* para todos de um dono, para oferecê-lo só lá.",
@@ -263,7 +277,8 @@ export const settings: Dictionary["settings"] = {
   command: "Comando",
   commandHintBefore: "Roda com",
   commandHintMiddle: "na sua pasta pessoal, por até dois minutos. Recebe",
-  commandHintAfter: "A última linha da saída aparece. Na primeira vez que um comando roda, ou depois que ele muda, você precisa permitir.",
+  commandHintAfter:
+    "A última linha da saída aparece. Na primeira vez que um comando roda, ou depois que ele muda, você precisa permitir.",
   button: "Botão",
   confirm: "Pedir minha confirmação",
   confirmHint: "Antes de rodar.",
@@ -278,10 +293,12 @@ export const settings: Dictionary["settings"] = {
   deleteAction: "Apagar ação",
   buttons: "Botões",
   actionsEmpty: "Seus próprios botões nos pull requests",
-  actionsEmptyHint: "Passe uma revisão para alguém do time, avise um canal, adicione um label, rode um script. Eles aparecem na janela de revisão de cada pull request.",
+  actionsEmptyHint:
+    "Passe uma revisão para alguém do time, avise um canal, adicione um label, rode um script. Eles aparecem na janela de revisão de cada pull request.",
 
   copyNamed: "Copiar {command}",
-  aiIntro: "Opcional. Resumos e um segundo par de olhos nos pull requests, do agente de código que você já usa, no seu próprio plano. Quando você pede, o Focus Diff o roda neste computador, só para leitura: ele lê e responde, não pode mudar arquivos nem rodar comandos. Nada passa por nós.",
+  aiIntro:
+    "Opcional. Resumos e um segundo par de olhos nos pull requests, do agente de código que você já usa, no seu próprio plano. Quando você pede, o Focus Diff o roda neste computador, só para leitura: ele lê e responde, não pode mudar arquivos nem rodar comandos. Nada passa por nós.",
   codingAgent: "Agente de código",
   checkAgain: "Checar de novo",
   checkAgainFooter: "Cheque de novo depois de instalar ou entrar.",
@@ -299,16 +316,20 @@ export const settings: Dictionary["settings"] = {
   effortHint: "Mais alto é mais lento e gasta mais do seu plano.",
   effortInModel: "Faz parte do modelo que você escolhe (um modelo de raciocínio pensa mais).",
   project: "Ler o projeto inteiro, não só o diff",
-  projectHint: "Assim ele vê onde o código alterado é usado e o que pode quebrar, e segue as regras do próprio repositório (CLAUDE.md, AGENTS.md, regras do Cursor). O código do pull request é baixado para o cache deste computador, com o seu login do GitHub; os hooks e servidores MCP dele nunca rodam. Mais lento, e gasta mais do seu plano.",
+  projectHint:
+    "Assim ele vê onde o código alterado é usado e o que pode quebrar, e segue as regras do próprio repositório (CLAUDE.md, AGENTS.md, regras do Cursor). O código do pull request é baixado para o cache deste computador, com o seu login do GitHub; os hooks e servidores MCP dele nunca rodam. Mais lento, e gasta mais do seu plano.",
   autoReview: "Revisão da IA quando um pull request abre",
-  autoReviewHint: "Os comentários dela aparecem nas linhas do diff, para você adicionar à sua revisão ou dispensar. Desligado: um botão “Revisão da IA” na janela de revisão.",
+  autoReviewHint:
+    "Os comentários dela aparecem nas linhas do diff, para você adicionar à sua revisão ou dispensar. Desligado: um botão “Revisão da IA” na janela de revisão.",
   reviewLooksFor: "O que a revisão procura",
   restoreDefault: "Restaurar padrão",
   guidelines: "Suas diretrizes de revisão",
-  guidelinesPlaceholder: "Somadas a toda pergunta e revisão. Por exemplo: Usamos React Query; aponte estados de carregamento e de erro que faltam. Ignore formatação, um linter cuida disso.",
+  guidelinesPlaceholder:
+    "Somadas a toda pergunta e revisão. Por exemplo: Usamos React Query; aponte estados de carregamento e de erro que faltam. Ignore formatação, um linter cuida disso.",
   prompts: "Prompts",
   restoreDefaults: "Restaurar padrões",
-  promptsFooter: "Botões em cada pull request. Cada um recebe a descrição e o diff do pull request, e as suas diretrizes. Você também pode perguntar qualquer coisa no próprio pull request.",
+  promptsFooter:
+    "Botões em cada pull request. Cada um recebe a descrição e o diff do pull request, e as suas diretrizes. Você também pode perguntar qualquer coisa no próprio pull request.",
   buttonName: "Nome do botão",
   whatAsks: "O que {name} pergunta",
   addPrompt: "Adicionar prompt",
@@ -338,7 +359,10 @@ export const settings: Dictionary["settings"] = {
   addChoice: "Adicionar opção",
   removeChoice: "Remover {name}",
   removeChoiceConfirm: "Remover “{name}”?",
-  dropChoicesConfirm: { one: "Transformar em botão e remover a outra opção?", other: "Transformar em botão e remover as outras {count} opções?" },
+  dropChoicesConfirm: {
+    one: "Transformar em botão e remover a outra opção?",
+    other: "Transformar em botão e remover as outras {count} opções?",
+  },
   menuOf: "Menu: {choices}",
   summaryRepos: { one: "{count} repositório", other: "{count} repositórios" },
   summaryFiles: "Alguns arquivos",
@@ -352,7 +376,8 @@ export const settings: Dictionary["settings"] = {
   "part.involved": "Revisei, comentei ou fui mencionado",
   "part.any": "De qualquer pessoa",
   searchTerms: "Termos de busca do GitHub",
-  searchTermsHint: "Qualquer coisa que github.com/pulls aceita, somada ao resto: team-review-requested:, label:, uma palavra.",
+  searchTermsHint:
+    "Qualquer coisa que github.com/pulls aceita, somada ao resto: team-review-requested:, label:, uma palavra.",
   "summary.open.review": "Esperando minha revisão",
   "summary.open.authored": "Meus pull requests abertos",
   "summary.open.involved": "Abertos em que participei",

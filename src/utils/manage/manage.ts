@@ -4,18 +4,34 @@
 // window shows it at once; every change here shows at once too, and goes back if GitHub refuses.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import { github, graphql } from "@/utils/bridge/bridge";
+import { fresh } from "@/utils/checks/checks";
 import type { Actor } from "@/utils/engine/engine";
 import type { PullRef } from "@/utils/review/review";
-import { fresh } from "@/utils/checks/checks";
 import { cachedList, shelve, shelved } from "@/utils/shelf/shelf";
 
 export type Permission = "ADMIN" | "MAINTAIN" | "WRITE" | "TRIAGE" | "READ";
 export type Label = { id: string; name: string; color: string; description: string | null };
 export type Milestone = { id: string; number: number; title: string; dueOn: string | null };
 export type Team = { slug: string; name: string; combinedSlug: string };
-export type LinkedIssue = { id: string; number: number; title: string; state: "OPEN" | "CLOSED"; stateReason: string | null; url: string; repo: string };
-export type Deployment = { id: string; environment: string; state: string; url: string | null; logUrl: string | null; at: string };
+export type LinkedIssue = {
+  id: string;
+  number: number;
+  title: string;
+  state: "OPEN" | "CLOSED";
+  stateReason: string | null;
+  url: string;
+  repo: string;
+};
+export type Deployment = {
+  id: string;
+  environment: string;
+  state: string;
+  url: string | null;
+  logUrl: string | null;
+  at: string;
+};
 /** A reviewer: asked (and not yet answered since), or answered. */
 export type Reviewer = {
   key: string;
@@ -110,39 +126,94 @@ type Raw = {
       headRef: { id: string } | null;
       headRefName: string;
       headRepository: { name: string; owner: { login: string } } | null;
-      baseRef: { refUpdateRule: null | { requiredApprovingReviewCount: number | null; requiresCodeOwnerReviews: boolean; requiredStatusCheckContexts: Array<string | null> | null; requiresConversationResolution: boolean; requiresLinearHistory: boolean } } | null;
+      baseRef: {
+        refUpdateRule: null | {
+          requiredApprovingReviewCount: number | null;
+          requiresCodeOwnerReviews: boolean;
+          requiredStatusCheckContexts: Array<string | null> | null;
+          requiresConversationResolution: boolean;
+          requiresLinearHistory: boolean;
+        };
+      } | null;
       labels: { nodes: Label[] };
       assignees: { nodes: NonNullable<Actor>[] };
       milestone: Milestone | null;
       closingIssuesReferences: { nodes: Array<Omit<LinkedIssue, "repo"> & { repository: { nameWithOwner: string } }> };
-      reviewRequests: { nodes: Array<{ asCodeOwner: boolean; requestedReviewer: null | ({ __typename: "User" } & NonNullable<Actor>) | ({ __typename: "Team" } & Team) | { __typename: "Mannequin" | "Bot" } }> };
+      reviewRequests: {
+        nodes: Array<{
+          asCodeOwner: boolean;
+          requestedReviewer:
+            | null
+            | ({ __typename: "User" } & NonNullable<Actor>)
+            | ({ __typename: "Team" } & Team)
+            | { __typename: "Mannequin" | "Bot" };
+        }>;
+      };
       latestReviews: { nodes: Array<{ author: Actor; state: NonNullable<Reviewer["state"]> }> };
-      commits: { nodes: Array<{ commit: { deployments: { nodes: Array<{ id: string; environment: string | null; state: string; createdAt: string; latestStatus: { state: string; environmentUrl: string | null; logUrl: string | null } | null }> } | null } }> };
+      commits: {
+        nodes: Array<{
+          commit: {
+            deployments: {
+              nodes: Array<{
+                id: string;
+                environment: string | null;
+                state: string;
+                createdAt: string;
+                latestStatus: { state: string; environmentUrl: string | null; logUrl: string | null } | null;
+              }>;
+            } | null;
+          };
+        }>;
+      };
     };
   };
 };
 
 /** The reviewers as GitHub lists them: those asked, then those who answered, each once; someone who
  *  answered and was asked again shows their answer and that they're asked. */
-export function reviewerList(requests: Raw["repository"]["pullRequest"]["reviewRequests"]["nodes"], reviews: Raw["repository"]["pullRequest"]["latestReviews"]["nodes"]): Reviewer[] {
+export function reviewerList(
+  requests: Raw["repository"]["pullRequest"]["reviewRequests"]["nodes"],
+  reviews: Raw["repository"]["pullRequest"]["latestReviews"]["nodes"],
+): Reviewer[] {
   const list: Reviewer[] = [];
   for (const { requestedReviewer: r, asCodeOwner } of requests) {
     if (!r) continue;
-    if (r.__typename === "Team" && "slug" in r) list.push({ key: `team:${r.slug}`, actor: null, team: { slug: r.slug, name: r.name, combinedSlug: r.combinedSlug }, state: null, requested: true, codeOwner: asCodeOwner });
-    else if ("login" in r) list.push({ key: r.login, actor: r, team: null, state: null, requested: true, codeOwner: asCodeOwner });
+    if (r.__typename === "Team" && "slug" in r)
+      list.push({
+        key: `team:${r.slug}`,
+        actor: null,
+        team: { slug: r.slug, name: r.name, combinedSlug: r.combinedSlug },
+        state: null,
+        requested: true,
+        codeOwner: asCodeOwner,
+      });
+    else if ("login" in r)
+      list.push({ key: r.login, actor: r, team: null, state: null, requested: true, codeOwner: asCodeOwner });
   }
   for (const review of reviews) {
     if (!review.author) continue;
     const asked = list.find((x) => x.key === review.author!.login);
     if (asked) asked.state = review.state;
-    else list.push({ key: review.author.login, actor: review.author, team: null, state: review.state, requested: false, codeOwner: false });
+    else
+      list.push({
+        key: review.author.login,
+        actor: review.author,
+        team: null,
+        state: review.state,
+        requested: false,
+        codeOwner: false,
+      });
   }
   return list;
 }
 
 /** `again`: past Rust's memory of the last answer (checks.ts). */
 export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
-  const data = await graphql<Raw>(again ? fresh(QUERY) : QUERY, { owner: ref.owner, name: ref.repo, number: ref.number });
+  const data = await graphql<Raw>(again ? fresh(QUERY) : QUERY, {
+    owner: ref.owner,
+    name: ref.repo,
+    number: ref.number,
+  });
   const { pullRequest: pr, ...repo } = data.repository;
   const rule = pr.baseRef?.refUpdateRule;
   return {
@@ -163,7 +234,9 @@ export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
     viewerCanDisableAutoMerge: pr.viewerCanDisableAutoMerge,
     viewerCanMergeAsAdmin: pr.viewerCanMergeAsAdmin,
     viewerCanDeleteHeadRef: pr.viewerCanDeleteHeadRef,
-    autoMerge: pr.autoMergeRequest ? { method: pr.autoMergeRequest.mergeMethod, by: pr.autoMergeRequest.enabledBy?.login ?? null } : null,
+    autoMerge: pr.autoMergeRequest
+      ? { method: pr.autoMergeRequest.mergeMethod, by: pr.autoMergeRequest.enabledBy?.login ?? null }
+      : null,
     headRefExists: Boolean(pr.headRef),
     headOwner: pr.headRepository?.owner.login ?? ref.owner,
     headRepo: pr.headRepository?.name ?? ref.repo,
@@ -193,7 +266,8 @@ export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
 }
 
 /** Can push to the repository: merge, re-run checks, update the branch. */
-export const canWrite = (m: Manage | null) => m?.viewerPermission === "ADMIN" || m?.viewerPermission === "MAINTAIN" || m?.viewerPermission === "WRITE";
+export const canWrite = (m: Manage | null) =>
+  m?.viewerPermission === "ADMIN" || m?.viewerPermission === "MAINTAIN" || m?.viewerPermission === "WRITE";
 /** Can triage: labels, assignees, milestone. */
 export const canTriage = (m: Manage | null) => canWrite(m) || m?.viewerPermission === "TRIAGE";
 
@@ -204,18 +278,21 @@ export function useManage(prId: string, ref: PullRef) {
   const [error, setError] = useState<string | null>(null);
   // Answers can come out of order: only the latest request's counts.
   const latest = useRef(0);
-  const reload = useCallback(async (again = false) => {
-    const mine = ++latest.current;
-    try {
-      const m = await loadManage(ref, again);
-      if (mine !== latest.current) return;
-      setManage(m);
-      setError(null);
-      shelve(`manage:${prId}`, m);
-    } catch (e) {
-      if (mine === latest.current) setError(e instanceof Error ? e.message : String(e));
-    }
-  }, [prId, ref]);
+  const reload = useCallback(
+    async (again = false) => {
+      const mine = ++latest.current;
+      try {
+        const m = await loadManage(ref, again);
+        if (mine !== latest.current) return;
+        setManage(m);
+        setError(null);
+        shelve(`manage:${prId}`, m);
+      } catch (e) {
+        if (mine === latest.current) setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [prId, ref],
+  );
   useEffect(() => {
     void reload();
   }, [reload]);
@@ -235,11 +312,14 @@ const HOUR = 3_600_000;
 export function people(ref: PullRef, query: string, onValue: (list: Person[]) => void) {
   type R = { repository: { assignableUsers: { nodes: Person[] } } };
   const load = () =>
-    graphql<R>(`query($owner: String!, $name: String!, $q: String) { repository(owner: $owner, name: $name) { assignableUsers(first: 100, query: $q) { nodes { ${ACTOR} } } } }`, {
-      owner: ref.owner,
-      name: ref.repo,
-      q: query || null,
-    }).then((d) => d.repository.assignableUsers.nodes);
+    graphql<R>(
+      `query($owner: String!, $name: String!, $q: String) { repository(owner: $owner, name: $name) { assignableUsers(first: 100, query: $q) { nodes { ${ACTOR} } } } }`,
+      {
+        owner: ref.owner,
+        name: ref.repo,
+        q: query || null,
+      },
+    ).then((d) => d.repository.assignableUsers.nodes);
   if (query) return load().then(onValue);
   return cachedList(`people:${ref.owner}/${ref.repo}`, DAY, load, onValue);
 }
@@ -248,10 +328,25 @@ export function people(ref: PullRef, query: string, onValue: (list: Person[]) =>
 export function teams(ref: PullRef, query: string, onValue: (list: Team[]) => void) {
   type R = { organization: { teams: { nodes: Team[] } } | null };
   const load = () =>
-    graphql<R>(`query($org: String!, $q: String) { organization(login: $org) { teams(first: 100, query: $q, orderBy: { field: NAME, direction: ASC }) { nodes { name slug combinedSlug } } } }`, {
-      org: ref.owner,
-      q: query || null,
-    }).then((d) => d.organization?.teams.nodes ?? []);
+    graphql<R>(
+      `
+        query ($org: String!, $q: String) {
+          organization(login: $org) {
+            teams(first: 100, query: $q, orderBy: { field: NAME, direction: ASC }) {
+              nodes {
+                name
+                slug
+                combinedSlug
+              }
+            }
+          }
+        }
+      `,
+      {
+        org: ref.owner,
+        q: query || null,
+      },
+    ).then((d) => d.organization?.teams.nodes ?? []);
   if (query) return load().then(onValue);
   return cachedList(`teams:${ref.owner}`, DAY, load, onValue);
 }
@@ -264,7 +359,24 @@ export function labels(ref: PullRef, onValue: (list: Label[]) => void) {
     let after: string | null = null;
     for (let page = 0; page < 10; page++) {
       const data: R = await graphql<R>(
-        `query($owner: String!, $name: String!, $after: String) { repository(owner: $owner, name: $name) { labels(first: 100, after: $after, orderBy: { field: NAME, direction: ASC }) { pageInfo { hasNextPage endCursor } nodes { id name color description } } } }`,
+        `
+          query ($owner: String!, $name: String!, $after: String) {
+            repository(owner: $owner, name: $name) {
+              labels(first: 100, after: $after, orderBy: { field: NAME, direction: ASC }) {
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+                nodes {
+                  id
+                  name
+                  color
+                  description
+                }
+              }
+            }
+          }
+        `,
         { owner: ref.owner, name: ref.repo, after },
       );
       all.push(...data.repository.labels.nodes);
@@ -281,7 +393,20 @@ export function milestones(ref: PullRef, onValue: (list: Milestone[]) => void) {
   type R = { repository: { milestones: { nodes: Milestone[] } } };
   const load = () =>
     graphql<R>(
-      `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { milestones(first: 100, states: OPEN, orderBy: { field: DUE_DATE, direction: ASC }) { nodes { id number title dueOn } } } }`,
+      `
+        query ($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            milestones(first: 100, states: OPEN, orderBy: { field: DUE_DATE, direction: ASC }) {
+              nodes {
+                id
+                number
+                title
+                dueOn
+              }
+            }
+          }
+        }
+      `,
       { owner: ref.owner, name: ref.repo },
     ).then((d) => d.repository.milestones.nodes);
   return cachedList(`milestones:${ref.owner}/${ref.repo}`, HOUR, load, onValue);
@@ -293,15 +418,21 @@ const issue = (ref: PullRef) => `/repos/${ref.owner}/${ref.repo}/issues/${ref.nu
 const pull = (ref: PullRef) => `/repos/${ref.owner}/${ref.repo}/pulls/${ref.number}`;
 
 /** Asks people or teams to review; asking someone who already reviewed asks them again. */
-export const requestReviews = (ref: PullRef, users: string[], teamSlugs: string[] = []) => github("POST", `${pull(ref)}/requested_reviewers`, { reviewers: users, team_reviewers: teamSlugs });
-export const removeReviewRequests = (ref: PullRef, users: string[], teamSlugs: string[] = []) => github("DELETE", `${pull(ref)}/requested_reviewers`, { reviewers: users, team_reviewers: teamSlugs });
-export const addAssignees = (ref: PullRef, logins: string[]) => github("POST", `${issue(ref)}/assignees`, { assignees: logins });
-export const removeAssignees = (ref: PullRef, logins: string[]) => github("DELETE", `${issue(ref)}/assignees`, { assignees: logins });
+export const requestReviews = (ref: PullRef, users: string[], teamSlugs: string[] = []) =>
+  github("POST", `${pull(ref)}/requested_reviewers`, { reviewers: users, team_reviewers: teamSlugs });
+export const removeReviewRequests = (ref: PullRef, users: string[], teamSlugs: string[] = []) =>
+  github("DELETE", `${pull(ref)}/requested_reviewers`, { reviewers: users, team_reviewers: teamSlugs });
+export const addAssignees = (ref: PullRef, logins: string[]) =>
+  github("POST", `${issue(ref)}/assignees`, { assignees: logins });
+export const removeAssignees = (ref: PullRef, logins: string[]) =>
+  github("DELETE", `${issue(ref)}/assignees`, { assignees: logins });
 export const addLabels = (ref: PullRef, names: string[]) => github("POST", `${issue(ref)}/labels`, { labels: names });
-export const removeLabel = (ref: PullRef, name: string) => github("DELETE", `${issue(ref)}/labels/${encodeURIComponent(name)}`);
+export const removeLabel = (ref: PullRef, name: string) =>
+  github("DELETE", `${issue(ref)}/labels/${encodeURIComponent(name)}`);
 export const setMilestone = (ref: PullRef, milestone: number | null) => github("PATCH", issue(ref), { milestone });
 
-const byId = (name: string) => (id: string) => graphql(`mutation($id: ID!) { ${name}(input: { pullRequestId: $id }) { clientMutationId } }`, { id });
+const byId = (name: string) => (id: string) =>
+  graphql(`mutation($id: ID!) { ${name}(input: { pullRequestId: $id }) { clientMutationId } }`, { id });
 
 export const closePull = byId("closePullRequest");
 export const reopenPull = byId("reopenPullRequest");

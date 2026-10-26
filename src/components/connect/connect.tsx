@@ -3,6 +3,7 @@
 
 import { Check, Copy, ExternalLink, KeyRound, Loader2, Terminal } from "lucide-react";
 import { useState } from "react";
+
 import { Button } from "@/components/button/button";
 import { Input } from "@/components/input/input";
 import { Label } from "@/components/label/label";
@@ -38,7 +39,10 @@ export function Connect({ auth, onConnected }: Props) {
     run("device", async () => {
       const started = await bridge.authDeviceStart();
       setCode(started);
-      await navigator.clipboard.writeText(started.user_code).then(() => setCopied(true), () => {});
+      await navigator.clipboard.writeText(started.user_code).then(
+        () => setCopied(true),
+        () => {},
+      );
       await bridge.openUrl(started.verification_uri);
       await bridge.authDeviceFinish(started);
     });
@@ -48,7 +52,10 @@ export function Connect({ auth, onConnected }: Props) {
       <div className="flex flex-col items-center gap-4 text-center" role="status" aria-live="polite">
         <p className="text-body text-muted-foreground">{t("shared.connectEnterCode")}</p>
         <div className="flex items-center gap-2">
-          <code className="rounded-lg bg-muted px-4 py-2 font-mono text-2xl font-semibold tracking-[0.2em]" aria-label={t("shared.connectCodeLabel", { code: code.user_code.split("").join(" ") })}>
+          <code
+            className="rounded-lg bg-muted px-4 py-2 font-mono text-2xl font-semibold tracking-[0.2em]"
+            aria-label={t("shared.connectCodeLabel", { code: code.user_code.split("").join(" ") })}
+          >
             {code.user_code}
           </code>
           <Button
@@ -79,7 +86,12 @@ export function Connect({ auth, onConnected }: Props) {
         </Button>
       ) : null}
       {auth?.gh_available ? (
-        <Button size="lg" variant={auth.device_flow ? "outline" : "default"} onClick={() => run("gh", bridge.authUseGh)} disabled={busy !== null}>
+        <Button
+          size="lg"
+          variant={auth.device_flow ? "outline" : "default"}
+          onClick={() => run("gh", bridge.authUseGh)}
+          disabled={busy !== null}
+        >
           {busy === "gh" ? <Loader2 className="animate-spin" /> : <Terminal />}
           {t("shared.connectUseGh")}
         </Button>
@@ -103,7 +115,8 @@ export function Connect({ auth, onConnected }: Props) {
             onChange={(e) => setToken(e.target.value)}
           />
           <p className="text-callout text-muted-foreground">
-            {t("shared.connectTokenNeedsBefore")} <code>repo</code> {t("shared.connectTokenNeedsAnd")} <code>read:org</code>
+            {t("shared.connectTokenNeedsBefore")} <code>repo</code> {t("shared.connectTokenNeedsAnd")}{" "}
+            <code>read:org</code>
             {t("shared.connectTokenNeedsAfter")}
           </p>
           <Button type="submit" variant="outline" disabled={!token.trim() || busy !== null}>

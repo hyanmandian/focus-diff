@@ -4,13 +4,14 @@
 
 import { FileWarning, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
+import { cn } from "@/utils/cn/cn";
 import { fileAt, type Source } from "@/utils/contents/contents";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
-import { cn } from "@/utils/cn/cn";
 
 const IMAGE_TYPES: Record<string, string> = {
   png: "image/png",
@@ -83,20 +84,45 @@ function usePicture(source: Source | null, file: ReviewFile, side: "old" | "new"
   return state;
 }
 
-const bytesText = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+const bytesText = (n: number) =>
+  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 
 // Transparent parts show over a checkerboard, as in Preview, in either appearance.
-const CHECKERS = "bg-[length:16px_16px] bg-[conic-gradient(var(--fill-control)_25%,transparent_0_50%,var(--fill-control)_0_75%,transparent_0)]";
+const CHECKERS =
+  "bg-[length:16px_16px] bg-[conic-gradient(var(--fill-control)_25%,transparent_0_50%,var(--fill-control)_0_75%,transparent_0)]";
 
-function Figure({ label, picture, tone }: { label: string; picture: { url: string; bytes: number }; tone: "old" | "new" }) {
+function Figure({
+  label,
+  picture,
+  tone,
+}: {
+  label: string;
+  picture: { url: string; bytes: number };
+  tone: "old" | "new";
+}) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   return (
     <figure className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-      <figcaption className={cn("text-callout font-medium", tone === "old" ? "text-destructive" : "text-success")}>{label}</figcaption>
-      <div className={cn("grid max-w-full place-items-center rounded-md border p-1", tone === "old" ? "border-destructive/50" : "border-success/50", CHECKERS)}>
-        <img src={picture.url} alt={label} className="max-h-[60vh] max-w-full object-contain" onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
+      <figcaption className={cn("text-callout font-medium", tone === "old" ? "text-destructive" : "text-success")}>
+        {label}
+      </figcaption>
+      <div
+        className={cn(
+          "grid max-w-full place-items-center rounded-md border p-1",
+          tone === "old" ? "border-destructive/50" : "border-success/50",
+          CHECKERS,
+        )}
+      >
+        <img
+          src={picture.url}
+          alt={label}
+          className="max-h-[60vh] max-w-full object-contain"
+          onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+        />
       </div>
-      <p className="text-subheadline text-muted-foreground tabular-nums">{[size ? `${size.w} × ${size.h}` : null, bytesText(picture.bytes)].filter(Boolean).join(" · ")}</p>
+      <p className="text-subheadline text-muted-foreground tabular-nums">
+        {[size ? `${size.w} × ${size.h}` : null, bytesText(picture.bytes)].filter(Boolean).join(" · ")}
+      </p>
     </figure>
   );
 }
@@ -120,7 +146,9 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
   if (!old || !fresh) {
     // Only one side: added or deleted.
     const only = old ?? fresh;
-    return only ? <Figure label={old ? t("diff.deleted") : t("diff.added")} picture={only} tone={old ? "old" : "new"} /> : null;
+    return only ? (
+      <Figure label={old ? t("diff.deleted") : t("diff.added")} picture={only} tone={old ? "old" : "new"} />
+    ) : null;
   }
   const choose = (next: Mode) => {
     setMode(next);
@@ -132,7 +160,13 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
   };
   return (
     <div className="flex flex-col items-center gap-3">
-      <ToggleGroup value={[mode]} onValueChange={(v: string[]) => v[0] && choose(v[0] as Mode)} variant="outline" size="sm" aria-label={t("diff.compare")}>
+      <ToggleGroup
+        value={[mode]}
+        onValueChange={(v: string[]) => v[0] && choose(v[0] as Mode)}
+        variant="outline"
+        size="sm"
+        aria-label={t("diff.compare")}
+      >
         <ToggleGroupItem value="two-up">{t("diff.twoUp")}</ToggleGroupItem>
         <ToggleGroupItem value="swipe">{t("diff.swipe")}</ToggleGroupItem>
         <ToggleGroupItem value="onion">{t("diff.onion")}</ToggleGroupItem>
@@ -145,15 +179,27 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
       ) : (
         <>
           {/* Both in one box: the new one over the old, cut off at the slider (swipe) or faded by it. */}
-          <div className={cn("relative grid max-w-full place-items-center overflow-hidden rounded-md border", CHECKERS)}>
-            <img src={old.url} alt={t("diff.before")} className="col-start-1 row-start-1 max-h-[60vh] max-w-full object-contain" />
+          <div
+            className={cn("relative grid max-w-full place-items-center overflow-hidden rounded-md border", CHECKERS)}
+          >
+            <img
+              src={old.url}
+              alt={t("diff.before")}
+              className="col-start-1 row-start-1 max-h-[60vh] max-w-full object-contain"
+            />
             <img
               src={fresh.url}
               alt={t("diff.after")}
               className="col-start-1 row-start-1 max-h-[60vh] max-w-full object-contain"
               style={mode === "swipe" ? { clipPath: `inset(0 0 0 ${amount}%)` } : { opacity: amount / 100 }}
             />
-            {mode === "swipe" ? <div aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-primary" style={{ left: `${amount}%` }} /> : null}
+            {mode === "swipe" ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 w-px bg-primary"
+                style={{ left: `${amount}%` }}
+              />
+            ) : null}
           </div>
           <label className="flex w-72 max-w-full items-center gap-2 text-callout text-muted-foreground">
             <span className="text-destructive">{t("diff.before")}</span>
@@ -197,14 +243,26 @@ export function NoPatchFile({
   const old = renamed(file);
   const pureRename = file.status === "renamed" && !file.additions && !file.deletions;
   return (
-    <section id={`file-${file.path}`} aria-label={file.path} className="overflow-hidden rounded-lg border bg-background font-sans">
+    <section
+      id={`file-${file.path}`}
+      aria-label={file.path}
+      className="overflow-hidden rounded-lg border bg-background font-sans"
+    >
       <header className="flex h-(--row-h) items-center gap-2 border-b bg-muted/40 px-3 text-body">
-        <span className="min-w-0 flex-1 truncate font-mono text-callout" title={old ? `${file.previousPath} → ${file.path}` : file.path}>
+        <span
+          className="min-w-0 flex-1 truncate font-mono text-callout"
+          title={old ? `${file.previousPath} → ${file.path}` : file.path}
+        >
           {old ? <span className="text-muted-foreground">{old} → </span> : null}
           {file.path}
         </span>
         <label className="flex shrink-0 items-center gap-1.5 px-1.5 py-1 select-none">
-          <Checkbox checked={viewed} onCheckedChange={onViewed} aria-label={t("review.viewedFile", { path: file.path })} className="size-3.5" />
+          <Checkbox
+            checked={viewed}
+            onCheckedChange={onViewed}
+            aria-label={t("review.viewedFile", { path: file.path })}
+            className="size-3.5"
+          />
           {t("review.viewed")}
         </label>
       </header>

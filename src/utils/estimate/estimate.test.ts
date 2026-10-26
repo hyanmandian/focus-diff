@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { createEstimator, creditFor, kindOf, learnFile, normalizeLearned, paceFactors, pullMinutes, reviewMinutes, share } from "@/utils/estimate/estimate";
+
+import {
+  createEstimator,
+  creditFor,
+  kindOf,
+  learnFile,
+  normalizeLearned,
+  paceFactors,
+  pullMinutes,
+  reviewMinutes,
+  share,
+} from "@/utils/estimate/estimate";
 
 describe("review time", () => {
   it("takes about an hour for 1,000 added lines", () => {
@@ -20,7 +31,6 @@ describe("review time", () => {
     expect(kindOf("package-lock.json")).toBe("generated");
     expect(kindOf("src/app.ts")).toBe("code");
   });
-
 });
 
 describe("learning the reader's pace", () => {
@@ -37,7 +47,9 @@ describe("learning the reader's pace", () => {
     expect(all).toBeGreaterThan(1.5);
     expect(kinds.code).toBeGreaterThan(kinds.docs);
     const estimate = createEstimator(learned);
-    expect(estimate("src/x.ts", { additions: 100, deletions: 0 })).toBeGreaterThan(reviewMinutes("src/x.ts", { additions: 100, deletions: 0 }) * 1.5);
+    expect(estimate("src/x.ts", { additions: 100, deletions: 0 })).toBeGreaterThan(
+      reviewMinutes("src/x.ts", { additions: 100, deletions: 0 }) * 1.5,
+    );
   });
 
   it("can't be skewed by one file left open", () => {
@@ -47,7 +59,9 @@ describe("learning the reader's pace", () => {
   });
 
   it("reads what's kept, dropping what's broken", () => {
-    expect(normalizeLearned({ all: { actual: 3, expected: -1, files: "x" }, kinds: { code: { actual: 1 }, nope: {} } })).toEqual({
+    expect(
+      normalizeLearned({ all: { actual: 3, expected: -1, files: "x" }, kinds: { code: { actual: 1 }, nope: {} } }),
+    ).toEqual({
       all: { actual: 3, expected: 0, files: 0 },
       kinds: { code: { actual: 1, expected: 0, files: 0 } },
     });
@@ -62,7 +76,15 @@ describe("time spent on files", () => {
   });
 
   it("shares it by how much of the screen each file takes", () => {
-    expect(share(900, [["a", 200], ["b", 100]])).toEqual([["a", 600], ["b", 300]]);
+    expect(
+      share(900, [
+        ["a", 200],
+        ["b", 100],
+      ]),
+    ).toEqual([
+      ["a", 600],
+      ["b", 300],
+    ]);
     expect(share(900, [])).toEqual([]);
   });
 });

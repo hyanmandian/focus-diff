@@ -5,6 +5,7 @@
 // comments and the like come in on their own.
 
 import { useEffect, useRef, useState } from "react";
+
 import { github } from "@/utils/bridge/bridge";
 
 type Rest = { head: { sha: string }; updated_at: string; user: { login: string } | null };
@@ -13,7 +14,13 @@ export type NewChanges = { head: string; at: number };
 
 const EVERY = 30_000;
 
-export function useNewChanges(repo: string, number: number, head: string | undefined, updatedAt: string | undefined, onActivity: () => void) {
+export function useNewChanges(
+  repo: string,
+  number: number,
+  head: string | undefined,
+  updatedAt: string | undefined,
+  onActivity: () => void,
+) {
   const [found, setFound] = useState<NewChanges | null>(null);
   const known = useRef({ head, updatedAt });
   known.current = { head, updatedAt };

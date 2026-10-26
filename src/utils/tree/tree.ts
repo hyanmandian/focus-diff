@@ -38,18 +38,26 @@ export function buildTree<F extends { path: string }>(files: F[]): Array<TreeNod
       const only = f.children[0] as TreeFolder<F>;
       f = { ...only, name: `${f.name}/${only.name}` };
     }
-    f.children = f.children.map((c) => (c.kind === "folder" ? tidy(c) : c)).sort((a, b) => (a.kind === b.kind ? byName(a.name, b.name) : a.kind === "folder" ? -1 : 1));
+    f.children = f.children
+      .map((c) => (c.kind === "folder" ? tidy(c) : c))
+      .sort((a, b) => (a.kind === b.kind ? byName(a.name, b.name) : a.kind === "folder" ? -1 : 1));
     return f;
   };
   return tidy(root).children;
 }
 
 /** The rows showing, folders in `collapsed` (by path) closed. */
-export function flatten<F>(nodes: Array<TreeNode<F>>, collapsed: ReadonlySet<string>, depth = 0, parent: string | null = null): Array<TreeRow<F>> {
+export function flatten<F>(
+  nodes: Array<TreeNode<F>>,
+  collapsed: ReadonlySet<string>,
+  depth = 0,
+  parent: string | null = null,
+): Array<TreeRow<F>> {
   const rows: Array<TreeRow<F>> = [];
   for (const node of nodes) {
     rows.push({ node, depth, parent });
-    if (node.kind === "folder" && !collapsed.has(node.path)) rows.push(...flatten(node.children, collapsed, depth + 1, node.path));
+    if (node.kind === "folder" && !collapsed.has(node.path))
+      rows.push(...flatten(node.children, collapsed, depth + 1, node.path));
   }
   return rows;
 }
@@ -78,7 +86,12 @@ export function foldersOf(path: string): string[] {
  *  ends. `at`: the row with the focus. */
 export type OutlineAction = { focus: number } | { expand: string } | { collapse: string } | null;
 
-export function outlineKey<F>(rows: Array<TreeRow<F>>, at: number, key: string, collapsed: ReadonlySet<string>): OutlineAction {
+export function outlineKey<F>(
+  rows: Array<TreeRow<F>>,
+  at: number,
+  key: string,
+  collapsed: ReadonlySet<string>,
+): OutlineAction {
   const row = rows[at];
   if (!rows.length) return null;
   if (!row) return { focus: 0 };
@@ -93,7 +106,11 @@ export function outlineKey<F>(rows: Array<TreeRow<F>>, at: number, key: string, 
       return { focus: rows.length - 1 };
     case "ArrowRight":
       if (row.node.kind !== "folder") return null;
-      return collapsed.has(row.node.path) ? { expand: row.node.path } : at + 1 < rows.length && rows[at + 1]!.depth > row.depth ? { focus: at + 1 } : null;
+      return collapsed.has(row.node.path)
+        ? { expand: row.node.path }
+        : at + 1 < rows.length && rows[at + 1]!.depth > row.depth
+          ? { focus: at + 1 }
+          : null;
     case "ArrowLeft": {
       if (row.node.kind === "folder" && !collapsed.has(row.node.path)) return { collapse: row.node.path };
       const up = rows.findIndex((r) => r.node.kind === "folder" && r.node.path === row.parent);

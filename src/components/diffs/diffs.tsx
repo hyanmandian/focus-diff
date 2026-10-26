@@ -5,14 +5,31 @@
 // Markdown can be read rendered, and files GitHub sends no patch for show what can be shown of
 // them after the rest (rich-diff.tsx).
 
-import { getSingularPatch, parseDiffFromFile, type CodeViewItem, type DiffLineAnnotation, type FileDiffMetadata, type SelectedLineRange } from "@pierre/diffs";
+import {
+  getSingularPatch,
+  parseDiffFromFile,
+  type CodeViewItem,
+  type DiffLineAnnotation,
+  type FileDiffMetadata,
+  type SelectedLineRange,
+} from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { BookOpen, Code, MessageSquarePlus, MoreHorizontal, Plus } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/context-menu/context-menu";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
+import { isMarkdown, Rendered } from "@/components/rendered/rendered";
+import { NoPatchFile } from "@/components/rich-diff/rich-diff";
+import { DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
@@ -25,9 +42,6 @@ import { findingSide, placeThread, shows, type Placement } from "@/utils/placeme
 import { lineRange } from "@/utils/range/range";
 import type { Draft, ReviewFile, Thread } from "@/utils/review/review";
 import { ignoreWhitespace } from "@/utils/whitespace/whitespace";
-import { isMarkdown, Rendered } from "@/components/rendered/rendered";
-import { NoPatchFile } from "@/components/rich-diff/rich-diff";
-import { DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
 
 type Annotation =
   | { kind: "thread"; thread: Thread; moved: boolean }
@@ -65,7 +79,15 @@ type Props = {
   findingsBy: string;
   onAcceptFinding: (finding: Finding, side: Side) => void;
   /** Asks the AI about selected lines; null when there's no AI. */
-  onAsk: ((path: string, range: SelectedLineRange, question: string, earlier: Exchange[], run: string) => Promise<AiAnswer>) | null;
+  onAsk:
+    | ((
+        path: string,
+        range: SelectedLineRange,
+        question: string,
+        earlier: Exchange[],
+        run: string,
+      ) => Promise<AiAnswer>)
+    | null;
   onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
   /** Viewed files opened anyway (to show a comment in one): they don't fold. */
@@ -104,7 +126,11 @@ const describe = (range: SelectedLineRange, t: T) => {
   return a === b ? t("review.line", { line: String(b) }) : t("review.lines", { start: String(a), end: String(b) });
 };
 
-const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Draft, "key"> => ({ path, ...lineRange(range), body });
+const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Draft, "key"> => ({
+  path,
+  ...lineRange(range),
+  body,
+});
 
 /** Things kept by path, in their order: each file's own, looked up once rather than filtered for. */
 function byPath<V extends { path: string }>(list: V[]) {
@@ -131,13 +157,28 @@ const renderedItem = (file: ReviewFile, version: number, collapsed: boolean): Co
 const RENDERED_CSS = "pre[data-file] [data-line], pre[data-file] [data-column-number] { display: none; }";
 
 /** The text fields where right-click is the system's (cut, copy, paste), not the code's menu. */
-const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+const typing = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 
 type Loaded = { state: "loading" } | { state: "error"; message: string } | { state: "done"; diff: FileDiffMetadata };
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const t = useT();
-  const { files, threads, drafts, findings, isViewed, opened, diffStyle, wrap, whitespace, dark, source, link, commentable } = props;
+  const {
+    files,
+    threads,
+    drafts,
+    findings,
+    isViewed,
+    opened,
+    diffStyle,
+    wrap,
+    whitespace,
+    dark,
+    source,
+    link,
+    commentable,
+  } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
   // `file`: a comment on the file as a whole, written at its top.
   const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange; file?: boolean } | null>(null);
@@ -153,7 +194,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const placed = useRef(new Map<string, Placement>());
   // The line under the pointer, for the contextual menu.
   const hovered = useRef<{ path: string; side: Side; line: number } | null>(null);
-  const [menuAt, setMenuAt] = useState<{ path: string; side: Side; start: number; end: number; startSide: Side } | null>(null);
+  const [menuAt, setMenuAt] = useState<{
+    path: string;
+    side: Side;
+    start: number;
+    end: number;
+    startSide: Side;
+  } | null>(null);
   const container = useRef<HTMLDivElement>(null);
 
   const diffOf = (path: string) => {
@@ -163,12 +210,22 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const scrollToFile = (path: string) => {
     if (built.current.has(path)) viewer.current?.scrollTo({ type: "item", id: path, align: "start" } as never);
     // One of the files after the list (no patch): its card, in the footer.
-    else container.current?.querySelector(`[id="file-${CSS.escape(path)}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    else
+      container.current
+        ?.querySelector(`[id="file-${CSS.escape(path)}"]`)
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
   const scrollToLine = (path: string, line: number, side: Side = "additions") => {
     const diff = diffOf(path);
     if (!diff || line <= 0 || !shows(diff, side, line)) return scrollToFile(path);
-    viewer.current?.scrollTo({ type: "line", id: path, lineNumber: line, side, align: "center", behavior: "smooth" } as never);
+    viewer.current?.scrollTo({
+      type: "line",
+      id: path,
+      lineNumber: line,
+      side,
+      align: "center",
+      behavior: "smooth",
+    } as never);
   };
 
   useImperativeHandle(ref, () => ({
@@ -215,7 +272,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       if (!diff) {
         let entry = parsed.current.get(f.path);
         if (!entry || entry.patch !== f.patch || entry.whitespace !== whitespace) {
-          entry = { patch: f.patch, whitespace, diff: getSingularPatch(whitespace ? ignoreWhitespace(f.patch) : f.patch) };
+          entry = {
+            patch: f.patch,
+            whitespace,
+            diff: getSingularPatch(whitespace ? ignoreWhitespace(f.patch) : f.patch),
+          };
           parsed.current.set(f.path, entry);
         }
         diff = entry.diff;
@@ -250,25 +311,52 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         return [item];
       }
       const annotations: Array<DiffLineAnnotation<Annotation>> = [
-            ...fileThreads.map((thread) => {
-              // On the file, outdated, or on a line this diff no longer shows: at the top of the
-              // file, saying where it was, rather than on whatever line now has that number.
-              const at = placeThread(diff, thread);
-              placed.current.set(thread.id, at);
-              return { side: at.side, lineNumber: at.lineNumber, metadata: { kind: "thread" as const, thread, moved: at.moved } };
-            }),
-            // One on the file goes at its top, as its conversations do.
-            ...fileDrafts.map((draft) => ({ side: draft.side, lineNumber: draft.file ? 0 : draft.line, metadata: { kind: "draft" as const, draft } })),
-            ...fileFindings.map((finding) => ({ side: findingSide(diff, finding.line), lineNumber: finding.line, metadata: { kind: "finding" as const, finding } })),
-            ...(composing?.path === f.path
-              ? [
-                  composing.file
-                    ? { side: "additions" as const, lineNumber: 0, metadata: { kind: "new" as const, path: f.path, range: composing.range, file: true } }
-                    : { side: lineRange(composing.range).side, lineNumber: lineRange(composing.range).line, metadata: { kind: "new" as const, path: f.path, range: composing.range } },
-                ]
-              : []),
-          ];
-      const item: CodeViewItem<Annotation> = { id: f.path, type: "diff", fileDiff: diff, annotations, collapsed: viewed, version: key };
+        ...fileThreads.map((thread) => {
+          // On the file, outdated, or on a line this diff no longer shows: at the top of the
+          // file, saying where it was, rather than on whatever line now has that number.
+          const at = placeThread(diff, thread);
+          placed.current.set(thread.id, at);
+          return {
+            side: at.side,
+            lineNumber: at.lineNumber,
+            metadata: { kind: "thread" as const, thread, moved: at.moved },
+          };
+        }),
+        // One on the file goes at its top, as its conversations do.
+        ...fileDrafts.map((draft) => ({
+          side: draft.side,
+          lineNumber: draft.file ? 0 : draft.line,
+          metadata: { kind: "draft" as const, draft },
+        })),
+        ...fileFindings.map((finding) => ({
+          side: findingSide(diff, finding.line),
+          lineNumber: finding.line,
+          metadata: { kind: "finding" as const, finding },
+        })),
+        ...(composing?.path === f.path
+          ? [
+              composing.file
+                ? {
+                    side: "additions" as const,
+                    lineNumber: 0,
+                    metadata: { kind: "new" as const, path: f.path, range: composing.range, file: true },
+                  }
+                : {
+                    side: lineRange(composing.range).side,
+                    lineNumber: lineRange(composing.range).line,
+                    metadata: { kind: "new" as const, path: f.path, range: composing.range },
+                  },
+            ]
+          : []),
+      ];
+      const item: CodeViewItem<Annotation> = {
+        id: f.path,
+        type: "diff",
+        fileDiff: diff,
+        annotations,
+        collapsed: viewed,
+        version: key,
+      };
       next.set(f.path, item);
       return [item];
     });
@@ -295,7 +383,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         if (range && latest?.item) setComposing({ path: latest.item.id, range });
       },
       onLineEnter: (line: { annotationSide: Side; lineNumber: number }, context?: { item?: { id: string } }) => {
-        if (context?.item) hovered.current = { path: context.item.id, side: line.annotationSide, line: line.lineNumber };
+        if (context?.item)
+          hovered.current = { path: context.item.id, side: line.annotationSide, line: line.lineNumber };
       },
       onLineLeave: () => {
         hovered.current = null;
@@ -309,7 +398,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               if (!file) throw new Error(fileDiff.name);
               const { oldText, newText } = await bothVersions(source, file);
               const newFile = { name: file.path, contents: newText ?? "", cacheKey: `${source.head}:${file.path}` };
-              return fileDiff.type === "rename-pure" ? { oldFile: null, newFile } : { oldFile: { name: file.previousPath ?? file.path, contents: oldText ?? "" }, newFile };
+              return fileDiff.type === "rename-pure"
+                ? { oldFile: null, newFile }
+                : { oldFile: { name: file.previousPath ?? file.path, contents: oldText ?? "" }, newFile };
             },
           }
         : {}),
@@ -323,10 +414,16 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     setLoaded((m) => new Map(m).set(file.path, { state: "loading" }));
     try {
       const { oldText, newText } = await bothVersions(source, file);
-      const diff = parseDiffFromFile(oldText === null ? null : { name: file.previousPath ?? file.path, contents: oldText }, newText === null ? null : { name: file.path, contents: newText }) as FileDiffMetadata;
+      const diff = parseDiffFromFile(
+        oldText === null ? null : { name: file.previousPath ?? file.path, contents: oldText },
+        newText === null ? null : { name: file.path, contents: newText },
+      ) as FileDiffMetadata;
       setLoaded((m) => new Map(m).set(file.path, { state: "done", diff }));
     } catch (e) {
-      const message = e instanceof BinaryFile ? t("diff.binary") : t("diff.loadFailed", { error: e instanceof Error ? e.message : String(e) });
+      const message =
+        e instanceof BinaryFile
+          ? t("diff.binary")
+          : t("diff.loadFailed", { error: e instanceof Error ? e.message : String(e) });
       setLoaded((m) => new Map(m).set(file.path, { state: "error", message }));
     }
   };
@@ -380,7 +477,17 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           if (!line) return setMenuAt(null);
           // Lines picked in that file: the menu is about them; otherwise the line under the pointer.
           const range = composing?.path === line.path ? lineRange(composing.range) : null;
-          setMenuAt(range ? { path: line.path, side: range.side, end: range.line, start: range.startLine ?? range.line, startSide: range.startSide ?? range.side } : { path: line.path, side: line.side, start: line.line, end: line.line, startSide: line.side });
+          setMenuAt(
+            range
+              ? {
+                  path: line.path,
+                  side: range.side,
+                  end: range.line,
+                  start: range.startLine ?? range.line,
+                  startSide: range.startSide ?? range.side,
+                }
+              : { path: line.path, side: line.side, start: line.line, end: line.line, startSide: line.side },
+          );
         }}
       >
         <ContextMenuTrigger
@@ -410,7 +517,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                   const line = getHovered();
                   if (!line) return;
                   const side = ("side" in line ? line.side : "additions") as SelectedLineRange["side"];
-                  setComposing({ path: item.id, range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side } });
+                  setComposing({
+                    path: item.id,
+                    range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side },
+                  });
                 }}
                 className="flex size-5 cursor-default items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] active:brightness-90"
               >
@@ -422,7 +532,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               if (!file) return null;
               const asRendered = rendered.has(file.path);
               return (
-                <span className="flex items-center gap-0.5 font-sans text-foreground select-none" onClick={(e) => e.stopPropagation()}>
+                <span
+                  className="flex items-center gap-0.5 font-sans text-foreground select-none"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {isMarkdown(file.path) && source && file.patch ? (
                     <Tooltip>
                       <TooltipTrigger
@@ -433,7 +546,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                             aria-pressed={asRendered}
                             aria-label={asRendered ? t("diff.showSource") : t("diff.showRendered")}
                             className="text-muted-foreground aria-pressed:text-primary"
-                            onClick={() => setRendered((s) => (s.has(file.path) ? new Set([...s].filter((p) => p !== file.path)) : new Set([...s, file.path])))}
+                            onClick={() =>
+                              setRendered((s) =>
+                                s.has(file.path)
+                                  ? new Set([...s].filter((p) => p !== file.path))
+                                  : new Set([...s, file.path]),
+                              )
+                            }
                           />
                         }
                       >
@@ -450,7 +569,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                           size="icon-xs"
                           className="text-muted-foreground"
                           aria-label={t("review.commentOnFile", { path: file.path })}
-                          onClick={() => setComposing({ path: file.path, range: { start: 0, end: 0, side: "additions", endSide: "additions" }, file: true })}
+                          onClick={() =>
+                            setComposing({
+                              path: file.path,
+                              range: { start: 0, end: 0, side: "additions", endSide: "additions" },
+                              file: true,
+                            })
+                          }
                         />
                       }
                     >
@@ -459,11 +584,22 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                     <TooltipContent>{t("review.commentOnFileTip")}</TooltipContent>
                   </Tooltip>
                   <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("diff.fileActions", { path: file.path })} />}>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-muted-foreground"
+                          aria-label={t("diff.fileActions", { path: file.path })}
+                        />
+                      }
+                    >
                       <MoreHorizontal />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => void copy(file.path, t("diff.pathCopied"))}>{t("diff.copyPath")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void copy(file.path, t("diff.pathCopied"))}>
+                        {t("diff.copyPath")}
+                      </DropdownMenuItem>
                       <DropdownMenuItem disabled={!link || !source} onClick={() => void copyPermalink(file.path)}>
                         {t("diff.copyPermalink")}
                       </DropdownMenuItem>
@@ -480,7 +616,12 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <label className="flex items-center gap-1.5 px-1.5 py-1 text-body">
-                    <Checkbox checked={isViewed(file)} onCheckedChange={(v) => props.onViewed(file, v)} aria-label={t("review.viewedFile", { path: file.path })} className="size-3.5" />
+                    <Checkbox
+                      checked={isViewed(file)}
+                      onCheckedChange={(v) => props.onViewed(file, v)}
+                      aria-label={t("review.viewedFile", { path: file.path })}
+                      className="size-3.5"
+                    />
                     {t("review.viewed")}
                   </label>
                 </span>
@@ -489,14 +630,45 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
             renderAnnotation={(...[annotation]) => {
               const a = annotation.metadata as Annotation;
               if (a.kind === "rendered") return source ? <Rendered file={a.file} source={source} /> : null;
-              if (a.kind === "thread") return <ThreadView thread={a.thread} moved={a.moved} onReply={(body) => props.onReply(a.thread, body)} onResolve={(resolved) => props.onResolve(a.thread, resolved)} />;
-              if (a.kind === "draft") return <DraftView draft={a.draft} onEdit={(body) => props.onEditDraft(a.draft.key, body)} onRemove={async () => {
-                    const t = i18n();
-                    if (await bridge.confirm(t("review.removeDraftConfirm"), t("review.removeDraftConfirmMessage"), t("review.removeDraftConfirmButton"))) props.onRemoveDraft(a.draft.key);
-                  }} />;
+              if (a.kind === "thread")
+                return (
+                  <ThreadView
+                    thread={a.thread}
+                    moved={a.moved}
+                    onReply={(body) => props.onReply(a.thread, body)}
+                    onResolve={(resolved) => props.onResolve(a.thread, resolved)}
+                  />
+                );
+              if (a.kind === "draft")
+                return (
+                  <DraftView
+                    draft={a.draft}
+                    onEdit={(body) => props.onEditDraft(a.draft.key, body)}
+                    onRemove={async () => {
+                      const t = i18n();
+                      if (
+                        await bridge.confirm(
+                          t("review.removeDraftConfirm"),
+                          t("review.removeDraftConfirmMessage"),
+                          t("review.removeDraftConfirmButton"),
+                        )
+                      )
+                        props.onRemoveDraft(a.draft.key);
+                    }}
+                  />
+                );
               if (a.kind === "finding") {
                 const diff = diffOf(a.finding.path);
-                return <FindingView finding={a.finding} by={props.findingsBy} onAdd={() => props.onAcceptFinding(a.finding, diff ? findingSide(diff, a.finding.line) : "additions")} onDismiss={() => props.onDismissFinding(a.finding)} />;
+                return (
+                  <FindingView
+                    finding={a.finding}
+                    by={props.findingsBy}
+                    onAdd={() =>
+                      props.onAcceptFinding(a.finding, diff ? findingSide(diff, a.finding.line) : "additions")
+                    }
+                    onDismiss={() => props.onDismissFinding(a.finding)}
+                  />
+                );
               }
               return (
                 <NewComment
@@ -505,15 +677,27 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                   range={a.range}
                   file={a.file}
                   onAdd={(body) => {
-                    props.onAddDraft(a.file ? { path: a.path, side: "additions", line: 0, body, file: true } : toDraft(a.path, a.range, body));
+                    props.onAddDraft(
+                      a.file
+                        ? { path: a.path, side: "additions", line: 0, body, file: true }
+                        : toDraft(a.path, a.range, body),
+                    );
                     setComposing(null);
                   }}
                   onSendNow={async (body) => {
-                    await props.onCommentNow(a.file ? { path: a.path, side: "additions", line: 0, body, file: true } : toDraft(a.path, a.range, body));
+                    await props.onCommentNow(
+                      a.file
+                        ? { path: a.path, side: "additions", line: 0, body, file: true }
+                        : toDraft(a.path, a.range, body),
+                    );
                     setComposing(null);
                   }}
                   onCancel={() => setComposing(null)}
-                  ask={props.onAsk ? (question, earlier, run) => props.onAsk!(a.path, a.range, question, earlier, run) : null}
+                  ask={
+                    props.onAsk
+                      ? (question, earlier, run) => props.onAsk!(a.path, a.range, question, earlier, run)
+                      : null
+                  }
                   askName={props.findingsBy}
                 />
               );
@@ -545,18 +729,31 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         <ContextMenuContent>
           {menuAt ? (
             <>
-              <DropdownMenuItem onClick={() => setComposing({ path: menuAt.path, range: { start: menuAt.start, side: menuAt.startSide, end: menuAt.end, endSide: menuAt.side } })}>{t("diff.commentHere")}</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  setComposing({
+                    path: menuAt.path,
+                    range: { start: menuAt.start, side: menuAt.startSide, end: menuAt.end, endSide: menuAt.side },
+                  })
+                }
+              >
+                {t("diff.commentHere")}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 disabled={!link || !source || menuAt.startSide !== menuAt.side}
-                onClick={() => void copyPermalink(menuAt.path, { side: menuAt.side, start: menuAt.start, end: menuAt.end })}
+                onClick={() =>
+                  void copyPermalink(menuAt.path, { side: menuAt.side, start: menuAt.start, end: menuAt.end })
+                }
               >
                 {t("diff.copyPermalink")}
               </DropdownMenuItem>
               <DropdownMenuItem disabled={!link} onClick={() => void copyDiffLink(menuAt.path, menuAt)}>
                 {t("diff.copyDiffLink")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void copy(menuAt.path, t("diff.pathCopied"))}>{t("diff.copyPath")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void copy(menuAt.path, t("diff.pathCopied"))}>
+                {t("diff.copyPath")}
+              </DropdownMenuItem>
             </>
           ) : null}
         </ContextMenuContent>

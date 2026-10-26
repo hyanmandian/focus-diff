@@ -50,7 +50,11 @@ const toPending = (c: RawComment): PendingComment => ({
 /** Your pending review on this pull request, if you have one (GitHub allows one at a time). */
 export async function loadPending(d: PullRef): Promise<PendingReview | null> {
   type Page = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] };
-  type Raw = { repository: { pullRequest: { reviews: { nodes: Array<{ id: string; viewerDidAuthor: boolean; comments: Page }> } } } };
+  type Raw = {
+    repository: {
+      pullRequest: { reviews: { nodes: Array<{ id: string; viewerDidAuthor: boolean; comments: Page }> } };
+    };
+  };
   const data = await graphql<Raw>(
     `query($owner: String!, $name: String!, $number: Int!) {
       repository(owner: $owner, name: $name) { pullRequest(number: $number) {
@@ -80,7 +84,12 @@ export async function loadPending(d: PullRef): Promise<PendingReview | null> {
  *  still on its way on top (the newest text wins, removed ones gone), else the copy kept from last
  *  time. Keys stay as the window made them, so nothing redraws when GitHub gives a comment its id.
  *  `threads`: the conversations, to know which side a comment is on and what a reply answers. */
-export function mergeDrafts(kept: Draft[], github: PendingReview | null, state: DraftsState, threads: Thread[]): Draft[] {
+export function mergeDrafts(
+  kept: Draft[],
+  github: PendingReview | null,
+  state: DraftsState,
+  threads: Thread[],
+): Draft[] {
   const keyOf = new Map(Object.entries(state.ids).map(([key, id]) => [id, key]));
   const keptBy = new Map(kept.map((d) => [d.key, d]));
   const threadOf = new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const)));
@@ -125,7 +134,10 @@ export function mergeDrafts(kept: Draft[], github: PendingReview | null, state: 
       ...(put.id || state.ids[put.key] ? { id: put.id ?? state.ids[put.key] } : {}),
     };
     // GitHub's HTML is of the old text; until it has the new, the text shows as written.
-    if (at >= 0) drafts = drafts.map((d, i) => (i === at ? { ...next, ...(d.body === put.body && d.html ? { html: d.html } : {}) } : d));
+    if (at >= 0)
+      drafts = drafts.map((d, i) =>
+        i === at ? { ...next, ...(d.body === put.body && d.html ? { html: d.html } : {}) } : d,
+      );
     else drafts = [...drafts, next];
   }
   return drafts;
@@ -157,22 +169,33 @@ export const toPut = (pull: string, d: Draft): Extract<DraftChange, { op: "put" 
 
 /** Sends the review: every pending comment reaches GitHub first (Rust says when, or what it
  *  refused), then the review that holds them is submitted. With none, a review is made outright. */
-export async function submitPending(d: Details, event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT", body: string, drafts: number) {
+export async function submitPending(
+  d: Details,
+  event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+  body: string,
+  drafts: number,
+) {
   if (event === "COMMENT" && !body.trim() && !drafts) throw new Error(i18n()("config.reviewEmpty"));
   await bridge.draftsFlush(d.id);
   const review = await loadPending(d);
   if (review) {
-    await mutate("mutation($id: ID!, $event: PullRequestReviewEvent!, $body: String) { submitPullRequestReview(input: { pullRequestReviewId: $id, event: $event, body: $body }) { clientMutationId } }", {
-      id: review.id,
-      event,
-      body: body.trim(),
-    });
+    await mutate(
+      "mutation($id: ID!, $event: PullRequestReviewEvent!, $body: String) { submitPullRequestReview(input: { pullRequestReviewId: $id, event: $event, body: $body }) { clientMutationId } }",
+      {
+        id: review.id,
+        event,
+        body: body.trim(),
+      },
+    );
   } else {
-    await mutate("mutation($id: ID!, $event: PullRequestReviewEvent!, $body: String) { addPullRequestReview(input: { pullRequestId: $id, event: $event, body: $body }) { clientMutationId } }", {
-      id: d.id,
-      event,
-      body: body.trim(),
-    });
+    await mutate(
+      "mutation($id: ID!, $event: PullRequestReviewEvent!, $body: String) { addPullRequestReview(input: { pullRequestId: $id, event: $event, body: $body }) { clientMutationId } }",
+      {
+        id: d.id,
+        event,
+        body: body.trim(),
+      },
+    );
   }
   await bridge.draftsForget(d.id);
 }
@@ -181,5 +204,9 @@ export async function submitPending(d: Details, event: "APPROVE" | "REQUEST_CHAN
 export async function discardPending(d: Details) {
   await bridge.draftsForget(d.id);
   const review = await loadPending(d);
-  if (review) await mutate("mutation($id: ID!) { deletePullRequestReview(input: { pullRequestReviewId: $id }) { clientMutationId } }", { id: review.id });
+  if (review)
+    await mutate(
+      "mutation($id: ID!) { deletePullRequestReview(input: { pullRequestReviewId: $id }) { clientMutationId } }",
+      { id: review.id },
+    );
 }

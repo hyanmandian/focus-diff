@@ -4,6 +4,7 @@
 // window showed before, as a browser's history (kept for the window, in its session storage).
 
 import { useCallback, useEffect, useState } from "react";
+
 import { nextAfter } from "@/utils/arrange/arrange";
 import { bridge, type ReviewPull } from "@/utils/bridge/bridge";
 import type { Item } from "@/utils/engine/engine";
@@ -42,7 +43,11 @@ export function useNextInQueue(queue: string | null | undefined, current: string
   useEffect(() => {
     if (!queue) return;
     let live = true;
-    const look = () => void find(queue, current).then((item) => live && setNext(item), () => {});
+    const look = () =>
+      void find(queue, current).then(
+        (item) => live && setNext(item),
+        () => {},
+      );
     look();
     window.addEventListener("focus", look);
     return () => {

@@ -80,7 +80,10 @@ export const review = {
   nextFile: { one: "Next file to review, {count} left", other: "Next file to review, {count} left" },
   nextFilter: { one: "Next: {filter}, {count} file to review", other: "Next: {filter}, {count} files to review" },
   allViewed: "Every file here is viewed",
-  paceHint: { one: "{hint} It follows your own pace, learned from {count} file you marked as viewed.", other: "{hint} It follows your own pace, learned from {count} files you marked as viewed." },
+  paceHint: {
+    one: "{hint} It follows your own pace, learned from {count} file you marked as viewed.",
+    other: "{hint} It follows your own pace, learned from {count} files you marked as viewed.",
+  },
   all: "All",
   showAll: "Show all files ({shortcut})",
   reviewOnePart: "Review one part",
@@ -138,7 +141,10 @@ export const review = {
   readingProject: "Reading the project and the diff… this can take a few minutes.",
   readingDiff: "Reading the diff…",
   onDiff: { one: "{count} comment on the diff.", other: "{count} comments on the diff." },
-  onDiffElsewhere: { one: "{count} comment on the diff, {elsewhere} elsewhere.", other: "{count} comments on the diff, {elsewhere} elsewhere." },
+  onDiffElsewhere: {
+    one: "{count} comment on the diff, {elsewhere} elsewhere.",
+    other: "{count} comments on the diff, {elsewhere} elsewhere.",
+  },
   nothingWorth: "Nothing worth raising.",
   readProject: "Read the whole project.",
 
@@ -195,12 +201,14 @@ export const review = {
   preview: "Preview",
   nothingToPreview: "Nothing to preview.",
   loadingPreview: "Loading preview…",
-  writingShortcuts: "Markdown. {shortcut}B bold, {shortcut}I italic, {shortcut}E code, {shortcut}K link; @ mentions someone, # an issue or pull request.",
+  writingShortcuts:
+    "Markdown. {shortcut}B bold, {shortcut}I italic, {shortcut}E code, {shortcut}K link; @ mentions someone, # an issue or pull request.",
   mentionSomeone: "People to mention",
   referenceIssue: "Issues and pull requests",
   savedReplies: "Saved Replies",
   noSavedReplies: "No saved replies yet. Add them on github.com in Settings → Saved replies.",
-  savedRepliesPermission: "Reading your saved replies needs permission to read your profile: sign in to GitHub again in Settings.",
+  savedRepliesPermission:
+    "Reading your saved replies needs permission to read your profile: sign in to GitHub again in Settings.",
   attachFiles: "Attach pictures or videos",
   uploading: "Uploading {name}…",
   uploadSignIn: "To attach pictures and videos, sign in to github.com once, on GitHub's own page.",
@@ -247,7 +255,10 @@ export const review = {
   githubRefused: "GitHub didn't take it: {reason}",
   discardReview: "Discard…",
   discardConfirm: "Discard your pending review?",
-  discardConfirmMessage: { one: "Its {count} comment is deleted, here and on GitHub. This can't be undone.", other: "Its {count} comments are deleted, here and on GitHub. This can't be undone." },
+  discardConfirmMessage: {
+    one: "Its {count} comment is deleted, here and on GitHub. This can't be undone.",
+    other: "Its {count} comments are deleted, here and on GitHub. This can't be undone.",
+  },
   discardConfirmButton: "Discard Review",
   reviewDiscarded: "Pending review discarded",
   commentOnFile: "Comment on {path}",

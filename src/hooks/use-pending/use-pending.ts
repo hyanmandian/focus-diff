@@ -3,9 +3,18 @@
 // comes back from GitHub. A copy is kept on this machine, so the window opens with them.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { bridge, type DraftsState } from "@/utils/bridge/bridge";
 import type { Details } from "@/utils/details/details";
-import { discardPending, loadPending, mergeDrafts, submitPending, toPut, unsent, type PendingReview } from "@/utils/pending/pending";
+import {
+  discardPending,
+  loadPending,
+  mergeDrafts,
+  submitPending,
+  toPut,
+  unsent,
+  type PendingReview,
+} from "@/utils/pending/pending";
 import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const keptKey = (prId: string) => `drafts:${prId}`;
@@ -21,7 +30,9 @@ function readKept(prId: string): Draft[] {
 /** Without the pending ones: a thread you started in your pending review is one of your pending
  *  comments, as is a pending reply in someone's conversation. */
 export function published(threads: Thread[]): Thread[] {
-  return threads.filter((t) => !t.pending).map((t) => (t.comments.some((c) => c.pending) ? { ...t, comments: t.comments.filter((c) => !c.pending) } : t));
+  return threads
+    .filter((t) => !t.pending)
+    .map((t) => (t.comments.some((c) => c.pending) ? { ...t, comments: t.comments.filter((c) => !c.pending) } : t));
 }
 
 const newKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -46,7 +57,10 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   /** What GitHub and Rust have now; only the latest asking counts. */
   const refresh = useCallback(async () => {
     const turn = ++asked.current;
-    const [onGitHub, queued] = await Promise.all([loadPending(ref).catch(() => undefined), bridge.draftsState(prId).catch(() => null)]);
+    const [onGitHub, queued] = await Promise.all([
+      loadPending(ref).catch(() => undefined),
+      bridge.draftsState(prId).catch(() => null),
+    ]);
     if (turn !== asked.current) return null;
     if (onGitHub !== undefined) setGithub(onGitHub);
     if (queued) setState(queued);
@@ -87,7 +101,13 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   const remove = (key: string) => {
     const draft = drafts.find((d) => d.key === key);
     setKept((list) => list.filter((d) => d.key !== key));
-    setState((s) => ({ ...s, jobs: [...s.jobs.filter((j) => j.change.key !== key), { change: { op: "remove", key, pull: prId, id: draft?.id }, error: null }] }));
+    setState((s) => ({
+      ...s,
+      jobs: [
+        ...s.jobs.filter((j) => j.change.key !== key),
+        { change: { op: "remove", key, pull: prId, id: draft?.id }, error: null },
+      ],
+    }));
     void bridge.draftRemove(prId, key, draft?.id).catch(() => {});
   };
   const retry = () => void bridge.draftsRetry(prId).then(refresh);
@@ -107,7 +127,10 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   };
 
   // Why GitHub refused a comment, and the ones still on their way, by key.
-  const errors = useMemo(() => Object.fromEntries(state.jobs.flatMap((j) => (j.error ? [[j.change.key, j.error]] : []))), [state]);
+  const errors = useMemo(
+    () => Object.fromEntries(state.jobs.flatMap((j) => (j.error ? [[j.change.key, j.error]] : []))),
+    [state],
+  );
   const sending = useMemo(() => new Set(state.jobs.filter((j) => !j.error).map((j) => j.change.key)), [state]);
 
   return { drafts, errors, sending, add, edit, remove, retry, submit, discard };

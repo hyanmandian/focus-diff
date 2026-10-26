@@ -4,6 +4,7 @@
 
 import { emitTo } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
+
 import { PROVIDERS } from "@/utils/ai/ai";
 import { bridge, type AiStatus } from "@/utils/bridge/bridge";
 import type { Config } from "@/utils/config/config";
@@ -27,8 +28,16 @@ export async function aiProblem(config: Config): Promise<{ title: string; messag
   if (!provider) return { title: t("shared.aiOffTitle"), message: t("shared.aiOffMessage") };
   const status = (await statuses().catch(() => [])).find((s) => s.provider === provider);
   const name = PROVIDERS[provider].name;
-  if (!status?.installed) return { title: t("shared.aiMissingTitle", { provider: name }), message: t("shared.aiMissingMessage", { provider: name }) };
-  if (!status.signed_in) return { title: t("shared.aiSignedOutTitle", { provider: name }), message: t("shared.aiSignedOutMessage", { command: status.login_command }) };
+  if (!status?.installed)
+    return {
+      title: t("shared.aiMissingTitle", { provider: name }),
+      message: t("shared.aiMissingMessage", { provider: name }),
+    };
+  if (!status.signed_in)
+    return {
+      title: t("shared.aiSignedOutTitle", { provider: name }),
+      message: t("shared.aiSignedOutMessage", { command: status.login_command }),
+    };
   return null;
 }
 

@@ -4,17 +4,36 @@
 // One context rather than props through the diff, which redraws its items only when they change.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+
+import { published, type Pending } from "@/hooks/use-pending/use-pending";
 import { bridge } from "@/utils/bridge/bridge";
+import {
+  edit as editOnGitHub,
+  react as reactOnGitHub,
+  remove as removeOnGitHub,
+  type Reaction,
+  type ReactionContent,
+} from "@/utils/comments/comments";
 import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "@/utils/commit/commit";
-import { edit as editOnGitHub, react as reactOnGitHub, remove as removeOnGitHub, type Reaction, type ReactionContent } from "@/utils/comments/comments";
-import { keepConversation, loadConversation, readKeptConversation, type Conversation } from "@/utils/conversation/conversation";
+import {
+  keepConversation,
+  loadConversation,
+  readKeptConversation,
+  type Conversation,
+} from "@/utils/conversation/conversation";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";
 import { i18n } from "@/utils/i18n/i18n";
-import { setResolved, type Draft, type PullRef, type ReviewFile, type Thread, type ThreadComment } from "@/utils/review/review";
+import {
+  setResolved,
+  type Draft,
+  type PullRef,
+  type ReviewFile,
+  type Thread,
+  type ThreadComment,
+} from "@/utils/review/review";
 import { SuggestionError } from "@/utils/suggestion/suggestion";
 import type { Person } from "@/utils/writing/writing";
-import { published, type Pending } from "@/hooks/use-pending/use-pending";
 
 export type ConversationApi = {
   /** "owner/name", for previews and completions. */
@@ -91,7 +110,18 @@ type Options = {
   reloadAll: () => void;
 };
 
-export function useConversation({ prId, ref, details, threads, setThreads, files, me, pending, say, reloadAll }: Options) {
+export function useConversation({
+  prId,
+  ref,
+  details,
+  threads,
+  setThreads,
+  files,
+  me,
+  pending,
+  say,
+  reloadAll,
+}: Options) {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [batch, setBatch] = useState<Applied[]>([]);
 
@@ -115,22 +145,37 @@ export function useConversation({ prId, ref, details, threads, setThreads, files
   const byId = useMemo(() => new Map(published(threads).map((t) => [t.id, t])), [threads]);
   const patches = useMemo(() => new Map((files ?? []).map((f) => [f.path, f.patch])), [files]);
   const people = useMemo(() => {
-    const all: Actor[] = [details?.author ?? null, ...(details?.reviewers.filter((r) => !r.team).map((r) => r.actor) ?? [])];
+    const all: Actor[] = [
+      details?.author ?? null,
+      ...(details?.reviewers.filter((r) => !r.team).map((r) => r.actor) ?? []),
+    ];
     for (const e of conversation?.entries ?? details?.entries ?? []) all.push(e.author);
     for (const t of threads) for (const c of t.comments) all.push(c.author);
-    return all.flatMap((a): Person[] => (a?.login && a.login !== me ? [{ login: a.login, name: a.name, avatarUrl: a.avatarUrl }] : []));
+    return all.flatMap((a): Person[] =>
+      a?.login && a.login !== me ? [{ login: a.login, name: a.name, avatarUrl: a.avatarUrl }] : [],
+    );
   }, [details, conversation, threads, me]);
 
   const patchComment = (id: string, patch: Partial<ThreadComment> | null) =>
     setThreads((list) =>
       list.flatMap((t) => {
         if (!t.comments.some((c) => c.id === id)) return [t];
-        const comments = patch ? t.comments.map((c) => (c.id === id ? { ...c, ...patch } : c)) : t.comments.filter((c) => c.id !== id);
+        const comments = patch
+          ? t.comments.map((c) => (c.id === id ? { ...c, ...patch } : c))
+          : t.comments.filter((c) => c.id !== id);
         return comments.length ? [{ ...t, comments }] : [];
       }),
     );
   const patchEntry = (id: string, patch: Partial<Conversation["entries"][number]> | null) =>
-    setConversation((c) => c && { ...c, entries: patch ? c.entries.map((e) => (e.id === id ? ({ ...e, ...patch } as typeof e) : e)) : c.entries.filter((e) => e.id !== id) });
+    setConversation(
+      (c) =>
+        c && {
+          ...c,
+          entries: patch
+            ? c.entries.map((e) => (e.id === id ? ({ ...e, ...patch } as typeof e) : e))
+            : c.entries.filter((e) => e.id !== id),
+        },
+    );
 
   const confirmDelete = () => {
     const t = i18n();
@@ -150,7 +195,8 @@ export function useConversation({ prId, ref, details, threads, setThreads, files
     draftError: (key) => pending.errors[key],
     draftSending: (key) => pending.sending.has(key),
     retryDrafts: pending.retry,
-    replyLater: (thread, body) => pending.add({ path: thread.path, side: thread.side, line: thread.line, body, replyTo: thread.id }),
+    replyLater: (thread, body) =>
+      pending.add({ path: thread.path, side: thread.side, line: thread.line, body, replyTo: thread.id }),
     editComment: async (comment, body) => {
       const html = await editOnGitHub("review-comment", comment.id, body);
       patchComment(comment.id, { body, html, edited: true });
@@ -188,32 +234,50 @@ export function useConversation({ prId, ref, details, threads, setThreads, files
       setConversation((c) => {
         if (!c) return c;
         if (details?.id === subject) return { ...c, reactions: after };
-        return c.entries.some((e) => e.id === subject) ? { ...c, entries: c.entries.map((e) => (e.id === subject ? { ...e, reactions: after } : e)) } : c;
+        return c.entries.some((e) => e.id === subject)
+          ? { ...c, entries: c.entries.map((e) => (e.id === subject ? { ...e, reactions: after } : e)) }
+          : c;
       });
     },
     copyLink: (url) => void copyText(url).then(() => say(i18n()("review.linkCopied"))),
     batch,
-    toggleBatch: (item) => setBatch((list) => (list.some((i) => i.comment === item.comment) ? list.filter((i) => i.comment !== item.comment) : [...list, item])),
+    toggleBatch: (item) =>
+      setBatch((list) =>
+        list.some((i) => i.comment === item.comment) ? list.filter((i) => i.comment !== item.comment) : [...list, item],
+      ),
     clearBatch: () => setBatch([]),
     commit: async (items, headline, body) => {
       if (!conversation?.headRepo || !details) return;
       const t = i18n();
       try {
-        await commitSuggestions({ repo: conversation.headRepo, branch: details.headRefName, head: details.headRefOid, items, headline: headline.trim() || defaultHeadline(items), body, me });
+        await commitSuggestions({
+          repo: conversation.headRepo,
+          branch: details.headRefName,
+          head: details.headRefOid,
+          items,
+          headline: headline.trim() || defaultHeadline(items),
+          body,
+          me,
+        });
       } catch (e) {
         if (e instanceof StaleHead) {
           // What's shown is behind the branch: it's brought up to date to try again on.
           reloadAll();
           throw new Error(t("review.branchMoved"));
         }
-        if (e instanceof SuggestionError) throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"));
+        if (e instanceof SuggestionError)
+          throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"));
         throw new Error(message(e));
       }
       setBatch((list) => list.filter((i) => !items.some((x) => x.comment === i.comment)));
       // Applied, so done with, as on GitHub: resolved here at once, there after.
       const applied = new Set(items.map((i) => i.thread));
       setThreads((list) => list.map((t) => (applied.has(t.id) ? { ...t, resolved: true } : t)));
-      await Promise.all([...applied].map((id) => byId.get(id)).flatMap((thread) => (thread && !thread.resolved ? [setResolved(thread, true).catch(() => {})] : [])));
+      await Promise.all(
+        [...applied]
+          .map((id) => byId.get(id))
+          .flatMap((thread) => (thread && !thread.resolved ? [setResolved(thread, true).catch(() => {})] : [])),
+      );
       say(t("review.suggestionsCommitted", { count: items.length }));
       reloadAll();
     },

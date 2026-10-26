@@ -99,8 +99,16 @@ const PAGES = 30;
 /** `count`: how many files the pull request has, when known (its details): every page past the
  *  first is then asked for at once. Otherwise they're asked for a few at a time until one isn't full. */
 export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[]> {
-  type Raw = { filename: string; previous_filename?: string; status: ReviewFile["status"]; additions: number; deletions: number; patch?: string };
-  const page = (n: number) => github<Raw[]>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}/files?per_page=100&page=${n}`);
+  type Raw = {
+    filename: string;
+    previous_filename?: string;
+    status: ReviewFile["status"];
+    additions: number;
+    deletions: number;
+    patch?: string;
+  };
+  const page = (n: number) =>
+    github<Raw[]>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}/files?per_page=100&page=${n}`);
   const pages = [await page(1)];
   if (pages[0]!.length === 100) {
     const known = count ? Math.min(PAGES, Math.ceil(count / 100)) : 0;
@@ -109,7 +117,9 @@ export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[
     // count that's behind what's there now.
     const step = known ? 1 : 4;
     for (let next = Math.max(2, known + 1); next <= PAGES && pages[pages.length - 1]!.length === 100; next += step) {
-      pages.push(...(await Promise.all(Array.from({ length: Math.min(step, PAGES - next + 1) }, (_, i) => page(next + i)))));
+      pages.push(
+        ...(await Promise.all(Array.from({ length: Math.min(step, PAGES - next + 1) }, (_, i) => page(next + i)))),
+      );
     }
   }
   const files: ReviewFile[] = [];
@@ -205,7 +215,8 @@ export async function loadThreads(d: PullRef): Promise<Thread[]> {
       threads.push(thread);
       // A long conversation: the rest of it, alongside the other pages.
       const cursor = t.comments.pageInfo.hasNextPage ? t.comments.pageInfo.endCursor : null;
-      if (cursor) longer.push(moreComments(t.id, cursor).then((rest) => void thread.comments.push(...rest.map(toComment))));
+      if (cursor)
+        longer.push(moreComments(t.id, cursor).then((rest) => void thread.comments.push(...rest.map(toComment))));
     }
     if (!page_.pageInfo.hasNextPage) break;
     after = page_.pageInfo.endCursor;
@@ -219,17 +230,39 @@ export type ViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED";
 
 /** Your viewed files on github.com, by path, so the app and the site agree. */
 export async function loadViewed(d: PullRef): Promise<Map<string, ViewedState>> {
-  type Raw = { repository: { pullRequest: { files: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Array<{ path: string; viewerViewedState: ViewedState }> } } } };
+  type Raw = {
+    repository: {
+      pullRequest: {
+        files: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: Array<{ path: string; viewerViewedState: ViewedState }>;
+        };
+      };
+    };
+  };
   const states = new Map<string, ViewedState>();
   let after: string | null = null;
   // As many as the files list has, 100 a page.
   for (let page = 0; page < 30; page++) {
     const data: Raw = await graphql<Raw>(
-      `query($owner: String!, $name: String!, $number: Int!, $after: String) {
-        repository(owner: $owner, name: $name) { pullRequest(number: $number) {
-          files(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { path viewerViewedState } }
-        } }
-      }`,
+      `
+        query ($owner: String!, $name: String!, $number: Int!, $after: String) {
+          repository(owner: $owner, name: $name) {
+            pullRequest(number: $number) {
+              files(first: 100, after: $after) {
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+                nodes {
+                  path
+                  viewerViewedState
+                }
+              }
+            }
+          }
+        }
+      `,
       { owner: d.owner, name: d.repo, number: d.number, after },
     );
     const files = data.repository.pullRequest.files;
@@ -254,11 +287,15 @@ const draftPayload = (draft: Draft) =>
         line: draft.line,
         side: toSide(draft.side),
         // Several lines: where they start, on the side they start on (the old side's, across the two).
-        ...(draft.startLine !== undefined && (draft.startLine !== draft.line || (draft.startSide ?? draft.side) !== draft.side) ? { start_line: draft.startLine, start_side: toSide(draft.startSide ?? draft.side) } : {}),
+        ...(draft.startLine !== undefined &&
+        (draft.startLine !== draft.line || (draft.startSide ?? draft.side) !== draft.side)
+          ? { start_line: draft.startLine, start_side: toSide(draft.startSide ?? draft.side) }
+          : {}),
       };
 
 /** A single comment, posted right away rather than with the review. */
-export const commentNow = (d: Details, draft: Draft) => github("POST", `${base(d)}/comments`, { ...draftPayload(draft), commit_id: d.headRefOid });
+export const commentNow = (d: Details, draft: Draft) =>
+  github("POST", `${base(d)}/comments`, { ...draftPayload(draft), commit_id: d.headRefOid });
 
 export const reply = (d: Details, thread: Thread, body: string) => {
   const first = thread.comments[0];
@@ -267,4 +304,7 @@ export const reply = (d: Details, thread: Thread, body: string) => {
 };
 
 export const setResolved = (thread: Thread, resolved: boolean) =>
-  graphql(`mutation($id: ID!) { ${resolved ? "resolveReviewThread" : "unresolveReviewThread"}(input: { threadId: $id }) { thread { id } } }`, { id: thread.id });
+  graphql(
+    `mutation($id: ID!) { ${resolved ? "resolveReviewThread" : "unresolveReviewThread"}(input: { threadId: $id }) { thread { id } } }`,
+    { id: thread.id },
+  );

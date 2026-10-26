@@ -1,15 +1,19 @@
 {
   "name": "focus-diff",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "vp dev",
+    "build": "tsc --noEmit && vp build",
+    "preview": "vp preview",
     "tauri": "tauri",
-    "test": "vitest run",
-    "check": "tsc --noEmit && vitest run"
+    "fmt": "vp fmt",
+    "lint": "vp lint",
+    "test": "vp test",
+    "coverage": "vp test --coverage",
+    "e2e": "playwright test",
+    "check": "vp check && vp test --coverage"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

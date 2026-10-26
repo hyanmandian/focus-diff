@@ -12,10 +12,12 @@ export const config = {
   "queue.authored.hint": "Your open pull requests, drafts too: reviews, comments, CI and conflicts.",
   "queue.authored.name": "My PRs",
   "queue.merged": "Merged without me",
-  "queue.merged.hint": "Pull requests merged lately without your approval: the ones asked of you or your team, in the files you care about.",
+  "queue.merged.hint":
+    "Pull requests merged lately without your approval: the ones asked of you or your team, in the files you care about.",
   "queue.merged.name": "Merged",
   "queue.blank": "Custom Queue",
-  "queue.blank.hint": "Choose everything yourself: where pull requests come from (reviews, your own, merged ones, any search), which ones, and what's worth a notification.",
+  "queue.blank.hint":
+    "Choose everything yourself: where pull requests come from (reviews, your own, merged ones, any search), which ones, and what's worth a notification.",
   "queue.custom": "Custom search",
   "queue.custom.hint": "Any GitHub search: a team's repository, a label, an author.",
   "queue.custom.name": "Search",
@@ -75,5 +77,6 @@ export const config = {
   aiUnexpected: "The AI's answer wasn't in the expected form. Try again.",
   reviewEmpty: "Write a comment, or add some on the lines, first.",
   replyNoComment: "This conversation has no comment to reply to.",
-  estimateHint: "Review time assumes about {lines} changed lines an hour. Removed lines count a fifth, each file adds 15 seconds, and generated or lock files only add those 15 seconds.",
+  estimateHint:
+    "Review time assumes about {lines} changed lines an hour. Removed lines count a fifth, each file adds 15 seconds, and generated or lock files only add those 15 seconds.",
 } as const;

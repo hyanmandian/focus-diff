@@ -4,6 +4,7 @@
 // `dark` class. The pick is remembered here too and applied as soon as this loads, before the
 // settings arrive, so a dark page doesn't open light and then flash over.
 import { useEffect } from "react";
+
 // Every page sets its theme through here, so the platform (<html data-platform>) is set with it.
 import "@/utils/platform/platform";
 import type { Config } from "@/utils/config/config";
@@ -12,8 +13,7 @@ const KEY = "theme";
 const media = window.matchMedia("(prefers-color-scheme: dark)");
 
 function apply(theme: Config["theme"] | undefined) {
-  const dark =
-    theme === "dark" || ((theme ?? "system") === "system" && media.matches);
+  const dark = theme === "dark" || ((theme ?? "system") === "system" && media.matches);
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
 }

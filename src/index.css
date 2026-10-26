@@ -1,67 +1,68 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@/styles/shadcn.css";
+@import "./styles/shadcn.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Ubuntu, "Noto Sans", sans-serif;
-    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--label);
-    --color-accent: var(--fill-control);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --color-unread: var(--unread);
-    --color-selected: var(--selected);
-    --color-selected-foreground: var(--selected-foreground);
-    --color-success: var(--success);
-    --color-warning: var(--warning);
-    --color-violet: var(--violet);
-    --color-link: var(--link);
-    --color-separator: var(--separator);
-    --color-fill: var(--fill-control);
-    /* The platform's text styles (tokens below), as text-body, text-callout and so on: a size with its
+  --font-heading: var(--font-sans);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Ubuntu, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--label);
+  --color-accent: var(--fill-control);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-unread: var(--unread);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-violet: var(--violet);
+  --color-link: var(--link);
+  --color-separator: var(--separator);
+  --color-fill: var(--fill-control);
+  /* The platform's text styles (tokens below), as text-body, text-callout and so on: a size with its
        line height. On the Mac, AppKit's: 13pt body, 11 for captions, nothing under 10. */
-    --text-large-title: var(--type-large-title);
-    --text-large-title--line-height: var(--type-large-title-leading);
-    --text-title1: var(--type-title1);
-    --text-title1--line-height: var(--type-title1-leading);
-    --text-title2: var(--type-title2);
-    --text-title2--line-height: var(--type-title2-leading);
-    --text-title3: var(--type-title3);
-    --text-title3--line-height: var(--type-title3-leading);
-    --text-headline: var(--type-headline);
-    --text-headline--line-height: var(--type-headline-leading);
-    --text-body: var(--type-body);
-    --text-body--line-height: var(--type-body-leading);
-    --text-callout: var(--type-callout);
-    --text-callout--line-height: var(--type-callout-leading);
-    --text-subheadline: var(--type-subheadline);
-    --text-subheadline--line-height: var(--type-subheadline-leading);
-    --text-footnote: var(--type-footnote);
-    --text-footnote--line-height: var(--type-footnote-leading);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --text-large-title: var(--type-large-title);
+  --text-large-title--line-height: var(--type-large-title-leading);
+  --text-title1: var(--type-title1);
+  --text-title1--line-height: var(--type-title1-leading);
+  --text-title2: var(--type-title2);
+  --text-title2--line-height: var(--type-title2-leading);
+  --text-title3: var(--type-title3);
+  --text-title3--line-height: var(--type-title3-leading);
+  --text-headline: var(--type-headline);
+  --text-headline--line-height: var(--type-headline-leading);
+  --text-body: var(--type-body);
+  --text-body--line-height: var(--type-body-leading);
+  --text-callout: var(--type-callout);
+  --text-callout--line-height: var(--type-callout-leading);
+  --text-subheadline: var(--type-subheadline);
+  --text-subheadline--line-height: var(--type-subheadline-leading);
+  --text-footnote: var(--type-footnote);
+  --text-footnote--line-height: var(--type-footnote-leading);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* MARK: Platform tokens
@@ -76,31 +77,57 @@
    system colours. */
 :root {
   /* Text styles: size and line height (HIG, macOS). */
-  --type-large-title: 26px; --type-large-title-leading: 32px;
-  --type-title1: 22px; --type-title1-leading: 26px;
-  --type-title2: 17px; --type-title2-leading: 22px;
-  --type-title3: 15px; --type-title3-leading: 20px;
-  --type-headline: 13px; --type-headline-leading: 16px;
-  --type-body: 13px; --type-body-leading: 16px;
-  --type-callout: 12px; --type-callout-leading: 15px;
-  --type-subheadline: 11px; --type-subheadline-leading: 14px;
-  --type-footnote: 10px; --type-footnote-leading: 13px;
+  --type-large-title: 26px;
+  --type-large-title-leading: 32px;
+  --type-title1: 22px;
+  --type-title1-leading: 26px;
+  --type-title2: 17px;
+  --type-title2-leading: 22px;
+  --type-title3: 15px;
+  --type-title3-leading: 20px;
+  --type-headline: 13px;
+  --type-headline-leading: 16px;
+  --type-body: 13px;
+  --type-body-leading: 16px;
+  --type-callout: 12px;
+  --type-callout-leading: 15px;
+  --type-subheadline: 11px;
+  --type-subheadline-leading: 14px;
+  --type-footnote: 10px;
+  --type-footnote-leading: 13px;
   /* Reading copy (descriptions, comments, AI answers) keeps 13pt with room between lines. */
   --type-reading-leading: 19px;
-  --type-code: 12px; --type-code-leading: 18px;
+  --type-code: 12px;
+  --type-code-leading: 18px;
 
   /* Control sizes (NSControl.ControlSize: mini, small, regular, large). */
-  --control-h-mini: 16px; --control-h-sm: 20px; --control-h: 24px; --control-h-lg: 28px;
-  --field-h-sm: 22px; --field-h: 24px;
-  --toolbar-h: 52px; --toolbar-item-h: 28px; --traffic-lights-inset: 91px;
-  --menu-item-h: 24px; --menu-pad: 5px;
-  --row-h-sm: 24px; --row-h: 32px;
+  --control-h-mini: 16px;
+  --control-h-sm: 20px;
+  --control-h: 24px;
+  --control-h-lg: 28px;
+  --field-h-sm: 22px;
+  --field-h: 24px;
+  --toolbar-h: 52px;
+  --toolbar-item-h: 28px;
+  --traffic-lights-inset: 91px;
+  --menu-item-h: 24px;
+  --menu-pad: 5px;
+  --row-h-sm: 24px;
+  --row-h: 32px;
 
   /* Radii (fitted to AppKit's renders; capsules from the large size up). */
-  --radius-control-mini: 5px; --radius-control-sm: 5.5px; --radius-control: 6.5px; --radius-capsule: 9999px;
-  --radius-field: 5px; --radius-checkbox: 4px;
-  --radius-menu: 12px; --radius-menu-item: 6px;
-  --radius-popover: 16px; --radius-tooltip: 5px; --radius-row: 6px; --radius-group: 10px;
+  --radius-control-mini: 5px;
+  --radius-control-sm: 5.5px;
+  --radius-control: 6.5px;
+  --radius-capsule: 9999px;
+  --radius-field: 5px;
+  --radius-checkbox: 4px;
+  --radius-menu: 12px;
+  --radius-menu-item: 6px;
+  --radius-popover: 16px;
+  --radius-tooltip: 5px;
+  --radius-row: 6px;
+  --radius-group: 10px;
 
   /* Colours, light; the dark ones below, and on the Mac the live system values after that. */
   --accent: #007aff; /* controlAccentColor, which isn't systemBlue on Tahoe */
@@ -140,16 +167,21 @@
 
   /* System colours (HIG, Tahoe). The -ic ones (Increase Contrast's) are for small text, which the
      plain ones fail on white. */
-  --red: #ff383c; --red-ic: #e9152d;
-  --orange: #ff8d28; --orange-ic: #c55300;
-  --green: #34c759; --green-ic: #008932;
+  --red: #ff383c;
+  --red-ic: #e9152d;
+  --orange: #ff8d28;
+  --orange-ic: #c55300;
+  --green: #34c759;
+  --green-ic: #008932;
   --blue: #0088ff;
   --indigo: #6155f5; /* no CSS keyword, so never live */
-  --purple: #cb30e0; --purple-ic: #b02fc2;
+  --purple: #cb30e0;
+  --purple-ic: #b02fc2;
   --gray: #8e8e93;
 
   /* Motion: brief, and none under Reduce Motion (below). */
-  --duration-fast: 100ms; --duration: 150ms;
+  --duration-fast: 100ms;
+  --duration: 150ms;
   --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
@@ -179,12 +211,16 @@
   --switch-off: rgb(255 255 255 / 0.14);
   --material-menu: rgb(55 55 55 / 0.8);
   --shadow-menu: inset 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.7), 0 12px 32px rgb(0 0 0 / 0.45);
-  --red: #ff4245; --red-ic: #ff6165;
-  --orange: #ff9230; --orange-ic: #ffa056;
-  --green: #30d158; --green-ic: #4ad968;
+  --red: #ff4245;
+  --red-ic: #ff6165;
+  --orange: #ff9230;
+  --orange-ic: #ffa056;
+  --green: #30d158;
+  --green-ic: #4ad968;
   --blue: #0091ff;
   --indigo: #6d7cff;
-  --purple: #db34f2; --purple-ic: #ea8dff;
+  --purple: #db34f2;
+  --purple-ic: #ea8dff;
   --gray: #98989d;
 }
 
@@ -213,7 +249,9 @@
     --purple: -apple-system-purple;
     --gray: -apple-system-gray;
   }
-  :root[data-platform="macos"]:not(.dark) { --field-bg: -apple-system-text-background; }
+  :root[data-platform="macos"]:not(.dark) {
+    --field-bg: -apple-system-text-background;
+  }
 }
 
 /* Increase Contrast: firmer edges and fills, an opaque focus ring. */
@@ -226,10 +264,16 @@
   }
 }
 @media (prefers-reduced-transparency: reduce) {
-  :root { --material-menu: var(--popover); --material-blur: none; }
+  :root {
+    --material-menu: var(--popover);
+    --material-blur: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --duration-fast: 0ms; --duration: 0ms; }
+  :root {
+    --duration-fast: 0ms;
+    --duration: 0ms;
+  }
 }
 
 /* A window that isn't the key one: selections and accent controls go gray (utils/platform/platform.ts). */
@@ -266,24 +310,29 @@
   --ring: var(--accent);
   --radius: 0.625rem;
 }
-.dark { --popover: #373737; }
+.dark {
+  --popover: #373737;
+}
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
 }
 /* MARK: App */
 
 /* The panel window is transparent with the system's popover material behind it (lib.rs): the page
    stays clear so that material shows, and draws its own rounded edge. */
-html.panel, html.panel body { background: transparent; }
+html.panel,
+html.panel body {
+  background: transparent;
+}
 
 /* The panel's surfaces, as a menu bar extra's window: one light tint over the system material (so it
    shows, as in a popover), no card inside it; inset hairline separators split chrome from the list,
@@ -292,11 +341,19 @@ html.panel, html.panel body { background: transparent; }
    Transparency or Increase Contrast everything goes opaque, and Increase Contrast firms the edges. */
 html.panel {
   --panel-tint: color-mix(in oklch, var(--background) 50%, transparent);
-  --panel-sticky: color-mix(in oklch, var(--background) 85%, transparent); /* a heading floating over rows, over a blur */
+  --panel-sticky: color-mix(
+    in oklch,
+    var(--background) 85%,
+    transparent
+  ); /* a heading floating over rows, over a blur */
   --panel-edge: oklch(0 0 0 / 0.09);
   --panel-separator: oklch(0 0 0 / 0.09);
   --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, chip knob, skeleton */
-  --panel-link: color-mix(in oklch, var(--primary) 80%, black); /* the accent, deepened to stay AA on the tinted material */
+  --panel-link: color-mix(
+    in oklch,
+    var(--primary) 80%,
+    black
+  ); /* the accent, deepened to stay AA on the tinted material */
   --panel-raised: var(--background); /* the panes the queues and the list sit on, as the extension's */
 }
 html.panel.dark {
@@ -309,10 +366,15 @@ html.panel.dark {
   --panel-raised: color-mix(in oklch, var(--background) 92%, white);
 }
 @media (prefers-reduced-transparency: reduce) {
-  html.panel, html.panel.dark { --panel-tint: var(--background); --panel-sticky: var(--background); }
+  html.panel,
+  html.panel.dark {
+    --panel-tint: var(--background);
+    --panel-sticky: var(--background);
+  }
 }
 @media (prefers-contrast: more) {
-  html.panel, html.panel.dark {
+  html.panel,
+  html.panel.dark {
     --panel-tint: var(--background);
     --panel-sticky: var(--background);
     --panel-edge: color-mix(in oklch, var(--foreground) 45%, transparent);
@@ -320,30 +382,63 @@ html.panel.dark {
     --panel-fill: color-mix(in oklch, var(--foreground) 12%, transparent);
   }
 }
-html, body, #root { height: 100%; }
+html,
+body,
+#root {
+  height: 100%;
+}
 /* Text drawn as AppKit draws it: no `-webkit-font-smoothing: antialiased`, which turns off the
    stem darkening macOS gives native text and leaves the web view's text thinner and greyer than
    the apps beside it (most of all on a non-Retina display). The body style is 13pt. */
-body { font-size: var(--type-body); line-height: var(--type-body-leading); }
+body {
+  font-size: var(--type-body);
+  line-height: var(--type-body-leading);
+}
 /* Chrome can't be selected, as in a native window, and keeps the arrow pointer (a pointing hand
    is only for links in text). What's there to read and copy (descriptions, comments, AI answers,
    code) is marked .selectable; fields always are. */
-body { -webkit-user-select: none; user-select: none; cursor: default; }
-input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; cursor: text; }
-.selectable { -webkit-user-select: text; user-select: text; cursor: auto; }
-.selectable a[href] { cursor: pointer; }
-::selection { background: var(--text-selection-bg); }
-:root[data-window-inactive] ::selection { background: var(--text-selection-bg-inactive); }
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
+}
+.selectable a[href] {
+  cursor: pointer;
+}
+::selection {
+  background: var(--text-selection-bg);
+}
+:root[data-window-inactive] ::selection {
+  background: var(--text-selection-bg-inactive);
+}
 
 /* The keyboard focus ring as AppKit draws it: outside the control, following its corners, in the
    accent at half strength (opaque with Increase Contrast). Fields show it whenever they're focused,
    other controls only for the keyboard (Full Keyboard Access). Lists show focus as their row
    highlight instead. */
 @utility focus-ring {
-  &:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 0; }
+  &:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: 0;
+  }
 }
 @utility focus-ring-inset {
-  &:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: calc(var(--focus-ring-width) * -1); }
+  &:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: calc(var(--focus-ring-width) * -1);
+  }
 }
 
 /* Scroll bars are the system's overlay ones: they follow "Show scroll bars", the appearance and
@@ -353,12 +448,20 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
    once and stays until it's clicked, beside its unread dot. Brief, as the HIG asks of motion seen
    often; under Reduce Motion the tint is simply there. */
 @keyframes arrive-settle {
-  from { background-color: color-mix(in oklch, var(--unread) 22%, transparent); }
-  to { background-color: color-mix(in oklch, var(--unread) 9%, transparent); }
+  from {
+    background-color: color-mix(in oklch, var(--unread) 22%, transparent);
+  }
+  to {
+    background-color: color-mix(in oklch, var(--unread) 9%, transparent);
+  }
 }
-.arrive { animation: arrive-settle 0.9s var(--ease-standard) both; }
+.arrive {
+  animation: arrive-settle 0.9s var(--ease-standard) both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .arrive { animation-duration: 1ms; }
+  .arrive {
+    animation-duration: 1ms;
+  }
 }
 
 /* Diffs (@pierre/diffs, in shadow roots, themed through its variables): the system's monospace
@@ -374,10 +477,28 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
 }
 
 /* Mermaid diagrams in descriptions and comments (utils/diagrams/diagrams.ts). */
-figure.diagram { margin: 0.5rem 0; }
-figure.diagram > [role="img"] { overflow-x: auto; padding: 12px; border-radius: 8px; background: var(--muted); }
-figure.diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
-figure.diagram > details > summary { cursor: default; width: fit-content; margin-top: 4px; font-size: var(--type-subheadline); color: var(--muted-foreground); }
+figure.diagram {
+  margin: 0.5rem 0;
+}
+figure.diagram > [role="img"] {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--muted);
+}
+figure.diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+figure.diagram > details > summary {
+  cursor: default;
+  width: fit-content;
+  margin-top: 4px;
+  font-size: var(--type-subheadline);
+  color: var(--muted-foreground);
+}
 
 /* Menus and pop-up menus as AppKit draws them: a translucent material with a hairline edge and a
    soft, deep shadow (components/ui/select, dropdown-menu). They appear at once and fade out. */
@@ -399,12 +520,28 @@ figure.diagram > details > summary { cursor: default; width: fit-content; margin
 
 /* A button GitHub drew as a picture in a link (utils/sanitize/sanitize.ts), as a push button. */
 div a[data-button] {
-  display: inline-flex; align-items: center; gap: 4px; height: var(--control-h); margin: 2px 4px 2px 0; padding: 0 10px;
-  border-radius: var(--radius-control); background: var(--fill-control); color: var(--label);
-  font-size: var(--type-body); font-weight: 400; text-decoration: none; vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--control-h);
+  margin: 2px 4px 2px 0;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--fill-control);
+  color: var(--label);
+  font-size: var(--type-body);
+  font-weight: 400;
+  text-decoration: none;
+  vertical-align: middle;
 }
-div a[data-button]::after { content: "↗"; font-size: var(--type-subheadline); opacity: 0.6; }
-div a[data-button]:active { background: var(--fill-control-pressed); }
+div a[data-button]::after {
+  content: "↗";
+  font-size: var(--type-subheadline);
+  opacity: 0.6;
+}
+div a[data-button]:active {
+  background: var(--fill-control-pressed);
+}
 
 /* Neighbours that are both on read as one shape, as in Focus Diff's extension: the corners between
    them go square, the gap between them fills in, and a hairline divides them. Side by side (the

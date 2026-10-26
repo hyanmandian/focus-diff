@@ -16,7 +16,11 @@ const nextId = (prefix: string) => `${prefix}_${++ids}`;
 const REACTIONS = ["THUMBS_UP", "THUMBS_DOWN", "LAUGH", "HOORAY", "CONFUSED", "HEART", "ROCKET", "EYES"];
 /** GitHub sends all eight groups, the empty ones too. */
 const groups = (given: Record<string, string[]> = {}) =>
-  REACTIONS.map((content) => ({ content, viewerHasReacted: (given[content] ?? []).includes("you"), reactors: { totalCount: (given[content] ?? []).length, nodes: (given[content] ?? []).map((login) => ({ login })) } }));
+  REACTIONS.map((content) => ({
+    content,
+    viewerHasReacted: (given[content] ?? []).includes("you"),
+    reactors: { totalCount: (given[content] ?? []).length, nodes: (given[content] ?? []).map((login) => ({ login })) },
+  }));
 
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -28,7 +32,11 @@ function markdown(text: string) {
   for (const part of parts) {
     const fence = part.match(/^`{3,}(\w*)\n([\s\S]*?)\n?`{3,}$/);
     if (fence) {
-      out.push(fence[1] === "suggestion" ? `<pre lang="suggestion"><code>${escape(fence[2]!)}\n</code></pre>` : `<pre><code>${escape(fence[2]!)}</code></pre>`);
+      out.push(
+        fence[1] === "suggestion"
+          ? `<pre lang="suggestion"><code>${escape(fence[2]!)}\n</code></pre>`
+          : `<pre><code>${escape(fence[2]!)}</code></pre>`,
+      );
       continue;
     }
     for (const block of part.split(/\n{2,}/).filter((b) => b.trim())) {
@@ -37,7 +45,11 @@ function markdown(text: string) {
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/(^|\s)@([\w-]+)/g, '$1<a href="https://github.com/$2">@$2</a>')
         .replace(/\n/g, "<br>");
-      out.push(block.startsWith("&gt; ") || block.startsWith("> ") ? `<blockquote><p>${inline.replace(/^&gt; ?/gm, "").replace(/<br>&gt; ?/g, "<br>")}</p></blockquote>` : `<p>${inline}</p>`);
+      out.push(
+        block.startsWith("&gt; ") || block.startsWith("> ")
+          ? `<blockquote><p>${inline.replace(/^&gt; ?/gm, "").replace(/<br>&gt; ?/g, "<br>")}</p></blockquote>`
+          : `<p>${inline}</p>`,
+      );
     }
   }
   return out.join("\n");
@@ -46,8 +58,13 @@ function markdown(text: string) {
 /** A suggestion as GitHub's comment HTML has it (styled by classes the app doesn't have). */
 const blob = (removed: string[], added: string[]) =>
   `<div class="my-2 border rounded-2 js-suggested-changes-blob diff-view" id=""><div class="f6 p-2 lh-condensed border-bottom d-flex"><div class="flex-auto flex-items-center color-fg-muted">Suggested change</div></div><div itemprop="text" class="blob-wrapper data file"><table class="d-table tab-size mb-0 width-full"><tbody>${removed
-    .map((l) => `<tr class="border-0"><td class="blob-num blob-num-deletion" data-line-number="·"></td><td class="border-0 px-2 py-1 blob-code-inner blob-code-deletion">${l}</td></tr>`)
-    .join("")}${added.map((l) => `<tr class="border-0"><td class="blob-num blob-num-addition" data-line-number="·"></td><td class="border-0 px-2 py-1 blob-code-inner blob-code-addition">${l}</td></tr>`).join("")}</tbody></table></div><div class="js-apply-changes"></div></div>`;
+    .map(
+      (l) =>
+        `<tr class="border-0"><td class="blob-num blob-num-deletion" data-line-number="·"></td><td class="border-0 px-2 py-1 blob-code-inner blob-code-deletion">${l}</td></tr>`,
+    )
+    .join(
+      "",
+    )}${added.map((l) => `<tr class="border-0"><td class="blob-num blob-num-addition" data-line-number="·"></td><td class="border-0 px-2 py-1 blob-code-inner blob-code-addition">${l}</td></tr>`).join("")}</tbody></table></div><div class="js-apply-changes"></div></div>`;
 
 type Comment = {
   id: string;
@@ -71,10 +88,26 @@ type Comment = {
   originalStartLine: number | null;
   subjectType: "LINE" | "FILE";
 };
-type MockThread = { id: string; isResolved: boolean; isOutdated: boolean; path: string; line: number | null; originalLine: number | null; startLine: number | null; subjectType: "LINE" | "FILE"; diffSide: "LEFT" | "RIGHT"; comments: Comment[] };
+type MockThread = {
+  id: string;
+  isResolved: boolean;
+  isOutdated: boolean;
+  path: string;
+  line: number | null;
+  originalLine: number | null;
+  startLine: number | null;
+  subjectType: "LINE" | "FILE";
+  diffSide: "LEFT" | "RIGHT";
+  comments: Comment[];
+};
 type Item = Record<string, unknown> & { __typename: string; id: string };
 
-type Seed = { people: Record<string, Actor>; threads: Array<Record<string, unknown>>; details: { pullRequest: Record<string, unknown> }; files: Array<{ filename: string; patch?: string }> };
+type Seed = {
+  people: Record<string, Actor>;
+  threads: Array<Record<string, unknown>>;
+  details: { pullRequest: Record<string, unknown> };
+  files: Array<{ filename: string; patch?: string }>;
+};
 
 let state: {
   people: Record<string, Actor>;
@@ -113,8 +146,28 @@ function comment(author: Actor, body: string, minutesAgo: number, at: Partial<Co
 }
 
 function thread(path: string, line: number | null, comments: Comment[], at: Partial<MockThread> = {}): MockThread {
-  const t: MockThread = { id: nextId("PRRT"), isResolved: false, isOutdated: false, path, line, originalLine: line, startLine: null, subjectType: line ? "LINE" : "FILE", diffSide: "RIGHT", comments: [], ...at };
-  t.comments = comments.map((c, i) => ({ ...c, path, line, originalLine: line, startLine: t.startLine, subjectType: t.subjectType, replyTo: i ? { id: comments[0]!.id } : null }));
+  const t: MockThread = {
+    id: nextId("PRRT"),
+    isResolved: false,
+    isOutdated: false,
+    path,
+    line,
+    originalLine: line,
+    startLine: null,
+    subjectType: line ? "LINE" : "FILE",
+    diffSide: "RIGHT",
+    comments: [],
+    ...at,
+  };
+  t.comments = comments.map((c, i) => ({
+    ...c,
+    path,
+    line,
+    originalLine: line,
+    startLine: t.startLine,
+    subjectType: t.subjectType,
+    replyTo: i ? { id: comments[0]!.id } : null,
+  }));
   return t;
 }
 
@@ -122,38 +175,79 @@ function seed({ people, threads, details, files }: Seed) {
   const { me, ana, bruno, carla, dev } = people as Record<"me" | "ana" | "bruno" | "carla" | "dev", Actor>;
   for (const [i, p] of Object.values(people).entries()) p.databaseId = 100 + i;
   // mock.ts's conversation, with what the app reads of it now.
-  const first = threads[0] as { id: string; path: string; line: number; comments: { nodes: Array<{ id: string; author: Actor; bodyHTML: string; createdAt: string }> } };
+  const first = threads[0] as {
+    id: string;
+    path: string;
+    line: number;
+    comments: { nodes: Array<{ id: string; author: Actor; bodyHTML: string; createdAt: string }> };
+  };
   const opener = first.comments.nodes[0]!;
   const t1 = thread(first.path, first.line, [
-    { ...comment(opener.author, "Should `promoError` be cleared when the code is removed by hand?", 9, { reactionGroups: groups({ THUMBS_UP: ["octocat", "you"], EYES: ["mojombo"] }) }), id: opener.id },
+    {
+      ...comment(opener.author, "Should `promoError` be cleared when the code is removed by hand?", 9, {
+        reactionGroups: groups({ THUMBS_UP: ["octocat", "you"], EYES: ["mojombo"] }),
+      }),
+      id: opener.id,
+    },
   ]);
   t1.id = first.id;
-  const suggestion = comment(ana, "Shorter, and the error goes when the code does:\n```suggestion\n    next.promo = check.ok ? cart.promo : null;\n    next.promoError = check.ok ? undefined : check.reason;\n```", 7);
+  const suggestion = comment(
+    ana,
+    "Shorter, and the error goes when the code does:\n```suggestion\n    next.promo = check.ok ? cart.promo : null;\n    next.promoError = check.ok ? undefined : check.reason;\n```",
+    7,
+  );
   suggestion.bodyHTML = `${blob(["    next.promo = check.ok ? cart.promo : null;", "    next.promoError = check.ok ? null : check.reason;"], ["    next.promo = check.ok ? cart.promo : null;", "    next.promoError = check.ok ? undefined : check.reason;"])}\n<p>Shorter, and the error goes when the code does:</p>`;
   const t2 = thread("src/checkout/cart.ts", 15, [suggestion], { startLine: 14 });
   const long = thread(
     "api/promo.go",
     22,
     Array.from({ length: 12 }, (_, i) =>
-      comment([bruno, carla, dev, me][i % 4]!, i ? `${["Agreed.", "What about codes that expire mid-checkout?", "We re-check on submit.", "Then this is fine for now.", "Can we log the reason?", "Added a metric instead."][i % 6]} (${i + 1})` : "Should an expired code say *expired*, or just stop applying?", 60 - i * 4),
+      comment(
+        [bruno, carla, dev, me][i % 4]!,
+        i
+          ? `${["Agreed.", "What about codes that expire mid-checkout?", "We re-check on submit.", "Then this is fine for now.", "Can we log the reason?", "Added a metric instead."][i % 6]} (${i + 1})`
+          : "Should an expired code say *expired*, or just stop applying?",
+        60 - i * 4,
+      ),
     ),
   );
-  const onFile = thread("docs/promo-codes.md", null, [comment(carla, "Could this page link to the support macro too?", 30)]);
+  const onFile = thread("docs/promo-codes.md", null, [
+    comment(carla, "Could this page link to the support macro too?", 30),
+  ]);
   // Started "on github.com": your pending review has one comment already.
-  const webDraft = comment(me, "Nit: this could use `errors.Is` once the sentinel exists.", 5, { state: "PENDING", viewerCanUpdate: true });
+  const webDraft = comment(me, "Nit: this could use `errors.Is` once the sentinel exists.", 5, {
+    state: "PENDING",
+    viewerCanUpdate: true,
+  });
   const pendingThread = thread("api/promo.go", 21, [webDraft]);
   const mine = comment(me, "Tried it locally: the code survives removing an item now. 🎉", 20);
   const older = Array.from({ length: 40 }, (_, i) => ({
     __typename: "IssueComment",
     id: nextId("IC"),
     author: [bruno, carla, dev, ana][i % 4],
-    ...said(`Earlier note ${i + 1}: ${["CI is green again.", "Rebased on main.", "Pinged design for the copy.", "Looks like the flaky test is unrelated."][i % 4]}`, 60 * 24 * 3 + (40 - i) * 30),
+    ...said(
+      `Earlier note ${i + 1}: ${["CI is green again.", "Rebased on main.", "Pinged design for the copy.", "Looks like the flaky test is unrelated."][i % 4]}`,
+      60 * 24 * 3 + (40 - i) * 30,
+    ),
   }));
   const pr = details.pullRequest as { timelineItems: { nodes: Item[] }; bodyHTML: string };
   const timeline: Item[] = [
     ...older,
-    ...pr.timelineItems.nodes.map((n) => ({ ...n, ...said(String(n.bodyHTML ?? "").replace(/<[^>]+>/g, ""), 15), ...(n.__typename === "IssueComment" ? { reactionGroups: groups({ HEART: ["octocat", "defunkt", "you"], ROCKET: ["mojombo"] }) } : {}) })),
-    { __typename: "IssueComment", id: nextId("IC"), author: me, ...said(mine.body, 4), viewerCanUpdate: true, viewerCanDelete: true },
+    ...pr.timelineItems.nodes.map((n) => ({
+      ...n,
+      ...said(String(n.bodyHTML ?? "").replace(/<[^>]+>/g, ""), 15),
+      ...(n.__typename === "IssueComment"
+        ? { reactionGroups: groups({ HEART: ["octocat", "defunkt", "you"], ROCKET: ["mojombo"] }) }
+        : {}),
+    })),
+    {
+      __typename: "IssueComment",
+      id: nextId("IC"),
+      author: me,
+      ...said(mine.body, 4),
+      viewerCanUpdate: true,
+      viewerCanDelete: true,
+    },
   ];
   state = {
     people,
@@ -170,7 +264,17 @@ function seed({ people, threads, details, files }: Seed) {
 }
 
 function said(body: string, minutesAgo: number) {
-  return { body, bodyHTML: markdown(body), createdAt: iso(minutesAgo), url: `https://github.com/acme/web/pull/1807#issuecomment-${++ids}`, lastEditedAt: null, viewerCanUpdate: false, viewerCanDelete: false, viewerCanReact: true, reactionGroups: groups() };
+  return {
+    body,
+    bodyHTML: markdown(body),
+    createdAt: iso(minutesAgo),
+    url: `https://github.com/acme/web/pull/1807#issuecomment-${++ids}`,
+    lastEditedAt: null,
+    viewerCanUpdate: false,
+    viewerCanDelete: false,
+    viewerCanReact: true,
+    reactionGroups: groups(),
+  };
 }
 
 /** A file at the head, as the patch's new side has it, the rest filler. */
@@ -201,54 +305,150 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     const { text } = JSON.parse(args.body as string) as { text: string };
     return new Promise((r) => setTimeout(() => r({ status: 200, body: markdown(text) }), 250));
   }
-  if (path.includes("/contents/")) return { status: 200, body: fileAt(decodeURIComponent(path.split("/contents/")[1]!.split("?")[0]!)) };
+  if (path.includes("/contents/"))
+    return { status: 200, body: fileAt(decodeURIComponent(path.split("/contents/")[1]!.split("?")[0]!)) };
   if (path !== "/graphql") return undefined;
-  const { query = "", variables = {} } = JSON.parse((args.body as string | null) ?? "{}") as { query?: string; variables?: Record<string, unknown> };
+  const { query = "", variables = {} } = JSON.parse((args.body as string | null) ?? "{}") as {
+    query?: string;
+    variables?: Record<string, unknown>;
+  };
   const v = variables as Record<string, string>;
 
   if (query.includes("reviewThreads(first: 100"))
-    return ok({ repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: s.threads.map((t) => ({ ...t, comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: t.comments } })) } } } });
-  if (query.includes("reviews(states: PENDING")) {
-    const comments = allComments().filter((c) => s.pending?.comments.includes(c.id));
-    return ok({ repository: { pullRequest: { reviews: { nodes: s.pending ? [{ id: s.pending.id, viewerDidAuthor: true, comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: comments } }] : [] } } } });
-  }
-  if (query.includes("timelineItems(first: 100")) {
-    const nodes = s.timeline.map((n) => (n.__typename === "PullRequestReview" ? { ...n, comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } : n));
     return ok({
       repository: {
         pullRequest: {
-          ...(variables.first ? { body: s.pull.body, bodyHTML: s.pull.bodyHTML, viewerCanUpdate: true, viewerCanReact: true, viewerCanApplySuggestion: true, headRefName: "ana/keep-promo-code", headRefOid: "abc123", headRepository: { nameWithOwner: "acme/web" }, reactionGroups: s.pull.reactionGroups } : {}),
+          reviewThreads: {
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: s.threads.map((t) => ({
+              ...t,
+              comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: t.comments },
+            })),
+          },
+        },
+      },
+    });
+  if (query.includes("reviews(states: PENDING")) {
+    const comments = allComments().filter((c) => s.pending?.comments.includes(c.id));
+    return ok({
+      repository: {
+        pullRequest: {
+          reviews: {
+            nodes: s.pending
+              ? [
+                  {
+                    id: s.pending.id,
+                    viewerDidAuthor: true,
+                    comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: comments },
+                  },
+                ]
+              : [],
+          },
+        },
+      },
+    });
+  }
+  if (query.includes("timelineItems(first: 100")) {
+    const nodes = s.timeline.map((n) =>
+      n.__typename === "PullRequestReview"
+        ? { ...n, comments: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } }
+        : n,
+    );
+    return ok({
+      repository: {
+        pullRequest: {
+          ...(variables.first
+            ? {
+                body: s.pull.body,
+                bodyHTML: s.pull.bodyHTML,
+                viewerCanUpdate: true,
+                viewerCanReact: true,
+                viewerCanApplySuggestion: true,
+                headRefName: "ana/keep-promo-code",
+                headRefOid: "abc123",
+                headRepository: { nameWithOwner: "acme/web" },
+                reactionGroups: s.pull.reactionGroups,
+              }
+            : {}),
           timelineItems: { pageInfo: { hasNextPage: false, endCursor: null }, nodes },
         },
       },
     });
   }
-  if (query.includes("mentionableUsers")) return ok({ repository: { mentionableUsers: { nodes: [...Object.values(s.people), { login: "dana", name: "Dana Reyes", avatarUrl: "https://avatars.githubusercontent.com/dana?s=40" }].filter((p) => p.login !== "you") } } });
+  if (query.includes("mentionableUsers"))
+    return ok({
+      repository: {
+        mentionableUsers: {
+          nodes: [
+            ...Object.values(s.people),
+            { login: "dana", name: "Dana Reyes", avatarUrl: "https://avatars.githubusercontent.com/dana?s=40" },
+          ].filter((p) => p.login !== "you"),
+        },
+      },
+    });
   if (query.includes("search(query:"))
-    return ok({ search: { nodes: [{ __typename: "Issue", number: 1790, title: "Promo code disappears when the cart changes", state: "OPEN" }, { __typename: "PullRequest", number: 1784, title: "Checkout: show the promo field on mobile", state: "MERGED" }, { __typename: "Issue", number: 1702, title: "Expired codes say “invalid”", state: "CLOSED" }].filter((n) => !v.q?.match(/\d{3,}/) || String(n.number).startsWith(v.q.match(/\d+/)![0])) } });
+    return ok({
+      search: {
+        nodes: [
+          { __typename: "Issue", number: 1790, title: "Promo code disappears when the cart changes", state: "OPEN" },
+          {
+            __typename: "PullRequest",
+            number: 1784,
+            title: "Checkout: show the promo field on mobile",
+            state: "MERGED",
+          },
+          { __typename: "Issue", number: 1702, title: "Expired codes say “invalid”", state: "CLOSED" },
+        ].filter((n) => !v.q?.match(/\d{3,}/) || String(n.number).startsWith(v.q.match(/\d+/)![0])),
+      },
+    });
   if (query.includes("savedReplies"))
-    return ok({ viewer: { savedReplies: { nodes: [{ id: "SR_1", title: "Thanks!", body: "Thanks for the quick fix! 🙏" }, { id: "SR_2", title: "Needs a test", body: "Could you add a test that covers this case?" }, { id: "SR_3", title: "Nit", body: "Nit, not blocking: " }] } } });
+    return ok({
+      viewer: {
+        savedReplies: {
+          nodes: [
+            { id: "SR_1", title: "Thanks!", body: "Thanks for the quick fix! 🙏" },
+            { id: "SR_2", title: "Needs a test", body: "Could you add a test that covers this case?" },
+            { id: "SR_3", title: "Nit", body: "Nit, not blocking: " },
+          ],
+        },
+      },
+    });
 
   // Writes
   const reaction = query.match(/(addReaction|removeReaction)/)?.[1];
   if (reaction) {
-    const target = allComments().find((c) => c.id === v.id) ?? s.timeline.find((n) => n.id === v.id) ?? (v.id === "PR_1807" ? s.pull : null);
+    const target =
+      allComments().find((c) => c.id === v.id) ??
+      s.timeline.find((n) => n.id === v.id) ??
+      (v.id === "PR_1807" ? s.pull : null);
     if (target) {
       target.reactionGroups = (target.reactionGroups as ReturnType<typeof groups>).map((g) => {
         if (g.content !== v.content) return g;
         const on = reaction === "addReaction";
-        const nodes = on ? [{ login: "you" }, ...g.reactors.nodes.filter((n) => n.login !== "you")] : g.reactors.nodes.filter((n) => n.login !== "you");
+        const nodes = on
+          ? [{ login: "you" }, ...g.reactors.nodes.filter((n) => n.login !== "you")]
+          : g.reactors.nodes.filter((n) => n.login !== "you");
         return { ...g, viewerHasReacted: on, reactors: { totalCount: nodes.length, nodes } };
       });
     }
     return ok({ [reaction]: { clientMutationId: null } });
   }
-  const edit = query.match(/(updatePullRequestReviewComment|updateIssueComment|updatePullRequestReview|updatePullRequest)\(/)?.[1];
+  const edit = query.match(
+    /(updatePullRequestReviewComment|updateIssueComment|updatePullRequestReview|updatePullRequest)\(/,
+  )?.[1];
   if (edit) {
     const bodyHTML = markdown(v.body ?? "");
-    const target = edit === "updatePullRequest" ? s.pull : (allComments().find((c) => c.id === v.id) ?? s.timeline.find((n) => n.id === v.id));
+    const target =
+      edit === "updatePullRequest"
+        ? s.pull
+        : (allComments().find((c) => c.id === v.id) ?? s.timeline.find((n) => n.id === v.id));
     if (target) Object.assign(target, { body: v.body, bodyHTML, lastEditedAt: iso(0) });
-    const field = { updatePullRequestReviewComment: "pullRequestReviewComment", updateIssueComment: "issueComment", updatePullRequestReview: "pullRequestReview", updatePullRequest: "pullRequest" }[edit]!;
+    const field = {
+      updatePullRequestReviewComment: "pullRequestReviewComment",
+      updateIssueComment: "issueComment",
+      updatePullRequestReview: "pullRequestReview",
+      updatePullRequest: "pullRequest",
+    }[edit]!;
     return ok({ [edit]: { [field]: { bodyHTML } } });
   }
   if (query.includes("deleteIssueComment")) {
@@ -264,10 +464,19 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     if (t) t.isResolved = !query.includes("unresolve");
     return ok({ resolveReviewThread: { thread: { id: v.id } } });
   }
-  if (query.includes("submitPullRequestReview") || query.includes("addPullRequestReview(input: { pullRequestId: $id, event")) {
+  if (
+    query.includes("submitPullRequestReview") ||
+    query.includes("addPullRequestReview(input: { pullRequestId: $id, event")
+  ) {
     for (const c of allComments()) if (s.pending?.comments.includes(c.id)) c.state = "SUBMITTED";
     s.pending = null;
-    s.timeline.push({ __typename: "PullRequestReview", id: nextId("PRR"), author: s.people.me!, state: v.event === "APPROVE" ? "APPROVED" : v.event === "REQUEST_CHANGES" ? "CHANGES_REQUESTED" : "COMMENTED", ...said(v.body ?? "", 0) });
+    s.timeline.push({
+      __typename: "PullRequestReview",
+      id: nextId("PRR"),
+      author: s.people.me!,
+      state: v.event === "APPROVE" ? "APPROVED" : v.event === "REQUEST_CHANGES" ? "CHANGES_REQUESTED" : "COMMENTED",
+      ...said(v.body ?? "", 0),
+    });
     return ok({ submitPullRequestReview: { clientMutationId: null } });
   }
   if (query.includes("deletePullRequestReview(")) {
@@ -275,20 +484,37 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     s.pending = null;
     return ok({ deletePullRequestReview: { clientMutationId: null } });
   }
-  if (query.includes("createCommitOnBranch")) return new Promise((r) => setTimeout(() => r(ok({ createCommitOnBranch: { commit: { oid: "def456" } } })), 600));
+  if (query.includes("createCommitOnBranch"))
+    return new Promise((r) => setTimeout(() => r(ok({ createCommitOnBranch: { commit: { oid: "def456" } } })), 600));
   return undefined;
 }
 
 function removeComment(id: string) {
   const s = state!;
-  s.threads = s.threads.map((t) => ({ ...t, comments: t.comments.filter((c) => c.id !== id) })).filter((t) => t.comments.length);
+  s.threads = s.threads
+    .map((t) => ({ ...t, comments: t.comments.filter((c) => c.id !== id) }))
+    .filter((t) => t.comments.length);
   if (s.pending) s.pending.comments = s.pending.comments.filter((c) => c !== id);
 }
 
 // MARK: The pending review's comments on their way (src-tauri/src/drafts.rs, played here)
 
-type Put = { key: string; pull: string; path: string; line: number; side: string; startLine?: number | null; file?: boolean; body: string; id?: string | null; replyTo?: string | null };
-type Job = { change: ({ op: "put" } & Put) | { op: "remove"; key: string; pull: string; id?: string | null }; error: string | null };
+type Put = {
+  key: string;
+  pull: string;
+  path: string;
+  line: number;
+  side: string;
+  startLine?: number | null;
+  file?: boolean;
+  body: string;
+  id?: string | null;
+  replyTo?: string | null;
+};
+type Job = {
+  change: ({ op: "put" } & Put) | { op: "remove"; key: string; pull: string; id?: string | null };
+  error: string | null;
+};
 const queue: { jobs: Job[]; ids: Record<string, string> } = { jobs: [], ids: {} };
 let emit: (event: string, payload: unknown) => void = () => {};
 /** How the page hears "drafts" events from here (mock.ts keeps its listeners). */
@@ -305,7 +531,10 @@ function drafts(cmd: string, args: Args): unknown {
     }
     case "drafts_remove":
       queue.jobs = queue.jobs.filter((j) => j.change.key !== args.key);
-      queue.jobs.push({ change: { op: "remove", key: args.key as string, pull: args.pull as string, id: args.id as string | null }, error: null });
+      queue.jobs.push({
+        change: { op: "remove", key: args.key as string, pull: args.pull as string, id: args.id as string | null },
+        error: null,
+      });
       later();
       return null;
     case "drafts_state":
@@ -320,7 +549,12 @@ function drafts(cmd: string, args: Args): unknown {
       return null;
     case "drafts_flush":
       return new Promise((resolve, reject) => {
-        const wait = () => (queue.jobs.some((j) => j.error) ? reject(queue.jobs.find((j) => j.error)!.error) : queue.jobs.length ? setTimeout(wait, 100) : resolve(null));
+        const wait = () =>
+          queue.jobs.some((j) => j.error)
+            ? reject(queue.jobs.find((j) => j.error)!.error)
+            : queue.jobs.length
+              ? setTimeout(wait, 100)
+              : resolve(null);
         wait();
       });
   }
@@ -348,10 +582,27 @@ function later() {
       } else {
         s.pending ??= { id: nextId("PRR"), comments: [] };
         const line = change.file ? null : change.line;
-        const made = comment(s.people.me!, change.body, 0, { state: "PENDING", viewerCanUpdate: true, viewerCanDelete: true });
+        const made = comment(s.people.me!, change.body, 0, {
+          state: "PENDING",
+          viewerCanUpdate: true,
+          viewerCanDelete: true,
+        });
         const answered = change.replyTo ? s.threads.find((t) => t.id === change.replyTo) : undefined;
-        if (answered) answered.comments.push({ ...made, path: answered.path, line: answered.line, originalLine: answered.line, replyTo: { id: answered.comments[0]!.id } });
-        else s.threads.push(thread(change.path, line, [made], { diffSide: change.side === "deletions" ? "LEFT" : "RIGHT", startLine: change.startLine ?? null }));
+        if (answered)
+          answered.comments.push({
+            ...made,
+            path: answered.path,
+            line: answered.line,
+            originalLine: answered.line,
+            replyTo: { id: answered.comments[0]!.id },
+          });
+        else
+          s.threads.push(
+            thread(change.path, line, [made], {
+              diffSide: change.side === "deletions" ? "LEFT" : "RIGHT",
+              startLine: change.startLine ?? null,
+            }),
+          );
         const stored = answered ? made.id : s.threads.at(-1)!.comments[0]!.id;
         s.pending.comments.push(stored);
         queue.ids[change.key] = stored;

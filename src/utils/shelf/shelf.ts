@@ -42,7 +42,12 @@ export function shelve(key: string, value: unknown) {
 
 /** A list that rarely changes: what's kept comes at once (`onValue` right away), and GitHub is
  *  asked again when it's older than `fresh` milliseconds (`onValue` again with that). */
-export async function cachedList<T>(key: string, fresh: number, load: () => Promise<T>, onValue: (value: T) => void): Promise<void> {
+export async function cachedList<T>(
+  key: string,
+  fresh: number,
+  load: () => Promise<T>,
+  onValue: (value: T) => void,
+): Promise<void> {
   const kept = shelved<T>(key);
   if (kept) onValue(kept.value);
   if (kept && kept.age < fresh) return;

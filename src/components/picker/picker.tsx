@@ -5,6 +5,7 @@
 
 import { Check, Loader2, Search } from "lucide-react";
 import { useId, useState, type ReactElement, type ReactNode } from "react";
+
 import { Input } from "@/components/input/input";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { cn } from "@/utils/cn/cn";
@@ -28,7 +29,19 @@ type Props = {
   onOpenChange?: (open: boolean) => void;
 };
 
-export function Picker({ title, placeholder, empty, choices, onPick, trigger, children, onQuery, loading, open: controlled, onOpenChange }: Props) {
+export function Picker({
+  title,
+  placeholder,
+  empty,
+  choices,
+  onPick,
+  trigger,
+  children,
+  onQuery,
+  loading,
+  open: controlled,
+  onOpenChange,
+}: Props) {
   const [own, setOwn] = useState(false);
   const open = controlled ?? own;
   const [query, setQuery] = useState("");
@@ -54,9 +67,14 @@ export function Picker({ title, placeholder, empty, choices, onPick, trigger, ch
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={trigger}>{children}</PopoverTrigger>
       <PopoverContent align="end" className="w-72 gap-2 p-2">
-        <PopoverTitle className="px-1.5 pt-0.5 text-subheadline font-semibold text-muted-foreground">{title}</PopoverTitle>
+        <PopoverTitle className="px-1.5 pt-0.5 text-subheadline font-semibold text-muted-foreground">
+          {title}
+        </PopoverTitle>
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
           <Input
             autoFocus
             type="search"
@@ -83,9 +101,20 @@ export function Picker({ title, placeholder, empty, choices, onPick, trigger, ch
               }
             }}
           />
-          {loading ? <Loader2 className="absolute top-1/2 right-2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden /> : null}
+          {loading ? (
+            <Loader2
+              className="absolute top-1/2 right-2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground"
+              aria-hidden
+            />
+          ) : null}
         </div>
-        <ul id={list} role="listbox" aria-multiselectable aria-label={title} className="-mx-0.5 max-h-72 overflow-y-auto overscroll-contain">
+        <ul
+          id={list}
+          role="listbox"
+          aria-multiselectable
+          aria-label={title}
+          className="-mx-0.5 max-h-72 overflow-y-auto overscroll-contain"
+        >
           {shown.length ? (
             shown.map((c, i) => (
               <li
@@ -95,13 +124,18 @@ export function Picker({ title, placeholder, empty, choices, onPick, trigger, ch
                 aria-selected={c.selected}
                 onMouseMove={() => setActive(i)}
                 onClick={() => onPick(c)}
-                className={cn("flex min-h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-1.5 py-1 text-body", i === at && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)")}
+                className={cn(
+                  "flex min-h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-1.5 py-1 text-body",
+                  i === at && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)",
+                )}
               >
                 <Check className={cn("size-3.5 shrink-0", !c.selected && "invisible")} aria-hidden />
                 {c.leading}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{c.label}</span>
-                  {c.detail ? <span className="block truncate text-subheadline text-muted-foreground">{c.detail}</span> : null}
+                  {c.detail ? (
+                    <span className="block truncate text-subheadline text-muted-foreground">{c.detail}</span>
+                  ) : null}
                 </span>
               </li>
             ))

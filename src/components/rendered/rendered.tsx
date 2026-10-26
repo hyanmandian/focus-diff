@@ -4,13 +4,14 @@
 
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+import { openViewer } from "@/components/viewer/viewer";
 import { bridge, github } from "@/utils/bridge/bridge";
 import type { Source } from "@/utils/contents/contents";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
-import { openViewer } from "@/components/viewer/viewer";
 
 const rendered = new Map<string, Promise<string>>();
 
@@ -19,7 +20,12 @@ function renderedAt(repo: string, sha: string, path: string) {
   const key = `${repo}\n${sha}\n${path}`;
   let known = rendered.get(key);
   if (!known) {
-    known = github<string>("GET", `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${sha}`, undefined, "application/vnd.github.html+json");
+    known = github<string>(
+      "GET",
+      `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${sha}`,
+      undefined,
+      "application/vnd.github.html+json",
+    );
     known.catch(() => rendered.delete(key));
     rendered.set(key, known);
   }
@@ -56,7 +62,10 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> {t("diff.loading")}
       </p>
     );
-  if (html instanceof Error) return <p className="px-4 py-3 font-sans text-body text-destructive">{t("diff.loadFailed", { error: html.message })}</p>;
+  if (html instanceof Error)
+    return (
+      <p className="px-4 py-3 font-sans text-body text-destructive">{t("diff.loadFailed", { error: html.message })}</p>
+    );
   return (
     <div
       ref={ref}

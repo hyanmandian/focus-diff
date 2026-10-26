@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { hash, patchHash } from "@/utils/hashes/hashes";
 
 describe("a patch's hash", () => {

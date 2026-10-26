@@ -8,11 +8,66 @@ import { i18n } from "@/utils/i18n/i18n";
 import { isVideo, media } from "@/utils/media/media";
 
 const TAGS = new Set([
-  "a", "b", "blockquote", "br", "code", "del", "details", "div", "em", "h1", "h2", "h3", "h4", "h5", "h6",
-  "hr", "i", "img", "input", "ins", "kbd", "li", "ol", "p", "pre", "s", "span", "strong", "sub", "summary",
-  "sup", "table", "tbody", "td", "th", "thead", "tr", "ul", "video",
+  "a",
+  "b",
+  "blockquote",
+  "br",
+  "code",
+  "del",
+  "details",
+  "div",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "i",
+  "img",
+  "input",
+  "ins",
+  "kbd",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "s",
+  "span",
+  "strong",
+  "sub",
+  "summary",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "th",
+  "thead",
+  "tr",
+  "ul",
+  "video",
 ]);
-const DROP = new Set(["script", "style", "iframe", "object", "embed", "form", "button", "textarea", "select", "svg", "math", "link", "meta", "base", "template", "audio", "source", "track"]);
+const DROP = new Set([
+  "script",
+  "style",
+  "iframe",
+  "object",
+  "embed",
+  "form",
+  "button",
+  "textarea",
+  "select",
+  "svg",
+  "math",
+  "link",
+  "meta",
+  "base",
+  "template",
+  "audio",
+  "source",
+  "track",
+]);
 const ATTRIBUTES: Record<string, Set<string>> = {
   a: new Set(["href", "title", "data-button"]),
   img: new Set(["src", "alt", "title", "width", "height"]),
@@ -37,7 +92,9 @@ function isPictureButton(link: Element) {
   const alt = img.getAttribute("alt")?.trim() ?? "";
   const height = Number(img.getAttribute("height") ?? "0");
   const href = link.getAttribute("href") ?? "";
-  return alt.length > 1 && alt.length <= 40 && height > 0 && height <= 40 && !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(href);
+  return (
+    alt.length > 1 && alt.length <= 40 && height > 0 && height <= 40 && !/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(href)
+  );
 }
 
 // MARK: Suggested changes
@@ -139,7 +196,9 @@ function clean(node: Node, base?: string[]) {
     // A picture with light and dark versions: the one for the theme showing, as GitHub picks.
     if (tag === "picture") {
       const dark = isDark();
-      const source = [...element.querySelectorAll("source")].find((s) => (s.getAttribute("media") ?? "").includes(dark ? "dark" : "light"));
+      const source = [...element.querySelectorAll("source")].find((s) =>
+        (s.getAttribute("media") ?? "").includes(dark ? "dark" : "light"),
+      );
       const img = element.querySelector("img");
       const url = source?.getAttribute("srcset")?.trim().split(/\s+/)[0];
       if (img && url) img.setAttribute("src", url);

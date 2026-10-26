@@ -26,11 +26,17 @@ async function runStep(action: Action, index: number, step: ActionStep, pr: Acti
       const users = step.reviewers.filter((r) => !r.includes("/"));
       const teams = step.reviewers.filter((r) => r.includes("/")).map((r) => r.split("/")[1]!);
       if (!users.length && !teams.length) return null;
-      await github("POST", `${base}/pulls/${pr.number}/requested_reviewers`, { reviewers: users, team_reviewers: teams });
+      await github("POST", `${base}/pulls/${pr.number}/requested_reviewers`, {
+        reviewers: users,
+        team_reviewers: teams,
+      });
       return null;
     }
     case "unrequestMe":
-      await github("DELETE", `${base}/pulls/${pr.number}/requested_reviewers`, { reviewers: [pr.me], team_reviewers: [] });
+      await github("DELETE", `${base}/pulls/${pr.number}/requested_reviewers`, {
+        reviewers: [pr.me],
+        team_reviewers: [],
+      });
       return null;
     case "label":
       if (!step.labels.length) return null;
@@ -53,8 +59,14 @@ export async function runAction(action: Action, pr: ActionContext): Promise<stri
       said = (await runStep(action, index, step, pr)) ?? said;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      throw new Error(action.steps.length > 1 ? i18n()("config.action.failed", { step: i18n()(`config.step.${step.kind}`), message }) : message);
+      throw new Error(
+        action.steps.length > 1
+          ? i18n()("config.action.failed", { step: i18n()(`config.step.${step.kind}`), message })
+          : message,
+      );
     }
   }
-  return said ? i18n()("config.action.said", { action: action.name, said }) : i18n()("config.action.done", { action: action.name });
+  return said
+    ? i18n()("config.action.said", { action: action.name, said })
+    : i18n()("config.action.done", { action: action.name });
 }

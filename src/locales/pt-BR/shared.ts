@@ -29,9 +29,11 @@ export const shared: Dictionary["shared"] = {
   zoomIn: "Aumentar zoom",
   actualSize: "Tamanho real",
   aiOffTitle: "A IA está desligada",
-  aiOffMessage: "Escolha o Claude Code ou o Cursor nos Ajustes para perguntar sobre o código e revisar pull requests. Eles rodam neste Mac, com a sua própria assinatura.",
+  aiOffMessage:
+    "Escolha o Claude Code ou o Cursor nos Ajustes para perguntar sobre o código e revisar pull requests. Eles rodam neste Mac, com a sua própria assinatura.",
   aiMissingTitle: "O {provider} não está instalado",
-  aiMissingMessage: "O Focus Diff pergunta ao {provider} neste Mac, com a sua própria assinatura. Instale-o e volte: os Ajustes mostram quando ele estiver pronto.",
+  aiMissingMessage:
+    "O Focus Diff pergunta ao {provider} neste Mac, com a sua própria assinatura. Instale-o e volte: os Ajustes mostram quando ele estiver pronto.",
   aiSignedOutTitle: "O {provider} não está conectado",
   aiSignedOutMessage: "Entre uma vez rodando {command} no Terminal e tente de novo.",
   aiOpenSettings: "Abrir Ajustes de IA",

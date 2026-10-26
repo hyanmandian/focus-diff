@@ -135,7 +135,14 @@ export type ActionStep =
   | { kind: "open"; url: string }
   | { kind: "run"; command: string };
 
-export const STEP_KINDS = ["comment", "request", "unrequestMe", "label", "open", "run"] as const satisfies ReadonlyArray<ActionStep["kind"]>;
+export const STEP_KINDS = [
+  "comment",
+  "request",
+  "unrequestMe",
+  "label",
+  "open",
+  "run",
+] as const satisfies ReadonlyArray<ActionStep["kind"]>;
 
 /** One of a menu action's choices: its own name and steps. */
 export type ActionChoice = { id: string; name: string; steps: ActionStep[] };
@@ -153,7 +160,13 @@ export type Action = {
 };
 
 /** A menu action's choice, as an action of its own to run. */
-export const choiceAction = (action: Action, choice: ActionChoice): Action => ({ id: choice.id, name: `${action.name} · ${choice.name}`, confirm: action.confirm, steps: choice.steps, choices: [] });
+export const choiceAction = (action: Action, choice: ActionChoice): Action => ({
+  id: choice.id,
+  name: `${action.name} · ${choice.name}`,
+  confirm: action.confirm,
+  steps: choice.steps,
+  choices: [],
+});
 
 /** A part of a pull request to review on its own: the files whose paths match `include` and not
  *  `exclude` (regular expressions; empty matches all, or none). Like Focus Diff's filters.
@@ -190,7 +203,8 @@ export type Config = {
 };
 
 let counter = 0;
-export const newId = () => `${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+export const newId = () =>
+  `${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify" | "notifyAt"> => ({
   enabled: true,
@@ -222,7 +236,15 @@ const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify" | "notif
  *  t(`config.queue.${kind}.hint`). */
 export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
   review: {
-    make: () => ({ ...base(), id: newId(), name: i18n()("config.queue.review.name"), kind: "review", tone: "blue", notify: ["new", "rerequest", "ready"], notifyAt: "review" }),
+    make: () => ({
+      ...base(),
+      id: newId(),
+      name: i18n()("config.queue.review.name"),
+      kind: "review",
+      tone: "blue",
+      notify: ["new", "rerequest", "ready"],
+      notifyAt: "review",
+    }),
   },
   involved: {
     make: () => ({
@@ -249,7 +271,18 @@ export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
     }),
   },
   merged: {
-    make: () => ({ ...base(), id: newId(), name: i18n()("config.queue.merged.name"), kind: "merged", tone: "gray", drafts: "show", requestedOnly: true, skipIfI: "approved", notify: [], notifyAt: "now" }),
+    make: () => ({
+      ...base(),
+      id: newId(),
+      name: i18n()("config.queue.merged.name"),
+      kind: "merged",
+      tone: "gray",
+      drafts: "show",
+      requestedOnly: true,
+      skipIfI: "approved",
+      notify: [],
+      notifyAt: "now",
+    }),
   },
   custom: {
     make: () => ({
@@ -306,17 +339,42 @@ export const defaultConfig = (): Config => ({
   sound: false,
   theme: "system",
   language: "system",
-  ai: { provider: null, model: "", effort: "", instructions: "", prompts: defaultPrompts(), project: true, review: { auto: false, prompt: REVIEW_PROMPT } },
+  ai: {
+    provider: null,
+    model: "",
+    effort: "",
+    instructions: "",
+    prompts: defaultPrompts(),
+    project: true,
+    review: { auto: false, prompt: REVIEW_PROMPT },
+  },
   actions: [],
   filters: defaultFilters(),
   reviewTime: defaultReviewTime(),
 });
 
-export const defaultReviewTime = (): ReviewTime => ({ enabled: false, sessions: [], againFirst: true, remindEnd: true, skipEmpty: true, holdWhileReviewing: false });
+export const defaultReviewTime = (): ReviewTime => ({
+  enabled: false,
+  sessions: [],
+  againFirst: true,
+  remindEnd: true,
+  skipEmpty: true,
+  holdWhileReviewing: false,
+});
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
 
-export const newSession = (): ReviewSession => ({ id: newId(), name: "", on: true, days: WEEKDAYS, times: ["15:00"], minutes: 30, order: "oldest", queues: [], drafts: false });
+export const newSession = (): ReviewSession => ({
+  id: newId(),
+  name: "",
+  on: true,
+  days: WEEKDAYS,
+  times: ["15:00"],
+  minutes: 30,
+  order: "oldest",
+  queues: [],
+  drafts: false,
+});
 
 export const REVIEW_MINUTES = [15, 30, 45, 60, 90, 120] as const;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -345,18 +403,36 @@ type FilterName = "frontend" | "backend" | "code" | "tests" | "generated" | "pay
 
 /** Starting points for filters, from Focus Diff's recipes. `name` keys its words (config.filter.*);
  *  `id` stays the same in every language, since the review window remembers a filter by it. */
-const RECIPES: Array<{ id: RecipeId; filters: Array<{ id: string; name: FilterName; include: string; exclude: string }> }> = [
+const RECIPES: Array<{
+  id: RecipeId;
+  filters: Array<{ id: string; name: FilterName; include: string; exclude: string }>;
+}> = [
   {
     id: "stack",
     filters: [
-      { id: "frontend", name: "frontend", include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$", exclude: "\\.(test|spec|stories)\\." },
-      { id: "backend", name: "backend", include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$", exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\." },
+      {
+        id: "frontend",
+        name: "frontend",
+        include: "\\.(tsx?|jsx?|vue|svelte|css|scss)$",
+        exclude: "\\.(test|spec|stories)\\.",
+      },
+      {
+        id: "backend",
+        name: "backend",
+        include: "\\.(py|go|rb|java|kt|cs|php|rs|ex)$",
+        exclude: "(^|/)(tests?|spec)/|_test\\.|Test\\.",
+      },
     ],
   },
   {
     id: "tests",
     filters: [
-      { id: "code", name: "code", include: "", exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/" },
+      {
+        id: "code",
+        name: "code",
+        include: "",
+        exclude: "\\.(test|spec|stories)\\.|(^|/)(tests?|__tests__|__mocks__)/",
+      },
       { id: "tests", name: "tests", include: "\\.(test|spec)\\.|(^|/)(tests?|__tests__)/", exclude: "" },
     ],
   },
@@ -367,39 +443,71 @@ const RECIPES: Array<{ id: RecipeId; filters: Array<{ id: string; name: FilterNa
         id: "no-generated",
         name: "generated",
         include: "",
-        exclude: "(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/",
+        exclude:
+          "(^|/)(package-lock\\.json|yarn\\.lock|pnpm-lock\\.yaml|Cargo\\.lock|poetry\\.lock|go\\.sum)$|\\.snap$|\\.min\\.(js|css)$|(^|/)(dist|build|generated|__generated__)/",
       },
     ],
   },
-  { id: "area", filters: [{ id: "payments", name: "payments", include: "^(apps|packages|services)/payments/", exclude: "" }] },
+  {
+    id: "area",
+    filters: [{ id: "payments", name: "payments", include: "^(apps|packages|services)/payments/", exclude: "" }],
+  },
   {
     id: "infra",
-    filters: [{ id: "infra", name: "infra", include: "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$", exclude: "" }],
+    filters: [
+      {
+        id: "infra",
+        name: "infra",
+        include:
+          "(^|/)(\\.github|\\.gitlab|\\.circleci|infra|terraform|k8s|helm|docker)/|Dockerfile|docker-compose|\\.(tf|ya?ml)$",
+        exclude: "",
+      },
+    ],
   },
-  { id: "database", filters: [{ id: "database", name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" }] },
+  {
+    id: "database",
+    filters: [
+      { id: "database", name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" },
+    ],
+  },
   { id: "docs", filters: [{ id: "docs", name: "docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" }] },
 ];
 
 /** The recipes in words, for Settings. */
-export const filterRecipes = (t: T): Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> =>
+export const filterRecipes = (
+  t: T,
+): Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> =>
   RECIPES.map((recipe) => ({
     title: t(`config.recipe.${recipe.id}`),
     description: t(`config.recipe.${recipe.id}.hint`),
-    filters: recipe.filters.map((f) => ({ name: t(`config.filter.${f.name}`), include: f.include, exclude: f.exclude })),
+    filters: recipe.filters.map((f) => ({
+      name: t(`config.filter.${f.name}`),
+      include: f.include,
+      exclude: f.exclude,
+    })),
   }));
 
 /** Fixed ids: until the person changes them, the defaults are made again each time the file is
  *  read, and the review window remembers a repository's filter by id. */
 export function defaultFilters(): DiffFilter[] {
   const t = i18n();
-  return [...RECIPES[0]!.filters, ...RECIPES[2]!.filters].map((f) => ({ id: f.id, name: t(`config.filter.${f.name}`), include: f.include, exclude: f.exclude, repos: [] }));
+  return [...RECIPES[0]!.filters, ...RECIPES[2]!.filters].map((f) => ({
+    id: f.id,
+    name: t(`config.filter.${f.name}`),
+    include: f.include,
+    exclude: f.exclude,
+    repos: [],
+  }));
 }
 
 /** Whether a file is in a filter. Case doesn't matter, as in Focus Diff, so a filter shared between
  *  the two keeps the same files. */
 export function inFilter(filter: Pick<DiffFilter, "include" | "exclude">, path: string): boolean {
   try {
-    return (!filter.include || new RegExp(filter.include, "i").test(path)) && !(filter.exclude && new RegExp(filter.exclude, "i").test(path));
+    return (
+      (!filter.include || new RegExp(filter.include, "i").test(path)) &&
+      !(filter.exclude && new RegExp(filter.exclude, "i").test(path))
+    );
   } catch {
     return true;
   }
@@ -440,13 +548,25 @@ Be concrete and brief. Don't repeat the description back.`,
 
 /** Starting points for actions, in words for Settings; what they make is named in the language in use. */
 /** A new action: a script, which can do anything a terminal can; more steps are added in it. */
-export const newAction = (t: T): Action => ({ id: newId(), name: t("config.action.script.name"), confirm: false, steps: [{ kind: "run", command: 'echo "$PR_URL"' }], choices: [] });
+export const newAction = (t: T): Action => ({
+  id: newId(),
+  name: t("config.action.script.name"),
+  confirm: false,
+  steps: [{ kind: "run", command: 'echo "$PR_URL"' }],
+  choices: [],
+});
 
 // MARK: Reading what's on disk
 
 const isString = (v: unknown): v is string => typeof v === "string";
 const strings = (v: unknown, max = 200): string[] =>
-  Array.isArray(v) ? v.filter(isString).map((s) => s.trim()).filter(Boolean).slice(0, max) : [];
+  Array.isArray(v)
+    ? v
+        .filter(isString)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, max)
+    : [];
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
   allowed.includes(v as T) ? (v as T) : fallback;
 const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
@@ -522,11 +642,22 @@ function normalizeAction(raw: unknown): Action | null {
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 30) : i18n()("config.action.untitled"),
     confirm: bool(r.confirm, false),
     steps: normalizeSteps(r.steps),
-    choices: Array.isArray(r.choices) ? r.choices.map(normalizeChoice).filter((c): c is ActionChoice => c !== null).slice(0, 12) : [],
+    choices: Array.isArray(r.choices)
+      ? r.choices
+          .map(normalizeChoice)
+          .filter((c): c is ActionChoice => c !== null)
+          .slice(0, 12)
+      : [],
   };
 }
 
-const normalizeSteps = (v: unknown) => (Array.isArray(v) ? v.map(normalizeStep).filter((x): x is ActionStep => x !== null).slice(0, 10) : []);
+const normalizeSteps = (v: unknown) =>
+  Array.isArray(v)
+    ? v
+        .map(normalizeStep)
+        .filter((x): x is ActionStep => x !== null)
+        .slice(0, 10)
+    : [];
 
 function normalizeChoice(raw: unknown): ActionChoice | null {
   if (!raw || typeof raw !== "object") return null;
@@ -571,7 +702,9 @@ function normalizeQueue(raw: unknown): Queue | null {
     query: isString(r.query) ? r.query.slice(0, 500) : fallback.query,
     notify: strings(r.notify).filter((k): k is EventKind => (EVENT_KINDS as readonly string[]).includes(k)),
     notifyAt: pick(r.notifyAt, ["now", "review"] as const, fallback.notifyAt),
-    notifyLeaveOut: [...new Set(strings(r.notifyLeaveOut).filter((k): k is LeaveOut => (LEAVE_OUT as readonly string[]).includes(k)))],
+    notifyLeaveOut: [
+      ...new Set(strings(r.notifyLeaveOut).filter((k): k is LeaveOut => (LEAVE_OUT as readonly string[]).includes(k))),
+    ],
     notifyRepos: strings(r.notifyRepos).filter((s) => /^[\w.-]+\/(?:[\w.-]+|\*)$/.test(s)),
   };
 }
@@ -580,7 +713,9 @@ function normalizeSession(raw: unknown): ReviewSession | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const fallback = newSession();
-  const days = Array.isArray(r.days) ? r.days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6) : fallback.days;
+  const days = Array.isArray(r.days)
+    ? r.days.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6)
+    : fallback.days;
   return {
     id: isString(r.id) && /^[\w-]{1,64}$/.test(r.id) ? r.id : fallback.id,
     name: isString(r.name) ? r.name.trim().slice(0, 40) : "",
@@ -597,7 +732,12 @@ function normalizeSession(raw: unknown): ReviewSession | null {
 function normalizeReviewTime(raw: unknown): ReviewTime {
   const fallback = defaultReviewTime();
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const sessions = Array.isArray(r.sessions) ? r.sessions.map(normalizeSession).filter((s): s is ReviewSession => s !== null).slice(0, 10) : [];
+  const sessions = Array.isArray(r.sessions)
+    ? r.sessions
+        .map(normalizeSession)
+        .filter((s): s is ReviewSession => s !== null)
+        .slice(0, 10)
+    : [];
   // Two the same would edit as one.
   const ids = new Set<string>();
   for (const s of sessions) {
@@ -618,14 +758,21 @@ export function normalize(raw: unknown): Config {
   const fallback = defaultConfig();
   if (!raw || typeof raw !== "object") return fallback;
   const r = raw as Record<string, unknown>;
-  const queues = Array.isArray(r.queues) ? r.queues.map(normalizeQueue).filter((q): q is Queue => q !== null) : fallback.queues;
+  const queues = Array.isArray(r.queues)
+    ? r.queues.map(normalizeQueue).filter((q): q is Queue => q !== null)
+    : fallback.queues;
   // Ids must be unique: they key what's been seen.
   const ids = new Set<string>();
   for (const q of queues) {
     if (ids.has(q.id)) q.id = newId();
     ids.add(q.id);
   }
-  const actions = Array.isArray(r.actions) ? r.actions.map(normalizeAction).filter((a): a is Action => a !== null).slice(0, 12) : [];
+  const actions = Array.isArray(r.actions)
+    ? r.actions
+        .map(normalizeAction)
+        .filter((a): a is Action => a !== null)
+        .slice(0, 12)
+    : [];
   for (const a of actions) {
     if (ids.has(a.id)) a.id = newId();
     ids.add(a.id);
@@ -644,16 +791,29 @@ export function normalize(raw: unknown): Config {
         model: isString(ai.model) ? ai.model.trim().slice(0, 120) : "",
         effort: pick(ai.effort, ["", ...EFFORTS] as const, ""),
         instructions: isString(ai.instructions) ? ai.instructions.slice(0, 4000) : "",
-        prompts: Array.isArray(ai.prompts) ? ai.prompts.map(normalizePrompt).filter((p): p is Prompt => p !== null).slice(0, 12) : defaultPrompts(),
+        prompts: Array.isArray(ai.prompts)
+          ? ai.prompts
+              .map(normalizePrompt)
+              .filter((p): p is Prompt => p !== null)
+              .slice(0, 12)
+          : defaultPrompts(),
         project: bool(ai.project, true),
         review: (() => {
           const review = ai.review && typeof ai.review === "object" ? (ai.review as Record<string, unknown>) : {};
-          return { auto: bool(review.auto, false), prompt: isString(review.prompt) && review.prompt.trim() ? review.prompt.slice(0, 8000) : REVIEW_PROMPT };
+          return {
+            auto: bool(review.auto, false),
+            prompt: isString(review.prompt) && review.prompt.trim() ? review.prompt.slice(0, 8000) : REVIEW_PROMPT,
+          };
         })(),
       };
     })(),
     actions,
-    filters: Array.isArray(r.filters) ? r.filters.map(normalizeFilter).filter((f): f is DiffFilter => f !== null).slice(0, 12) : fallback.filters,
+    filters: Array.isArray(r.filters)
+      ? r.filters
+          .map(normalizeFilter)
+          .filter((f): f is DiffFilter => f !== null)
+          .slice(0, 12)
+      : fallback.filters,
     reviewTime: normalizeReviewTime(r.reviewTime),
   };
 }

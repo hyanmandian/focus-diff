@@ -8,6 +8,7 @@
 // and a language change re-renders what it changed, in every open window, without remounting.
 
 import { useSyncExternalStore } from "react";
+
 import { en } from "@/locales/en/index";
 import { ptBR } from "@/locales/pt-BR/index";
 
@@ -24,7 +25,11 @@ export type Plural = { zero?: string; one: string; other: string; many?: string 
 type English = typeof en;
 type Namespace = keyof English & string;
 export type Key = { [N in Namespace]: `${N}.${keyof English[N] & string}` }[Namespace];
-type Value<K extends Key> = K extends `${infer N extends Namespace}.${infer M}` ? (M extends keyof English[N] ? English[N][M] : never) : never;
+type Value<K extends Key> = K extends `${infer N extends Namespace}.${infer M}`
+  ? M extends keyof English[N]
+    ? English[N][M]
+    : never
+  : never;
 
 /** The names between braces in a message: "{who} asked" → "who". */
 type Placeholders<S> = S extends `${string}{${infer P}}${infer Rest}` ? P | Placeholders<Rest> : never;
@@ -35,7 +40,9 @@ type Args<K extends Key> = [Names<Value<K>>] extends [never] ? [] : [params: Par
 
 /** A dictionary with English's shape: every namespace and key, plain strings where English has a
  *  string, plural forms where it has them. */
-export type Dictionary = { [N in Namespace]: { [M in keyof English[N]]: English[N][M] extends string ? string : Plural } };
+export type Dictionary = {
+  [N in Namespace]: { [M in keyof English[N]]: English[N][M] extends string ? string : Plural };
+};
 
 const DICTIONARIES: Record<Locale, Dictionary> = { en, "pt-BR": ptBR };
 
@@ -107,7 +114,8 @@ export function translator(locale: Locale): T {
   }) as T;
 
   t.locale = locale;
-  t.number = (value, options) => (options ? new Intl.NumberFormat(locale, options).format(value) : numbers.format(value));
+  t.number = (value, options) =>
+    options ? new Intl.NumberFormat(locale, options).format(value) : numbers.format(value);
   t.duration = (minutes) => {
     if (minutes < 1) return t("common.underMinute");
     if (minutes < 60) return t("common.aboutMinutes", { minutes: Math.round(minutes) });
@@ -119,7 +127,15 @@ export function translator(locale: Locale): T {
   t.ago = (time, now = Date.now()) => {
     const ms = Math.max(0, now - time);
     const [value, unit]: [number, Intl.RelativeTimeFormatUnit] =
-      ms < MINUTE ? [0, "second"] : ms < HOUR ? [Math.floor(ms / MINUTE), "minute"] : ms < DAY ? [Math.floor(ms / HOUR), "hour"] : ms < MONTH ? [Math.floor(ms / DAY), "day"] : [Math.floor(ms / MONTH), "month"];
+      ms < MINUTE
+        ? [0, "second"]
+        : ms < HOUR
+          ? [Math.floor(ms / MINUTE), "minute"]
+          : ms < DAY
+            ? [Math.floor(ms / HOUR), "hour"]
+            : ms < MONTH
+              ? [Math.floor(ms / DAY), "day"]
+              : [Math.floor(ms / MONTH), "month"];
     // Narrow Portuguese abbreviates with a period ("há 3 min."), which reads as the end of a
     // sentence in the middle of one.
     return relative.format(-value, unit).replace(/\.$/, "");
@@ -147,7 +163,11 @@ let current = translator(resolveLocale(language, systemLanguages()));
 if (typeof document !== "undefined") document.documentElement.lang = current.locale;
 
 function systemLanguages(): readonly string[] {
-  return typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language];
+  return typeof navigator === "undefined"
+    ? []
+    : navigator.languages?.length
+      ? navigator.languages
+      : [navigator.language];
 }
 
 function remembered(): Language {

@@ -2,8 +2,9 @@
 // placeholder while it uploads, then an <img> sized as it shows on GitHub, or a video's address
 // on a line of its own, which GitHub plays.
 
-import { bridge } from "@/utils/bridge/bridge";
 import { useEffect, useState } from "react";
+
+import { bridge } from "@/utils/bridge/bridge";
 
 /** What GitHub takes; Rust checks the bytes too (src-tauri/src/uploads.rs). */
 export const ACCEPT = "image/png,image/jpeg,image/gif,image/webp,image/svg+xml,video/mp4,video/quicktime,video/webm";
@@ -63,7 +64,8 @@ export async function displayWidth(file: File): Promise<number | null> {
     await image.decode();
     const width = image.naturalWidth;
     if (!width) return null;
-    const density = file.type === "image/png" ? pngDensity(new Uint8Array(await file.slice(0, 4096).arrayBuffer())) : null;
+    const density =
+      file.type === "image/png" ? pngDensity(new Uint8Array(await file.slice(0, 4096).arrayBuffer())) : null;
     return density && density >= 144 ? Math.round(width / (density / 72)) : width;
   } catch {
     return null;

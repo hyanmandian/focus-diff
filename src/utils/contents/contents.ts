@@ -4,6 +4,7 @@
 // (the merge base), which is what GitHub's diff compares against, not the base branch's tip.
 
 import { invoke } from "@tauri-apps/api/core";
+
 import { github } from "@/utils/bridge/bridge";
 import type { PullRef } from "@/utils/review/review";
 
@@ -54,7 +55,10 @@ export function mergeBase(d: PullRef, head: string): Promise<string> {
     known = (async () => {
       const pull = await github<{ base: { sha: string } }>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}`);
       // Only the merge base is wanted: one commit and one file are the least it lists.
-      const compare = await github<{ merge_base_commit: { sha: string } }>("GET", `/repos/${d.owner}/${d.repo}/compare/${pull.base.sha}...${head}?per_page=1`);
+      const compare = await github<{ merge_base_commit: { sha: string } }>(
+        "GET",
+        `/repos/${d.owner}/${d.repo}/compare/${pull.base.sha}...${head}?per_page=1`,
+      );
       return compare.merge_base_commit.sha;
     })();
     known.catch(() => bases.delete(key));
@@ -65,9 +69,14 @@ export function mergeBase(d: PullRef, head: string): Promise<string> {
 
 /** A file's two versions as text, the old (at the merge base, under its old name if renamed) and
  *  the new (at the head); null for a side it isn't on. */
-export async function bothVersions(source: Source, file: { path: string; previousPath: string | null; status: string }) {
+export async function bothVersions(
+  source: Source,
+  file: { path: string; previousPath: string | null; status: string },
+) {
   const [oldText, newText] = await Promise.all([
-    file.status === "added" ? null : source.base().then((base) => textAt(source.repo, base, file.previousPath ?? file.path)),
+    file.status === "added"
+      ? null
+      : source.base().then((base) => textAt(source.repo, base, file.previousPath ?? file.path)),
     file.status === "removed" ? null : textAt(source.repo, source.head, file.path),
   ]);
   return { oldText, newText };

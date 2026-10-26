@@ -3,7 +3,11 @@
 // the one before.
 
 /** `atTop`: the file at the top of the screen, and whether its start is there (Diffs.atTop). */
-export function stepFile(paths: string[], atTop: { path: string; reached: boolean } | null, by: 1 | -1): string | undefined {
+export function stepFile(
+  paths: string[],
+  atTop: { path: string; reached: boolean } | null,
+  by: 1 | -1,
+): string | undefined {
   if (!paths.length) return undefined;
   const at = atTop ? paths.indexOf(atTop.path) : -1;
   if (at < 0) return by === 1 ? paths[0] : paths[paths.length - 1];

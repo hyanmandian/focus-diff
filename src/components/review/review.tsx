@@ -3,63 +3,109 @@
 // step through the comments, the review itself). Pending comments and what's been viewed are kept
 // on this machine, so closing the window loses nothing.
 
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Columns2, GitCommitHorizontal, GitMerge, Loader2, MoreHorizontal, Pilcrow, RefreshCw, Rows2, Search, Sparkles, WrapText, X, Zap } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Columns2,
+  GitCommitHorizontal,
+  GitMerge,
+  Loader2,
+  MoreHorizontal,
+  Pilcrow,
+  RefreshCw,
+  Rows2,
+  Search,
+  Sparkles,
+  WrapText,
+  X,
+  Zap,
+} from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
 import { Badge } from "@/components/badge/badge";
-import { Kbd } from "@/components/kbd/kbd";
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import { RangeBanner, RangePicker } from "@/components/commits/commits";
+import { Diffs, type DiffsHandle, type LinkTarget } from "@/components/diffs/diffs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
+import { FileTree } from "@/components/file-tree/file-tree";
+import { FilterBar, type Next } from "@/components/filter-bar/filter-bar";
 import { Input } from "@/components/input/input";
+import { Kbd } from "@/components/kbd/kbd";
+import { Overview } from "@/components/overview/overview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Progress } from "@/components/progress/progress";
+import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
+import { Shortcuts } from "@/components/shortcuts/shortcuts";
 import { Skeleton } from "@/components/skeleton/skeleton";
+import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
+import { SuggestionBatch } from "@/components/suggestion/suggestion";
 import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
-import { keep, readKept, type Kept } from "@/utils/kept/kept";
-import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
-import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
-import { bridge } from "@/utils/bridge/bridge";
-import { inFilter, loadConfig, type Config } from "@/utils/config/config";
-import { firstName } from "@/utils/copy/copy";
-import { i18n, useT } from "@/utils/i18n/i18n";
-import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
-import { useRangeFiles } from "@/utils/commits/commits";
-import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/utils/estimate/estimate";
-import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/utils/filters/filters";
-import { commentNow, loadFiles, loadThreads, loadViewed, reply, setResolved, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/utils/review/review";
-import { useTheme } from "@/utils/theme/theme";
-import { mergeBase, type Source } from "@/utils/contents/contents";
-import { patchHash } from "@/utils/hashes/hashes";
-import { stepFile } from "@/utils/navigate/navigate";
-import { inTreeOrder } from "@/utils/tree/tree";
-import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
-import { cn } from "@/utils/cn/cn";
-import { isMac } from "@/utils/platform/platform";
-import { tabKeys } from "@/utils/keys/keys";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
 import { ConversationProvider, useConversation } from "@/hooks/use-conversation/use-conversation";
-import { published, usePending } from "@/hooks/use-pending/use-pending";
-import { SuggestionBatch } from "@/components/suggestion/suggestion";
-import { Diffs, type DiffsHandle, type LinkTarget } from "@/components/diffs/diffs";
-import { FileTree } from "@/components/file-tree/file-tree";
-import { FilterBar, type Next } from "@/components/filter-bar/filter-bar";
-import { Overview } from "@/components/overview/overview";
-import { Shortcuts } from "@/components/shortcuts/shortcuts";
-import { RangeBanner, RangePicker } from "@/components/commits/commits";
-import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
-import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
-import { usePull } from "@/hooks/use-pull/use-pull";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
+import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
+import { published, usePending } from "@/hooks/use-pending/use-pending";
+import { usePull } from "@/hooks/use-pull/use-pull";
+import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
+import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
+import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { useRangeFiles } from "@/utils/commits/commits";
+import { inFilter, loadConfig, type Config } from "@/utils/config/config";
+import { mergeBase, type Source } from "@/utils/contents/contents";
+import { firstName } from "@/utils/copy/copy";
+import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
+import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/utils/estimate/estimate";
+import {
+  filtersFor,
+  inAny,
+  keptSelection,
+  nextFile,
+  nextFilterWithWork,
+  stepFilter,
+  toggled,
+  totals,
+} from "@/utils/filters/filters";
+import { patchHash } from "@/utils/hashes/hashes";
+import { i18n, useT } from "@/utils/i18n/i18n";
+import { keep, readKept, type Kept } from "@/utils/kept/kept";
+import { tabKeys } from "@/utils/keys/keys";
+import { stepFile } from "@/utils/navigate/navigate";
+import { isMac } from "@/utils/platform/platform";
+import {
+  commentNow,
+  loadFiles,
+  loadThreads,
+  loadViewed,
+  reply,
+  setResolved,
+  type Draft,
+  type ReviewFile,
+  type Thread,
+  type ViewedState,
+} from "@/utils/review/review";
+import { useTheme } from "@/utils/theme/theme";
+import { inTreeOrder } from "@/utils/tree/tree";
 
 /** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
  *  ("org/slug"), for leaving the review. */
 /** `queue`: the one it was opened from, whose next pull request the toolbar offers. */
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
 
-const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+const typing = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 
 // MARK: Kept on this machine
 
@@ -111,8 +157,10 @@ type Event = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 
 /** The toolbar's items: borderless, 28pt, in capsules, as Tahoe's toolbars draw them. Toolbars are
  *  where macOS does light up an item under the pointer. */
-const TOOL = "h-(--toolbar-item-h) rounded-full px-2.5 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
-const TOOL_ICON = "size-(--toolbar-item-h) rounded-full px-0 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
+const TOOL =
+  "h-(--toolbar-item-h) rounded-full px-2.5 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
+const TOOL_ICON =
+  "size-(--toolbar-item-h) rounded-full px-0 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
 
 /** Submit Review…: the toolbar's one prominent action. Its popover keeps what was typed when it
  *  closes (and across closing the window), as a nonmodal popover should; sending clears it.
@@ -162,7 +210,11 @@ function SubmitReview({
       <PopoverTrigger render={<Button className="h-(--toolbar-item-h) rounded-full px-3.5" />}>
         <span className="@max-[860px]:hidden">{t("review.submit")}</span>
         <span className="hidden @max-[860px]:inline">{t("review.submitShort")}</span>
-        {drafts.length ? <Badge variant="secondary" className="ml-0.5 bg-white/25 text-primary-foreground">{drafts.length}</Badge> : null}
+        {drafts.length ? (
+          <Badge variant="secondary" className="ml-0.5 bg-white/25 text-primary-foreground">
+            {drafts.length}
+          </Badge>
+        ) : null}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
         <div className="flex flex-col gap-3">
@@ -181,7 +233,13 @@ function SubmitReview({
               }
             }}
           />
-          <ToggleGroup value={[event]} onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)} variant="outline" aria-label={t("review.kindOfReview")} className="w-full">
+          <ToggleGroup
+            value={[event]}
+            onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)}
+            variant="outline"
+            aria-label={t("review.kindOfReview")}
+            className="w-full"
+          >
             <ToggleGroupItem value="COMMENT" className="flex-1">
               {t("review.comment")}
             </ToggleGroupItem>
@@ -193,7 +251,9 @@ function SubmitReview({
             </ToggleGroupItem>
           </ToggleGroup>
           {own ? <p className="text-callout text-muted-foreground">{t("review.ownPull")}</p> : null}
-          {drafts.length ? <p className="text-callout text-muted-foreground">{t("review.sendsPending", { count: drafts.length })}</p> : null}
+          {drafts.length ? (
+            <p className="text-callout text-muted-foreground">{t("review.sendsPending", { count: drafts.length })}</p>
+          ) : null}
           {error ? (
             <p className="text-callout text-destructive" role="alert">
               {error}
@@ -209,7 +269,14 @@ function SubmitReview({
                 disabled={busy}
                 onClick={async () => {
                   const t = i18n();
-                  if (!(await bridge.confirm(t("review.discardConfirm"), t("review.discardConfirmMessage", { count: drafts.length }), t("review.discardConfirmButton")))) return;
+                  if (
+                    !(await bridge.confirm(
+                      t("review.discardConfirm"),
+                      t("review.discardConfirmMessage", { count: drafts.length }),
+                      t("review.discardConfirmButton"),
+                    ))
+                  )
+                    return;
                   setBusy(true);
                   setError(null);
                   try {
@@ -227,7 +294,11 @@ function SubmitReview({
             ) : null}
             <Button onClick={() => void submit()} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : null}
-              {event === "APPROVE" ? t("review.approve") : event === "REQUEST_CHANGES" ? t("review.requestChanges") : t("review.comment")}
+              {event === "APPROVE"
+                ? t("review.approve")
+                : event === "REQUEST_CHANGES"
+                  ? t("review.requestChanges")
+                  : t("review.comment")}
             </Button>
           </div>
         </div>
@@ -237,7 +308,13 @@ function SubmitReview({
 }
 
 /** Where a comment is, to step through them: a conversation, a pending comment, an AI comment. */
-type Stop = { path: string; line: number; side: Thread["side"]; kind: "conversation" | "pending" | "ai"; thread?: Thread };
+type Stop = {
+  path: string;
+  line: number;
+  side: Thread["side"];
+  kind: "conversation" | "pending" | "ai";
+  thread?: Thread;
+};
 
 export function Review({ target }: { target: Target }) {
   const t = useT();
@@ -266,7 +343,20 @@ export function Review({ target }: { target: Target }) {
   const learned = useLearned();
   // This pull request, for coming back to it from the next.
   const here = useMemo<Visit | null>(
-    () => (details ? { pr: { id: prId, number, title: details.title, repository: { nameWithOwner: repo }, author: details.author ? { login: details.author.login } : null }, teams, queue: target.queue ?? null } : null),
+    () =>
+      details
+        ? {
+            pr: {
+              id: prId,
+              number,
+              title: details.title,
+              repository: { nameWithOwner: repo },
+              author: details.author ? { login: details.author.login } : null,
+            },
+            teams,
+            queue: target.queue ?? null,
+          }
+        : null,
     [details, prId, number, repo, teams, target.queue],
   );
   const { next: nextPull, go: goNext, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
@@ -320,7 +410,10 @@ export function Review({ target }: { target: Target }) {
   }, []);
   const filterField = useRef<HTMLInputElement>(null);
 
-  const ref = useMemo(() => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }), [repo, number]);
+  const ref = useMemo(
+    () => ({ owner: repo.split("/")[0] ?? "", repo: repo.split("/")[1] ?? "", number }),
+    [repo, number],
+  );
   // Your pending review, on GitHub (pending.ts); the conversations without its comments.
   const pending = usePending(prId, ref, threads);
   const drafts = pending.drafts;
@@ -328,7 +421,10 @@ export function Review({ target }: { target: Target }) {
   // Both versions of the files (to expand context, show pictures, load large files) and links to
   // them, once the head commit is known.
   const head = details?.headRefOid;
-  const source = useMemo<Source | null>(() => (head ? { repo, head, base: () => mergeBase(ref, head) } : null), [repo, ref, head]);
+  const source = useMemo<Source | null>(
+    () => (head ? { repo, head, base: () => mergeBase(ref, head) } : null),
+    [repo, ref, head],
+  );
   const link = useMemo<LinkTarget | null>(() => (head ? { ...ref, head } : null), [ref, head]);
   // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
   const shownOnce = useRef(false);
@@ -385,7 +481,11 @@ export function Review({ target }: { target: Target }) {
       } else {
         // Nothing yet: all three at once, each needs only the pull request's address. What the
         // panel fetched ahead of a click comes back from memory (github.rs).
-        [d, f, t] = await Promise.all([asked.then((d) => (setDetails(d), d)), loadFiles(ref).then((f) => (setFiles(f), f)), loadThreads(ref).then((t) => (setThreads(t), t))]);
+        [d, f, t] = await Promise.all([
+          asked.then((d) => (setDetails(d), d)),
+          loadFiles(ref).then((f) => (setFiles(f), f)),
+          loadThreads(ref).then((t) => (setThreads(t), t)),
+        ]);
       }
       shownOnce.current = true;
       last.current = { details: d, files: f, threads: t };
@@ -414,32 +514,60 @@ export function Review({ target }: { target: Target }) {
     if (projectHead && !aiProblemNow) void bridge.aiPrepare({ repo, number, head: projectHead }).catch(() => {});
   }, [projectHead, aiProblemNow, repo, number]);
   // Asked for: says what's missing when the AI can't answer. On its own: only when it can.
-  const runReview = useCallback(async (asked = true) => {
-    if (!ai || !details || !files) return;
-    if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
-    setReviewing(details.headRefOid);
-    setReviewError(null);
-    try {
-      setReviewed({ head: details.headRefOid, review: await aiReview(ai, details, files) });
-    } catch (e) {
-      setReviewError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
-    } finally {
-      setReviewing(null);
-    }
-  }, [ai, details, files, setReviewed]);
+  const runReview = useCallback(
+    async (asked = true) => {
+      if (!ai || !details || !files) return;
+      if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
+      setReviewing(details.headRefOid);
+      setReviewError(null);
+      try {
+        setReviewed({ head: details.headRefOid, review: await aiReview(ai, details, files) });
+      } catch (e) {
+        setReviewError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+      } finally {
+        setReviewing(null);
+      }
+    },
+    [ai, details, files, setReviewed],
+  );
   // On its own when the person asked for that, once per head commit.
   useEffect(() => {
-    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN") void runReview(false);
+    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
+      void runReview(false);
   }, [ai, details, files, current, reviewing, reviewError, runReview]);
   const dropFinding = (finding: Finding) =>
-    setReviewed((r) => (r ? { ...r, review: { ...r.review, findings: r.review.findings.filter((f) => f !== finding && !(f.path === finding.path && f.line === finding.line && f.body === finding.body)) } } : r));
+    setReviewed((r) =>
+      r
+        ? {
+            ...r,
+            review: {
+              ...r.review,
+              findings: r.review.findings.filter(
+                (f) =>
+                  f !== finding && !(f.path === finding.path && f.line === finding.line && f.body === finding.body),
+              ),
+            },
+          }
+        : r,
+    );
 
   const say = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
   };
   // The whole conversation, and what its comments can do wherever they're drawn (use-conversation.tsx).
-  const talk = useConversation({ prId, ref, details, threads, setThreads, files, me, pending, say, reloadAll: () => void load() });
+  const talk = useConversation({
+    prId,
+    ref,
+    details,
+    threads,
+    setThreads,
+    files,
+    me,
+    pending,
+    say,
+    reloadAll: () => void load(),
+  });
   const reloadConversation = talk.reload;
   // Merging, checks, commits, people and the rest around the pull request (use-pull.ts); the range of
   // commits the diff shows, and its files when it isn't all of them.
@@ -454,7 +582,10 @@ export function Review({ target }: { target: Target }) {
   // Conversations sit on the head's lines: an older version's lines aren't those.
   const olderRange = Boolean(range && details && range.to !== details.headRefOid);
   // The two versions the expanded lines come from: the range's ends when it's a range.
-  const diffSource = useMemo<Source | null>(() => (range ? { repo, head: range.to, base: () => Promise.resolve(range.from) } : source), [range, repo, source]);
+  const diffSource = useMemo<Source | null>(
+    () => (range ? { repo, head: range.to, base: () => Promise.resolve(range.from) } : source),
+    [range, repo, source],
+  );
 
   // The panel's lists catch up right away.
   const changed = useCallback(async () => {
@@ -492,13 +623,19 @@ export function Review({ target }: { target: Target }) {
   const inPart = useMemo(() => ordered.filter((f) => inAny(chosen, f.path)), [ordered, chosen]);
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return inPart.filter((f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || !isViewed(f) || opened.has(f.path)));
+    return inPart.filter(
+      (f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || !isViewed(f) || opened.has(f.path)),
+    );
   }, [inPart, filter, hideViewed, isViewed, opened]);
   const viewedCount = inPart.filter(isViewed).length;
   const shown = useMemo(() => totals(inPart, isViewed, minutesOf), [inPart, isViewed, minutesOf]);
   const next = useMemo<Next>(() => {
     const left = visible.filter((f) => !isViewed(f)).length;
-    return { left, nextFilter: chosen.length && !left ? nextFilterWithWork(files ?? [], repoFilters, chosenIds, isViewed) : undefined };
+    return {
+      left,
+      nextFilter:
+        chosen.length && !left ? nextFilterWithWork(files ?? [], repoFilters, chosenIds, isViewed) : undefined,
+    };
   }, [visible, isViewed, chosen, chosenIds, files, repoFilters]);
 
   const choose = useCallback(
@@ -510,7 +647,14 @@ export function Review({ target }: { target: Target }) {
     [setKept],
   );
   // Next and previous filter stop only at filters with files here.
-  const stepPart = (by: 1 | -1) => choose(stepFilter(repoFilters.filter((f) => files?.some((x) => inFilter(f, x.path))).map((f) => f.id), chosenIds, by));
+  const stepPart = (by: 1 | -1) =>
+    choose(
+      stepFilter(
+        repoFilters.filter((f) => files?.some((x) => inFilter(f, x.path))).map((f) => f.id),
+        chosenIds,
+        by,
+      ),
+    );
   /** The next file left to review, after the one at the top of the screen; with none left in the
    *  chosen filters, the next filter that has some. */
   const goToNextFile = () => {
@@ -548,7 +692,8 @@ export function Review({ target }: { target: Target }) {
     if (v) {
       setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));
       const seconds = take(f.path);
-      if (seconds >= MIN_REVIEW_SECONDS) void learnFiles([{ path: f.path, expected: reviewMinutes(f.path, f), actual: seconds / 60 }]);
+      if (seconds >= MIN_REVIEW_SECONDS)
+        void learnFiles([{ path: f.path, expected: reviewMinutes(f.path, f), actual: seconds / 60 }]);
     }
     // Rust keeps it until GitHub takes it (outbox.rs), so it's never undone here.
     void bridge.queueViewed(prId, f.path, v);
@@ -565,11 +710,17 @@ export function Review({ target }: { target: Target }) {
   const stops = useMemo<Stop[]>(() => {
     const order = new Map(ordered.map((f, i) => [f.path, i]));
     const all: Stop[] = [
-      ...conversations.filter((t) => !t.resolved).map((t) => ({ path: t.path, line: t.line, side: t.side, kind: "conversation" as const, thread: t })),
+      ...conversations
+        .filter((t) => !t.resolved)
+        .map((t) => ({ path: t.path, line: t.line, side: t.side, kind: "conversation" as const, thread: t })),
       ...drafts.map((d) => ({ path: d.path, line: d.line, side: d.side, kind: "pending" as const })),
-      ...(current?.findings.filter((f) => f.inDiff).map((f) => ({ path: f.path, line: f.line, side: "additions" as const, kind: "ai" as const })) ?? []),
+      ...(current?.findings
+        .filter((f) => f.inDiff)
+        .map((f) => ({ path: f.path, line: f.line, side: "additions" as const, kind: "ai" as const })) ?? []),
     ];
-    return all.filter((x) => order.has(x.path)).sort((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
+    return all
+      .filter((x) => order.has(x.path))
+      .sort((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
   }, [ordered, conversations, drafts, current]);
 
   /** Shows a file (at a line) in the Diff tab, bringing it into view if a filter, a search or its
@@ -584,7 +735,13 @@ export function Review({ target }: { target: Target }) {
       setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
       // After the tab and the list have drawn.
       requestAnimationFrame(() =>
-        requestAnimationFrame(() => (thread ? diffs.current?.scrollToThread(thread) : line ? diffs.current?.scrollToLine(path, line, side) : diffs.current?.scrollToFile(path))),
+        requestAnimationFrame(() =>
+          thread
+            ? diffs.current?.scrollToThread(thread)
+            : line
+              ? diffs.current?.scrollToLine(path, line, side)
+              : diffs.current?.scrollToFile(path),
+        ),
       );
     },
     [chosen, setKept, setTab],
@@ -619,7 +776,12 @@ export function Review({ target }: { target: Target }) {
       if (e.metaKey || e.ctrlKey) return;
       if (e.altKey && e.shiftKey) {
         const keys = filterKeys.current;
-        const action = { Period: () => keys.stepPart(1), Comma: () => keys.stepPart(-1), Digit0: () => keys.choose([]), KeyJ: keys.goToNextFile }[e.code];
+        const action = {
+          Period: () => keys.stepPart(1),
+          Comma: () => keys.stepPart(-1),
+          Digit0: () => keys.choose([]),
+          KeyJ: keys.goToNextFile,
+        }[e.code];
         if (!action || !files) return;
         e.preventDefault();
         setTab("diff");
@@ -656,12 +818,28 @@ export function Review({ target }: { target: Target }) {
   };
   // Anyone with write access, as GitHub's own merge box allows (use-pull.ts, merging.ts).
   const view = pull.view;
-  const canMerge = Boolean(view && (view.canMerge || view.canBypass || view.canAutoMerge || view.canDisableAutoMerge || view.canEnqueue || view.canDequeue || view.canUpdateBranch));
+  const canMerge = Boolean(
+    view &&
+    (view.canMerge ||
+      view.canBypass ||
+      view.canAutoMerge ||
+      view.canDisableAutoMerge ||
+      view.canEnqueue ||
+      view.canDequeue ||
+      view.canUpdateBranch),
+  );
   const canLeave = Boolean(details && me && !details.viewerDidAuthor && details.state === "OPEN");
   const leave = async () => {
     if (!details || !me) return;
     const t = i18n();
-    if (!(await bridge.confirm(t("review.leaveConfirm", { number: String(details.number) }), t("review.leaveConfirmMessage"), t("review.leaveConfirmButton")))) return;
+    if (
+      !(await bridge.confirm(
+        t("review.leaveConfirm", { number: String(details.number) }),
+        t("review.leaveConfirmMessage"),
+        t("review.leaveConfirmButton"),
+      ))
+    )
+      return;
     void leaveReview(details, me, teams)
       .then(() => {
         say(i18n()("review.left"));
@@ -765,35 +943,43 @@ export function Review({ target }: { target: Target }) {
         )}
       >
         <div ref={leadingRef} data-tauri-drag-region className="flex shrink-0 items-center gap-2">
-        {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
-        <div role="tablist" onKeyDown={tabKeys} aria-label={t("review.view")} className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5">
-          <SlidingPill selected={tab} className="rounded-full bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
-          {(
-            [
-              ["overview", t("review.overview"), details?.entries.length],
-              ["diff", t("review.diff"), files?.length],
-            ] as const
-          ).map(([value, label, count]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              tabIndex={tab === value ? 0 : -1}
-              id={`tab-${value}`}
-              aria-selected={tab === value}
-              aria-controls={`panel-${value}`}
-              data-pill={value}
-              onClick={() => setTab(value)}
-              className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground outline-none focus-ring"
-            >
-              {label}
-              {/* Its room kept while loading, so the switch doesn't grow when the count arrives. */}
-              <span className="min-w-3.5 text-center text-subheadline text-muted-foreground tabular-nums @max-[860px]:hidden">
-                {count === undefined ? <Skeleton className="h-3 w-3.5" /> : count || null}
-              </span>
-            </button>
-          ))}
-        </div>
+          {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
+          <div
+            role="tablist"
+            onKeyDown={tabKeys}
+            aria-label={t("review.view")}
+            className="relative isolate flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill p-0.5"
+          >
+            <SlidingPill
+              selected={tab}
+              className="rounded-full bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]"
+            />
+            {(
+              [
+                ["overview", t("review.overview"), details?.entries.length],
+                ["diff", t("review.diff"), files?.length],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                tabIndex={tab === value ? 0 : -1}
+                id={`tab-${value}`}
+                aria-selected={tab === value}
+                aria-controls={`panel-${value}`}
+                data-pill={value}
+                onClick={() => setTab(value)}
+                className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring outline-none"
+              >
+                {label}
+                {/* Its room kept while loading, so the switch doesn't grow when the count arrives. */}
+                <span className="min-w-3.5 text-center text-subheadline text-muted-foreground tabular-nums @max-[860px]:hidden">
+                  {count === undefined ? <Skeleton className="h-3 w-3.5" /> : count || null}
+                </span>
+              </button>
+            ))}
+          </div>
           {/* Which changes show: all, since your last review, a commit or a run of them. Drawn always,
               opened only in the Diff, so switching tabs moves nothing else. */}
           <div
@@ -815,7 +1001,10 @@ export function Review({ target }: { target: Target }) {
         <div
           data-tauri-drag-region
           style={titleBox ?? undefined}
-          className={cn("absolute inset-y-0 flex flex-col items-center justify-center gap-px text-center", !titleBox && "invisible")}
+          className={cn(
+            "absolute inset-y-0 flex flex-col items-center justify-center gap-px text-center",
+            !titleBox && "invisible",
+          )}
         >
           {details ? (
             <>
@@ -825,12 +1014,21 @@ export function Review({ target }: { target: Target }) {
               {/* What just happened shows here for a moment, in place of the branch line, rather than
                   as a toast: a Mac window says it where you're looking. */}
               {notice ? (
-                <p role="status" className="max-w-full truncate text-subheadline text-foreground animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
+                <p
+                  role="status"
+                  className="max-w-full animate-in truncate text-subheadline text-foreground duration-(--duration) fade-in-0 motion-reduce:animate-none"
+                >
                   {notice}
                 </p>
               ) : (
-                <p data-tauri-drag-region className="max-w-full truncate text-subheadline text-muted-foreground @max-[1280px]:hidden">
-                  {repo} #{number} · {firstName(details.author, t)} · <span data-tauri-drag-region className="font-mono">{details.headRefName}</span>
+                <p
+                  data-tauri-drag-region
+                  className="max-w-full truncate text-subheadline text-muted-foreground @max-[1280px]:hidden"
+                >
+                  {repo} #{number} · {firstName(details.author, t)} ·{" "}
+                  <span data-tauri-drag-region className="font-mono">
+                    {details.headRefName}
+                  </span>
                 </p>
               )}
             </>
@@ -843,436 +1041,645 @@ export function Review({ target }: { target: Target }) {
         </div>
 
         <div ref={trailingRef} data-tauri-drag-region className="flex shrink-0 items-center justify-end gap-1">
-        {/* The Diff's controls: drawn always, opened only in the Diff, so switching tabs moves no
+          {/* The Diff's controls: drawn always, opened only in the Diff, so switching tabs moves no
             button; the title's room shrinks smoothly instead (at once with reduced motion). */}
-        <div
-          data-tauri-drag-region
-          aria-hidden={tab !== "diff"}
-          inert={tab !== "diff"}
-          className={cn(
-            "grid shrink-0 transition-[grid-template-columns,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-            tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
-          )}
-        >
-          <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
-            {/* Stepping through the comments (n and p from the keyboard), one capsule. */}
-            <div role="group" aria-label={t("review.comments")} className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-              <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label={t("review.previousComment")} disabled={!stops.length} onClick={() => step(-1)} />}>
-                  <ChevronUp />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("review.previousCommentTip")} <Kbd>p</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
-                <span className="inline-block min-w-[6.5rem] @max-[1360px]:sr-only">
-                  {stops.length ? (stop >= 0 ? t("review.commentOf", { index: stop + 1, total: stops.length }) : t("common.comments", { count: stops.length })) : t("review.noOpenComments")}
+          <div
+            data-tauri-drag-region
+            aria-hidden={tab !== "diff"}
+            inert={tab !== "diff"}
+            className={cn(
+              "grid shrink-0 transition-[grid-template-columns,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+              tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
+            )}
+          >
+            <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
+              {/* Stepping through the comments (n and p from the keyboard), one capsule. */}
+              <div
+                role="group"
+                aria-label={t("review.comments")}
+                className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill"
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={TOOL_ICON}
+                        aria-label={t("review.previousComment")}
+                        disabled={!stops.length}
+                        onClick={() => step(-1)}
+                      />
+                    }
+                  >
+                    <ChevronUp />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("review.previousCommentTip")} <Kbd>p</Kbd>
+                  </TooltipContent>
+                </Tooltip>
+                <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
+                  <span className="inline-block min-w-[6.5rem] @max-[1360px]:sr-only">
+                    {stops.length
+                      ? stop >= 0
+                        ? t("review.commentOf", { index: stop + 1, total: stops.length })
+                        : t("common.comments", { count: stops.length })
+                      : t("review.noOpenComments")}
+                  </span>
+                  <span aria-hidden className="hidden min-w-5 @max-[1360px]:inline-block">
+                    {stops.length ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
+                  </span>
                 </span>
-                <span aria-hidden className="hidden min-w-5 @max-[1360px]:inline-block">
-                  {stops.length ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
-                </span>
-              </span>
-              <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={TOOL_ICON} aria-label={t("review.nextComment")} disabled={!stops.length} onClick={() => step(1)} />}>
-                  <ChevronDown />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("review.nextCommentTip")} <Kbd>n</Kbd>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            {/* Layout and wrapping, one capsule of glyphs. */}
-            <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-              <ToggleGroup value={[diffStyle]} onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")} spacing={0} aria-label={t("review.layout")} className="h-full rounded-full">
-                {(
-                  [
-                    ["split", t("review.sideBySide"), Columns2],
-                    ["unified", t("review.oneColumn"), Rows2],
-                  ] as const
-                ).map(([value, label, Icon]) => (
-                  <Tooltip key={value}>
-                    <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-foreground")} />}>
-                      <Icon />
-                    </TooltipTrigger>
-                    <TooltipContent>{label}</TooltipContent>
-                  </Tooltip>
-                ))}
-              </ToggleGroup>
-              <Tooltip>
-                <TooltipTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")} aria-pressed={wrap} aria-label={t("review.wrap")} onClick={() => setWrap(!wrap)} />}>
-                  <WrapText />
-                </TooltipTrigger>
-                <TooltipContent>{t("review.wrapTip")}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")} aria-pressed={whitespace} aria-label={t("diff.hideWhitespace")} onClick={() => setWhitespace(!whitespace)} />}
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={TOOL_ICON}
+                        aria-label={t("review.nextComment")}
+                        disabled={!stops.length}
+                        onClick={() => step(1)}
+                      />
+                    }
+                  >
+                    <ChevronDown />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("review.nextCommentTip")} <Kbd>n</Kbd>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              {/* Layout and wrapping, one capsule of glyphs. */}
+              <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+                <ToggleGroup
+                  value={[diffStyle]}
+                  onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")}
+                  spacing={0}
+                  aria-label={t("review.layout")}
+                  className="h-full rounded-full"
                 >
-                  <Pilcrow />
-                </TooltipTrigger>
-                <TooltipContent>{t("diff.hideWhitespaceTip")}</TooltipContent>
-              </Tooltip>
+                  {(
+                    [
+                      ["split", t("review.sideBySide"), Columns2],
+                      ["unified", t("review.oneColumn"), Rows2],
+                    ] as const
+                  ).map(([value, label, Icon]) => (
+                    <Tooltip key={value}>
+                      <TooltipTrigger
+                        render={
+                          <ToggleGroupItem
+                            value={value}
+                            aria-label={label}
+                            className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-foreground")}
+                          />
+                        }
+                      >
+                        <Icon />
+                      </TooltipTrigger>
+                      <TooltipContent>{label}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </ToggleGroup>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")}
+                        aria-pressed={wrap}
+                        aria-label={t("review.wrap")}
+                        onClick={() => setWrap(!wrap)}
+                      />
+                    }
+                  >
+                    <WrapText />
+                  </TooltipTrigger>
+                  <TooltipContent>{t("review.wrapTip")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")}
+                        aria-pressed={whitespace}
+                        aria-label={t("diff.hideWhitespace")}
+                        onClick={() => setWhitespace(!whitespace)}
+                      />
+                    }
+                  >
+                    <Pilcrow />
+                  </TooltipTrigger>
+                  <TooltipContent>{t("diff.hideWhitespaceTip")}</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex shrink-0 items-center gap-1">
-          {/* The person's own actions, AI, readiness and merging: one capsule of labelled items. The
+          <div className="flex shrink-0 items-center gap-1">
+            {/* The person's own actions, AI, readiness and merging: one capsule of labelled items. The
               actions fold into a pull-down menu as the window narrows. */}
-          {(config?.actions.length && details && me) || (ai && details) || canMerge || (details?.viewerCanUpdate && isOpen && details.isDraft) ? (
-            <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-              {config?.actions.length && details && me ? (
-                <>
-                  <div className="contents @max-[1600px]:hidden">
-                    <ActionButtons
-                      actions={config.actions}
-                      className={TOOL}
-                      pr={{ number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me }}
-                      onResult={actionResult}
-                    />
-                  </div>
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "hidden @max-[1600px]:inline-flex")} aria-label={t("review.actions")} />} />}>
-                        <Zap />
-                      </TooltipTrigger>
-                      <TooltipContent>{t("review.actions")}</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end">
-                      <ActionMenuItems
+            {(config?.actions.length && details && me) ||
+            (ai && details) ||
+            canMerge ||
+            (details?.viewerCanUpdate && isOpen && details.isDraft) ? (
+              <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+                {config?.actions.length && details && me ? (
+                  <>
+                    <div className="contents @max-[1600px]:hidden">
+                      <ActionButtons
                         actions={config.actions}
-                        pr={{ number: details.number, repo, title: details.title, url: details.url, author: details.author?.login ?? "", me }}
+                        className={TOOL}
+                        pr={{
+                          number: details.number,
+                          repo,
+                          title: details.title,
+                          url: details.url,
+                          author: details.author?.login ?? "",
+                          me,
+                        }}
                         onResult={actionResult}
                       />
+                    </div>
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(TOOL_ICON, "hidden @max-[1600px]:inline-flex")}
+                                  aria-label={t("review.actions")}
+                                />
+                              }
+                            />
+                          }
+                        >
+                          <Zap />
+                        </TooltipTrigger>
+                        <TooltipContent>{t("review.actions")}</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="end">
+                        <ActionMenuItems
+                          actions={config.actions}
+                          pr={{
+                            number: details.number,
+                            repo,
+                            title: details.title,
+                            url: details.url,
+                            author: details.author?.login ?? "",
+                            me,
+                          }}
+                          onResult={actionResult}
+                        />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                ) : null}
+                {ai && details ? (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          className={cn(TOOL, "@max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
+                          onClick={() => void runReview()}
+                          disabled={Boolean(reviewing) || !files}
+                        />
+                      }
+                    >
+                      {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      <span className="@max-[1360px]:sr-only">
+                        {current ? t("review.reviewAgain") : t("review.aiReview")}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {aiProblemNow
+                        ? aiProblemNow.title
+                        : current
+                          ? t("review.reviewAgainTip")
+                          : t("review.aiReviewTip")}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+                {details && details.viewerCanUpdate && isOpen && details.isDraft ? (
+                  <Button
+                    variant="ghost"
+                    className={TOOL}
+                    onClick={() => void pull.actions.ready()}
+                    disabled={pull.busy === "ready"}
+                  >
+                    {t("review.markReady")}
+                  </Button>
+                ) : null}
+                {canMerge && details ? (
+                  // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
+                  <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
+                    <DropdownMenuTrigger
+                      render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[1360px]:px-2")} />}
+                    >
+                      <GitMerge /> <span className="@max-[1360px]:sr-only">{t("review.merge")}</span>
+                      <ChevronDown className="size-3 opacity-70" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <MergeMenuItems details={details} pull={pull} onDetails={() => setTab("overview")} />
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </>
-              ) : null}
-              {ai && details ? (
-                <Tooltip>
-                  <TooltipTrigger render={<Button variant="ghost" className={cn(TOOL, "@max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")} onClick={() => void runReview()} disabled={Boolean(reviewing) || !files} />}>
-                    {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                    <span className="@max-[1360px]:sr-only">{current ? t("review.reviewAgain") : t("review.aiReview")}</span>
-                  </TooltipTrigger>
-                  <TooltipContent>{aiProblemNow ? aiProblemNow.title : current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
-                </Tooltip>
-              ) : null}
-              {details && details.viewerCanUpdate && isOpen && details.isDraft ? (
-                <Button variant="ghost" className={TOOL} onClick={() => void pull.actions.ready()} disabled={pull.busy === "ready"}>
-                  {t("review.markReady")}
-                </Button>
-              ) : null}
-              {canMerge && details ? (
-                // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
-                <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
-                  <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[1360px]:px-2")} />}>
-                    <GitMerge /> <span className="@max-[1360px]:sr-only">{t("review.merge")}</span>
-                    <ChevronDown className="size-3 opacity-70" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <MergeMenuItems details={details} pull={pull} onDetails={() => setTab("overview")} />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
-          ) : null}
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" className={cn(TOOL_ICON, "bg-fill")} aria-label={t("review.more")} />} />}>
-                <MoreHorizontal />
-              </TooltipTrigger>
-              <TooltipContent>{t("review.more")}</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>{t("review.openOnGitHub")}</DropdownMenuItem>
-              <PullMenuItems pull={pull} details={details} />
-              <DropdownMenuItem onClick={() => setShortcuts(true)}>{t("diff.shortcuts")}</DropdownMenuItem>
-              {canLeave ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => void leave()}>{t("review.leaveMenu")}</DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {details && isOpen ? (
-            <SubmitReview
-              details={details}
-              drafts={drafts}
-              open={submitting}
-              onOpenChange={setSubmitting}
-              onSubmit={(event, body) => pending.submit(details, event, body)}
-              onDiscard={async () => {
-                await pending.discard(details);
-                say(i18n()("review.reviewDiscarded"));
-              }}
-              onSubmitted={() => {
-                say(i18n()("review.reviewSent"));
-                void changed();
-              }}
-            />
-          ) : null}
-          {/* Back to the pull request shown before and on to the next of the queue it was opened
+                ) : null}
+              </div>
+            ) : null}
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(TOOL_ICON, "bg-fill")}
+                          aria-label={t("review.more")}
+                        />
+                      }
+                    />
+                  }
+                >
+                  <MoreHorizontal />
+                </TooltipTrigger>
+                <TooltipContent>{t("review.more")}</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>
+                  {t("review.openOnGitHub")}
+                </DropdownMenuItem>
+                <PullMenuItems pull={pull} details={details} />
+                <DropdownMenuItem onClick={() => setShortcuts(true)}>{t("diff.shortcuts")}</DropdownMenuItem>
+                {canLeave ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => void leave()}>{t("review.leaveMenu")}</DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {details && isOpen ? (
+              <SubmitReview
+                details={details}
+                drafts={drafts}
+                open={submitting}
+                onOpenChange={setSubmitting}
+                onSubmit={(event, body) => pending.submit(details, event, body)}
+                onDiscard={async () => {
+                  await pending.discard(details);
+                  say(i18n()("review.reviewDiscarded"));
+                }}
+                onSubmitted={() => {
+                  say(i18n()("review.reviewSent"));
+                  void changed();
+                }}
+              />
+            ) : null}
+            {/* Back to the pull request shown before and on to the next of the queue it was opened
               from, in this window, as back and forward in Safari: the last item, where the eye goes
               once the review is sent. */}
-          {nextPull || previous ? (
-            <div role="group" aria-label={t("review.pullNavigation")} className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={TOOL_ICON}
-                      disabled={!previous}
-                      aria-label={previous ? t("review.backToLabel", { number: String(previous.pr.number), title: previous.pr.title }) : t("review.back")}
-                      aria-keyshortcuts="Meta+["
-                      onClick={() => void goBack()}
-                    />
-                  }
-                >
-                  <ChevronLeft />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-80">
-                  <span className="block font-semibold">
-                    {t("review.back")} <Kbd>⌘[</Kbd>
-                  </span>
-                  {previous ? (
-                    <span className="block truncate">
-                      #{previous.pr.number} · {previous.pr.title}
+            {nextPull || previous ? (
+              <div
+                role="group"
+                aria-label={t("review.pullNavigation")}
+                className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill"
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={TOOL_ICON}
+                        disabled={!previous}
+                        aria-label={
+                          previous
+                            ? t("review.backToLabel", { number: String(previous.pr.number), title: previous.pr.title })
+                            : t("review.back")
+                        }
+                        aria-keyshortcuts="Meta+["
+                        onClick={() => void goBack()}
+                      />
+                    }
+                  >
+                    <ChevronLeft />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-80">
+                    <span className="block font-semibold">
+                      {t("review.back")} <Kbd>⌘[</Kbd>
                     </span>
-                  ) : null}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      className={cn(TOOL, "gap-1 pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                      aria-disabled={!nextPull}
-                      aria-label={nextPull ? t("review.nextPullLabel", { queue: queueName, number: String(nextPull.pr.number), title: nextPull.pr.title }) : t("review.nextPull")}
-                      aria-keyshortcuts="Meta+]"
-                      onClick={() => void nextInQueue()}
-                    />
-                  }
-                >
-                  <span className="@max-[1360px]:sr-only">{t("review.nextPull")}</span>
-                  <ChevronRight />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-80">
-                  <span className="block font-semibold">
-                    {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")} <Kbd>⌘]</Kbd>
-                  </span>
-                  <span className="block truncate">
-                    {nextPull ? `#${nextPull.pr.number} · ${nextPull.pr.title}` : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
-                  </span>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          ) : null}
-        </div>
+                    {previous ? (
+                      <span className="block truncate">
+                        #{previous.pr.number} · {previous.pr.title}
+                      </span>
+                    ) : null}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        className={cn(TOOL, "gap-1 pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
+                        aria-disabled={!nextPull}
+                        aria-label={
+                          nextPull
+                            ? t("review.nextPullLabel", {
+                                queue: queueName,
+                                number: String(nextPull.pr.number),
+                                title: nextPull.pr.title,
+                              })
+                            : t("review.nextPull")
+                        }
+                        aria-keyshortcuts="Meta+]"
+                        onClick={() => void nextInQueue()}
+                      />
+                    }
+                  >
+                    <span className="@max-[1360px]:sr-only">{t("review.nextPull")}</span>
+                    <ChevronRight />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-80">
+                    <span className="block font-semibold">
+                      {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")} <Kbd>⌘]</Kbd>
+                    </span>
+                    <span className="block truncate">
+                      {nextPull
+                        ? `#${nextPull.pr.number} · ${nextPull.pr.title}`
+                        : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
       {/* What the comments in both tabs can do (use-conversation.tsx). */}
       <ConversationProvider value={talk.api}>
-      <main className="relative flex min-h-0 flex-1 flex-col" onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}>
-        {newChanges ? (
-          // Over the top of either tab, as GitHub's bar, without moving what's under it.
-          <div role="status" className="absolute top-2 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu) animate-in fade-in-0 slide-in-from-top-2 duration-(--duration) motion-reduce:animate-none">
-            <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />
-            <span className="min-w-0 flex-1 truncate">{t("review.newChanges")}</span>
-            <Button className="shrink-0 rounded-full" onClick={() => void update()} disabled={updating}>
-              {updating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              {t("review.update")}
-            </Button>
-          </div>
-        ) : null}
-        <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" hidden={tab !== "overview"} className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
-          {details ? (
-            <Overview
-              config={config}
-              details={details}
-              conversation={talk.conversation}
-              threads={conversations}
-              review={current}
-              reviewing={Boolean(reviewing)}
-              reviewError={reviewError}
-              onJump={jump}
-              onReply={async (thread, body) => {
-                await reply(details, thread, body);
-                await changed();
-              }}
-              onResolve={async (thread, resolved) => {
-                await setResolved(thread, resolved);
-                await changed();
-              }}
-              onComment={async (body) => {
-                const id = await comment(details, body);
-                say(i18n()("review.commentPosted"));
-                await changed();
-                return id;
-              }}
-              pull={pull}
-              me={me}
-              onOpenRange={(range) => {
-                pull.setRange(range);
-                setTab("diff");
-                requestAnimationFrame(() => diffs.current?.scrollToTop());
-              }}
-              hasFile={(path) => Boolean(files?.some((f) => f.path === path))}
-              say={say}
-            />
-          ) : (
-            // The Overview's own layout, empty: nothing moves when it fills in.
-            <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]" aria-busy="true" aria-label={t("review.loading")}>
-              <div className="flex flex-col gap-3 rounded-xl border bg-card p-5">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-3.5 w-full" />
-                <Skeleton className="h-3.5 w-11/12" />
-                <Skeleton className="h-3.5 w-4/5" />
-              </div>
-              <div className="flex flex-col gap-3">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3.5 w-full" />
-                <Skeleton className="h-3.5 w-3/4" />
-              </div>
+        <main
+          className="relative flex min-h-0 flex-1 flex-col"
+          onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}
+        >
+          {newChanges ? (
+            // Over the top of either tab, as GitHub's bar, without moving what's under it.
+            <div
+              role="status"
+              className="absolute top-2 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 animate-in items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu) duration-(--duration) fade-in-0 slide-in-from-top-2 motion-reduce:animate-none"
+            >
+              <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{t("review.newChanges")}</span>
+              <Button className="shrink-0 rounded-full" onClick={() => void update()} disabled={updating}>
+                {updating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                {t("review.update")}
+              </Button>
             </div>
-          )}
-        </div>
-
-        <div role="tabpanel" id="panel-diff" aria-labelledby="tab-diff" hidden={tab !== "diff"} className="flex min-h-0 flex-1">
-          <aside className="flex w-72 shrink-0 flex-col border-r" aria-label={t("review.files")}>
-            <div className="flex flex-col gap-2 border-b p-3">
-              {/* A search field: a capsule, the magnifier inside, a clear button once there's text. */}
-              <div className="relative">
-                <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-                <Input
-                  ref={filterField}
-                  type="search"
-                  value={filter}
-                  onChange={(e) => {
-                    setFilter(e.target.value);
-                    requestAnimationFrame(() => diffs.current?.scrollToTop());
-                  }}
-                  onKeyDown={(e) => e.key === "Escape" && filter && (e.preventDefault(), setFilter(""))}
-                  placeholder={t("review.filterFilesPlaceholder")}
-                  aria-label={t("review.filterFiles")}
-                  className="rounded-full pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
-                />
-                {filter ? (
-                  <button type="button" aria-label={t("review.clear")} onClick={() => setFilter("")} className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background outline-none focus-ring">
-                    <X className="size-2.5" strokeWidth={3} aria-hidden />
-                  </button>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-2 text-subheadline text-muted-foreground">
-                <Progress value={inPart.length ? (viewedCount / inPart.length) * 100 : 0} className="flex-1" aria-label={t("review.filesViewed")} />
-                <span className="tabular-nums">
-                  {t("review.viewedOf", { viewed: viewedCount, total: inPart.length })}
-                </span>
-              </div>
-              <label className="flex items-center gap-1.5 text-body">
-                <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} className="size-3.5" /> {t("review.hideViewed")}
-              </label>
-            </div>
-            <FileTree
-              files={shownFiles ? visible : null}
-              flat={Boolean(filter.trim())}
-              picked={picked}
-              isViewed={isViewed}
-              comments={(path) => threadsByPath.get(path)?.filter((t) => !t.resolved).length ?? 0}
-              onPick={(path) => {
-                setPicked(path);
-                diffs.current?.scrollToFile(path);
-              }}
-            />
-          </aside>
-
-          <div className="relative min-w-0 flex-1 bg-muted/30">
-            <RangeBanner pull={pull} below={Boolean(newChanges)} loading={Boolean(pull.range && !ranged.files && !ranged.error)} error={ranged.error} />
-            {shownFiles ? (
-              visible.length ? (
-                <Diffs
-                  ref={diffs}
-                  files={visible}
-                  threads={olderRange ? new Map() : threadsByPath}
-                  commentable={!olderRange}
-                  drafts={drafts}
-                  findings={current?.findings ?? []}
-                  findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}
-                  onAcceptFinding={(f, side) => {
-                    pending.add({ path: f.path, side, line: f.line, body: f.body });
-                    dropFinding(f);
-                  }}
-                  onDismissFinding={dropFinding}
-                  onAsk={
-                    ai && details && files
-                      ? async (path, range, question, earlier, run) => {
-                          if (!(await ensureAi(ai))) throw new Error(i18n()("shared.aiNotReady", { provider: PROVIDERS[ai.ai.provider!].name }));
-                          return askAboutLines(ai, details, files, path, Math.min(range.start, range.end), Math.max(range.start, range.end), range.endSide ?? range.side ?? "additions", question, earlier, run);
-                        }
-                      : null
-                  }
-                  isViewed={isViewed}
-                  diffStyle={diffStyle}
-                  wrap={wrap}
-                  whitespace={whitespace}
-                  source={diffSource}
-                  link={link}
-                  onSay={say}
-                  dark={dark}
-                  opened={opened}
-                  onViewed={setFileViewed}
-                  onAddDraft={pending.add}
-                  onEditDraft={pending.edit}
-                  onRemoveDraft={pending.remove}
-                  onCommentNow={async (draft) => {
-                    if (!details) return;
-                    await commentNow(details, { ...draft, key: "now" });
-                    say(i18n()("review.commentPosted"));
-                    await changed();
-                  }}
-                  onReply={async (thread, body) => {
-                    if (!details) return;
-                    await reply(details, thread, body);
-                    await changed();
-                  }}
-                  onResolve={async (thread, resolved) => {
-                    await setResolved(thread, resolved);
-                    await changed();
-                  }}
-                />
-              ) : (
-                <p className="p-10 text-center text-body text-muted-foreground">{chosen.length && !inPart.length ? t("review.noFilesIn", { filters: chosen.map((f) => f.name).join(" + ") }) : t("review.noFilesMatch")}</p>
-              )
+          ) : null}
+          <div
+            role="tabpanel"
+            id="panel-overview"
+            aria-labelledby="tab-overview"
+            hidden={tab !== "overview"}
+            className="min-h-0 flex-1 overflow-y-auto bg-muted/30"
+          >
+            {details ? (
+              <Overview
+                config={config}
+                details={details}
+                conversation={talk.conversation}
+                threads={conversations}
+                review={current}
+                reviewing={Boolean(reviewing)}
+                reviewError={reviewError}
+                onJump={jump}
+                onReply={async (thread, body) => {
+                  await reply(details, thread, body);
+                  await changed();
+                }}
+                onResolve={async (thread, resolved) => {
+                  await setResolved(thread, resolved);
+                  await changed();
+                }}
+                onComment={async (body) => {
+                  const id = await comment(details, body);
+                  say(i18n()("review.commentPosted"));
+                  await changed();
+                  return id;
+                }}
+                pull={pull}
+                me={me}
+                onOpenRange={(range) => {
+                  pull.setRange(range);
+                  setTab("diff");
+                  requestAnimationFrame(() => diffs.current?.scrollToTop());
+                }}
+                hasFile={(path) => Boolean(files?.some((f) => f.path === path))}
+                say={say}
+              />
             ) : (
-              <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label={t("review.loadingFiles")}>
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-48 rounded-xl" />
-                ))}
+              // The Overview's own layout, empty: nothing moves when it fills in.
+              <div
+                className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+                aria-busy="true"
+                aria-label={t("review.loading")}
+              >
+                <div className="flex flex-col gap-3 rounded-xl border bg-card p-5">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-11/12" />
+                  <Skeleton className="h-3.5 w-4/5" />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-3/4" />
+                </div>
               </div>
             )}
-            <SuggestionBatch />
-            {files?.length ? (
-              <FilterBar
-                files={files}
-                filters={repoFilters}
-                chosen={chosenIds}
-                shown={shown}
-                next={next}
-                isViewed={isViewed}
-                minutesOf={minutesOf}
-                learned={learned}
-                onToggle={(id) => choose(toggled(chosenIds, id))}
-                onNextFile={goToNextFile}
-              />
-            ) : null}
           </div>
-        </div>
-      </main>
+
+          <div
+            role="tabpanel"
+            id="panel-diff"
+            aria-labelledby="tab-diff"
+            hidden={tab !== "diff"}
+            className="flex min-h-0 flex-1"
+          >
+            <aside className="flex w-72 shrink-0 flex-col border-r" aria-label={t("review.files")}>
+              <div className="flex flex-col gap-2 border-b p-3">
+                {/* A search field: a capsule, the magnifier inside, a clear button once there's text. */}
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    ref={filterField}
+                    type="search"
+                    value={filter}
+                    onChange={(e) => {
+                      setFilter(e.target.value);
+                      requestAnimationFrame(() => diffs.current?.scrollToTop());
+                    }}
+                    onKeyDown={(e) => e.key === "Escape" && filter && (e.preventDefault(), setFilter(""))}
+                    placeholder={t("review.filterFilesPlaceholder")}
+                    aria-label={t("review.filterFiles")}
+                    className="rounded-full pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                  />
+                  {filter ? (
+                    <button
+                      type="button"
+                      aria-label={t("review.clear")}
+                      onClick={() => setFilter("")}
+                      className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background focus-ring outline-none"
+                    >
+                      <X className="size-2.5" strokeWidth={3} aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2 text-subheadline text-muted-foreground">
+                  <Progress
+                    value={inPart.length ? (viewedCount / inPart.length) * 100 : 0}
+                    className="flex-1"
+                    aria-label={t("review.filesViewed")}
+                  />
+                  <span className="tabular-nums">
+                    {t("review.viewedOf", { viewed: viewedCount, total: inPart.length })}
+                  </span>
+                </div>
+                <label className="flex items-center gap-1.5 text-body">
+                  <Checkbox checked={hideViewed} onCheckedChange={setHideViewed} className="size-3.5" />{" "}
+                  {t("review.hideViewed")}
+                </label>
+              </div>
+              <FileTree
+                files={shownFiles ? visible : null}
+                flat={Boolean(filter.trim())}
+                picked={picked}
+                isViewed={isViewed}
+                comments={(path) => threadsByPath.get(path)?.filter((t) => !t.resolved).length ?? 0}
+                onPick={(path) => {
+                  setPicked(path);
+                  diffs.current?.scrollToFile(path);
+                }}
+              />
+            </aside>
+
+            <div className="relative min-w-0 flex-1 bg-muted/30">
+              <RangeBanner
+                pull={pull}
+                below={Boolean(newChanges)}
+                loading={Boolean(pull.range && !ranged.files && !ranged.error)}
+                error={ranged.error}
+              />
+              {shownFiles ? (
+                visible.length ? (
+                  <Diffs
+                    ref={diffs}
+                    files={visible}
+                    threads={olderRange ? new Map() : threadsByPath}
+                    commentable={!olderRange}
+                    drafts={drafts}
+                    findings={current?.findings ?? []}
+                    findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}
+                    onAcceptFinding={(f, side) => {
+                      pending.add({ path: f.path, side, line: f.line, body: f.body });
+                      dropFinding(f);
+                    }}
+                    onDismissFinding={dropFinding}
+                    onAsk={
+                      ai && details && files
+                        ? async (path, range, question, earlier, run) => {
+                            if (!(await ensureAi(ai)))
+                              throw new Error(
+                                i18n()("shared.aiNotReady", { provider: PROVIDERS[ai.ai.provider!].name }),
+                              );
+                            return askAboutLines(
+                              ai,
+                              details,
+                              files,
+                              path,
+                              Math.min(range.start, range.end),
+                              Math.max(range.start, range.end),
+                              range.endSide ?? range.side ?? "additions",
+                              question,
+                              earlier,
+                              run,
+                            );
+                          }
+                        : null
+                    }
+                    isViewed={isViewed}
+                    diffStyle={diffStyle}
+                    wrap={wrap}
+                    whitespace={whitespace}
+                    source={diffSource}
+                    link={link}
+                    onSay={say}
+                    dark={dark}
+                    opened={opened}
+                    onViewed={setFileViewed}
+                    onAddDraft={pending.add}
+                    onEditDraft={pending.edit}
+                    onRemoveDraft={pending.remove}
+                    onCommentNow={async (draft) => {
+                      if (!details) return;
+                      await commentNow(details, { ...draft, key: "now" });
+                      say(i18n()("review.commentPosted"));
+                      await changed();
+                    }}
+                    onReply={async (thread, body) => {
+                      if (!details) return;
+                      await reply(details, thread, body);
+                      await changed();
+                    }}
+                    onResolve={async (thread, resolved) => {
+                      await setResolved(thread, resolved);
+                      await changed();
+                    }}
+                  />
+                ) : (
+                  <p className="p-10 text-center text-body text-muted-foreground">
+                    {chosen.length && !inPart.length
+                      ? t("review.noFilesIn", { filters: chosen.map((f) => f.name).join(" + ") })
+                      : t("review.noFilesMatch")}
+                  </p>
+                )
+              ) : (
+                <div className="flex flex-col gap-3 p-3" aria-busy="true" aria-label={t("review.loadingFiles")}>
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} className="h-48 rounded-xl" />
+                  ))}
+                </div>
+              )}
+              <SuggestionBatch />
+              {files?.length ? (
+                <FilterBar
+                  files={files}
+                  filters={repoFilters}
+                  chosen={chosenIds}
+                  shown={shown}
+                  next={next}
+                  isViewed={isViewed}
+                  minutesOf={minutesOf}
+                  learned={learned}
+                  onToggle={(id) => choose(toggled(chosenIds, id))}
+                  onNextFile={goToNextFile}
+                />
+              ) : null}
+            </div>
+          </div>
+        </main>
       </ConversationProvider>
       <Shortcuts open={shortcuts} onOpenChange={setShortcuts} />
     </div>

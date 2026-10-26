@@ -3,17 +3,37 @@
 // a commit opens its own changes in the diff. In the toolbar, the range picker: all changes, what's
 // new since your last review, one commit, or a run of them (shift-click), as on GitHub.
 
-import { BadgeCheck, ChevronDown, ChevronRight, CircleCheck, CircleDot, CircleX, GitCommitHorizontal, History, Loader2, Upload } from "lucide-react";
+import {
+  BadgeCheck,
+  ChevronDown,
+  ChevronRight,
+  CircleCheck,
+  CircleDot,
+  CircleX,
+  GitCommitHorizontal,
+  History,
+  Loader2,
+  Upload,
+} from "lucide-react";
 import { useState } from "react";
+
 import { Button } from "@/components/button/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
-import { commitRange, inRange, sameRange, type Ci, type Commit, type Commits as List, type Range } from "@/utils/commits/commits";
-import { useT, type T } from "@/utils/i18n/i18n";
-import { cn } from "@/utils/cn/cn";
 import { Face } from "@/components/sidebar/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Pull } from "@/hooks/use-pull/use-pull";
+import { cn } from "@/utils/cn/cn";
+import {
+  commitRange,
+  inRange,
+  sameRange,
+  type Ci,
+  type Commit,
+  type Commits as List,
+  type Range,
+} from "@/utils/commits/commits";
+import { useT, type T } from "@/utils/i18n/i18n";
 
 const CI_ICON = {
   success: { icon: CircleCheck, className: "text-success" },
@@ -33,8 +53,18 @@ function Verified({ verified }: { verified: boolean | null }) {
   if (verified === null) return null;
   return (
     <Tooltip>
-      <TooltipTrigger render={<span className={cn("shrink-0 rounded-full px-1.5 text-footnote", verified ? "bg-success/10 text-success" : "bg-fill text-muted-foreground")} />}>
-        {verified ? <BadgeCheck className="inline size-3" aria-hidden /> : null} {verified ? t("manage.verified") : t("manage.unverified")}
+      <TooltipTrigger
+        render={
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-1.5 text-footnote",
+              verified ? "bg-success/10 text-success" : "bg-fill text-muted-foreground",
+            )}
+          />
+        }
+      >
+        {verified ? <BadgeCheck className="inline size-3" aria-hidden /> : null}{" "}
+        {verified ? t("manage.verified") : t("manage.unverified")}
       </TooltipTrigger>
       <TooltipContent>{verified ? t("manage.verifiedTip") : t("manage.unverifiedTip")}</TooltipContent>
     </Tooltip>
@@ -51,11 +81,16 @@ export function rangeLabel(range: Range, list: List | null, since: Pull["since"]
   return `${range.from.slice(0, 7)}…${range.to.slice(0, 7)}`;
 }
 
-type Row = { kind: "commit"; commit: Commit; index: number } | { kind: "push"; at: string; actor: string | null; before: string | null; after: string | null };
+type Row =
+  | { kind: "commit"; commit: Commit; index: number }
+  | { kind: "push"; at: string; actor: string | null; before: string | null; after: string | null };
 
 /** The commits with the force pushes between them, by time. */
 function rows(list: List): Row[] {
-  const all: Row[] = [...list.commits.map((commit, index) => ({ kind: "commit" as const, commit, index })), ...list.forcePushes.map((p) => ({ kind: "push" as const, ...p }))];
+  const all: Row[] = [
+    ...list.commits.map((commit, index) => ({ kind: "commit" as const, commit, index })),
+    ...list.forcePushes.map((p) => ({ kind: "push" as const, ...p })),
+  ];
   const at = (r: Row) => Date.parse(r.kind === "commit" ? r.commit.at : r.at);
   return all.sort((a, b) => at(a) - at(b));
 }
@@ -71,16 +106,28 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
     <section aria-labelledby="commits" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left outline-none focus-ring">
-            {open ? <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
+            {open ? (
+              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            ) : (
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            )}
             <h2 id="commits" className="text-headline font-bold">
-              {t("manage.commits")} <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
+              {t("manage.commits")}{" "}
+              <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
             </h2>
-            {list.forcePushes.length ? <span className="truncate text-callout text-muted-foreground">{t("manage.forcePushes", { count: list.forcePushes.length })}</span> : null}
+            {list.forcePushes.length ? (
+              <span className="truncate text-callout text-muted-foreground">
+                {t("manage.forcePushes", { count: list.forcePushes.length })}
+              </span>
+            ) : null}
           </CollapsibleTrigger>
           {since ? (
             <Button variant="outline" className="shrink-0" onClick={() => onOpen(since.range)}>
-              <History /> {since.rewritten ? t("manage.sinceReviewRewritten") : t("manage.sinceReviewCount", { count: since.count })}
+              <History />{" "}
+              {since.rewritten
+                ? t("manage.sinceReviewRewritten")
+                : t("manage.sinceReviewCount", { count: since.count })}
             </Button>
           ) : null}
         </div>
@@ -91,26 +138,49 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
                 <li key={row.commit.oid}>
                   <button
                     type="button"
-                    className="flex w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 py-1 text-left text-body outline-none focus-ring-inset hover:bg-fill"
+                    className="flex w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 py-1 text-left text-body focus-ring-inset outline-none hover:bg-fill"
                     onClick={() => onOpen(commitRange(list.commits, row.index, row.index))}
                     title={row.commit.body ? `${row.commit.headline}\n\n${row.commit.body}` : row.commit.headline}
                   >
-                    <Face actor={{ login: row.commit.author.login ?? row.commit.author.name, avatarUrl: row.commit.author.avatarUrl ?? undefined }} className="size-4" />
+                    <Face
+                      actor={{
+                        login: row.commit.author.login ?? row.commit.author.name,
+                        avatarUrl: row.commit.author.avatarUrl ?? undefined,
+                      }}
+                      className="size-4"
+                    />
                     <span className="min-w-0 flex-1 truncate">{row.commit.headline}</span>
-                    {list.reviewed === row.commit.oid ? <span className="shrink-0 text-footnote text-muted-foreground">{t("manage.youReviewedHere")}</span> : null}
+                    {list.reviewed === row.commit.oid ? (
+                      <span className="shrink-0 text-footnote text-muted-foreground">
+                        {t("manage.youReviewedHere")}
+                      </span>
+                    ) : null}
                     <Verified verified={row.commit.verified} />
                     <CiMark ci={row.commit.ci} />
-                    <span className="shrink-0 font-mono text-subheadline text-muted-foreground">{row.commit.short}</span>
-                    <span className="w-8 shrink-0 text-right text-subheadline text-muted-foreground tabular-nums">{t.since(Date.parse(row.commit.at))}</span>
+                    <span className="shrink-0 font-mono text-subheadline text-muted-foreground">
+                      {row.commit.short}
+                    </span>
+                    <span className="w-8 shrink-0 text-right text-subheadline text-muted-foreground tabular-nums">
+                      {t.since(Date.parse(row.commit.at))}
+                    </span>
                   </button>
                 </li>
               ) : (
-                <li key={`push:${row.at}`} className="flex items-center gap-2 px-2 py-1 text-callout text-muted-foreground">
+                <li
+                  key={`push:${row.at}`}
+                  className="flex items-center gap-2 px-2 py-1 text-callout text-muted-foreground"
+                >
                   <Upload className="size-3.5 shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1 truncate">
-                    {t("manage.forcePushed", { who: row.actor ?? t("common.someone"), from: row.before?.slice(0, 7) ?? "?", to: row.after?.slice(0, 7) ?? "?" })}
+                    {t("manage.forcePushed", {
+                      who: row.actor ?? t("common.someone"),
+                      from: row.before?.slice(0, 7) ?? "?",
+                      to: row.after?.slice(0, 7) ?? "?",
+                    })}
                   </span>
-                  <span className="w-8 shrink-0 text-right text-subheadline tabular-nums">{t.since(Date.parse(row.at))}</span>
+                  <span className="w-8 shrink-0 text-right text-subheadline tabular-nums">
+                    {t.since(Date.parse(row.at))}
+                  </span>
                 </li>
               ),
             )}
@@ -123,7 +193,17 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
 
 /** The toolbar's range picker: a popover with all changes, since your last review and the commits;
  *  shift-click (or shift and the arrows) picks a run of them. */
-export function RangePicker({ pull, className, open, onOpenChange }: { pull: Pull; className: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function RangePicker({
+  pull,
+  className,
+  open,
+  onOpenChange,
+}: {
+  pull: Pull;
+  className: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const t = useT();
   const list = pull.commits;
   const { range, setRange, since } = pull;
@@ -139,19 +219,53 @@ export function RangePicker({ pull, className, open, onOpenChange }: { pull: Pul
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <Tooltip>
-        <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" className={cn(className, "gap-1", range && "text-primary")} aria-label={t("manage.changesShown", { range: rangeLabel(range, list, since, t) })} />} />}>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  className={cn(className, "gap-1", range && "text-primary")}
+                  aria-label={t("manage.changesShown", { range: rangeLabel(range, list, since, t) })}
+                />
+              }
+            />
+          }
+        >
           <GitCommitHorizontal />
           {/* Named only when it isn't all changes: the toolbar's room goes to the title otherwise. */}
-          {range ? <span className="max-w-32 truncate @max-[1100px]:sr-only">{rangeLabel(range, list, since, t)}</span> : null}
+          {range ? (
+            <span className="max-w-32 truncate @max-[1100px]:sr-only">{rangeLabel(range, list, since, t)}</span>
+          ) : null}
           <ChevronDown className="size-3 opacity-70" />
         </TooltipTrigger>
         <TooltipContent>{t("manage.chooseChanges")}</TooltipContent>
       </Tooltip>
       <PopoverContent align="end" className="w-96 gap-1 p-2">
-        <PopoverTitle className="px-1.5 pt-0.5 pb-1 text-subheadline font-semibold text-muted-foreground">{t("manage.chooseChanges")}</PopoverTitle>
-        <div role="listbox" aria-label={t("manage.chooseChanges")} className="flex max-h-[min(28rem,70vh)] flex-col overflow-y-auto overscroll-contain">
-          <Choice selected={!range} onPick={() => (setRange(null), onOpenChange(false))} label={t("manage.allChanges")} detail={list ? t("manage.commitCount", { count: list.commits.length }) : null} />
-          {since ? <Choice selected={sameRange(range, since.range)} onPick={() => (setRange(since.range), onOpenChange(false))} label={t("manage.sinceReview")} detail={since.rewritten ? t("manage.sinceReviewRewritten") : t("manage.commitCount", { count: since.count })} /> : null}
+        <PopoverTitle className="px-1.5 pt-0.5 pb-1 text-subheadline font-semibold text-muted-foreground">
+          {t("manage.chooseChanges")}
+        </PopoverTitle>
+        <div
+          role="listbox"
+          aria-label={t("manage.chooseChanges")}
+          className="flex max-h-[min(28rem,70vh)] flex-col overflow-y-auto overscroll-contain"
+        >
+          <Choice
+            selected={!range}
+            onPick={() => (setRange(null), onOpenChange(false))}
+            label={t("manage.allChanges")}
+            detail={list ? t("manage.commitCount", { count: list.commits.length }) : null}
+          />
+          {since ? (
+            <Choice
+              selected={sameRange(range, since.range)}
+              onPick={() => (setRange(since.range), onOpenChange(false))}
+              label={t("manage.sinceReview")}
+              detail={
+                since.rewritten ? t("manage.sinceReviewRewritten") : t("manage.commitCount", { count: since.count })
+              }
+            />
+          ) : null}
           <div className="mx-1.5 my-1 h-px bg-border" />
           {!list ? (
             <Loader2 className="m-2 size-4 animate-spin text-muted-foreground" aria-label={t("review.loading")} />
@@ -174,14 +288,29 @@ export function RangePicker({ pull, className, open, onOpenChange }: { pull: Pul
   );
 }
 
-function Choice({ selected, onPick, label, detail, mono }: { selected: boolean; onPick: (extend: boolean) => void; label: string; detail?: string | null; mono?: boolean }) {
+function Choice({
+  selected,
+  onPick,
+  label,
+  detail,
+  mono,
+}: {
+  selected: boolean;
+  onPick: (extend: boolean) => void;
+  label: string;
+  detail?: string | null;
+  mono?: boolean;
+}) {
   return (
     <button
       type="button"
       role="option"
       aria-selected={selected}
       onClick={(e) => onPick(e.shiftKey)}
-      className={cn("flex min-h-(--menu-item-h) w-full shrink-0 cursor-default items-center gap-2 rounded-(--radius-menu-item) px-1.5 py-1 text-left text-body outline-none hover:bg-fill focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg)", selected && "bg-(--selection-bg-inactive)")}
+      className={cn(
+        "flex min-h-(--menu-item-h) w-full shrink-0 cursor-default items-center gap-2 rounded-(--radius-menu-item) px-1.5 py-1 text-left text-body outline-none hover:bg-fill focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg)",
+        selected && "bg-(--selection-bg-inactive)",
+      )}
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", selected ? "bg-primary" : "bg-transparent")} aria-hidden />
       <span className="min-w-0 flex-1">
@@ -193,15 +322,35 @@ function Choice({ selected, onPick, label, detail, mono }: { selected: boolean; 
 }
 
 /** Above the diff while a range shows: which, and the way back to all changes. */
-export function RangeBanner({ pull, loading, error, below = false }: { pull: Pull; loading: boolean; error: string | null; below?: boolean }) {
+export function RangeBanner({
+  pull,
+  loading,
+  error,
+  below = false,
+}: {
+  pull: Pull;
+  loading: boolean;
+  error: string | null;
+  below?: boolean;
+}) {
   const t = useT();
   const { range, setRange, commits, since } = pull;
   if (!range) return null;
   const older = commits && commits.commits.at(-1)?.oid !== range.to;
   return (
     // Floats over the top of the diff, as the filter bar does at its foot: the diff's layout stays.
-    <div className={cn("absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu)", below ? "top-12" : "top-2")} role="status">
-      {loading ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden /> : <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />}
+    <div
+      className={cn(
+        "absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu)",
+        below ? "top-12" : "top-2",
+      )}
+      role="status"
+    >
+      {loading ? (
+        <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+      ) : (
+        <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />
+      )}
       <span className="min-w-0 flex-1 truncate">
         {error ?? t("manage.showingRange", { range: rangeLabel(range, commits, since, t) })}
         {older && !error ? <span className="text-muted-foreground"> · {t("manage.olderVersion")}</span> : null}

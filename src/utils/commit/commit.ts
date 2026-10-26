@@ -14,16 +14,32 @@ export type Applied = Edit & { thread: string; comment: string; path: string; au
 export class StaleHead extends Error {}
 
 /** The default message, as GitHub writes it. */
-export const defaultHeadline = (items: Applied[]) => (items.length === 1 ? `Update ${items[0]!.path.split("/").pop()}` : "Apply suggestions from code review");
+export const defaultHeadline = (items: Applied[]) =>
+  items.length === 1 ? `Update ${items[0]!.path.split("/").pop()}` : "Apply suggestions from code review";
 
-const contentsPath = (repo: string, path: string, ref: string) => `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${ref}`;
+const contentsPath = (repo: string, path: string, ref: string) =>
+  `/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${ref}`;
 
-export async function commitSuggestions(c: { repo: string; branch: string; head: string; items: Applied[]; headline: string; body: string; me: string | null }) {
+export async function commitSuggestions(c: {
+  repo: string;
+  branch: string;
+  head: string;
+  items: Applied[];
+  headline: string;
+  body: string;
+  me: string | null;
+}) {
   const byPath = new Map<string, Edit[]>();
-  for (const item of c.items) byPath.set(item.path, [...(byPath.get(item.path) ?? []), { start: item.start, end: item.end, lines: item.lines }]);
+  for (const item of c.items)
+    byPath.set(item.path, [...(byPath.get(item.path) ?? []), { start: item.start, end: item.end, lines: item.lines }]);
   const additions = await Promise.all(
     [...byPath].map(async ([path, edits]) => {
-      const text = await github<string>("GET", contentsPath(c.repo, path, c.head), undefined, "application/vnd.github.raw+json");
+      const text = await github<string>(
+        "GET",
+        contentsPath(c.repo, path, c.head),
+        undefined,
+        "application/vnd.github.raw+json",
+      );
       return { path, contents: toBase64(applyEdits(text, edits)) };
     }),
   );
@@ -33,16 +49,20 @@ export async function commitSuggestions(c: { repo: string; branch: string; head:
   );
   const body = [c.body.trim(), credits.join("\n")].filter(Boolean).join("\n\n");
   try {
-    await mutate("mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }", {
-      input: {
-        branch: { repositoryNameWithOwner: c.repo, branchName: c.branch },
-        expectedHeadOid: c.head,
-        message: body ? { headline: c.headline.trim(), body } : { headline: c.headline.trim() },
-        fileChanges: { additions },
+    await mutate(
+      "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }",
+      {
+        input: {
+          branch: { repositoryNameWithOwner: c.repo, branchName: c.branch },
+          expectedHeadOid: c.head,
+          message: body ? { headline: c.headline.trim(), body } : { headline: c.headline.trim() },
+          fileChanges: { additions },
+        },
       },
-    });
+    );
   } catch (e) {
-    if (e instanceof GitHubError && /expected branch to point to|is at .* but expected/i.test(e.message)) throw new StaleHead(e.message);
+    if (e instanceof GitHubError && /expected branch to point to|is at .* but expected/i.test(e.message))
+      throw new StaleHead(e.message);
     throw e;
   }
 }

@@ -5,6 +5,7 @@
 // screen, each by how much of it it takes.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
+
 import { creditFor, share, type OnScreen } from "@/utils/estimate/estimate";
 
 /** Activity is taken in at most this often; a moving mouse fires many times a second. */
@@ -26,7 +27,8 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
   /** Gives the time since the last moment of activity to the files on screen since then. */
   const settle = (now: number) => {
     if (!last.current) return;
-    for (const [path, part] of share(creditFor(now - last.current), current.current)) spent.current.set(path, (spent.current.get(path) ?? 0) + part);
+    for (const [path, part] of share(creditFor(now - last.current), current.current))
+      spent.current.set(path, (spent.current.get(path) ?? 0) + part);
   };
 
   useEffect(() => {
@@ -43,13 +45,15 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
       settle(Date.now());
       last.current = 0;
     };
-    for (const type of EVENTS) (type === "selectionchange" ? document : window).addEventListener(type, sample, { passive: true, capture: true });
+    for (const type of EVENTS)
+      (type === "selectionchange" ? document : window).addEventListener(type, sample, { passive: true, capture: true });
     document.addEventListener("visibilitychange", visibility);
     return () => {
       // Leaving the files: what's been spent so far is kept, the stillness after isn't counted.
       settle(Date.now());
       last.current = 0;
-      for (const type of EVENTS) (type === "selectionchange" ? document : window).removeEventListener(type, sample, { capture: true });
+      for (const type of EVENTS)
+        (type === "selectionchange" ? document : window).removeEventListener(type, sample, { capture: true });
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [on]);

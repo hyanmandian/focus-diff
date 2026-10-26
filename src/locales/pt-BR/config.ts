@@ -5,16 +5,19 @@ export const config: Dictionary["config"] = {
   "queue.review.hint": "Pull requests abertos esperando sua revisão, até você revisar ou comentar.",
   "queue.review.name": "Revisar",
   "queue.involved": "Novidades",
-  "queue.involved.hint": "Pull requests que você revisou, comentou ou em que foi mencionado, e o que aconteceu desde então.",
+  "queue.involved.hint":
+    "Pull requests que você revisou, comentou ou em que foi mencionado, e o que aconteceu desde então.",
   "queue.involved.name": "Novidades",
   "queue.authored": "Meus pull requests",
   "queue.authored.hint": "Seus pull requests abertos, rascunhos também: revisões, comentários, CI e conflitos.",
   "queue.authored.name": "Meus PRs",
   "queue.merged": "Merge sem mim",
-  "queue.merged.hint": "Pull requests que entraram com merge sem a sua aprovação: os pedidos a você ou ao seu time, nos arquivos que importam para você.",
+  "queue.merged.hint":
+    "Pull requests que entraram com merge sem a sua aprovação: os pedidos a você ou ao seu time, nos arquivos que importam para você.",
   "queue.merged.name": "Com merge",
   "queue.blank": "Fila personalizada",
-  "queue.blank.hint": "Escolha tudo você mesmo: de onde vêm os pull requests (revisões, os seus, os mergeados, qualquer busca), quais entram e o que merece notificação.",
+  "queue.blank.hint":
+    "Escolha tudo você mesmo: de onde vêm os pull requests (revisões, os seus, os mergeados, qualquer busca), quais entram e o que merece notificação.",
   "queue.custom": "Busca personalizada",
   "queue.custom.hint": "Qualquer busca do GitHub: o repositório de um time, um label, um autor.",
   "queue.custom.name": "Busca",
@@ -74,5 +77,6 @@ export const config: Dictionary["config"] = {
   aiUnexpected: "A resposta da IA não veio no formato esperado. Tente de novo.",
   reviewEmpty: "Escreva um comentário, ou adicione alguns nas linhas, primeiro.",
   replyNoComment: "Esta conversa não tem nenhum comentário para responder.",
-  estimateHint: "O tempo de revisão considera cerca de {lines} linhas alteradas por hora. Linhas removidas contam um quinto, cada arquivo soma 15 segundos, e arquivos gerados ou de lock somam só esses 15 segundos.",
+  estimateHint:
+    "O tempo de revisão considera cerca de {lines} linhas alteradas por hora. Linhas removidas contam um quinto, cada arquivo soma 15 segundos, e arquivos gerados ou de lock somam só esses 15 segundos.",
 };

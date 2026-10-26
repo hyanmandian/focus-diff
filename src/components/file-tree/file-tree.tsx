@@ -6,13 +6,14 @@
 
 import { ChevronRight, Folder } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+import { FileIcon } from "@/components/file-icon/file-icon";
+import { renamed } from "@/components/rich-diff/rich-diff";
 import { Skeleton } from "@/components/skeleton/skeleton";
+import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
 import { buildTree, flatten, foldersOf, outlineKey, type TreeRow } from "@/utils/tree/tree";
-import { cn } from "@/utils/cn/cn";
-import { FileIcon } from "@/components/file-icon/file-icon";
-import { renamed } from "@/components/rich-diff/rich-diff";
 
 /** --row-h-sm: every row the same height, so where each one is needs no measuring. */
 const ROW = 24;
@@ -48,7 +49,14 @@ export function FileTree({
 
   const tree = useMemo(() => buildTree(files ?? []), [files]);
   const rows = useMemo<Array<TreeRow<ReviewFile>>>(
-    () => (flat ? (files ?? []).map((file) => ({ node: { kind: "file" as const, path: file.path, name: file.path, file }, depth: 0, parent: null })) : flatten(tree, collapsed)),
+    () =>
+      flat
+        ? (files ?? []).map((file) => ({
+            node: { kind: "file" as const, path: file.path, name: file.path, file },
+            depth: 0,
+            parent: null,
+          }))
+        : flatten(tree, collapsed),
     [flat, files, tree, collapsed],
   );
   const at = cursor ? rows.findIndex((r) => keyOf(r) === cursor) : -1;
@@ -142,7 +150,7 @@ export function FileTree({
       onKeyDown={onKeyDown}
       onFocus={() => at < 0 && rows[0] && setCursor(keyOf(rows[0]))}
       onScroll={(e) => setTop(e.currentTarget.scrollTop)}
-      className="group/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-1.5 outline-none focus-ring-inset"
+      className="group/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-1.5 focus-ring-inset outline-none"
     >
       <div className="relative" style={{ height: rows.length * ROW }}>
         {rows.slice(first, last).map((row, i) => {
@@ -180,15 +188,27 @@ export function FileTree({
             >
               {folder ? (
                 <>
-                  <ChevronRight aria-hidden className={cn("size-3 shrink-0 text-muted-foreground transition-transform duration-(--duration-fast) motion-reduce:transition-none", open && "rotate-90")} />
+                  <ChevronRight
+                    aria-hidden
+                    className={cn(
+                      "size-3 shrink-0 text-muted-foreground transition-transform duration-(--duration-fast) motion-reduce:transition-none",
+                      open && "rotate-90",
+                    )}
+                  />
                   <Folder aria-hidden className="mx-0.5 size-3.5 shrink-0 text-(--blue)" />
                   <span className="min-w-0 flex-1 truncate">{folder.name}</span>
                   {talk ? (
-                    <span className="text-subheadline text-unread tabular-nums" aria-label={t("review.openConversations", { count: talk })}>
+                    <span
+                      className="text-subheadline text-unread tabular-nums"
+                      aria-label={t("review.openConversations", { count: talk })}
+                    >
                       {talk}
                     </span>
                   ) : null}
-                  <span className="shrink-0 text-subheadline text-muted-foreground tabular-nums" aria-label={t("diff.folderViewed", { viewed: viewedCount, total: folder.files.length })}>
+                  <span
+                    className="shrink-0 text-subheadline text-muted-foreground tabular-nums"
+                    aria-label={t("diff.folderViewed", { viewed: viewedCount, total: folder.files.length })}
+                  >
                     {viewedCount}/{folder.files.length}
                   </span>
                 </>
@@ -199,19 +219,25 @@ export function FileTree({
                   <FileIcon path={node.path} className={cn(done && "opacity-60")} />
                   {/* Renamed: "old → new", the old name giving way first so the new one stays readable. */}
                   <span className="flex min-w-0 flex-1 font-mono">
-                    {old ? <span className="min-w-0 shrink truncate text-muted-foreground">{old}&nbsp;→&nbsp;</span> : null}
-                    <span className={cn("truncate", old && "shrink-0 max-w-full")}>
+                    {old ? (
+                      <span className="min-w-0 shrink truncate text-muted-foreground">{old}&nbsp;→&nbsp;</span>
+                    ) : null}
+                    <span className={cn("truncate", old && "max-w-full shrink-0")}>
                       {flat ? <span className="text-muted-foreground">{node.path.slice(0, slash + 1)}</span> : null}
                       {flat ? node.path.slice(slash + 1) : node.name}
                     </span>
                   </span>
                   {talk ? (
-                    <span className="text-subheadline text-unread tabular-nums" aria-label={t("review.openConversations", { count: talk })}>
+                    <span
+                      className="text-subheadline text-unread tabular-nums"
+                      aria-label={t("review.openConversations", { count: talk })}
+                    >
                       {talk}
                     </span>
                   ) : null}
                   <span className="shrink-0 font-mono text-subheadline tabular-nums">
-                    <span className="text-success">+{file!.additions}</span> <span className="text-destructive">−{file!.deletions}</span>
+                    <span className="text-success">+{file!.additions}</span>{" "}
+                    <span className="text-destructive">−{file!.deletions}</span>
                   </span>
                 </>
               )}

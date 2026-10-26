@@ -61,16 +61,50 @@
   background: #15291d;
 }
 
-[data-pl="c"] { color: #59636e; }
-[data-pl="k"] { color: #cf222e; }
-[data-pl="s"], [data-pl="pds"], [data-pl="sr"] { color: #0a3069; }
-[data-pl="c1"], [data-pl="ent"] { color: #0550ae; }
-[data-pl="en"], [data-pl="e"] { color: #6639ba; }
-[data-pl="v"], [data-pl="smi"] { color: #953800; }
+[data-pl="c"] {
+  color: #59636e;
+}
+[data-pl="k"] {
+  color: #cf222e;
+}
+[data-pl="s"],
+[data-pl="pds"],
+[data-pl="sr"] {
+  color: #0a3069;
+}
+[data-pl="c1"],
+[data-pl="ent"] {
+  color: #0550ae;
+}
+[data-pl="en"],
+[data-pl="e"] {
+  color: #6639ba;
+}
+[data-pl="v"],
+[data-pl="smi"] {
+  color: #953800;
+}
 
-.dark [data-pl="c"] { color: #9198a1; }
-.dark [data-pl="k"] { color: #ff7b72; }
-.dark [data-pl="s"], .dark [data-pl="pds"], .dark [data-pl="sr"] { color: #a5d6ff; }
-.dark [data-pl="c1"], .dark [data-pl="ent"] { color: #79c0ff; }
-.dark [data-pl="en"], .dark [data-pl="e"] { color: #d2a8ff; }
-.dark [data-pl="v"], .dark [data-pl="smi"] { color: #ffa657; }
+.dark [data-pl="c"] {
+  color: #9198a1;
+}
+.dark [data-pl="k"] {
+  color: #ff7b72;
+}
+.dark [data-pl="s"],
+.dark [data-pl="pds"],
+.dark [data-pl="sr"] {
+  color: #a5d6ff;
+}
+.dark [data-pl="c1"],
+.dark [data-pl="ent"] {
+  color: #79c0ff;
+}
+.dark [data-pl="en"],
+.dark [data-pl="e"] {
+  color: #d2a8ff;
+}
+.dark [data-pl="v"],
+.dark [data-pl="smi"] {
+  color: #ffa657;
+}

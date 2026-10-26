@@ -3,17 +3,39 @@
 
 import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
 import { useId } from "react";
+
 import { Button } from "@/components/button/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/input/input";
 import { Label } from "@/components/label/label";
-import { Textarea } from "@/components/textarea/textarea";
-import { newAction, newId, STEP_KINDS, type Action, type ActionChoice, type ActionStep, type Config } from "@/utils/config/config";
-import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
-import { i18n, useT, type T } from "@/utils/i18n/i18n";
-import { Group, LinkRow, Pane, Row, SwitchRow, TWO_LINE_ITEM, useDetail } from "@/components/settings-form/settings-form";
+import {
+  Group,
+  LinkRow,
+  Pane,
+  Row,
+  SwitchRow,
+  TWO_LINE_ITEM,
+  useDetail,
+} from "@/components/settings-form/settings-form";
 import { TagInput } from "@/components/tag-input/tag-input";
+import { Textarea } from "@/components/textarea/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
+import {
+  newAction,
+  newId,
+  STEP_KINDS,
+  type Action,
+  type ActionChoice,
+  type ActionStep,
+  type Config,
+} from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
+import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
 const newStep = (kind: ActionStep["kind"]): ActionStep => {
   switch (kind) {
@@ -43,21 +65,52 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
     case "comment":
       return (
         <div className="flex flex-col gap-1">
-          <Textarea aria-label={t("settings.comment")} rows={3} value={step.body} onChange={(e) => onChange({ ...step, body: e.target.value })} placeholder={t("settings.commentPlaceholder")} />
-          <p className="text-subheadline text-muted-foreground">{t("settings.commentHint", { placeholders: PLACEHOLDERS })}</p>
+          <Textarea
+            aria-label={t("settings.comment")}
+            rows={3}
+            value={step.body}
+            onChange={(e) => onChange({ ...step, body: e.target.value })}
+            placeholder={t("settings.commentPlaceholder")}
+          />
+          <p className="text-subheadline text-muted-foreground">
+            {t("settings.commentHint", { placeholders: PLACEHOLDERS })}
+          </p>
         </div>
       );
     case "request":
-      return <TagInput label={t("settings.reviewers")} value={step.reviewers} onChange={(reviewers) => onChange({ ...step, reviewers })} placeholder={t("settings.reviewerPlaceholder")} validate={reviewerError} />;
+      return (
+        <TagInput
+          label={t("settings.reviewers")}
+          value={step.reviewers}
+          onChange={(reviewers) => onChange({ ...step, reviewers })}
+          placeholder={t("settings.reviewerPlaceholder")}
+          validate={reviewerError}
+        />
+      );
     case "unrequestMe":
       return null;
     case "label":
-      return <TagInput label={t("settings.labels")} value={step.labels} onChange={(labels) => onChange({ ...step, labels })} placeholder={t("settings.labelPlaceholder")} />;
+      return (
+        <TagInput
+          label={t("settings.labels")}
+          value={step.labels}
+          onChange={(labels) => onChange({ ...step, labels })}
+          placeholder={t("settings.labelPlaceholder")}
+        />
+      );
     case "open":
       return (
         <div className="flex flex-col gap-1">
-          <Input aria-label={t("settings.link")} className="font-mono text-callout" spellCheck={false} value={step.url} onChange={(e) => onChange({ ...step, url: e.target.value })} />
-          <p className="text-subheadline text-muted-foreground">{t("settings.linkHint", { placeholders: PLACEHOLDERS })}</p>
+          <Input
+            aria-label={t("settings.link")}
+            className="font-mono text-callout"
+            spellCheck={false}
+            value={step.url}
+            onChange={(e) => onChange({ ...step, url: e.target.value })}
+          />
+          <p className="text-subheadline text-muted-foreground">
+            {t("settings.linkHint", { placeholders: PLACEHOLDERS })}
+          </p>
         </div>
       );
     case "run":
@@ -76,7 +129,9 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
             placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
           />
           <p className="text-subheadline text-muted-foreground">
-            {t("settings.commandHintBefore")} <code className="font-mono">sh</code> {t("settings.commandHintMiddle")} <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>. {t("settings.commandHintAfter")}
+            {t("settings.commandHintBefore")} <code className="font-mono">sh</code> {t("settings.commandHintMiddle")}{" "}
+            <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>.{" "}
+            {t("settings.commandHintAfter")}
           </p>
         </div>
       );
@@ -105,17 +160,38 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
           {steps.map((step, i) => (
             <li key={i} className="flex flex-col gap-2 px-3 py-3">
               <div className="flex items-center gap-2">
-                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-subheadline font-medium tabular-nums">{i + 1}</span>
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-subheadline font-medium tabular-nums">
+                  {i + 1}
+                </span>
                 <span className="shrink-0 text-body">{t(`config.step.${step.kind}`)}</span>
-                <span className="hidden truncate text-subheadline text-muted-foreground sm:inline">{t(`settings.stepHint.${step.kind}`)}</span>
+                <span className="hidden truncate text-subheadline text-muted-foreground sm:inline">
+                  {t(`settings.stepHint.${step.kind}`)}
+                </span>
                 <div className="ml-auto flex shrink-0">
-                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveUp")} disabled={i === 0} onClick={() => move(i, -1)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t("settings.moveUp")}
+                    disabled={i === 0}
+                    onClick={() => move(i, -1)}
+                  >
                     <ArrowUp />
                   </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveDown")} disabled={i === steps.length - 1} onClick={() => move(i, 1)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t("settings.moveDown")}
+                    disabled={i === steps.length - 1}
+                    onClick={() => move(i, 1)}
+                  >
                     <ArrowDown />
                   </Button>
-                  <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeStep", { number: i + 1 })} onClick={() => setStep(i, null)}>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t("settings.removeStep", { number: i + 1 })}
+                    onClick={() => setStep(i, null)}
+                  >
                     <X />
                   </Button>
                 </div>
@@ -132,7 +208,11 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-72">
             {STEP_KINDS.map((kind) => (
-              <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onChange([...steps, newStep(kind)])}>
+              <DropdownMenuItem
+                key={kind}
+                className={TWO_LINE_ITEM}
+                onClick={() => onChange([...steps, newStep(kind)])}
+              >
                 <span>{t(`config.step.${kind}`)}</span>
                 <span className="text-subheadline text-muted-foreground">{t(`settings.stepHint.${kind}`)}</span>
               </DropdownMenuItem>
@@ -145,7 +225,21 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
 }
 
 /** One of a menu action's choices: its name, then its steps, in a group of its own. */
-function ChoiceEditor({ choice, index, count, onChange, onMove, onRemove }: { choice: ActionChoice; index: number; count: number; onChange: (choice: ActionChoice) => void; onMove: (by: number) => void; onRemove: () => void }) {
+function ChoiceEditor({
+  choice,
+  index,
+  count,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  choice: ActionChoice;
+  index: number;
+  count: number;
+  onChange: (choice: ActionChoice) => void;
+  onMove: (by: number) => void;
+  onRemove: () => void;
+}) {
   const nameId = useId();
   const t = useT();
   return (
@@ -153,20 +247,43 @@ function ChoiceEditor({ choice, index, count, onChange, onMove, onRemove }: { ch
       title={choice.name || t("settings.untitledAction")}
       accessory={
         <div className="flex">
-          <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveUp")} disabled={index === 0} onClick={() => onMove(-1)}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t("settings.moveUp")}
+            disabled={index === 0}
+            onClick={() => onMove(-1)}
+          >
             <ArrowUp />
           </Button>
-          <Button variant="ghost" size="icon-xs" aria-label={t("settings.moveDown")} disabled={index === count - 1} onClick={() => onMove(1)}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t("settings.moveDown")}
+            disabled={index === count - 1}
+            onClick={() => onMove(1)}
+          >
             <ArrowDown />
           </Button>
-          <Button variant="ghost" size="icon-xs" aria-label={t("settings.removeChoice", { name: choice.name })} onClick={onRemove}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t("settings.removeChoice", { name: choice.name })}
+            onClick={onRemove}
+          >
             <Trash2 />
           </Button>
         </div>
       }
     >
       <Row label={t("settings.choiceName")} htmlFor={nameId}>
-        <Input id={nameId} value={choice.name} maxLength={30} onChange={(e) => onChange({ ...choice, name: e.target.value })} className="w-56" />
+        <Input
+          id={nameId}
+          value={choice.name}
+          maxLength={30}
+          onChange={(e) => onChange({ ...choice, name: e.target.value })}
+          className="w-56"
+        />
       </Row>
       <StepsEditor steps={choice.steps} onChange={(steps) => onChange({ ...choice, steps })} />
     </Group>
@@ -178,13 +295,22 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   const t = useT();
   const menu = action.choices.length > 0;
   const setChoices = (choices: ActionChoice[]) => onChange({ ...action, choices });
-  const newChoice = (steps: ActionStep[] = [newStep("run")]): ActionChoice => ({ id: newId(), name: t("settings.newChoice", { number: action.choices.length + 1 }), steps });
+  const newChoice = (steps: ActionStep[] = [newStep("run")]): ActionChoice => ({
+    id: newId(),
+    name: t("settings.newChoice", { number: action.choices.length + 1 }),
+    steps,
+  });
   // A button's steps become the menu's first choice; back to a button, the first choice's steps
   // stay (after asking, when that drops other choices).
   const showAs = async (as: string) => {
-    if (as === "menu" && !menu) onChange({ ...action, choices: [newChoice(action.steps.length ? action.steps : undefined)], steps: [] });
+    if (as === "menu" && !menu)
+      onChange({ ...action, choices: [newChoice(action.steps.length ? action.steps : undefined)], steps: [] });
     if (as === "button" && menu) {
-      if (action.choices.length > 1 && !(await confirmRemove(t("settings.dropChoicesConfirm", { count: action.choices.length - 1 })))) return;
+      if (
+        action.choices.length > 1 &&
+        !(await confirmRemove(t("settings.dropChoicesConfirm", { count: action.choices.length - 1 })))
+      )
+        return;
       onChange({ ...action, steps: action.choices[0]?.steps ?? [], choices: [] });
     }
   };
@@ -193,15 +319,32 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
     <>
       <Group>
         <Row label={t("settings.button")} htmlFor={nameId}>
-          <Input id={nameId} value={action.name} maxLength={30} onChange={(e) => onChange({ ...action, name: e.target.value })} className="w-56" />
+          <Input
+            id={nameId}
+            value={action.name}
+            maxLength={30}
+            onChange={(e) => onChange({ ...action, name: e.target.value })}
+            className="w-56"
+          />
         </Row>
         <Row label={t("settings.showAs")} description={t("settings.showAsHint")}>
-          <ToggleGroup value={[menu ? "menu" : "button"]} onValueChange={(v: string[]) => v[0] && void showAs(v[0])} variant="outline" size="sm" aria-label={t("settings.showAs")}>
+          <ToggleGroup
+            value={[menu ? "menu" : "button"]}
+            onValueChange={(v: string[]) => v[0] && void showAs(v[0])}
+            variant="outline"
+            size="sm"
+            aria-label={t("settings.showAs")}
+          >
             <ToggleGroupItem value="button">{t("settings.showAs.button")}</ToggleGroupItem>
             <ToggleGroupItem value="menu">{t("settings.showAs.menu")}</ToggleGroupItem>
           </ToggleGroup>
         </Row>
-        <SwitchRow checked={action.confirm} onChange={(confirm) => onChange({ ...action, confirm })} label={t("settings.confirm")} hint={t("settings.confirmHint")} />
+        <SwitchRow
+          checked={action.confirm}
+          onChange={(confirm) => onChange({ ...action, confirm })}
+          label={t("settings.confirm")}
+          hint={t("settings.confirmHint")}
+        />
       </Group>
 
       {menu ? (
@@ -220,14 +363,24 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
                 setChoices(choices);
               }}
               onRemove={async () => {
-                if (!(await confirmRemove(t("settings.removeChoiceConfirm", { name: choice.name || t("settings.untitledAction") })))) return;
+                if (
+                  !(await confirmRemove(
+                    t("settings.removeChoiceConfirm", { name: choice.name || t("settings.untitledAction") }),
+                  ))
+                )
+                  return;
                 const choices = action.choices.filter((c) => c.id !== choice.id);
                 // The last choice gone: a button again, with nothing to do yet.
                 onChange({ ...action, choices, steps: choices.length ? action.steps : [] });
               }}
             />
           ))}
-          <Button variant="outline" className="self-start" disabled={action.choices.length >= 12} onClick={() => setChoices([...action.choices, newChoice()])}>
+          <Button
+            variant="outline"
+            className="self-start"
+            disabled={action.choices.length >= 12}
+            onClick={() => setChoices([...action.choices, newChoice()])}
+          >
             <Plus /> {t("settings.addChoice")}
           </Button>
         </>
@@ -242,10 +395,24 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
 
 /** Small beside a group's heading, regular on its own in the empty pane. An action starts as a
  *  script, which can do anything; other steps are added in it. */
-function AddAction({ config, onAdd, small = false }: { config: Config; onAdd: (action: Action) => void; small?: boolean }) {
+function AddAction({
+  config,
+  onAdd,
+  small = false,
+}: {
+  config: Config;
+  onAdd: (action: Action) => void;
+  small?: boolean;
+}) {
   const t = useT();
   return (
-    <Button variant="outline" size={small ? "sm" : "default"} disabled={config.actions.length >= 12} aria-label={t("settings.addActionLabel")} onClick={() => onAdd(newAction(t))}>
+    <Button
+      variant="outline"
+      size={small ? "sm" : "default"}
+      disabled={config.actions.length >= 12}
+      aria-label={t("settings.addActionLabel")}
+      onClick={() => onAdd(newAction(t))}
+    >
       <Plus /> {t("settings.add")}
     </Button>
   );
@@ -257,10 +424,10 @@ const stepsSummary = (action: Action, t: T) =>
   action.choices.length
     ? t("settings.menuOf", { choices: action.choices.map((c) => c.name).join(", ") })
     : action.steps.length
-    ? action.steps
-        .map((s) => t(`config.step.${s.kind}`))
-        .reduce((said, label) => t("settings.stepsThen", { first: said, rest: label.toLocaleLowerCase(t.locale) }))
-    : t("settings.noSteps");
+      ? action.steps
+          .map((s) => t(`config.step.${s.kind}`))
+          .reduce((said, label) => t("settings.stepsThen", { first: said, rest: label.toLocaleLowerCase(t.locale) }))
+      : t("settings.noSteps");
 
 export function Actions({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const detail = useDetail();
@@ -284,7 +451,12 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
             aria-label={t("settings.deleteNamed", { name: selected.name })}
             title={t("settings.deleteAction")}
             onClick={async () => {
-              if (!(await confirmRemove(t("settings.removeActionConfirm", { name: selected.name || t("settings.untitledAction") })))) return;
+              if (
+                !(await confirmRemove(
+                  t("settings.removeActionConfirm", { name: selected.name || t("settings.untitledAction") }),
+                ))
+              )
+                return;
               setActions(config.actions.filter((a) => a.id !== selected.id));
               detail.close();
             }}
@@ -293,7 +465,11 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
           </Button>
         }
       >
-        <ActionEditor key={selected.id} action={selected} onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))} />
+        <ActionEditor
+          key={selected.id}
+          action={selected}
+          onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))}
+        />
       </Pane>
     );
 
@@ -307,7 +483,10 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
                 key={action.id}
                 ref={detail.rowRef(action.id)}
                 leading={
-                  <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-fill text-muted-foreground" aria-hidden>
+                  <span
+                    className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-fill text-muted-foreground"
+                    aria-hidden
+                  >
                     <Zap className="size-3" strokeWidth={2.25} />
                   </span>
                 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { stepFile } from "@/utils/navigate/navigate";
 
 const paths = ["a.ts", "b.ts", "c.ts"];

@@ -3,6 +3,7 @@
 // No icon set to ship: what isn't known is a plain file.
 
 import { File, FileImage, Lock, type LucideIcon } from "lucide-react";
+
 import { cn } from "@/utils/cn/cn";
 
 /** Short name, color, and whether the color is light enough to need dark text. */

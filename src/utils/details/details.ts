@@ -7,7 +7,16 @@ export type Check = { name: string; state: "success" | "failure" | "pending" | "
 export type FileChange = { path: string; additions: number; deletions: number; changeType: string };
 export type Entry =
   | { kind: "comment"; id: string; author: Actor; html: string; at: string; url: string }
-  | { kind: "review"; id: string; author: Actor; state: string; html: string; at: string; url: string; comments: Array<{ id: string; path: string; line: number | null; html: string; author: Actor; url: string }> };
+  | {
+      kind: "review";
+      id: string;
+      author: Actor;
+      state: string;
+      html: string;
+      at: string;
+      url: string;
+      comments: Array<{ id: string; path: string; line: number | null; html: string; author: Actor; url: string }>;
+    };
 
 export type Details = {
   id: string;
@@ -72,11 +81,25 @@ type Raw = {
     squashMergeAllowed: boolean;
     mergeCommitAllowed: boolean;
     rebaseMergeAllowed: boolean;
-    pullRequest: Omit<Details, "html" | "owner" | "repo" | "reviewers" | "checks" | "files" | "entries" | "mergeMethods"> & {
+    pullRequest: Omit<
+      Details,
+      "html" | "owner" | "repo" | "reviewers" | "checks" | "files" | "entries" | "mergeMethods"
+    > & {
       bodyHTML: string;
-      reviewRequests: { nodes: Array<{ requestedReviewer: null | ({ __typename: "User" } & NonNullable<Actor>) | { __typename: "Team"; name: string; slug: string } }> };
+      reviewRequests: {
+        nodes: Array<{
+          requestedReviewer:
+            | null
+            | ({ __typename: "User" } & NonNullable<Actor>)
+            | { __typename: "Team"; name: string; slug: string };
+        }>;
+      };
       latestOpinionatedReviews: { nodes: Array<{ author: Actor; state: string }> };
-      commits: { nodes: Array<{ commit: { statusCheckRollup: null | { contexts: { nodes: Array<Record<string, string | null>> } } } }> };
+      commits: {
+        nodes: Array<{
+          commit: { statusCheckRollup: null | { contexts: { nodes: Array<Record<string, string | null>> } } };
+        }>;
+      };
       files: { nodes: FileChange[] };
       timelineItems: { nodes: Array<Record<string, unknown>> };
     };
@@ -85,10 +108,18 @@ type Raw = {
 
 function checkState(node: Record<string, string | null>): Check["state"] {
   if (node.__typename === "StatusContext") {
-    return node.state === "SUCCESS" ? "success" : node.state === "PENDING" || node.state === "EXPECTED" ? "pending" : "failure";
+    return node.state === "SUCCESS"
+      ? "success"
+      : node.state === "PENDING" || node.state === "EXPECTED"
+        ? "pending"
+        : "failure";
   }
   if (node.status !== "COMPLETED") return "pending";
-  return node.conclusion === "SUCCESS" ? "success" : ["NEUTRAL", "SKIPPED"].includes(node.conclusion ?? "") ? "neutral" : "failure";
+  return node.conclusion === "SUCCESS"
+    ? "success"
+    : ["NEUTRAL", "SKIPPED"].includes(node.conclusion ?? "")
+      ? "neutral"
+      : "failure";
 }
 
 export async function loadDetails(nameWithOwner: string, number: number): Promise<Details> {
@@ -97,23 +128,43 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
   const { pullRequest: pr, ...repository } = data.repository;
 
   const reviewed = pr.latestOpinionatedReviews.nodes.filter((r) => r.author);
-  const reviewers: Details["reviewers"] = reviewed.map((r) => ({ actor: r.author, state: r.state as Details["reviewers"][number]["state"] }));
+  const reviewers: Details["reviewers"] = reviewed.map((r) => ({
+    actor: r.author,
+    state: r.state as Details["reviewers"][number]["state"],
+  }));
   for (const { requestedReviewer: r } of pr.reviewRequests.nodes) {
     if (!r) continue;
-    if (r.__typename === "Team" && "slug" in r) reviewers.push({ actor: { login: r.slug, name: r.name }, state: "PENDING", team: r.name });
-    else if ("login" in r && !reviewers.some((x) => x.actor?.login === r.login)) reviewers.push({ actor: r, state: "PENDING" });
+    if (r.__typename === "Team" && "slug" in r)
+      reviewers.push({ actor: { login: r.slug, name: r.name }, state: "PENDING", team: r.name });
+    else if ("login" in r && !reviewers.some((x) => x.actor?.login === r.login))
+      reviewers.push({ actor: r, state: "PENDING" });
   }
 
   const contexts = pr.commits.nodes[0]?.commit.statusCheckRollup?.contexts.nodes ?? [];
   const checks = contexts
-    .map((c) => ({ name: c.name ?? c.context ?? "Check", state: checkState(c), url: c.detailsUrl ?? c.targetUrl ?? null }))
+    .map((c) => ({
+      name: c.name ?? c.context ?? "Check",
+      state: checkState(c),
+      url: c.detailsUrl ?? c.targetUrl ?? null,
+    }))
     // Failing first, then running, then the rest.
-    .sort((a, b) => ["failure", "pending", "neutral", "success"].indexOf(a.state) - ["failure", "pending", "neutral", "success"].indexOf(b.state));
+    .sort(
+      (a, b) =>
+        ["failure", "pending", "neutral", "success"].indexOf(a.state) -
+        ["failure", "pending", "neutral", "success"].indexOf(b.state),
+    );
 
   const entries: Entry[] = [];
   for (const node of pr.timelineItems.nodes) {
     if (node.__typename === "IssueComment") {
-      entries.push({ kind: "comment", id: node.id as string, author: node.author as Actor, html: node.bodyHTML as string, at: node.createdAt as string, url: node.url as string });
+      entries.push({
+        kind: "comment",
+        id: node.id as string,
+        author: node.author as Actor,
+        html: node.bodyHTML as string,
+        at: node.createdAt as string,
+        url: node.url as string,
+      });
     } else if (node.__typename === "PullRequestReview") {
       const comments = ((node.comments as { nodes: Array<Record<string, unknown>> }).nodes ?? []).map((c) => ({
         id: c.id as string,
@@ -125,7 +176,16 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
       }));
       // Replies in threads come as empty "commented" reviews: only keep reviews that say something.
       if (node.state === "COMMENTED" && !(node.bodyHTML as string)?.trim() && !comments.length) continue;
-      entries.push({ kind: "review", id: node.id as string, author: node.author as Actor, state: node.state as string, html: node.bodyHTML as string, at: node.createdAt as string, url: node.url as string, comments });
+      entries.push({
+        kind: "review",
+        id: node.id as string,
+        author: node.author as Actor,
+        state: node.state as string,
+        html: node.bodyHTML as string,
+        at: node.createdAt as string,
+        url: node.url as string,
+        comments,
+      });
     }
   }
 
@@ -155,13 +215,20 @@ export const review = (d: Details, event: "APPROVE" | "REQUEST_CHANGES" | "COMME
   github("POST", `${base(d)}/pulls/${d.number}/reviews`, { event, body });
 
 /** The new comment's id, the one the conversation knows it by. */
-export const comment = async (d: Details, body: string) => (await github<{ node_id: string }>("POST", `${base(d)}/issues/${d.number}/comments`, { body })).node_id;
+export const comment = async (d: Details, body: string) =>
+  (await github<{ node_id: string }>("POST", `${base(d)}/issues/${d.number}/comments`, { body })).node_id;
 
-export const merge = (d: Details, method: "squash" | "merge" | "rebase") => github("PUT", `${base(d)}/pulls/${d.number}/merge`, { merge_method: method });
+export const merge = (d: Details, method: "squash" | "merge" | "rebase") =>
+  github("PUT", `${base(d)}/pulls/${d.number}/merge`, { merge_method: method });
 
 export const markReady = (d: Details) =>
-  graphql("mutation($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { clientMutationId } }", { id: d.id });
+  graphql("mutation($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { clientMutationId } }", {
+    id: d.id,
+  });
 
 /** Takes you off the pull request's review requests (and, if asked through them, these teams). */
 export const leaveReview = (d: Details, me: string, teams: string[]) =>
-  github("DELETE", `${base(d)}/pulls/${d.number}/requested_reviewers`, { reviewers: [me], team_reviewers: teams.map((t) => t.split("/")[1] ?? t) });
+  github("DELETE", `${base(d)}/pulls/${d.number}/requested_reviewers`, {
+    reviewers: [me],
+    team_reviewers: teams.map((t) => t.split("/")[1] ?? t),
+  });

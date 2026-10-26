@@ -11,7 +11,9 @@ const at = (i: Item) => Math.max(...i.events.map((e) => e.at), Date.parse(i.pr.u
  *  recently active. Drafts apart, in the same order. */
 export function arrange(list: Item[], unread: (item: Item) => boolean): { groups: Group[]; drafts: Item[] } {
   const order = (a: Item, b: Item) =>
-    Number(b.events.some((e) => e.kind === "rerequest")) - Number(a.events.some((e) => e.kind === "rerequest")) || Number(unread(b)) - Number(unread(a)) || at(b) - at(a);
+    Number(b.events.some((e) => e.kind === "rerequest")) - Number(a.events.some((e) => e.kind === "rerequest")) ||
+    Number(unread(b)) - Number(unread(a)) ||
+    at(b) - at(a);
   const groups: Group[] = [];
   for (const item of list.filter((i) => !i.pr.isDraft)) {
     const name = item.pr.repository.nameWithOwner;
@@ -19,7 +21,11 @@ export function arrange(list: Item[], unread: (item: Item) => boolean): { groups
     group.items.push(item);
   }
   for (const g of groups) g.items.sort(order);
-  groups.sort((a, b) => b.items.filter(unread).length - a.items.filter(unread).length || Math.max(...b.items.map(at)) - Math.max(...a.items.map(at)));
+  groups.sort(
+    (a, b) =>
+      b.items.filter(unread).length - a.items.filter(unread).length ||
+      Math.max(...b.items.map(at)) - Math.max(...a.items.map(at)),
+  );
   return { groups, drafts: list.filter((i) => i.pr.isDraft).sort(order) };
 }
 

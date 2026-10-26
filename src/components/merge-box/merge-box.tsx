@@ -3,21 +3,41 @@
 // (with the commit message, editable), merge when ready (auto-merge), the merge queue, update the
 // branch, bypass as an admin, delete the branch after. Merging asks first with a native alert.
 
-import { ChevronDown, CircleAlert, CircleCheck, CircleDot, CircleX, Clock, GitBranch, GitMerge, GitPullRequestClosed, GitPullRequestDraft, Loader2, ShieldAlert, ExternalLink } from "lucide-react";
+import {
+  ChevronDown,
+  CircleAlert,
+  CircleCheck,
+  CircleDot,
+  CircleX,
+  Clock,
+  GitBranch,
+  GitMerge,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+  Loader2,
+  ShieldAlert,
+  ExternalLink,
+} from "lucide-react";
 import { useState } from "react";
+
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/input/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
 import { Textarea } from "@/components/textarea/textarea";
+import type { Pull } from "@/hooks/use-pull/use-pull";
 import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import type { Details } from "@/utils/details/details";
 import { useT } from "@/utils/i18n/i18n";
 import { defaultMessage, type Method, type Reason } from "@/utils/merging/merging";
-import { cn } from "@/utils/cn/cn";
-import type { Pull } from "@/hooks/use-pull/use-pull";
 
 const STATUS_ICON = {
   merged: { icon: GitMerge, className: "bg-violet text-white" },
@@ -58,7 +78,8 @@ export function MergeBox({ details, pull }: Props) {
   const [deleteAfter, setDeleteAfter] = useState(false);
   if (!view || !m) return null;
   const message = chosen ? (edited[chosen] ?? defaultMessage(chosen, m, details, pull.commits?.commits ?? [])) : null;
-  const edit = (change: Partial<{ title: string; body: string }>) => chosen && message && setEdited((e) => ({ ...e, [chosen]: { ...message, ...change } }));
+  const edit = (change: Partial<{ title: string; body: string }>) =>
+    chosen && message && setEdited((e) => ({ ...e, [chosen]: { ...message, ...change } }));
   const s = STATUS_ICON[view.status];
   const open = details.state === "OPEN";
   const merging = view.canMerge || (bypass && view.canBypass);
@@ -96,34 +117,59 @@ export function MergeBox({ details, pull }: Props) {
         </div>
         {view.canUpdateBranch ? (
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0 gap-1" disabled={busy === "update"} />}>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" className="shrink-0 gap-1" disabled={busy === "update"} />}
+            >
               {busy === "update" ? <Loader2 className="animate-spin" /> : null}
               {t("manage.updateBranch")}
               <ChevronDown className="size-3 opacity-70" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => void pull.actions.updateBranch("MERGE")}>{t("manage.updateMerge")}</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void pull.actions.updateBranch("REBASE")}>{t("manage.updateRebase")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void pull.actions.updateBranch("MERGE")}>
+                {t("manage.updateMerge")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void pull.actions.updateBranch("REBASE")}>
+                {t("manage.updateRebase")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
         {view.status === "conflicts" ? (
-          <Button variant="outline" className="shrink-0" onClick={() => void bridge.openUrl(`${details.url}/conflicts`)}>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => void bridge.openUrl(`${details.url}/conflicts`)}
+          >
             <ExternalLink /> {t("manage.resolveConflicts")}
           </Button>
         ) : null}
         {(view.status === "merged" || view.status === "closed") && canDelete ? (
-          <Button variant="outline" className="shrink-0" onClick={() => void pull.actions.deleteBranch()} disabled={busy === "branch"}>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => void pull.actions.deleteBranch()}
+            disabled={busy === "branch"}
+          >
             {t("manage.deleteBranch")}
           </Button>
         ) : null}
         {view.status === "closed" && details.viewerCanUpdate ? (
-          <Button variant="outline" className="shrink-0" onClick={() => void pull.actions.reopen()} disabled={busy === "close"}>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => void pull.actions.reopen()}
+            disabled={busy === "close"}
+          >
             {t("manage.reopen")}
           </Button>
         ) : null}
         {view.status === "draft" && details.viewerCanUpdate && open ? (
-          <Button variant="outline" className="shrink-0" onClick={() => void pull.actions.ready()} disabled={busy === "ready"}>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => void pull.actions.ready()}
+            disabled={busy === "ready"}
+          >
             {t("review.markReady")}
           </Button>
         ) : null}
@@ -136,14 +182,27 @@ export function MergeBox({ details, pull }: Props) {
             return (
               <li key={reason} className="flex items-center gap-2 text-body">
                 <r.icon className={cn("size-3.5 shrink-0", r.className)} aria-hidden />
-                <span>{reason === "approvals" && m.rule?.approvals ? t("manage.reason.approvalsCount", { count: m.rule.approvals }) : reason === "conversations" ? t("manage.reason.conversations", { count: pull.unresolved }) : t(`manage.reason.${reason}`)}</span>
+                <span>
+                  {reason === "approvals" && m.rule?.approvals
+                    ? t("manage.reason.approvalsCount", { count: m.rule.approvals })
+                    : reason === "conversations"
+                      ? t("manage.reason.conversations", { count: pull.unresolved })
+                      : t(`manage.reason.${reason}`)}
+                </span>
               </li>
             );
           })}
         </ul>
       ) : null}
 
-      {open && chosen && (merging || view.canAutoMerge || view.canEnqueue || view.canDequeue || view.canDisableAutoMerge || view.canBypass) ? (
+      {open &&
+      chosen &&
+      (merging ||
+        view.canAutoMerge ||
+        view.canEnqueue ||
+        view.canDequeue ||
+        view.canDisableAutoMerge ||
+        view.canBypass) ? (
         <div className="flex flex-col gap-2.5 border-t px-4 py-3">
           {view.canBypass && !view.canMerge ? (
             <label className="flex items-center gap-2 text-body">
@@ -152,20 +211,35 @@ export function MergeBox({ details, pull }: Props) {
           ) : null}
           {(merging || view.canAutoMerge) && chosen !== "rebase" && message ? (
             <Collapsible>
-              <CollapsibleTrigger className="flex cursor-default items-center gap-1 rounded text-callout text-muted-foreground outline-none focus-ring data-panel-open:[&_svg]:rotate-0">
-                <ChevronDown className="size-3 -rotate-90 transition-transform duration-(--duration-fast) motion-reduce:transition-none" aria-hidden /> {t("manage.commitMessage")}
+              <CollapsibleTrigger className="flex cursor-default items-center gap-1 rounded text-callout text-muted-foreground focus-ring outline-none data-panel-open:[&_svg]:rotate-0">
+                <ChevronDown
+                  className="size-3 -rotate-90 transition-transform duration-(--duration-fast) motion-reduce:transition-none"
+                  aria-hidden
+                />{" "}
+                {t("manage.commitMessage")}
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="flex flex-col gap-1.5 pt-2">
-                  <Input value={message.title} onChange={(e) => edit({ title: e.target.value })} aria-label={t("manage.commitTitle")} />
-                  <Textarea rows={4} value={message.body} onChange={(e) => edit({ body: e.target.value })} aria-label={t("manage.commitBody")} className="resize-y font-mono text-callout" />
+                  <Input
+                    value={message.title}
+                    onChange={(e) => edit({ title: e.target.value })}
+                    aria-label={t("manage.commitTitle")}
+                  />
+                  <Textarea
+                    rows={4}
+                    value={message.body}
+                    onChange={(e) => edit({ body: e.target.value })}
+                    aria-label={t("manage.commitBody")}
+                    className="resize-y font-mono text-callout"
+                  />
                 </div>
               </CollapsibleContent>
             </Collapsible>
           ) : null}
           {merging && canDelete && !m.deleteBranchOnMerge ? (
             <label className="flex items-center gap-2 text-body">
-              <Checkbox checked={deleteAfter} onCheckedChange={setDeleteAfter} className="size-3.5" /> {t("manage.deleteAfter")}
+              <Checkbox checked={deleteAfter} onCheckedChange={setDeleteAfter} className="size-3.5" />{" "}
+              {t("manage.deleteAfter")}
             </label>
           ) : null}
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -200,12 +274,26 @@ export function MergeBox({ details, pull }: Props) {
               </Button>
             ) : null}
             {merging ? (
-              <Button variant={bypass && !view.canMerge ? "destructive" : "default"} onClick={() => void pull.actions.merge(chosen, chosen === "rebase" ? undefined : (message ?? undefined), { bypass: bypass && !view.canMerge, deleteAfter })} disabled={busy === "merge"}>
+              <Button
+                variant={bypass && !view.canMerge ? "destructive" : "default"}
+                onClick={() =>
+                  void pull.actions.merge(chosen, chosen === "rebase" ? undefined : (message ?? undefined), {
+                    bypass: bypass && !view.canMerge,
+                    deleteAfter,
+                  })
+                }
+                disabled={busy === "merge"}
+              >
                 {busy === "merge" ? <Loader2 className="animate-spin" /> : <GitMerge />}
                 {t(`review.mergeMethod.${chosen}`)}
               </Button>
             ) : view.canAutoMerge ? (
-              <Button onClick={() => void pull.actions.autoMerge(chosen, chosen === "rebase" ? undefined : (message ?? undefined))} disabled={busy === "auto"}>
+              <Button
+                onClick={() =>
+                  void pull.actions.autoMerge(chosen, chosen === "rebase" ? undefined : (message ?? undefined))
+                }
+                disabled={busy === "auto"}
+              >
                 {busy === "auto" ? <Loader2 className="animate-spin" /> : null}
                 {t("manage.enableAutoMerge")}
               </Button>

@@ -5,7 +5,8 @@ export function avatar(url: string, size = 48) {
     const u = new URL(url);
     u.searchParams.delete("size");
     u.searchParams.set("s", String(size));
-    if (u.hostname !== "avatars.githubusercontent.com" || !("__TAURI_INTERNALS__" in window) || "__mock" in window) return u.toString();
+    if (u.hostname !== "avatars.githubusercontent.com" || !("__TAURI_INTERNALS__" in window) || "__mock" in window)
+      return u.toString();
     // Custom schemes are http://<scheme>.localhost on Windows.
     const base = navigator.userAgent.includes("Windows") ? "http://avatar.localhost" : "avatar://localhost";
     return `${base}${u.pathname}${u.search}`;

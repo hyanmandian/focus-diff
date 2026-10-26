@@ -1,15 +1,17 @@
-import { fileURLToPath, URL } from "node:url";
 import process from "node:process";
-import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath, URL } from "node:url";
+
 import babel from "@rolldown/plugin-babel";
+import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vite-plus";
 
 const host = process.env.TAURI_DEV_HOST;
+const page = (name: string) => fileURLToPath(new URL(`./${name}.html`, import.meta.url));
 
-// Four pages: the panel under the tray icon (index.html), settings, first-run setup, and a pull
-// request's review.
-export default defineConfig(() => ({
+// Vite+ runs it all from here (vp dev, vp build, vp check, vp test): four pages (the panel under
+// the tray icon, settings, first-run setup and a pull request's review), Oxfmt, Oxlint, Vitest.
+export default defineConfig({
   // React Compiler memoizes components and hooks at build time, so renders stay cheap without
   // hand-written useMemo/useCallback.
   plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
@@ -19,12 +21,7 @@ export default defineConfig(() => ({
   build: {
     target: "safari16",
     rollupOptions: {
-      input: {
-        panel: fileURLToPath(new URL("./index.html", import.meta.url)),
-        settings: fileURLToPath(new URL("./settings.html", import.meta.url)),
-        setup: fileURLToPath(new URL("./setup.html", import.meta.url)),
-        review: fileURLToPath(new URL("./review.html", import.meta.url)),
-      },
+      input: { panel: page("index"), settings: page("settings"), setup: page("setup"), review: page("review") },
     },
   },
   // Tauri expects a fixed port, keeps Rust errors visible, and rebuilds itself.
@@ -36,4 +33,74 @@ export default defineConfig(() => ({
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
     watch: { ignored: ["**/src-tauri/**"] },
   },
-}));
+
+  fmt: {
+    printWidth: 120,
+    sortImports: true,
+    sortPackageJson: true,
+    sortTailwindcss: { stylesheet: "./src/index.css", functions: ["cn", "cva"] },
+    ignorePatterns: ["dist/**", "src-tauri/**", "node_modules/**", "coverage/**", "package-lock.json"],
+  },
+
+  lint: {
+    ignorePatterns: ["dist/**", "src-tauri/**", "coverage/**"],
+    options: { typeAware: true, typeCheck: true },
+    plugins: [
+      "eslint",
+      "typescript",
+      "unicorn",
+      "oxc",
+      "react",
+      "react-perf",
+      "jsx-a11y",
+      "import",
+      "jsdoc",
+      "promise",
+      "vitest",
+    ],
+    categories: { correctness: "error", suspicious: "error", perf: "error", pedantic: "error" },
+    rules: {
+      // No barrels, no cycles, nothing unused.
+      "import/no-cycle": "error",
+      "import/no-self-import": "error",
+      "import/no-duplicates": "error",
+      "import/no-namespace": "error",
+      "eslint/no-unused-vars": "error",
+      "typescript/no-explicit-any": "error",
+      "typescript/no-non-null-assertion": "off",
+      "typescript/consistent-type-imports": "error",
+      "typescript/no-floating-promises": "error",
+      "typescript/no-misused-promises": "error",
+      "typescript/await-thenable": "error",
+      "typescript/switch-exhaustiveness-check": "error",
+      "react/jsx-key": "error",
+      "react/no-array-index-key": "error",
+      "react/self-closing-comp": "error",
+      "react/jsx-no-useless-fragment": "error",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+      "jsx-a11y/no-autofocus": "off",
+      "jsdoc/check-tag-names": "error",
+      "jsdoc/no-defaults": "error",
+      "unicorn/filename-case": ["error", { case: "kebabCase" }],
+      "unicorn/no-null": "off",
+      "eslint/no-console": ["error", { allow: ["error"] }],
+      "eslint/eqeqeq": "error",
+      "eslint/no-var": "error",
+      "eslint/prefer-const": "error",
+    },
+  },
+
+  test: {
+    environment: "happy-dom",
+    include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      // The windows' entry points, the development sample data and type declarations aren't units.
+      exclude: ["src/entries/**", "src/utils/mock*/**", "src/utils/dev-log/**", "src/**/*.d.ts", "src/locales/**"],
+      thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
+      reporter: ["text-summary", "html"],
+    },
+  },
+});

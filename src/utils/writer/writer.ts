@@ -111,10 +111,39 @@ export function referable(repo: string, query: string): Promise<Reference[]> {
   type Raw = { search: { nodes: Array<{ __typename: string; number?: number; title?: string; state?: string }> } };
   const words = /^\d+$/.test(query) ? query : query ? `${query} in:title` : "";
   const asked = graphql<Raw>(
-    `query($q: String!) { search(query: $q, type: ISSUE, first: 8) { nodes { __typename ... on Issue { number title state } ... on PullRequest { number title state } } } }`,
+    `
+      query ($q: String!) {
+        search(query: $q, type: ISSUE, first: 8) {
+          nodes {
+            __typename
+            ... on Issue {
+              number
+              title
+              state
+            }
+            ... on PullRequest {
+              number
+              title
+              state
+            }
+          }
+        }
+      }
+    `,
     { q: `repo:${repo} ${words} sort:updated-desc`.replace(/\s+/g, " ").trim() },
   ).then((d) =>
-    d.search.nodes.flatMap((n): Reference[] => (n.number && n.title ? [{ number: n.number, title: n.title, kind: n.__typename === "PullRequest" ? "pull" : "issue", state: n.state ?? "" }] : [])),
+    d.search.nodes.flatMap((n): Reference[] =>
+      n.number && n.title
+        ? [
+            {
+              number: n.number,
+              title: n.title,
+              kind: n.__typename === "PullRequest" ? "pull" : "issue",
+              state: n.state ?? "",
+            },
+          ]
+        : [],
+    ),
   );
   references.set(key, asked);
   asked.catch(() => references.delete(key));
@@ -129,7 +158,9 @@ export async function savedReplies(): Promise<SavedReply[] | null> {
   const known = stored<SavedReply[]>("saved-replies");
   if (known) return known;
   try {
-    const data = await graphql<{ viewer: { savedReplies: { nodes: SavedReply[] } | null } }>("query { viewer { savedReplies(first: 100) { nodes { id title body } } } }");
+    const data = await graphql<{ viewer: { savedReplies: { nodes: SavedReply[] } | null } }>(
+      "query { viewer { savedReplies(first: 100) { nodes { id title body } } } }",
+    );
     const replies = data.viewer.savedReplies?.nodes ?? null;
     if (replies) store("saved-replies", replies);
     return replies;

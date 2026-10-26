@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { complete, emojiList, link, quote, rankEmoji, rankPeople, tokenAt, wrap } from "@/utils/writing/writing";
 
 describe("tokenAt", () => {
@@ -25,7 +26,13 @@ describe("complete", () => {
 });
 
 describe("rankPeople", () => {
-  const people = [{ login: "bruno" }, { login: "carla", name: "Carla Dias" }, { login: "ana", name: "Ana" }, { login: "dana" }, { login: "ana" }];
+  const people = [
+    { login: "bruno" },
+    { login: "carla", name: "Carla Dias" },
+    { login: "ana", name: "Ana" },
+    { login: "dana" },
+    { login: "ana" },
+  ];
 
   it("puts logins that start with it first, then names, then the rest", () => {
     expect(rankPeople(people, "d").map((p) => p.login)).toEqual(["dana", "carla"]);
@@ -50,7 +57,12 @@ describe("link", () => {
   it("makes the selection a link with the caret on its address", () => {
     expect(link("see docs", 4, 8)).toEqual({ from: 4, to: 8, insert: "[docs]()", select: [11, 11] });
     expect(link("https://x.dev", 0, 13)).toEqual({ from: 0, to: 13, insert: "[](https://x.dev)", select: [1, 1] });
-    expect(link("docs", 0, 4, "https://x.dev")).toEqual({ from: 0, to: 4, insert: "[docs](https://x.dev)", select: [21, 21] });
+    expect(link("docs", 0, 4, "https://x.dev")).toEqual({
+      from: 0,
+      to: 4,
+      insert: "[docs](https://x.dev)",
+      select: [21, 21],
+    });
   });
 });
 
@@ -70,7 +82,10 @@ describe("emoji", () => {
   });
 
   it("go in by name, as GitHub writes them", () => {
-    expect(complete("nice :ta", { kind: "emoji", query: "ta", start: 5 }, 8, "tada")).toEqual({ text: "nice :tada: ", caret: 12 });
+    expect(complete("nice :ta", { kind: "emoji", query: "ta", start: 5 }, 8, "tada")).toEqual({
+      text: "nice :tada: ",
+      caret: 12,
+    });
   });
 
   it("come from GitHub's list as characters, ranked by name", () => {

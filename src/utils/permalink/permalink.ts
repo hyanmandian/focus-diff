@@ -27,10 +27,16 @@ export async function sha256(text: string) {
 /** "R10", "L4-L6", or "L4-R6" across the sides. */
 export function diffLines(side: Side, start: number, end = start, startSide: Side = side) {
   const letter = (s: Side) => (s === "deletions" ? "L" : "R");
-  return start === end && startSide === side ? `${letter(side)}${end}` : `${letter(startSide)}${start}-${letter(side)}${end}`;
+  return start === end && startSide === side
+    ? `${letter(side)}${end}`
+    : `${letter(startSide)}${start}-${letter(side)}${end}`;
 }
 
-export async function diffLink(r: Repo & { number: number }, path: string, lines?: { side: Side; start: number; end?: number; startSide?: Side }) {
+export async function diffLink(
+  r: Repo & { number: number },
+  path: string,
+  lines?: { side: Side; start: number; end?: number; startSide?: Side },
+) {
   const anchor = `diff-${await sha256(path)}${lines && lines.start > 0 ? diffLines(lines.side, lines.start, lines.end, lines.startSide) : ""}`;
   return `https://github.com/${r.owner}/${r.repo}/pull/${r.number}/files#${anchor}`;
 }

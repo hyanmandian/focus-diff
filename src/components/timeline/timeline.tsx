@@ -1,13 +1,35 @@
 // One event of the timeline in the conversation, compact: a small glyph, who did what, and when,
 // in one line (a run of commits opens to list them).
 
-import { Bookmark, CircleDot, Eye, EyeOff, GitBranch, GitCommitHorizontal, GitMerge, GitPullRequestClosed, GitPullRequestDraft, Link2, ListOrdered, Pencil, Rocket, Tag, Upload, UserMinus, UserPlus, Zap, ZapOff, type LucideIcon } from "lucide-react";
+import {
+  Bookmark,
+  CircleDot,
+  Eye,
+  EyeOff,
+  GitBranch,
+  GitCommitHorizontal,
+  GitMerge,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+  Link2,
+  ListOrdered,
+  Pencil,
+  Rocket,
+  Tag,
+  Upload,
+  UserMinus,
+  UserPlus,
+  Zap,
+  ZapOff,
+  type LucideIcon,
+} from "lucide-react";
 import { useState } from "react";
+
+import { LabelChip } from "@/components/sidebar/sidebar";
 import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import { useT, type T } from "@/utils/i18n/i18n";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
-import { cn } from "@/utils/cn/cn";
-import { LabelChip } from "@/components/sidebar/sidebar";
 
 const ICON: Record<TimelineEvent["kind"], LucideIcon> = {
   commits: GitCommitHorizontal,
@@ -50,20 +72,30 @@ export function describe(e: TimelineEvent, t: T): string {
     case "reviewRequestRemoved":
       return t(`manage.event.${e.kind}`, { who, reviewer: e.reviewer });
     case "labels":
-      return e.added.length && e.removed.length ? t("manage.event.labelsBoth", { who }) : e.added.length ? t("manage.event.labelsAdded", { who }) : t("manage.event.labelsRemoved", { who });
+      return e.added.length && e.removed.length
+        ? t("manage.event.labelsBoth", { who })
+        : e.added.length
+          ? t("manage.event.labelsAdded", { who })
+          : t("manage.event.labelsRemoved", { who });
     case "renamed":
       return t("manage.event.renamed", { who, from: e.from, to: e.to });
     case "merged":
       return t("manage.event.merged", { who, commit: e.commit ?? "", into: e.into });
     case "referenced":
-      return t(e.willClose ? "manage.event.willClose" : "manage.event.referenced", { who, what: `${e.repo}#${e.number}`, title: e.title });
+      return t(e.willClose ? "manage.event.willClose" : "manage.event.referenced", {
+        who,
+        what: `${e.repo}#${e.number}`,
+        title: e.title,
+      });
     case "commitReferenced":
       return t("manage.event.commitReferenced", { who, commit: e.commit, headline: e.headline });
     case "deployed":
       return t("manage.event.deployed", { who, environment: e.environment });
     case "assigned":
     case "unassigned":
-      return e.assignee === e.actor ? t(`manage.event.${e.kind}Self`, { who }) : t(`manage.event.${e.kind}`, { who, assignee: e.assignee });
+      return e.assignee === e.actor
+        ? t(`manage.event.${e.kind}Self`, { who })
+        : t(`manage.event.${e.kind}`, { who, assignee: e.assignee });
     case "milestoned":
     case "demilestoned":
       return t(`manage.event.${e.kind}`, { who, milestone: e.milestone });
@@ -76,7 +108,12 @@ export function describe(e: TimelineEvent, t: T): string {
   }
 }
 
-const TONE: Partial<Record<TimelineEvent["kind"], string>> = { merged: "text-violet", closed: "text-destructive", reopened: "text-success", ready: "text-success" };
+const TONE: Partial<Record<TimelineEvent["kind"], string>> = {
+  merged: "text-violet",
+  closed: "text-destructive",
+  reopened: "text-success",
+  ready: "text-success",
+};
 
 export function TimelineRow({ event: e }: { event: TimelineEvent }) {
   const t = useT();
@@ -92,18 +129,37 @@ export function TimelineRow({ event: e }: { event: TimelineEvent }) {
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           {link?.startsWith("https://") ? (
-            <button type="button" className="cursor-default text-left outline-none hover:text-foreground focus-ring" onClick={() => void bridge.openUrl(link)}>
+            <button
+              type="button"
+              className="cursor-default text-left focus-ring outline-none hover:text-foreground"
+              onClick={() => void bridge.openUrl(link)}
+            >
               {text}
             </button>
           ) : e.kind === "commits" && e.commits.length > 1 ? (
-            <button type="button" aria-expanded={open} className="cursor-default text-left outline-none hover:text-foreground focus-ring" onClick={() => setOpen(!open)}>
+            <button
+              type="button"
+              aria-expanded={open}
+              className="cursor-default text-left focus-ring outline-none hover:text-foreground"
+              onClick={() => setOpen(!open)}
+            >
               {text}
             </button>
           ) : (
             <span>{text}</span>
           )}
-          {e.kind === "commits" && e.commits.length === 1 ? <span className="truncate text-foreground">{e.commits[0]!.headline}</span> : null}
-          {e.kind === "labels" ? [...e.added, ...e.removed].map((l, i) => <LabelChip key={`${i}:${l.name}`} label={l} className={cn("h-4.5", e.removed.includes(l) && "line-through opacity-70")} />) : null}
+          {e.kind === "commits" && e.commits.length === 1 ? (
+            <span className="truncate text-foreground">{e.commits[0]!.headline}</span>
+          ) : null}
+          {e.kind === "labels"
+            ? [...e.added, ...e.removed].map((l, i) => (
+                <LabelChip
+                  key={`${i}:${l.name}`}
+                  label={l}
+                  className={cn("h-4.5", e.removed.includes(l) && "line-through opacity-70")}
+                />
+              ))
+            : null}
           <span aria-hidden>·</span>
           <time dateTime={e.at}>{t.since(Date.parse(e.at))}</time>
         </p>

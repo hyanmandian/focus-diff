@@ -40,7 +40,10 @@ export function complete(text: string, token: Token, caret: number, value: strin
   // A space already there isn't doubled.
   const rest = text.slice(caret);
   const next = rest.startsWith(" ") ? insert.slice(0, -1) : insert;
-  return { text: text.slice(0, token.start) + next + rest, caret: token.start + next.length + (rest.startsWith(" ") ? 1 : 0) };
+  return {
+    text: text.slice(0, token.start) + next + rest,
+    caret: token.start + next.length + (rest.startsWith(" ") ? 1 : 0),
+  };
 }
 
 export type Person = { login: string; name?: string | null; avatarUrl?: string };
@@ -82,9 +85,19 @@ export function wrap(text: string, start: number, end: number, kind: "bold" | "i
     return { from: start, to: end, insert: inner, select: [start, start + inner.length] };
   }
   if (text.slice(start - mark.length, start) === mark && text.slice(end, end + mark.length) === mark) {
-    return { from: start - mark.length, to: end + mark.length, insert: selected, select: [start - mark.length, end - mark.length] };
+    return {
+      from: start - mark.length,
+      to: end + mark.length,
+      insert: selected,
+      select: [start - mark.length, end - mark.length],
+    };
   }
-  return { from: start, to: end, insert: `${mark}${selected}${mark}`, select: [start + mark.length, end + mark.length] };
+  return {
+    from: start,
+    to: end,
+    insert: `${mark}${selected}${mark}`,
+    select: [start + mark.length, end + mark.length],
+  };
 }
 
 /** ⌘K: the selection as a link's text with the caret on its address (a selected address becomes

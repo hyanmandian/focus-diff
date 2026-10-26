@@ -7,7 +7,8 @@ import type { Actor, Item } from "@/utils/engine/engine";
 import type { T } from "@/utils/i18n/i18n";
 
 /** Someone by their first name, as people say it; their login without one. */
-export const firstName = (actor: Actor, t: T) => actor?.name?.trim().split(/\s+/)[0] || actor?.login || t("common.someone");
+export const firstName = (actor: Actor, t: T) =>
+  actor?.name?.trim().split(/\s+/)[0] || actor?.login || t("common.someone");
 
 /** Each event's colour: t(`events.tag.${kind}`) is its tag, t(`events.long.${kind}`) its tooltip,
  *  t(`events.label.${kind}`) its name among a queue's notifications. */
@@ -36,4 +37,5 @@ export const STATUS_TONES: Record<NonNullable<Item["status"]>, string> = {
 };
 
 /** "30 seconds", "3 minutes": a refresh interval. */
-export const interval = (seconds: number, t: T) => (seconds < 120 ? t("common.seconds", { count: seconds }) : t("common.minutes", { count: seconds / 60 }));
+export const interval = (seconds: number, t: T) =>
+  seconds < 120 ? t("common.seconds", { count: seconds }) : t("common.minutes", { count: seconds / 60 });

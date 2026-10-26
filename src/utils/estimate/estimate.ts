@@ -3,6 +3,7 @@
 // What's learned is kept in pace.json beside the config, so every window (and Rust) reads the same.
 
 import { useSyncExternalStore } from "react";
+
 import { bridge } from "@/utils/bridge/bridge";
 import type { T } from "@/utils/i18n/i18n";
 
@@ -35,13 +36,20 @@ export const KINDS = ["generated", "tests", "docs", "styles", "config", "code"] 
 export type Kind = (typeof KINDS)[number];
 
 const KIND_PATTERNS: Array<[Kind, RegExp]> = [
-  ["tests", /(^|\/)(__tests__|__mocks__|tests?|specs?|e2e|cypress|playwright)\/|\.(test|spec|stories|e2e)\.[^/]+$|(_test\.(go|py|rb|exs?)|_spec\.rb)$|(^|\/)test_[^/]+\.py$/i],
+  [
+    "tests",
+    /(^|\/)(__tests__|__mocks__|tests?|specs?|e2e|cypress|playwright)\/|\.(test|spec|stories|e2e)\.[^/]+$|(_test\.(go|py|rb|exs?)|_spec\.rb)$|(^|\/)test_[^/]+\.py$/i,
+  ],
   ["docs", /\.(md|mdx|markdown|rst|adoc|txt)$|(^|\/)(docs?|documentation)\//i],
   ["styles", /\.(css|scss|sass|less|styl|pcss)$/i],
-  ["config", /\.(json|jsonc|ya?ml|toml|ini|cfg|conf|properties|xml|plist|env|lock)$|(^|\/)(Dockerfile|Makefile|Procfile|\.[\w.-]+rc|\.gitignore|\.editorconfig)$/i],
+  [
+    "config",
+    /\.(json|jsonc|ya?ml|toml|ini|cfg|conf|properties|xml|plist|env|lock)$|(^|\/)(Dockerfile|Makefile|Procfile|\.[\w.-]+rc|\.gitignore|\.editorconfig)$/i,
+  ],
 ];
 
-export const kindOf = (path: string): Kind => (isGenerated(path) ? "generated" : (KIND_PATTERNS.find(([, pattern]) => pattern.test(path))?.[0] ?? "code"));
+export const kindOf = (path: string): Kind =>
+  isGenerated(path) ? "generated" : (KIND_PATTERNS.find(([, pattern]) => pattern.test(path))?.[0] ?? "code");
 
 /** Minutes spent on files next to the minutes the starting pace gave them; both fade as newer
  *  reviews come in. */
@@ -73,7 +81,10 @@ const tally = (value: unknown): Tally => {
 export function normalizeLearned(value: unknown): Learned {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const kinds = raw.kinds && typeof raw.kinds === "object" ? (raw.kinds as Record<string, unknown>) : {};
-  return { all: tally(raw.all), kinds: Object.fromEntries(KINDS.filter((kind) => kinds[kind]).map((kind) => [kind, tally(kinds[kind])])) };
+  return {
+    all: tally(raw.all),
+    kinds: Object.fromEntries(KINDS.filter((kind) => kinds[kind]).map((kind) => [kind, tally(kinds[kind])])),
+  };
 }
 
 /** How many times the starting pace the reader takes, overall and per kind; 1 until something's learned. */
@@ -92,7 +103,11 @@ export function paceFactors(learned: Learned): { all: number; kinds: Record<Kind
 export function learnFile(learned: Learned, path: string, expected: number, actual: number): Learned {
   if (!(expected > 0) || !(actual > 0)) return learned;
   const spent = Math.min(expected * MOST_OFF, Math.max(expected / MOST_OFF, actual));
-  const add = (before: Tally): Tally => ({ actual: before.actual * FADE + spent, expected: before.expected * FADE + expected, files: before.files + 1 });
+  const add = (before: Tally): Tally => ({
+    actual: before.actual * FADE + spent,
+    expected: before.expected * FADE + expected,
+    files: before.files + 1,
+  });
   const kind = kindOf(path);
   return { all: add(learned.all), kinds: { ...learned.kinds, [kind]: add(learned.kinds[kind] ?? NOTHING) } };
 }

@@ -3,14 +3,21 @@
 
 import { Copy, MoreHorizontal, Pencil, Quote, SmilePlus, Trash2 } from "lucide-react";
 import { useState } from "react";
+
 import { Button } from "@/components/button/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { cn } from "@/utils/cn/cn";
 import { EMOJI, REACTIONS, toggled, type Reaction, type ReactionContent } from "@/utils/comments/comments";
 import { useT } from "@/utils/i18n/i18n";
-import { cn } from "@/utils/cn/cn";
-import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 
 /** Reactions shown as given at once; if GitHub refuses, they go back. */
 export function useReactions(subject: string, given: Reaction[]) {
@@ -32,13 +39,32 @@ export function useReactions(subject: string, given: Reaction[]) {
 }
 
 /** The smiley that adds a reaction: GitHub's eight, in a popover. */
-export function ReactionPicker({ reactions, onToggle }: { reactions: Reaction[]; onToggle: (content: ReactionContent) => void }) {
+export function ReactionPicker({
+  reactions,
+  onToggle,
+}: {
+  reactions: Reaction[];
+  onToggle: (content: ReactionContent) => void;
+}) {
   const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
-        <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.addReaction")} />} />}>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground"
+                  aria-label={t("review.addReaction")}
+                />
+              }
+            />
+          }
+        >
           <SmilePlus />
         </TooltipTrigger>
         <TooltipContent>{t("review.addReaction")}</TooltipContent>
@@ -56,7 +82,10 @@ export function ReactionPicker({ reactions, onToggle }: { reactions: Reaction[];
                 onToggle(content);
                 setOpen(false);
               }}
-              className={cn("grid size-8 cursor-default place-items-center rounded-(--radius-control) text-title3 outline-none focus-ring active:bg-(--fill-control-pressed)", mine && "bg-primary/15")}
+              className={cn(
+                "grid size-8 cursor-default place-items-center rounded-(--radius-control) text-title3 focus-ring outline-none active:bg-(--fill-control-pressed)",
+                mine && "bg-primary/15",
+              )}
             >
               {EMOJI[content]}
             </button>
@@ -69,7 +98,15 @@ export function ReactionPicker({ reactions, onToggle }: { reactions: Reaction[];
 
 /** The reactions given, each a capsule with its count (yours in the accent): a click takes yours
  *  back or adds it. */
-export function ReactionList({ reactions, canReact, onToggle }: { reactions: Reaction[]; canReact: boolean; onToggle: (content: ReactionContent) => void }) {
+export function ReactionList({
+  reactions,
+  canReact,
+  onToggle,
+}: {
+  reactions: Reaction[];
+  canReact: boolean;
+  onToggle: (content: ReactionContent) => void;
+}) {
   const t = useT();
   if (!reactions.length) return null;
   return (
@@ -90,8 +127,10 @@ export function ReactionList({ reactions, canReact, onToggle }: { reactions: Rea
                     disabled={!canReact}
                     onClick={() => onToggle(r.content)}
                     className={cn(
-                      "flex h-(--control-h-sm) cursor-default items-center gap-1 rounded-full border px-2 text-subheadline tabular-nums outline-none focus-ring disabled:opacity-100",
-                      r.mine ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-transparent text-muted-foreground active:bg-fill",
+                      "flex h-(--control-h-sm) cursor-default items-center gap-1 rounded-full border px-2 text-subheadline tabular-nums focus-ring outline-none disabled:opacity-100",
+                      r.mine
+                        ? "border-primary/50 bg-primary/10 text-primary"
+                        : "border-border bg-transparent text-muted-foreground active:bg-fill",
                     )}
                   />
                 }
@@ -110,16 +149,40 @@ export function ReactionList({ reactions, canReact, onToggle }: { reactions: Rea
 /** Where a comment's smiley and "…" sit: shown under the pointer, with the keyboard's focus, or
  *  while one is open, so a long conversation isn't a column of buttons. Put `group/said` on the
  *  comment. */
-export const ACTIONS = "flex items-center opacity-0 transition-opacity duration-(--duration) group-hover/said:opacity-100 group-focus-within/said:opacity-100 has-[[aria-expanded=true]]:opacity-100 motion-reduce:transition-none";
+export const ACTIONS =
+  "flex items-center opacity-0 transition-opacity duration-(--duration) group-hover/said:opacity-100 group-focus-within/said:opacity-100 has-[[aria-expanded=true]]:opacity-100 motion-reduce:transition-none";
 
 /** "…" beside a comment. */
-export function CommentMenu({ url, onQuote, onEdit, onDelete }: { url: string; onQuote?: () => void; onEdit?: () => void; onDelete?: () => void }) {
+export function CommentMenu({
+  url,
+  onQuote,
+  onEdit,
+  onDelete,
+}: {
+  url: string;
+  onQuote?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const t = useT();
   const api = useConversationApi();
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.commentActions")} />} />}>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground"
+                  aria-label={t("review.commentActions")}
+                />
+              }
+            />
+          }
+        >
           <MoreHorizontal />
         </TooltipTrigger>
         <TooltipContent>{t("review.commentActions")}</TooltipContent>

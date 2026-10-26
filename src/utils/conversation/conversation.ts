@@ -5,13 +5,21 @@
 // so it shows at once next time.
 
 import { invoke } from "@tauri-apps/api/core";
+
 import { graphql } from "@/utils/bridge/bridge";
 import { AUTHOR, REACTION_FIELDS, toReactions, type Reaction } from "@/utils/comments/comments";
 import type { Entry } from "@/utils/details/details";
 import type { PullRef } from "@/utils/review/review";
 
 /** What a comment or review says beyond its HTML, and what you may do with it. */
-export type Said = { body: string; canEdit: boolean; canDelete: boolean; canReact: boolean; edited: boolean; reactions: Reaction[] };
+export type Said = {
+  body: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  canReact: boolean;
+  edited: boolean;
+  reactions: Reaction[];
+};
 export type ConversationEntry = Entry & Said;
 
 export type Conversation = {
@@ -34,17 +42,54 @@ export type Conversation = {
 const SAID = `body bodyHTML createdAt url lastEditedAt viewerCanUpdate viewerCanDelete viewerCanReact ${REACTION_FIELDS}`;
 const REVIEW_COMMENTS = `comments(first: 100) { pageInfo { hasNextPage endCursor } nodes { id path line bodyHTML author { ${AUTHOR} } url } }`;
 
-type RawSaid = { body: string; bodyHTML: string; createdAt: string; url: string; lastEditedAt: string | null; viewerCanUpdate: boolean; viewerCanDelete: boolean; viewerCanReact: boolean; reactionGroups: Parameters<typeof toReactions>[0] };
-type RawReviewComment = { id: string; path: string; line: number | null; bodyHTML: string; author: Entry["author"]; url: string };
+type RawSaid = {
+  body: string;
+  bodyHTML: string;
+  createdAt: string;
+  url: string;
+  lastEditedAt: string | null;
+  viewerCanUpdate: boolean;
+  viewerCanDelete: boolean;
+  viewerCanReact: boolean;
+  reactionGroups: Parameters<typeof toReactions>[0];
+};
+type RawReviewComment = {
+  id: string;
+  path: string;
+  line: number | null;
+  bodyHTML: string;
+  author: Entry["author"];
+  url: string;
+};
 type Page<T> = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: T[] };
 type RawItem =
   | ({ __typename: "IssueComment"; id: string; author: Entry["author"] } & RawSaid)
-  | ({ __typename: "PullRequestReview"; id: string; author: Entry["author"]; state: string; comments: Page<RawReviewComment> } & RawSaid)
+  | ({
+      __typename: "PullRequestReview";
+      id: string;
+      author: Entry["author"];
+      state: string;
+      comments: Page<RawReviewComment>;
+    } & RawSaid)
   | { __typename: string };
 
-const said = (n: RawSaid): Said => ({ body: n.body, canEdit: n.viewerCanUpdate, canDelete: n.viewerCanDelete, canReact: n.viewerCanReact, edited: Boolean(n.lastEditedAt), reactions: toReactions(n.reactionGroups) });
+const said = (n: RawSaid): Said => ({
+  body: n.body,
+  canEdit: n.viewerCanUpdate,
+  canDelete: n.viewerCanDelete,
+  canReact: n.viewerCanReact,
+  edited: Boolean(n.lastEditedAt),
+  reactions: toReactions(n.reactionGroups),
+});
 
-const toComment = (c: RawReviewComment) => ({ id: c.id, path: c.path, line: c.line, html: c.bodyHTML, author: c.author, url: c.url });
+const toComment = (c: RawReviewComment) => ({
+  id: c.id,
+  path: c.path,
+  line: c.line,
+  html: c.bodyHTML,
+  author: c.author,
+  url: c.url,
+});
 
 export async function loadConversation(d: PullRef): Promise<Conversation> {
   type Raw = {
@@ -99,14 +144,37 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
     };
     for (const node of pr.timelineItems.nodes) {
       if (node.__typename === "IssueComment" && "body" in node) {
-        entries.push({ kind: "comment", id: node.id, author: node.author, html: node.bodyHTML, at: node.createdAt, url: node.url, ...said(node) });
+        entries.push({
+          kind: "comment",
+          id: node.id,
+          author: node.author,
+          html: node.bodyHTML,
+          at: node.createdAt,
+          url: node.url,
+          ...said(node),
+        });
       } else if (node.__typename === "PullRequestReview" && "comments" in node) {
         // Your pending review isn't part of the conversation yet: its comments show as pending.
         if (node.state === "PENDING") continue;
-        const entry: ConversationEntry = { kind: "review", id: node.id, author: node.author, state: node.state, html: node.bodyHTML, at: node.createdAt, url: node.url, comments: node.comments.nodes.map(toComment), ...said(node) };
+        const entry: ConversationEntry = {
+          kind: "review",
+          id: node.id,
+          author: node.author,
+          state: node.state,
+          html: node.bodyHTML,
+          at: node.createdAt,
+          url: node.url,
+          comments: node.comments.nodes.map(toComment),
+          ...said(node),
+        };
         entries.push(entry);
         const cursor = node.comments.pageInfo.hasNextPage ? node.comments.pageInfo.endCursor : null;
-        if (cursor) longer.push(moreReviewComments(node.id, cursor).then((rest) => void (entry.kind === "review" && entry.comments.push(...rest))));
+        if (cursor)
+          longer.push(
+            moreReviewComments(node.id, cursor).then(
+              (rest) => void (entry.kind === "review" && entry.comments.push(...rest)),
+            ),
+          );
       }
     }
     if (!pr.timelineItems.pageInfo.hasNextPage) break;

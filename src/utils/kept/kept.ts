@@ -7,6 +7,7 @@
 // megabytes of them each time was most of the work.
 
 import { invoke } from "@tauri-apps/api/core";
+
 import type { Details } from "@/utils/details/details";
 import { hash, patchHash } from "@/utils/hashes/hashes";
 import type { ReviewFile, Thread } from "@/utils/review/review";
@@ -41,7 +42,9 @@ export async function readKept(id: string): Promise<Kept | null> {
     if (!text) return null;
     const kept = JSON.parse(text) as Partial<Kept>;
     // A copy from before the files were kept apart has them inside.
-    const files = kept.files ?? (JSON.parse((await invoke<string | null>("kept_read", { id: filesId(id) })) ?? "null") as ReviewFile[] | null);
+    const files =
+      kept.files ??
+      (JSON.parse((await invoke<string | null>("kept_read", { id: filesId(id) })) ?? "null") as ReviewFile[] | null);
     return kept.details && kept.threads && files ? { details: kept.details, threads: kept.threads, files } : null;
   } catch {
     return null;
@@ -49,7 +52,8 @@ export async function readKept(id: string): Promise<Kept | null> {
 }
 
 /** The files' identity: their paths and patches (hashed once per file, hashes.ts). */
-const filesSignature = (files: ReviewFile[]) => hash(files.map((f) => `${f.path}\u0000${f.previousPath ?? ""}\u0000${patchHash(f)}`).join("\n"));
+const filesSignature = (files: ReviewFile[]) =>
+  hash(files.map((f) => `${f.path}\u0000${f.previousPath ?? ""}\u0000${patchHash(f)}`).join("\n"));
 
 export async function keep(id: string, kept: Kept, updatedAt?: string) {
   try {
@@ -59,10 +63,14 @@ export async function keep(id: string, kept: Kept, updatedAt?: string) {
     const rest = JSON.stringify({ details: kept.details, threads: kept.threads });
     const now = { rest: hash(rest), files: filesSignature(kept.files), at: fresh ? before.at : Date.now() };
     // The files first: details without their files read as no copy at all.
-    if (!fresh || before.files !== now.files) await invoke("kept_write", { id: filesId(id), contents: JSON.stringify(kept.files) });
+    if (!fresh || before.files !== now.files)
+      await invoke("kept_write", { id: filesId(id), contents: JSON.stringify(kept.files) });
     if (!fresh || before.rest !== now.rest) await invoke("kept_write", { id, contents: rest });
     // The most recent couple hundred are enough to know.
-    localStorage.setItem(WRITTEN, JSON.stringify(Object.fromEntries(Object.entries({ ...written, [id]: now }).slice(-200))));
+    localStorage.setItem(
+      WRITTEN,
+      JSON.stringify(Object.fromEntries(Object.entries({ ...written, [id]: now }).slice(-200))),
+    );
     if (updatedAt) {
       const all = Object.entries({ ...read<Record<string, string>>(VERSIONS), [id]: updatedAt }).slice(-200);
       localStorage.setItem(VERSIONS, JSON.stringify(Object.fromEntries(all)));

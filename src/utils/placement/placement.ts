@@ -5,6 +5,7 @@
 // unrelated code, so the number alone never places it.
 
 import type { FileDiffMetadata } from "@pierre/diffs";
+
 import type { Thread } from "@/utils/review/review";
 
 type Side = Thread["side"];
@@ -17,7 +18,10 @@ export function lineText(diff: FileDiffMetadata, side: Side, line: number): stri
 
 function rawLine(diff: FileDiffMetadata, side: Side, line: number): string | null {
   for (const h of diff.hunks) {
-    const [start, count, index, lines] = side === "additions" ? [h.additionStart, h.additionCount, h.additionLineIndex, diff.additionLines] : [h.deletionStart, h.deletionCount, h.deletionLineIndex, diff.deletionLines];
+    const [start, count, index, lines] =
+      side === "additions"
+        ? [h.additionStart, h.additionCount, h.additionLineIndex, diff.additionLines]
+        : [h.deletionStart, h.deletionCount, h.deletionLineIndex, diff.deletionLines];
     // A full file (hydrated, or made from both versions) holds every line at its own place.
     if (!diff.isPartial) return line >= 1 && line <= lines.length ? (lines[line - 1] ?? null) : null;
     if (line >= start && line < start + count) return lines[index + line - start] ?? null;
@@ -27,7 +31,11 @@ function rawLine(diff: FileDiffMetadata, side: Side, line: number): string | nul
 
 /** Whether a line is one the diff shows (in a hunk) on that side. */
 export function shows(diff: FileDiffMetadata, side: Side, line: number) {
-  return diff.hunks.some((h) => (side === "additions" ? line >= h.additionStart && line < h.additionStart + h.additionCount : line >= h.deletionStart && line < h.deletionStart + h.deletionCount));
+  return diff.hunks.some((h) =>
+    side === "additions"
+      ? line >= h.additionStart && line < h.additionStart + h.additionCount
+      : line >= h.deletionStart && line < h.deletionStart + h.deletionCount,
+  );
 }
 
 /** Lines compared as code: the line ending and trailing spaces don't count. */
@@ -36,13 +44,18 @@ const same = (a: string, b: string) => a.replace(/\s+$/, "") === b.replace(/\s+$
 /** `lineNumber` 0: the top of the file. `moved`: not at its line, so it says where it was. */
 export type Placement = { side: Side; lineNumber: number; moved: boolean };
 
-export function placeThread(diff: FileDiffMetadata, thread: Pick<Thread, "side" | "line" | "outdated" | "context">): Placement {
+export function placeThread(
+  diff: FileDiffMetadata,
+  thread: Pick<Thread, "side" | "line" | "outdated" | "context">,
+): Placement {
   const top = { side: thread.side, lineNumber: 0, moved: true };
   if (thread.line <= 0 || !shows(diff, thread.side, thread.line)) return top;
   if (!thread.outdated) return { side: thread.side, lineNumber: thread.line, moved: false };
   // Outdated: only where the line it was made on is still the same code.
   const text = lineText(diff, thread.side, thread.line);
-  return thread.context !== undefined && text !== null && same(text, thread.context) ? { side: thread.side, lineNumber: thread.line, moved: false } : top;
+  return thread.context !== undefined && text !== null && same(text, thread.context)
+    ? { side: thread.side, lineNumber: thread.line, moved: false }
+    : top;
 }
 
 /** The commented line's text, from GitHub's diffHunk of the comment: its last line, without the

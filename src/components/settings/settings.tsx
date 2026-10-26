@@ -3,33 +3,48 @@
 // Changes save as you make them; the panel follows along.
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
+import { getVersion } from "@tauri-apps/api/app";
 import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import { Connect } from "@/components/connect/connect";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/input/input";
+import { QueueEditor, queueSummary } from "@/components/queue-editor/queue-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
+import { Actions } from "@/components/settings-actions/settings-actions";
+import { Ai } from "@/components/settings-ai/settings-ai";
+import { Filters } from "@/components/settings-filters/settings-filters";
+import {
+  Group,
+  LinkRow,
+  Pane,
+  Row,
+  TONE_FILL,
+  TWO_LINE_ITEM,
+  useDetail,
+} from "@/components/settings-form/settings-form";
+import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
 import { Switch } from "@/components/switch/switch";
-import { getVersion } from "@tauri-apps/api/app";
 import { PROVIDERS } from "@/utils/ai/ai";
 import { useWebSession } from "@/utils/attachments/attachments";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "@/utils/config/config";
+import { confirmRemove } from "@/utils/confirm/confirm";
 import { interval } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
-import { useTheme } from "@/utils/theme/theme";
-import { cn } from "@/utils/cn/cn";
-import { Connect } from "@/components/connect/connect";
-import { Actions } from "@/components/settings-actions/settings-actions";
-import { Ai } from "@/components/settings-ai/settings-ai";
-import { Filters } from "@/components/settings-filters/settings-filters";
-import { Group, LinkRow, Pane, Row, TONE_FILL, TWO_LINE_ITEM, useDetail } from "@/components/settings-form/settings-form";
-import { QueueEditor, queueSummary } from "@/components/queue-editor/queue-editor";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
-import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
-import { confirmRemove } from "@/utils/confirm/confirm";
+import { useTheme } from "@/utils/theme/theme";
 
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -93,10 +108,24 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         back={{ label: t("settings.pane.queues"), onBack: detail.close, ref: detail.backRef }}
         tools={
           <>
-            <Button variant="ghost" size="icon" aria-label={t("settings.moveUp")} title={t("settings.moveUp")} disabled={index === 0} onClick={() => move(index, -1)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("settings.moveUp")}
+              title={t("settings.moveUp")}
+              disabled={index === 0}
+              onClick={() => move(index, -1)}
+            >
               <ArrowUp />
             </Button>
-            <Button variant="ghost" size="icon" aria-label={t("settings.moveDown")} title={t("settings.moveDown")} disabled={index === config.queues.length - 1} onClick={() => move(index, 1)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("settings.moveDown")}
+              title={t("settings.moveDown")}
+              disabled={index === config.queues.length - 1}
+              onClick={() => move(index, 1)}
+            >
               <ArrowDown />
             </Button>
             <Button
@@ -105,7 +134,12 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               aria-label={t("settings.deleteNamed", { name: selected.name })}
               title={t("settings.deleteQueue")}
               onClick={async () => {
-                if (!(await confirmRemove(t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") })))) return;
+                if (
+                  !(await confirmRemove(
+                    t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") }),
+                  ))
+                )
+                  return;
                 setQueues(config.queues.filter((q) => q.id !== selected.id));
                 detail.close();
               }}
@@ -116,8 +150,17 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         }
       >
         <Group>
-          <Row label={t("settings.showInPanel")} description={selected.enabled ? undefined : t("settings.hiddenQueue")} htmlFor="queue-enabled">
-            <Switch id="queue-enabled" size="sm" checked={selected.enabled} onCheckedChange={(enabled) => replace({ ...selected, enabled })} />
+          <Row
+            label={t("settings.showInPanel")}
+            description={selected.enabled ? undefined : t("settings.hiddenQueue")}
+            htmlFor="queue-enabled"
+          >
+            <Switch
+              id="queue-enabled"
+              size="sm"
+              checked={selected.enabled}
+              onCheckedChange={(enabled) => replace({ ...selected, enabled })}
+            />
           </Row>
         </Group>
         <QueueEditor key={selected.id} queue={selected} onChange={replace} />
@@ -145,12 +188,28 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
             <LinkRow
               key={queue.id}
               ref={detail.rowRef(queue.id)}
-              leading={<span className={cn("size-2.5 shrink-0 rounded-full", TONE_FILL[queue.tone], !queue.enabled && "opacity-40")} aria-hidden />}
+              leading={
+                <span
+                  className={cn(
+                    "size-2.5 shrink-0 rounded-full",
+                    TONE_FILL[queue.tone],
+                    !queue.enabled && "opacity-40",
+                  )}
+                  aria-hidden
+                />
+              }
               label={queue.name || t("settings.untitledQueue")}
               description={queueSummary(queue, t)}
               muted={!queue.enabled}
               onOpen={() => detail.open(queue.id)}
-              control={<Switch size="sm" checked={queue.enabled} onCheckedChange={(enabled) => replace({ ...queue, enabled })} aria-label={t("settings.showNamedInPanel", { name: queue.name })} />}
+              control={
+                <Switch
+                  size="sm"
+                  checked={queue.enabled}
+                  onCheckedChange={(enabled) => replace({ ...queue, enabled })}
+                  aria-label={t("settings.showNamedInPanel", { name: queue.name })}
+                />
+              }
             />
           ))
         ) : (
@@ -179,7 +238,9 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
               </Avatar>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-body font-semibold">@{auth.login}</div>
-                <div className="mt-0.5 text-subheadline text-muted-foreground">{auth.source === "gh" ? t("settings.usingGh") : t("settings.signedIn")}</div>
+                <div className="mt-0.5 text-subheadline text-muted-foreground">
+                  {auth.source === "gh" ? t("settings.usingGh") : t("settings.signedIn")}
+                </div>
               </div>
               <Button
                 variant="outline"
@@ -242,12 +303,17 @@ const THEMES: Array<Config["theme"]> = ["system", "light", "dark"];
 
 /** A language by its own name, so anyone can find theirs whatever the app is in now; the system's
  *  is said in the language in use. */
-const languageName = (language: Language, t: T) => (language === "en" ? "English" : language === "pt-BR" ? "Português (Brasil)" : t("settings.language.system"));
+const languageName = (language: Language, t: T) =>
+  language === "en" ? "English" : language === "pt-BR" ? "Português (Brasil)" : t("settings.language.system");
 
 function Updates() {
   const [version, setVersion] = useState("");
   const t = useT();
-  const [state, setState] = useState<{ phase: "idle" | "checking" | "installing" } | { phase: "found"; version: string } | { phase: "latest" | "error"; message?: string }>({ phase: "idle" });
+  const [state, setState] = useState<
+    | { phase: "idle" | "checking" | "installing" }
+    | { phase: "found"; version: string }
+    | { phase: "latest" | "error"; message?: string }
+  >({ phase: "idle" });
   useEffect(() => {
     void getVersion().then(setVersion);
     void bridge.updateOffered().then((v) => v && setState({ phase: "found", version: v }));
@@ -260,7 +326,10 @@ function Updates() {
     } catch (e) {
       // The updater's own words are technical; the gist is enough.
       const detail = typeof e === "string" ? e : String(e);
-      setState({ phase: "error", message: /release JSON|fetch|network|connect/i.test(detail) ? t("settings.noRelease") : detail });
+      setState({
+        phase: "error",
+        message: /release JSON|fetch|network|connect/i.test(detail) ? t("settings.noRelease") : detail,
+      });
     }
   };
   return (
@@ -304,7 +373,10 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
       </Group>
       <Group title={t("settings.behavior")}>
         <Row label={t("settings.checkEvery")} description={t("settings.checkEveryHint")}>
-          <Select value={String(config.pollSeconds)} onValueChange={(v) => onChange({ ...config, pollSeconds: Number(v) })}>
+          <Select
+            value={String(config.pollSeconds)}
+            onValueChange={(v) => onChange({ ...config, pollSeconds: Number(v) })}
+          >
             <SelectTrigger className="min-w-36" aria-label={t("settings.refreshInterval")}>
               <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
             </SelectTrigger>
@@ -354,7 +426,12 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           </Select>
         </Row>
         <Row label={t("settings.sound")} htmlFor="sound">
-          <Switch id="sound" size="sm" checked={config.sound} onCheckedChange={(sound) => onChange({ ...config, sound })} />
+          <Switch
+            id="sound"
+            size="sm"
+            checked={config.sound}
+            onCheckedChange={(sound) => onChange({ ...config, sound })}
+          />
         </Row>
       </Group>
     </Pane>
@@ -364,7 +441,10 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
 const PANE_IDS: PaneId[] = ["account", "queues", "review", "filters", "actions", "ai", "general"];
 
 /** The panes in the sidebar under the account, in order. */
-const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as const).map((value) => ({ value, ...PANE_META[value] }));
+const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as const).map((value) => ({
+  value,
+  ...PANE_META[value],
+}));
 
 /** A pane's search words in the language in use, and in English too, so a setting is found by
  *  either name. */
@@ -375,7 +455,11 @@ function keywords(pane: PaneId, t: T): string[] {
 }
 
 /** For matching: lower case, accents off, so "notificacoes" finds "Notificações". */
-const fold = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+const fold = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
 
 /** What a search finds in a pane: nothing (null), its name, or the first setting that matches. */
 function match(query: string, label: string, words: string[]): { hint?: string } | null {
@@ -397,9 +481,11 @@ function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T)
     ai: names(config.ai.prompts),
   };
   const accountMatch = match(query, auth?.login ?? t("settings.pane.account"), keywords("account", t));
-  const panes = PANES.map((p) => ({ ...p, label: t(`settings.pane.${p.value}`), found: match(query, t(`settings.pane.${p.value}`), [...(own[p.value] ?? []), ...keywords(p.value, t)]) })).filter(
-    (p) => p.found,
-  );
+  const panes = PANES.map((p) => ({
+    ...p,
+    label: t(`settings.pane.${p.value}`),
+    found: match(query, t(`settings.pane.${p.value}`), [...(own[p.value] ?? []), ...keywords(p.value, t)]),
+  })).filter((p) => p.found);
   return { accountMatch, panes };
 }
 
@@ -418,11 +504,21 @@ function rememberedPane(): PaneId {
 // that keeps the text's own colour, a touch firmer while the list has the keyboard; the focus ring
 // only for the keyboard.
 const sidebarItem = cn(
-  "group/item flex w-full cursor-default items-center gap-2.5 rounded-[9px] px-2 text-left text-body outline-none focus-ring-inset",
+  "group/item flex w-full cursor-default items-center gap-2.5 rounded-[9px] px-2 text-left text-body focus-ring-inset outline-none",
   "data-[active]:bg-(--settings-selected) group-focus-within/list:data-[active]:bg-(--settings-selected-focus)",
 );
 
-function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: AuthStatus | null; query: string; setQuery: (q: string) => void }) {
+function Sidebar({
+  config,
+  auth,
+  query,
+  setQuery,
+}: {
+  config: Config;
+  auth: AuthStatus | null;
+  query: string;
+  setQuery: (q: string) => void;
+}) {
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const t = useT();
@@ -448,79 +544,103 @@ function Sidebar({ config, auth, query, setQuery }: { config: Config; auth: Auth
     // shadow (clipped by the column), so only the pane itself shows the material behind.
     <aside className="h-full w-[240px] shrink-0 overflow-hidden p-2">
       <div className="settings-glass flex h-full flex-col rounded-[18px]">
-      <div data-tauri-drag-region className="h-11 shrink-0" />
-      <div className="px-2.5 pb-3">
-        {/* A search field: a capsule, with a clear button once there's something in it. */}
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            ref={searchRef}
-            type="search"
-            aria-label={t("settings.search")}
-            placeholder={t("settings.searchPlaceholder")}
-            value={query}
-            spellCheck={false}
-            autoCorrect="off"
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape" && query) {
-                e.preventDefault();
-                setQuery("");
-              } else if (e.key === "ArrowDown" || e.key === "Enter") {
-                // Into the results; the first is already shown.
-                e.preventDefault();
-                (listRef.current?.querySelector("[role=tab][aria-selected=true]") ?? listRef.current?.querySelector("[role=tab]"))?.closest<HTMLElement>("[role=tab]")?.focus();
-              }
-            }}
-            className="h-8 rounded-(--radius-capsule) border-0 bg-(--settings-field) pr-6 pl-7 shadow-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
-          />
-          {query ? (
-            <button
-              type="button"
-              aria-label={t("settings.clear")}
-              onClick={() => {
-                setQuery("");
-                searchRef.current?.focus();
+        <div data-tauri-drag-region className="h-11 shrink-0" />
+        <div className="px-2.5 pb-3">
+          {/* A search field: a capsule, with a clear button once there's something in it. */}
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              ref={searchRef}
+              type="search"
+              aria-label={t("settings.search")}
+              placeholder={t("settings.searchPlaceholder")}
+              value={query}
+              spellCheck={false}
+              autoCorrect="off"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && query) {
+                  e.preventDefault();
+                  setQuery("");
+                } else if (e.key === "ArrowDown" || e.key === "Enter") {
+                  // Into the results; the first is already shown.
+                  e.preventDefault();
+                  (
+                    listRef.current?.querySelector("[role=tab][aria-selected=true]") ??
+                    listRef.current?.querySelector("[role=tab]")
+                  )
+                    ?.closest<HTMLElement>("[role=tab]")
+                    ?.focus();
+                }
               }}
-              className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background outline-none focus-ring"
-            >
-              <X className="size-2.5" strokeWidth={3} aria-hidden />
-            </button>
-          ) : null}
+              className="h-8 rounded-(--radius-capsule) border-0 bg-(--settings-field) pr-6 pl-7 shadow-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+            />
+            {query ? (
+              <button
+                type="button"
+                aria-label={t("settings.clear")}
+                onClick={() => {
+                  setQuery("");
+                  searchRef.current?.focus();
+                }}
+                className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background focus-ring outline-none"
+              >
+                <X className="size-2.5" strokeWidth={3} aria-hidden />
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
-      <TabsPrimitive.List ref={listRef} activateOnFocus loopFocus={false} aria-label={t("settings.sections")} className="group/list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
-        {accountMatch ? (
-          <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-3 h-12")}>
-            <Avatar className="size-8">
-              {auth?.login ? <AvatarImage src={avatarOf(auth.login)} alt="" /> : null}
-              <AvatarFallback>
-                <CircleUserRound className="size-5" strokeWidth={1.5} aria-hidden />
-              </AvatarFallback>
-            </Avatar>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-semibold">{auth?.signed_in && auth.login ? auth.login : t("settings.notSignedIn")}</span>
-              <span className="block truncate text-subheadline text-muted-foreground">{accountMatch.hint ?? t("settings.pane.account")}</span>
-            </span>
-          </TabsPrimitive.Tab>
-        ) : null}
-        {panes.map(({ value, label, icon: Icon, tile, found }) => (
-          <TabsPrimitive.Tab key={value} value={value} className={cn(sidebarItem, found?.hint ? "h-11" : "h-8")}>
-            <span className="settings-tile grid size-[22px] shrink-0 place-items-center rounded-[6px] text-white" data-tile={tile} aria-hidden>
-              <Icon className="size-3.5" strokeWidth={2.25} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate">{label}</span>
-              {found?.hint ? <span className="block truncate text-subheadline text-muted-foreground">{found.hint}</span> : null}
-            </span>
-          </TabsPrimitive.Tab>
-        ))}
-        {nothing ? (
-          <p className="px-2 py-6 text-center text-callout text-muted-foreground" role="status">
-            {t("settings.noMatch", { query: query.trim() })}
-          </p>
-        ) : null}
-      </TabsPrimitive.List>
+        <TabsPrimitive.List
+          ref={listRef}
+          activateOnFocus
+          loopFocus={false}
+          aria-label={t("settings.sections")}
+          className="group/list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3"
+        >
+          {accountMatch ? (
+            <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-3 h-12")}>
+              <Avatar className="size-8">
+                {auth?.login ? <AvatarImage src={avatarOf(auth.login)} alt="" /> : null}
+                <AvatarFallback>
+                  <CircleUserRound className="size-5" strokeWidth={1.5} aria-hidden />
+                </AvatarFallback>
+              </Avatar>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-body font-semibold">
+                  {auth?.signed_in && auth.login ? auth.login : t("settings.notSignedIn")}
+                </span>
+                <span className="block truncate text-subheadline text-muted-foreground">
+                  {accountMatch.hint ?? t("settings.pane.account")}
+                </span>
+              </span>
+            </TabsPrimitive.Tab>
+          ) : null}
+          {panes.map(({ value, label, icon: Icon, tile, found }) => (
+            <TabsPrimitive.Tab key={value} value={value} className={cn(sidebarItem, found?.hint ? "h-11" : "h-8")}>
+              <span
+                className="settings-tile grid size-[22px] shrink-0 place-items-center rounded-[6px] text-white"
+                data-tile={tile}
+                aria-hidden
+              >
+                <Icon className="size-3.5" strokeWidth={2.25} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{label}</span>
+                {found?.hint ? (
+                  <span className="block truncate text-subheadline text-muted-foreground">{found.hint}</span>
+                ) : null}
+              </span>
+            </TabsPrimitive.Tab>
+          ))}
+          {nothing ? (
+            <p className="px-2 py-6 text-center text-callout text-muted-foreground" role="status">
+              {t("settings.noMatch", { query: query.trim() })}
+            </p>
+          ) : null}
+        </TabsPrimitive.List>
       </div>
     </aside>
   );
@@ -569,7 +689,12 @@ export function Settings() {
       </div>
     );
   return (
-    <TabsPrimitive.Root value={pane} onValueChange={(v: PaneId) => setPane(v)} orientation="vertical" className="flex h-full text-body">
+    <TabsPrimitive.Root
+      value={pane}
+      onValueChange={(v: PaneId) => setPane(v)}
+      orientation="vertical"
+      className="flex h-full text-body"
+    >
       <Sidebar config={config} auth={auth} query={query} setQuery={search} />
       <main className="min-w-0 flex-1 bg-(--settings-content)">
         <TabsPrimitive.Panel value="queues" className="h-full outline-none">

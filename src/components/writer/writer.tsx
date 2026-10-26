@@ -6,32 +6,88 @@
 
 import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import { CommentHtml } from "@/components/comment-html/comment-html";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
+import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 import { Textarea } from "@/components/textarea/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
-import { ACCEPT, attachable, displayWidth, markdownFor, swap, uploadMark, useWebSession } from "@/utils/attachments/attachments";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import {
+  ACCEPT,
+  attachable,
+  displayWidth,
+  markdownFor,
+  swap,
+  uploadMark,
+  useWebSession,
+} from "@/utils/attachments/attachments";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type UploadError } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/platform/platform";
-import { cn } from "@/utils/cn/cn";
 import { suggestionBlock } from "@/utils/suggestion/suggestion";
-import { emoji, mentionable, preview, referable, savedReplies, type Reference, type SavedReply } from "@/utils/writer/writer";
-import { complete, link, rankEmoji, rankPeople, tokenAt, wrap, type Change, type Emoji, type Person, type Token } from "@/utils/writing/writing";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
-import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
-import { CommentHtml } from "@/components/comment-html/comment-html";
+import {
+  emoji,
+  mentionable,
+  preview,
+  referable,
+  savedReplies,
+  type Reference,
+  type SavedReply,
+} from "@/utils/writer/writer";
+import {
+  complete,
+  link,
+  rankEmoji,
+  rankPeople,
+  tokenAt,
+  wrap,
+  type Change,
+  type Emoji,
+  type Person,
+  type Token,
+} from "@/utils/writing/writing";
 
-type Option = { kind: "person"; person: Person } | { kind: "reference"; reference: Reference } | { kind: "emoji"; emoji: Emoji };
+type Option =
+  | { kind: "person"; person: Person }
+  | { kind: "reference"; reference: Reference }
+  | { kind: "emoji"; emoji: Emoji };
 
 /** Where the caret is drawn in a text field, measured on a copy of it laid out the same way. */
 function caretAt(field: HTMLTextAreaElement, index: number) {
   const style = getComputedStyle(field);
   const copy = document.createElement("div");
-  for (const p of ["fontFamily", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth", "borderStyle", "boxSizing", "width", "tabSize"] as const)
+  for (const p of [
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "letterSpacing",
+    "lineHeight",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "borderTopWidth",
+    "borderRightWidth",
+    "borderBottomWidth",
+    "borderLeftWidth",
+    "borderStyle",
+    "boxSizing",
+    "width",
+    "tabSize",
+  ] as const)
     copy.style[p] = style[p];
   copy.style.position = "absolute";
   copy.style.visibility = "hidden";
@@ -54,7 +110,20 @@ function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
   return (
     <DropdownMenu onOpenChange={(open) => open && replies === undefined && void savedReplies().then(setReplies)}>
       <Tooltip>
-        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.savedReplies")} />} />}>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground"
+                  aria-label={t("review.savedReplies")}
+                />
+              }
+            />
+          }
+        >
           <Reply />
         </TooltipTrigger>
         <TooltipContent>{t("review.savedReplies")}</TooltipContent>
@@ -67,7 +136,9 @@ function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
               <Loader2 className="animate-spin" /> {t("review.loading")}
             </DropdownMenuItem>
           ) : replies === null ? (
-            <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.savedRepliesPermission")}</p>
+            <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">
+              {t("review.savedRepliesPermission")}
+            </p>
           ) : replies.length ? (
             replies.map((r) => (
               <DropdownMenuItem key={r.id} onClick={() => onPick(r.body)}>
@@ -75,7 +146,9 @@ function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
               </DropdownMenuItem>
             ))
           ) : (
-            <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">{t("review.noSavedReplies")}</p>
+            <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">
+              {t("review.noSavedReplies")}
+            </p>
           )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
@@ -145,7 +218,8 @@ export function MarkdownField({
     let current = true;
     preview(value, api.repo).then(
       (html) => current && setRendered({ text: value, html }),
-      (e: unknown) => current && setRendered({ text: value, html: null, error: e instanceof Error ? e.message : String(e) }),
+      (e: unknown) =>
+        current && setRendered({ text: value, html: null, error: e instanceof Error ? e.message : String(e) }),
     );
     return () => {
       current = false;
@@ -165,14 +239,17 @@ export function MarkdownField({
             .catch(() => [])
             .then((list) => rankEmoji(list, next.query).map((e) => ({ kind: "emoji", emoji: e })))
         : next.kind === "mention"
-        ? mentionable(api.repo, next.query)
-            .catch(() => [])
-            .then((more) => rankPeople([...api.people, ...more], next.query).map((person) => ({ kind: "person", person })))
-        : referable(api.repo, next.query)
-            .catch(() => [])
-            .then((refs) => refs.map((reference) => ({ kind: "reference", reference })));
+          ? mentionable(api.repo, next.query)
+              .catch(() => [])
+              .then((more) =>
+                rankPeople([...api.people, ...more], next.query).map((person) => ({ kind: "person", person })),
+              )
+          : referable(api.repo, next.query)
+              .catch(() => [])
+              .then((refs) => refs.map((reference) => ({ kind: "reference", reference })));
     // The pull request's own people at once, the rest as they come.
-    if (next.kind === "mention") setOptions(rankPeople(api.people, next.query).map((person) => ({ kind: "person", person })));
+    if (next.kind === "mention")
+      setOptions(rankPeople(api.people, next.query).map((person) => ({ kind: "person", person })));
     void found.then((list) => {
       if (turn !== asked.current) return;
       setOptions(list);
@@ -186,7 +263,9 @@ export function MarkdownField({
     if (!el) return;
     el.focus();
     el.setSelectionRange(change.from, change.to);
-    const typed = change.insert ? document.execCommand("insertText", false, change.insert) : document.execCommand("delete");
+    const typed = change.insert
+      ? document.execCommand("insertText", false, change.insert)
+      : document.execCommand("delete");
     if (!typed) onChange(value.slice(0, change.from) + change.insert + value.slice(change.to));
     requestAnimationFrame(() => el.setSelectionRange(...change.select));
   };
@@ -200,7 +279,9 @@ export function MarkdownField({
     const before = block && start > 0 && value[start - 1] !== "\n" ? "\n" : "";
     const after = block && value[end] !== "\n" ? "\n" : "";
     const full = before + text + after;
-    requestAnimationFrame(() => apply({ from: start, to: end, insert: full, select: [start + full.length, start + full.length] }));
+    requestAnimationFrame(() =>
+      apply({ from: start, to: end, insert: full, select: [start + full.length, start + full.length] }),
+    );
   };
 
   /** One placeholder swapped for what took its place, keeping the caret where it was. */
@@ -251,8 +332,22 @@ export function MarkdownField({
   const pick = (option: Option | undefined) => {
     const el = field.current;
     if (!option || !token || !el) return;
-    const done = complete(value, token, el.selectionStart, option.kind === "person" ? option.person.login : option.kind === "emoji" ? option.emoji.name : String(option.reference.number));
-    apply({ from: token.start, to: el.selectionStart, insert: done.text.slice(token.start, done.caret), select: [done.caret, done.caret] });
+    const done = complete(
+      value,
+      token,
+      el.selectionStart,
+      option.kind === "person"
+        ? option.person.login
+        : option.kind === "emoji"
+          ? option.emoji.name
+          : String(option.reference.number),
+    );
+    apply({
+      from: token.start,
+      to: el.selectionStart,
+      insert: done.text.slice(token.start, done.caret),
+      select: [done.caret, done.caret],
+    });
     setToken(null);
     setOptions([]);
   };
@@ -265,8 +360,16 @@ export function MarkdownField({
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
         {/* A small segmented control: write, or see it as GitHub will show it. */}
-        <div role="tablist" onKeyDown={tabKeys} aria-label={label} className="relative isolate flex rounded-(--radius-control-sm) bg-fill">
-          <SlidingPill selected={tab} className="rounded-(--radius-control-sm) bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]" />
+        <div
+          role="tablist"
+          onKeyDown={tabKeys}
+          aria-label={label}
+          className="relative isolate flex rounded-(--radius-control-sm) bg-fill"
+        >
+          <SlidingPill
+            selected={tab}
+            className="rounded-(--radius-control-sm) bg-(--toolbar-segment-bg) shadow-[0_1px_2px_rgb(0_0_0/0.12),0_0_0_0.5px_rgb(0_0_0/0.06)]"
+          />
           {(
             [
               ["write", t("review.write")],
@@ -284,7 +387,7 @@ export function MarkdownField({
               aria-controls={`${id}-panel`}
               disabled={value_ === "preview" && !api}
               onClick={() => setTab(value_)}
-              className="flex h-(--control-h-sm) cursor-default items-center rounded-(--radius-control-sm) px-2 text-subheadline text-foreground outline-none focus-ring disabled:text-(--label-tertiary)"
+              className="flex h-(--control-h-sm) cursor-default items-center rounded-(--radius-control-sm) px-2 text-subheadline text-foreground focus-ring outline-none disabled:text-(--label-tertiary)"
             >
               {name}
             </button>
@@ -293,7 +396,16 @@ export function MarkdownField({
         <span className="flex-1" />
         {suggestion ? (
           <Tooltip>
-            <TooltipTrigger render={<Button variant="ghost" size="xs" className="text-muted-foreground" onClick={() => insert(suggestionBlock(suggestion), true)} />}>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-muted-foreground"
+                  onClick={() => insert(suggestionBlock(suggestion), true)}
+                />
+              }
+            >
               <FileDiff /> {t("review.suggestChange")}
             </TooltipTrigger>
             <TooltipContent>{t("review.suggestChangeTip")}</TooltipContent>
@@ -301,7 +413,17 @@ export function MarkdownField({
         ) : null}
         {api && number ? (
           <Tooltip>
-            <TooltipTrigger render={<Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.attachFiles")} onClick={() => picker.current?.click()} />}>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-muted-foreground"
+                  aria-label={t("review.attachFiles")}
+                  onClick={() => picker.current?.click()}
+                />
+              }
+            >
               <Paperclip />
             </TooltipTrigger>
             <TooltipContent>{t("review.attachFiles")}</TooltipContent>
@@ -323,7 +445,10 @@ export function MarkdownField({
 
       <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`}>
         {tab === "preview" ? (
-          <div className="min-h-16 rounded-(--radius-field) border border-input bg-(--field-bg) px-2 py-1.5" aria-busy={rendered?.text !== value}>
+          <div
+            className="min-h-16 rounded-(--radius-field) border border-input bg-(--field-bg) px-2 py-1.5"
+            aria-busy={rendered?.text !== value}
+          >
             {!value.trim() ? (
               <p className="text-body text-muted-foreground">{t("review.nothingToPreview")}</p>
             ) : rendered?.text !== value ? (
@@ -395,7 +520,11 @@ export function MarkdownField({
                   e.preventDefault();
                   const { selectionStart: start, selectionEnd: end } = e.currentTarget;
                   const key = e.key.toLowerCase();
-                  apply(key === "k" ? link(value, start, end) : wrap(value, start, end, key === "b" ? "bold" : key === "i" ? "italic" : "code"));
+                  apply(
+                    key === "k"
+                      ? link(value, start, end)
+                      : wrap(value, start, end, key === "b" ? "bold" : key === "i" ? "italic" : "code"),
+                  );
                 }
               }}
               onPaste={(e) => {
@@ -429,9 +558,18 @@ export function MarkdownField({
               <ul
                 id={listId}
                 role="listbox"
-                aria-label={token?.kind === "mention" ? t("review.mentionSomeone") : token?.kind === "emoji" ? t("review.pickEmoji") : t("review.referenceIssue")}
+                aria-label={
+                  token?.kind === "mention"
+                    ? t("review.mentionSomeone")
+                    : token?.kind === "emoji"
+                      ? t("review.pickEmoji")
+                      : t("review.referenceIssue")
+                }
                 className="mac-menu absolute z-50 w-72 max-w-[calc(100%-8px)] p-(--menu-pad) text-popover-foreground"
-                style={{ top: at.top + at.height + 4, left: Math.min(at.left, Math.max(0, (field.current?.clientWidth ?? 288) - 288)) }}
+                style={{
+                  top: at.top + at.height + 4,
+                  left: Math.min(at.left, Math.max(0, (field.current?.clientWidth ?? 288) - 288)),
+                }}
                 // A click picks without taking the focus from the field.
                 onMouseDown={(e) => e.preventDefault()}
               >
@@ -443,13 +581,18 @@ export function MarkdownField({
                     aria-selected={i === active}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => pick(o)}
-                    className={cn("flex h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-2 text-body", i === active && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)")}
+                    className={cn(
+                      "flex h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-2 text-body",
+                      i === active && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)",
+                    )}
                   >
                     {o.kind === "person" ? (
                       <>
                         <Avatar className="size-4">
                           {o.person.avatarUrl ? <AvatarImage src={avatar(o.person.avatarUrl)} alt="" /> : null}
-                          <AvatarFallback className="text-footnote">{o.person.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback className="text-footnote">
+                            {o.person.login.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{o.person.login}</span>
                         {o.person.name ? <span className="truncate text-muted-foreground">{o.person.name}</span> : null}
@@ -463,7 +606,11 @@ export function MarkdownField({
                       </>
                     ) : (
                       <>
-                        {o.reference.kind === "pull" ? <GitPullRequest className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <CircleDot className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+                        {o.reference.kind === "pull" ? (
+                          <GitPullRequest className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        ) : (
+                          <CircleDot className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        )}
                         <span className="shrink-0 text-muted-foreground tabular-nums">#{o.reference.number}</span>
                         <span className="truncate">{o.reference.title}</span>
                       </>
@@ -476,8 +623,17 @@ export function MarkdownField({
         )}
       </div>
       {message ? (
-        <p id={`${id}-hint`} role={message.kind === "error" ? "alert" : "status"} className={cn("flex flex-wrap items-center gap-x-1.5 text-callout", message.kind === "error" ? "text-destructive" : "text-muted-foreground")}>
-          {message.kind === "error" ? message.text : t(message.kind === "ended" ? "review.uploadSessionEnded" : "review.uploadSignIn")}
+        <p
+          id={`${id}-hint`}
+          role={message.kind === "error" ? "alert" : "status"}
+          className={cn(
+            "flex flex-wrap items-center gap-x-1.5 text-callout",
+            message.kind === "error" ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {message.kind === "error"
+            ? message.text
+            : t(message.kind === "ended" ? "review.uploadSessionEnded" : "review.uploadSignIn")}
           {message.kind !== "error" ? (
             <Button variant="link" size="xs" className="h-auto px-0" onClick={() => void bridge.signInWeb()}>
               {t("review.signInGitHubCom")}

@@ -28,9 +28,11 @@ export const shared = {
   zoomIn: "Zoom in",
   actualSize: "Actual size",
   aiOffTitle: "AI is off",
-  aiOffMessage: "Choose Claude Code or Cursor in Settings to ask about code and have pull requests reviewed. They run on this Mac with your own subscription.",
+  aiOffMessage:
+    "Choose Claude Code or Cursor in Settings to ask about code and have pull requests reviewed. They run on this Mac with your own subscription.",
   aiMissingTitle: "{provider} isn't installed",
-  aiMissingMessage: "Focus Diff asks {provider} on this Mac, with your own subscription. Install it, then come back: Settings shows when it's ready.",
+  aiMissingMessage:
+    "Focus Diff asks {provider} on this Mac, with your own subscription. Install it, then come back: Settings shows when it's ready.",
   aiSignedOutTitle: "{provider} isn't signed in",
   aiSignedOutMessage: "Sign in once by running {command} in Terminal, then try again.",
   aiOpenSettings: "Open AI Settings",

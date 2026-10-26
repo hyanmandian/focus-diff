@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { applyEdits, coAuthors, linesFromPatch, suggestionBlock, SuggestionError, suggestionsIn, toBase64 } from "@/utils/suggestion/suggestion";
+
+import {
+  applyEdits,
+  coAuthors,
+  linesFromPatch,
+  suggestionBlock,
+  SuggestionError,
+  suggestionsIn,
+  toBase64,
+} from "@/utils/suggestion/suggestion";
 
 describe("suggestionBlock", () => {
   it("starts as the lines themselves", () => {
@@ -14,7 +23,8 @@ describe("suggestionBlock", () => {
 
 describe("suggestionsIn", () => {
   it("reads each block's lines, and nothing from other code blocks", () => {
-    const body = "Try this:\r\n```suggestion\n  const a = 2;\n```\nand\n```js\n```suggestion\nnot one\n```\n~~~suggestion\n~~~";
+    const body =
+      "Try this:\r\n```suggestion\n  const a = 2;\n```\nand\n```js\n```suggestion\nnot one\n```\n~~~suggestion\n~~~";
     expect(suggestionsIn(body)).toEqual([["  const a = 2;"], []]);
   });
 
@@ -41,7 +51,12 @@ describe("applyEdits", () => {
   });
 
   it("applies a batch from the bottom up, whatever its order", () => {
-    expect(applyEdits(file, [{ start: 4, end: 4, lines: ["4"] }, { start: 1, end: 1, lines: ["1", "1.5"] }])).toBe("1\n1.5\ntwo\nthree\n4\n");
+    expect(
+      applyEdits(file, [
+        { start: 4, end: 4, lines: ["4"] },
+        { start: 1, end: 1, lines: ["1", "1.5"] },
+      ]),
+    ).toBe("1\n1.5\ntwo\nthree\n4\n");
   });
 
   it("keeps Windows line endings", () => {
@@ -49,13 +64,21 @@ describe("applyEdits", () => {
   });
 
   it("refuses overlapping edits and lines past the end", () => {
-    expect(() => applyEdits(file, [{ start: 1, end: 2, lines: [] }, { start: 2, end: 3, lines: [] }])).toThrow(SuggestionError);
-    expect(() => applyEdits(file, [{ start: 4, end: 5, lines: [] }])).toThrow(expect.objectContaining({ reason: "outside" }));
+    expect(() =>
+      applyEdits(file, [
+        { start: 1, end: 2, lines: [] },
+        { start: 2, end: 3, lines: [] },
+      ]),
+    ).toThrow(SuggestionError);
+    expect(() => applyEdits(file, [{ start: 4, end: 5, lines: [] }])).toThrow(
+      expect.objectContaining({ reason: "outside" }),
+    );
   });
 });
 
 describe("linesFromPatch", () => {
-  const patch = "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -10,4 +10,5 @@ fn x() {\n   keep\n-  old\n+  new\n+  newer\n   tail";
+  const patch =
+    "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -10,4 +10,5 @@ fn x() {\n   keep\n-  old\n+  new\n+  newer\n   tail";
 
   it("reads either side's lines", () => {
     expect(linesFromPatch(patch, 11, 12, "additions")).toEqual(["  new", "  newer"]);

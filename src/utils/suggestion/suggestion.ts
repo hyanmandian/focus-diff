@@ -62,7 +62,12 @@ export function applyEdits(content: string, edits: Edit[]): string {
 
 /** The lines `start` to `end` of one side of a file, from its patch; null when the patch doesn't
  *  show them all (outside its hunks). */
-export function linesFromPatch(patch: string, start: number, end: number, side: "additions" | "deletions"): string[] | null {
+export function linesFromPatch(
+  patch: string,
+  start: number,
+  end: number,
+  side: "additions" | "deletions",
+): string[] | null {
   const found = new Map<number, string>();
   let oldLine = 0;
   let newLine = 0;

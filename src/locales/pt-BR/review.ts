@@ -56,7 +56,10 @@ export const review: Dictionary["review"] = {
   approve: "Aprovar",
   requestChanges: "Pedir mudanças",
   ownPull: "O pull request é seu: você pode comentar, mas não aprovar.",
-  sendsPending: { one: "Envia junto {count} comentário pendente.", other: "Envia junto {count} comentários pendentes." },
+  sendsPending: {
+    one: "Envia junto {count} comentário pendente.",
+    other: "Envia junto {count} comentários pendentes.",
+  },
   reviewSent: "Revisão enviada",
   commentPosted: "Comentário publicado",
 
@@ -73,10 +76,19 @@ export const review: Dictionary["review"] = {
   noFilesIn: "Nenhum arquivo em {filters}.",
   noFilesMatch: "Nenhum arquivo combina.",
 
-  nextFile: { one: "Próximo arquivo para revisar, falta {count}", other: "Próximo arquivo para revisar, faltam {count}" },
-  nextFilter: { one: "Próximo: {filter}, {count} arquivo para revisar", other: "Próximo: {filter}, {count} arquivos para revisar" },
+  nextFile: {
+    one: "Próximo arquivo para revisar, falta {count}",
+    other: "Próximo arquivo para revisar, faltam {count}",
+  },
+  nextFilter: {
+    one: "Próximo: {filter}, {count} arquivo para revisar",
+    other: "Próximo: {filter}, {count} arquivos para revisar",
+  },
   allViewed: "Todos os arquivos aqui já foram vistos",
-  paceHint: { one: "{hint} Ele segue o seu ritmo, aprendido com {count} arquivo que você marcou como visto.", other: "{hint} Ele segue o seu ritmo, aprendido com {count} arquivos que você marcou como vistos." },
+  paceHint: {
+    one: "{hint} Ele segue o seu ritmo, aprendido com {count} arquivo que você marcou como visto.",
+    other: "{hint} Ele segue o seu ritmo, aprendido com {count} arquivos que você marcou como vistos.",
+  },
   all: "Todos",
   showAll: "Mostrar todos os arquivos ({shortcut})",
   reviewOnePart: "Revisar uma parte",
@@ -131,7 +143,11 @@ export const review: Dictionary["review"] = {
   reviewing: "Revisando",
   readingProject: "Lendo o projeto e o diff… isso pode levar alguns minutos.",
   readingDiff: "Lendo o diff…",
-  onDiff: { zero: "Nenhum comentário no diff.", one: "{count} comentário no diff.", other: "{count} comentários no diff." },
+  onDiff: {
+    zero: "Nenhum comentário no diff.",
+    one: "{count} comentário no diff.",
+    other: "{count} comentários no diff.",
+  },
   onDiffElsewhere: {
     zero: "Nenhum comentário no diff, {elsewhere} em outros lugares.",
     one: "{count} comentário no diff, {elsewhere} em outros lugares.",
@@ -190,12 +206,14 @@ export const review: Dictionary["review"] = {
   preview: "Pré-visualizar",
   nothingToPreview: "Nada para pré-visualizar.",
   loadingPreview: "Carregando a pré-visualização…",
-  writingShortcuts: "Markdown. {shortcut}B negrito, {shortcut}I itálico, {shortcut}E código, {shortcut}K link; @ menciona alguém, # uma issue ou pull request.",
+  writingShortcuts:
+    "Markdown. {shortcut}B negrito, {shortcut}I itálico, {shortcut}E código, {shortcut}K link; @ menciona alguém, # uma issue ou pull request.",
   mentionSomeone: "Pessoas para mencionar",
   referenceIssue: "Issues e pull requests",
   savedReplies: "Respostas salvas",
   noSavedReplies: "Nenhuma resposta salva ainda. Crie no github.com em Settings → Saved replies.",
-  savedRepliesPermission: "Ler suas respostas salvas exige permissão para ler o seu perfil: conecte-se ao GitHub de novo nos Ajustes.",
+  savedRepliesPermission:
+    "Ler suas respostas salvas exige permissão para ler o seu perfil: conecte-se ao GitHub de novo nos Ajustes.",
   attachFiles: "Anexar imagens ou vídeos",
   uploading: "Enviando {name}…",
   uploadSignIn: "Para anexar imagens e vídeos, entre no github.com uma vez, na própria página do GitHub.",
@@ -242,7 +260,10 @@ export const review: Dictionary["review"] = {
   githubRefused: "O GitHub não aceitou: {reason}",
   discardReview: "Descartar…",
   discardConfirm: "Descartar sua revisão pendente?",
-  discardConfirmMessage: { one: "O {count} comentário dela é apagado, aqui e no GitHub. Isso não pode ser desfeito.", other: "Os {count} comentários dela são apagados, aqui e no GitHub. Isso não pode ser desfeito." },
+  discardConfirmMessage: {
+    one: "O {count} comentário dela é apagado, aqui e no GitHub. Isso não pode ser desfeito.",
+    other: "Os {count} comentários dela são apagados, aqui e no GitHub. Isso não pode ser desfeito.",
+  },
   discardConfirmButton: "Descartar revisão",
   reviewDiscarded: "Revisão pendente descartada",
   commentOnFile: "Comentar em {path}",

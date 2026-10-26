@@ -5,14 +5,35 @@
 // changed (never the whole window again); if GitHub refuses, what's shown goes back and says why.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+
 import { bridge, GitHubError } from "@/utils/bridge/bridge";
-import { allRuns, approveRun, awaitingApproval, failedRuns, rerunAll, rerunFailed, useChecks, type CheckItem } from "@/utils/checks/checks";
+import {
+  allRuns,
+  approveRun,
+  awaitingApproval,
+  failedRuns,
+  rerunAll,
+  rerunFailed,
+  useChecks,
+  type CheckItem,
+} from "@/utils/checks/checks";
 import { sinceReview, useCommits, type Range } from "@/utils/commits/commits";
 import type { Details } from "@/utils/details/details";
+import { markReady } from "@/utils/details/details";
 import { i18n } from "@/utils/i18n/i18n";
 import { canWrite, closePull, convertToDraft, reopenPull, useManage } from "@/utils/manage/manage";
-import { deleteBranch, dequeue, disableAutoMerge, enableAutoMerge, enqueue, loadMergeState, mergePull, mergeView, updateBranch, type Method } from "@/utils/merging/merging";
-import { markReady } from "@/utils/details/details";
+import {
+  deleteBranch,
+  dequeue,
+  disableAutoMerge,
+  enableAutoMerge,
+  enqueue,
+  loadMergeState,
+  mergePull,
+  mergeView,
+  updateBranch,
+  type Method,
+} from "@/utils/merging/merging";
 import type { PullRef, Thread } from "@/utils/review/review";
 import { loadTimeline, mapTimeline, type TimelinePage } from "@/utils/timeline/timeline";
 
@@ -32,7 +53,23 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** The checks the details came with, as the full list's items, until it arrives. */
 const fromDetails = (d: Details | null): CheckItem[] | null =>
-  d ? d.checks.map((c) => ({ id: c.name, kind: "run", name: c.name, workflow: null, state: c.state, detail: "", description: null, url: c.url, required: false, startedAt: null, completedAt: null, job: null, run: null })) : null;
+  d
+    ? d.checks.map((c) => ({
+        id: c.name,
+        kind: "run",
+        name: c.name,
+        workflow: null,
+        state: c.state,
+        detail: "",
+        description: null,
+        url: c.url,
+        required: false,
+        startedAt: null,
+        completedAt: null,
+        job: null,
+        run: null,
+      }))
+    : null;
 
 export function usePull({ prId, ref, details, setDetails, threads, say, reloadAll }: Options) {
   const { manage, reload: reloadManage, patch } = useManage(prId, ref);
@@ -49,7 +86,8 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   }, [ref, reloadManage, setDetails]);
 
   // GitHub works out whether it can be merged after a push: asked again a few times until it knows.
-  const unknown = details?.state === "OPEN" && (details.mergeable === "UNKNOWN" || details.mergeStateStatus === "UNKNOWN");
+  const unknown =
+    details?.state === "OPEN" && (details.mergeable === "UNKNOWN" || details.mergeStateStatus === "UNKNOWN");
   const tries = useRef(0);
   useEffect(() => {
     if (!unknown) {
@@ -108,13 +146,25 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   // conversation is. The newest page, asked again, can overlap the next: each node counts once.
   const events = useMemo(() => {
     const seen = new Set<string>();
-    const nodes = [...pages].reverse().flatMap((p) => p.nodes).filter((n) => !seen.has(n.id) && Boolean(seen.add(n.id)));
+    const nodes = [...pages]
+      .reverse()
+      .flatMap((p) => p.nodes)
+      .filter((n) => !seen.has(n.id) && Boolean(seen.add(n.id)));
     return mapTimeline(nodes).reverse();
   }, [pages]);
 
   const unresolved = threads.filter((t) => !t.resolved).length;
   const counted = checks.checks.some((c) => c.required) ? checks.checks.filter((c) => c.required) : checks.checks;
-  const view = details && manage ? mergeView({ details, manage, failing: counted.filter((c) => c.state === "failure").length, pending: counted.filter((c) => c.state === "pending").length, unresolved }) : null;
+  const view =
+    details && manage
+      ? mergeView({
+          details,
+          manage,
+          failing: counted.filter((c) => c.state === "failure").length,
+          pending: counted.filter((c) => c.state === "pending").length,
+          unresolved,
+        })
+      : null;
 
   /** Runs an action: `optimistic` shows its result at once, GitHub's answer replaces it after. */
   const act = async (name: string, call: () => Promise<unknown>, optimistic?: () => void, done?: string) => {
@@ -138,7 +188,11 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   const t = i18n;
   const actions = {
     /** Merging can't be undone: a native alert asks first, naming how. */
-    merge: async (method: Method, text?: { title: string; body: string }, options: { bypass?: boolean; deleteAfter?: boolean } = {}) => {
+    merge: async (
+      method: Method,
+      text?: { title: string; body: string },
+      options: { bypass?: boolean; deleteAfter?: boolean } = {},
+    ) => {
       if (!details) return;
       const ok = await bridge.confirm(
         t()(options.bypass ? "manage.bypassConfirm" : "review.mergeConfirm", { number: String(details.number) }),
@@ -158,20 +212,98 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       );
     },
     autoMerge: (method: Method, text?: { title: string; body: string }) =>
-      details && act("auto", () => enableAutoMerge(details, method, text), () => patch((m) => ({ ...m, autoMerge: { method: method === "squash" ? "SQUASH" : method === "rebase" ? "REBASE" : "MERGE", by: null } })), t()("manage.autoMergeOn")),
-    disableAutoMerge: () => details && act("auto", () => disableAutoMerge(details), () => patch((m) => ({ ...m, autoMerge: null })), t()("manage.autoMergeOff")),
-    enqueue: () => details && act("queue", () => enqueue(details), () => patch((m) => ({ ...m, isInMergeQueue: true })), t()("manage.queued")),
-    dequeue: () => details && act("queue", () => dequeue(details), () => patch((m) => ({ ...m, isInMergeQueue: false, queuePosition: null })), t()("manage.dequeued")),
-    updateBranch: (how: "MERGE" | "REBASE") => details && act("update", () => updateBranch(details, how), () => patch((m) => ({ ...m, viewerCanUpdateBranch: false })), t()("manage.branchUpdated")),
-    ready: () => details && act("ready", () => markReady(details), () => setDetails((d) => (d ? { ...d, isDraft: false } : d)), t()("review.readyNotice")),
-    draft: () => details && act("ready", () => convertToDraft(details.id), () => setDetails((d) => (d ? { ...d, isDraft: true } : d)), t()("manage.draftNotice")),
-    close: () => details && act("close", () => closePull(details.id), () => setDetails((d) => (d ? { ...d, state: "CLOSED" } : d)), t()("manage.closedNotice")),
-    reopen: () => details && act("close", () => reopenPull(details.id), () => setDetails((d) => (d ? { ...d, state: "OPEN" } : d)), t()("manage.reopenedNotice")),
+      details &&
+      act(
+        "auto",
+        () => enableAutoMerge(details, method, text),
+        () =>
+          patch((m) => ({
+            ...m,
+            autoMerge: { method: method === "squash" ? "SQUASH" : method === "rebase" ? "REBASE" : "MERGE", by: null },
+          })),
+        t()("manage.autoMergeOn"),
+      ),
+    disableAutoMerge: () =>
+      details &&
+      act(
+        "auto",
+        () => disableAutoMerge(details),
+        () => patch((m) => ({ ...m, autoMerge: null })),
+        t()("manage.autoMergeOff"),
+      ),
+    enqueue: () =>
+      details &&
+      act(
+        "queue",
+        () => enqueue(details),
+        () => patch((m) => ({ ...m, isInMergeQueue: true })),
+        t()("manage.queued"),
+      ),
+    dequeue: () =>
+      details &&
+      act(
+        "queue",
+        () => dequeue(details),
+        () => patch((m) => ({ ...m, isInMergeQueue: false, queuePosition: null })),
+        t()("manage.dequeued"),
+      ),
+    updateBranch: (how: "MERGE" | "REBASE") =>
+      details &&
+      act(
+        "update",
+        () => updateBranch(details, how),
+        () => patch((m) => ({ ...m, viewerCanUpdateBranch: false })),
+        t()("manage.branchUpdated"),
+      ),
+    ready: () =>
+      details &&
+      act(
+        "ready",
+        () => markReady(details),
+        () => setDetails((d) => (d ? { ...d, isDraft: false } : d)),
+        t()("review.readyNotice"),
+      ),
+    draft: () =>
+      details &&
+      act(
+        "ready",
+        () => convertToDraft(details.id),
+        () => setDetails((d) => (d ? { ...d, isDraft: true } : d)),
+        t()("manage.draftNotice"),
+      ),
+    close: () =>
+      details &&
+      act(
+        "close",
+        () => closePull(details.id),
+        () => setDetails((d) => (d ? { ...d, state: "CLOSED" } : d)),
+        t()("manage.closedNotice"),
+      ),
+    reopen: () =>
+      details &&
+      act(
+        "close",
+        () => reopenPull(details.id),
+        () => setDetails((d) => (d ? { ...d, state: "OPEN" } : d)),
+        t()("manage.reopenedNotice"),
+      ),
     /** GitHub can restore a deleted branch, but it's gone for anyone using it: asked first. */
     deleteBranch: async () => {
       if (!details || !manage) return;
-      if (!(await bridge.confirm(t()("manage.deleteBranchConfirm", { branch: details.headRefName }), t()("manage.deleteBranchMessage"), t()("manage.deleteBranch")))) return;
-      await act("branch", () => deleteBranch(manage, details.headRefName), () => patch((m) => ({ ...m, headRefExists: false })), t()("manage.branchDeleted"));
+      if (
+        !(await bridge.confirm(
+          t()("manage.deleteBranchConfirm", { branch: details.headRefName }),
+          t()("manage.deleteBranchMessage"),
+          t()("manage.deleteBranch"),
+        ))
+      )
+        return;
+      await act(
+        "branch",
+        () => deleteBranch(manage, details.headRefName),
+        () => patch((m) => ({ ...m, headRefExists: false })),
+        t()("manage.branchDeleted"),
+      );
     },
     rerun: (which: "failed" | "all") => {
       const runs = which === "failed" ? failedRuns(checks.checks) : allRuns(checks.checks);
@@ -180,13 +312,26 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         "rerun",
         () => Promise.all(runs.map((run) => (which === "failed" ? rerunFailed(ref, run) : rerunAll(ref, run)))),
         // Shown as running again at once; the poll takes over from there.
-        () => checks.setChecks((list) => list?.map((c) => (c.run && runs.includes(c.run) && (which === "all" || c.state === "failure") ? { ...c, state: "pending", detail: "queued" } : c)) ?? list),
+        () =>
+          checks.setChecks(
+            (list) =>
+              list?.map((c) =>
+                c.run && runs.includes(c.run) && (which === "all" || c.state === "failure")
+                  ? { ...c, state: "pending", detail: "queued" }
+                  : c,
+              ) ?? list,
+          ),
         t()("manage.rerunning"),
       ).then(() => window.setTimeout(() => void checks.reload(true), 3000));
     },
     approve: () => {
       const runs = awaiting;
-      void act("approve", () => Promise.all(runs.map((r) => approveRun(ref, r.id))), () => setAwaiting([]), t()("manage.approved")).then(() => window.setTimeout(() => void checks.reload(true), 3000));
+      void act(
+        "approve",
+        () => Promise.all(runs.map((r) => approveRun(ref, r.id))),
+        () => setAwaiting([]),
+        t()("manage.approved"),
+      ).then(() => window.setTimeout(() => void checks.reload(true), 3000));
     },
   };
 
@@ -201,7 +346,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     draft: Boolean(open && !details?.isDraft && details?.viewerCanUpdate),
     close: Boolean(open && details?.viewerCanUpdate),
     reopen: Boolean(details?.state === "CLOSED" && details.viewerCanUpdate),
-    "delete-branch": Boolean(details && details.state !== "OPEN" && manage?.headRefExists && manage.viewerCanDeleteHeadRef),
+    "delete-branch": Boolean(
+      details && details.state !== "OPEN" && manage?.headRefExists && manage.viewerCanDeleteHeadRef,
+    ),
     "rerun-failed": write && failed,
     "all-changes": range !== null,
     "since-review": since !== null,
@@ -223,7 +370,27 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     "since-review": () => since && setRange(since.range),
   };
 
-  return { manage, patch, reloadManage, commits, since, checks, awaiting, range, setRange, view, busy, actions, events, older, loadOlder, unresolved, allowed, menu, revalidate };
+  return {
+    manage,
+    patch,
+    reloadManage,
+    commits,
+    since,
+    checks,
+    awaiting,
+    range,
+    setRange,
+    view,
+    busy,
+    actions,
+    events,
+    older,
+    loadOlder,
+    unresolved,
+    allowed,
+    menu,
+    revalidate,
+  };
 }
 
 export type Pull = ReturnType<typeof usePull>;

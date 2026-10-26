@@ -4,6 +4,7 @@
 
 import { Timer } from "lucide-react";
 import { useEffect, useState } from "react";
+
 import { bridge } from "@/utils/bridge/bridge";
 import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
@@ -28,7 +29,18 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
       .flat()
       .find((i) => i.pr.id === pull.id);
     if (item) markSeen(item);
-    void bridge.openReview(item?.pr ?? { id: pull.id, number: pull.number, title: pull.title, repository: { nameWithOwner: pull.repo }, author: null }, item?.viaTeams ?? [], undefined, item?.queueId);
+    void bridge.openReview(
+      item?.pr ?? {
+        id: pull.id,
+        number: pull.number,
+        title: pull.title,
+        repository: { nameWithOwner: pull.repo },
+        author: null,
+      },
+      item?.viaTeams ?? [],
+      undefined,
+      item?.queueId,
+    );
   };
 
   return (
@@ -41,7 +53,7 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
         </span>
         <button
           type="button"
-          className="ml-auto shrink-0 cursor-default rounded-sm font-medium text-(--panel-link) outline-none focus-ring"
+          className="ml-auto shrink-0 cursor-default rounded-sm font-medium text-(--panel-link) focus-ring outline-none"
           onClick={() => void bridge.endReview()}
         >
           {t("panel.end")}
@@ -54,11 +66,13 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
             <button
               type="button"
               onClick={() => open(pull)}
-              className="flex w-full cursor-default items-baseline gap-2 rounded-[5px] px-1.5 py-0.5 text-left text-callout outline-none hover:bg-foreground/5 active:bg-foreground/9 focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg)"
+              className="flex w-full cursor-default items-baseline gap-2 rounded-[5px] px-1.5 py-0.5 text-left text-callout outline-none hover:bg-foreground/5 focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg) active:bg-foreground/9"
             >
               <span className="min-w-0 flex-1 truncate">{pull.title}</span>
               {pull.again ? <span className="shrink-0 text-warning">{t("panel.reReview")}</span> : null}
-              <span className="shrink-0 text-muted-foreground tabular-nums">{t("common.aboutMinutes", { minutes: pull.minutes })}</span>
+              <span className="shrink-0 text-muted-foreground tabular-nums">
+                {t("common.aboutMinutes", { minutes: pull.minutes })}
+              </span>
             </button>
           </li>
         ))}

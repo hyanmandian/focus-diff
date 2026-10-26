@@ -13,14 +13,20 @@ export function repoMatches(pattern: string, repo: string): boolean {
 }
 
 /** The filters a repository gets: those for everywhere, and its own. */
-export const filtersFor = (filters: DiffFilter[], repo: string) => filters.filter((f) => !f.repos.length || f.repos.some((p) => repoMatches(p, repo)));
+export const filtersFor = (filters: DiffFilter[], repo: string) =>
+  filters.filter((f) => !f.repos.length || f.repos.some((p) => repoMatches(p, repo)));
 
 /** A repository's choice as it was kept: one filter id before filters could be combined, a list now. */
 export const keptSelection = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : typeof value === "string" && value ? [value] : [];
+  Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === "string")
+    : typeof value === "string" && value
+      ? [value]
+      : [];
 
 /** The choice after a chip is pressed: All ("") clears it, a filter joins it or leaves it. */
-export const toggled = (ids: string[], id: string): string[] => (!id ? [] : ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]);
+export const toggled = (ids: string[], id: string): string[] =>
+  !id ? [] : ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id];
 
 /** Whether a file is in any of the chosen filters; with none chosen, every file is. */
 export const inAny = (chosen: DiffFilter[], path: string) => !chosen.length || chosen.some((f) => inFilter(f, path));
@@ -29,7 +35,14 @@ export type FileLike = { path: string; additions: number; deletions: number };
 
 /** What a set of files holds: how many, how many viewed, their lines, the minutes they take and
  *  the minutes left for those not viewed yet. */
-export type Totals = { files: number; viewed: number; additions: number; deletions: number; minutes: number; minutesLeft: number };
+export type Totals = {
+  files: number;
+  viewed: number;
+  additions: number;
+  deletions: number;
+  minutes: number;
+  minutesLeft: number;
+};
 
 export function totals<F extends FileLike>(files: F[], isViewed: (f: F) => boolean, minutesOf: Estimator): Totals {
   const t: Totals = { files: 0, viewed: 0, additions: 0, deletions: 0, minutes: 0, minutesLeft: 0 };
@@ -46,7 +59,12 @@ export function totals<F extends FileLike>(files: F[], isViewed: (f: F) => boole
 }
 
 /** The next filter in the bar, after the chosen ones, that still has files to review. */
-export function nextFilterWithWork<F extends FileLike>(files: F[], filters: DiffFilter[], ids: string[], isViewed: (f: F) => boolean) {
+export function nextFilterWithWork<F extends FileLike>(
+  files: F[],
+  filters: DiffFilter[],
+  ids: string[],
+  isViewed: (f: F) => boolean,
+) {
   const last = Math.max(-1, ...ids.map((id) => filters.findIndex((f) => f.id === id)));
   for (let offset = 1; offset <= filters.length; offset++) {
     const filter = filters[(last + offset) % filters.length];
@@ -59,7 +77,11 @@ export function nextFilterWithWork<F extends FileLike>(files: F[], filters: Diff
 
 /** The file to go to next: the first not viewed after the one at the top of the screen, wrapping
  *  around. `atTop` is the file there, if it's already been brought up (else it's the next itself). */
-export function nextFile<F extends FileLike>(shown: F[], isViewed: (f: F) => boolean, atTop: { path: string; reached: boolean } | null): F | undefined {
+export function nextFile<F extends FileLike>(
+  shown: F[],
+  isViewed: (f: F) => boolean,
+  atTop: { path: string; reached: boolean } | null,
+): F | undefined {
   const left = shown.filter((f) => !isViewed(f));
   const at = atTop ? shown.findIndex((f) => f.path === atTop.path) : -1;
   const current = shown[at];
@@ -92,7 +114,12 @@ export function exportFilters(filters: DiffFilter[]): string {
     used.add(next);
     return next;
   };
-  const shared = (f: DiffFilter): SharedFilter => ({ id: unique(f.id), name: f.name, include: f.include, exclude: f.exclude });
+  const shared = (f: DiffFilter): SharedFilter => ({
+    id: unique(f.id),
+    name: f.name,
+    include: f.include,
+    exclude: f.exclude,
+  });
   const out: Shared = { global: filters.filter((f) => !f.repos.length).map(shared), repos: [] };
   for (const f of filters)
     for (const repo of f.repos) {
@@ -120,7 +147,8 @@ export function importFilters(text: string): DiffFilter[] | null {
   }
   if (!isRecord(raw) || (!Array.isArray(raw.global) && !Array.isArray(raw.repos))) return null;
   // Focus Diff keeps only filters with a name.
-  const named = (v: unknown): v is Record<string, unknown> => isRecord(v) && typeof v.name === "string" && Boolean(v.name.trim());
+  const named = (v: unknown): v is Record<string, unknown> =>
+    isRecord(v) && typeof v.name === "string" && Boolean(v.name.trim());
   const found: Array<Record<string, unknown> & { repos: string[] }> = list(raw.global)
     .filter(named)
     .map((f) => ({ ...f, repos: [] }));
@@ -128,7 +156,9 @@ export function importFilters(text: string): DiffFilter[] | null {
     if (!isRecord(entry) || typeof entry.repo !== "string" || !isRepoPattern(entry.repo.trim())) continue;
     const repo = entry.repo.trim();
     for (const f of list(entry.filters).filter(named)) {
-      const same = found.find((x) => x.repos.length && x.name === f.name && x.include === f.include && x.exclude === f.exclude);
+      const same = found.find(
+        (x) => x.repos.length && x.name === f.name && x.include === f.include && x.exclude === f.exclude,
+      );
       if (same) same.repos = [...new Set([...same.repos, repo])];
       else found.push({ ...f, repos: [repo] });
     }
@@ -138,7 +168,10 @@ export function importFilters(text: string): DiffFilter[] | null {
 
 /** Imported filters added to the person's own: ones they already have are skipped, ids kept
  *  unique, up to the 12 the app keeps. */
-export function addImported(own: DiffFilter[], imported: DiffFilter[]): { filters: DiffFilter[]; added: number; skipped: number } {
+export function addImported(
+  own: DiffFilter[],
+  imported: DiffFilter[],
+): { filters: DiffFilter[]; added: number; skipped: number } {
   const key = (f: DiffFilter) => JSON.stringify([f.name, f.include, f.exclude, [...f.repos].sort()]);
   const have = new Set(own.map(key));
   const ids = new Set(own.map((f) => f.id));

@@ -9,13 +9,18 @@ export const settings = {
   "pane.ai": "AI",
   "pane.general": "General",
   // What a search finds in each pane, "|" between them.
-  "keywords.queues": "Tabs|Review requests|Pull requests where|Repositories|Changing files|Drafts|Bots|Labels|Teams|Notify me when|Notifications|Leave out of notifications|At review time|Right away|Color",
-  "keywords.review": "Schedule|Remind me|Days|Times|How long|What goes first|Re-reviews first|Time's up|Hold notifications|Countdown",
-  "keywords.filters": "Diff filters|Include|Leave out|Regular expressions|File paths|Chips|Only in|Repositories|Share|Copy filters|Import filters",
+  "keywords.queues":
+    "Tabs|Review requests|Pull requests where|Repositories|Changing files|Drafts|Bots|Labels|Teams|Notify me when|Notifications|Leave out of notifications|At review time|Right away|Color",
+  "keywords.review":
+    "Schedule|Remind me|Days|Times|How long|What goes first|Re-reviews first|Time's up|Hold notifications|Countdown",
+  "keywords.filters":
+    "Diff filters|Include|Leave out|Regular expressions|File paths|Chips|Only in|Repositories|Share|Copy filters|Import filters",
   "keywords.actions": "Buttons|Steps|Post a comment|Request review|Labels|Open a link|Run a command|Ask me to confirm",
   "keywords.ai": "Coding agent|Model|Effort|Read the whole project|AI review|Review guidelines|Prompts",
-  "keywords.general": "Software update|Check for updates|Version|Check GitHub every|Refresh interval|Appearance|Theme|Dark|Light|Language|English|Português|Play a sound with notifications",
-  "keywords.account": "Account|GitHub|Sign in|Disconnect|Sign out|Token|Login|Attachments|Upload|Pictures|Videos|github.com",
+  "keywords.general":
+    "Software update|Check for updates|Version|Check GitHub every|Refresh interval|Appearance|Theme|Dark|Light|Language|English|Português|Play a sound with notifications",
+  "keywords.account":
+    "Account|GitHub|Sign in|Disconnect|Sign out|Token|Login|Attachments|Upload|Pictures|Videos|github.com",
   search: "Search settings",
   searchPlaceholder: "Search settings…",
   clear: "Clear",
@@ -61,7 +66,8 @@ export const settings = {
   "kind.authored": "I opened them",
   "kind.merged": "They were merged",
   "kind.custom": "They match a GitHub search",
-  customFooter: "GitHub's search qualifiers, as on github.com/pulls. Pull requests only; the filters below still apply.",
+  customFooter:
+    "GitHub's search qualifiers, as on github.com/pulls. Pull requests only; the filters below still apply.",
   pullRequestsWhere: "Pull requests where",
   pullRequestsWhereHint: "What puts a pull request in this queue.",
   hideOnceReviewed: "Leave once I've reviewed or commented",
@@ -129,7 +135,8 @@ export const settings = {
   withoutLabelsLabel: "Labels to leave out",
   notifyWhen: "Notify me when",
   notifyWhenFooter: "Cards still show everything that's new.",
-  notifyAtFooter: "At review time, they wait for your next one and come with what to review. With no review time set, they show right away.",
+  notifyAtFooter:
+    "At review time, they wait for your next one and come with what to review. With no review time set, they show right away.",
   tellMe: "Tell me",
   whenToTellMe: "When to tell me",
   rightAway: "Right away",
@@ -145,12 +152,14 @@ export const settings = {
   notifyReposLabel: "Repositories to notify about",
 
   // Account
-  githubFooter: "Focus Diff reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.",
+  githubFooter:
+    "Focus Diff reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.",
   usingGh: "Using the GitHub CLI's login",
   signedIn: "Signed in with GitHub",
   disconnect: "Disconnect",
   attachments: "Attachments",
-  attachmentsFooter: "GitHub has no way for apps to upload pictures and videos, so Focus Diff attaches them as github.com does, signed in there. You sign in on GitHub's own page; the session stays in your system keychain and is only ever sent to github.com.",
+  attachmentsFooter:
+    "GitHub has no way for apps to upload pictures and videos, so Focus Diff attaches them as github.com does, signed in there. You sign in on GitHub's own page; the session stays in your system keychain and is only ever sent to github.com.",
   webSignedIn: "Signed in on github.com, to attach pictures and videos",
   webSignedOut: "Sign in to attach pictures and videos to comments.",
   webSignIn: "Sign in to github.com",
@@ -203,12 +212,14 @@ export const settings = {
   howLong: "How long",
   minutes: "{minutes} min",
   whatToReview: "What to review",
-  whatToReviewFooter: "Empty: every review queue. Each pull request is estimated at about {lines} changed lines an hour, plus a couple of minutes to read it and write the review.",
+  whatToReviewFooter:
+    "Empty: every review queue. Each pull request is estimated at about {lines} changed lines an hour, plus a couple of minutes to read it and write the review.",
   whatGoesFirst: "What goes first",
   includeDrafts: "Include drafts",
   fromQueues: "From these queues",
   deleteReviewTime: "Delete review time",
-  reviewIntro: "Set aside time to review. When it comes, Focus Diff picks the pull requests that fit, by about how long each takes, tells you with a sound of its own, and counts the time down in the menu bar.",
+  reviewIntro:
+    "Set aside time to review. When it comes, Focus Diff picks the pull requests that fit, by about how long each takes, tells you with a sound of its own, and counts the time down in the menu bar.",
   next: "Next: {day} at {time}, “{name}” for {minutes} min.",
   noneOn: "No review time is on. Turn one on, or give it a day and a time.",
   remindMe: "Remind me when it's review time",
@@ -217,8 +228,10 @@ export const settings = {
   sessionOn: "{name} on",
   noSessions: "None yet. Add one, like weekdays at 15:00 for half an hour.",
   whenItsTime: "When it's time",
-  waitingQueues: "Notifications from {queues} wait for review time; change that in each queue. The sound plays when “Play a sound with notifications” is on, in General.",
-  noWaitingQueues: "Each queue's notifications can wait for review time; set that in the queue. The sound plays when “Play a sound with notifications” is on, in General.",
+  waitingQueues:
+    "Notifications from {queues} wait for review time; change that in each queue. The sound plays when “Play a sound with notifications” is on, in General.",
+  noWaitingQueues:
+    "Each queue's notifications can wait for review time; set that in the queue. The sound plays when “Play a sound with notifications” is on, in General.",
   againFirst: "Re-reviews first",
   againFirstHint: "When someone asks you to review a pull request again, it goes before the rest, if it fits.",
   remindEnd: "Tell me when the time's up",
@@ -231,11 +244,15 @@ export const settings = {
   importEmpty: "That text has no filters in it. Ask for them to be copied again.",
   importInvalid: "That isn't a copied set of filters. Paste exactly what Copy Filters gave.",
   added: { one: "Added {count} filter.", other: "Added {count} filters." },
-  skipped: { one: "{count} filter didn't fit: the app keeps 12.", other: "{count} filters didn't fit: the app keeps 12." },
+  skipped: {
+    one: "{count} filter didn't fit: the app keeps 12.",
+    other: "{count} filters didn't fit: the app keeps 12.",
+  },
   noRoom: "No room: the app keeps 12 filters.",
   haveAll: "You already have all of them.",
   share: "Share",
-  shareFooter: "The same text as Focus Diff in the browser, so filters move between the two either way. Imported filters are added to yours; ones you already have are skipped.",
+  shareFooter:
+    "The same text as Focus Diff in the browser, so filters move between the two either way. Imported filters are added to yours; ones you already have are skipped.",
   copyYours: "Copy your filters",
   copyYoursHint: "To send to a teammate, or paste into Focus Diff's settings.",
   noClipboard: "Couldn't reach the clipboard.",
@@ -244,7 +261,8 @@ export const settings = {
   importFilters: "Import filters",
   importPlaceholder: "Paste what a teammate, or Focus Diff, copied",
   import: "Import",
-  filtersIntro: "Review one part of a pull request at a time. Each filter keeps the files whose path matches what to include and not what to leave out (regular expressions; empty includes everything). They're chips at the bottom of the review window: turn on several to see them together.",
+  filtersIntro:
+    "Review one part of a pull request at a time. Each filter keeps the files whose path matches what to include and not what to leave out (regular expressions; empty includes everything). They're chips at the bottom of the review window: turn on several to see them together.",
   filterName: "Filter name",
   onlyIn: "Only in",
   onlyInHint: "Every repository. Add owner/name, or owner/* for all of an owner's, to offer it only there.",
@@ -272,7 +290,8 @@ export const settings = {
   command: "Command",
   commandHintBefore: "Runs with",
   commandHintMiddle: "in your home folder, for up to two minutes. Gets",
-  commandHintAfter: "Its last line of output is shown. The first time a command runs, or after it changes, you're asked to allow it.",
+  commandHintAfter:
+    "Its last line of output is shown. The first time a command runs, or after it changes, you're asked to allow it.",
   button: "Button",
   confirm: "Ask me to confirm",
   confirmHint: "Before running.",
@@ -288,11 +307,13 @@ export const settings = {
   deleteAction: "Delete action",
   buttons: "Buttons",
   actionsEmpty: "Your own buttons on pull requests",
-  actionsEmptyHint: "Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.",
+  actionsEmptyHint:
+    "Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.",
 
   // AI
   copyNamed: "Copy {command}",
-  aiIntro: "Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer, read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.",
+  aiIntro:
+    "Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer, read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.",
   codingAgent: "Coding agent",
   checkAgain: "Check Again",
   checkAgainFooter: "Check again after installing or signing in.",
@@ -310,16 +331,20 @@ export const settings = {
   effortHint: "Higher is slower and uses more of your plan.",
   effortInModel: "Part of the model you pick (a thinking model thinks harder).",
   project: "Read the whole project, not just the diff",
-  projectHint: "So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan.",
+  projectHint:
+    "So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan.",
   autoReview: "AI review when a pull request opens",
-  autoReviewHint: "Its comments show on the diff's lines, for you to add to your review or dismiss. Off: an “AI review” button in the review window.",
+  autoReviewHint:
+    "Its comments show on the diff's lines, for you to add to your review or dismiss. Off: an “AI review” button in the review window.",
   reviewLooksFor: "What the review looks for",
   restoreDefault: "Restore Default",
   guidelines: "Your review guidelines",
-  guidelinesPlaceholder: "Added to every question and review. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it.",
+  guidelinesPlaceholder:
+    "Added to every question and review. For example: We use React Query; point out missing loading and error states. Ignore formatting, a linter handles it.",
   prompts: "Prompts",
   restoreDefaults: "Restore Defaults",
-  promptsFooter: "Buttons on each pull request. Each one gets the pull request's description and diff, and your guidelines. You can also ask anything from the pull request itself.",
+  promptsFooter:
+    "Buttons on each pull request. Each one gets the pull request's description and diff, and your guidelines. You can also ask anything from the pull request itself.",
   buttonName: "Button name",
   whatAsks: "What {name} asks",
   addPrompt: "Add Prompt",
@@ -349,7 +374,10 @@ export const settings = {
   addChoice: "Add Choice",
   removeChoice: "Remove {name}",
   removeChoiceConfirm: "Remove “{name}”?",
-  dropChoicesConfirm: { one: "Make it a button and remove the other choice?", other: "Make it a button and remove the other {count} choices?" },
+  dropChoicesConfirm: {
+    one: "Make it a button and remove the other choice?",
+    other: "Make it a button and remove the other {count} choices?",
+  },
   menuOf: "Menu: {choices}",
   summaryRepos: { one: "{count} repository", other: "{count} repositories" },
   summaryFiles: "Some files",

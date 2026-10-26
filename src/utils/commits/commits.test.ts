@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
+
 import { commitRange, inRange, sameRange, sinceReview, type Commit, type Commits } from "@/utils/commits/commits";
 
-const commit = (oid: string, parent: string | null): Commit => ({ oid, short: oid.slice(0, 7), headline: oid, body: "", at: "2026-01-01T00:00:00Z", author: { login: "ana", name: "Ana", avatarUrl: null }, verified: null, ci: null, parent });
+const commit = (oid: string, parent: string | null): Commit => ({
+  oid,
+  short: oid.slice(0, 7),
+  headline: oid,
+  body: "",
+  at: "2026-01-01T00:00:00Z",
+  author: { login: "ana", name: "Ana", avatarUrl: null },
+  verified: null,
+  ci: null,
+  parent,
+});
 const commits = [commit("a", "base"), commit("b", "a"), commit("c", "b"), commit("d", "c")];
 const list = (reviewed: string | null): Commits => ({ commits, forcePushes: [], reviewed });
 

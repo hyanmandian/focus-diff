@@ -21,8 +21,10 @@ function pairUp(removed: string[], added: string[]): string[] {
     for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) pairs.set(i, i);
   } else {
     const table = Array.from({ length: a.length + 1 }, () => new Uint32Array(b.length + 1));
-    for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) table[i]![j] = a[i] === b[j] ? table[i + 1]![j + 1]! + 1 : Math.max(table[i + 1]![j]!, table[i]![j + 1]!);
-    for (let i = 0, j = 0; i < a.length && j < b.length; ) {
+    for (let i = a.length - 1; i >= 0; i--)
+      for (let j = b.length - 1; j >= 0; j--)
+        table[i]![j] = a[i] === b[j] ? table[i + 1]![j + 1]! + 1 : Math.max(table[i + 1]![j]!, table[i]![j + 1]!);
+    for (let i = 0, j = 0; i < a.length && j < b.length;) {
       if (a[i] === b[j]) pairs.set(i++, j++);
       else if (table[i + 1]![j]! >= table[i]![j + 1]!) i++;
       else j++;
@@ -58,7 +60,14 @@ export function ignoreWhitespace(patch: string): string {
     let run: string[] = [];
     // "\ No newline at end of file" belongs to the line before it: a run with one stays as it is.
     const end = () => {
-      out.push(...(run.some((l) => l[0] === "\\") ? run : pairUp(run.filter((l) => l[0] === "-"), run.filter((l) => l[0] === "+"))));
+      out.push(
+        ...(run.some((l) => l[0] === "\\")
+          ? run
+          : pairUp(
+              run.filter((l) => l[0] === "-"),
+              run.filter((l) => l[0] === "+"),
+            )),
+      );
       run = [];
     };
     for (const line of hunk.slice(1)) {

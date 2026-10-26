@@ -1,9 +1,29 @@
 import { describe, expect, it } from "vitest";
+
 import type { DiffFilter } from "@/utils/config/config";
 import { reviewMinutes } from "@/utils/estimate/estimate";
-import { addImported, exportFilters, filtersFor, importFilters, inAny, keptSelection, nextFile, nextFilterWithWork, repoMatches, stepFilter, toggled, totals } from "@/utils/filters/filters";
+import {
+  addImported,
+  exportFilters,
+  filtersFor,
+  importFilters,
+  inAny,
+  keptSelection,
+  nextFile,
+  nextFilterWithWork,
+  repoMatches,
+  stepFilter,
+  toggled,
+  totals,
+} from "@/utils/filters/filters";
 
-const filter = (id: string, include: string, repos: string[] = [], exclude = ""): DiffFilter => ({ id, name: id[0]!.toUpperCase() + id.slice(1), include, exclude, repos });
+const filter = (id: string, include: string, repos: string[] = [], exclude = ""): DiffFilter => ({
+  id,
+  name: id[0]!.toUpperCase() + id.slice(1),
+  include,
+  exclude,
+  repos,
+});
 const frontend = filter("frontend", "\\.tsx?$", [], "\\.test\\.");
 const docs = filter("docs", "\\.md$");
 const payments = filter("payments", "^payments/", ["acme/web", "acme/*"]);
@@ -71,7 +91,11 @@ describe("breakdown and the next file", () => {
   });
 
   it("finds the next filter with files left", () => {
-    expect(nextFilterWithWork(files, [frontend, docs], ["docs"], isViewed)).toEqual({ id: "frontend", name: "Frontend", left: 1 });
+    expect(nextFilterWithWork(files, [frontend, docs], ["docs"], isViewed)).toEqual({
+      id: "frontend",
+      name: "Frontend",
+      left: 1,
+    });
     expect(nextFilterWithWork(files, [frontend, docs], ["frontend"], isViewed)).toBeUndefined();
   });
 

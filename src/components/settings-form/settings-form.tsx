@@ -5,10 +5,11 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+
 import { Switch } from "@/components/switch/switch";
+import { cn } from "@/utils/cn/cn";
 import type { Queue } from "@/utils/config/config";
 import { useT } from "@/utils/i18n/i18n";
-import { cn } from "@/utils/cn/cn";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 
 /** A queue's colour, as a fill: the system colours (the -ic ones are for text). */
@@ -26,7 +27,8 @@ export const TWO_LINE_ITEM = "h-auto flex-col items-start gap-0 py-1 whitespace-
 
 /** A push button that stays in (a preset picked, a queue included): the accent, as Tahoe draws a
  *  chosen segment, gray in a window that isn't in front. */
-export const PRESSED_CHIP = "aria-pressed:bg-selected aria-pressed:text-selected-foreground aria-pressed:active:brightness-90";
+export const PRESSED_CHIP =
+  "aria-pressed:bg-selected aria-pressed:text-selected-foreground aria-pressed:active:brightness-90";
 
 /** How far a pane's big header scrolls before its name takes its place in the strip. */
 const HERO_PAST = 120;
@@ -61,7 +63,10 @@ export function Pane({
     <div className="flex h-full min-h-0 flex-col">
       <header
         data-tauri-drag-region
-        className={cn("shrink-0 border-b transition-colors duration-(--duration)", scrolled > 0 && (!hero || scrolled > HERO_PAST) ? "border-separator" : "border-transparent")}
+        className={cn(
+          "shrink-0 border-b transition-colors duration-(--duration)",
+          scrolled > 0 && (!hero || scrolled > HERO_PAST) ? "border-separator" : "border-transparent",
+        )}
       >
         {/* Lined up with the column below, so the title sits over the groups' edge. */}
         <div data-tauri-drag-region className="mx-auto flex h-[52px] max-w-[620px] items-center gap-1.5 px-5">
@@ -72,7 +77,7 @@ export function Pane({
               onClick={back.onBack}
               aria-label={t("settings.backTo", { pane: back.label })}
               title={t("settings.backToShortcut", { pane: back.label })}
-              className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground outline-none focus-ring hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
+              className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground focus-ring outline-none hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
             >
               {/* A toolbar item, which (unlike a button in the content) may light up under the pointer. */}
               <ChevronLeft className="size-[18px]" strokeWidth={2} aria-hidden />
@@ -81,7 +86,10 @@ export function Pane({
           <h1
             data-tauri-drag-region
             aria-hidden={hero ? true : undefined}
-            className={cn("min-w-0 truncate text-title3 font-semibold transition-opacity duration-(--duration)", hero && scrolled <= HERO_PAST && "opacity-0")}
+            className={cn(
+              "min-w-0 truncate text-title3 font-semibold transition-opacity duration-(--duration)",
+              hero && scrolled <= HERO_PAST && "opacity-0",
+            )}
           >
             {title}
           </h1>
@@ -94,7 +102,11 @@ export function Pane({
         <div className={cn("mx-auto flex max-w-[620px] flex-col gap-6 px-5 pt-1 pb-8", className)}>
           {meta && Icon ? (
             <div className="flex flex-col items-center gap-1.5 pt-1 pb-3 text-center">
-              <span className="settings-tile settings-tile-large mb-2 grid size-16 place-items-center rounded-[18px] text-white" data-tile={meta.tile} aria-hidden>
+              <span
+                className="settings-tile settings-tile-large mb-2 grid size-16 place-items-center rounded-[18px] text-white"
+                data-tile={meta.tile}
+                aria-hidden
+              >
                 <Icon className="size-8" strokeWidth={2} />
               </span>
               <h1 className="text-title1 leading-tight font-bold">{title}</h1>
@@ -187,13 +199,25 @@ export function Row({
   return (
     <div className={cn("flex min-h-10 items-center gap-4 px-3 py-2", className)}>
       {text}
-      {children ? <div className={cn("flex items-center gap-2", text ? "shrink-0" : "min-w-0 flex-1")}>{children}</div> : null}
+      {children ? (
+        <div className={cn("flex items-center gap-2", text ? "shrink-0" : "min-w-0 flex-1")}>{children}</div>
+      ) : null}
     </div>
   );
 }
 
 /** A row with a switch, the mini one System Settings puts in a grouped form's rows. */
-export function SwitchRow({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: React.ReactNode }) {
+export function SwitchRow({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint?: React.ReactNode;
+}) {
   const id = useId();
   return (
     <Row label={label} description={hint} htmlFor={id}>
@@ -230,7 +254,9 @@ export const LinkRow = forwardRef<
         className="min-w-0 flex-1 cursor-default text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:outline-3 focus-visible:after:-outline-offset-3 focus-visible:after:outline-(--focus-ring)"
       >
         <span className={cn("block truncate text-body", muted && "text-muted-foreground")}>{label}</span>
-        {description ? <span className="mt-0.5 block truncate text-subheadline text-muted-foreground">{description}</span> : null}
+        {description ? (
+          <span className="mt-0.5 block truncate text-subheadline text-muted-foreground">{description}</span>
+        ) : null}
       </button>
       {control ? <div className="relative z-10 flex shrink-0 items-center">{control}</div> : null}
       <ChevronRight className="size-3.5 shrink-0 text-(--label-tertiary)" strokeWidth={2.25} aria-hidden />
@@ -281,7 +307,8 @@ export function useDetail() {
 
 /** Arrow keys within a hand-drawn radio group: move to the next or previous choice and pick it. */
 export function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
-  const by = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
+  const by =
+    e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
   if (!by) return;
   const radios = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=radio]")];
   const i = radios.indexOf(document.activeElement as HTMLElement);

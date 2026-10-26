@@ -3,8 +3,9 @@
 
 import { X } from "lucide-react";
 import { useId, useState } from "react";
-import { useT } from "@/utils/i18n/i18n";
+
 import { cn } from "@/utils/cn/cn";
+import { useT } from "@/utils/i18n/i18n";
 
 type Props = {
   value: string[];
@@ -44,11 +45,14 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
         )}
       >
         {value.map((v) => (
-          <span key={v} className="inline-flex h-[18px] items-center gap-0.5 rounded-[4px] bg-fill pr-px pl-1.5 font-mono text-subheadline">
+          <span
+            key={v}
+            className="inline-flex h-[18px] items-center gap-0.5 rounded-[4px] bg-fill pr-px pl-1.5 font-mono text-subheadline"
+          >
             {v}
             <button
               type="button"
-              className="grid size-4 cursor-default place-items-center rounded-[3px] text-muted-foreground outline-none focus-ring active:bg-(--fill-control-pressed)"
+              className="grid size-4 cursor-default place-items-center rounded-[3px] text-muted-foreground focus-ring outline-none active:bg-(--fill-control-pressed)"
               aria-label={t("settings.removeNamed", { name: v })}
               onClick={() => onChange(value.filter((x) => x !== v))}
             >

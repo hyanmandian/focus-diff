@@ -4,19 +4,49 @@
 // first error. Re-running and approving fork runs are here for those allowed; while anything runs,
 // the list follows it (checks.ts).
 
-import { ArrowDownToLine, ChevronDown, ChevronRight, CircleCheck, CircleDot, CircleMinus, CircleX, ExternalLink, Loader2, RotateCw, TriangleAlert, Info } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ChevronDown,
+  ChevronRight,
+  CircleCheck,
+  CircleDot,
+  CircleMinus,
+  CircleX,
+  ExternalLink,
+  Loader2,
+  RotateCw,
+  TriangleAlert,
+  Info,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/button/button";
+
 import { ButtonGroup } from "@/components/button-group/button-group";
+import { Button } from "@/components/button/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
+import type { Pull } from "@/hooks/use-pull/use-pull";
 import { bridge } from "@/utils/bridge/bridge";
-import { countChecks, groupChecks, loadCheckDetail, loadLog, parseLog, rerunJob, type CheckDetail, type CheckItem, type CheckState, type LogLine } from "@/utils/checks/checks";
+import {
+  countChecks,
+  groupChecks,
+  loadCheckDetail,
+  loadLog,
+  parseLog,
+  rerunJob,
+  type CheckDetail,
+  type CheckItem,
+  type CheckState,
+  type LogLine,
+} from "@/utils/checks/checks";
+import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import { canWrite } from "@/utils/manage/manage";
 import type { PullRef } from "@/utils/review/review";
-import { cn } from "@/utils/cn/cn";
-import type { Pull } from "@/hooks/use-pull/use-pull";
 
 // Their words: t(`review.check.${state}`), t(`manage.group.${state}`).
 export const CHECK_ICON = {
@@ -34,7 +64,23 @@ function took(check: CheckItem) {
 }
 
 // GitHub's words for how a check went or where it is, in ours: t(`manage.detail.${detail}`).
-const DETAILS = ["cancelled", "timed_out", "skipped", "neutral", "action_required", "startup_failure", "stale", "failure", "error", "queued", "in_progress", "waiting", "pending", "requested", "expected"] as const;
+const DETAILS = [
+  "cancelled",
+  "timed_out",
+  "skipped",
+  "neutral",
+  "action_required",
+  "startup_failure",
+  "stale",
+  "failure",
+  "error",
+  "queued",
+  "in_progress",
+  "waiting",
+  "pending",
+  "requested",
+  "expected",
+] as const;
 type Detail = (typeof DETAILS)[number];
 const isDetail = (word: string): word is Detail => (DETAILS as readonly string[]).includes(word);
 
@@ -57,7 +103,13 @@ function LogView({ lines, truncated }: { lines: LogLine[]; truncated: boolean })
   return (
     <div className="flex flex-col gap-1">
       {truncated ? <p className="text-subheadline text-muted-foreground">{t("manage.logTruncated")}</p> : null}
-      <div ref={box} tabIndex={0} role="log" aria-label={t("manage.log")} className="selectable relative max-h-96 overflow-auto rounded-lg bg-muted p-2 font-mono text-footnote leading-relaxed outline-none focus-ring">
+      <div
+        ref={box}
+        tabIndex={0}
+        role="log"
+        aria-label={t("manage.log")}
+        className="selectable relative max-h-96 overflow-auto rounded-lg bg-muted p-2 font-mono text-footnote leading-relaxed focus-ring outline-none"
+      >
         {lines.map((line, i) => (
           <div
             key={i}
@@ -78,7 +130,21 @@ function LogView({ lines, truncated }: { lines: LogLine[]; truncated: boolean })
   );
 }
 
-function Opened({ pr, check, write, hasFile, onJump, say }: { pr: PullRef; check: CheckItem; write: boolean; hasFile: (path: string) => boolean; onJump: (path: string, line: number | null) => void; say: (message: string) => void }) {
+function Opened({
+  pr,
+  check,
+  write,
+  hasFile,
+  onJump,
+  say,
+}: {
+  pr: PullRef;
+  check: CheckItem;
+  write: boolean;
+  hasFile: (path: string) => boolean;
+  onJump: (path: string, line: number | null) => void;
+  say: (message: string) => void;
+}) {
   const t = useT();
   const [detail, setDetail] = useState<CheckDetail | null>(null);
   const [log, setLog] = useState<{ lines: LogLine[]; truncated: boolean } | null>(null);
@@ -132,7 +198,17 @@ function Opened({ pr, check, write, hasFile, onJump, say }: { pr: PullRef; check
                     {a.line ? `:${a.line}` : ""}
                   </p>
                   {hasFile(a.path) ? (
-                    <Button variant="ghost" size="xs" className="shrink-0" onClick={() => onJump(a.path, a.line)} aria-label={a.line ? t("review.showLineInDiff", { path: a.path, line: String(a.line) }) : t("review.showInDiff", { path: a.path })}>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="shrink-0"
+                      onClick={() => onJump(a.path, a.line)}
+                      aria-label={
+                        a.line
+                          ? t("review.showLineInDiff", { path: a.path, line: String(a.line) })
+                          : t("review.showInDiff", { path: a.path })
+                      }
+                    >
                       <ArrowDownToLine /> {a.line ? t("review.goToLine") : t("review.goToFile")}
                     </Button>
                   ) : null}
@@ -144,7 +220,11 @@ function Opened({ pr, check, write, hasFile, onJump, say }: { pr: PullRef; check
           })}
         </ul>
       ) : null}
-      {detail?.summary ? <p className="selectable line-clamp-[12] text-callout break-words whitespace-pre-wrap text-muted-foreground">{detail.summary}</p> : null}
+      {detail?.summary ? (
+        <p className="selectable line-clamp-[12] text-callout break-words whitespace-pre-wrap text-muted-foreground">
+          {detail.summary}
+        </p>
+      ) : null}
       {log ? <LogView lines={log.lines} truncated={log.truncated} /> : null}
       {logState !== "idle" && logState !== "loading" ? (
         <p className="text-callout text-muted-foreground" role="alert">
@@ -185,20 +265,48 @@ function Row({ check, open, onToggle }: { check: CheckItem; open: boolean; onTog
   const s = CHECK_ICON[check.state];
   const time = took(check);
   return (
-    <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full cursor-default items-center gap-2 rounded py-0.5 text-left text-body outline-none focus-ring">
-      {open ? <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />}
-      {check.state === "pending" ? <Loader2 className={cn("size-3.5 shrink-0 animate-spin motion-reduce:animate-none", s.className)} aria-label={t(`review.check.${check.state}`)} /> : <s.icon className={cn("size-3.5 shrink-0", s.className)} aria-label={t(`review.check.${check.state}`)} />}
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      className="flex w-full cursor-default items-center gap-2 rounded py-0.5 text-left text-body focus-ring outline-none"
+    >
+      {open ? (
+        <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+      ) : (
+        <ChevronRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+      )}
+      {check.state === "pending" ? (
+        <Loader2
+          className={cn("size-3.5 shrink-0 animate-spin motion-reduce:animate-none", s.className)}
+          aria-label={t(`review.check.${check.state}`)}
+        />
+      ) : (
+        <s.icon className={cn("size-3.5 shrink-0", s.className)} aria-label={t(`review.check.${check.state}`)} />
+      )}
       <span className="min-w-0 flex-1 truncate">
         {check.workflow ? <span className="text-muted-foreground">{check.workflow} / </span> : null}
         {check.name}
       </span>
-      {check.required ? <span className="shrink-0 rounded-full bg-fill px-1.5 text-footnote text-muted-foreground">{t("manage.required")}</span> : null}
-      <span className="shrink-0 text-subheadline text-muted-foreground tabular-nums">{time ?? (check.state !== "success" && isDetail(check.detail) ? t(`manage.detail.${check.detail}`) : "")}</span>
+      {check.required ? (
+        <span className="shrink-0 rounded-full bg-fill px-1.5 text-footnote text-muted-foreground">
+          {t("manage.required")}
+        </span>
+      ) : null}
+      <span className="shrink-0 text-subheadline text-muted-foreground tabular-nums">
+        {time ?? (check.state !== "success" && isDetail(check.detail) ? t(`manage.detail.${check.detail}`) : "")}
+      </span>
     </button>
   );
 }
 
-type Props = { pr: PullRef & { state: string }; pull: Pull; hasFile: (path: string) => boolean; onJump: (path: string, line: number | null) => void; say: (message: string) => void };
+type Props = {
+  pr: PullRef & { state: string };
+  pull: Pull;
+  hasFile: (path: string) => boolean;
+  onJump: (path: string, line: number | null) => void;
+  say: (message: string) => void;
+};
 
 export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
   const t = useT();
@@ -214,22 +322,34 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
   const summary = (["failure", "pending", "neutral", "success"] as CheckState[])
     .filter((s) => counts[s])
     .map((s) => t(`manage.count.${s}`, { count: counts[s] }));
-  const toggle = (id: string) => setOpened((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : new Set([...s, id])));
+  const toggle = (id: string) =>
+    setOpened((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : new Set([...s, id])));
   return (
     <section aria-labelledby="checks" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left outline-none focus-ring">
-            {open ? <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />}
+          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
+            {open ? (
+              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            ) : (
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            )}
             <h2 id="checks" className="text-headline font-bold">
               {t("review.checks")}
             </h2>
             <span className="truncate text-callout text-muted-foreground">{t.list(summary)}</span>
-            {pull.checks.running ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none" aria-label={t("review.check.pending")} /> : null}
+            {pull.checks.running ? (
+              <Loader2
+                className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+                aria-label={t("review.check.pending")}
+              />
+            ) : null}
           </CollapsibleTrigger>
           {write && checks.some((c) => c.run) ? (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline" className="shrink-0 gap-1" disabled={pull.busy === "rerun"} />}>
+              <DropdownMenuTrigger
+                render={<Button variant="outline" className="shrink-0 gap-1" disabled={pull.busy === "rerun"} />}
+              >
                 <RotateCw /> {t("manage.rerun")}
                 <ChevronDown className="size-3 opacity-70" />
               </DropdownMenuTrigger>
@@ -262,7 +382,9 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
                   {g.checks.map((check) => (
                     <li key={check.id}>
                       <Row check={check} open={opened.has(check.id)} onToggle={() => toggle(check.id)} />
-                      {opened.has(check.id) ? <Opened pr={pr} check={check} write={write} hasFile={hasFile} onJump={onJump} say={say} /> : null}
+                      {opened.has(check.id) ? (
+                        <Opened pr={pr} check={check} write={write} hasFile={hasFile} onJump={onJump} say={say} />
+                      ) : null}
                     </li>
                   ))}
                 </ul>

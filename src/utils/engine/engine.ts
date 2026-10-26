@@ -26,7 +26,13 @@ export type PullRequest = {
   mergedBy: Actor;
   labels: { nodes: Array<{ name: string }> };
   reviewRequests: {
-    nodes: Array<{ requestedReviewer: null | { __typename: "User"; login: string; avatarUrl?: string } | { __typename: "Team"; slug: string; organization: { login: string } } | { __typename: string } }>;
+    nodes: Array<{
+      requestedReviewer:
+        | null
+        | { __typename: "User"; login: string; avatarUrl?: string }
+        | { __typename: "Team"; slug: string; organization: { login: string } }
+        | { __typename: string };
+    }>;
   };
   latestOpinionatedReviews: { nodes: Array<{ author: Actor; state: string; submittedAt: string; url: string }> };
   /** Comments and review conversations. */

@@ -1,6 +1,7 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@/utils/cn/cn"
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "@/utils/cn/cn";
 
 // Buttons as AppKit draws them on macOS 27: a flat fill with no border or shadow, regular weight,
 // no hover (Mac buttons don't light up under the pointer), a darker fill while pressed and the
@@ -16,7 +17,7 @@ import { cn } from "@/utils/cn/cn"
 //   inside a sentence.
 // - Related actions side by side join in a ButtonGroup; the window toolbar has its own capsules.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-default items-center justify-center font-normal whitespace-nowrap outline-none select-none focus-ring disabled:pointer-events-none disabled:text-(--label-tertiary) aria-disabled:text-(--label-tertiary) aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 cursor-default items-center justify-center font-normal whitespace-nowrap focus-ring outline-none select-none disabled:pointer-events-none disabled:text-(--label-tertiary) aria-disabled:text-(--label-tertiary) aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -24,7 +25,8 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground active:brightness-90 disabled:bg-fill",
         /** A push button. ("outline" and "secondary" are shadcn's names for it.) */
         outline: "bg-fill text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
-        secondary: "bg-fill text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
+        secondary:
+          "bg-fill text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
         /** Borderless: just the label or glyph, a fill only while pressed or its menu is open. */
         ghost: "text-foreground active:bg-fill aria-expanded:bg-fill aria-pressed:bg-fill",
         /** A push button that does something that can't be taken back: red label, never the default. */
@@ -51,8 +53,8 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
-)
+  },
+);
 
 function Button({
   className,
@@ -60,13 +62,7 @@ function Button({
   size = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
+  return <ButtonPrimitive data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />;
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

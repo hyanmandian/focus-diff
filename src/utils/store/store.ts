@@ -3,6 +3,7 @@
 // its snapshots and passes clicks back. React reads it through useStore (useSyncExternalStore).
 
 import { useSyncExternalStore } from "react";
+
 import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
 import { loadConfig, type Config } from "@/utils/config/config";
 import type { Item } from "@/utils/engine/engine";
@@ -10,11 +11,27 @@ import type { Item } from "@/utils/engine/engine";
 export type Status = { phase: "idle" | "loading" | "error"; error?: string; updatedAt: number };
 
 /** A pull request picked for review time (`RunPull` in review.rs). */
-export type RunPull = { id: string; title: string; repo: string; number: number; url: string; minutes: number; again: boolean };
+export type RunPull = {
+  id: string;
+  title: string;
+  repo: string;
+  number: number;
+  url: string;
+  minutes: number;
+  again: boolean;
+};
 
 /** The review time under way (`Run` in review.rs), and when its time is up (ms). */
 export type ReviewRun = {
-  run: { session: string; name: string; minutes: number; startedAt: number; pulls: RunPull[]; left: number; overBy: number };
+  run: {
+    session: string;
+    name: string;
+    minutes: number;
+    startedAt: number;
+    pulls: RunPull[];
+    left: number;
+    overBy: number;
+  };
   endsAt: number;
 };
 
@@ -96,7 +113,12 @@ export function markQueueSeen(queueId: string) {
 
 /** Takes a PR off a queue by hand (merged: seen; others: ignored), until it leaves the search. */
 export function dismiss(item: Item) {
-  set({ items: { ...snapshot.items, [item.queueId]: (snapshot.items[item.queueId] ?? []).filter((i) => i.pr.id !== item.pr.id) } });
+  set({
+    items: {
+      ...snapshot.items,
+      [item.queueId]: (snapshot.items[item.queueId] ?? []).filter((i) => i.pr.id !== item.pr.id),
+    },
+  });
   void bridge.dismiss(item.queueId, item.pr.id);
 }
 

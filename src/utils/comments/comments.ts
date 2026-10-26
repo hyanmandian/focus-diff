@@ -6,7 +6,16 @@ import type { Actor } from "@/utils/engine/engine";
 import { i18n } from "@/utils/i18n/i18n";
 
 /** GitHub's eight reactions, in its order. */
-export const REACTIONS = ["THUMBS_UP", "THUMBS_DOWN", "LAUGH", "HOORAY", "CONFUSED", "HEART", "ROCKET", "EYES"] as const;
+export const REACTIONS = [
+  "THUMBS_UP",
+  "THUMBS_DOWN",
+  "LAUGH",
+  "HOORAY",
+  "CONFUSED",
+  "HEART",
+  "ROCKET",
+  "EYES",
+] as const;
 export type ReactionContent = (typeof REACTIONS)[number];
 export const EMOJI: Record<ReactionContent, string> = {
   THUMBS_UP: "👍",
@@ -22,43 +31,75 @@ export const EMOJI: Record<ReactionContent, string> = {
 /** One reaction on something: how many, whether you're one of them, and the first few who are. */
 export type Reaction = { content: ReactionContent; count: number; mine: boolean; who: string[] };
 
-export const REACTION_FIELDS = "reactionGroups { content viewerHasReacted reactors(first: 5) { totalCount nodes { ... on Actor { login } } } }";
+export const REACTION_FIELDS =
+  "reactionGroups { content viewerHasReacted reactors(first: 5) { totalCount nodes { ... on Actor { login } } } }";
 
-type RawGroup = { content: ReactionContent; viewerHasReacted: boolean; reactors: { totalCount: number; nodes: Array<{ login?: string } | null> } };
+type RawGroup = {
+  content: ReactionContent;
+  viewerHasReacted: boolean;
+  reactors: { totalCount: number; nodes: Array<{ login?: string } | null> };
+};
 
 /** Only the reactions someone gave, in GitHub's order. */
 export const toReactions = (groups: RawGroup[] | null | undefined): Reaction[] =>
   (groups ?? [])
     .filter((g) => g.reactors.totalCount > 0 && REACTIONS.includes(g.content))
     .sort((a, b) => REACTIONS.indexOf(a.content) - REACTIONS.indexOf(b.content))
-    .map((g) => ({ content: g.content, count: g.reactors.totalCount, mine: g.viewerHasReacted, who: g.reactors.nodes.flatMap((n) => (n?.login ? [n.login] : [])) }));
+    .map((g) => ({
+      content: g.content,
+      count: g.reactors.totalCount,
+      mine: g.viewerHasReacted,
+      who: g.reactors.nodes.flatMap((n) => (n?.login ? [n.login] : [])),
+    }));
 
 /** The reactions after you add or take back one, at once, before GitHub says. */
 export function toggled(reactions: Reaction[], content: ReactionContent, me: string | null): Reaction[] {
   const at = reactions.find((r) => r.content === content);
   if (at?.mine) {
-    return reactions.flatMap((r) => (r.content !== content ? [r] : r.count > 1 ? [{ ...r, count: r.count - 1, mine: false, who: r.who.filter((w) => w !== me) }] : []));
+    return reactions.flatMap((r) =>
+      r.content !== content
+        ? [r]
+        : r.count > 1
+          ? [{ ...r, count: r.count - 1, mine: false, who: r.who.filter((w) => w !== me) }]
+          : [],
+    );
   }
-  if (at) return reactions.map((r) => (r.content === content ? { ...r, count: r.count + 1, mine: true, who: me ? [me, ...r.who] : r.who } : r));
-  return [...reactions, { content, count: 1, mine: true, who: me ? [me] : [] }].sort((a, b) => REACTIONS.indexOf(a.content) - REACTIONS.indexOf(b.content));
+  if (at)
+    return reactions.map((r) =>
+      r.content === content ? { ...r, count: r.count + 1, mine: true, who: me ? [me, ...r.who] : r.who } : r,
+    );
+  return [...reactions, { content, count: 1, mine: true, who: me ? [me] : [] }].sort(
+    (a, b) => REACTIONS.indexOf(a.content) - REACTIONS.indexOf(b.content),
+  );
 }
 
 /** A mutation: unlike a query, an error in it is the answer, even with data beside it. */
 export async function mutate<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-  const reply = await github<{ data?: T; errors?: Array<{ message: string }> }>("POST", "/graphql", { query, variables });
-  if (reply.errors?.length || !reply.data) throw new GitHubError(200, reply.errors?.[0]?.message ?? i18n()("common.githubNoData"));
+  const reply = await github<{ data?: T; errors?: Array<{ message: string }> }>("POST", "/graphql", {
+    query,
+    variables,
+  });
+  if (reply.errors?.length || !reply.data)
+    throw new GitHubError(200, reply.errors?.[0]?.message ?? i18n()("common.githubNoData"));
   return reply.data;
 }
 
 export const react = (subject: string, content: ReactionContent, on: boolean) =>
-  mutate(`mutation($id: ID!, $content: ReactionContent!) { ${on ? "addReaction" : "removeReaction"}(input: { subjectId: $id, content: $content }) { clientMutationId } }`, { id: subject, content });
+  mutate(
+    `mutation($id: ID!, $content: ReactionContent!) { ${on ? "addReaction" : "removeReaction"}(input: { subjectId: $id, content: $content }) { clientMutationId } }`,
+    { id: subject, content },
+  );
 
 /** What can be edited: a comment on lines, one on the pull request, a review's own text, or the
  *  pull request's description. */
 export type Editable = "review-comment" | "issue-comment" | "review" | "pull";
 
 const EDIT: Record<Editable, { mutation: string; input: string; field: string }> = {
-  "review-comment": { mutation: "updatePullRequestReviewComment", input: "pullRequestReviewCommentId", field: "pullRequestReviewComment" },
+  "review-comment": {
+    mutation: "updatePullRequestReviewComment",
+    input: "pullRequestReviewCommentId",
+    field: "pullRequestReviewComment",
+  },
   "issue-comment": { mutation: "updateIssueComment", input: "id", field: "issueComment" },
   review: { mutation: "updatePullRequestReview", input: "pullRequestReviewId", field: "pullRequestReview" },
   pull: { mutation: "updatePullRequest", input: "pullRequestId", field: "pullRequest" },
@@ -75,7 +116,10 @@ export async function edit(kind: Editable, id: string, body: string): Promise<st
 }
 
 export const remove = (kind: "review-comment" | "issue-comment", id: string) =>
-  mutate(`mutation($id: ID!) { ${kind === "review-comment" ? "deletePullRequestReviewComment" : "deleteIssueComment"}(input: { id: $id }) { clientMutationId } }`, { id });
+  mutate(
+    `mutation($id: ID!) { ${kind === "review-comment" ? "deletePullRequestReviewComment" : "deleteIssueComment"}(input: { id: $id }) { clientMutationId } }`,
+    { id },
+  );
 
 /** The person a comment is by, with what a suggestion's commit credits them with. */
 export const AUTHOR = "__typename login avatarUrl(size: 64) ... on User { name databaseId }";
@@ -102,7 +146,9 @@ export type RawComment = {
 
 /** A conversation's comments past its first hundred, a hundred a page. */
 export async function moreComments(thread: string, after: string): Promise<RawComment[]> {
-  type Raw = { node: { comments: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] } } | null };
+  type Raw = {
+    node: { comments: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] } } | null;
+  };
   const all: RawComment[] = [];
   let cursor: string | null = after;
   for (let page = 0; cursor && page < 50; page++) {

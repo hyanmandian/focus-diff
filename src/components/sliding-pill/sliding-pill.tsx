@@ -3,10 +3,19 @@
 // must be positioned), so it scrolls with it; options mark themselves with data-pill={key}.
 
 import { useLayoutEffect, useRef, useState } from "react";
+
 import { cn } from "@/utils/cn/cn";
 
 /** `line`: a 2px underline under the chosen tab instead of a filled pill. */
-export function SlidingPill({ selected, className, line = false }: { selected: string; className?: string; line?: boolean }) {
+export function SlidingPill({
+  selected,
+  className,
+  line = false,
+}: {
+  selected: string;
+  className?: string;
+  line?: boolean;
+}) {
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   // Placed once without moving, so it doesn't fly in from the corner when the row appears.
   const [ready, setReady] = useState(false);
@@ -40,10 +49,17 @@ export function SlidingPill({ selected, className, line = false }: { selected: s
       className={cn(
         "pointer-events-none absolute top-0 left-0",
         line ? "rounded-full bg-foreground" : "-z-10 rounded-lg bg-selected",
-        ready && "transition-[transform,width,height] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+        ready &&
+          "transition-[transform,width,height] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
         className,
       )}
-      style={box ? (line ? { transform: `translate(${box.x}px, ${box.y + box.h - 2}px)`, width: box.w, height: 2 } : { transform: `translate(${box.x}px, ${box.y}px)`, width: box.w, height: box.h }) : { opacity: 0 }}
+      style={
+        box
+          ? line
+            ? { transform: `translate(${box.x}px, ${box.y + box.h - 2}px)`, width: box.w, height: 2 }
+            : { transform: `translate(${box.x}px, ${box.y}px)`, width: box.w, height: box.h }
+          : { opacity: 0 }
+      }
     />
   );
 }

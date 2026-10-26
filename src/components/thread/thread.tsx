@@ -1,33 +1,46 @@
 // What sits between a file's lines: a conversation (with replies and resolving), a comment written
 // for this review, or the box to write one.
 
-import { AlertCircle, Check, CloudUpload, CornerDownRight, Loader2, MessageSquare, Pencil, Sparkles, Square, Trash2, Undo2 } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  CloudUpload,
+  CornerDownRight,
+  Loader2,
+  MessageSquare,
+  Pencil,
+  Sparkles,
+  Square,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+
+import { AiAnswer } from "@/components/ai-answer/ai-answer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
-import { Button } from "@/components/button/button";
 import { ButtonGroup } from "@/components/button-group/button-group";
+import { Button } from "@/components/button/button";
+import { CommentHtml } from "@/components/comment-html/comment-html";
+import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
+import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
+import { SuggestionActions } from "@/components/suggestion/suggestion";
 import { Textarea } from "@/components/textarea/textarea";
+import { MarkdownField } from "@/components/writer/writer";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
-import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { avatar } from "@/utils/avatar/avatar";
+import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
-import { i18n, useT } from "@/utils/i18n/i18n";
 import type { Actor } from "@/utils/engine/engine";
+import { i18n, useT } from "@/utils/i18n/i18n";
+import { tabKeys } from "@/utils/keys/keys";
+import { isMac } from "@/utils/platform/platform";
 import type { Draft, Thread as ThreadData, ThreadComment } from "@/utils/review/review";
 import { linesFromPatch } from "@/utils/suggestion/suggestion";
 import { quote } from "@/utils/writing/writing";
-import { cn } from "@/utils/cn/cn";
-import { tabKeys } from "@/utils/keys/keys";
-import { isMac } from "@/utils/platform/platform";
-import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
-import { AiAnswer } from "@/components/ai-answer/ai-answer";
-import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
-import { CommentHtml } from "@/components/comment-html/comment-html";
-import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
-import { SuggestionActions } from "@/components/suggestion/suggestion";
-import { MarkdownField } from "@/components/writer/writer";
-import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 
 function Person({ actor }: { actor: Actor }) {
   return (
@@ -77,7 +90,16 @@ export function Composer({
   };
   return (
     <div className="flex flex-col gap-2">
-      <MarkdownField value={body} onChange={setBody} label={placeholder} placeholder={placeholder} onSubmit={() => void run(onSubmit)} onCancel={onCancel} suggestion={suggestion} base={base} />
+      <MarkdownField
+        value={body}
+        onChange={setBody}
+        label={placeholder}
+        placeholder={placeholder}
+        onSubmit={() => void run(onSubmit)}
+        onCancel={onCancel}
+        suggestion={suggestion}
+        base={base}
+      />
       {error ? (
         <p className="text-callout text-destructive" role="alert">
           {error}
@@ -103,7 +125,14 @@ export function Composer({
 
 const Box = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   // Chrome around what's said: not selectable itself (the code around it is), the comments are.
-  <div className={cn("mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none", className)}>{children}</div>
+  <div
+    className={cn(
+      "mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none",
+      className,
+    )}
+  >
+    {children}
+  </div>
 );
 
 /** A conversation folds its middle once it's longer than this, as GitHub's do. */
@@ -111,7 +140,15 @@ const LONG_THREAD = 8;
 
 /** One comment in a conversation: who and when, what they said (editable when it's yours), its
  *  suggested change, its reactions. */
-function CommentView({ thread, comment, onQuote }: { thread: ThreadData; comment: ThreadComment; onQuote: (text: string) => void }) {
+function CommentView({
+  thread,
+  comment,
+  onQuote,
+}: {
+  thread: ThreadData;
+  comment: ThreadComment;
+  onQuote: (text: string) => void;
+}) {
   const t = useT();
   const api = useConversationApi();
   const [editing, setEditing] = useState(false);
@@ -122,7 +159,8 @@ function CommentView({ thread, comment, onQuote }: { thread: ThreadData; comment
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
           <p className="min-w-0 flex-1 text-callout text-muted-foreground">
-            <span className="font-medium text-foreground">{firstName(comment.author, t)}</span> · {t.since(Date.parse(comment.at))}
+            <span className="font-medium text-foreground">{firstName(comment.author, t)}</span> ·{" "}
+            {t.since(Date.parse(comment.at))}
             {comment.edited ? ` · ${t("review.edited")}` : ""}
             {thread.outdated ? ` · ${t("review.outdated")}` : ""}
           </p>
@@ -194,8 +232,13 @@ export function ThreadView({
   if (!open) {
     return (
       <Box className={cn("py-2", className)}>
-        <button type="button" className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground outline-none focus-ring" onClick={() => setOpen(true)}>
-          <Check className="size-3.5 text-success" /> {t("review.resolvedConversation", { comments: t("common.comments", { count: thread.comments.length }) })}
+        <button
+          type="button"
+          className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground focus-ring outline-none"
+          onClick={() => setOpen(true)}
+        >
+          <Check className="size-3.5 text-success" />{" "}
+          {t("review.resolvedConversation", { comments: t("common.comments", { count: thread.comments.length }) })}
         </button>
       </Box>
     );
@@ -206,7 +249,11 @@ export function ThreadView({
   const shown = folded ? [...thread.comments.slice(0, 1), null, ...thread.comments.slice(-3)] : thread.comments;
   return (
     <Box className={className}>
-      {moved ? <p className="mb-2 text-callout text-muted-foreground">{thread.line ? t("review.onGoneLine", { line: String(thread.line) }) : t("review.onFile")}</p> : null}
+      {moved ? (
+        <p className="mb-2 text-callout text-muted-foreground">
+          {thread.line ? t("review.onGoneLine", { line: String(thread.line) }) : t("review.onFile")}
+        </p>
+      ) : null}
       <div className="flex flex-col gap-3">
         {shown.map((c) =>
           c ? (
@@ -258,7 +305,15 @@ export function ThreadView({
   );
 }
 
-export function DraftView({ draft: drawn, onEdit, onRemove }: { draft: Draft; onEdit: (body: string) => void; onRemove: () => void }) {
+export function DraftView({
+  draft: drawn,
+  onEdit,
+  onRemove,
+}: {
+  draft: Draft;
+  onEdit: (body: string) => void;
+  onRemove: () => void;
+}) {
   const t = useT();
   const api = useConversationApi();
   const draft = api?.draft(drawn.key) ?? drawn;
@@ -306,10 +361,22 @@ export function DraftView({ draft: drawn, onEdit, onRemove }: { draft: Draft; on
               </p>
             ) : null}
           </div>
-          <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.editComment")} onClick={() => setEditing(true)}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            aria-label={t("review.editComment")}
+            onClick={() => setEditing(true)}
+          >
             <Pencil />
           </Button>
-          <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={t("review.removeComment")} onClick={onRemove}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            aria-label={t("review.removeComment")}
+            onClick={onRemove}
+          >
             <Trash2 />
           </Button>
         </div>
@@ -367,7 +434,10 @@ export function NewComment({
   // A suggested change goes on the new code's lines, as GitHub has it: those lines, from the patch.
   const patch = path ? api?.patchOf(path) : undefined;
   const side = range?.endSide ?? range?.side ?? "additions";
-  const picked = range && patch && !file && side === "additions" ? linesFromPatch(patch, Math.min(range.start, range.end), Math.max(range.start, range.end), "additions") : null;
+  const picked =
+    range && patch && !file && side === "additions"
+      ? linesFromPatch(patch, Math.min(range.start, range.end), Math.max(range.start, range.end), "additions")
+      : null;
   const [mode, setModeState] = useState<Mode>(lastMode);
   const [body, setBody] = useState("");
   const [question, setQuestion] = useState("");
@@ -449,7 +519,12 @@ export function NewComment({
     <Box className="p-0">
       <div className="flex items-center gap-3 px-3 pt-3">
         {/* A segmented control in content: the chosen segment in the accent, as Tahoe draws it. */}
-        <div role="tablist" onKeyDown={tabKeys} aria-label={t("review.onLines", { lines })} className="relative isolate flex rounded-(--radius-control) bg-fill">
+        <div
+          role="tablist"
+          onKeyDown={tabKeys}
+          aria-label={t("review.onLines", { lines })}
+          className="relative isolate flex rounded-(--radius-control) bg-fill"
+        >
           <SlidingPill selected={mode} className="rounded-(--radius-control-sm) bg-selected" />
           {(
             [
@@ -468,7 +543,7 @@ export function NewComment({
               aria-controls={`${tabs}-panel`}
               onClick={() => setMode(value)}
               className={cn(
-                "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body outline-none focus-ring",
+                "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body focus-ring outline-none",
                 mode === value ? "text-selected-foreground" : "text-foreground",
               )}
             >
@@ -479,21 +554,32 @@ export function NewComment({
         <span className="text-callout text-muted-foreground">{lines}</span>
       </div>
 
-      <div role="tabpanel" id={`${tabs}-panel`} aria-labelledby={`${tabs}-${mode}`} className="flex flex-col gap-2 px-3 pt-2.5">
+      <div
+        role="tabpanel"
+        id={`${tabs}-panel`}
+        aria-labelledby={`${tabs}-${mode}`}
+        className="flex flex-col gap-2 px-3 pt-2.5"
+      >
         {asking && turns.length ? (
-          <ol aria-label={t("review.conversationWith", { name: askName })} className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1">
+          <ol
+            aria-label={t("review.conversationWith", { name: askName })}
+            className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1"
+          >
             {turns.map((turn, i) => (
               <li key={i} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
-                <p className="selectable max-w-[85%] self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap animate-in fade-in-0 duration-(--duration) motion-reduce:animate-none">
+                <p className="selectable max-w-[85%] animate-in self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   <span className="sr-only">{t("review.you")}</span>
                   {turn.question}
                 </p>
                 <div className="flex gap-2.5">
-                  <span aria-hidden className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet/15 text-violet">
+                  <span
+                    aria-hidden
+                    className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet/15 text-violet"
+                  >
                     <Sparkles className="size-3" />
                   </span>
                   {turn.answer ? (
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5 animate-in fade-in-0 duration-300 motion-reduce:animate-none">
+                    <div className="flex min-w-0 flex-1 animate-in flex-col gap-1.5 duration-300 fade-in-0 motion-reduce:animate-none">
                       <span className="sr-only">{askName}: </span>
                       <AiAnswer text={turn.answer} />
                       {turn.note ? <p className="text-subheadline text-muted-foreground">{turn.note}</p> : null}
@@ -517,9 +603,18 @@ export function NewComment({
                         {t("review.readingCode", { name: askName })}
                         {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
                       </span>
-                      <span aria-hidden className="h-3 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                      <span aria-hidden className="h-3 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                      <span aria-hidden className="h-3 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                      <span
+                        aria-hidden
+                        className="h-3 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none"
+                      />
+                      <span
+                        aria-hidden
+                        className="h-3 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none"
+                      />
+                      <span
+                        aria-hidden
+                        className="h-3 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none"
+                      />
                     </div>
                   )}
                 </div>
@@ -551,11 +646,16 @@ export function NewComment({
               ref={field}
               rows={asking ? 2 : 3}
               value={asking ? question : body}
-              placeholder={asking ? (turns.length ? t("review.askFollowUp") : t("review.askAbout")) : t("review.commentForAuthor")}
+              placeholder={
+                asking ? (turns.length ? t("review.askFollowUp") : t("review.askAbout")) : t("review.commentForAuthor")
+              }
               onChange={(e) => (asking ? setQuestion(e.target.value) : setBody(e.target.value))}
               onKeyDown={(e) => {
                 // Asking is a chat: Enter sends, Shift+Enter breaks the line. A comment, like GitHub's: ⌘/Ctrl+Enter.
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (asking && !e.shiftKey && !e.nativeEvent.isComposing))) {
+                if (
+                  e.key === "Enter" &&
+                  (e.metaKey || e.ctrlKey || (asking && !e.shiftKey && !e.nativeEvent.isComposing))
+                ) {
                   e.preventDefault();
                   submit();
                 } else if (e.key === "Escape") {
@@ -576,7 +676,11 @@ export function NewComment({
 
       <div className="flex items-center gap-2 p-3">
         <p className="mr-auto text-subheadline text-muted-foreground">
-          {asking ? (ask ? t("review.askHint") : null) : t("review.commentHint", { shortcut: `${isMac ? "⌘" : "Ctrl+"}Enter` })}
+          {asking
+            ? ask
+              ? t("review.askHint")
+              : null
+            : t("review.commentHint", { shortcut: `${isMac ? "⌘" : "Ctrl+"}Enter` })}
         </p>
         <Button variant="outline" onClick={onCancel} disabled={busy && !asking}>
           {t("review.close")}
@@ -595,9 +699,7 @@ export function NewComment({
               </Button>
             )
           ) : (
-            <Button onClick={() => void bridge.openSettings()}>
-              {t("review.openSettings")}
-            </Button>
+            <Button onClick={() => void bridge.openSettings()}>{t("review.openSettings")}</Button>
           )
         ) : (
           <>
@@ -616,7 +718,17 @@ export function NewComment({
 }
 
 /** A comment the AI suggests on a line: added to your review (where you can still edit it) or dismissed. */
-export function FindingView({ finding, by, onAdd, onDismiss }: { finding: Finding; by: string; onAdd: () => void; onDismiss: () => void }) {
+export function FindingView({
+  finding,
+  by,
+  onAdd,
+  onDismiss,
+}: {
+  finding: Finding;
+  by: string;
+  onAdd: () => void;
+  onDismiss: () => void;
+}) {
   const t = useT();
   return (
     <Box className="border-violet/40 bg-violet/5">

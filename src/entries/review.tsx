@@ -1,16 +1,18 @@
+import { WorkerPoolContext } from "@pierre/diffs/react";
+import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
+import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 // A pull request's review window. Made ahead of time as a spare (no pull request in its address),
 // it waits to be told which one to show (lib.rs open_review); opened directly, it reads its address.
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { WorkerPoolContext } from "@pierre/diffs/react";
-import { getOrCreateWorkerPoolSingleton } from "@pierre/diffs/worker";
-import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+
+import { Review, type Target } from "@/components/review/review";
 import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { Viewer } from "@/components/viewer/viewer";
-import { Review, type Target } from "@/components/review/review";
 import { followLanguage } from "@/utils/language/language";
+
 import "@/index.css";
 
 // In a plain browser during development, sample data stands in for the app (src/utils/mock/mock.ts).
@@ -21,8 +23,14 @@ followLanguage();
 
 // Syntax colouring off the main thread, so scrolling never waits on it. Started with the page (a
 // spare window warms them up before it's needed); the themes are the ones diffs.tsx shows.
-const POOL = { workerFactory: () => new DiffsWorker(), poolSize: Math.min(4, Math.max(2, (navigator.hardwareConcurrency || 4) >> 1)) };
-const HIGHLIGHTER = { theme: { dark: "github-dark-default", light: "github-light-default" }, lineDiffType: "word" as const };
+const POOL = {
+  workerFactory: () => new DiffsWorker(),
+  poolSize: Math.min(4, Math.max(2, (navigator.hardwareConcurrency || 4) >> 1)),
+};
+const HIGHLIGHTER = {
+  theme: { dark: "github-dark-default", light: "github-light-default" },
+  lineDiffType: "word" as const,
+};
 // Lives as long as the window. Handed down directly rather than through WorkerPoolContextProvider,
 // which ends the pool when it unmounts, as StrictMode's rehearsal unmount does in development.
 const pool = getOrCreateWorkerPoolSingleton({ poolOptions: POOL, highlighterOptions: HIGHLIGHTER });
@@ -48,7 +56,13 @@ void getCurrentWebviewWindow().listen<Target>("review-open", ({ payload }) => {
   // From here to "loaded" is how long a click takes to show the pull request.
   performance.mark("opened");
   // In the address too, so reloading the window keeps the pull request.
-  const query = new URLSearchParams({ id: payload.id, repo: payload.repo, number: String(payload.number), teams: payload.teams.join(","), queue: payload.queue ?? "" });
+  const query = new URLSearchParams({
+    id: payload.id,
+    repo: payload.repo,
+    number: String(payload.number),
+    teams: payload.teams.join(","),
+    queue: payload.queue ?? "",
+  });
   history.replaceState(null, "", `?${query}`);
   show(payload);
 });

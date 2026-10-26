@@ -2,11 +2,13 @@
 // viewer, diagrams drawn, suggested changes as a small diff (suggestion.css).
 
 import { useRef } from "react";
+
+import { openViewer } from "@/components/viewer/viewer";
 import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
-import { cn } from "@/utils/cn/cn";
-import { openViewer } from "@/components/viewer/viewer";
+
 import "@/components/suggestion/suggestion.css";
 
 /** `base`: the lines a previewed suggestion replaces. */
@@ -18,7 +20,7 @@ export function CommentHtml({ html, base, className }: { html: string; base?: st
     <div
       ref={ref}
       className={cn(
-        "selectable text-body leading-(--type-reading-leading) break-words [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_video]:my-2 [&_video]:max-h-[60vh] [&_video]:max-w-full [&_video]:rounded-lg [&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
+        "selectable text-body leading-(--type-reading-leading) break-words [&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5 [&_video]:my-2 [&_video]:max-h-[60vh] [&_video]:max-w-full [&_video]:rounded-lg",
         className,
       )}
       onClick={(e) => {

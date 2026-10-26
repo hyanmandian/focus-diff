@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { en } from "@/locales/en/index";
 import { ptBR } from "@/locales/pt-BR/index";
 import { resolveLocale, translator, type Plural } from "@/utils/i18n/i18n";
@@ -22,7 +23,8 @@ describe("translations", () => {
         expect(placeholders(translated), `${namespace}.${name}`).toBe(placeholders(value));
         // A plural in one is a plural in the other, with the forms every language needs.
         expect(typeof translated, `${namespace}.${name}`).toBe(typeof value);
-        if (typeof translated === "object") expect(translated.one && translated.other, `${namespace}.${name}`).toBeTruthy();
+        if (typeof translated === "object")
+          expect(translated.one && translated.other, `${namespace}.${name}`).toBeTruthy();
       }
     }
   });
@@ -30,7 +32,10 @@ describe("translations", () => {
   it("leave no message empty", () => {
     for (const dictionary of [english, portuguese])
       for (const [namespace, messages] of Object.entries(dictionary))
-        for (const [name, value] of Object.entries(messages)) expect(JSON.stringify(value).replace(/"(one|other|zero|many)":/g, ""), `${namespace}.${name}`).not.toMatch(/""/);
+        for (const [name, value] of Object.entries(messages))
+          expect(JSON.stringify(value).replace(/"(one|other|zero|many)":/g, ""), `${namespace}.${name}`).not.toMatch(
+            /""/,
+          );
   });
 });
 

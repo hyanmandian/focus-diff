@@ -15,9 +15,29 @@ export type TimelineEvent = { id: string; at: string; actor: Who } & (
   | { kind: "reviewRequested" | "reviewRequestRemoved"; reviewer: string }
   | { kind: "labels"; added: Array<{ name: string; color: string }>; removed: Array<{ name: string; color: string }> }
   | { kind: "renamed"; from: string; to: string }
-  | { kind: "ready" | "draft" | "closed" | "reopened" | "autoMergeEnabled" | "autoMergeDisabled" | "queued" | "dequeued" | "branchDeleted" | "branchRestored" }
+  | {
+      kind:
+        | "ready"
+        | "draft"
+        | "closed"
+        | "reopened"
+        | "autoMergeEnabled"
+        | "autoMergeDisabled"
+        | "queued"
+        | "dequeued"
+        | "branchDeleted"
+        | "branchRestored";
+    }
   | { kind: "merged"; commit: string | null; into: string }
-  | { kind: "referenced"; number: number; title: string; url: string; repo: string; isPull: boolean; willClose: boolean }
+  | {
+      kind: "referenced";
+      number: number;
+      title: string;
+      url: string;
+      repo: string;
+      isPull: boolean;
+      willClose: boolean;
+    }
   | { kind: "commitReferenced"; commit: string; headline: string; url: string }
   | { kind: "deployed"; environment: string }
   | { kind: "assigned" | "unassigned"; assignee: string }
@@ -57,8 +77,10 @@ const ITEMS = [
 ];
 
 const WHO = "actor { login }";
-const REVIEWER = "requestedReviewer { __typename ... on User { login } ... on Team { name } ... on Mannequin { login } ... on Bot { login } }";
-const ASSIGNEE = "assignee { __typename ... on User { login } ... on Bot { login } ... on Mannequin { login } ... on Organization { login } }";
+const REVIEWER =
+  "requestedReviewer { __typename ... on User { login } ... on Team { name } ... on Mannequin { login } ... on Bot { login } }";
+const ASSIGNEE =
+  "assignee { __typename ... on User { login } ... on Bot { login } ... on Mannequin { login } ... on Organization { login } }";
 
 const QUERY = `query($owner: String!, $name: String!, $number: Int!, $before: String) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) {
@@ -109,7 +131,11 @@ const TOGETHER = 2 * 60_000;
 export function mapTimeline(nodes: Node[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
   for (const n of nodes) {
-    const base = { id: n.id as string, at: n.createdAt as string, actor: (n.actor?.login as string | undefined) ?? null };
+    const base = {
+      id: n.id as string,
+      at: n.createdAt as string,
+      actor: (n.actor?.login as string | undefined) ?? null,
+    };
     const last = events.at(-1);
     switch (n.__typename) {
       case "PullRequestCommit": {
@@ -123,20 +149,34 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
         break;
       }
       case "HeadRefForcePushedEvent":
-        events.push({ ...base, kind: "forcePushed", before: n.beforeCommit?.abbreviatedOid ?? null, after: n.afterCommit?.abbreviatedOid ?? null, ref: n.ref?.name ?? "" });
+        events.push({
+          ...base,
+          kind: "forcePushed",
+          before: n.beforeCommit?.abbreviatedOid ?? null,
+          after: n.afterCommit?.abbreviatedOid ?? null,
+          ref: n.ref?.name ?? "",
+        });
         break;
       case "ReviewRequestedEvent":
       case "ReviewRequestRemovedEvent": {
         const r = n.requestedReviewer;
         if (!r) break;
-        events.push({ ...base, kind: n.__typename === "ReviewRequestedEvent" ? "reviewRequested" : "reviewRequestRemoved", reviewer: r.login ?? r.name ?? "" });
+        events.push({
+          ...base,
+          kind: n.__typename === "ReviewRequestedEvent" ? "reviewRequested" : "reviewRequestRemoved",
+          reviewer: r.login ?? r.name ?? "",
+        });
         break;
       }
       case "LabeledEvent":
       case "UnlabeledEvent": {
         const label = { name: n.label.name as string, color: n.label.color as string };
         const added = n.__typename === "LabeledEvent";
-        if (last?.kind === "labels" && last.actor === base.actor && Date.parse(base.at) - Date.parse(last.at) < TOGETHER) {
+        if (
+          last?.kind === "labels" &&
+          last.actor === base.actor &&
+          Date.parse(base.at) - Date.parse(last.at) < TOGETHER
+        ) {
           (added ? last.added : last.removed).push(label);
           last.at = base.at;
         } else events.push({ ...base, kind: "labels", added: added ? [label] : [], removed: added ? [] : [label] });
@@ -151,12 +191,27 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
       case "CrossReferencedEvent": {
         const s = n.source;
         if (!s?.url) break;
-        events.push({ ...base, kind: "referenced", number: s.number, title: s.title, url: s.url, repo: s.repository.nameWithOwner, isPull: s.__typename === "PullRequest", willClose: Boolean(n.willCloseTarget) });
+        events.push({
+          ...base,
+          kind: "referenced",
+          number: s.number,
+          title: s.title,
+          url: s.url,
+          repo: s.repository.nameWithOwner,
+          isPull: s.__typename === "PullRequest",
+          willClose: Boolean(n.willCloseTarget),
+        });
         break;
       }
       case "ReferencedEvent":
         if (!n.commit) break;
-        events.push({ ...base, kind: "commitReferenced", commit: n.commit.abbreviatedOid, headline: n.commit.messageHeadline, url: n.commit.url });
+        events.push({
+          ...base,
+          kind: "commitReferenced",
+          commit: n.commit.abbreviatedOid,
+          headline: n.commit.messageHeadline,
+          url: n.commit.url,
+        });
         break;
       case "DeployedEvent":
         events.push({ ...base, kind: "deployed", environment: n.deployment?.environment ?? "" });
@@ -164,14 +219,27 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
       case "AssignedEvent":
       case "UnassignedEvent":
         if (!n.assignee?.login) break;
-        events.push({ ...base, kind: n.__typename === "AssignedEvent" ? "assigned" : "unassigned", assignee: n.assignee.login });
+        events.push({
+          ...base,
+          kind: n.__typename === "AssignedEvent" ? "assigned" : "unassigned",
+          assignee: n.assignee.login,
+        });
         break;
       case "MilestonedEvent":
       case "DemilestonedEvent":
-        events.push({ ...base, kind: n.__typename === "MilestonedEvent" ? "milestoned" : "demilestoned", milestone: n.milestoneTitle });
+        events.push({
+          ...base,
+          kind: n.__typename === "MilestonedEvent" ? "milestoned" : "demilestoned",
+          milestone: n.milestoneTitle,
+        });
         break;
       case "ReviewDismissedEvent":
-        events.push({ ...base, kind: "reviewDismissed", reviewer: n.review?.author?.login ?? null, message: n.dismissalMessage ?? null });
+        events.push({
+          ...base,
+          kind: "reviewDismissed",
+          reviewer: n.review?.author?.login ?? null,
+          message: n.dismissalMessage ?? null,
+        });
         break;
       case "BaseRefChangedEvent":
         events.push({ ...base, kind: "baseChanged", from: n.previousRefName, to: n.currentRefName });
@@ -185,7 +253,19 @@ export function mapTimeline(nodes: Node[]): TimelineEvent[] {
   return events;
 }
 
-const SIMPLE: Record<string, "ready" | "draft" | "closed" | "reopened" | "autoMergeEnabled" | "autoMergeDisabled" | "queued" | "dequeued" | "branchDeleted" | "branchRestored"> = {
+const SIMPLE: Record<
+  string,
+  | "ready"
+  | "draft"
+  | "closed"
+  | "reopened"
+  | "autoMergeEnabled"
+  | "autoMergeDisabled"
+  | "queued"
+  | "dequeued"
+  | "branchDeleted"
+  | "branchRestored"
+> = {
   ReadyForReviewEvent: "ready",
   ConvertToDraftEvent: "draft",
   ClosedEvent: "closed",
@@ -202,15 +282,27 @@ export type TimelinePage = { nodes: Node[]; older: string | null };
 
 /** A page of the timeline, the newest first time, older ones with the cursor it gave (`older`). */
 export async function loadTimeline(ref: PullRef, before: string | null = null): Promise<TimelinePage> {
-  type R = { repository: { pullRequest: { timelineItems: { pageInfo: { hasPreviousPage: boolean; startCursor: string | null }; nodes: Node[] } } } };
+  type R = {
+    repository: {
+      pullRequest: {
+        timelineItems: { pageInfo: { hasPreviousPage: boolean; startCursor: string | null }; nodes: Node[] };
+      };
+    };
+  };
   const data = await graphql<R>(QUERY, { owner: ref.owner, name: ref.repo, number: ref.number, before });
   const items = data.repository.pullRequest.timelineItems;
-  return { nodes: items.nodes.filter((n) => n.__typename), older: items.pageInfo.hasPreviousPage ? items.pageInfo.startCursor : null };
+  return {
+    nodes: items.nodes.filter((n) => n.__typename),
+    older: items.pageInfo.hasPreviousPage ? items.pageInfo.startCursor : null,
+  };
 }
 
 /** The conversation's entries and the timeline's events in one list, newest first (both come
  *  newest first). */
-export function byTime<E extends { at: string }>(entries: E[], events: TimelineEvent[]): Array<{ kind: "entry"; entry: E } | { kind: "event"; event: TimelineEvent }> {
+export function byTime<E extends { at: string }>(
+  entries: E[],
+  events: TimelineEvent[],
+): Array<{ kind: "entry"; entry: E } | { kind: "event"; event: TimelineEvent }> {
   const out: Array<{ kind: "entry"; entry: E } | { kind: "event"; event: TimelineEvent }> = [];
   let i = 0;
   let j = 0;

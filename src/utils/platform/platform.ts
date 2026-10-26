@@ -7,7 +7,11 @@ export type Platform = "macos" | "windows" | "linux";
 // The web view reports the system it's part of: WKWebView says Macintosh, WebView2 Windows,
 // WebKitGTK Linux. Anything else is treated as the Mac, the default token set.
 const agent = navigator.userAgent;
-export const platform: Platform = agent.includes("Windows") ? "windows" : agent.includes("Linux") && !agent.includes("Android") ? "linux" : "macos";
+export const platform: Platform = agent.includes("Windows")
+  ? "windows"
+  : agent.includes("Linux") && !agent.includes("Android")
+    ? "linux"
+    : "macos";
 export const isMac = platform === "macos";
 
 /** A shortcut as the platform writes it: ⌘↩ on the Mac, Ctrl+Enter elsewhere. `mods` in the Mac's

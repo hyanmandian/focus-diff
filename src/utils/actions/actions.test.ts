@@ -1,11 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
-import { bridge, github } from "@/utils/bridge/bridge";
+
 import { fill, runAction } from "@/utils/actions/actions";
+import { bridge, github } from "@/utils/bridge/bridge";
 import type { Action } from "@/utils/config/config";
 
-vi.mock("@/utils/bridge/bridge", () => ({ github: vi.fn(async () => ({})), bridge: { openUrl: vi.fn(async () => {}), runAction: vi.fn(async () => "sent") } }));
+vi.mock("@/utils/bridge/bridge", () => ({
+  github: vi.fn(async () => ({})),
+  bridge: { openUrl: vi.fn(async () => {}), runAction: vi.fn(async () => "sent") },
+}));
 
-const pr = { number: 7, repo: "acme/web", title: "Fix a & b", url: "https://github.com/acme/web/pull/7", author: "ana", me: "me" };
+const pr = {
+  number: 7,
+  repo: "acme/web",
+  title: "Fix a & b",
+  url: "https://github.com/acme/web/pull/7",
+  author: "ana",
+  me: "me",
+};
 
 describe("fill", () => {
   it("fills text, and encodes values inside links", () => {

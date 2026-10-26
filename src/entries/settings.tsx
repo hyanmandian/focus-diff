@@ -1,9 +1,11 @@
 // The settings window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { TooltipProvider } from "@/components/tooltip/tooltip";
+
 import { Settings } from "@/components/settings/settings";
+import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { followLanguage } from "@/utils/language/language";
+
 import "@/index.css";
 import "@/components/settings/settings.css";
 

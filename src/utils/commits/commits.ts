@@ -4,6 +4,7 @@
 // request's own (ReviewFile), so the diff shows either the same way.
 
 import { useEffect, useState } from "react";
+
 import { github, graphql } from "@/utils/bridge/bridge";
 import { header, type PullRef, type ReviewFile } from "@/utils/review/review";
 import { shelve, shelved } from "@/utils/shelf/shelf";
@@ -62,13 +63,27 @@ type Raw = {
   repository: {
     pullRequest: {
       viewerLatestReview: { commit: { oid: string } | null } | null;
-      timelineItems: { nodes: Array<{ createdAt: string; actor: { login: string } | null; beforeCommit: { oid: string } | null; afterCommit: { oid: string } | null }> };
+      timelineItems: {
+        nodes: Array<{
+          createdAt: string;
+          actor: { login: string } | null;
+          beforeCommit: { oid: string } | null;
+          afterCommit: { oid: string } | null;
+        }>;
+      };
       commits: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Array<{ commit: RawCommit }> };
     };
   };
 };
 
-const rollup = (state: string | undefined): Ci => (state === "SUCCESS" ? "success" : state === "FAILURE" || state === "ERROR" ? "failure" : state === "PENDING" || state === "EXPECTED" ? "pending" : null);
+const rollup = (state: string | undefined): Ci =>
+  state === "SUCCESS"
+    ? "success"
+    : state === "FAILURE" || state === "ERROR"
+      ? "failure"
+      : state === "PENDING" || state === "EXPECTED"
+        ? "pending"
+        : null;
 
 export async function loadCommits(ref: PullRef): Promise<Commits> {
   const commits: Commit[] = [];
@@ -81,7 +96,14 @@ export async function loadCommits(ref: PullRef): Promise<Commits> {
     const pr = data.repository.pullRequest;
     if (page === 0) {
       reviewed = pr.viewerLatestReview?.commit?.oid ?? null;
-      forcePushes = pr.timelineItems.nodes.filter((e) => e.createdAt).map((e) => ({ at: e.createdAt, actor: e.actor?.login ?? null, before: e.beforeCommit?.oid ?? null, after: e.afterCommit?.oid ?? null }));
+      forcePushes = pr.timelineItems.nodes
+        .filter((e) => e.createdAt)
+        .map((e) => ({
+          at: e.createdAt,
+          actor: e.actor?.login ?? null,
+          before: e.beforeCommit?.oid ?? null,
+          after: e.afterCommit?.oid ?? null,
+        }));
     }
     for (const { commit: c } of pr.commits.nodes) {
       commits.push({
@@ -90,7 +112,11 @@ export async function loadCommits(ref: PullRef): Promise<Commits> {
         headline: c.messageHeadline,
         body: c.messageBody,
         at: c.committedDate,
-        author: { login: c.author?.user?.login ?? null, name: c.author?.name ?? c.author?.user?.login ?? "", avatarUrl: c.author?.avatarUrl ?? null },
+        author: {
+          login: c.author?.user?.login ?? null,
+          name: c.author?.name ?? c.author?.user?.login ?? "",
+          avatarUrl: c.author?.avatarUrl ?? null,
+        },
         verified: c.signature ? c.signature.isValid : null,
         ci: rollup(c.statusCheckRollup?.state),
         parent: c.parents.nodes[0]?.oid ?? null,
@@ -171,9 +197,21 @@ export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise
   const key = `${ref.owner}/${ref.repo}:${range.from}...${range.to}`;
   const known = compared.get(key);
   if (known) return known;
-  type Raw = { files?: Array<{ filename: string; previous_filename?: string; status: ReviewFile["status"]; additions: number; deletions: number; patch?: string }> };
+  type Raw = {
+    files?: Array<{
+      filename: string;
+      previous_filename?: string;
+      status: ReviewFile["status"];
+      additions: number;
+      deletions: number;
+      patch?: string;
+    }>;
+  };
   // Every changed file comes with the first page (up to 300); one commit a page keeps it small.
-  const files = github<Raw>("GET", `/repos/${ref.owner}/${ref.repo}/compare/${range.from}...${range.to}?per_page=1`).then((data) =>
+  const files = github<Raw>(
+    "GET",
+    `/repos/${ref.owner}/${ref.repo}/compare/${range.from}...${range.to}?per_page=1`,
+  ).then((data) =>
     (data.files ?? []).map((f) => ({
       path: f.filename,
       previousPath: f.previous_filename ?? null,

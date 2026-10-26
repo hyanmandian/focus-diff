@@ -91,14 +91,12 @@ The extension's end-to-end tests serve saved pull request pages in place of gith
 
 ## Adding a site
 
-The bar, its numbers and its moves are the same on every site. What differs is where a site keeps a review's files, counters, file tree and conversations, and that's a provider's job. To add a site, say GitLab:
+The bar, its numbers and its moves are the same on every site. What differs is where a site keeps a review's files, counters and file tree, and that's a provider's job. To add a site, say GitLab:
 
 1. `src/utils/gitlab-provider/gitlab-provider.ts` exports a `Provider` (see `src/utils/provider/provider.ts`) that reads its merge request pages. Keep the reading of the page in a module of its own, with unit tests next to it, like `utils/github-page/github-page.ts`.
-2. `src/components/gitlab-theme/gitlab-theme.css` sets the bar's `--fd-*` properties from the site's own design tokens, with the site's light and dark values as fallbacks, like `components/github-theme/github-theme.css` (and `components/mount-bar/mount-bar.ts` leaves it out of the bar's own styles).
-3. `src/utils/providers/providers.ts` lists it, with its name and its theme, which loads only when it's needed.
-4. `src/entrypoints/gitlab.content.ts` runs the bar there, like `github.content.ts`: each site's content script carries only its own provider.
-5. A saved page in `tests/fixtures/` and end-to-end tests on it, like the GitHub ones.
-6. The places that name the supported sites by hand: the manifest description in the locales, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and the store listings.
+2. `src/entrypoints/gitlab.content.ts` runs the bar there, like `github.content.ts`: each site's content script carries only its own provider. The bar wears the design system's look on every site, light or dark as the site is (`utils/bar-theme`).
+3. A saved page in `tests/fixtures/` and end-to-end tests on it, like `tests/bar.spec.ts`.
+4. The places that name the supported sites by hand: the manifest's host permissions and description, `PRIVACY.md` (where it runs), `SECURITY.md`, the README and the store listings.
 
 ## Releasing
 

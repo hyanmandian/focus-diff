@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Browser } from "wxt/browser";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
 import { writeAppFile } from "@/utils/app-files/app-files";
@@ -46,12 +45,12 @@ vi.mock("@/utils/queue-service/queue-service", () => ({
     request: (...args: [string, string, string | null, string | null]) => Promise<unknown>;
     login: () => Promise<unknown>;
   }) => {
-    const dismiss = vi.fn(() => Promise.resolve());
+    const dismiss = vi.fn<(queueId: string, prId: string) => Promise<void>>(() => Promise.resolve());
     services.queues = {
       commands: { snapshot: () => ({ ready: true }) },
-      configChanged: vi.fn(() => Promise.resolve()),
-      authChanged: vi.fn(() => Promise.resolve()),
-      onAlarm: vi.fn(() => Promise.resolve()),
+      configChanged: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+      authChanged: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+      onAlarm: vi.fn<(alarm: unknown) => Promise<void>>(() => Promise.resolve()),
       dismiss,
       broadcast: options.server.broadcast,
       request: options.request,
@@ -158,38 +157,41 @@ describe("the background", () => {
     startBackground();
     services.authListeners[0]!();
     expect(services.queues!.authChanged).toHaveBeenCalled();
-    void fakeBrowser.alarms.onAlarm.trigger({ name: "queues-refresh", scheduledTime: 0 });
-    expect(services.queues!.onAlarm).toHaveBeenCalledWith({ name: "queues-refresh", scheduledTime: 0 });
+    const alarm = { name: "queues-refresh", scheduledTime: 0, persistAcrossSessions: false };
+    void fakeBrowser.alarms.onAlarm.trigger(alarm);
+    expect(services.queues!.onAlarm).toHaveBeenCalledWith(alarm);
   });
 
   it("sends the bar's shortcuts to the tab in front", async () => {
     startBackground();
-    const query = vi.spyOn(fakeBrowser.tabs, "query").mockResolvedValue([{ id: 3 } as Browser.tabs.Tab]);
-    const sent = vi.spyOn(fakeBrowser.tabs, "sendMessage").mockResolvedValue(null);
+    const query = vi.fn<() => Promise<Array<{ id?: number }>>>(() => Promise.resolve([{ id: 3 }]));
+    const sent = vi.fn<(tab: number, message: unknown) => Promise<null>>(() => Promise.resolve(null));
+    Object.assign(fakeBrowser.tabs, { query, sendMessage: sent });
     onCommand!("next-filter");
     await settle();
     expect(sent).toHaveBeenCalledWith(3, { type: "command", command: "next-filter" });
     sent.mockRejectedValueOnce(new Error("No receiving end"));
     await forwardCommand("show-all");
-    query.mockResolvedValue([]);
+    query.mockResolvedValue([{}]);
     await forwardCommand("show-all");
     expect(sent).toHaveBeenCalledTimes(2);
   });
 
   it("opens setup on install, and on the first update to the app (the old settings moved first)", async () => {
     startBackground();
-    const created = vi.spyOn(fakeBrowser.tabs, "create").mockResolvedValue({} as Browser.tabs.Tab);
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: "install", temporary: false });
+    const created = vi.fn<(info: { url: string }) => Promise<object>>(() => Promise.resolve({}));
+    Object.assign(fakeBrowser.tabs, { create: created });
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: "install" });
     await settle();
     expect(created).toHaveBeenCalledWith({ url: "chrome-extension://test-extension-id/setup.html" });
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", temporary: false, previousVersion: "1.2.0" });
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", previousVersion: "1.2.0" });
     await settle();
     expect(created).toHaveBeenCalledOnce();
     services.migrated = true;
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", temporary: false, previousVersion: "1.2.0" });
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: "update", previousVersion: "1.2.0" });
     await settle();
     expect(created).toHaveBeenCalledTimes(2);
-    await fakeBrowser.runtime.onInstalled.trigger({ reason: "chrome_update", temporary: false });
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: "chrome_update" });
     await settle();
     expect(created).toHaveBeenCalledTimes(2);
   });
@@ -197,7 +199,9 @@ describe("the background", () => {
   it("passes the queues' snapshots on, and takes the old popup's done pull requests off once GitHub answered", async () => {
     startBackground();
     const { heard } = page("panel");
-    await fakeBrowser.storage.local.set({ "legacy.done": { "https://github.com/acme/web/pull/1": "2026-02-01T00:00:00Z" } });
+    await fakeBrowser.storage.local.set({
+      "legacy.done": { "https://github.com/acme/web/pull/1": "2026-02-01T00:00:00Z" },
+    });
     services.queues!.broadcast("snapshot", snapshot());
     // A second one while the first is still being applied waits its turn.
     services.queues!.broadcast("snapshot", snapshot());
@@ -218,8 +222,10 @@ describe("the old popup's done pull requests", () => {
   it("wait until GitHub has answered, signed in", async () => {
     fakePorts();
     startCommandServer({});
-    const dismiss = vi.fn(() => Promise.resolve());
-    await fakeBrowser.storage.local.set({ "legacy.done": { "https://github.com/acme/web/pull/1": "2026-02-01T00:00:00Z" } });
+    const dismiss = vi.fn<(queueId: string, prId: string) => Promise<void>>(() => Promise.resolve());
+    await fakeBrowser.storage.local.set({
+      "legacy.done": { "https://github.com/acme/web/pull/1": "2026-02-01T00:00:00Z" },
+    });
     await applyLegacyDone(snapshot({ signedIn: false }), dismiss);
     await applyLegacyDone(snapshot({ status: { phase: "loading", updatedAt: 1 } }), dismiss);
     await applyLegacyDone(snapshot({ status: { phase: "idle", updatedAt: 0 } }), dismiss);

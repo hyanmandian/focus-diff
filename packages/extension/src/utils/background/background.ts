@@ -4,9 +4,9 @@
 // Every listener is added as it starts, so the browser can wake it for any of them.
 
 import type { Snapshot } from "@focus-diff/core/queue-panel";
-import { storage } from "#imports";
 import { browser } from "wxt/browser";
 
+import { storage } from "#imports";
 import { appFileCommands, fileKey, FILES, readAppFile } from "@/utils/app-files/app-files";
 import { browserCommands } from "@/utils/browser-commands/browser-commands";
 import { startCommandServer, type Commands } from "@/utils/command-server/command-server";
@@ -30,14 +30,18 @@ export const forwardCommand = async (command: string) => {
 
 /** The pull requests the old extension's popup had marked done, taken off their queues once GitHub has answered. */
 export const applyLegacyDone = async (
-  snapshot: Pick<Snapshot, "signedIn" | "status" | "items">,
+  snapshot: Pick<Snapshot, "signedIn" | "status"> & {
+    items: Record<string, ReadonlyArray<{ pr: { id: string; url: string; updatedAt: string } }>>;
+  },
   dismiss: (queueId: string, prId: string) => Promise<void>,
 ) => {
   if (!snapshot.signedIn || snapshot.status.phase !== "idle" || snapshot.status.updatedAt === 0) return;
   const done = await takeLegacyDone();
   if (!done) return;
-  const items = Object.entries(snapshot.items).flatMap(([queueId, list]) => list.map((item) => ({ queueId, pr: item.pr })));
-  for (const [queueId, prId] of legacyDismissals(done, items)) await dismiss(queueId, prId);
+  const items = Object.entries(snapshot.items).flatMap(([queueId, list]) =>
+    list.map((item) => ({ queueId, pr: item.pr })),
+  );
+  await Promise.all(legacyDismissals(done, items).map(([queueId, prId]) => dismiss(queueId, prId)));
 };
 
 export const startBackground = () => {

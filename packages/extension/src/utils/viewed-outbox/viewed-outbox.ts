@@ -54,8 +54,6 @@ export const send = async (api: Pick<GitHubApi, "requestForPage">, mark: Mark): 
   return status === 401 || status === 403 || status === 429 || status >= 500 ? "later" : "refused";
 };
 
-export type Outbox = Awaited<ReturnType<typeof startOutbox>>;
-
 /** Reads what was left from last time and starts sending it. */
 export const startOutbox = async (api: Pick<GitHubApi, "requestForPage">) => {
   const stored = await outboxItem.getValue();

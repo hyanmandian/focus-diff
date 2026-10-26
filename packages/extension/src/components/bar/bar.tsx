@@ -9,7 +9,7 @@ import { createRoot } from "react-dom/client";
 
 import type { BarProps, BarView } from "@/utils/review-controller/review-controller";
 
-export function Bar({ props, container }: { props: BarProps; container: HTMLElement }) {
+function Bar({ props, container }: { props: BarProps; container: HTMLElement }) {
   return (
     <PortalContainer value={container}>
       <TooltipProvider>

@@ -44,7 +44,7 @@ export const readPut = (value: unknown): DraftPut => {
 
 /** Why attaching a file isn't done here: github.com's own uploads need a page of github.com, which the background
  *  isn't (the screens hide attaching in the browser, Platform.features.uploads). */
-export const uploadUnavailable = (): UploadError => ({
+const uploadUnavailable = (): UploadError => ({
   kind: "failed",
   message: tr(
     "Attaching pictures and videos needs Focus Diff for Mac",

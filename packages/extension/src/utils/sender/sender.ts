@@ -2,7 +2,7 @@
 // the desktop's drafts.rs and outbox.rs send theirs: at once when something new comes, and after a failure again in
 // 1s, 2s, 4s… up to 30s, unless something new comes first.
 
-export const LONGEST_WAIT = 30_000;
+const LONGEST_WAIT = 30_000;
 
 /** How long to wait after this many failures in a row. */
 export const backoff = (failures: number): number => Math.min(1000 * 2 ** (Math.min(failures, 6) - 1), LONGEST_WAIT);

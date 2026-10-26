@@ -8,7 +8,7 @@ import type { Commands } from "@/utils/command-server/command-server";
 export const FILES = ["config", "pace"] as const;
 export type AppFile = (typeof FILES)[number];
 
-export const isAppFile = (name: unknown): name is AppFile => FILES.some((file) => file === name);
+const isAppFile = (name: unknown): name is AppFile => FILES.some((file) => file === name);
 
 /** Where a file is kept. */
 export const fileKey = (name: AppFile) => `local:file.${name}` as const;

@@ -7,7 +7,7 @@ import { returned } from "@/utils/github-api/github-api";
 import { tr } from "@/utils/words/words";
 
 /** What's kept of a log: its last megabyte, from the start of a line. */
-export const TAIL = 1024 * 1024;
+const TAIL = 1024 * 1024;
 /** How many finished logs are kept. */
 export const MOST = 12;
 

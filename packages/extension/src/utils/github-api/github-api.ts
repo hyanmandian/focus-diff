@@ -11,11 +11,11 @@ import { storage } from "#imports";
 import { isRecord } from "@/utils/record/record";
 import { tr } from "@/utils/words/words";
 
-export const API = "https://api.github.com";
+const API = "https://api.github.com";
 /** Read pull requests, comment and review on them, and read team membership (for team review requests) and your
  *  profile (for your saved replies). Nothing to do with admin. */
-export const SCOPES = "repo read:org read:user";
-export const API_VERSION = "2022-11-28";
+const SCOPES = "repo read:org read:user";
+const API_VERSION = "2022-11-28";
 
 /** Where the token is kept. */
 export const authItem = storage.defineItem<{ token: string } | null>("local:auth", { fallback: null });
@@ -30,7 +30,7 @@ export const RECENT_FOR = 120_000;
 export const RECENT_BUDGET = 32 * MB;
 /** GET answers GitHub tagged: asked again with the tag, GitHub answers 304 without the body (faster, and free against
  *  the rate limit), and the kept body is used. */
-export const ETAG_BUDGET = 16 * MB;
+const ETAG_BUDGET = 16 * MB;
 export const ETAG_LARGEST = 4 * MB;
 
 /** The client id of the OAuth app the build was made with; empty when there's none. */

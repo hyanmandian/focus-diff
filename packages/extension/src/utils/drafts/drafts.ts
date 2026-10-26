@@ -220,8 +220,6 @@ export const send = async (api: Pick<GitHubApi, "requestForPage">, job: Job, syn
   return deleted.ok || deleted.sent.kind === "refused" ? { kind: "done", id: null } : deleted.sent;
 };
 
-export type Drafts = Awaited<ReturnType<typeof startDrafts>>;
-
 /** Reads what was left from last time and starts sending it; what GitHub refused before gets one more go. `emit`
  *  tells the pages ("drafts", with the pull request's id) after each send. */
 export const startDrafts = async (

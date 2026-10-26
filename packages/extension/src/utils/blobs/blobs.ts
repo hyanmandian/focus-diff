@@ -6,7 +6,7 @@ import type { GitHubApi } from "@/utils/github-api/github-api";
 import { returned } from "@/utils/github-api/github-api";
 
 /** The largest file fetched. */
-export const LARGEST = 20 * 1024 * 1024;
+const LARGEST = 20 * 1024 * 1024;
 /** How much is kept in memory. */
 export const BUDGET = 64 * 1024 * 1024;
 /** How many files known not to be there are remembered. */

@@ -1,7 +1,19 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "options": { "typeAware": true, "typeCheck": true },
-  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "react-perf", "jsx-a11y", "import", "jsdoc", "promise", "vitest"],
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "react-perf",
+    "jsx-a11y",
+    "import",
+    "jsdoc",
+    "promise",
+    "vitest"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -92,6 +104,8 @@
         "node": true
       },
       "rules": {
+        // Playwright's fixtures hand their value on with `use`, which isn't React's hook.
+        "react-hooks/rules-of-hooks": "off",
         // Playwright's fixtures take their dependencies by destructuring, even when they use none.
         "no-empty-pattern": "off",
         // Steps on one page run one after another, on purpose.

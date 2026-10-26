@@ -19,7 +19,7 @@ export interface Sender {
 }
 
 /** Answers one command: its arguments as the page sent them, and which page sent them. */
-export type Command = (args: Record<string, unknown>, from: Sender) => unknown;
+type Command = (args: Record<string, unknown>, from: Sender) => unknown;
 
 export type Commands = Record<string, Command>;
 

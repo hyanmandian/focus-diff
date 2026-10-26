@@ -1,7 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
-import { configItem, loadConfig, saveConfig, selectionsItem } from "./storage";
+import { DEFAULT_APPEARANCE } from "@/utils/appearance/appearance";
+import { DEFAULT_NOTIFY, DEFAULT_POPUP } from "@/utils/inbox/inbox";
+import { DEFAULT_REVIEW_TIME } from "@/utils/review-sessions/review-sessions";
+
+import {
+  configItem,
+  loadAppearance,
+  loadConfig,
+  loadNotify,
+  loadPopup,
+  loadReviewTime,
+  saveAppearance,
+  saveConfig,
+  saveNotify,
+  savePopup,
+  saveReviewTime,
+  selectionsItem,
+} from "./storage";
 
 describe("selections", () => {
   it("moves single selections from earlier versions to lists", async () => {
@@ -38,5 +55,33 @@ describe("config", () => {
     expect(await fakeBrowser.storage.sync.get("config")).toEqual({
       config: { global: [], repos: [{ repo: "octo/web", filters: [] }] },
     });
+  });
+});
+
+describe("settings", () => {
+  it("reads defaults until something is saved", async () => {
+    expect(await loadAppearance()).toEqual(DEFAULT_APPEARANCE);
+    expect(await loadNotify()).toEqual(DEFAULT_NOTIFY);
+    expect(await loadPopup()).toEqual(DEFAULT_POPUP);
+    expect(await loadReviewTime()).toEqual(DEFAULT_REVIEW_TIME);
+  });
+
+  it("normalizes what it reads and syncs what it writes", async () => {
+    await fakeBrowser.storage.sync.set({ popup: { repos: ["octo/web", "octo/web"], teams: false, junk: 1 } });
+    expect(await loadPopup()).toEqual({ repos: ["octo/web"], excludeRepos: [], teams: false });
+
+    await savePopup({ repos: [], excludeRepos: ["octo/api"], teams: true });
+    expect(await fakeBrowser.storage.sync.get("popup")).toEqual({
+      popup: { repos: [], excludeRepos: ["octo/api"], teams: true },
+    });
+
+    await saveNotify({ ...DEFAULT_NOTIFY, enabled: true });
+    expect(await loadNotify()).toEqual({ ...DEFAULT_NOTIFY, enabled: true });
+
+    await saveReviewTime({ ...DEFAULT_REVIEW_TIME, enabled: true });
+    expect(await loadReviewTime()).toEqual({ ...DEFAULT_REVIEW_TIME, enabled: true });
+
+    await saveAppearance({ ...DEFAULT_APPEARANCE });
+    expect(await fakeBrowser.storage.sync.get("appearance")).toEqual({ appearance: DEFAULT_APPEARANCE });
   });
 });

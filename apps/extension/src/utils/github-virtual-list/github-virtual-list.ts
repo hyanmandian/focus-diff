@@ -83,7 +83,8 @@ const parse = (value: string | null): Hidden => {
 
 const indexOf = (row: HTMLElement) => Number(row.dataset.index);
 
-export const closeUpList = (): void => {
+/** Starts closing up the list on the page, and the ones GitHub draws after it; what it returns stops watching. */
+export const closeUpList = (): (() => void) => {
   let hidden = new Map<number, string>();
   let list: Element | null = null;
   let virtualizer: Virtualizer | null = null;
@@ -103,14 +104,16 @@ export const closeUpList = (): void => {
         }
       : options;
 
-  const rows = () => (list ? [...list.querySelectorAll<HTMLElement>(`:scope > ${ROW}`)] : []);
+  /** Only asked for while a virtualizer is found, which is on a list. */
+  const rows = () => [...list!.querySelectorAll<HTMLElement>(`:scope > ${ROW}`)];
 
   /** The rows on the page are the files the content script means: each hidden one where it says, and no other there. */
   const agrees = () => {
     const digests = new Set(hidden.values());
     return rows().every((row) => {
       const digest = hidden.get(indexOf(row));
-      const own = row.dataset.pathDigest ?? "";
+      // The rows are found by their digest.
+      const own = row.dataset.pathDigest!;
       return digest === undefined ? !digests.has(own.slice(0, DIGEST)) : own.startsWith(digest);
     });
   };
@@ -122,32 +125,26 @@ export const closeUpList = (): void => {
     }
   };
 
-  const sizeOf = (index: number) => {
-    const key = latest?.getItemKey(index);
-    return virtualizer?.itemSizeCache?.get(key);
-  };
-
   /**
    * Files not drawn keep the size measured when they last were: hidden ones count as nothing, and shown ones get their
    * size back, with the gap as padding while the list is closed up. Drawn ones are measured again by the list itself.
    */
-  const resize = (before: Map<number, string>, wasClosing: boolean) => {
-    if (!virtualizer || !latest) return;
+  const resize = (target: Virtualizer, options: Options, before: Map<number, string>, wasClosing: boolean) => {
     const drawn = new Set(rows().map((each) => indexOf(each)));
-    for (let index = 0; index < latest.count; index++) {
-      const size = sizeOf(index);
+    for (let index = 0; index < options.count; index++) {
+      const size = target.itemSizeCache?.get(options.getItemKey(index));
       const was = before.has(index);
       const is = hidden.has(index);
       if (is && !was && size !== undefined) saved.set(index, size - (wasClosing ? gap : 0));
       if (drawn.has(index)) continue;
-      if (is && !was) virtualizer.resizeItem(index, 0);
+      if (is && !was) target.resizeItem(index, 0);
       else if (!is && (was || wasClosing !== closing())) {
         const base = was
-          ? (saved.get(index) ?? latest.estimateSize(index))
+          ? (saved.get(index) ?? options.estimateSize(index))
           : size === undefined
             ? undefined
             : size - (wasClosing ? gap : 0);
-        if (base !== undefined) virtualizer.resizeItem(index, base + (closing() ? gap : 0));
+        if (base !== undefined) target.resizeItem(index, base + (closing() ? gap : 0));
       }
       if (!is) saved.delete(index);
     }
@@ -176,7 +173,7 @@ export const closeUpList = (): void => {
     gap = latest.gap;
     pad();
     virtualizer.setOptions(latest);
-    resize(before, wasClosing);
+    resize(virtualizer, latest, before, wasClosing);
   };
 
   /** GitHub draws a new list for another pull request or commit; the hidden files apply to the one on the page. */
@@ -197,7 +194,7 @@ export const closeUpList = (): void => {
     update(wanted);
   };
 
-  new MutationObserver(() => {
+  const rowsObserver = new MutationObserver(() => {
     attach();
     // Rows drawn as the page scrolls get their padding before they're measured.
     if (closing()) {
@@ -207,13 +204,16 @@ export const closeUpList = (): void => {
         update(NONE);
       }
     }
-  }).observe(document.body, { childList: true, subtree: true });
-  new MutationObserver(() => {
-    update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)));
-  }).observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: [HIDDEN_ROWS],
   });
+  rowsObserver.observe(document.body, { childList: true, subtree: true });
+  const hiddenObserver = new MutationObserver(() => {
+    update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)));
+  });
+  hiddenObserver.observe(document.documentElement, { attributes: true, attributeFilter: [HIDDEN_ROWS] });
   attach();
   update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)));
+  return () => {
+    rowsObserver.disconnect();
+    hiddenObserver.disconnect();
+  };
 };

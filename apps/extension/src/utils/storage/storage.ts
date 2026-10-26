@@ -34,10 +34,11 @@ export const configItem = storage.defineItem<Config>("sync:config", {
 export const selectionsItem = storage.defineItem<Selections>("local:active", {
   fallback: {},
   version: 2,
+  // WXT migrates only a value that's stored, never a missing one.
   migrations: {
     2: (previous: Record<string, string | string[]>): Selections =>
       Object.fromEntries(
-        Object.entries(previous ?? {}).map(([repo, ids]) => [repo, [ids].flat().filter((id) => id && id !== ALL)]),
+        Object.entries(previous).map(([repo, ids]) => [repo, [ids].flat().filter((id) => id && id !== ALL)]),
       ),
   },
 });

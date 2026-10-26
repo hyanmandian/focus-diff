@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchDetail,
+  fetchFiles,
+  fetchNotifications,
+  fetchPulls,
   InboxError,
   pageCount,
   parseDetail,
@@ -211,5 +215,181 @@ describe("parseFiles", () => {
 
   it("says so when the page no longer reads as expected", () => {
     expect(() => parseFiles({ payload: {} })).toThrow(InboxError);
+  });
+});
+
+describe("reading what GitHub sends defensively", () => {
+  it("takes missing or odd fields of a list item as empty", () => {
+    expect(
+      parsePulls(
+        dashboard([
+          { itemType: "pull_request", permalink: "https://github.com/octo/web/pull/5", isReadByCurrentUser: true },
+          { ...pull, permalink: 5 },
+        ]),
+      ),
+    ).toEqual([
+      {
+        repo: "octo/web",
+        number: 5,
+        title: "",
+        url: "https://github.com/octo/web/pull/5",
+        author: "",
+        draft: false,
+        comments: 0,
+        createdAt: "",
+        updatedAt: "",
+        unread: false,
+        headSha: "",
+      },
+    ]);
+  });
+
+  it("decodes the entities in a title, and leaves alone the ones it can't", () => {
+    const huge = "9".repeat(400);
+    const html = `<ul>${notification()}</ul>`.replace(
+      "Cache the <code>book</code> covers &amp; more",
+      `&#x41;&#66; &LT; &unknown; &#${huge};`,
+    );
+    expect(parseNotifications(html)[0]?.title).toBe(`AB < &unknown; &#${huge};`);
+  });
+
+  it("reads a thread's time off the page when its link doesn't say, and leaves out one without either", () => {
+    const bare = `<li class="notifications-list-item" data-notification-id="NT_9">
+      <a class="notification-list-item-link" href="https://github.com/octo/web/pull/4">
+      <relative-time datetime="2026-10-01T00:00:00Z"></relative-time></li>`;
+    expect(parseNotifications(`<ul>${bare}</ul>`)).toEqual([
+      {
+        thread: "NT_9",
+        repo: "octo/web",
+        number: 4,
+        title: "",
+        url: "https://github.com/octo/web/pull/4",
+        reason: "",
+        kind: "other",
+        anchor: "",
+        updatedAt: "2026-10-01T00:00:00Z",
+      },
+    ]);
+    const timeless =
+      '<li class="notifications-list-item" data-notification-id="NT_8"><a class="notification-list-item-link" href="https://github.com/octo/web/pull/4"></li>';
+    const linkless =
+      '<li class="notifications-list-item" data-notification-id="NT_7"><a href="https://github.com/octo/web/pull/4"></li>';
+    const hrefless =
+      '<li class="notifications-list-item" data-notification-id="NT_6"><a class="notification-list-item-link"></li>';
+    expect(parseNotifications(`<ul>${timeless}${linkless}${hrefless}</ul>`)).toEqual([]);
+  });
+
+  it("reads no login from a page without one", () => {
+    expect(parseLogin("<html></html>")).toBe("");
+  });
+
+  it("takes line counts that aren't numbers as none", () => {
+    expect(
+      parseFiles({ payload: { route: { diffSummaries: [{ path: "a.ts", linesAdded: "x", markedAsViewed: "yes" }] } } }),
+    ).toEqual([["a.ts", 0, 0, false]]);
+  });
+});
+
+describe("fetching from GitHub", () => {
+  const respond = (body: string, { status = 200, url = "https://github.com/pulls" } = {}) => {
+    const response = new Response(body, { status });
+    Object.defineProperty(response, "url", { value: url });
+    return response;
+  };
+  const stubFetch = (handler: (url: string, init?: RequestInit) => Response | Promise<Response>) => {
+    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>((url, init) =>
+      Promise.resolve(handler(url, init)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+  const listPage = (page: number, totalPages: number) =>
+    JSON.stringify({
+      payload: {
+        route: {
+          results: [
+            { ...pull, permalink: `https://github.com/octo/web/pull/${page}`, number: page },
+            // Moved up a page between two reads.
+            pull,
+          ],
+          pageInfo: { totalPages },
+        },
+      },
+    });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads every page of a list, up to four, with the reader's session, once per pull request", async () => {
+    const fetchMock = stubFetch((url) => respond(listPage(Number(new URL(url).searchParams.get("page") ?? 1), 9)));
+    const pulls = await fetchPulls("reviews");
+    expect(pulls.map((each) => each.number)).toEqual([1, 12, 2, 3, 4]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://github.com/pulls/reviews",
+      "https://github.com/pulls/reviews?page=2",
+      "https://github.com/pulls/reviews?page=3",
+      "https://github.com/pulls/reviews?page=4",
+    ]);
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual({
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("adds the page to a search list's query", async () => {
+    const fetchMock = stubFetch((url) => respond(listPage(url.includes("page=2") ? 2 : 1, 2)));
+    await fetchPulls("direct");
+    expect(fetchMock.mock.calls[1]?.[0]).toMatch(/^https:\/\/github\.com\/pulls\/search\?q=.+&page=2$/u);
+    stubFetch(() => respond(listPage(1, 1)));
+    expect(await fetchPulls("authored")).toHaveLength(2);
+  });
+
+  it("says when a list doesn't read as JSON", async () => {
+    stubFetch(() => respond("<html>"));
+    await expect(fetchPulls("reviews")).rejects.toMatchObject({ problem: "unreadable" });
+  });
+
+  it("tells being offline, signed out and a page that failed apart", async () => {
+    stubFetch(() => Promise.reject(new TypeError("Failed to fetch")));
+    await expect(fetchPulls("reviews")).rejects.toMatchObject({ problem: "offline" });
+    stubFetch(() => respond("", { status: 401 }));
+    await expect(fetchPulls("reviews")).rejects.toMatchObject({ problem: "signed-out" });
+    stubFetch(() => respond("<html>", { url: "https://github.com/login?return_to=%2Fpulls" }));
+    await expect(fetchNotifications()).rejects.toMatchObject({ problem: "signed-out" });
+    stubFetch(() => respond("", { status: 500 }));
+    await expect(fetchFiles("octo/web", 1)).rejects.toBeInstanceOf(InboxError);
+  });
+
+  it("reads the notifications inbox and who's signed in, and takes a page without a login as signed out", async () => {
+    const fetchMock = stubFetch(() =>
+      respond(`<meta name="user-login" content="ada"><ul>${notification()}</ul>`, {
+        url: "https://github.com/notifications",
+      }),
+    );
+    expect(await fetchNotifications()).toEqual({
+      me: "ada",
+      activity: [expect.objectContaining({ thread: "NT_1" })],
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://github.com/notifications?query=");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ headers: { Accept: "text/html" } });
+
+    stubFetch(() => respond("<ul></ul>"));
+    await expect(fetchNotifications()).rejects.toMatchObject({ problem: "signed-out" });
+  });
+
+  it("reads a pull request's page for an event, and its files", async () => {
+    const fetchMock = stubFetch((url) =>
+      url.endsWith("/changes")
+        ? respond(JSON.stringify({ payload: { route: { diffSummaries: [{ path: "a.ts", linesAdded: 1 }] } } }))
+        : respond('<div id="issuecomment-1"><a class="author" href="/ada">ada</a></div>'),
+    );
+    expect(await fetchDetail("octo/web", 7, "issuecomment-1", "")).toMatchObject({ actor: "ada" });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://github.com/octo/web/pull/7");
+    expect(await fetchFiles("octo/web", 7)).toEqual([["a.ts", 1, 0, false]]);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://github.com/octo/web/pull/7/changes");
+
+    stubFetch(() => respond("not json"));
+    await expect(fetchFiles("octo/web", 7)).rejects.toMatchObject({ problem: "unreadable" });
   });
 });

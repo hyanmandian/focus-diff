@@ -1,7 +1,7 @@
 // The review window's Overview tab: the pull request's description and conversation, with the AI,
 // reviewers and checks beside them.
 
-import { ArrowDownToLine, CircleCheck, CircleDot, CircleMinus, CircleX, Loader2, MessageSquarePlus, Sparkles } from "lucide-react";
+import { ArrowDownToLine, Loader2, MessageSquarePlus, Sparkles } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { firstName } from "@/lib/copy";
 import { useT } from "@/lib/i18n";
 import type { Details } from "@/lib/details";
 import type { Actor } from "@/lib/engine";
+import type { Range } from "@/lib/commits";
 import type { Thread } from "@/lib/review";
 import { useDiagrams } from "@/lib/diagrams";
 import { leadsElsewhere, sanitize } from "@/lib/sanitize";
@@ -20,7 +21,14 @@ import { cn } from "@/lib/utils";
 import { openViewer } from "@/shared/Viewer";
 import { AiAnswer } from "@/shared/AiAnswer";
 import { AskAi } from "@/shared/AskAi";
+import { byTime } from "@/lib/timeline";
+import { Checks } from "./Checks";
+import { CommitsSection } from "./Commits";
+import { MergeBox } from "./MergeBox";
+import { Sidebar } from "./Sidebar";
 import { Composer, ThreadView } from "./Thread";
+import { TimelineRow } from "./Timeline";
+import type { Pull } from "./usePull";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
   return (
@@ -69,14 +77,6 @@ function Html({ html, className }: { html: string; className?: string }) {
     />
   );
 }
-
-// Their words: t(`review.check.${state}`).
-const CHECK_ICON = {
-  success: { icon: CircleCheck, className: "text-success" },
-  failure: { icon: CircleX, className: "text-destructive" },
-  pending: { icon: CircleDot, className: "text-warning" },
-  neutral: { icon: CircleMinus, className: "text-muted-foreground" },
-} as const;
 
 // Their words: t(`review.state.${state}`) on its own, t(`review.did.${state}`) after a name.
 const REVIEW_STATE = {
@@ -155,6 +155,14 @@ type Props = {
   onResolve: (thread: Thread, resolved: boolean) => Promise<void>;
   /** A comment on the pull request itself, at the end of the conversation. */
   onComment: (body: string) => Promise<void>;
+  /** What's around the pull request (usePull.ts): merging, checks, commits, people, the timeline. */
+  pull: Pull;
+  me: string | null;
+  /** Shows a range of commits in the diff. */
+  onOpenRange: (range: Range) => void;
+  /** Whether the diff has a file, to offer a way to it. */
+  hasFile: (path: string) => boolean;
+  say: (message: string) => void;
 };
 
 /** Where a conversation on a line is, with a way to it in the diff. */
@@ -194,13 +202,15 @@ function AddComment({ onComment }: { onComment: Props["onComment"] }) {
   );
 }
 
-export function Overview({ config, details, review, reviewing, reviewError, onJump, threads, onReply, onResolve, onComment }: Props) {
+export function Overview({ config, details, review, reviewing, reviewError, onJump, threads, onReply, onResolve, onComment, pull, me, onOpenRange, hasFile, say }: Props) {
   const t = useT();
   // "{who} opened it {ago}", with the name set apart.
   const [beforeWho, afterWho] = t("review.openedBy", { who: "\u0000", ago: t.ago(Date.parse(details.createdAt)) }).split("\u0000");
   // Each conversation on a line shows once, under the review that started it (as on GitHub); the
   // replies, which GitHub keeps as reviews of their own, are in it.
   const byComment = useMemo(() => new Map(threads.flatMap((t) => t.comments.map((c) => [c.id, t] as const))), [threads]);
+  // What happened (commits, labels, merging...) among what was said, as on GitHub.
+  const items = useMemo(() => byTime(details.entries, pull.events), [details.entries, pull.events]);
   // A page to read: the description and the conversation in a column, and beside them what's at a
   // glance (the AI, reviewers, checks).
   return (
@@ -221,12 +231,17 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
           </div>
           <Html html={details.html} />
         </section>
+        <MergeBox details={details} pull={pull} />
+        <Checks pr={details} pull={pull} hasFile={hasFile} onJump={onJump} say={say} />
+        <CommitsSection pull={pull} onOpen={onOpenRange} />
         <section aria-labelledby="conversation" className="flex flex-col gap-5">
           <h2 id="conversation" className="text-headline font-bold">
             {t("review.conversation")} <span className="font-normal text-muted-foreground tabular-nums">{details.entries.length}</span>
           </h2>
-              {details.entries.length ? (
-                details.entries.map((entry) => {
+              {items.length ? (
+                items.map((item) => {
+                  if (item.kind === "event") return <TimelineRow key={item.event.id} event={item.event} />;
+                  const entry = item.entry;
                   const parts =
                     entry.kind === "review"
                       ? entry.comments.flatMap((c): Array<{ key: string; comment: typeof c; thread: Thread | null }> => {
@@ -266,60 +281,18 @@ export function Overview({ config, details, review, reviewing, reviewError, onJu
               ) : (
                 <p className="text-body text-muted-foreground">{t("review.noConversation")}</p>
               )}
+              {pull.older ? (
+                <Button variant="ghost" size="sm" className="self-start text-muted-foreground" onClick={() => void pull.loadOlder().catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))}>
+                  {t("manage.olderEvents")}
+                </Button>
+              ) : null}
               <AddComment onComment={onComment} />
         </section>
       </div>
       <aside className="flex min-w-0 flex-col gap-6" aria-label={t("review.atAGlance")}>
         {config?.ai.provider ? <ReviewSummary config={config} review={review} reviewing={reviewing} error={reviewError} onJump={onJump} /> : null}
         {config ? <AskAi config={config} details={details} /> : null}
-        <section aria-labelledby="reviewers" className="flex flex-col gap-2">
-          <h3 id="reviewers" className="text-subheadline font-semibold text-muted-foreground">
-            {t("review.reviewers")}
-          </h3>
-          {details.reviewers.length ? (
-            <ul className="flex flex-col gap-1.5">
-              {details.reviewers.map(({ actor, state, team }) => (
-                <li key={`${actor?.login}${team ?? ""}`} className="flex items-center gap-2 text-body">
-                  {team ? <span className="grid size-5 place-items-center rounded-full bg-muted text-footnote font-semibold">{team.slice(0, 2).toUpperCase()}</span> : <Person actor={actor} />}
-                  <span className="truncate">{team ?? firstName(actor, t)}</span>
-                  <span className={cn("ml-auto text-callout", isReviewState(state) && REVIEW_STATE[state])}>{isReviewState(state) ? t(`review.state.${state}`) : state}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-callout text-muted-foreground">{t("review.nobodyAsked")}</p>
-          )}
-        </section>
-        {details.checks.length ? (
-          <section aria-labelledby="checks" className="flex flex-col gap-2">
-            <h3 id="checks" className="text-subheadline font-semibold text-muted-foreground">
-              {t("review.checks")}
-            </h3>
-            <ul className="flex flex-col gap-1">
-              {details.checks.slice(0, 12).map((check) => {
-                const s = CHECK_ICON[check.state];
-                const row = (
-                  <>
-                    <s.icon className={cn("size-3.5 shrink-0", s.className)} aria-label={t(`review.check.${check.state}`)} />
-                    <span className="truncate">{check.name}</span>
-                  </>
-                );
-                return (
-                  <li key={check.name} className="text-body">
-                    {check.url?.startsWith("https://") ? (
-                      <button type="button" className="flex w-full cursor-default items-center gap-2 rounded text-left outline-none focus-ring" onClick={() => void bridge.openUrl(check.url!)}>
-                        {row}
-                      </button>
-                    ) : (
-                      <span className="flex items-center gap-2">{row}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            {details.checks.length > 12 ? <p className="text-callout text-muted-foreground">{t("review.checksMore", { count: details.checks.length - 12 })}</p> : null}
-          </section>
-        ) : null}
+        <Sidebar pr={details} details={details} pull={pull} me={me} onError={say} />
       </aside>
     </div>
   );

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
@@ -23,7 +23,8 @@ import { bridge } from "@/lib/bridge";
 import { inFilter, loadConfig, type Config } from "@/lib/config";
 import { firstName } from "@/lib/copy";
 import { i18n, useT } from "@/lib/i18n";
-import { comment, leaveReview, loadDetails, markReady, merge, type Details } from "@/lib/details";
+import { comment, leaveReview, loadDetails, type Details } from "@/lib/details";
+import { useRangeFiles } from "@/lib/commits";
 import { createEstimator, learnFiles, reviewMinutes, useLearned } from "@/lib/estimate";
 import { filtersFor, inAny, keptSelection, nextFile, nextFilterWithWork, stepFilter, toggled, totals } from "@/lib/filters";
 import { commentNow, loadFiles, loadThreads, loadViewed, reply, setResolved, submitReview, type Draft, type ReviewFile, type Thread, type ViewedState } from "@/lib/review";
@@ -43,6 +44,9 @@ import { FileTree } from "./FileTree";
 import { FilterBar, type Next } from "./FilterBar";
 import { Overview } from "./Overview";
 import { Shortcuts } from "./Shortcuts";
+import { RangeBanner, RangePicker } from "./Commits";
+import { MergeMenuItems, PullMenuItems } from "./PullMenus";
+import { usePull } from "./usePull";
 
 /** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
  *  ("org/slug"), for leaving the review. */
@@ -334,6 +338,19 @@ export function Review({ target }: { target: Target }) {
     setNotice(message);
     window.setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
   };
+  // Merging, checks, commits, people and the rest around the pull request (usePull.ts); the range of
+  // commits the diff shows, and its files when it isn't all of them.
+  const pull = usePull({ prId, ref, details, setDetails, threads, say, reloadAll: () => void load() });
+  const [rangeMenu, setRangeMenu] = useState(false);
+  const ranged = useRangeFiles(ref, pull.range);
+  const shownFiles = pull.range ? ranged.files : files;
+  // Viewed marks belong to the pull request's version of a file, whichever range shows it.
+  const pullFiles = useMemo(() => new Map((files ?? []).map((f) => [f.path, f])), [files]);
+  const pullFileOf = useCallback((f: ReviewFile) => pullFiles.get(f.path) ?? f, [pullFiles]);
+  // The two versions the expanded lines come from: the range's ends when it's a range.
+  const range = pull.range;
+  const diffSource = useMemo<Source | null>(() => (range ? { repo, head: range.to, base: () => Promise.resolve(range.from) } : source), [range, repo, source]);
+
   // The panel's lists catch up right away.
   const changed = useCallback(async () => {
     void bridge.refresh(true);
@@ -343,7 +360,7 @@ export function Review({ target }: { target: Target }) {
     if (last.current) last.current = { ...last.current, details: d, threads: t };
   }, [ref, repo, number]);
 
-  const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === patchHash(f), [viewed]);
+  const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === patchHash(pullFileOf(f)), [viewed, pullFileOf]);
   // The filters for everywhere and this repository's own; the chosen ones that have files here. The
   // kept choice stays as it is, so another pull request in the repository gets the full set.
   const repoFilters = useMemo(() => filtersFor(config?.filters ?? [], repo), [config, repo]);
@@ -353,7 +370,7 @@ export function Review({ target }: { target: Target }) {
   }, [kept, repoFilters, files]);
   const chosenIds = useMemo(() => chosen.map((f) => f.id), [chosen]);
   // In the sidebar's order (folders first), so the diff reads as the tree lists it.
-  const ordered = useMemo(() => (files ? inTreeOrder(files) : []), [files]);
+  const ordered = useMemo(() => (shownFiles ? inTreeOrder(shownFiles) : []), [shownFiles]);
   const inPart = useMemo(() => ordered.filter((f) => inAny(chosen, f.path)), [ordered, chosen]);
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -409,7 +426,7 @@ export function Review({ target }: { target: Target }) {
   /** Marks a file viewed or not, here at once and on github.com after; if GitHub refuses, it goes back. */
   const setFileViewed = (f: ReviewFile, v: boolean) => {
     // Unmarked stays as "", so GitHub's older mark doesn't come back over it.
-    setViewed((m) => ({ ...m, [f.path]: v ? patchHash(f) : "" }));
+    setViewed((m) => ({ ...m, [f.path]: v ? patchHash(pullFileOf(f)) : "" }));
     if (v) {
       setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));
       const seconds = take(f.path);
@@ -512,22 +529,10 @@ export function Review({ target }: { target: Target }) {
       void load();
     }
   };
-  const canMerge = details && details.viewerDidAuthor && details.state === "OPEN" && !details.isDraft && details.mergeable === "MERGEABLE" && details.mergeMethods.length > 0;
+  // Anyone with write access, as GitHub's own merge box allows (usePull.ts, merging.ts).
+  const view = pull.view;
+  const canMerge = Boolean(view && (view.canMerge || view.canBypass || view.canAutoMerge || view.canDisableAutoMerge || view.canEnqueue || view.canDequeue || view.canUpdateBranch));
   const canLeave = Boolean(details && me && !details.viewerDidAuthor && details.state === "OPEN");
-  /** Merging can't be undone: a native alert on this window asks first, naming how. */
-  const mergeWith = async (method: Details["mergeMethods"][number]) => {
-    if (!details) return;
-    const t = i18n();
-    const ok = await bridge.confirm(t("review.mergeConfirm", { number: String(details.number) }), t(`review.mergeConfirm.${method}`, { title: details.title, base: details.baseRefName }), t(`review.mergeMethod.${method}`));
-    if (!ok) return;
-    void merge(details, method)
-      .then(() => {
-        say(i18n()("review.merged"));
-        void bridge.refresh(true);
-        void load();
-      })
-      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)));
-  };
   const leave = async () => {
     if (!details || !me) return;
     const t = i18n();
@@ -569,6 +574,11 @@ export function Review({ target }: { target: Target }) {
       "ai-review": () => void runReview(),
       submit: () => setSubmitting(true),
       merge: () => setMergeMenu(true),
+      commits: () => {
+        setTab("diff");
+        requestAnimationFrame(() => setRangeMenu(true));
+      },
+      ...pull.menu,
       "open-github": () => details && void bridge.openUrl(details.url),
       leave: () => void leave(),
     };
@@ -588,6 +598,8 @@ export function Review({ target }: { target: Target }) {
     "ai-review": Boolean(ai && details && files && !reviewing),
     submit: isOpen,
     merge: Boolean(canMerge),
+    commits: Boolean(pull.commits?.commits.length),
+    ...pull.allowed,
     "open-github": Boolean(details),
     leave: canLeave,
   };
@@ -746,13 +758,17 @@ export function Review({ target }: { target: Target }) {
                 <TooltipContent>{t("diff.hideWhitespaceTip")}</TooltipContent>
               </Tooltip>
             </div>
+            {/* Which changes show: all, since your last review, a commit or a run of them. */}
+            <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+              <RangePicker pull={pull} className={TOOL} open={rangeMenu} onOpenChange={setRangeMenu} />
+            </div>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
           {/* The person's own actions, AI, readiness and merging: one capsule of labelled items. The
               actions fold into a pull-down menu as the window narrows. */}
-          {(config?.actions.length && details && me) || (ai && details) || canMerge || (details?.viewerDidAuthor && isOpen && details.isDraft) ? (
+          {(config?.actions.length && details && me) || (ai && details) || canMerge || (details?.viewerCanUpdate && isOpen && details.isDraft) ? (
             <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
               {config?.actions.length && details && me ? (
                 <>
@@ -790,24 +806,12 @@ export function Review({ target }: { target: Target }) {
                   <TooltipContent>{current ? t("review.reviewAgainTip") : t("review.aiReviewTip")}</TooltipContent>
                 </Tooltip>
               ) : null}
-              {details && details.viewerDidAuthor && isOpen && details.isDraft ? (
-                <Button
-                  variant="ghost"
-                  className={TOOL}
-                  onClick={() =>
-                    void markReady(details)
-                      .then(() => {
-                        say(i18n()("review.readyNotice"));
-                        void bridge.refresh(true);
-                        void load();
-                      })
-                      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
-                  }
-                >
+              {details && details.viewerCanUpdate && isOpen && details.isDraft ? (
+                <Button variant="ghost" className={TOOL} onClick={() => void pull.actions.ready()} disabled={pull.busy === "ready"}>
                   {t("review.markReady")}
                 </Button>
               ) : null}
-              {canMerge ? (
+              {canMerge && details ? (
                 // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
                 <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
                   <DropdownMenuTrigger render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[960px]:px-2")} />}>
@@ -815,12 +819,7 @@ export function Review({ target }: { target: Target }) {
                     <ChevronDown className="size-3 opacity-70" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>{t("review.mergeTitle")}</DropdownMenuLabel>
-                    {details.mergeMethods.map((method) => (
-                      <DropdownMenuItem key={method} onClick={() => void mergeWith(method)}>
-                        {t(`review.mergeMethod.${method}`)}…
-                      </DropdownMenuItem>
-                    ))}
+                    <MergeMenuItems details={details} pull={pull} onDetails={() => setTab("overview")} />
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
@@ -835,6 +834,7 @@ export function Review({ target }: { target: Target }) {
             </Tooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>{t("review.openOnGitHub")}</DropdownMenuItem>
+              <PullMenuItems pull={pull} details={details} />
               <DropdownMenuItem onClick={() => setShortcuts(true)}>{t("diff.shortcuts")}</DropdownMenuItem>
               {canLeave ? (
                 <>
@@ -884,6 +884,15 @@ export function Review({ target }: { target: Target }) {
                 say(i18n()("review.commentPosted"));
                 await changed();
               }}
+              pull={pull}
+              me={me}
+              onOpenRange={(range) => {
+                pull.setRange(range);
+                setTab("diff");
+                requestAnimationFrame(() => diffs.current?.scrollToTop());
+              }}
+              hasFile={(path) => Boolean(files?.some((f) => f.path === path))}
+              say={say}
             />
           ) : (
             // The Overview's own layout, empty: nothing moves when it fills in.
@@ -939,7 +948,7 @@ export function Review({ target }: { target: Target }) {
               </label>
             </div>
             <FileTree
-              files={files ? visible : null}
+              files={shownFiles ? visible : null}
               flat={Boolean(filter.trim())}
               picked={picked}
               isViewed={isViewed}
@@ -952,12 +961,14 @@ export function Review({ target }: { target: Target }) {
           </aside>
 
           <div className="relative min-w-0 flex-1 bg-muted/30">
-            {files ? (
+            <RangeBanner pull={pull} loading={Boolean(pull.range && !ranged.files && !ranged.error)} error={ranged.error} />
+            {shownFiles ? (
               visible.length ? (
                 <Diffs
                   ref={diffs}
                   files={visible}
-                  threads={threadsByPath}
+                  // Conversations sit on the head's lines: an older version's lines aren't those.
+                  threads={pull.range && details && pull.range.to !== details.headRefOid ? new Map() : threadsByPath}
                   drafts={drafts}
                   findings={current?.findings ?? []}
                   findingsBy={ai ? PROVIDERS[ai.ai.provider!].name : t("review.ai")}
@@ -976,7 +987,7 @@ export function Review({ target }: { target: Target }) {
                   diffStyle={diffStyle}
                   wrap={wrap}
                   whitespace={whitespace}
-                  source={source}
+                  source={diffSource}
                   link={link}
                   onSay={say}
                   dark={dark}

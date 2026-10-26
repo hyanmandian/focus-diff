@@ -4,10 +4,11 @@ import { common } from "./common";
 import { config } from "./config";
 import { diff } from "./diff";
 import { events } from "./events";
+import { manage } from "./manage";
 import { panel } from "./panel";
 import { review } from "./review";
 import { settings } from "./settings";
 import { setup } from "./setup";
 import { shared } from "./shared";
 
-export const en = { common, config, diff, events, panel, review, settings, setup, shared } as const;
+export const en = { common, config, diff, events, manage, panel, review, settings, setup, shared } as const;

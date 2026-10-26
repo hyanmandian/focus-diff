@@ -2,6 +2,8 @@
 // (npm run dev, then open http://localhost:1420), with sample pull requests, so the interface can
 // be worked on and screenshotted without GitHub. Never part of a build (see main.tsx).
 
+import { manageRoute } from "./mockManage";
+
 type Args = Record<string, unknown>;
 
 const now = Date.now();
@@ -160,7 +162,7 @@ const details = {
     isDraft: false,
     state: "OPEN",
     mergeable: "MERGEABLE",
-    mergeStateStatus: "CLEAN",
+    mergeStateStatus: "BLOCKED",
     viewerDidAuthor: false,
     viewerCanUpdate: true,
     baseRefName: "main",
@@ -170,6 +172,7 @@ const details = {
     deletions: 12,
     changedFiles: 3,
     createdAt: iso(25),
+    updatedAt: iso(9),
     reviewDecision: "REVIEW_REQUIRED",
     author: people.ana,
     reviewRequests: { nodes: [{ requestedReviewer: { ...people.me } }, { requestedReviewer: { __typename: "Team", name: "Payments", slug: "payments" } }] },
@@ -383,6 +386,9 @@ const listeners = new Map<number, string>();
 let callbackId = 0;
 
 async function invoke(cmd: string, args: Args = {}): Promise<unknown> {
+  // What's around the pull request: merging, checks, commits, people, the timeline (mockManage.ts).
+  const around = await manageRoute(cmd, args);
+  if (around !== undefined) return around;
   switch (cmd) {
     case "read_file":
       return files[args.name as string] ?? null;

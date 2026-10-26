@@ -15,7 +15,8 @@ use crate::i18n::tr;
 
 /// The commands that act on the review in front.
 const REVIEW: &[&str] = &[
-    "find", "overview", "diff", "wrap", "whitespace", "file-next", "file-previous", "toggle-viewed", "next-file", "next-comment", "previous-comment", "ai-review", "submit", "merge", "open-github", "leave", "shortcuts",
+    "find", "overview", "diff", "wrap", "whitespace", "file-next", "file-previous", "toggle-viewed", "next-file", "next-comment", "previous-comment", "commits", "all-changes", "since-review", "ai-review", "submit", "merge", "auto-merge",
+    "update-branch", "ready", "draft", "close", "reopen", "delete-branch", "rerun-failed", "open-github", "leave", "shortcuts",
 ];
 
 /// The review commands' items, and what each review window last said applies to it.
@@ -110,12 +111,26 @@ fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
         .item(&item("next-comment", &tr!("Next Comment", "Próxima conversa"), None)?)
         .item(&item("previous-comment", &tr!("Previous Comment", "Conversa anterior"), None)?)
         .separator()
+        .item(&item("commits", &tr!("Choose Commits…", "Escolher commits…"), None)?)
+        .item(&item("all-changes", &tr!("All Changes", "Todas as mudanças"), None)?)
+        .item(&item("since-review", &tr!("Changes Since Your Last Review", "Mudanças desde a sua última revisão"), None)?)
+        .separator()
         .item(&PredefinedMenuItem::fullscreen(app, Some(&tr!("Enter Full Screen", "Entrar em tela cheia")))?)
         .build()?;
     let pull_request = SubmenuBuilder::new(app, tr!("Pull Request", "Pull request"))
         .item(&item("ai-review", &tr!("Review with AI", "Revisar com IA"), None)?)
         .item(&item("submit", &tr!("Submit Review…", "Enviar revisão…"), None)?)
         .item(&item("merge", &tr!("Merge…", "Fazer merge…"), None)?)
+        .item(&item("auto-merge", &tr!("Merge When Ready", "Fazer merge quando estiver pronto"), None)?)
+        .item(&item("update-branch", &tr!("Update Branch", "Atualizar branch"), None)?)
+        .separator()
+        .item(&item("ready", &tr!("Ready for Review", "Pronto para revisão"), None)?)
+        .item(&item("draft", &tr!("Convert to Draft", "Converter em rascunho"), None)?)
+        .item(&item("close", &tr!("Close Pull Request", "Fechar pull request"), None)?)
+        .item(&item("reopen", &tr!("Reopen Pull Request", "Reabrir pull request"), None)?)
+        .item(&item("delete-branch", &tr!("Delete Branch…", "Apagar branch…"), None)?)
+        .separator()
+        .item(&item("rerun-failed", &tr!("Re-run Failed Checks", "Rodar de novo as verificações que falharam"), None)?)
         .separator()
         .item(&item("open-github", &tr!("Open on GitHub", "Abrir no GitHub"), None)?)
         .item(&item("leave", &tr!("Leave This Review…", "Sair desta revisão…"), None)?)

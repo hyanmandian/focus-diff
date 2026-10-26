@@ -60,17 +60,21 @@ const selected = () => screen.queryAllByRole("treeitem").find((r) => r.getAttrib
 /** ResizeObserver, told by the test when sizes change. */
 function watchSizes() {
   const callbacks: Array<() => void> = [];
+  const observed: Element[] = [];
   vi.stubGlobal(
     "ResizeObserver",
     class {
       constructor(callback: () => void) {
         callbacks.push(callback);
       }
-      observe() {}
+      observe(el: Element) {
+        observed.push(el);
+      }
       disconnect() {}
     },
   );
   return {
+    observed,
     all: () => {
       for (const callback of callbacks) callback();
     },
@@ -83,20 +87,11 @@ afterEach(() => {
 
 describe("FileTree", () => {
   it("watches the list's height once the files have loaded", () => {
-    const observed: Element[] = [];
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe(el: Element) {
-          observed.push(el);
-        }
-        disconnect() {}
-      },
-    );
+    const sizes = watchSizes();
     const { rerender } = tree({ files: null });
-    expect(observed).toHaveLength(0);
+    expect(sizes.observed).toHaveLength(0);
     rerender({ files: FILES });
-    expect(observed).toHaveLength(1);
+    expect(sizes.observed).toHaveLength(1);
   });
 
   it("shows placeholders while the files load", () => {

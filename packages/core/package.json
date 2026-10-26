@@ -17,6 +17,7 @@
     "./queue-engine": "./src/queue-engine/queue-engine.ts",
     "./queue-items": "./src/queue-items/queue-items.ts",
     "./queue-panel": "./src/queue-panel/queue-panel.ts",
+    "./queue-watch": "./src/queue-watch/queue-watch.ts",
     "./queue-words": "./src/queue-words/queue-words.ts",
     "./recipes": "./src/recipes/recipes.ts",
     "./repos": "./src/repos/repos.ts"

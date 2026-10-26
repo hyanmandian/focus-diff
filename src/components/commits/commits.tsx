@@ -92,7 +92,7 @@ function rows(list: List): Row[] {
     ...list.forcePushes.map((p) => ({ kind: "push" as const, ...p })),
   ];
   const at = (r: Row) => Date.parse(r.kind === "commit" ? r.commit.at : r.at);
-  return all.sort((a, b) => at(a) - at(b));
+  return all.toSorted((a, b) => at(a) - at(b));
 }
 
 /** The Overview's list of commits; a click opens that commit in the diff. */
@@ -217,11 +217,10 @@ export function RangePicker({
   const { range, setRange, since } = pull;
   const [anchor, setAnchor] = useState<number | null>(null);
   const shown = new Set(list && range ? inRange(list.commits, range) : []);
-  const pick = (index: number, extend: boolean) => {
-    if (!list) return;
+  const pick = (commits: Commit[], index: number, extend: boolean) => {
     const from = extend && anchor !== null ? anchor : index;
     if (!extend) setAnchor(index);
-    setRange(commitRange(list.commits, from, index));
+    setRange(commitRange(commits, from, index));
     if (!extend) onOpenChange(false);
   };
   return (
@@ -254,20 +253,27 @@ export function RangePicker({
           {t("manage.chooseChanges")}
         </PopoverTitle>
         <div
+          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- choices with a second line, and shift-click for a run: a <select> can't.
           role="listbox"
           aria-label={t("manage.chooseChanges")}
           className="flex max-h-[min(28rem,70vh)] flex-col overflow-y-auto overscroll-contain"
         >
           <Choice
             selected={!range}
-            onPick={() => (setRange(null), onOpenChange(false))}
+            onPick={() => {
+              setRange(null);
+              onOpenChange(false);
+            }}
             label={t("manage.allChanges")}
             detail={list ? t("manage.commitCount", { count: list.commits.length }) : null}
           />
           {since ? (
             <Choice
               selected={sameRange(range, since.range)}
-              onPick={() => (setRange(since.range), onOpenChange(false))}
+              onPick={() => {
+                setRange(since.range);
+                onOpenChange(false);
+              }}
               label={t("manage.sinceReview")}
               detail={
                 since.rewritten ? t("manage.sinceReviewRewritten") : t("manage.commitCount", { count: since.count })
@@ -281,11 +287,10 @@ export function RangePicker({
                 key={c.oid}
                 selected={Boolean(range) && shown.has(i)}
                 onPick={(extend) => {
-                  pick(i, extend);
+                  pick(list.commits, i, extend);
                 }}
                 label={c.headline}
                 detail={`${c.short} · ${c.author.login ?? c.author.name} · ${t.since(Date.parse(c.at))}`}
-                mono={false}
               />
             ))
           ) : (
@@ -303,17 +308,16 @@ function Choice({
   onPick,
   label,
   detail,
-  mono,
 }: {
   selected: boolean;
   onPick: (extend: boolean) => void;
   label: string;
   detail?: string | null;
-  mono?: boolean;
 }) {
   return (
     <button
       type="button"
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an option of the listbox above.
       role="option"
       aria-selected={selected}
       onClick={(e) => {
@@ -326,7 +330,7 @@ function Choice({
     >
       <span className={cn("size-1.5 shrink-0 rounded-full", selected ? "bg-primary" : "bg-transparent")} aria-hidden />
       <span className="min-w-0 flex-1">
-        <span className={cn("block truncate", mono && "font-mono")}>{label}</span>
+        <span className="block truncate">{label}</span>
         {detail ? <span className="block truncate text-subheadline text-muted-foreground">{detail}</span> : null}
       </span>
     </button>
@@ -351,12 +355,11 @@ export function RangeBanner({
   const older = commits && commits.commits.at(-1)?.oid !== range.to;
   return (
     // Floats over the top of the diff, as the filter bar does at its foot: the diff's layout stays.
-    <div
+    <output
       className={cn(
         "absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu)",
         below ? "top-12" : "top-2",
       )}
-      role="status"
     >
       {loading ? (
         <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
@@ -376,6 +379,6 @@ export function RangeBanner({
       >
         {t("manage.showAllChanges")}
       </Button>
-    </div>
+    </output>
   );
 }

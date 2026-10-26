@@ -22,7 +22,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
 import { Badge } from "@/components/badge/badge";
@@ -105,14 +105,16 @@ import { inTreeOrder } from "@/utils/tree/tree";
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
 
 const typing = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/u.test(el.tagName));
 
 // MARK: Kept on this machine
 
-function stored<T>(key: string, fallback: T): T {
+/** What's kept under a key, when it's still of the kind expected. */
+function stored<T>(key: string, fallback: T, valid: (value: unknown) => value is T): T {
   try {
     const text = localStorage.getItem(key);
-    return text ? (JSON.parse(text) as T) : fallback;
+    const value: unknown = text ? JSON.parse(text) : undefined;
+    return valid(value) ? value : fallback;
   } catch {
     return fallback;
   }
@@ -124,12 +126,13 @@ function store(key: string, value: unknown) {
     // Still works for this window.
   }
 }
-function usePersisted<T>(key: string, fallback: T) {
-  const [value, setValue] = useState<T>(() => stored(key, fallback));
+const isUpdate = <T,>(next: T | ((v: T) => T)): next is (v: T) => T => typeof next === "function";
+function usePersisted<T>(key: string, fallback: T, valid: (value: unknown) => value is T) {
+  const [value, setValue] = useState<T>(() => stored(key, fallback, valid));
   const set = useCallback(
     (next: T | ((v: T) => T)) => {
       setValue((v) => {
-        const resolved = typeof next === "function" ? (next as (v: T) => T)(v) : next;
+        const resolved = isUpdate(next) ? next(v) : next;
         store(key, resolved);
         return resolved;
       });
@@ -142,21 +145,30 @@ function usePersisted<T>(key: string, fallback: T) {
 /** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
 const MIN_REVIEW_SECONDS = 2;
 
-const useDark = (config: Config | null) => {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
-  useEffect(() => {
-    // The theme may already be applied by the time this runs.
-    setDark(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(() => {
-      setDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => {
-      observer.disconnect();
-    };
-  }, [config]);
-  return dark;
+// Whether the page is drawn dark (theme.ts sets the class), read again whenever the class changes.
+const isDark = () => document.documentElement.classList.contains("dark");
+const watchDark = (changed: () => void) => {
+  const observer = new MutationObserver(changed);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => {
+    observer.disconnect();
+  };
 };
+const useDark = () => useSyncExternalStore(watchDark, isDark);
+
+// What each kept setting may be; anything else kept under its key is ignored.
+const isString = (v: unknown): v is string => typeof v === "string";
+const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
+const isAnything = (v: unknown): v is unknown => v !== undefined;
+const isDiffStyle = (v: unknown): v is "split" | "unified" => v === "split" || v === "unified";
+const isTab = (v: unknown): v is "overview" | "diff" => v === "overview" || v === "diff";
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const isMarks = (v: unknown): v is Record<string, string> => isObject(v) && Object.values(v).every((x) => isString(x));
+const isReviewed = (v: unknown): v is { head: string; review: AiReview } | null =>
+  v === null || (isObject(v) && isString(v.head) && isObject(v.review));
+
+const EVENTS = ["COMMENT", "APPROVE", "REQUEST_CHANGES"] as const;
+const STYLES = ["split", "unified"] as const;
 
 type Event = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 
@@ -193,7 +205,7 @@ function SubmitReview({
   const own = details.viewerDidAuthor;
   const setOpen = onOpenChange;
   const [event, setEvent] = useState<Event>("COMMENT");
-  const [body, setBody] = usePersisted(`review-body:${details.id}`, "");
+  const [body, setBody] = usePersisted(`review-body:${details.id}`, "", isString);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = async () => {
@@ -204,6 +216,27 @@ function SubmitReview({
       setBody("");
       setOpen(false);
       onSubmitted();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const discard = async () => {
+    const tr = i18n();
+    if (
+      !(await bridge.confirm(
+        tr("review.discardConfirm"),
+        tr("review.discardConfirmMessage", { count: drafts.length }),
+        tr("review.discardConfirmButton"),
+      ))
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onDiscard();
+      setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -242,7 +275,10 @@ function SubmitReview({
           />
           <ToggleGroup
             value={[event]}
-            onValueChange={(v: string[]) => v[0] && setEvent(v[0] as Event)}
+            onValueChange={(v: string[]) => {
+              const picked = EVENTS.find((e) => e === v[0]);
+              if (picked) setEvent(picked);
+            }}
             variant="outline"
             aria-label={t("review.kindOfReview")}
             className="w-full"
@@ -270,32 +306,7 @@ function SubmitReview({
               away can't be undone: a native alert asks first. */}
           <div className="flex items-center justify-end gap-2">
             {drafts.length > 0 ? (
-              <Button
-                variant="destructive"
-                className="mr-auto"
-                disabled={busy}
-                onClick={async () => {
-                  const t = i18n();
-                  if (
-                    !(await bridge.confirm(
-                      t("review.discardConfirm"),
-                      t("review.discardConfirmMessage", { count: drafts.length }),
-                      t("review.discardConfirmButton"),
-                    ))
-                  )
-                    return;
-                  setBusy(true);
-                  setError(null);
-                  try {
-                    await onDiscard();
-                    setOpen(false);
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : String(e));
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
+              <Button variant="destructive" className="mr-auto" disabled={busy} onClick={() => void discard()}>
                 {t("review.discardReview")}
               </Button>
             ) : null}
@@ -334,17 +345,17 @@ export function Review({ target }: { target: Target }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [hideViewed, setHideViewed] = useState(false);
-  const [diffStyle, setDiffStyle] = usePersisted<"split" | "unified">("diff-style", "split");
-  const [wrap, setWrap] = usePersisted("diff-wrap", false);
+  const [diffStyle, setDiffStyle] = usePersisted("diff-style", "split", isDiffStyle);
+  const [wrap, setWrap] = usePersisted("diff-wrap", false, isBoolean);
   // Whitespace changes hidden, as GitHub's ?w=1; kept like the layout and wrapping.
-  const [whitespace, setWhitespace] = usePersisted("diff-whitespace", false);
+  const [whitespace, setWhitespace] = usePersisted("diff-whitespace", false, isBoolean);
   const [shortcuts, setShortcuts] = useState(false);
-  const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {});
-  const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview");
+  const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {}, isMarks);
+  const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview", isTab);
   const [stop, setStop] = useState(-1);
   // The parts being reviewed, remembered per repository: their files are what shows. (One filter's
   // id, from before they could be combined, reads as a list of one.)
-  const [kept, setKept] = usePersisted<unknown>(`filter:${repo}`, []);
+  const [kept, setKept] = usePersisted<unknown>(`filter:${repo}`, [], isAnything);
   // Viewed files opened anyway, to show a comment in one: they don't fold until marked again.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const learned = useLearned();
@@ -368,21 +379,33 @@ export function Review({ target }: { target: Target }) {
   );
   const { next: nextPull, go: goNext, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
   const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
+  const say = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => {
+      setNotice((n) => (n === message ? null : n));
+    }, 3500);
+  };
   // On to the next, or saying the queue's done when there's none.
   const nextInQueue = async () => {
     if (!(await goNext())) say(t("review.queueDone", { queue: queueName || t("review.theQueue") }));
   };
   const goNextRef = useRef(nextInQueue);
-  goNextRef.current = nextInQueue;
   const goBackRef = useRef(goBack);
-  goBackRef.current = goBack;
+  useLayoutEffect(() => {
+    goNextRef.current = nextInQueue;
+    goBackRef.current = goBack;
+  });
   const minutesOf = useMemo(() => createEstimator(learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
-  const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(`ai-review:${prId}`, null);
+  const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(
+    `ai-review:${prId}`,
+    null,
+    isReviewed,
+  );
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   useTheme(config?.theme);
-  const dark = useDark(config);
+  const dark = useDark();
   const diffs = useRef<DiffsHandle>(null);
   const [me, setMe] = useState<string | null>(null);
   // Opened from the toolbar or the menu bar.
@@ -398,10 +421,10 @@ export function Review({ target }: { target: Target }) {
   const trailingRef = useRef<HTMLDivElement>(null);
   const [titleBox, setTitleBox] = useState<{ left: number; right: number } | null>(null);
   useLayoutEffect(() => {
-    const leading = leadingRef.current;
-    const trailing = trailingRef.current;
-    const bar = leading?.parentElement;
-    if (!leading || !trailing || !bar) return;
+    // Both ends are drawn with the toolbar, which is there on the first showing.
+    const leading = leadingRef.current!;
+    const trailing = trailingRef.current!;
+    const bar = leading.parentElement!;
     const GAP = 16;
     const place = () => {
       const width = bar.clientWidth;
@@ -477,28 +500,30 @@ export function Review({ target }: { target: Target }) {
           performance.mark("kept");
         }
       }
-      let d: Details, f: ReviewFile[], t: Thread[];
+      let d: Details, f: ReviewFile[], th: Thread[];
       if (before) {
         // Shown already: ask for the details, then only what changed. The files change only with
         // the head commit (or another base branch); the conversations, with the pull request.
         d = await asked;
         setDetails(d);
         const sameFiles = before.details.headRefOid === d.headRefOid && before.details.baseRefName === d.baseRefName;
-        [f, t] = await Promise.all([
-          sameFiles ? before.files : loadFiles(ref, d.changedFiles).then((f) => (setFiles(f), f)),
-          before.details.updatedAt === d.updatedAt ? before.threads : loadThreads(ref).then((t) => (setThreads(t), t)),
+        [f, th] = await Promise.all([
+          sameFiles ? before.files : loadFiles(ref, d.changedFiles).then((got) => (setFiles(got), got)),
+          before.details.updatedAt === d.updatedAt
+            ? before.threads
+            : loadThreads(ref).then((got) => (setThreads(got), got)),
         ]);
       } else {
         // Nothing yet: all three at once, each needs only the pull request's address. What the
         // panel fetched ahead of a click comes back from memory (github.rs).
-        [d, f, t] = await Promise.all([
-          asked.then((d) => (setDetails(d), d)),
-          loadFiles(ref).then((f) => (setFiles(f), f)),
-          loadThreads(ref).then((t) => (setThreads(t), t)),
+        [d, f, th] = await Promise.all([
+          asked.then((got) => (setDetails(got), got)),
+          loadFiles(ref).then((got) => (setFiles(got), got)),
+          loadThreads(ref).then((got) => (setThreads(got), got)),
         ]);
       }
       shownOnce.current = true;
-      last.current = { details: d, files: f, threads: t };
+      last.current = { details: d, files: f, threads: th };
       setError(null);
       performance.mark("loaded");
       void keep(prId, last.current, d.updatedAt);
@@ -511,9 +536,11 @@ export function Review({ target }: { target: Target }) {
 
   useEffect(() => {
     void loadConfig().then(setConfig);
-    void bridge.authStatus().then((a) => {
-      setMe(a.login);
-    });
+    void bridge
+      .authStatus()
+      .then((a) => a.login)
+      .then(setMe);
+    // oxlint-disable-next-line react/set-state-in-effect -- it fetches: what it sets comes after GitHub answers, not during the effect
     void load();
   }, [load]);
 
@@ -545,6 +572,7 @@ export function Review({ target }: { target: Target }) {
   // On its own when the person asked for that, once per head commit.
   useEffect(() => {
     if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
+      // oxlint-disable-next-line react/set-state-in-effect -- it sets state only once the AI's readiness is known (awaited)
       void runReview(false);
   }, [ai, details, files, current, reviewing, reviewError, runReview]);
   const dropFinding = (finding: Finding) => {
@@ -564,12 +592,6 @@ export function Review({ target }: { target: Target }) {
     );
   };
 
-  const say = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => {
-      setNotice((n) => (n === message ? null : n));
-    }, 3500);
-  };
   // The whole conversation, and what its comments can do wherever they're drawn (use-conversation.tsx).
   const talk = useConversation({
     prId,
@@ -606,10 +628,10 @@ export function Review({ target }: { target: Target }) {
   const changed = useCallback(async () => {
     void bridge.refresh(true);
     void reloadConversation();
-    const [t, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
-    setThreads(t);
+    const [th, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
+    setThreads(th);
     setDetails(d);
-    if (last.current) last.current = { ...last.current, details: d, threads: t };
+    if (last.current) last.current = { ...last.current, details: d, threads: th };
   }, [ref, repo, number, reloadConversation]);
 
   // Pushed to while it's open: said, with a way to show it (the diff doesn't change under you).
@@ -642,7 +664,7 @@ export function Review({ target }: { target: Target }) {
       (f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || !isViewed(f) || opened.has(f.path)),
     );
   }, [inPart, filter, hideViewed, isViewed, opened]);
-  const viewedCount = inPart.filter(isViewed).length;
+  const viewedCount = inPart.filter((f) => isViewed(f)).length;
   const shown = useMemo(() => totals(inPart, isViewed, minutesOf), [inPart, isViewed, minutesOf]);
   const next = useMemo<Next>(() => {
     const left = visible.filter((f) => !isViewed(f)).length;
@@ -676,21 +698,21 @@ export function Review({ target }: { target: Target }) {
   const goToNextFile = () => {
     setTab("diff");
     // Files GitHub sends no diff for aren't in the list to go to.
-    const target = nextFile(
+    const upcoming = nextFile(
       visible.filter((f) => f.patch),
       isViewed,
       diffs.current?.atTop() ?? null,
     );
-    if (target) requestAnimationFrame(() => diffs.current?.scrollToFile(target.path));
+    if (upcoming) requestAnimationFrame(() => diffs.current?.scrollToFile(upcoming.path));
     else if (next.nextFilter) choose([next.nextFilter.id]);
   };
 
   /** j and k: the next or previous file in the list (files with a diff). */
   const stepToFile = (by: 1 | -1) => {
-    const target = stepFile(diffs.current?.listed() ?? [], diffs.current?.atTop() ?? null, by);
-    if (!target) return;
-    setPicked(target);
-    diffs.current?.scrollToFile(target);
+    const path = stepFile(diffs.current?.listed() ?? [], diffs.current?.atTop() ?? null, by);
+    if (!path) return;
+    setPicked(path);
+    diffs.current?.scrollToFile(path);
   };
   /** v: the file at the top of the screen, marked viewed or not. */
   const toggleViewedAtTop = () => {
@@ -717,7 +739,7 @@ export function Review({ target }: { target: Target }) {
 
   const threadsByPath = useMemo(() => {
     const map = new Map<string, Thread[]>();
-    for (const t of conversations) map.set(t.path, [...(map.get(t.path) ?? []), t]);
+    for (const th of conversations) map.set(th.path, [...(map.get(th.path) ?? []), th]);
     return map;
   }, [conversations]);
 
@@ -727,8 +749,8 @@ export function Review({ target }: { target: Target }) {
     const order = new Map(ordered.map((f, i) => [f.path, i]));
     const all: Stop[] = [
       ...conversations
-        .filter((t) => !t.resolved)
-        .map((t) => ({ path: t.path, line: t.line, side: t.side, kind: "conversation" as const, thread: t })),
+        .filter((th) => !th.resolved)
+        .map((th) => ({ path: th.path, line: th.line, side: th.side, kind: "conversation" as const, thread: th })),
       ...drafts.map((d) => ({ path: d.path, line: d.line, side: d.side, kind: "pending" as const })),
       ...(current?.findings
         .filter((f) => f.inDiff)
@@ -736,48 +758,40 @@ export function Review({ target }: { target: Target }) {
     ];
     return all
       .filter((x) => order.has(x.path))
-      .sort((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
+      .toSorted((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
   }, [ordered, conversations, drafts, current]);
 
   /** Shows a file (at a line) in the Diff tab, bringing it into view if a filter, a search or its
    *  folding as viewed hides it. */
-  const jump = useCallback(
-    (path: string, line: number | null, side?: Thread["side"], thread?: Thread) => {
-      setTab("diff");
-      setPicked(path);
-      if (!inAny(chosen, path)) setKept([]);
-      setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
-      // Opened, not unmarked: it stays viewed, here and on GitHub.
-      setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
-      // After the tab and the list have drawn.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() =>
-          thread
-            ? diffs.current?.scrollToThread(thread)
-            : line
-              ? diffs.current?.scrollToLine(path, line, side)
-              : diffs.current?.scrollToFile(path),
-        ),
-      );
-    },
-    [chosen, setKept, setTab],
-  );
-  const step = useCallback(
-    (by: 1 | -1) => {
-      if (stops.length === 0) return;
-      const next = (stop + by + stops.length) % stops.length;
-      setStop(next);
-      const at = stops[next]!;
-      jump(at.path, at.line, at.side, at.thread);
-    },
-    [stop, stops, jump],
-  );
+  const jump = (path: string, line: number | null, side?: Thread["side"], thread?: Thread) => {
+    setTab("diff");
+    setPicked(path);
+    if (!inAny(chosen, path)) setKept([]);
+    setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
+    // Opened, not unmarked: it stays viewed, here and on GitHub.
+    setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
+    // After the tab and the list have drawn.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (thread) diffs.current?.scrollToThread(thread);
+        else if (line) diffs.current?.scrollToLine(path, line, side);
+        else diffs.current?.scrollToFile(path);
+      });
+    });
+  };
+  const step = (by: 1 | -1) => {
+    if (stops.length === 0) return;
+    const index = (stop + by + stops.length) % stops.length;
+    setStop(index);
+    const at = stops[index]!;
+    jump(at.path, at.line, at.side, at.thread);
+  };
   // n and p step through the comments, like a reader's next and previous. The filters' shortcuts are
   // Focus Diff's own (⌥⇧. and ⌥⇧, for next and previous filter, ⌥⇧0 for all files, ⌥⇧J for the next
   // file to review), read by key position, since ⌥ changes the character typed.
-  const filterKeys = useRef({ stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop });
+  const filterKeys = useRef({ stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step });
   useLayoutEffect(() => {
-    filterKeys.current = { stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop };
+    filterKeys.current = { stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -819,7 +833,7 @@ export function Review({ target }: { target: Target }) {
       if (tab !== "diff" || e.altKey) return;
       if (e.key === "n" || e.key === "p") {
         e.preventDefault();
-        step(e.key === "n" ? 1 : -1);
+        filterKeys.current.step(e.key === "n" ? 1 : -1);
       } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
         // j, k and v as on GitHub: next file, previous file, viewed.
         e.preventDefault();
@@ -831,7 +845,7 @@ export function Review({ target }: { target: Target }) {
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [tab, step, files, setTab]);
+  }, [tab, files, setTab]);
 
   const actionResult = (message: string, ok: boolean) => {
     say(message);
@@ -855,23 +869,22 @@ export function Review({ target }: { target: Target }) {
   const canLeave = Boolean(details && me && !details.viewerDidAuthor && details.state === "OPEN");
   const leave = async () => {
     if (!details || !me) return;
-    const t = i18n();
+    const tr = i18n();
     if (
       !(await bridge.confirm(
-        t("review.leaveConfirm", { number: String(details.number) }),
-        t("review.leaveConfirmMessage"),
-        t("review.leaveConfirmButton"),
+        tr("review.leaveConfirm", { number: String(details.number) }),
+        tr("review.leaveConfirmMessage"),
+        tr("review.leaveConfirmButton"),
       ))
     )
       return;
-    void leaveReview(details, me, teams)
-      .then(() => {
-        say(i18n()("review.left"));
-        void bridge.refresh(true);
-      })
-      .catch((e: unknown) => {
-        say(e instanceof Error ? e.message : String(e));
-      });
+    try {
+      await leaveReview(details, me, teams);
+      say(i18n()("review.left"));
+      void bridge.refresh(true);
+    } catch (e) {
+      say(e instanceof Error ? e.message : String(e));
+    }
   };
 
   // The menu bar's review commands (src-tauri/src/menu.rs) come here when this window is in front;
@@ -932,16 +945,19 @@ export function Review({ target }: { target: Target }) {
         });
       },
       ...pull.menu,
-      "open-github": () => details && void bridge.openUrl(details.url),
+      "open-github": () => {
+        if (details) void bridge.openUrl(details.url);
+      },
       leave: () => void leave(),
     };
   });
   useEffect(() => {
     const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
-    return () =>
-      void off.then((f) => {
-        f();
-      });
+    return () => {
+      void (async () => {
+        (await off)();
+      })();
+    };
   }, []);
   const isOpen = details?.state === "OPEN";
   const allowed = {
@@ -953,15 +969,21 @@ export function Review({ target }: { target: Target }) {
     "previous-comment": stops.length > 0,
     "ai-review": Boolean(ai && details && files && !reviewing),
     submit: isOpen,
-    merge: Boolean(canMerge),
+    merge: canMerge,
     commits: Boolean(pull.commits?.commits.length),
     ...pull.allowed,
     "open-github": Boolean(details),
     leave: canLeave,
   };
-  const allowedKey = JSON.stringify(allowed);
+  // Told again only when one of them changes: "id=true id=false…", read back into the items.
+  const allowedKey = Object.entries(allowed)
+    .map(([id, on]) => `${id}=${on}`)
+    .join(" ");
   useEffect(() => {
-    void bridge.menuState(JSON.parse(allowedKey) as Record<string, boolean>).catch(() => {});
+    const items = Object.fromEntries(
+      allowedKey.split(" ").map((pair) => [pair.slice(0, pair.lastIndexOf("=")), pair.endsWith("=true")]),
+    );
+    void bridge.menuState(items).catch(() => {});
   }, [allowedKey]);
 
   if (error && !details) {
@@ -997,6 +1019,7 @@ export function Review({ target }: { target: Target }) {
       >
         <div ref={leadingRef} data-tauri-drag-region className="flex shrink-0 items-center gap-2">
           {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
+          {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- its tabs take the focus, one at a time (the roving tabindex of WAI-ARIA's tabs pattern), not the list */}
           <div
             role="tablist"
             onKeyDown={tabKeys}
@@ -1069,12 +1092,9 @@ export function Review({ target }: { target: Target }) {
               {/* What just happened shows here for a moment, in place of the branch line, rather than
                   as a toast: a Mac window says it where you're looking. */}
               {notice ? (
-                <p
-                  role="status"
-                  className="max-w-full animate-in truncate text-subheadline text-foreground duration-(--duration) fade-in-0 motion-reduce:animate-none"
-                >
+                <output className="block max-w-full animate-in truncate text-subheadline text-foreground duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   {notice}
-                </p>
+                </output>
               ) : (
                 <p
                   data-tauri-drag-region
@@ -1110,6 +1130,7 @@ export function Review({ target }: { target: Target }) {
             <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
               {/* Stepping through the comments (n and p from the keyboard), one capsule. */}
               <div
+                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)
                 role="group"
                 aria-label={t("review.comments")}
                 className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill"
@@ -1173,7 +1194,10 @@ export function Review({ target }: { target: Target }) {
               <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
                 <ToggleGroup
                   value={[diffStyle]}
-                  onValueChange={(v: string[]) => v[0] && setDiffStyle(v[0] as "split" | "unified")}
+                  onValueChange={(v: string[]) => {
+                    const style = STYLES.find((s) => s === v[0]);
+                    if (style) setDiffStyle(style);
+                  }}
                   spacing={0}
                   aria-label={t("review.layout")}
                   className="h-full rounded-full"
@@ -1383,7 +1407,11 @@ export function Review({ target }: { target: Target }) {
                 <TooltipContent>{t("review.more")}</TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => details && void bridge.openUrl(details.url)}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (details) void bridge.openUrl(details.url);
+                  }}
+                >
                   {t("review.openOnGitHub")}
                 </DropdownMenuItem>
                 <PullMenuItems pull={pull} details={details} />
@@ -1424,6 +1452,7 @@ export function Review({ target }: { target: Target }) {
               once the review is sent. */}
             {nextPull || previous ? (
               <div
+                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)
                 role="group"
                 aria-label={t("review.pullNavigation")}
                 className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill"
@@ -1505,22 +1534,19 @@ export function Review({ target }: { target: Target }) {
         <main
           className="relative flex min-h-0 flex-1 flex-col [view-transition-name:page]"
           onScrollCapture={(e) => {
-            setScrolled((e.target as HTMLElement).scrollTop > 0);
+            setScrolled(e.target instanceof Element && e.target.scrollTop > 0);
           }}
         >
           {newChanges ? (
             // Over the top of either tab, as GitHub's bar, without moving what's under it.
-            <div
-              role="status"
-              className="absolute top-2 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 animate-in items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu) duration-(--duration) fade-in-0 slide-in-from-top-2 motion-reduce:animate-none"
-            >
+            <output className="absolute top-2 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 animate-in items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu) duration-(--duration) fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
               <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{t("review.newChanges")}</span>
               <Button className="shrink-0 rounded-full" onClick={() => void update()} disabled={updating}>
                 {updating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                 {t("review.update")}
               </Button>
-            </div>
+            </output>
           ) : null}
           <div
             role="tabpanel"
@@ -1555,8 +1581,8 @@ export function Review({ target }: { target: Target }) {
                 }}
                 pull={pull}
                 me={me}
-                onOpenRange={(range) => {
-                  pull.setRange(range);
+                onOpenRange={(commits) => {
+                  pull.setRange(commits);
                   setTab("diff");
                   requestAnimationFrame(() => diffs.current?.scrollToTop());
                 }}
@@ -1608,7 +1634,12 @@ export function Review({ target }: { target: Target }) {
                       setFilter(e.target.value);
                       requestAnimationFrame(() => diffs.current?.scrollToTop());
                     }}
-                    onKeyDown={(e) => e.key === "Escape" && filter && (e.preventDefault(), setFilter(""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && filter) {
+                        e.preventDefault();
+                        setFilter("");
+                      }
+                    }}
                     placeholder={t("review.filterFilesPlaceholder")}
                     aria-label={t("review.filterFiles")}
                     className="rounded-full pr-6 pl-7 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
@@ -1646,7 +1677,7 @@ export function Review({ target }: { target: Target }) {
                 flat={Boolean(filter.trim())}
                 picked={picked}
                 isViewed={isViewed}
-                comments={(path) => threadsByPath.get(path)?.filter((t) => !t.resolved).length ?? 0}
+                comments={(path) => threadsByPath.get(path)?.filter((th) => !th.resolved).length ?? 0}
                 onPick={(path) => {
                   setPicked(path);
                   diffs.current?.scrollToFile(path);
@@ -1666,7 +1697,7 @@ export function Review({ target }: { target: Target }) {
                   <Diffs
                     ref={diffs}
                     files={visible}
-                    threads={olderRange ? new Map() : threadsByPath}
+                    threads={olderRange ? new Map<string, Thread[]>() : threadsByPath}
                     commentable={!olderRange}
                     drafts={drafts}
                     findings={current?.findings ?? []}
@@ -1678,7 +1709,7 @@ export function Review({ target }: { target: Target }) {
                     onDismissFinding={dropFinding}
                     onAsk={
                       ai && details && files
-                        ? async (path, range, question, earlier, run) => {
+                        ? async (path, lines, question, earlier, run) => {
                             if (!(await ensureAi(ai)))
                               throw new Error(
                                 i18n()("shared.aiNotReady", { provider: PROVIDERS[ai.ai.provider!].name }),
@@ -1688,9 +1719,9 @@ export function Review({ target }: { target: Target }) {
                               details,
                               files,
                               path,
-                              Math.min(range.start, range.end),
-                              Math.max(range.start, range.end),
-                              range.endSide ?? range.side ?? "additions",
+                              Math.min(lines.start, lines.end),
+                              Math.max(lines.start, lines.end),
+                              lines.endSide ?? lines.side ?? "additions",
                               question,
                               earlier,
                               run,

@@ -11,6 +11,7 @@ import { useT } from "@/lib/i18n";
 import type { ReviewFile } from "@/lib/review";
 import { buildTree, flatten, foldersOf, outlineKey, type TreeRow } from "@/lib/tree";
 import { cn } from "@/lib/utils";
+import { FileIcon } from "./FileIcon";
 import { renamed } from "./RichDiff";
 
 /** --row-h-sm: every row the same height, so where each one is needs no measuring. */
@@ -180,7 +181,7 @@ export function FileTree({
               {folder ? (
                 <>
                   <ChevronRight aria-hidden className={cn("size-3 shrink-0 text-muted-foreground transition-transform duration-(--duration-fast) motion-reduce:transition-none", open && "rotate-90")} />
-                  <Folder aria-hidden className="size-3.5 shrink-0 text-(--blue)" />
+                  <Folder aria-hidden className="mx-0.5 size-3.5 shrink-0 text-(--blue)" />
                   <span className="min-w-0 flex-1 truncate">{folder.name}</span>
                   {talk ? (
                     <span className="text-subheadline text-unread tabular-nums" aria-label={t("review.openConversations", { count: talk })}>
@@ -195,6 +196,7 @@ export function FileTree({
                 <>
                   {/* Lined up under the folders' names, past where their triangle is. */}
                   {flat ? null : <span aria-hidden className="w-3 shrink-0" />}
+                  <FileIcon path={node.path} className={cn(done && "opacity-60")} />
                   {/* Renamed: "old → new", the old name giving way first so the new one stays readable. */}
                   <span className="flex min-w-0 flex-1 font-mono">
                     {old ? <span className="min-w-0 shrink truncate text-muted-foreground">{old}&nbsp;→&nbsp;</span> : null}

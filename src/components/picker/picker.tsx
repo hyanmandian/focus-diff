@@ -61,7 +61,7 @@ export function Picker({
   const q = query.trim().toLowerCase();
   const shown = choices
     .filter((c) => !q || c.label.toLowerCase().includes(q) || c.detail?.toLowerCase().includes(q))
-    .sort((a, b) => Number(first.has(b.id)) - Number(first.has(a.id)));
+    .toSorted((a, b) => Number(first.has(b.id)) - Number(first.has(a.id)));
   const at = Math.min(active, Math.max(0, shown.length - 1));
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -81,6 +81,7 @@ export function Picker({
             value={query}
             placeholder={placeholder}
             aria-label={placeholder}
+            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a search field leading a list is ARIA's combobox; a <select> can't be typed in.
             role="combobox"
             aria-expanded
             aria-controls={list}
@@ -110,6 +111,7 @@ export function Picker({
         </div>
         <ul
           id={list}
+          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-to-interactive-role -- rows with pictures and details, picked from the search field: a <select> can't show them.
           role="listbox"
           aria-multiselectable
           aria-label={title}
@@ -117,9 +119,11 @@ export function Picker({
         >
           {shown.length > 0 ? (
             shown.map((c, i) => (
+              // oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- the keyboard picks from the search field (aria-activedescendant), not the row.
               <li
                 key={c.id}
                 id={`${list}-${i}`}
+                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-to-interactive-role -- an option of the listbox above.
                 role="option"
                 aria-selected={c.selected}
                 onMouseMove={() => {

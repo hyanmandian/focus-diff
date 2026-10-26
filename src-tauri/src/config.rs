@@ -1,5 +1,5 @@
 //! The part of the person's setup (config.json) that the queue engine needs. The settings window
-//! owns the file and writes it complete (src/lib/config.ts); this side only reads it, so anything
+//! owns the file and writes it complete (src/utils/config/config.ts); this side only reads it, so anything
 //! missing or unknown falls back to the same defaults instead of failing.
 
 use serde::Deserialize;

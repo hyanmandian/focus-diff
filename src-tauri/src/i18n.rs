@@ -1,7 +1,7 @@
 //! The words Rust shows (the menu bar, the tray, notifications, native alerts, errors the pages
 //! show) in English and Brazilian Portuguese, side by side at each place they're said: English
 //! first, so the two can't drift apart. The language is the one picked in Settings, or the Mac's,
-//! by the same rule as the pages (src/lib/i18n.ts), and it changes live when Settings saves.
+//! by the same rule as the pages (src/utils/i18n/i18n.ts), and it changes live when Settings saves.
 
 use std::sync::atomic::{AtomicU8, Ordering};
 

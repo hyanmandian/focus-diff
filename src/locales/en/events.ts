@@ -1,4 +1,4 @@
-// What happens on a pull request (lib/copy.ts has their colours), and where you stand on one.
+// What happens on a pull request (utils/copy/copy.ts has their colours), and where you stand on one.
 export const events = {
   "tag.new": "New",
   "tag.commits": "Commits",

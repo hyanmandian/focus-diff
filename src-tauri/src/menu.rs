@@ -1,7 +1,7 @@
 //! The menu bar, while a window of the app's own is open (the app is in the Dock then): the Mac's
 //! standard menus, which text fields need for ⌘C, ⌘V, ⌘A and ⌘Z, plus every command of the review
 //! window's toolbar, as the HIG asks. A command for a review goes to the window that's in front
-//! (as a "menu" event, src/review/Review.tsx); its items are dimmed when no review is, and the
+//! (as a "menu" event, src/components/review/review.tsx); its items are dimmed when no review is, and the
 //! review says which of them apply to its pull request.
 
 use std::collections::HashMap;

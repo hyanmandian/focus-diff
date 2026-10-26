@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "./styles/shadcn.css";
+@import "@/styles/shadcn.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -68,7 +68,7 @@
 
    One vocabulary for every desktop: type, control sizes, radii, spacing, colours, motion. Components
    use only these (and the shadcn names mapped onto them further down). The Mac's values are the
-   default; <html data-platform> (lib/platform.ts) picks the set, and a Windows or Linux set goes in
+   default; <html data-platform> (utils/platform/platform.ts) picks the set, and a Windows or Linux set goes in
    :root[data-platform="windows"] or [data-platform="linux"] blocks after these, overriding only what
    differs. Until then those platforms get the Mac's.
 
@@ -232,7 +232,7 @@
   :root { --duration-fast: 0ms; --duration: 0ms; }
 }
 
-/* A window that isn't the key one: selections and accent controls go gray (lib/platform.ts). */
+/* A window that isn't the key one: selections and accent controls go gray (utils/platform/platform.ts). */
 :root[data-window-inactive] {
   --selection-bg: var(--selection-bg-inactive);
   --selection-fg: var(--selection-fg-inactive);
@@ -373,7 +373,7 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
   --diffs-bg-buffer-override: transparent;
 }
 
-/* Mermaid diagrams in descriptions and comments (lib/diagrams.ts). */
+/* Mermaid diagrams in descriptions and comments (utils/diagrams/diagrams.ts). */
 figure.diagram { margin: 0.5rem 0; }
 figure.diagram > [role="img"] { overflow-x: auto; padding: 12px; border-radius: 8px; background: var(--muted); }
 figure.diagram svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
@@ -397,7 +397,7 @@ figure.diagram > details > summary { cursor: default; width: fit-content; margin
   box-shadow: var(--shadow-menu);
 }
 
-/* A button GitHub drew as a picture in a link (lib/sanitize.ts), as a push button. */
+/* A button GitHub drew as a picture in a link (utils/sanitize/sanitize.ts), as a push button. */
 div a[data-button] {
   display: inline-flex; align-items: center; gap: 4px; height: var(--control-h); margin: 2px 4px 2px 0; padding: 0 10px;
   border-radius: var(--radius-control); background: var(--fill-control); color: var(--label);

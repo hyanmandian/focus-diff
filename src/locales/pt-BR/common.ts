@@ -1,4 +1,4 @@
-import type { Dictionary } from "@/lib/i18n";
+import type { Dictionary } from "@/utils/i18n/i18n";
 
 export const common: Dictionary["common"] = {
   someone: "Alguém",

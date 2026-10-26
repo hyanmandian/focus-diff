@@ -1,0 +1,76 @@
+/* A suggested change in a comment (built by utils/sanitize/sanitize.ts): a small diff in the code's font, the
+   removed lines over the added ones, in the diff's own red and green, with GitHub's syntax colors
+   (its "prettylights" palette, light and dark). */
+
+[data-suggestion] {
+  margin: 6px 0;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  background: var(--content-bg);
+}
+
+[data-suggestion-head] {
+  margin: 0 !important;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--separator);
+  color: var(--label-secondary);
+  font-size: var(--type-callout);
+}
+
+[data-suggestion] table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--type-code);
+  line-height: var(--type-code-leading);
+  tab-size: 4;
+}
+
+[data-suggestion] td {
+  padding: 0 8px 0 0;
+  border: 0 !important;
+  white-space: pre;
+}
+
+[data-suggestion] td[data-sign] {
+  width: 1%;
+  padding: 0 6px 0 8px;
+  user-select: none;
+}
+
+[data-suggestion] tr[data-diff="deletion"] {
+  background: #fff6f5;
+}
+[data-suggestion] tr[data-diff="deletion"] td[data-sign] {
+  color: var(--destructive);
+}
+[data-suggestion] tr[data-diff="addition"] {
+  background: #f3fcf5;
+}
+[data-suggestion] tr[data-diff="addition"] td[data-sign] {
+  color: var(--success);
+}
+
+.dark [data-suggestion] tr[data-diff="deletion"] {
+  background: #3a1d20;
+}
+.dark [data-suggestion] tr[data-diff="addition"] {
+  background: #15291d;
+}
+
+[data-pl="c"] { color: #59636e; }
+[data-pl="k"] { color: #cf222e; }
+[data-pl="s"], [data-pl="pds"], [data-pl="sr"] { color: #0a3069; }
+[data-pl="c1"], [data-pl="ent"] { color: #0550ae; }
+[data-pl="en"], [data-pl="e"] { color: #6639ba; }
+[data-pl="v"], [data-pl="smi"] { color: #953800; }
+
+.dark [data-pl="c"] { color: #9198a1; }
+.dark [data-pl="k"] { color: #ff7b72; }
+.dark [data-pl="s"], .dark [data-pl="pds"], .dark [data-pl="sr"] { color: #a5d6ff; }
+.dark [data-pl="c1"], .dark [data-pl="ent"] { color: #79c0ff; }
+.dark [data-pl="en"], .dark [data-pl="e"] { color: #d2a8ff; }
+.dark [data-pl="v"], .dark [data-pl="smi"] { color: #ffa657; }

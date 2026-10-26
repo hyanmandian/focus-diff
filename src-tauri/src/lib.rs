@@ -55,7 +55,7 @@ pub(crate) const PANEL: &str = "panel";
 const SETTINGS: &str = "settings";
 const SETUP: &str = "setup";
 const PANEL_SIZE: (f64, f64) = (470.0, 600.0);
-/// The panel's corners, as the page draws them (Panel.tsx); what's inside follows them in.
+/// The panel's corners, as the page draws them (panel.tsx); what's inside follows them in.
 const PANEL_RADIUS: f64 = 18.0;
 /// How long a hidden panel's web view is kept, to open again instantly; after that it's closed
 /// and its memory given back, and the next click makes a new one.
@@ -71,7 +71,7 @@ fn file_path<R: Runtime>(app: &AppHandle<R>, name: &str) -> Result<PathBuf, Stri
     let file = match name {
         "config" => "config.json",
         "auth" => "auth.json",
-        // The reader's review pace, learned from the files they mark as viewed (src/lib/estimate.ts).
+        // The reader's review pace, learned from the files they mark as viewed (src/utils/estimate/estimate.ts).
         "pace" => "pace.json",
         _ => return Err("Unknown file".into()),
     };

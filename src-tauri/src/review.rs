@@ -95,14 +95,14 @@ const MINUTES_PER_FILE: f64 = 0.25;
 const PRIOR_MINUTES: f64 = 20.0;
 
 /// How many times the starting pace the reader takes, from pace.json, which the review window
-/// learns from the files they mark as viewed (src/lib/estimate.ts paceFactors); 1 until then.
+/// learns from the files they mark as viewed (src/utils/estimate/estimate.ts paceFactors); 1 until then.
 pub fn pace_factor(learned: &serde_json::Value) -> f64 {
     let tally = |key: &str| learned["all"][key].as_f64().filter(|n| n.is_finite() && *n >= 0.0).unwrap_or(0.0);
     (tally("actual") + PRIOR_MINUTES) / (tally("expected") + PRIOR_MINUTES)
 }
 
 /// Minutes to review a pull request from its totals, the same sum as the panel's estimate
-/// (src/lib/estimate.ts pullMinutes), so the two agree.
+/// (src/utils/estimate/estimate.ts pullMinutes), so the two agree.
 pub fn estimate_minutes(pr: &PullRequest, pace: f64) -> f64 {
     let lines = pr.additions.max(0) as f64 + pr.deletions.max(0) as f64 * REMOVED_LINE_WEIGHT;
     (pr.changed_files.max(0) as f64 * MINUTES_PER_FILE + lines / LINES_PER_HOUR * 60.0) * pace

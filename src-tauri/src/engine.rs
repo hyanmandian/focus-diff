@@ -366,12 +366,19 @@ pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String 
             }
         }
         Kind::Custom => {
-            // The person's own qualifiers, minus anything that would leave pull requests.
-            static ISSUE: OnceLock<Regex> = OnceLock::new();
-            let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").unwrap()).replace_all(&queue.query, "");
-            let query = query.trim();
-            parts.push(if query.is_empty() { "is:open".into() } else { query.to_string() });
+            // Open ones, unless the person's terms say which.
+            static STATE: OnceLock<Regex> = OnceLock::new();
+            if !STATE.get_or_init(|| Regex::new(r"(?i)\b(is:(open|closed|merged|unmerged)|state:)").unwrap()).is_match(&queue.query) {
+                parts.push("is:open".into());
+            }
         }
+    }
+    // The person's own search terms, on any queue, minus anything that would leave pull requests.
+    static ISSUE: OnceLock<Regex> = OnceLock::new();
+    let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").unwrap()).replace_all(&queue.query, "");
+    let query = query.trim();
+    if !query.is_empty() {
+        parts.push(query.to_string());
     }
     // Several repo:/user: qualifiers are ORed by GitHub.
     for repo in &queue.repos {
@@ -1255,7 +1262,11 @@ mod tests {
         for part in ["repo:acme/web", "user:acme", "draft:false", "label:\"needs review\"", "-label:wip", "-author:dependabot"] {
             assert!(q.contains(part), "{q} has {part}");
         }
-        assert!(search_for(&queue(Kind::Custom, json!({ "query": "is:issue label:bug" })), ME, T0, &[]).starts_with("is:pr archived:false label:bug"));
+        let custom = search_for(&queue(Kind::Custom, json!({ "query": "is:issue label:bug" })), ME, T0, &[]);
+        assert!(custom.starts_with("is:pr archived:false is:open") && custom.contains("label:bug") && !custom.contains("is:issue"), "{custom}");
+        assert!(!search_for(&queue(Kind::Custom, json!({ "query": "is:merged author:ana" })), ME, T0, &[]).contains("is:open"));
+        // Search terms narrow any queue, not only a search.
+        assert!(search_for(&queue(Kind::Review, json!({ "query": "label:urgent" })), ME, T0, &[]).contains("review-requested:me label:urgent"));
     }
 
     #[test]

@@ -259,12 +259,41 @@ export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
       kind: "custom",
       tone: "amber",
       drafts: "show",
-      query: "is:open",
+      query: "",
       notify: ["new"],
       notifyAt: "now",
     }),
   },
 };
+
+/** What a queue shows, in the two choices Settings asks: open or lately merged pull requests, and
+ *  what you have to do with them. Every kind of queue is one pair of them (merged ones only as
+ *  asked of you or anyone's), so the presets are only these filled in. */
+export const STATES = ["open", "merged"] as const;
+export type QueueState = (typeof STATES)[number];
+export const PARTS = ["review", "authored", "involved", "any"] as const;
+export type QueuePart = (typeof PARTS)[number];
+
+export function sourceOf(queue: Queue): { state: QueueState; part: QueuePart } {
+  switch (queue.kind) {
+    case "merged":
+      return { state: "merged", part: queue.requestedOnly ? "review" : "any" };
+    case "custom":
+      return { state: "open", part: "any" };
+    default:
+      return { state: "open", part: queue.kind };
+  }
+}
+
+/** Whether a pair can be: merged ones are asked of you, or anyone's. */
+export const canBe = (state: QueueState, part: QueuePart) => state === "open" || part === "review" || part === "any";
+
+/** The queue showing another pair (one that can't be keeps its part as near as it can). */
+export function withSource(queue: Queue, state: QueueState, part: QueuePart): Queue {
+  const p = canBe(state, part) ? part : "any";
+  if (state === "merged") return { ...queue, kind: "merged", requestedOnly: p === "review" };
+  return { ...queue, kind: p === "any" ? "custom" : p };
+}
 
 /** The starting points the Add menu offers; any queue can still be made by hand from a custom one,
  *  whose source and filters are all there to choose (Merged too). */

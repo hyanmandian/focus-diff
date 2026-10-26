@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LEAVE_OUT, TONES, validPattern, type EventKind, type LeaveOut, type Queue, type QueueKind } from "@/lib/config";
+import { canBe, LEAVE_OUT, PARTS, sourceOf, TONES, validPattern, withSource, type EventKind, type LeaveOut, type Queue, type QueueKind, type QueuePart, type QueueState } from "@/lib/config";
 import { i18n, useT, type T } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "./Form";
@@ -21,8 +21,6 @@ export const PATH_PRESETS: Array<{ name: "frontend" | "backend" | "code" | "infr
   { name: "database", include: "(^|/)migrations?/|\\.sql$|schema\\.(prisma|rb)$", exclude: "" },
   { name: "docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" },
 ];
-
-const KINDS: QueueKind[] = ["review", "involved", "authored", "merged", "custom"];
 
 /** The events that can happen to the pull requests of each kind of queue. */
 const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
@@ -49,6 +47,7 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
   const set = <K extends keyof Queue>(key: K, value: Queue[K]) => onChange({ ...queue, [key]: value });
   const ids = { name: useId(), include: useId(), exclude: useId(), query: useId() };
   const events = KIND_EVENTS[queue.kind];
+  const source = sourceOf(queue);
   const t = useT();
 
   return (
@@ -76,16 +75,23 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         </Row>
       </Group>
 
-      <Group footer={queue.kind === "custom" ? t("settings.customFooter") : undefined}>
-        <Row label={t("settings.pullRequestsWhere")} description={t("settings.pullRequestsWhereHint")}>
-          <Select value={queue.kind} onValueChange={(v) => set("kind", v as QueueKind)}>
-            <SelectTrigger className="min-w-64" aria-label={t("settings.pullRequestsWhere")}>
-              <SelectValue>{(v: QueueKind) => t(`settings.kind.${v}`)}</SelectValue>
+      <Group>
+        {/* Two choices make any queue: which pull requests, and what you have to do with them. */}
+        <Row label={t("settings.showState")}>
+          <ToggleGroup value={[source.state]} onValueChange={(v: string[]) => v[0] && onChange(withSource(queue, v[0] as QueueState, source.part))} variant="outline" size="sm" aria-label={t("settings.showState")}>
+            <ToggleGroupItem value="open">{t("settings.state.open")}</ToggleGroupItem>
+            <ToggleGroupItem value="merged">{t("settings.state.merged")}</ToggleGroupItem>
+          </ToggleGroup>
+        </Row>
+        <Row label={t("settings.myPart")} description={t("settings.myPartHint")}>
+          <Select value={source.part} onValueChange={(v) => onChange(withSource(queue, source.state, v as QueuePart))}>
+            <SelectTrigger className="min-w-64" aria-label={t("settings.myPart")}>
+              <SelectValue>{(v: QueuePart) => t(`settings.part.${v}`)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {t(`settings.kind.${kind}`)}
+              {PARTS.map((part) => (
+                <SelectItem key={part} value={part} disabled={!canBe(source.state, part)}>
+                  {t(`settings.part.${part}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -147,12 +153,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 </SelectContent>
               </Select>
             </Row>
-            <SwitchRow
-              checked={queue.requestedOnly}
-              onChange={(v) => set("requestedOnly", v)}
-              label={t("settings.requestedOnly")}
-              hint={t("settings.requestedOnlyHint")}
-            />
             {queue.requestedOnly ? (
               <>
                 <SwitchRow checked={queue.directOnly} onChange={(v) => set("directOnly", v)} label={t("settings.directOnlyPast")} hint={t("settings.directOnlyPastHint")} />
@@ -168,11 +168,10 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             </Row>
           </>
         ) : null}
-        {queue.kind === "custom" ? (
-          <Row stacked label={t("settings.githubSearch")} htmlFor={ids.query}>
-            <Input id={ids.query} className="font-mono text-callout" spellCheck={false} value={queue.query} onChange={(e) => set("query", e.target.value)} placeholder="is:open team-review-requested:acme/web" />
-          </Row>
-        ) : null}
+        {/* Anything else GitHub's search can say, on any queue: a label, a team, a word. */}
+        <Row stacked label={t("settings.searchTerms")} description={t("settings.searchTermsHint")} htmlFor={ids.query}>
+          <Input id={ids.query} className="font-mono text-callout" spellCheck={false} value={queue.query} onChange={(e) => set("query", e.target.value)} placeholder="team-review-requested:acme/web label:urgent" />
+        </Row>
       </Group>
 
       <Group title={t("settings.inRepositories")} footer={t("settings.everyRepository")}>
@@ -305,7 +304,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
 /** A queue in a line, from how it's set up, for its row in the list: where its pull requests come
  *  from, then what narrows them. Made from the settings, so it fits any queue. */
 export function queueSummary(queue: Queue, t: T): string {
-  const parts = [queue.kind === "custom" && queue.query.trim() ? queue.query.trim() : t(`settings.kind.${queue.kind}`)];
+  const source = sourceOf(queue);
+  const parts = [t(`settings.summary.${source.state}.${source.part}`)];
+  if (queue.query.trim()) parts.push(queue.query.trim());
   if (queue.repos.length) parts.push(queue.repos.length === 1 ? queue.repos[0]! : t("settings.summaryRepos", { count: queue.repos.length }));
   if (queue.includePaths || queue.excludePaths) {
     const preset = PATH_PRESETS.find((p) => p.include === queue.includePaths && p.exclude === queue.excludePaths);

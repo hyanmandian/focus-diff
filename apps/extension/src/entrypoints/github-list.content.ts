@@ -11,5 +11,7 @@ export default defineContentScript({
   runAt: "document_idle",
   // Safari runs it in the page's world from version 18. An older one runs it beside the bar instead, where GitHub's list
   // can't be reached, so it does nothing and the gaps stay.
-  main: () => closeUpList(),
+  main: () => {
+    closeUpList();
+  },
 });

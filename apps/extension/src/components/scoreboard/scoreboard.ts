@@ -2,7 +2,7 @@ import { h } from "@/utils/dom/dom";
 
 const FLIP_MS = 260;
 /** Thousands separators, the slash of a count and the colon of a clock sit between cells instead of filling one. */
-const SEPARATOR = /[,.:/\s]/;
+const SEPARATOR = /[,.:/\s]/u;
 
 /**
  * Lays `text` out right-aligned on the cells of `widest`, separators on separators. A separator `text` has where the
@@ -11,13 +11,24 @@ const SEPARATOR = /[,.:/\s]/;
 const isSeparator = (character = "") => SEPARATOR.test(character);
 
 const layout = (text: string, widest: string[]): string[] | null => {
-  const characters = [...text];
+  const characters = Array.from(text);
   const cells = widest.toReversed().map((cell) => {
     if (isSeparator(cell)) return isSeparator(characters.at(-1)) ? (characters.pop() ?? "").trim() : "";
     while (isSeparator(characters.at(-1))) characters.pop();
     return characters.pop() ?? "";
   });
-  return characters.length ? null : cells.toReversed();
+  return characters.length > 0 ? null : cells.toReversed();
+};
+
+const flip = (cell: Element) => {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  cell.animate(
+    [
+      { transform: "translateY(-45%) rotateX(70deg)", opacity: 0 },
+      { transform: "none", opacity: 1 },
+    ],
+    { duration: FLIP_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+  );
 };
 
 /**
@@ -31,23 +42,12 @@ export const createScoreboard = (className: string) => {
   let shape = "";
   let shown: string[] = [];
 
-  const flip = (cell: Element) => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    cell.animate(
-      [
-        { transform: "translateY(-45%) rotateX(70deg)", opacity: 0 },
-        { transform: "none", opacity: 1 },
-      ],
-      { duration: FLIP_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-    );
-  };
-
   /** Shows `text` on the cells of `widest`, the widest text this scoreboard has to show. */
   const set = (text: string, widest: string) => {
-    let cells = [...widest];
+    let cells = Array.from(widest);
     let characters = layout(text, cells);
     if (!characters) {
-      cells = [...text];
+      cells = Array.from(text);
       characters = layout(text, cells) ?? [];
     }
     const nextShape = cells.map((character) => (isSeparator(character) ? "," : "0")).join("");
@@ -55,7 +55,7 @@ export const createScoreboard = (className: string) => {
       shape = nextShape;
       shown = cells.map(() => "");
       element.replaceChildren(
-        ...[...nextShape].map((kind) => h("span", { className: kind === "," ? "cell separator" : "cell" })),
+        ...Array.from(nextShape, (kind) => h("span", { className: kind === "," ? "cell separator" : "cell" })),
       );
     }
     characters.forEach((character, index) => {

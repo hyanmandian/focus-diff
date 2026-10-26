@@ -1,6 +1,7 @@
 import { filtersFor, newId, repoMatches, toMatcher, type Config, type Matcher } from "@/utils/filters/filters";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
 import { repoList } from "@/utils/inbox/inbox";
+import { asRecord, keysOf, oneOf } from "@/utils/record/record";
 import { PACES, type Estimator, type Pace } from "@/utils/review-time/review-time";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
@@ -50,7 +51,8 @@ export interface ReviewSession {
 }
 
 /** What Start opens: the first pull request, all of them in tabs, or nothing, for the popup's list. */
-export type Opens = "first" | "all" | "none";
+export const OPENS = ["first", "all", "none"] as const;
+export type Opens = (typeof OPENS)[number];
 
 export interface ReviewTimeSettings {
   enabled: boolean;
@@ -80,7 +82,7 @@ export interface ReviewTimeSettings {
   sound: SoundSetting;
 }
 
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
 const WEEKDAYS = [1, 2, 3, 4, 5];
 
 export const newSession = (name = ""): ReviewSession => ({
@@ -119,30 +121,26 @@ export const DEFAULT_REVIEW_TIME: ReviewTimeSettings = {
   sound: { id: "bowl", volume: 70 },
 };
 
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-const oneOf = <T>(list: readonly T[], value: unknown, fallback: T): T =>
-  list.find((each) => each === value) ?? fallback;
 const time = (value: unknown, fallback: string) => (typeof value === "string" && TIME.test(value) ? value : fallback);
 const flag = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
 
 const normalizeSession = (value: unknown): ReviewSession => {
-  const raw = record(value);
+  const raw = asRecord(value);
   const base = newSession();
   const days = Array.isArray(raw.days)
-    ? raw.days.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    ? raw.days.filter((day): day is number => typeof day === "number" && Number.isInteger(day) && day >= 0 && day <= 6)
     : base.days;
   const times = Array.isArray(raw.times)
-    ? raw.times.filter((each) => typeof each === "string" && TIME.test(each))
+    ? raw.times.filter((each): each is string => typeof each === "string" && TIME.test(each))
     : base.times;
   const minutes = Number(raw.minutes);
   return {
     id: typeof raw.id === "string" && raw.id ? raw.id : base.id,
     name: typeof raw.name === "string" ? raw.name.trim().slice(0, 60) : "",
     on: flag(raw.on, true),
-    days: [...new Set(days as number[])].toSorted(),
+    days: [...new Set(days)].toSorted((a, b) => a - b),
     repeat: oneOf(["times", "every"] as const, raw.repeat, base.repeat),
-    times: [...new Set(times as string[])].toSorted().slice(0, MAX_TIMES),
+    times: [...new Set(times)].toSorted().slice(0, MAX_TIMES),
     every: oneOf(EVERY_HOURS, raw.every, 2),
     from: time(raw.from, base.from),
     to: time(raw.to, base.to),
@@ -160,9 +158,11 @@ const normalizeSession = (value: unknown): ReviewSession => {
 };
 
 export const normalizeReviewTime = (value: unknown): ReviewTimeSettings => {
-  const raw = record(value);
+  const raw = asRecord(value);
   const defaults = DEFAULT_REVIEW_TIME;
-  const sessions = (Array.isArray(raw.sessions) ? raw.sessions : []).slice(0, MAX_SESSIONS).map(normalizeSession);
+  const sessions = (Array.isArray(raw.sessions) ? raw.sessions : [])
+    .slice(0, MAX_SESSIONS)
+    .map((each) => normalizeSession(each));
   // Ids come from storage another device wrote; two the same would edit as one.
   const seen = new Set<string>();
   for (const session of sessions) {
@@ -172,13 +172,13 @@ export const normalizeReviewTime = (value: unknown): ReviewTimeSettings => {
   return {
     enabled: flag(raw.enabled, defaults.enabled),
     sessions,
-    pace: oneOf(Object.keys(PACES) as Pace[], raw.pace, defaults.pace),
+    pace: oneOf(keysOf(PACES), raw.pace, defaults.pace),
     learn: flag(raw.learn, defaults.learn),
     perPull: oneOf(EXTRA_MINUTES, raw.perPull, defaults.perPull),
     unviewedOnly: flag(raw.unviewedOnly, defaults.unviewedOnly),
     againFirst: flag(raw.againFirst, defaults.againFirst),
     queueEstimates: flag(raw.queueEstimates, defaults.queueEstimates),
-    opens: oneOf(["first", "all", "none"] as const, raw.opens, defaults.opens),
+    opens: oneOf(OPENS, raw.opens, defaults.opens),
     applyFilters: flag(raw.applyFilters, defaults.applyFilters),
     snooze: oneOf(SNOOZE_MINUTES, raw.snooze, defaults.snooze),
     remindEnd: flag(raw.remindEnd, defaults.remindEnd),
@@ -257,12 +257,12 @@ export interface Estimate {
 
 /** The session's filters that apply in a repository, as matchers; `null` counts every file. */
 export const sessionMatchers = (config: Config, repo: string, ids: string[]): Matcher[] | null => {
-  if (!ids.length) return null;
+  if (ids.length === 0) return null;
   const matchers = filtersFor(config, repo)
     .filter((filter) => ids.includes(filter.id))
     .flatMap((filter) => toMatcher(filter) ?? []);
   // A repository none of the filters are for is reviewed whole.
-  return matchers.length ? matchers : null;
+  return matchers.length > 0 ? matchers : null;
 };
 
 /** The filter ids of a session that apply in a repository, to turn on in the bar. */
@@ -286,7 +286,7 @@ export const estimate = (
     (sum, [path, additions, deletions]) => sum + minutesOf(path, { additions, deletions }),
     0,
   );
-  return { minutes: counted.length ? settings.perPull + reading : 0, files: counted.length };
+  return { minutes: counted.length > 0 ? settings.perPull + reading : 0, files: counted.length };
 };
 
 /**
@@ -304,13 +304,14 @@ export const pullMinutes = (
   return files ? minutes : null;
 };
 
+const among = (patterns: string[], repo: string) => patterns.some((pattern) => repoMatches(pattern, repo));
+
 /** The pull requests a session is for, before knowing how long they take. */
 export const candidates = (session: ReviewSession, pulls: PullRequest[]): PullRequest[] => {
-  const among = (patterns: string[], repo: string) => patterns.some((pattern) => repoMatches(pattern, repo));
   return pulls.filter(
     (pull) =>
       (session.drafts || !pull.draft) &&
-      (!session.repos.length || among(session.repos, pull.repo)) &&
+      (session.repos.length === 0 || among(session.repos, pull.repo)) &&
       !among(session.excludeRepos, pull.repo),
   );
 };
@@ -362,9 +363,9 @@ const bestFill = (items: Planned[], budget: number): Planned[] => {
 export const plan = (items: Planned[], minutes: number, order: Order, againFirst = false): Plan => {
   const counts = (item: Planned) => item.estimate.files > 0 || item.estimate.guessed === true;
   const nothing = items.filter((item) => !counts(item)).map((item) => item.pull);
-  const sorted = items.filter(counts).toSorted(order === "oldest" ? byAge : bySize);
+  const sorted = items.filter((each) => counts(each)).toSorted(order === "oldest" ? byAge : bySize);
   const again = (item: Planned) => againFirst && item.pull.again === true;
-  const first = sorted.filter(again);
+  const first = sorted.filter((each) => again(each));
   const rest = sorted.filter((item) => !again(item));
   const ordered = [...first, ...rest];
   const fit = (list: Planned[], room: number): Planned[] => {
@@ -380,7 +381,7 @@ export const plan = (items: Planned[], minutes: number, order: Order, againFirst
   const sum = (list: Planned[]) => list.reduce((total, item) => total + item.estimate.minutes, 0);
   const pickedFirst = fit(first, minutes);
   let picked = [...pickedFirst, ...fit(rest, Math.floor(minutes - sum(pickedFirst)))];
-  if (!picked.length && ordered[0]) picked = [ordered[0]];
+  if (picked.length === 0 && ordered[0]) picked = [ordered[0]];
   const total = sum(picked);
   const left = ordered.filter((item) => !picked.includes(item));
   return { picked, left, nothing, total, overBy: Math.max(0, Math.round(total) - minutes) };

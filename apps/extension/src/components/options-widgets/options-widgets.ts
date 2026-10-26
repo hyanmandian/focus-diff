@@ -4,6 +4,7 @@ import { i18n } from "#i18n";
 import { closeIcon, playIcon } from "@/components/icons/icons";
 import { h } from "@/utils/dom/dom";
 import { invalidRepos, splitRepos } from "@/utils/inbox/inbox";
+import { oneOf } from "@/utils/record/record";
 import { isOwnSound, playSound, SOUND_CHOICES, type SoundChoice, type SoundSetting } from "@/utils/sound/sound";
 
 /** Settings' controls shared by its sections. */
@@ -46,7 +47,7 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
     drawChips();
     onChange(repos);
   };
-  const drawChips = () =>
+  const drawChips = () => {
     chips.replaceChildren(
       ...repos.map((repo) => {
         const remove = h("button", { type: "button", className: "chip-remove" }, closeIcon());
@@ -58,6 +59,7 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
         return h("li", { className: "repo-chip" }, h("span", { className: "mono", textContent: repo }), remove);
       }),
     );
+  };
 
   /** Adds what's typed; false when some of it isn't a repository path, which stays in the field. */
   const add = (): boolean => {
@@ -66,7 +68,7 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
     error.textContent = wrong ? i18n.t("errorRepos", [wrong]) : "";
     if (wrong) input.setAttribute("aria-invalid", "true");
     else input.removeAttribute("aria-invalid");
-    if (wrong || !typed.length) return !wrong;
+    if (wrong || typed.length === 0) return !wrong;
     input.value = "";
     update([...new Set([...repos, ...typed])]);
     return true;
@@ -77,13 +79,15 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
       event.preventDefault();
       add();
     }
-    if (event.key === "Backspace" && !input.value && repos.length) update(repos.slice(0, -1));
+    if (event.key === "Backspace" && !input.value && repos.length > 0) update(repos.slice(0, -1));
   });
   // Picking a suggestion fills the field whole; it's added at once.
   input.addEventListener("input", (event) => {
     if (!(event instanceof InputEvent) || event.inputType === "insertReplacementText") add();
   });
-  input.addEventListener("blur", () => add());
+  input.addEventListener("blur", () => {
+    add();
+  });
 
   drawChips();
   const element = h("div", { className: "repo-field" }, h("div", { className: "repo-picker" }, chips, input), error);
@@ -163,7 +167,7 @@ export const soundPicker = ({
     hint.hidden = value.id !== "system";
   };
   select.addEventListener("change", () => {
-    value.id = select.value as SoundChoice;
+    value.id = oneOf(SOUND_CHOICES, select.value, value.id);
     sync();
     onChange();
     if (isOwnSound(value.id)) play.click();
@@ -210,6 +214,10 @@ const PERMISSION: Browser.permissions.Permissions = { permissions: ["notificatio
  * off if it says no. On but not allowed in this browser, like after syncing from another one, a note says so, with a
  * button to allow them.
  */
+// Asked from the click itself: browsers only show the prompt for something the reader just did.
+const allow = (): Promise<boolean> =>
+  canNotify() ? browser.permissions.request(PERMISSION).catch(() => false) : Promise.resolve(true);
+
 export const notifySwitch = ({
   toggle,
   permission,
@@ -229,9 +237,7 @@ export const notifySwitch = ({
     const allowed = !canNotify() || (await browser.permissions.contains(PERMISSION));
     permission.hidden = !isOn() || allowed;
   };
-  // Asked from the click itself: browsers only show the prompt for something the reader just did.
-  const allow = async () => !canNotify() || browser.permissions.request(PERMISSION).catch(() => false);
-  toggle.addEventListener("change", async () => {
+  const toggleOn = async () => {
     if (toggle.checked && !(await allow())) {
       toggle.checked = false;
       say(i18n.t("notifyDenied"), "error");
@@ -239,10 +245,12 @@ export const notifySwitch = ({
     }
     onToggle(toggle.checked);
     void sync();
-  });
-  allowButton.addEventListener("click", async () => {
+  };
+  toggle.addEventListener("change", () => void toggleOn());
+  const askAgain = async () => {
     if (await allow()) void sync();
     else say(i18n.t("notifyDenied"), "error");
-  });
+  };
+  allowButton.addEventListener("click", () => void askAgain());
   return { sync };
 };

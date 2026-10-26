@@ -1,3 +1,5 @@
+import type { Worker } from "@playwright/test";
+
 import {
   accessibilityViolations,
   CAN_SWITCH_LANGUAGE,
@@ -8,6 +10,18 @@ import {
   test,
 } from "./fixtures";
 import { PullRequestPage } from "./pull-request-page";
+
+/** Reloads the extension under the open tab, then changes the page so the old content script notices. */
+const reloadExtension = async (pr: PullRequestPage, background: Worker) => {
+  await background
+    .evaluate(() => {
+      chrome.runtime.reload();
+    })
+    .catch(() => {});
+  await pr.page.evaluate(() => {
+    document.body.append(document.createElement("div"));
+  });
+};
 
 /** The default filters and one for Rust, which matches nothing on the pull request. */
 const WITH_RUST = {
@@ -21,7 +35,7 @@ test.describe("panel on a pull request", () => {
     await expect(pr.options).toHaveText(["All", "Frontend", "Backend", "Docs"]);
     await expect(pr.pressed).toHaveText(["All"]);
     expect(await pr.visiblePaths()).toHaveLength(8);
-    await expect.poll(() => pr.statsText()).toMatch(/^8 files left to review/);
+    await expect.poll(() => pr.statsText()).toMatch(/^8 files left to review/u);
     await expect(pr.filesCounter()).toHaveText("8");
   });
 
@@ -36,7 +50,7 @@ test.describe("panel on a pull request", () => {
     await expect(pr.status).toHaveText(
       "Frontend: 1 of 8 files, 40 lines added, 10 removed. About 3 min left to review.",
     );
-    await expect.poll(() => pr.statsText()).toMatch(/~3 min/);
+    await expect.poll(() => pr.statsText()).toMatch(/~3 min/u);
 
     await pr.pick("Backend");
     await expect
@@ -104,7 +118,7 @@ test.describe("panel on a pull request", () => {
     await expect(pr.panel.locator(".tip")).toBeVisible();
     await expect(
       pr.panel.getByRole("button", { name: "How the review time is worked out" }),
-    ).toHaveAccessibleDescription(/^Review time assumes about 1,000 changed lines an hour/);
+    ).toHaveAccessibleDescription(/^Review time assumes about 1,000 changed lines an hour/u);
 
     await pr.breakdownRows.nth(1).click();
     await expect(pr.pressed).toHaveText(["Frontend"]);
@@ -120,11 +134,11 @@ test.describe("panel on a pull request", () => {
       pr.page.locator("[data-diff-header-wrapper]", { hasText: path }).getByRole("button", { name: "Viewed" });
 
     await pr.pick("Frontend");
-    await expect.poll(() => pr.statsText()).toMatch(/~3 min left to review$/);
+    await expect.poll(() => pr.statsText()).toMatch(/~3 min left to review$/u);
     // Finishing the filter's last file is celebrated.
     await pr.page.emulateMedia({ reducedMotion: "no-preference" });
     await viewedToggle("web/src/book-card.tsx").click();
-    await expect.poll(() => pr.statsText()).toMatch(/^0 files left to review.*Done$/);
+    await expect.poll(() => pr.statsText()).toMatch(/^0 files left to review.*Done$/u);
     await expect(pr.status).toHaveText("Every file in Frontend is reviewed.");
     await expect(pr.panel.locator("canvas")).toHaveCount(1);
     await expect(pr.panel.locator("canvas")).toHaveCount(0, { timeout: 4000 });
@@ -136,7 +150,7 @@ test.describe("panel on a pull request", () => {
 
     await pr.breakdownToggle.click();
     await expect(pr.breakdownRows.nth(1).locator(".row-viewed")).toHaveText("1/1");
-    await expect(pr.breakdownRows.nth(1).locator(".row-viewed")).toHaveClass(/complete/);
+    await expect(pr.breakdownRows.nth(1).locator(".row-viewed")).toHaveClass(/complete/u);
     await expect(pr.breakdownRows.nth(1).locator(".row-time")).toHaveText("");
     await expect(pr.breakdownRows.first().locator(".row-viewed")).toHaveText("1/8");
     await expect(pr.breakdownRows.first().locator(".row-time")).toHaveText("~7 min");
@@ -209,10 +223,12 @@ test.describe("panel on a pull request", () => {
     const started = pr.page.evaluate(
       () =>
         new Promise<boolean>((resolve) => {
-          new MutationObserver(
-            () => document.documentElement.hasAttribute("data-focus-diff-filtering") && resolve(true),
-          ).observe(document.documentElement, { attributes: true });
-          setTimeout(() => resolve(false), 3000);
+          new MutationObserver(() => {
+            if (document.documentElement.hasAttribute("data-focus-diff-filtering")) resolve(true);
+          }).observe(document.documentElement, { attributes: true });
+          setTimeout(() => {
+            resolve(false);
+          }, 3000);
         }),
     );
     await pr.pick("Docs");
@@ -244,7 +260,9 @@ test.describe("panel on a pull request", () => {
       )
       .toEqual({ active: false, named: 0, animations: 0 });
     // And a later pick doesn't jump back to the first file on its own.
-    await pr.page.evaluate(() => scrollTo(0, 600));
+    await pr.page.evaluate(() => {
+      scrollTo(0, 600);
+    });
     await pr.page
       .locator("[data-diff-header-wrapper]", { hasText: "docs/books.md" })
       .getByRole("button", { name: "Viewed" })
@@ -259,9 +277,9 @@ test.describe("panel on a pull request", () => {
     await pr.panel.locator(".comments").click();
     // Opening lands on the resolved thread, which GitHub is still loading; the reader moves on, and the late jump neither lands nor speaks.
     await pr.pick("All");
-    await expect(pr.status).toHaveText(/^All: /);
+    await expect(pr.status).toHaveText(/^All: /u);
     await pr.page.waitForTimeout(800);
-    await expect(pr.status).toHaveText(/^All: /);
+    await expect(pr.status).toHaveText(/^All: /u);
     await expect(pr.panel.locator(".comments")).toHaveAccessibleName("Conversations, 4 conversations");
   });
 
@@ -283,7 +301,7 @@ test.describe("panel on a pull request", () => {
 
   test("speaks its own language and keeps focus on the page clear of the bar", async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
-    expect(await pr.page.locator("focus-diff-panel").getAttribute("lang")).toMatch(/^en/);
+    expect(await pr.page.locator("focus-diff-panel").getAttribute("lang")).toMatch(/^en/u);
     const padding = await pr.page.evaluate(() => Number.parseFloat(document.documentElement.style.scrollPaddingBottom));
     const height = (await pr.panel.locator(".panel").boundingBox())!.height;
     expect(padding).toBeGreaterThan(height);
@@ -362,7 +380,7 @@ test.describe("panel on a pull request", () => {
           const chip = root.querySelector('.option[aria-pressed="true"]')!.getBoundingClientRect();
           const row = root.querySelector(".filters")!.getBoundingClientRect();
           const indicator = root.querySelector<HTMLElement>(".indicator")!;
-          const left = Number.parseFloat(indicator.style.clipPath.match(/[\d.]+px/g)![3]!);
+          const left = Number.parseFloat(indicator.style.clipPath.match(/[\d.]+px/gu)![3]!);
           return (
             chip.left >= row.left &&
             chip.right <= row.right &&
@@ -404,7 +422,7 @@ test.describe("panel on a pull request", () => {
       const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
       if (tab?.id) await chrome.tabs.sendMessage(tab.id, { type: "command", command: "next-unviewed" });
     });
-    await expect(pr.status).toHaveText(/^web\/src\/book-card\.test\.tsx\./);
+    await expect(pr.status).toHaveText(/^web\/src\/book-card\.test\.tsx\./u);
     // With Docs the only filter, finishing it leaves nothing to go on to.
     await seed({ ...DEFAULT_CONFIG, global: DEFAULT_CONFIG.global.filter((filter) => filter.id === "docs") });
     await pr.pick("Docs");
@@ -444,11 +462,11 @@ test.describe("panel on a pull request", () => {
         )!;
         const box = thread.getBoundingClientRect();
         // Near the top of the page there's nothing to scroll; on screen is as centred as it gets.
-        const centred =
+        const onScreen =
           scrollY === 0
             ? box.top >= 0 && box.bottom <= innerHeight
             : Math.abs(box.top + box.height / 2 - innerHeight / 2) < 80;
-        return centred && thread.getAnimations().some((animation) => animation.id === "focus-diff-flash");
+        return onScreen && thread.getAnimations().some((animation) => animation.id === "focus-diff-flash");
       }, text);
 
     await expect(comments).toHaveAccessibleName("Conversations, 4 conversations");
@@ -529,11 +547,11 @@ test.describe("panel on a pull request", () => {
   test("offers a single button for a single conversation", async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.pick("Docs");
-    await pr.panel.getByRole("button", { name: /^Conversations,/ }).click();
+    await pr.panel.getByRole("button", { name: /^Conversations,/u }).click();
     const card = pr.panel.getByRole("dialog", { name: "Conversations" });
     await expect(card).toContainText("books.md:7");
     await expect(card.getByRole("button", { name: "Go to the conversation" })).toBeVisible();
-    await expect(card.getByRole("button", { name: /(Next|Previous) conversation/ })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: /(Next|Previous) conversation/u })).toHaveCount(0);
     await expect(card.locator(".conversation-position")).toBeHidden();
   });
 
@@ -600,7 +618,7 @@ test.describe("panel on a pull request", () => {
         expect(await widths(), `after picking ${name}`).toBe(first);
       }
       await pr.pick("Docs");
-      await expect.poll(() => pr.statsText()).toMatch(/Done$/);
+      await expect.poll(() => pr.statsText()).toMatch(/Done$/u);
       expect(await widths()).toBe(first);
     });
   }
@@ -632,7 +650,9 @@ test.describe("panel on a pull request", () => {
     await expect.poll(() => pr.visiblePaths()).toEqual(["docs/books.md"]);
     await pr.page.evaluate(() => {
       const fresh = document.body.cloneNode(true) as HTMLElement;
-      fresh.querySelectorAll("[style]").forEach((element) => element.removeAttribute("style"));
+      fresh.querySelectorAll("[style]").forEach((element) => {
+        element.removeAttribute("style");
+      });
       document.body.replaceWith(fresh);
     });
     await expect(pr.panel).toBeVisible();
@@ -642,13 +662,15 @@ test.describe("panel on a pull request", () => {
   test("opens the settings for the current repository", async ({ openPullRequest, context }) => {
     const pr = new PullRequestPage(await openPullRequest());
     const [settings] = await Promise.all([context.waitForEvent("page"), pr.settings.click()]);
-    await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fweb$/);
+    await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fweb$/u);
     await expect(settings.locator("#try-repo")).toHaveValue("octo/web");
     // Opening it again, from another repository, reuses the tab.
-    await pr.page.evaluate(() => history.pushState(null, "", "/octo/api/pull/1/files"));
+    await pr.page.evaluate(() => {
+      history.pushState(null, "", "/octo/api/pull/1/files");
+    });
     const pages = context.pages().length;
     await pr.settings.click();
-    await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fapi$/);
+    await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fapi$/u);
     await expect(settings.locator("#try-repo")).toHaveValue("octo/api");
     expect(context.pages()).toHaveLength(pages);
   });
@@ -659,7 +681,7 @@ test.describe("panel on a pull request", () => {
     await expect(pr.options).toHaveText(["All"]);
     await expect(pr.settings).toHaveText("Set up filters");
     const [welcome] = await Promise.all([context.waitForEvent("page"), pr.settings.click()]);
-    await expect(welcome).toHaveURL(/\/welcome\.html$/);
+    await expect(welcome).toHaveURL(/\/welcome\.html$/u);
   });
 
   test("points to what’s new after an update until it’s read or dismissed", async ({
@@ -676,7 +698,7 @@ test.describe("panel on a pull request", () => {
     await background.evaluate(() => chrome.storage.local.set({ update: "1.1.0" }));
     await expect(notice).toHaveAttribute("href", "https://github.com/hyanmandian/focus-diff/releases/tag/v1.1.0");
     const [notes] = await Promise.all([context.waitForEvent("page"), notice.click()]);
-    await expect(notes).toHaveURL(/\/releases\/tag\/v1\.1\.0$/);
+    await expect(notes).toHaveURL(/\/releases\/tag\/v1\.1\.0$/u);
     await expect(notice).toBeHidden();
     expect(await background.evaluate(async () => (await chrome.storage.local.get("update")).update ?? null)).toBeNull();
     await background.evaluate(() => chrome.storage.local.set({ update: "2.0.0" }));
@@ -727,7 +749,7 @@ test.describe("panel on a pull request", () => {
       expect(await accessibilityViolations(page, "focus-diff-panel")).toEqual([]);
       await pr.breakdownToggle.click();
       expect(await accessibilityViolations(page, "focus-diff-panel")).toEqual([]);
-      await pr.panel.getByRole("button", { name: /^Conversations,/ }).click();
+      await pr.panel.getByRole("button", { name: /^Conversations,/u }).click();
       await expect(pr.panel.getByRole("dialog", { name: "Conversations" })).toBeVisible();
       expect(await accessibilityViolations(page, "focus-diff-panel")).toEqual([]);
     });
@@ -741,8 +763,7 @@ test.describe("panel on a pull request", () => {
   test("removes itself when the extension is reloaded and the tab is not", async ({ openPullRequest, background }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.panel).toBeVisible();
-    await background.evaluate(() => chrome.runtime.reload()).catch(() => {});
-    await pr.page.evaluate(() => document.body.append(document.createElement("div")));
+    await reloadExtension(pr, background);
     await expect(pr.panel).toHaveCount(0);
   });
 
@@ -750,8 +771,7 @@ test.describe("panel on a pull request", () => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.pick("Frontend");
     await expect.poll(() => pr.visiblePaths()).toEqual(["web/src/book-card.tsx"]);
-    await background.evaluate(() => chrome.runtime.reload()).catch(() => {});
-    await pr.page.evaluate(() => document.body.append(document.createElement("div")));
+    await reloadExtension(pr, background);
     await expect(pr.panel).toHaveCount(0);
     await expect.poll(() => pr.visiblePaths()).toHaveLength(8);
     await expect(pr.filesCounter()).toHaveText("8");
@@ -772,16 +792,16 @@ test.describe("panel on a pull request", () => {
     await pr.pick("Frontend");
     await expect(pr.filesCounter()).toHaveText("1/12");
     await pr.pick("All");
-    await expect.poll(() => pr.statsText()).toMatch(/^12 files left to review/);
-    await expect(pr.stats).toHaveAttribute("data-tip", /not loaded yet/);
+    await expect.poll(() => pr.statsText()).toMatch(/^12 files left to review/u);
+    await expect(pr.stats).toHaveAttribute("data-tip", /not loaded yet/u);
     // Files not loaded yet might match the filter too, so it can't be done.
     await pr.pick("Docs");
     await pr.page
       .locator("[data-diff-header-wrapper]", { hasText: "docs/books.md" })
       .getByRole("button", { name: "Viewed" })
       .click();
-    await expect.poll(() => pr.statsText()).toMatch(/^1 file left to review.*left to review$/);
-    await expect(pr.stats).toHaveAttribute("data-tip", /not loaded yet/);
+    await expect.poll(() => pr.statsText()).toMatch(/^1 file left to review.*left to review$/u);
+    await expect(pr.stats).toHaveAttribute("data-tip", /not loaded yet/u);
   });
 
   test("hides collapsed folders that hold no matching files", async ({ openPullRequest }) => {
@@ -812,6 +832,6 @@ test.describe("in Brazilian Portuguese", () => {
   test("speaks the browser language", async ({ openPullRequest }) => {
     const pr = new PullRequestPage(await openPullRequest());
     await expect(pr.options.first()).toHaveText("Todos");
-    await expect.poll(() => pr.statsText()).toMatch(/^8 arquivos para revisar/);
+    await expect.poll(() => pr.statsText()).toMatch(/^8 arquivos para revisar/u);
   });
 });

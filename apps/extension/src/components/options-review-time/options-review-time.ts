@@ -10,6 +10,7 @@ import {
 import { h } from "@/utils/dom/dom";
 import { $ } from "@/utils/extension-page/extension-page";
 import type { Config } from "@/utils/filters/filters";
+import { keysOf, oneOf } from "@/utils/record/record";
 import {
   EVERY_HOURS,
   EXTRA_MINUTES,
@@ -18,6 +19,7 @@ import {
   nextOccurrence,
   normalizeReviewTime,
   ORDERS,
+  OPENS,
   SNOOZE_MINUTES,
   type Opens,
   type Order,
@@ -54,7 +56,6 @@ const KIND_NAMES: Record<Kind, string> = {
   config: i18n.t("kindConfig"),
   generated: i18n.t("kindGenerated"),
 };
-const OPENS: Opens[] = ["first", "all", "none"];
 const OPENS_NAMES: Record<Opens, string> = {
   first: i18n.t("reviewOpensFirst"),
   all: i18n.t("reviewOpensAll"),
@@ -75,7 +76,9 @@ const segmented = <T extends string>(
     ...choices.map(([choice, text]) => {
       const id = `${name}-${choice}`;
       const radio = h("input", { type: "radio", name, id, value: choice, checked: value === choice });
-      radio.addEventListener("change", () => onPick(choice));
+      radio.addEventListener("change", () => {
+        onPick(choice);
+      });
       return h("span", { className: "segment" }, radio, h("label", { htmlFor: id, textContent: text }));
     }),
   );
@@ -93,6 +96,138 @@ const errorText = (id: string) => h("p", { className: "error", id, "aria-live": 
  * and for how long, and unfolded, when, how long, in what order, and what to review; then how estimates are made and
  * what happens when it's time.
  */
+const named = (filter: { name: string }) => filter.name.trim();
+
+/** How long, and in what order the pull requests that fit are picked. */
+const lengthBlock = (session: ReviewSession, refresh: () => void) => {
+  const otherId = `session-${session.id}-minutes`;
+  const other = h("input", {
+    type: "number",
+    id: otherId,
+    min: 5,
+    max: 240,
+    step: 5,
+    value: String(session.minutes),
+    className: "minutes-input",
+  });
+  const presets = h("div", { className: "chips", role: "group" });
+  presets.setAttribute("aria-label", i18n.t("reviewLength"));
+  const drawPresets = () => {
+    presets.replaceChildren(
+      ...MINUTE_PRESETS.map((minutes) =>
+        toggleChip(i18n.t("reviewMinutesShort", [minutes]), session.minutes === minutes, () => {
+          session.minutes = minutes;
+          other.value = String(minutes);
+          drawPresets();
+          refresh();
+          presets.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
+        }),
+      ),
+    );
+  };
+  drawPresets();
+  other.addEventListener("change", () => {
+    const minutes = Math.min(240, Math.max(5, Math.round(Number(other.value) || session.minutes)));
+    session.minutes = minutes;
+    other.value = String(minutes);
+    drawPresets();
+    refresh();
+  });
+  const order = h(
+    "div",
+    { className: "choices", role: "radiogroup" },
+    ...ORDERS.map((choice) => {
+      const id = `session-${session.id}-order-${choice}`;
+      const radio = h("input", {
+        type: "radio",
+        name: `session-${session.id}-order`,
+        id,
+        value: choice,
+        checked: session.order === choice,
+      });
+      radio.setAttribute("aria-describedby", `${id}-hint`);
+      radio.addEventListener("change", () => {
+        session.order = choice;
+        refresh();
+      });
+      const [name, hint] = ORDER_NAMES[choice];
+      return h(
+        "div",
+        { className: "choice" },
+        radio,
+        h(
+          "div",
+          { className: "setting-text" },
+          h("label", { htmlFor: id, textContent: name }),
+          h("p", { className: "hint", id: `${id}-hint`, textContent: hint }),
+        ),
+      );
+    }),
+  );
+  order.setAttribute("aria-label", i18n.t("reviewOrder"));
+  return block(
+    i18n.t("reviewLength"),
+    presets,
+    h(
+      "div",
+      { className: "inline-field" },
+      h("label", { htmlFor: otherId, textContent: i18n.t("reviewOtherMinutes") }),
+      other,
+    ),
+    h("span", { className: "field-label", textContent: i18n.t("reviewOrder") }),
+    order,
+  );
+};
+
+const resetLearned = async () => {
+  await learnedItem.setValue(null);
+  $("#review-learn").focus();
+};
+
+const learnedView = (learned: Learned) => {
+  const view = $("#learned");
+  const { kinds } = paceFactors(learned);
+  const known = KINDS.filter((kind) => (learned.kinds[kind]?.files ?? 0) > 0);
+  if (known.length === 0) {
+    view.replaceChildren(h("p", { className: "hint", textContent: i18n.t("reviewLearnedNothing") }));
+    return;
+  }
+  const reset = h("button", {
+    type: "button",
+    className: "btn quiet small",
+    textContent: i18n.t("reviewLearnedReset"),
+  });
+  reset.addEventListener("click", () => void resetLearned());
+  view.replaceChildren(
+    h("p", {
+      className: "learned-title",
+      textContent: i18n.t("reviewLearnedFrom", learned.all.files, [learned.all.files]),
+    }),
+    h(
+      "dl",
+      { className: "learned-list" },
+      ...known.map((kind) => {
+        const factor = kinds[kind];
+        const percent = Math.round(Math.abs(factor - 1) * 100);
+        const text =
+          percent < 5
+            ? i18n.t("reviewLearnedSame")
+            : factor > 1
+              ? i18n.t("reviewLearnedSlower", [percent])
+              : i18n.t("reviewLearnedFaster", [percent]);
+        return h("div", {}, h("dt", { textContent: KIND_NAMES[kind] }), h("dd", { textContent: text }));
+      }),
+    ),
+    reset,
+  );
+};
+
+const select = <T extends string | number>(id: string, values: readonly T[], label: (value: T) => string) => {
+  const element = $<HTMLSelectElement>(`#${id}`);
+  element.replaceChildren(...values.map((value) => new Option(label(value), String(value))));
+  return element;
+};
+
 export const createReviewTime = ({
   onChange,
   say,
@@ -122,8 +257,7 @@ export const createReviewTime = ({
     const next = nextOccurrence(settings, Date.now());
     const hint = $("#review-on-hint");
     if (!settings.enabled) hint.textContent = i18n.t("reviewOnHint");
-    else if (!next) hint.textContent = i18n.t("reviewNoneNext");
-    else {
+    else if (next) {
       const at = new Intl.DateTimeFormat(language, { weekday: "long", hour: "numeric", minute: "2-digit" }).format(
         next.at,
       );
@@ -132,6 +266,8 @@ export const createReviewTime = ({
         next.session.name || i18n.t("reviewTimeName"),
         next.session.minutes,
       ]);
+    } else {
+      hint.textContent = i18n.t("reviewNoneNext");
     }
     onEnabled(settings.enabled && Boolean(next));
   };
@@ -146,7 +282,9 @@ export const createReviewTime = ({
           dayName(day, "short"),
           session.days.includes(day),
           (on) => {
-            session.days = on ? [...session.days, day].toSorted() : session.days.filter((each) => each !== day);
+            session.days = on
+              ? [...session.days, day].toSorted((a, b) => a - b)
+              : session.days.filter((each) => each !== day);
             refresh();
           },
           dayName(day, "long"),
@@ -161,7 +299,7 @@ export const createReviewTime = ({
     const newTime = h("input", { type: "time", id: `session-${session.id}-time`, value: "" });
     newTime.setAttribute("aria-label", i18n.t("reviewAddTimeLabel"));
     newTime.setAttribute("aria-describedby", timesError.id);
-    const drawTimes = () =>
+    const drawTimes = () => {
       timeList.replaceChildren(
         ...session.times.map((value) => {
           const remove = h("button", { type: "button", className: "chip-remove" }, closeIcon());
@@ -175,9 +313,13 @@ export const createReviewTime = ({
           return h("li", { className: "repo-chip" }, h("span", { textContent: time(value) }), remove);
         }),
       );
+    };
     const addTime = h("button", { type: "button", className: "btn quiet", textContent: i18n.t("reviewAddTime") });
     const add = () => {
-      if (!newTime.value) return newTime.focus();
+      if (!newTime.value) {
+        newTime.focus();
+        return;
+      }
       session.times = [...new Set([...session.times, newTime.value])].toSorted();
       newTime.value = "";
       timesError.textContent = "";
@@ -254,7 +396,7 @@ export const createReviewTime = ({
     );
 
     checks.push(() => {
-      daysError.textContent = session.days.length ? "" : i18n.t("errorReviewDays");
+      daysError.textContent = session.days.length > 0 ? "" : i18n.t("errorReviewDays");
       // A time typed but not added yet is added on save rather than lost.
       if (newTime.value) add();
       const noTimes = session.repeat === "times" && session.times.length === 0;
@@ -269,92 +411,11 @@ export const createReviewTime = ({
     return block(i18n.t("notifyTiming"), days, daysError, repeat, times, hours);
   };
 
-  /** How long, and in what order the pull requests that fit are picked. */
-  const lengthBlock = (session: ReviewSession, refresh: () => void) => {
-    const otherId = `session-${session.id}-minutes`;
-    const other = h("input", {
-      type: "number",
-      id: otherId,
-      min: 5,
-      max: 240,
-      step: 5,
-      value: String(session.minutes),
-      className: "minutes-input",
-    });
-    const presets = h("div", { className: "chips", role: "group" });
-    presets.setAttribute("aria-label", i18n.t("reviewLength"));
-    const drawPresets = () =>
-      presets.replaceChildren(
-        ...MINUTE_PRESETS.map((minutes) =>
-          toggleChip(i18n.t("reviewMinutesShort", [minutes]), session.minutes === minutes, () => {
-            session.minutes = minutes;
-            other.value = String(minutes);
-            drawPresets();
-            refresh();
-            presets.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus();
-          }),
-        ),
-      );
-    drawPresets();
-    other.addEventListener("change", () => {
-      const minutes = Math.min(240, Math.max(5, Math.round(Number(other.value) || session.minutes)));
-      session.minutes = minutes;
-      other.value = String(minutes);
-      drawPresets();
-      refresh();
-    });
-    const order = h(
-      "div",
-      { className: "choices", role: "radiogroup" },
-      ...ORDERS.map((choice) => {
-        const id = `session-${session.id}-order-${choice}`;
-        const radio = h("input", {
-          type: "radio",
-          name: `session-${session.id}-order`,
-          id,
-          value: choice,
-          checked: session.order === choice,
-        });
-        radio.setAttribute("aria-describedby", `${id}-hint`);
-        radio.addEventListener("change", () => {
-          session.order = choice;
-          refresh();
-        });
-        const [name, hint] = ORDER_NAMES[choice];
-        return h(
-          "div",
-          { className: "choice" },
-          radio,
-          h(
-            "div",
-            { className: "setting-text" },
-            h("label", { htmlFor: id, textContent: name }),
-            h("p", { className: "hint", id: `${id}-hint`, textContent: hint }),
-          ),
-        );
-      }),
-    );
-    order.setAttribute("aria-label", i18n.t("reviewOrder"));
-    return block(
-      i18n.t("reviewLength"),
-      presets,
-      h(
-        "div",
-        { className: "inline-field" },
-        h("label", { htmlFor: otherId, textContent: i18n.t("reviewOtherMinutes") }),
-        other,
-      ),
-      h("span", { className: "field-label", textContent: i18n.t("reviewOrder") }),
-      order,
-    );
-  };
-
   /** What to review: the filters whose files count, drafts or not, and the repositories. */
   const whatBlock = (session: ReviewSession, refresh: () => void) => {
     const { global, repos } = config();
-    const named = (filter: { name: string }) => filter.name.trim();
     const options = [
-      ...global.filter(named).map((filter) => ({ id: filter.id, label: named(filter), repo: "" })),
+      ...global.filter((each) => named(each)).map((filter) => ({ id: filter.id, label: named(filter), repo: "" })),
       ...repos.flatMap((entry) =>
         entry.filters.filter(named).map((filter) => ({ id: filter.id, label: named(filter), repo: entry.repo })),
       ),
@@ -410,7 +471,7 @@ export const createReviewTime = ({
       chips,
       h("p", {
         className: "hint",
-        textContent: options.length ? i18n.t("reviewFilesHint") : i18n.t("reviewNoFilters"),
+        textContent: options.length > 0 ? i18n.t("reviewFilesHint") : i18n.t("reviewNoFilters"),
       }),
       h(
         "div",
@@ -477,7 +538,9 @@ export const createReviewTime = ({
       else open.delete(session.id);
     };
     expand.setAttribute("aria-controls", bodyId);
-    expand.addEventListener("click", () => setOpen(Boolean(content.hidden)));
+    expand.addEventListener("click", () => {
+      setOpen(Boolean(content.hidden));
+    });
     on.setAttribute("aria-describedby", summary.id);
     on.addEventListener("change", () => {
       session.on = on.checked;
@@ -511,58 +574,25 @@ export const createReviewTime = ({
     syncLabels();
     summary.textContent = sessionSummary(session);
     setOpen(open.has(session.id));
-    if (focus) requestAnimationFrame(() => name.focus());
+    if (focus)
+      requestAnimationFrame(() => {
+        name.focus();
+      });
     return card;
   };
 
-  const learnedView = (learned: Learned) => {
-    const view = $("#learned");
-    const { kinds } = paceFactors(learned);
-    const known = KINDS.filter((kind) => (learned.kinds[kind]?.files ?? 0) > 0);
-    if (!known.length) {
-      view.replaceChildren(h("p", { className: "hint", textContent: i18n.t("reviewLearnedNothing") }));
-      return;
-    }
-    const reset = h("button", {
-      type: "button",
-      className: "btn quiet small",
-      textContent: i18n.t("reviewLearnedReset"),
-    });
-    reset.addEventListener("click", async () => {
-      await learnedItem.setValue(null);
-      $("#review-learn").focus();
-    });
-    view.replaceChildren(
-      h("p", {
-        className: "learned-title",
-        textContent: i18n.t("reviewLearnedFrom", learned.all.files, [learned.all.files]),
-      }),
-      h(
-        "dl",
-        { className: "learned-list" },
-        ...known.map((kind) => {
-          const factor = kinds[kind];
-          const percent = Math.round(Math.abs(factor - 1) * 100);
-          const text =
-            percent < 5
-              ? i18n.t("reviewLearnedSame")
-              : factor > 1
-                ? i18n.t("reviewLearnedSlower", [percent])
-                : i18n.t("reviewLearnedFaster", [percent]);
-          return h("div", {}, h("dt", { textContent: KIND_NAMES[kind] }), h("dd", { textContent: text }));
-        }),
-      ),
-      reset,
-    );
-  };
-  void learnedItem.getValue().then((value) => learnedView(normalizeLearned(value)));
-  learnedItem.watch((value) => learnedView(normalizeLearned(value)));
+  void learnedItem.getValue().then((value) => {
+    learnedView(normalizeLearned(value));
+  });
+  learnedItem.watch((value) => {
+    learnedView(normalizeLearned(value));
+  });
 
   const pace = $("#pace");
   const paceChoices = segmented(
     "review-pace",
     i18n.t("reviewPace"),
-    (Object.keys(PACES) as Pace[]).map((key) => [key, PACE_NAMES[key]]),
+    keysOf(PACES).map((key) => [key, PACE_NAMES[key]]),
     settings.pace,
     (value) => {
       settings.pace = value;
@@ -573,11 +603,6 @@ export const createReviewTime = ({
   paceChoices.removeAttribute("aria-label");
   pace.append(paceChoices, h("p", { className: "hint", id: "pace-hint" }));
 
-  const select = <T extends string | number>(id: string, values: readonly T[], label: (value: T) => string) => {
-    const element = $<HTMLSelectElement>(`#${id}`);
-    element.replaceChildren(...values.map((value) => new Option(label(value), String(value))));
-    return element;
-  };
   const perPull = select("review-per-pull", EXTRA_MINUTES, (minutes) =>
     minutes ? i18n.t("reviewMinutesShort", [minutes]) : i18n.t("reviewNone"),
   );
@@ -605,7 +630,7 @@ export const createReviewTime = ({
     perPull.value = String(settings.perPull);
     opens.value = settings.opens;
     snooze.value = String(settings.snooze);
-    for (const [key, input] of Object.entries(switches)) input.checked = settings[key as keyof typeof switches];
+    for (const key of keysOf(switches)) switches[key].checked = settings[key];
     $("#learned").hidden = !settings.learn;
     $("#review-sound").replaceChildren(
       soundPicker({ id: "review-sound-choice", label: i18n.t("soundLabel"), value: settings.sound, onChange }),
@@ -623,7 +648,7 @@ export const createReviewTime = ({
       settings.enabled = on;
       body.hidden = !on;
       // Turned on with none yet, it starts with one, open, to fill in.
-      if (on && !settings.sessions.length) {
+      if (on && settings.sessions.length === 0) {
         const session = newSession();
         settings.sessions.push(session);
         open.add(session.id);
@@ -641,29 +666,29 @@ export const createReviewTime = ({
     $<HTMLButtonElement>("#add-session").hidden = settings.sessions.length >= 10;
     changed();
   });
-  pace.addEventListener(
-    "change",
-    () => ($("#pace-hint").textContent = i18n.t("reviewPaceHint", [PACES[settings.pace]])),
-  );
+  pace.addEventListener("change", () => {
+    $("#pace-hint").textContent = i18n.t("reviewPaceHint", [PACES[settings.pace]]);
+  });
   perPull.addEventListener("change", () => {
     settings.perPull = Number(perPull.value);
     changed();
   });
   opens.addEventListener("change", () => {
-    settings.opens = opens.value as Opens;
+    settings.opens = oneOf(OPENS, opens.value, settings.opens);
     changed();
   });
   snooze.addEventListener("change", () => {
     settings.snooze = Number(snooze.value);
     changed();
   });
-  for (const [key, input] of Object.entries(switches)) {
+  keysOf(switches).forEach((key) => {
+    const input = switches[key];
     input.addEventListener("change", () => {
-      settings[key as keyof typeof switches] = input.checked;
+      settings[key] = input.checked;
       if (key === "learn") $("#learned").hidden = !input.checked;
       changed();
     });
-  }
+  });
 
   return {
     render: (next: ReviewTimeSettings) => {
@@ -671,7 +696,9 @@ export const createReviewTime = ({
       render();
     },
     /** Drawn again for filters added or renamed, keeping what's unsaved. */
-    redraw: () => render(),
+    redraw: () => {
+      render();
+    },
     value: (): ReviewTimeSettings => normalizeReviewTime(settings),
     /** Whether every time and repository reads right; if not, says so at the field, unfolding its card. */
     check: (): boolean => {
@@ -680,9 +707,9 @@ export const createReviewTime = ({
       const ok = checks.map((check) => check()).every(Boolean);
       if (!ok) {
         for (const card of sessions.querySelectorAll<HTMLElement>(".session")) {
-          const body = $(".session-body", card);
-          if (body.hidden && card.querySelector('.error:not(:empty), [aria-invalid="true"]')) {
-            body.hidden = false;
+          const sessionBody = $(".session-body", card);
+          if (sessionBody.hidden && card.querySelector('.error:not(:empty), [aria-invalid="true"]')) {
+            sessionBody.hidden = false;
             card.querySelector(".session-expand")?.setAttribute("aria-expanded", "true");
           }
         }
@@ -692,7 +719,10 @@ export const createReviewTime = ({
     /** Takes the reader to the first thing to fix: its field, or for days, the first day. */
     focusError: () => {
       const field = sessions.querySelector<HTMLElement>('[aria-invalid="true"]');
-      if (field) return field.focus();
+      if (field) {
+        field.focus();
+        return;
+      }
       const error = sessions.querySelector<HTMLElement>(".error:not(:empty)");
       error?.previousElementSibling?.querySelector<HTMLElement>("button, input")?.focus();
     },

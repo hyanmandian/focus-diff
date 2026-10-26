@@ -1,12 +1,15 @@
 import type { SoundId } from "@/utils/sound/sound";
 
-export type Command =
-  | "next-filter"
-  | "previous-filter"
-  | "show-all"
-  | "next-unviewed"
-  | "next-comment"
-  | "previous-comment";
+/** The keyboard shortcuts, as the manifest names them. */
+export const COMMANDS = [
+  "next-filter",
+  "previous-filter",
+  "show-all",
+  "next-unviewed",
+  "next-comment",
+  "previous-comment",
+] as const;
+type Command = (typeof COMMANDS)[number];
 
 export type Message =
   | { type: "open-options"; repo?: string | null; section?: string }

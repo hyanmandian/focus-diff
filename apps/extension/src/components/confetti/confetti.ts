@@ -34,7 +34,10 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
   // Behind the panel, so it bursts out from under it.
   parent.append(canvas);
   const context = canvas.getContext("2d");
-  if (!context) return canvas.remove();
+  if (!context) {
+    canvas.remove();
+    return;
+  }
   context.scale(scale, scale);
 
   // Thrown up and out in a fan, so it rises over the page before it falls.
@@ -58,7 +61,10 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
   let last = started;
   const frame = (now: number) => {
     const elapsed = now - started;
-    if (elapsed > DURATION_MS || !canvas.isConnected) return canvas.remove();
+    if (elapsed > DURATION_MS || !canvas.isConnected) {
+      canvas.remove();
+      return;
+    }
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     context.clearRect(0, 0, innerWidth, innerHeight);

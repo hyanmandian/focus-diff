@@ -57,7 +57,8 @@ describe("filtersFor", () => {
 describe("normalize", () => {
   it("drops malformed entries and fills defaults", () => {
     const config = normalize({ global: [{ name: " Docs " }, null, { include: "x" }], repos: [{ filters: [] }, "x"] });
-    expect(config.global).toEqual([{ id: expect.any(String), name: "Docs", include: "", exclude: "" }]);
+    expect(config.global).toEqual([{ id: config.global[0]?.id, name: "Docs", include: "", exclude: "" }]);
+    expect(typeof config.global[0]?.id).toBe("string");
     expect(config.repos).toEqual([]);
   });
 
@@ -75,14 +76,15 @@ describe("normalize", () => {
   });
 
   it("handles empty input", () => {
-    expect(normalize(undefined)).toEqual({ global: [], repos: [] });
+    expect(normalize()).toEqual({ global: [], repos: [] });
   });
 });
 
 describe("REPO_PATTERN", () => {
   it("takes owner/name, nested groups and wildcards, but not a lone name", () => {
+    const valid = (repo: string) => ({ repo, valid: REPO_PATTERN.test(repo) });
     for (const repo of ["octo/web", "octo/*", "group/sub/web", "group/sub/*"])
-      expect(REPO_PATTERN.test(repo), repo).toBe(true);
-    for (const repo of ["web", "octo/", "/web", "octo web/x"]) expect(REPO_PATTERN.test(repo), repo).toBe(false);
+      expect(valid(repo)).toEqual({ repo, valid: true });
+    for (const repo of ["web", "octo/", "/web", "octo web/x"]) expect(valid(repo)).toEqual({ repo, valid: false });
   });
 });

@@ -7,14 +7,19 @@ import { stepFrom } from "@/utils/review/review";
 import { flash, scrollToCenter, scrollToTop, waitFor } from "@/utils/scroll/scroll";
 
 /** Brings a file to the top of the screen. Files the site hasn't drawn are opened through the site first. */
-export const goToFile = async (provider: Provider, file: FileInfo): Promise<HTMLElement | null> => {
+export const goToFile = (provider: Provider, file: FileInfo): Promise<HTMLElement | null> => {
   if (file.diff?.element.isConnected) {
     scrollToTop(file.diff.container, () => provider.coveredTop());
-    return file.diff.element;
+    return Promise.resolve(file.diff.element);
   }
-  if (!file.anchor) return null;
+  if (!file.anchor) return Promise.resolve(null);
   provider.reveal(file.anchor);
   return waitFor(() => provider.diffAt(file.anchor));
+};
+
+const centre = ({ element }: ConversationTarget) => {
+  const box = element?.getBoundingClientRect();
+  return box ? box.top + box.height / 2 : 0;
 };
 
 export const createNavigation = (provider: Provider, panel: Panel, schedule: () => void) => {
@@ -50,13 +55,9 @@ export const createNavigation = (provider: Provider, panel: Panel, schedule: () 
    */
   const step = (shown: FileInfo[], complete: boolean, direction: 1 | -1) => {
     const targets = provider.conversations(shown, complete);
-    if (!targets.length) return;
+    if (targets.length === 0) return;
     if (complete) return goTo(targets, stepFrom(commentIndex, direction, targets.length));
     const middle = innerHeight / 2;
-    const centre = ({ element }: ConversationTarget) => {
-      const box = element?.getBoundingClientRect();
-      return box ? box.top + box.height / 2 : 0;
-    };
     const index =
       commentIndex === 0 && scrollY < 10
         ? direction > 0

@@ -1,10 +1,14 @@
+import type { Locator, Worker } from "@playwright/test";
+
+import type { Appearance } from "../src/utils/appearance/appearance";
+import type { Config } from "../src/utils/filters/filters";
 import { CAN_SWITCH_LANGUAGE, DEFAULT_CONFIG, expect, expectSoundPage, PAGE_VIEWS, test } from "./fixtures";
 
 test.describe("settings page", () => {
-  test.beforeEach(async ({ seed }) => seed(DEFAULT_CONFIG));
+  test.beforeEach(({ seed }) => seed(DEFAULT_CONFIG));
 
-  const stored = (background: import("@playwright/test").Worker) =>
-    background.evaluate(async () => (await chrome.storage.sync.get("config")).config);
+  const stored = (background: Worker) =>
+    background.evaluate(async () => (await chrome.storage.sync.get<{ config: Config }>("config")).config);
 
   test("renders the saved filters with every string translated", async ({ openExtensionPage }) => {
     const page = await openExtensionPage("options.html");
@@ -27,10 +31,10 @@ test.describe("settings page", () => {
 
   test("shows the version and where to find the project", async ({ openExtensionPage }) => {
     const page = await openExtensionPage("options.html");
-    await expect(page.locator("#version")).toHaveText(/^Focus Diff \d+\.\d+\.\d+, open source under the MIT license$/);
+    await expect(page.locator("#version")).toHaveText(/^Focus Diff \d+\.\d+\.\d+, open source under the MIT license$/u);
     const links = page.getByRole("navigation", { name: "Focus Diff project" }).getByRole("link");
     await expect(links).toHaveText(["Source code", "Release notes", "Report a bug", "Suggest an idea", "Privacy"]);
-    await expect(links.nth(2)).toHaveAttribute("href", /\/issues\/new\?template=bug_report\.yml$/);
+    await expect(links.nth(2)).toHaveAttribute("href", /\/issues\/new\?template=bug_report\.yml$/u);
   });
 
   test("marks the section picked in the index, even one too short to reach the top", async ({ openExtensionPage }) => {
@@ -71,12 +75,9 @@ test.describe("settings page", () => {
     await page.locator("#save").click();
     await expect(page.locator("#status")).toContainText("Saved.");
     const config = await stored(background);
-    expect(
-      config.repos.map((entry: { repo: string; filters: { name: string }[] }) => [
-        entry.repo,
-        entry.filters.map((filter) => filter.name),
-      ]),
-    ).toEqual([["octo/web", ["API"]]]);
+    expect(config.repos.map((entry) => [entry.repo, entry.filters.map((filter) => filter.name)])).toEqual([
+      ["octo/web", ["API"]],
+    ]);
   });
 
   test("makes a theme from picked colours, previews it, and styles pull requests once saved", async ({
@@ -85,7 +86,7 @@ test.describe("settings page", () => {
     background,
   }) => {
     // The accent as the bar paints it, through a probe: its default is a light-dark() pair, not a colour yet.
-    const accent = (host: import("@playwright/test").Locator) =>
+    const accent = (host: Locator) =>
       host.evaluate((element) => {
         const probe = document.createElement("span");
         probe.style.color = "var(--fd-accent)";
@@ -96,15 +97,15 @@ test.describe("settings page", () => {
       });
     const PINK = "rgb(191, 57, 137)";
     const page = await openExtensionPage("options.html");
-    await expect(page.locator("#tagline")).toHaveText(/Works on GitHub\.$/);
+    await expect(page.locator("#tagline")).toHaveText(/Works on GitHub\.$/u);
     await expect(page.locator("#theme option")).toHaveText(["Match the provider", "GitHub"]);
     const preview = page.locator("#preview .demo-bar");
     await expect(preview.locator(".panel")).toBeVisible();
     const themed = await accent(preview);
-    expect(themed).toMatch(/^rgb\(/);
+    expect(themed).toMatch(/^rgb\(/u);
 
     await page.getByRole("button", { name: "New theme" }).click();
-    await expect(page.locator("#theme")).toHaveValue(/.+/);
+    await expect(page.locator("#theme")).toHaveValue(/.+/u);
     await expect(page.locator("#theme option:checked")).toHaveText("My theme 1");
     await page.getByLabel("Theme name").fill("Pink");
     await expect(page.locator("#theme option:checked")).toHaveText("Pink");
@@ -129,7 +130,9 @@ test.describe("settings page", () => {
 
     await page.locator("#save").click();
     await expect(page.locator("#status")).toContainText("Saved.");
-    const saved = await background.evaluate(async () => (await chrome.storage.sync.get("appearance")).appearance);
+    const saved = await background.evaluate(
+      async () => (await chrome.storage.sync.get<{ appearance: Appearance }>("appearance")).appearance,
+    );
     expect(saved).toEqual({
       theme: expect.any(String),
       themes: [{ id: saved.theme, name: "Pink", colors: { accent: "#bf3989" } }],

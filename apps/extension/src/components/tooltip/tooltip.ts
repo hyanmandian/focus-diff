@@ -14,6 +14,9 @@ const ARROW_EDGE = 14;
  * `data-tip-instant` skips the delay, for an (i) whose only job is the tooltip. The pointer can move onto the tooltip
  * to read it. Controls carry the same words as their accessible name or description, so screen readers skip it.
  */
+const targetOf = (event: Event) =>
+  event.target instanceof Element ? event.target.closest<HTMLElement>("[data-tip]") : null;
+
 export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => {
   const tip = h("div", { className: "tip", "aria-hidden": "true", hidden: true });
   within.append(tip);
@@ -54,20 +57,24 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
   const open = (target: HTMLElement, delay: number) => {
     hide();
     current = target;
-    if (delay) showing = window.setTimeout(() => show(target), delay);
+    if (delay)
+      showing = window.setTimeout(() => {
+        show(target);
+      }, delay);
     else show(target);
   };
-
-  const targetOf = (event: Event) => (event.target as Element | null)?.closest<HTMLElement>("[data-tip]") ?? null;
 
   within.addEventListener(
     "pointerover",
     (event) => {
       clearTimeout(hiding);
-      if (tip.contains(event.target as Node)) return;
+      if (event.target instanceof Node && tip.contains(event.target)) return;
       const target = targetOf(event);
       if (target === current) return;
-      if (!target) return hide();
+      if (!target) {
+        hide();
+        return;
+      }
       open(target, "tipInstant" in target.dataset ? 0 : DELAY_MS);
     },
     { signal },
@@ -75,7 +82,7 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
   within.addEventListener(
     "pointerout",
     (event) => {
-      const next = event.relatedTarget as Node | null;
+      const next = event.relatedTarget instanceof Node ? event.relatedTarget : null;
       if (!current || current.contains(next) || tip.contains(next)) return;
       clearTimeout(showing);
       hiding = window.setTimeout(hide, LINGER_MS);
@@ -96,7 +103,8 @@ export const createTooltip = ({ signal }: PanelContext, within: HTMLElement) => 
     "pointerdown",
     (event) => {
       const target = targetOf(event);
-      if (!tip.contains(event.target as Node) && !(target && "tipInstant" in target.dataset)) hide();
+      if (!(event.target instanceof Node && tip.contains(event.target)) && !(target && "tipInstant" in target.dataset))
+        hide();
     },
     { signal },
   );

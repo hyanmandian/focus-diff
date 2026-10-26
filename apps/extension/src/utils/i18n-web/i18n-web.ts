@@ -1,5 +1,6 @@
 import en from "@/locales/en.json";
 import ptBR from "@/locales/pt_BR.json";
+import { asText } from "@/utils/record/record";
 
 type Messages = Record<string, string | Record<string, string>>;
 
@@ -24,7 +25,7 @@ export const createWebI18n = (language: string) => {
       typeof value === "string"
         ? value
         : ((count === 0 ? value["0"] : undefined) ?? (count === 1 ? value["1"] : undefined) ?? value.n ?? "");
-    return text.replace(/\$(\d)/g, (_match: string, index: string) => String(substitutions[Number(index) - 1] ?? ""));
+    return text.replaceAll(/\$(\d)/gu, (_match: string, index: string) => asText(substitutions[Number(index) - 1]));
   };
   return { t };
 };

@@ -1,5 +1,6 @@
 import { newId } from "@/utils/filters/filters";
 import { PROVIDERS, type ProviderInfo } from "@/utils/providers/providers";
+import { isRecord } from "@/utils/record/record";
 
 /** The bar's colours a theme of the reader's own can change, each a `--fd-*` property of the bar. */
 export const THEME_COLORS = [
@@ -41,9 +42,7 @@ export const PROVIDER_THEME = "provider";
 export const DEFAULT_APPEARANCE: Appearance = { theme: PROVIDER_THEME, themes: [] };
 
 /** A hex colour, with or without alpha: `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`. */
-export const HEX_COLOR = /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+export const HEX_COLOR = /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu;
 
 /** A theme as it's kept or shared: a trimmed name and only valid colours, in lower case. */
 const normalizeTheme = (input: unknown, id: string = newId()): CustomTheme | null => {
@@ -68,7 +67,7 @@ export const normalizeAppearance = (input: unknown): Appearance => {
     return theme ? [theme] : [];
   });
   const known = typeof value.theme === "string" && (seen.has(value.theme) || value.theme === PROVIDER_THEME);
-  return { theme: known ? (value.theme as string) : PROVIDER_THEME, themes };
+  return { theme: known && typeof value.theme === "string" ? value.theme : PROVIDER_THEME, themes };
 };
 
 /** What sharing a theme copies: its name and colours, without the id it has here. */
@@ -100,7 +99,7 @@ export const customThemeCss = (theme: CustomTheme): string => {
     const value = theme.colors[color];
     return value && HEX_COLOR.test(value) ? [`  --fd-${color}: ${value};`] : [];
   });
-  return lines.length ? `:host {\n${lines.join("\n")}\n}` : "";
+  return lines.length > 0 ? `:host {\n${lines.join("\n")}\n}` : "";
 };
 
 /** The CSS that styles the bar: the provider's theme, loaded if it isn't yet, then the reader's colours over it. */

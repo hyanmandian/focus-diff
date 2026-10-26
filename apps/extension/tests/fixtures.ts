@@ -53,10 +53,10 @@ export const test = base.extend<Fixtures>({
       args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, `--lang=${language}`],
       env: { ...process.env, LANGUAGE: language.replace("-", "_") },
     });
-    await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+\/(changes|files)$/, (route) =>
+    await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+\/(changes|files)$/u, (route) =>
       route.fulfill({ contentType: "text/html", body: pageFor(route.request().url()) }),
     );
-    await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+$/, (route) =>
+    await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/\d+$/u, (route) =>
       route.fulfill({ contentType: "text/html", body: "<title>Conversation</title>" }),
     );
     await use(context);

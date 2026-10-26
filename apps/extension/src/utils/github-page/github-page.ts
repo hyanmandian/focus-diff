@@ -9,6 +9,7 @@ import type {
   TreeFile,
   TreeFolder,
 } from "@/utils/provider/provider";
+import { asText } from "@/utils/record/record";
 
 /**
  * Reads GitHub's pull request pages, in both of its diff views. The classic one draws every file and its conversations
@@ -19,16 +20,17 @@ import type {
 const DIFF = '[role="region"][id^="diff-"], [data-tagsearch-path][id^="diff-"]';
 const TREE_ITEM = '[role="treeitem"]';
 const PAGE_LAYOUT = 'main, [role="main"], #diff-comparison-viewer-container, #files';
-const PULL_REQUEST_FILES = /^\/([^/]+)\/([^/]+)\/pull\/\d+\/(?:changes|files)(?:\/|$)/;
-const FILE_STATS = /(\d[\d,]*)\s+additions?\b.*?(\d[\d,]*)\s+deletions?\b/i;
-const ADDITIONS = /^\+[\d,]+$/;
-const DELETIONS = /^[−-][\d,]+$/;
-const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿]/g;
+const PULL_REQUEST_FILES = /^\/([^/]+)\/([^/]+)\/pull\/\d+\/(?:changes|files)(?:\/|$)/u;
+const FILE_STATS = /(\d[\d,]*)\s+additions?\b.*?(\d[\d,]*)\s+deletions?\b/iu;
+const ADDITIONS = /^\+[\d,]+$/u;
+const DELETIONS = /^[−-][\d,]+$/u;
+const INVISIBLE = /[​-‏‪-‮⁠-⁩﻿]/gu;
 const COUNTER_RESCAN_MS = 2000;
 const COUNTER_GIVE_UP_MS = 20000;
 
-const toNumber = (value: string) => Number(value.replace(/,/g, ""));
+const toNumber = (value: string) => Number(value.replaceAll(",", ""));
 const textOf = (element: Element) => (element.textContent ?? "").trim();
+const byId = (id: string | null) => (id ? document.querySelector<HTMLElement>(`#${CSS.escape(id)}`) : null);
 const isLeaf = (element: Element) => element.children.length === 0;
 
 export const repository = (): string | null => {
@@ -40,7 +42,7 @@ const cleanPath = (value = "") => {
   const parts = value
     .replace(INVISIBLE, "")
     .trim()
-    .split(/\s+→\s+/);
+    .split(/\s+→\s+/u);
   return (parts.at(-1) ?? "").trim();
 };
 
@@ -48,7 +50,7 @@ const pathOf = (diff: HTMLElement) =>
   cleanPath(
     diff.querySelector<HTMLElement>("[data-file-path]")?.dataset.filePath ||
       diff.dataset.tagsearchPath ||
-      document.getElementById(diff.getAttribute("aria-labelledby") ?? "")?.textContent ||
+      byId(diff.getAttribute("aria-labelledby"))?.textContent ||
       diff.querySelector('h3, a[href^="#diff-"]')?.textContent ||
       "",
   );
@@ -66,14 +68,14 @@ const containerOf = (diff: HTMLElement): HTMLElement => {
 const labelledStats = (header: Element): FileStats | null => {
   for (const element of header.querySelectorAll(".sr-only, [aria-label], [title]")) {
     const label = element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent || "";
-    const [, additions, deletions] = (label.length < 160 && label.match(FILE_STATS)) || [];
+    const [, additions, deletions] = (label.length < 160 ? label.match(FILE_STATS) : null) ?? [];
     if (additions && deletions) return { additions: toNumber(additions), deletions: toNumber(deletions) };
   }
   return null;
 };
 
 const visibleStats = (header: Element): FileStats => {
-  const leaves = [...header.querySelectorAll("span, div")].filter(isLeaf).map(textOf);
+  const leaves = [...header.querySelectorAll("span, div")].filter((each) => isLeaf(each)).map((each) => textOf(each));
   const additions = leaves.find((value) => ADDITIONS.test(value));
   const deletions = leaves.find((value) => DELETIONS.test(value));
   return {
@@ -166,14 +168,14 @@ export const treeFolders = (): TreeFolder[] =>
   }));
 
 const findFilesCounter = (): HTMLElement | null =>
-  document.getElementById("files_tab_counter") ||
+  document.querySelector<HTMLElement>("#files_tab_counter") ??
   [...document.querySelectorAll('a, [role="tab"]')]
-    .find((element) => /^\s*Files changed/i.test(element.textContent ?? ""))
-    ?.querySelector<HTMLElement>('.Counter, [class*="Counter"]') ||
+    .find((element) => /^\s*Files changed/iu.test(element.textContent ?? ""))
+    ?.querySelector<HTMLElement>('.Counter, [class*="Counter"]') ??
   null;
 
 const findLineCounters = (): [HTMLElement | null, HTMLElement | null] => {
-  const summary = document.getElementById("diffstat");
+  const summary = document.querySelector("#diffstat");
   if (summary)
     return [
       summary.querySelector<HTMLElement>(".color-fg-success"),
@@ -215,12 +217,12 @@ export const pageCounters = (): PageCounters => {
 /** The number of changed files GitHub reports, which counts files it hasn't rendered yet. */
 export const reportedFileCount = (): number => {
   const text = pageCounters().files?.textContent ?? "";
-  return Number(text.replace(/[^\d]/g, "")) || 0;
+  return Number(text.replaceAll(/[^\d]/gu, "")) || 0;
 };
 
 /** The classic view's checkbox, or the newer view's toggle button, found by its label rather than its styling. */
 const VIEWED = 'input.js-reviewed-checkbox, button[aria-pressed], [data-diff-header-wrapper] input[type="checkbox"]';
-const VIEWED_LABEL = /^(not )?viewed$/i;
+const VIEWED_LABEL = /^(not )?viewed$/iu;
 
 /** Whether the reviewer marked a file as viewed on GitHub, or `null` when its toggle isn't rendered. */
 const viewed = (diff: Element): boolean | null => {
@@ -243,17 +245,17 @@ export const isVirtualized = (): boolean => document.querySelector("[data-index]
 
 /** For virtual-list.ts, in the page's world: the files hidden, as `count index:digest…`, with enough digest to check. */
 export const closeUp = (hidden: { index: number; anchor: string }[], count: number): void => {
-  const value = hidden.length
-    ? [count, ...hidden.map(({ index, anchor }) => `${index}:${anchor.slice(0, DIGEST)}`)].join(" ")
-    : null;
+  const value =
+    hidden.length > 0
+      ? [count, ...hidden.map(({ index, anchor }) => `${index}:${anchor.slice(0, DIGEST)}`)].join(" ")
+      : null;
   const root = document.documentElement;
   if (root.getAttribute(HIDDEN_ROWS) === value) return;
   if (value === null) root.removeAttribute(HIDDEN_ROWS);
   else root.setAttribute(HIDDEN_ROWS, value);
 };
 
-export const diffAt = (anchor: string): HTMLElement | null =>
-  anchor ? document.getElementById(`diff-${anchor}`) : null;
+export const diffAt = (anchor: string): HTMLElement | null => (anchor ? byId(`diff-${anchor}`) : null);
 
 /** The file tree's link to a file, which makes GitHub scroll to it and render it. */
 const treeLink = (anchor: string): HTMLAnchorElement | null =>
@@ -292,7 +294,7 @@ const viewer = (): string | null => document.querySelector<HTMLMetaElement>('met
 
 /** A thread's comments, each wrapped in an element with its id, like `r3727922886`. */
 export const threadComments = (thread: HTMLElement): HTMLElement[] =>
-  [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].filter((element) => /^r\d+$/.test(element.id));
+  [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].filter((element) => /^r\d+$/u.test(element.id));
 
 const threadState = (thread: HTMLElement, login: string | null): ThreadState => {
   if (thread.dataset.resolved === "true") return "resolved";
@@ -306,7 +308,7 @@ const threadState = (thread: HTMLElement, login: string | null): ThreadState => 
 /** The new-version line a classic thread hangs under: the last line number on the row above it. */
 const threadLine = (thread: HTMLElement): number | null => {
   const numbers = thread.closest("tr")?.previousElementSibling?.querySelectorAll("[data-line-number]");
-  return Number(numbers?.[numbers.length - 1]?.getAttribute("data-line-number")) || null;
+  return Number([...(numbers ?? [])].at(-1)?.getAttribute("data-line-number")) || null;
 };
 
 /**
@@ -438,13 +440,13 @@ const parse = (text: string): PullRequestData | null => {
   const files: FileSummary[] = holder.diffSummaries.filter(isObject).flatMap((summary) => {
     if (typeof summary.path !== "string") return [];
     const markers = isObject(summary.markersMap) ? summary.markersMap : {};
-    const threads = Object.entries(markers)
+    const fileThreads = Object.entries(markers)
       .flatMap(([line, marker]) =>
         isObject(marker) && Array.isArray(marker.threads)
           ? marker.threads.filter(isObject).map((thread) => {
-              const id = String(thread.id ?? "");
+              const id = asText(thread.id);
               const detail = threadDetails[id];
-              return { id, line, state: stateOf(detail), comment: String(commentsOf(detail)[0]?.databaseId ?? "") };
+              return { id, line, state: stateOf(detail), comment: asText(commentsOf(detail)[0]?.databaseId) };
             })
           : [],
       )
@@ -456,7 +458,7 @@ const parse = (text: string): PullRequestData | null => {
         additions: Number(summary.linesAdded) || 0,
         deletions: Number(summary.linesDeleted) || 0,
         viewed: summary.markedAsViewed === true,
-        threads,
+        threads: fileThreads,
       },
     ];
   });

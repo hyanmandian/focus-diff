@@ -1,14 +1,15 @@
 import type { Worker } from "@playwright/test";
 
+import type { Config } from "../src/utils/filters/filters";
 import { accessibilityViolations, CAN_SWITCH_LANGUAGE, expect, expectSoundPage, PAGE_VIEWS, test } from "./fixtures";
 
 const storedNames = (background: Worker) =>
   background.evaluate(async () =>
-    ((await chrome.storage.sync.get("config")).config?.global ?? []).map((filter: { name: string }) => filter.name),
+    ((await chrome.storage.sync.get<{ config?: Config }>("config")).config?.global ?? []).map((filter) => filter.name),
   );
 
 test.describe("welcome page", () => {
-  test.beforeEach(async ({ seed }) => seed({ global: [], repos: [] }));
+  test.beforeEach(({ seed }) => seed({ global: [], repos: [] }));
 
   test("opens right after installing", async ({ context, extensionId }) => {
     await expect
@@ -57,10 +58,10 @@ test.describe("welcome page", () => {
             .join("");
         })
       )
-        .replace(/\s+/g, " ")
+        .replaceAll(/\s+/gu, " ")
         .trim();
     await expect(files).toHaveCount(12);
-    await expect.poll(stats).toMatch(/^9 files left to review \+910 lines added, −443 lines removed/);
+    await expect.poll(stats).toMatch(/^9 files left to review \+910 lines added, −443 lines removed/u);
 
     // A filter keeps its files and its numbers, on the scoreboard too. The others stay in place, set back: nothing moves.
     const layout = () =>
@@ -72,15 +73,15 @@ test.describe("welcome page", () => {
         ].join();
       });
     const before = await layout();
-    await bar.getByRole("button", { name: /^Frontend/ }).click();
+    await bar.getByRole("button", { name: /^Frontend/u }).click();
     expect(await layout()).toBe(before);
     const outside = demo.getByRole("button", { name: "Viewed api/orders/service.py" });
     await expect(outside).toHaveAttribute("aria-disabled", "true");
     await expect(outside).toHaveAccessibleDescription("Not in Frontend");
     await outside.dispatchEvent("click");
     await expect(outside).toHaveAttribute("aria-pressed", "false");
-    await expect(demo.locator(".demo-file:not([data-out])")).toHaveText([/cart\.tsx/, /use-cart\.ts/, /cart\.css/]);
-    await expect.poll(stats).toMatch(/^2 files left to review \+150 lines added, −25 lines removed/);
+    await expect(demo.locator(".demo-file:not([data-out])")).toHaveText([/cart\.tsx/u, /use-cart\.ts/u, /cart\.css/u]);
+    await expect.poll(stats).toMatch(/^2 files left to review \+150 lines added, −25 lines removed/u);
     await expect(bar.locator(".scoreboard.files-count .cell")).toHaveText(["", "2"]);
     await expect(bar.getByRole("status")).toContainText("Frontend: 3 of 12 files");
     // The reader starts at the first file left to review; the next one skips the viewed file.
@@ -96,9 +97,9 @@ test.describe("welcome page", () => {
     await demo.getByRole("button", { name: "Viewed web/src/checkout/cart.css" }).click();
     await expect(bar.locator(".done")).toBeVisible();
     await expect(bar.getByRole("status")).toHaveText("Every file in Frontend is reviewed.");
-    await expect(next).toHaveAccessibleName(/Backend/);
+    await expect(next).toHaveAccessibleName(/Backend/u);
     await next.click();
-    await expect(bar.getByRole("button", { name: /^Backend/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(bar.getByRole("button", { name: /^Backend/u })).toHaveAttribute("aria-pressed", "true");
     expect(await layout()).toBe(before);
     // Next file skips the files outside the filter.
     await next.click();
@@ -117,17 +118,17 @@ test.describe("welcome page", () => {
     };
 
     // The breakdown lists every button with its numbers, from the same totals.
-    await bar.getByRole("button", { name: /^All/ }).click();
+    await bar.getByRole("button", { name: /^All/u }).click();
     await bar.getByRole("button", { name: "Breakdown by filter" }).click();
     await expect(bar.locator(".row")).toHaveText([
-      /^All.*5\/12.*\+910.*−443/,
-      /^Frontend.*3\/3.*\+150.*−25/,
-      /^Backend.*1\/3.*\+118.*−23/,
+      /^All.*5\/12.*\+910.*−443/u,
+      /^Frontend.*3\/3.*\+150.*−25/u,
+      /^Backend.*1\/3.*\+118.*−23/u,
     ]);
     await checkAndClose("Breakdown by filter");
 
     // The conversations card lands on the first one, and its arrows step through the rest.
-    await bar.getByRole("button", { name: /^Conversations,/ }).click();
+    await bar.getByRole("button", { name: /^Conversations,/u }).click();
     const talk = (path: string) => files.filter({ hasText: path }).locator(".demo-talk");
     await expect(talk("web/src/checkout/cart.tsx")).toHaveAttribute("data-current", "");
     await expect(files.first()).toHaveAttribute("aria-current", "true");
@@ -150,7 +151,7 @@ test.describe("welcome page", () => {
       const page = await openExtensionPage("welcome.html");
       await page.setViewportSize({ width, height: 900 });
       const bar = page.getByRole("group", { name: "Sample pull request" }).locator(".panel");
-      await expect(bar.getByRole("button", { name: /^All/ })).toBeVisible();
+      await expect(bar.getByRole("button", { name: /^All/u })).toBeVisible();
       await expect(bar.locator(".stats")).toBeVisible({ visible: !compact });
       const layout = await bar.evaluate((element) => {
         const items = [...element.children]

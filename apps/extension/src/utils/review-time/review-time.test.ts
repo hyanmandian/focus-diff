@@ -34,10 +34,12 @@ describe("reviewMinutes", () => {
 
 describe("isGenerated", () => {
   it("spots lock files, bundles and snapshots, not regular code", () => {
-    expect(["yarn.lock", "go.sum", "a/__snapshots__/x.snap", "vendor/lib.js", "app.min.css"].every(isGenerated)).toBe(
-      true,
-    );
-    expect(["src/lock.ts", "docs/dist.md", "src/vendors.ts"].some(isGenerated)).toBe(false);
+    expect(
+      ["yarn.lock", "go.sum", "a/__snapshots__/x.snap", "vendor/lib.js", "app.min.css"].every((each) =>
+        isGenerated(each),
+      ),
+    ).toBe(true);
+    expect(["src/lock.ts", "docs/dist.md", "src/vendors.ts"].some((each) => isGenerated(each))).toBe(false);
   });
 });
 
@@ -45,7 +47,7 @@ describe("kindOf", () => {
   it("sorts files into the kinds a reader goes through at different paces", () => {
     expect(
       ["src/app.ts", "src/app.test.ts", "tests/e2e.py", "README.md", "src/app.css", "config/app.yml", "yarn.lock"].map(
-        kindOf,
+        (path) => kindOf(path),
       ),
     ).toEqual(["code", "tests", "tests", "docs", "styles", "config", "generated"]);
   });

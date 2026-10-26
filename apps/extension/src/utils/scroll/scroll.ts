@@ -16,7 +16,10 @@ export const waitFor = <T>(find: () => T | null, timeout = RENDER_TIMEOUT_MS): P
     const started = performance.now();
     const check = () => {
       const found = find();
-      if (found || performance.now() - started > timeout) return resolve(found);
+      if (found || performance.now() - started > timeout) {
+        resolve(found);
+        return;
+      }
       requestAnimationFrame(check);
     };
     check();
@@ -36,7 +39,7 @@ let releaseHold = () => {};
  */
 const scrollAndHold = (element: Element, offsetOf: (box: DOMRect) => number, behavior: ScrollBehavior): void => {
   // Hidden, say by a filter picked since the jump began: there's nowhere to go.
-  if (!element.getClientRects().length) return;
+  if (element.getClientRects().length === 0) return;
   // Where the page has to be, within how far it can scroll.
   const targetOf = () => {
     const box = element.getBoundingClientRect();
@@ -59,7 +62,10 @@ const scrollAndHold = (element: Element, offsetOf: (box: DOMRect) => number, beh
   let lastScrollY = scrollY;
   let stillFrames = 0;
   const hold = (now: number) => {
-    if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) return release();
+    if (!held || !element.isConnected || now - started > HOLD_MS || now - settledSince > SETTLED_MS) {
+      release();
+      return;
+    }
     const next = targetOf();
     // Content drawn above moves the element; the site scrolling by itself moves the page, which only counts once the
     // page is still, so a smooth scroll on its way there isn't mistaken for it.
@@ -82,11 +88,14 @@ export const scrollToTop = (
   element: Element,
   covered: () => number,
   behavior: ScrollBehavior = scrollBehavior(),
-): void => scrollAndHold(element, covered, behavior);
+): void => {
+  scrollAndHold(element, covered, behavior);
+};
 
 /** Brings an element to the middle of the screen, clear of the `covered` part. */
-export const scrollToCenter = (element: Element, covered: () => number): void =>
+export const scrollToCenter = (element: Element, covered: () => number): void => {
   scrollAndHold(element, (box) => Math.max(covered(), (innerHeight - box.height) / 2), scrollBehavior());
+};
 
 const FLASH_ID = "focus-diff-flash";
 

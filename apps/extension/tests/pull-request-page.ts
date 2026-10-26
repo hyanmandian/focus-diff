@@ -32,7 +32,7 @@ export class PullRequestPage {
     await this.option(name).click();
   }
 
-  async statsText() {
+  statsText() {
     return this.stats.evaluate((element) => {
       // What's read out: parts hidden by the current state, like the Done badge, and the scoreboards, which are only
       // for the eye, are left out.
@@ -43,8 +43,10 @@ export class PullRequestPage {
         );
       });
       const copy = element.cloneNode(true) as HTMLElement;
-      [...copy.querySelectorAll("*")].forEach((child, index) => hidden[index] && child.remove());
-      return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+      [...copy.querySelectorAll("*")].forEach((child, index) => {
+        if (hidden[index]) child.remove();
+      });
+      return (copy.textContent ?? "").replaceAll(/\s+/gu, " ").trim();
     });
   }
 
@@ -52,9 +54,13 @@ export class PullRequestPage {
     return this.page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>('[role="region"][id^="diff-"]:not([id$="-hunk"])')]
         .filter((region) => region.offsetParent !== null)
-        .map((region) =>
-          (document.getElementById(region.getAttribute("aria-labelledby") ?? "")?.textContent ?? "").replace(/‎/g, ""),
-        ),
+        .map((region) => {
+          const label = region.getAttribute("aria-labelledby");
+          return ((label ? document.querySelector(`#${CSS.escape(label)}`) : null)?.textContent ?? "").replaceAll(
+            "‎",
+            "",
+          );
+        }),
     );
   }
 

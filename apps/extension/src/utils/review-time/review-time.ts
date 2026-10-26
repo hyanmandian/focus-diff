@@ -1,4 +1,5 @@
 import type { FileStats } from "@/utils/provider/provider";
+import { asRecord, recordOf } from "@/utils/record/record";
 
 /**
  * Our assumption, not measured: a working review pace. SmartBear's study of 2,500 reviews at Cisco puts careful
@@ -11,7 +12,7 @@ const REMOVED_LINE_WEIGHT = 0.2;
 export const MINUTES_PER_FILE = 0.25;
 
 const GENERATED =
-  /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|Cargo\.lock|Gemfile\.lock|poetry\.lock|uv\.lock|Pipfile\.lock|composer\.lock|go\.sum|flake\.lock)$|\.min\.(js|css)$|\.map$|\.snap$|(^|\/)(dist|vendor|__generated__|__snapshots__)\//;
+  /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?|Cargo\.lock|Gemfile\.lock|poetry\.lock|uv\.lock|Pipfile\.lock|composer\.lock|go\.sum|flake\.lock)$|\.min\.(js|css)$|\.map$|\.snap$|(^|\/)(dist|vendor|__generated__|__snapshots__)\//u;
 
 export const isGenerated = (path: string): boolean => GENERATED.test(path);
 
@@ -39,13 +40,13 @@ export type Kind = (typeof KINDS)[number];
 const KIND_PATTERNS: [Kind, RegExp][] = [
   [
     "tests",
-    /(^|\/)(__tests__|__mocks__|tests?|specs?|e2e|cypress|playwright)\/|\.(test|spec|stories|e2e)\.[^/]+$|(_test\.(go|py|rb|exs?)|_spec\.rb)$|(^|\/)test_[^/]+\.py$/i,
+    /(^|\/)(__tests__|__mocks__|tests?|specs?|e2e|cypress|playwright)\/|\.(test|spec|stories|e2e)\.[^/]+$|(_test\.(go|py|rb|exs?)|_spec\.rb)$|(^|\/)test_[^/]+\.py$/iu,
   ],
-  ["docs", /\.(md|mdx|markdown|rst|adoc|txt)$|(^|\/)(docs?|documentation)\//i],
-  ["styles", /\.(css|scss|sass|less|styl|pcss)$/i],
+  ["docs", /\.(md|mdx|markdown|rst|adoc|txt)$|(^|\/)(docs?|documentation)\//iu],
+  ["styles", /\.(css|scss|sass|less|styl|pcss)$/iu],
   [
     "config",
-    /\.(json|jsonc|ya?ml|toml|ini|cfg|conf|properties|xml|plist|env|lock)$|(^|\/)(Dockerfile|Makefile|Procfile|\.[\w.-]+rc|\.gitignore|\.editorconfig)$/i,
+    /\.(json|jsonc|ya?ml|toml|ini|cfg|conf|properties|xml|plist|env|lock)$|(^|\/)(Dockerfile|Makefile|Procfile|\.[\w.-]+rc|\.gitignore|\.editorconfig)$/iu,
   ],
 ];
 
@@ -79,14 +80,14 @@ const FADE = 0.98;
 const MOST_OFF = 6;
 
 const tally = (value: unknown): Tally => {
-  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const raw = asRecord(value);
   const number = (key: string) => (Number.isFinite(raw[key]) && Number(raw[key]) >= 0 ? Number(raw[key]) : 0);
   return { actual: number("actual"), expected: number("expected"), files: number("files") };
 };
 
 export const normalizeLearned = (value: unknown): Learned => {
-  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const kinds = raw.kinds && typeof raw.kinds === "object" ? (raw.kinds as Record<string, unknown>) : {};
+  const raw = asRecord(value);
+  const kinds = asRecord(raw.kinds);
   return {
     all: tally(raw.all),
     kinds: Object.fromEntries(KINDS.filter((kind) => kinds[kind]).map((kind) => [kind, tally(kinds[kind])])),
@@ -96,12 +97,10 @@ export const normalizeLearned = (value: unknown): Learned => {
 /** How many times the starting pace the reader takes, overall and for each kind; 1 until something's learned. */
 export const paceFactors = (learned: Learned): { all: number; kinds: Record<Kind, number> } => {
   const all = (learned.all.actual + PRIOR_MINUTES) / (learned.all.expected + PRIOR_MINUTES);
-  const kinds = Object.fromEntries(
-    KINDS.map((kind) => {
-      const own = learned.kinds[kind] ?? EMPTY_LEARNED.all;
-      return [kind, (own.actual + KIND_PRIOR_MINUTES * all) / (own.expected + KIND_PRIOR_MINUTES)];
-    }),
-  ) as Record<Kind, number>;
+  const kinds = recordOf(KINDS, (kind) => {
+    const own = learned.kinds[kind] ?? EMPTY_LEARNED.all;
+    return (own.actual + KIND_PRIOR_MINUTES * all) / (own.expected + KIND_PRIOR_MINUTES);
+  });
   return { all, kinds };
 };
 

@@ -13,7 +13,9 @@ export const toaster = (toast: HTMLElement) => {
     timer = setTimeout(() => {
       toast.classList.remove("visible");
       // Once faded it's gone for screen readers too.
-      timer = setTimeout(() => (toast.textContent = ""), FADE_MS);
+      timer = setTimeout(() => {
+        toast.textContent = "";
+      }, FADE_MS);
     }, TOAST_MS);
   };
 };

@@ -3,7 +3,7 @@ import { browser } from "wxt/browser";
 import { i18n } from "#i18n";
 import { toaster } from "@/components/toast/toast";
 import { appearanceCss, createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
-import { $, reveal, translate, translateDocument } from "@/utils/extension-page/extension-page";
+import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
 import { normalize, type Config } from "@/utils/filters/filters";
 import { message, uiLanguage } from "@/utils/i18n/i18n";
 import { providerNames } from "@/utils/providers/providers";
@@ -27,14 +27,29 @@ import {
   saveReviewTime,
 } from "@/utils/storage/storage";
 
+const recipeIds = (recipe: Recipe) => recipe.filters.map((_, index) => `recipe-${recipe.id}-${index}`);
+
+const names = (recipe: Recipe) => recipe.filters.map((filter) => message(filter.name)).join(", ");
+
+const pattern = (label: string, value: string) => {
+  const row = document.createElement("div");
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const detail = document.createElement("dd");
+  const code = document.createElement(value ? "code" : "span");
+  code.textContent = value || i18n.t("recipeEverything");
+  if (!value) code.className = "everything";
+  detail.append(code);
+  row.append(term, detail);
+  return row;
+};
+
 /** The page that opens on install: picking recipes, review time and trying the bar. */
 export const startWelcome = (): void => {
   const notify = toaster($("#toast"));
   let config: Config = normalize({});
 
-  const recipeIds = (recipe: Recipe) => recipe.filters.map((_, index) => `recipe-${recipe.id}-${index}`);
   const isAdded = (recipe: Recipe) => recipeIds(recipe).some((id) => config.global.some((filter) => filter.id === id));
-  const names = (recipe: Recipe) => recipe.filters.map((filter) => message(filter.name)).join(", ");
 
   const toggle = async (recipe: Recipe) => {
     const ids = recipeIds(recipe);
@@ -49,11 +64,8 @@ export const startWelcome = (): void => {
     try {
       await saveConfig(next);
     } catch (error) {
-      notify(
-        /QUOTA/i.test((error as Error).message)
-          ? i18n.t("statusQuota")
-          : i18n.t("statusSaveError", [(error as Error).message]),
-      );
+      const reason = error instanceof Error ? error.message : String(error);
+      notify(/QUOTA/iu.test(reason) ? i18n.t("statusQuota") : i18n.t("statusSaveError", [reason]));
       return;
     }
     config = next;
@@ -62,22 +74,8 @@ export const startWelcome = (): void => {
     notify(adding ? i18n.t("recipeAddedNotice", [names(recipe)]) : i18n.t("recipeRemovedNotice", [names(recipe)]));
   };
 
-  const pattern = (label: string, value: string) => {
-    const row = document.createElement("div");
-    const term = document.createElement("dt");
-    term.textContent = label;
-    const detail = document.createElement("dd");
-    const code = document.createElement(value ? "code" : "span");
-    code.textContent = value || i18n.t("recipeEverything");
-    if (!value) code.className = "everything";
-    detail.append(code);
-    row.append(term, detail);
-    return row;
-  };
-
   const renderRecipe = (recipe: Recipe) => {
-    const template = $<HTMLTemplateElement>("#recipe-template");
-    const item = template.content.firstElementChild?.cloneNode(true) as HTMLLIElement;
+    const item = templateElement<HTMLLIElement>("recipe-template");
     item.dataset.recipe = recipe.id;
     $(".recipe-title", item).textContent = message(recipe.title);
     $(".recipe-description", item).textContent = message(recipe.description);
@@ -122,8 +120,8 @@ export const startWelcome = (): void => {
   }
 
   const render = () => {
-    const focusedId = (document.activeElement?.closest(".recipe") as HTMLElement | null)?.dataset.recipe;
-    $("#recipes").replaceChildren(...RECIPES.map(renderRecipe));
+    const focusedId = document.activeElement?.closest<HTMLElement>(".recipe")?.dataset.recipe;
+    $("#recipes").replaceChildren(...RECIPES.map((each) => renderRecipe(each)));
     if (focusedId) document.querySelector<HTMLElement>(`[data-recipe="${focusedId}"] .recipe-toggle`)?.focus();
   };
 
@@ -151,7 +149,10 @@ export const startWelcome = (): void => {
     const adding = !presetOn(preset);
     if (adding && browser.runtime.getManifest().optional_permissions?.includes("notifications")) {
       const allowed = await browser.permissions.request({ permissions: ["notifications"] }).catch(() => false);
-      if (!allowed) return notify(i18n.t("notifyDenied"));
+      if (!allowed) {
+        notify(i18n.t("notifyDenied"));
+        return;
+      }
     }
     const others = reviewTime.sessions.filter((session) => session.id !== id);
     const next = normalizeReviewTime({
@@ -162,7 +163,8 @@ export const startWelcome = (): void => {
     try {
       await saveReviewTime(next);
     } catch (error) {
-      return notify(i18n.t("statusSaveError", [(error as Error).message]));
+      notify(i18n.t("statusSaveError", [error instanceof Error ? error.message : String(error)]));
+      return;
     }
     reviewTime = next;
     renderPresets();
@@ -170,7 +172,7 @@ export const startWelcome = (): void => {
   };
 
   function renderPresets() {
-    const focused = (document.activeElement?.closest("[data-preset]") as HTMLElement | null)?.dataset.preset;
+    const focused = document.activeElement?.closest<HTMLElement>("[data-preset]")?.dataset.preset;
     $("#review-presets").replaceChildren(
       ...REVIEW_PRESETS.map((preset) => {
         const [title, description] = PRESET_NAMES[preset.id] ?? ["", ""];
@@ -264,7 +266,9 @@ export const startWelcome = (): void => {
     loadAppearance().then(appearanceCss),
   ]).then(([{ createDemo }, { SAMPLE_PULL_REQUEST }, theme]) => {
     const demo = createDemo($("#demo"), SAMPLE_PULL_REQUEST, {
-      onSettings: () => location.assign("/options.html"),
+      onSettings: () => {
+        location.assign("/options.html");
+      },
       theme,
     });
     const restyle = createStyler(demo.setTheme);

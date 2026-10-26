@@ -53,7 +53,7 @@ const open = async (colorScheme: "light" | "dark", width: number, height: number
   await page.goto(url, { waitUntil: "domcontentloaded" });
   const bar = page.locator("focus-diff-panel .panel");
   await bar.waitFor();
-  await bar.getByRole("button", { name: /^Frontend/ }).click();
+  await bar.getByRole("button", { name: /^Frontend/u }).click();
   // GitHub keeps loading files after the first paint: wait until the bar has read the same totals
   // for two seconds, so every shot counts the whole pull request, then let the cells finish flipping.
   let last = "";
@@ -63,7 +63,9 @@ const open = async (colorScheme: "light" | "dark", width: number, height: number
     stable = text === last ? stable + 1 : 0;
     last = text;
   }
-  await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+  await page.evaluate(() => {
+    scrollTo({ top: 0, behavior: "instant" });
+  });
   await page.waitForTimeout(500);
   return { context, page, bar };
 };
@@ -79,7 +81,12 @@ const close = (context: BrowserContext) => context.close();
 
 for (const scheme of ["light", "dark"] as const) {
   const { context, page } = await open(scheme, 1280, 800);
-  await page.evaluate((top) => scrollTo({ top, behavior: "instant" }), await titleTop(page));
+  await page.evaluate(
+    (top) => {
+      scrollTo({ top, behavior: "instant" });
+    },
+    await titleTop(page),
+  );
   await page.screenshot({ path: `${out}/store-1280x800-${scheme}.png` });
   await close(context);
 }
@@ -88,7 +95,12 @@ for (const scheme of ["light", "dark"] as const) {
 // The viewport is the shot's own size, scrolled to the title, so the bar, fixed to the bottom of the
 // viewport, sits inside the frame.
 const { context, page, bar } = await open("dark", 1871, 807, 2);
-await page.evaluate((top) => scrollTo({ top, behavior: "instant" }), await titleTop(page));
+await page.evaluate(
+  (top) => {
+    scrollTo({ top, behavior: "instant" });
+  },
+  await titleTop(page),
+);
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${out}/pull-request.png`, scale: "css" });
 const box = await bar.boundingBox();

@@ -38,10 +38,10 @@ export const sessionSummary = (session: ReviewSession): string => {
         : days === "0,6"
           ? i18n.t("reviewWeekends")
           : list(WEEK.filter((day) => session.days.includes(day)).map((day) => dayName(day, "short")));
-  if (!session.days.length) return i18n.t("reviewNoDays");
+  if (session.days.length === 0) return i18n.t("reviewNoDays");
   const at =
     session.repeat === "times"
-      ? session.times.length
+      ? session.times.length > 0
         ? i18n.t("reviewAtTimes", [list(session.times.map(time))])
         : i18n.t("reviewNoTimes")
       : i18n.t("reviewEveryHours", session.every, [session.every, time(session.from), time(session.to)]);

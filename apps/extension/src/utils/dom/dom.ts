@@ -9,6 +9,7 @@ export const h = <K extends keyof HTMLElementTagNameMap>(
   const element = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
     if (key.startsWith("on") && typeof value === "function")
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an on* prop is a listener for its event.
       element.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
     else if (key.includes("-") || key === "role") element.setAttribute(key, String(value));
     else Reflect.set(element, key, value);
@@ -35,18 +36,22 @@ export const icon = (shapes: string | Shape[], size = 16): SVGSVGElement => {
     "aria-hidden": "true",
     focusable: "false",
   };
-  Object.entries(attributes).forEach(([name, value]) => svg.setAttribute(name, value));
+  Object.entries(attributes).forEach(([name, value]) => {
+    svg.setAttribute(name, value);
+  });
   const list: Shape[] = typeof shapes === "string" ? [["path", { d: shapes }]] : shapes;
   for (const [tag, shapeAttributes] of list) {
     const shape = document.createElementNS(SVG, tag);
-    Object.entries(shapeAttributes).forEach(([name, value]) => shape.setAttribute(name, value));
+    Object.entries(shapeAttributes).forEach(([name, value]) => {
+      shape.setAttribute(name, value);
+    });
     svg.append(shape);
   }
   return svg;
 };
 
 /** A mouse wheel only scrolls up and down; over a row that scrolls sideways, it does that instead, until either end. */
-export const wheelScrollsSideways = (element: HTMLElement, signal?: AbortSignal): void =>
+export const wheelScrollsSideways = (element: HTMLElement, signal?: AbortSignal): void => {
   element.addEventListener(
     "wheel",
     (event) => {
@@ -60,3 +65,9 @@ export const wheelScrollsSideways = (element: HTMLElement, signal?: AbortSignal)
     },
     { passive: false, signal },
   );
+};
+
+/** A copy of a node, of the same kind. */
+export const cloneOf = <T extends Node>(node: T, deep = true): T =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- cloneNode returns a Node; a copy is of the node's own kind.
+  node.cloneNode(deep) as T;

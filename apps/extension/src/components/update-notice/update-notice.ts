@@ -14,7 +14,15 @@ export const createUpdateNotice = (
   const link = h(
     "a",
     // Every release's notes until a version is set, so the link always goes somewhere.
-    { className: "update-link", href: RELEASES, target: "_blank", rel: "noopener", onClick: () => onSeen() },
+    {
+      className: "update-link",
+      href: RELEASES,
+      target: "_blank",
+      rel: "noopener",
+      onClick: () => {
+        onSeen();
+      },
+    },
     h("span", { className: "update-dot", "aria-hidden": "true" }),
     text,
   );
@@ -29,7 +37,9 @@ export const createUpdateNotice = (
         className: "icon-button update-dismiss",
         "aria-label": i18n.t("panelUpdateDismiss"),
         "data-tip": i18n.t("panelUpdateDismiss"),
-        onClick: () => onSeen(),
+        onClick: () => {
+          onSeen();
+        },
       },
       closeIcon(),
     ),

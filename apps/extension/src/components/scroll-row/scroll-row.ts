@@ -21,8 +21,9 @@ export const scrollRow = (element: HTMLElement, signal?: AbortSignal) => {
       {
         className: `scroll-button ${direction > 0 ? "after" : "before"}`,
         "aria-hidden": "true",
-        onClick: () =>
-          element.scrollBy({ left: direction * (element.clientWidth - FADE * 2), behavior: scrollBehavior() }),
+        onClick: () => {
+          element.scrollBy({ left: direction * (element.clientWidth - FADE * 2), behavior: scrollBehavior() });
+        },
       },
       chevronIcon(direction > 0 ? "right" : "left"),
     );

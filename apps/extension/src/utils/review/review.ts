@@ -78,7 +78,6 @@ export const nextFilterWithWork = (list: ReviewFile[], filters: Option[], ids: s
     const left = list.filter((file) => !file.viewed && filter.matches?.(file.path)).length;
     if (left) return { id: filter.id, name: filter.name, left };
   }
-  return undefined;
 };
 
 export interface Review<T extends ReviewFile = ReviewFile> {

@@ -98,7 +98,7 @@ const runRow = (pull: RunPull, reviewed: boolean, avatar: Options["avatar"]) => 
 };
 
 const heldSection = (held: HeldEvent[]) => {
-  if (!held.length) return null;
+  if (held.length === 0) return null;
   return h(
     "section",
     { className: "held", "aria-labelledby": "held-title" },
@@ -165,7 +165,7 @@ const runHead = (run: ReviewRun, reviewed: number) => {
     h(
       "p",
       { className: "run-summary" },
-      run.pulls.length
+      run.pulls.length > 0
         ? started
           ? i18n.t("popupReviewedOf", run.pulls.length, [reviewed, run.pulls.length, total])
           : i18n.t("popupPicked", run.pulls.length, [run.pulls.length, total])
@@ -186,7 +186,7 @@ const runHead = (run: ReviewRun, reviewed: number) => {
     const end = h("button", { type: "button", className: "button quiet", textContent: i18n.t("popupEnd") });
     end.addEventListener("click", () => void send({ type: "review-end" }));
     actions.append(end);
-  } else if (!run.pulls.length) {
+  } else if (run.pulls.length === 0) {
     // Offered only for what was kept for it: nothing to start, only to put away.
     const dismiss = h("button", { type: "button", className: "button quiet", textContent: i18n.t("popupDismiss") });
     dismiss.addEventListener("click", () => void send({ type: "review-skip" }));
@@ -204,17 +204,20 @@ const runHead = (run: ReviewRun, reviewed: number) => {
   return head;
 };
 
+const when = (time: number) =>
+  new Intl.DateTimeFormat(language, { weekday: "short", hour: "numeric", minute: "2-digit" }).format(time);
+
 /** The next review time, and a way to skip it or the rest of today; skipping, until when, and a way back. */
 const nextLine = (settings: ReviewTimeSettings, skipUntil: number, skip: Options["skip"]) => {
   const now = Date.now();
   const skipping = skipUntil > now;
   const next = nextOccurrence(settings, Math.max(now, skipUntil - 1));
-  const when = (time: number) =>
-    new Intl.DateTimeFormat(language, { weekday: "short", hour: "numeric", minute: "2-digit" }).format(time);
   const line = h("div", { className: "run-next" });
   if (skipping) {
     const resume = h("button", { type: "button", className: "text-button", textContent: i18n.t("popupResume") });
-    resume.addEventListener("click", () => skip(0));
+    resume.addEventListener("click", () => {
+      skip(0);
+    });
     line.append(
       h("span", { textContent: next ? i18n.t("popupSkippingTo", [when(next.at)]) : i18n.t("popupSkipping") }),
       resume,
@@ -223,11 +226,15 @@ const nextLine = (settings: ReviewTimeSettings, skipUntil: number, skip: Options
   }
   if (!next) return null;
   const skipNext = h("button", { type: "button", className: "text-button", textContent: i18n.t("popupSkipNext") });
-  skipNext.addEventListener("click", () => skip(next.at + 1));
+  skipNext.addEventListener("click", () => {
+    skip(next.at + 1);
+  });
   const today = new Date(now);
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime();
   const rest = h("button", { type: "button", className: "text-button", textContent: i18n.t("popupSkipToday") });
-  rest.addEventListener("click", () => skip(tomorrow));
+  rest.addEventListener("click", () => {
+    skip(tomorrow);
+  });
   line.append(
     h("span", {
       textContent: i18n.t("popupNext", [
@@ -282,7 +289,7 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
     }),
   );
   form.append(h("p", { className: "field-label", textContent: i18n.t("popupHowLong") }), presets);
-  if (settings.sessions.length) {
+  if (settings.sessions.length > 0) {
     const like = h(
       "select",
       { id: "review-like" },
@@ -314,7 +321,7 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
   });
   start.disabled = starting;
   start.setAttribute("aria-busy", String(starting));
-  start.addEventListener("click", async () => {
+  const startNow = async () => {
     starting = true;
     nothingNow = false;
     render();
@@ -323,13 +330,16 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
     render();
     // Started, the card is the review time now; the focus goes to its name. Not, it stays on Start, which says why.
     document.querySelector<HTMLElement>(nothingNow ? "#review-card .button" : "#review-card h2")?.focus();
-  });
+  };
+  start.addEventListener("click", () => void startNow());
   const setup = h("button", {
     type: "button",
     className: "text-button quiet",
     textContent: i18n.t(settings.enabled ? "popupReviewSettings" : "popupReviewSetup"),
   });
-  setup.addEventListener("click", () => options.openOptions("review-time"));
+  setup.addEventListener("click", () => {
+    options.openOptions("review-time");
+  });
   form.append(h("div", { className: "run-actions" }, start, setup));
   if (nothingNow) form.append(h("p", { className: "run-next", textContent: i18n.t("popupNothingPicked") }));
   if (settings.enabled) form.append(nextLine(settings, state.skipUntil, options.skip) ?? "");
@@ -369,9 +379,15 @@ export const renderReviewPanel = (
     starting,
     nothingNow,
   ]);
-  if (key === drawn && card.childElementCount) return void (run && tick(card, run));
+  if (key === drawn && card.childElementCount) {
+    if (run) tick(card, run);
+    return;
+  }
   drawn = key;
-  if (!run) return card.replaceChildren(startForm(state, options, render), heldSection(held) ?? "");
+  if (!run) {
+    card.replaceChildren(startForm(state, options, render), heldSection(held) ?? "");
+    return;
+  }
   const reviewed = run.pulls.filter((pull) => !waiting.has(pull.url)).length;
   const list = h(
     "ul",

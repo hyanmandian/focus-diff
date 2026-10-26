@@ -20,7 +20,9 @@ export const createNextFile = (onNext: () => void) => {
       type: "button",
       className: "icon-button next-file",
       "aria-keyshortcuts": "Alt+Shift+J",
-      onClick: () => element.getAttribute("aria-disabled") !== "true" && onNext(),
+      onClick: () => {
+        if (element.getAttribute("aria-disabled") !== "true") onNext();
+      },
     },
     nextFileIcon(),
   );

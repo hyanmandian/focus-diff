@@ -1,3 +1,5 @@
+import { asRecord } from "@/utils/record/record";
+
 /**
  * Focus Diff's own sounds, made on the spot with the Web Audio API: no audio files, no libraries. Each is a few
  * oscillators shaped by envelopes, short and soft, so a notification is heard without startling anyone.
@@ -19,7 +21,7 @@ export interface SoundSetting {
 export const isOwnSound = (choice: SoundChoice): choice is SoundId => (SOUNDS as readonly string[]).includes(choice);
 
 export const normalizeSound = (value: unknown, fallback: SoundSetting): SoundSetting => {
-  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const raw = asRecord(value);
   const id = SOUND_CHOICES.find((choice) => choice === raw.id) ?? fallback.id;
   const volume = Number(raw.volume);
   return { id, volume: Number.isFinite(volume) ? Math.min(100, Math.max(0, Math.round(volume))) : fallback.volume };
@@ -136,9 +138,9 @@ const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: nu
     ];
     const wet = room(context, out);
     let end = at;
-    [783.99, 987.77, 1174.66].forEach(
-      (frequency, index) => (end = strike(context, wet, frequency, at + index * 0.085, bar, 0.003)),
-    );
+    [783.99, 987.77, 1174.66].forEach((frequency, index) => {
+      end = strike(context, wet, frequency, at + index * 0.085, bar, 0.003);
+    });
     return end + 0.4;
   },
   /** Two quick bubbles, the second higher. */

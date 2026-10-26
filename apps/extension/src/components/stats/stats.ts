@@ -22,6 +22,8 @@ export interface Totals {
 export const isDone = (totals: Totals): boolean =>
   totals.visible > 0 && totals.minutesLeft === 0 && totals.pending === 0;
 
+const readOut = () => h("span", { className: "visually-hidden" });
+
 /** The files left to review, the lines they change, and the time they take, each after its icon. */
 export const createStats = () => {
   // The numbers are on scoreboards, for the eye; the text beside each is what screen readers hear.
@@ -29,7 +31,6 @@ export const createStats = () => {
   const additions = createScoreboard("additions");
   const deletions = createScoreboard("deletions");
   const time = createScoreboard("time");
-  const readOut = () => h("span", { className: "visually-hidden" });
   const filesText = readOut();
   const additionsText = readOut();
   const deletionsText = readOut();

@@ -24,6 +24,7 @@ import {
   type InboxMemory,
   type NotifySettings,
 } from "@/utils/inbox/inbox";
+import { recordOf } from "@/utils/record/record";
 
 import { checkInbox, type InboxSource } from "./inbox-check";
 
@@ -47,20 +48,27 @@ const on = (events: Partial<Record<EventKind, Exception[]>>, repos: string[] = [
   ...DEFAULT_NOTIFY,
   enabled: true,
   repos,
-  events: Object.fromEntries(
-    EVENT_KINDS.map((kind) => [kind, { on: kind in events, except: events[kind] ?? [], repos: [] as string[] }]),
-  ) as NotifySettings["events"],
+  events: recordOf(EVENT_KINDS, (kind) => ({ on: kind in events, except: events[kind] ?? [], repos: [], when: "now" })),
 });
 
+interface SourceData {
+  reviews?: PullRequest[];
+  direct?: PullRequest[];
+  activity?: Activity[];
+  detail?: Detail;
+}
+
 const source = ({
-  reviews = [] as PullRequest[],
-  direct = [] as PullRequest[],
-  activity: threads = [] as Activity[],
-  detail = { actor: "grace", bot: false, review: null, myReview: null, excerpt: "" } as Detail,
-} = {}): InboxSource => ({
-  pulls: vi.fn(async (list) => (list === "reviews" ? reviews : list === "direct" ? direct : [])),
-  notifications: vi.fn(async () => ({ me: "me-too", activity: threads })),
-  detail: vi.fn(async () => detail),
+  reviews = [],
+  direct = [],
+  activity: threads = [],
+  detail = { actor: "grace", bot: false, review: null, myReview: null, excerpt: "" },
+}: SourceData = {}): InboxSource => ({
+  pulls: vi.fn<InboxSource["pulls"]>((list) =>
+    Promise.resolve(list === "reviews" ? reviews : list === "direct" ? direct : []),
+  ),
+  notifications: vi.fn<InboxSource["notifications"]>(() => Promise.resolve({ me: "me-too", activity: threads })),
+  detail: vi.fn<InboxSource["detail"]>(() => Promise.resolve(detail)),
 });
 
 const memory = (extra: Partial<InboxMemory> = {}): InboxMemory => ({ threads: {}, reviews: [], ...extra });
@@ -336,10 +344,11 @@ describe("checkInbox", () => {
     expect(result.snapshot.reviews.map(({ team }) => team)).toEqual([false, true]);
 
     // Unread, none is known to be a team's.
-    queue.pulls = vi.fn(async (list) => {
-      if (list === "direct") throw new InboxError("unreadable");
-      return list === "reviews" ? [pull(1)] : [];
-    });
+    queue.pulls = vi.fn<InboxSource["pulls"]>((list) =>
+      list === "direct"
+        ? Promise.reject(new InboxError("unreadable"))
+        : Promise.resolve(list === "reviews" ? [pull(1)] : []),
+    );
     const failed = await checkInbox(queue, { ...DEFAULT_NOTIFY }, null, { skipTeams: true });
     expect(failed.snapshot).toMatchObject({ reviews: [pull(1)], problem: null });
   });
@@ -360,10 +369,12 @@ describe("checkInbox", () => {
     const github = source({ activity: threads });
     let open = 0;
     let most = 0;
-    github.detail = vi.fn(async () => {
+    github.detail = vi.fn<InboxSource["detail"]>(async () => {
       open += 1;
       most = Math.max(most, open);
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5);
+      });
       open -= 1;
       return { actor: "grace", bot: false, review: null, myReview: null, excerpt: "" };
     });
@@ -375,9 +386,7 @@ describe("checkInbox", () => {
 
   it("says what went wrong", async () => {
     const github = source();
-    github.pulls = vi.fn(async () => {
-      throw new InboxError("signed-out");
-    });
+    github.pulls = vi.fn<InboxSource["pulls"]>(() => Promise.reject(new InboxError("signed-out")));
     expect((await checkInbox(github, on({}), null)).snapshot.problem).toBe("signed-out");
   });
 });

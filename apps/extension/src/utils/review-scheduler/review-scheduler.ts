@@ -96,7 +96,7 @@ const changeHeld = <T>(change: (held: HeldEvent[]) => { held: HeldEvent[]; resul
 
 /** Shows held notifications; the ones that can't show yet, in quiet hours, wait for the next review time instead. */
 const release = async (events: HeldEvent[]) => {
-  if (!events.length) return;
+  if (events.length === 0) return;
   if (await hooks.release(events)) return;
   await hold(events.map((event) => ({ ...event, until: "review" as const })));
 };
@@ -106,10 +106,10 @@ export const scheduleReviewTime = async (settings?: ReviewTimeSettings): Promise
   const [current, skipUntil] = await Promise.all([settings ?? loadReviewTime(), reviewSkipItem.getValue()]);
   const next = nextOccurrence(current, Math.max(Date.now(), skipUntil - 1));
   const name = next ? `${NEXT_ALARM}${next.session.id}` : "";
-  for (const alarm of await browser.alarms.getAll()) {
-    if (alarm.name.startsWith(NEXT_ALARM) && (alarm.name !== name || alarm.scheduledTime !== next?.at))
-      await browser.alarms.clear(alarm.name);
-  }
+  const stale = (await browser.alarms.getAll()).filter(
+    (alarm) => alarm.name.startsWith(NEXT_ALARM) && (alarm.name !== name || alarm.scheduledTime !== next?.at),
+  );
+  await Promise.all(stale.map((alarm) => browser.alarms.clear(alarm.name)));
   if (next) {
     if ((await browser.alarms.get(name))?.scheduledTime !== next.at)
       await browser.alarms.create(name, { when: next.at });
@@ -285,7 +285,7 @@ const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
     return;
   }
   const held = (await heldItem.getValue()).filter((event) => event.until === "review").length;
-  if (!result.picked.length && settings.skipEmpty && !held) return;
+  if (result.picked.length === 0 && settings.skipEmpty && !held) return;
   // Planning takes a few seconds; one started from the popup meanwhile wins.
   if (await liveRun()) return;
   const run = runFrom(session, result, null);
@@ -299,21 +299,23 @@ const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
     {
       type: "basic",
       iconUrl: iconUrl(),
-      title: run.pulls.length
-        ? i18n.t("reviewTimeOffer", run.pulls.length, [run.pulls.length, total])
-        : i18n.t("reviewTimeNothing"),
+      title:
+        run.pulls.length > 0
+          ? i18n.t("reviewTimeOffer", run.pulls.length, [run.pulls.length, total])
+          : i18n.t("reviewTimeNothing"),
       message: offerMessage(run, held),
       contextMessage: run.name,
       ...(import.meta.env.FIREFOX
         ? {}
         : {
             requireInteraction: true,
-            buttons: run.pulls.length
-              ? [
-                  { title: i18n.t("reviewTimeStart") },
-                  { title: i18n.t("reviewTimeLater", settings.snooze, [settings.snooze]) },
-                ]
-              : [],
+            buttons:
+              run.pulls.length > 0
+                ? [
+                    { title: i18n.t("reviewTimeStart") },
+                    { title: i18n.t("reviewTimeLater", settings.snooze, [settings.snooze]) },
+                  ]
+                : [],
           }),
     },
     settings,
@@ -329,14 +331,14 @@ export const openPull = async (url: string, repo: string, active: boolean): Prom
     selectionsItem.getValue(),
   ]);
   const ids = run && settings.applyFilters ? sessionFilterIds(config, repo, run.filters) : [];
-  if (ids.length) await selectionsItem.setValue({ ...selections, [repo]: ids });
+  if (ids.length > 0) await selectionsItem.setValue({ ...selections, [repo]: ids });
   await browser.tabs.create({ url: `${url}/changes`, active });
 };
 
 /** Starts the review time offered: its clock, and what the reader asked to open. */
 export const startRun = async ({ fromPopup = false } = {}): Promise<void> => {
   const run = await liveRun();
-  if (!run || run.startedAt || !run.pulls.length) return;
+  if (!run || run.startedAt || run.pulls.length === 0) return;
   const settings = await loadReviewTime();
   const started = { ...run, startedAt: Date.now() };
   await reviewRunItem.setValue(started);
@@ -350,6 +352,7 @@ const afterStart = async (run: ReviewRun, settings: ReviewTimeSettings, fromPopu
   await hooks.updateBadge();
   const opened = settings.opens === "all" ? run.pulls : settings.opens === "first" ? run.pulls.slice(0, 1) : [];
   // From the popup, tabs open behind it; from a notification, the first comes to the front.
+  // oxlint-disable-next-line eslint/no-await-in-loop -- the tabs open in the queue's order.
   for (const [index, pull] of opened.entries()) await openPull(pull.url, pull.repo, !fromPopup && index === 0);
 };
 
@@ -359,7 +362,7 @@ export const startNow = async (minutes: number, sessionId: string): Promise<bool
   const like = settings.sessions.find((session) => session.id === sessionId);
   const session: ReviewSession = { ...(like ?? newSession()), id: like?.id ?? "", name: like?.name ?? "", minutes };
   const { result } = await planFor(session, settings);
-  if (!result.picked.length) return false;
+  if (result.picked.length === 0) return false;
   const run = runFrom(session, result, Date.now());
   await reviewRunItem.setValue(run);
   await afterStart(run, settings, true);
@@ -398,7 +401,7 @@ export const endRun = async (ending: Ending): Promise<void> => {
     result: held.filter((event) => event.until === "end"),
   }));
   await release(ended);
-  if (ending !== "time" || !run || !settings.remindEnd || !run.pulls.length) return;
+  if (ending !== "time" || !run || !settings.remindEnd || run.pulls.length === 0) return;
   await hooks.refreshLists();
   const [snapshot, done] = await Promise.all([inboxItem.getValue(), doneItem.getValue()]);
   const total = run.pulls.length;
@@ -425,28 +428,31 @@ export const holding = async (): Promise<(when: When) => HeldEvent["until"] | nu
     run?.startedAt && settings.holdWhileReviewing ? "end" : when === "review" && scheduled ? "review" : null;
 };
 
+/** One held event per kind of event on a pull request. */
+const heldKey = (event: HeldEvent) => `${event.kind} ${event.url}`;
+
 /** Keeps notifications for later, the latest fifty; one kept for the end of a review time that's over shows now. */
 export const hold = async (events: HeldEvent[]): Promise<void> => {
-  if (!events.length) return;
+  if (events.length === 0) return;
   const reviewing = Boolean((await liveRun())?.startedAt);
   const late = reviewing ? [] : events.filter((event) => event.until === "end");
   const kept = events.filter((event) => !late.includes(event));
   await changeHeld((held) => {
-    const key = (event: HeldEvent) => `${event.kind} ${event.url}`;
-    const merged = new Map([...held, ...kept].map((event) => [key(event), event]));
+    const merged = new Map([...held, ...kept].map((event) => [heldKey(event), event]));
     return { held: [...merged.values()].slice(-50), result: null };
   });
   await release(late);
 };
 
+const offerSession = async (id: string, since: number) => {
+  const settings = await loadReviewTime();
+  const session = settings.sessions.find((each) => each.id === id);
+  // A computer asleep through the whole of it has nothing to offer when it wakes up.
+  if (settings.enabled && session?.on && !(await liveRun()) && Date.now() - since < session.minutes * 60_000)
+    await offer(session, settings);
+};
+
 export const onReviewAlarm = async (alarm: { name: string; scheduledTime: number }): Promise<boolean> => {
-  const offerSession = async (id: string, since: number) => {
-    const settings = await loadReviewTime();
-    const session = settings.sessions.find((each) => each.id === id);
-    // A computer asleep through the whole of it has nothing to offer when it wakes up.
-    if (settings.enabled && session?.on && !(await liveRun()) && Date.now() - since < session.minutes * 60_000)
-      await offer(session, settings);
-  };
   if (alarm.name.startsWith(NEXT_ALARM)) {
     await scheduleReviewTime();
     await offerSession(alarm.name.slice(NEXT_ALARM.length), alarm.scheduledTime);

@@ -61,7 +61,9 @@ export const createConversations = (
         className: "icon-button step",
         "aria-label": label,
         "data-tip": label,
-        onClick: () => onStep(direction),
+        onClick: () => {
+          onStep(direction);
+        },
       },
       chevronIcon(direction > 0 ? "right" : "left"),
     );
@@ -92,7 +94,9 @@ export const createConversations = (
           className: "icon-button go-to",
           "aria-label": i18n.t("panelGoToComment"),
           "data-tip": i18n.t("panelGoToComment"),
-          onClick: () => onStep(1),
+          onClick: () => {
+            onStep(1);
+          },
         },
         targetIcon(),
       ),
@@ -132,7 +136,9 @@ export const createConversations = (
     position.textContent = `${format(Math.max(current, 1))}/${format(list.length)}`;
   };
 
-  const reposition = () => centreOver(popover, toggle, host);
+  const reposition = () => {
+    centreOver(popover, toggle, host);
+  };
 
   /** Only its toggle or Escape closes it. */
   const setOpen = (open: boolean) => {
@@ -150,7 +156,7 @@ export const createConversations = (
   };
   const isOpen = () => !popover.hidden;
   toggle.addEventListener("click", () => {
-    if (source.list.length) setOpen(!isOpen());
+    if (source.list.length > 0) setOpen(!isOpen());
   });
 
   /** `most` is how many conversations the pull request has in all, which sizes the count so it never shifts. */

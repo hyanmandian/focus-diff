@@ -69,24 +69,34 @@ export const createPanel = (
   { root, container, host, signal, floating = true }: PanelMount,
   { onToggle, onSettings, onComment, onNextFile, onUpdateSeen }: PanelActions,
 ): Panel => {
-  const context: PanelContext = { host, signal, focused: () => root.activeElement as HTMLElement | null };
+  const context: PanelContext = {
+    host,
+    signal,
+    focused: () => (root.activeElement instanceof HTMLElement ? root.activeElement : null),
+  };
 
   const settings = h("button", {
     type: "button",
     className: "settings icon-button",
-    onClick: () => onSettings(),
+    onClick: () => {
+      onSettings();
+    },
   });
   const nextFile = createNextFile(onNextFile);
   const filters = createFilters(context, onToggle);
   const stats = createStats();
   const breakdown = createBreakdown(context, {
     onToggle,
-    onOpen: () => conversations.setOpen(false),
+    onOpen: () => {
+      conversations.setOpen(false);
+    },
     fallback: settings,
   });
   const conversations = createConversations(context, {
     onStep: onComment,
-    onOpen: () => breakdown.setOpen(false),
+    onOpen: () => {
+      breakdown.setOpen(false);
+    },
     fallback: settings,
   });
   const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
@@ -127,7 +137,9 @@ export const createPanel = (
     if (next) document.documentElement.style.setProperty("scroll-padding-bottom", next);
     else document.documentElement.style.removeProperty("scroll-padding-bottom");
   };
-  signal.addEventListener("abort", () => document.documentElement.style.removeProperty("scroll-padding-bottom"));
+  signal.addEventListener("abort", () => {
+    document.documentElement.style.removeProperty("scroll-padding-bottom");
+  });
 
   const resizeObserver = new ResizeObserver(() => {
     reserveScrollRoom();
@@ -137,7 +149,9 @@ export const createPanel = (
   });
   for (const element of [filters.element, breakdown.popover, conversations.popover]) resizeObserver.observe(element);
   if (panelElement) resizeObserver.observe(panelElement);
-  signal.addEventListener("abort", () => resizeObserver.disconnect());
+  signal.addEventListener("abort", () => {
+    resizeObserver.disconnect();
+  });
 
   document.addEventListener(
     "keydown",
@@ -181,7 +195,7 @@ export const createPanel = (
     const parts = [
       i18n.t("panelAnnounce", [name, format(visible), format(total), format(additions), format(deletions)]),
       // The estimate's ~ would be read out as "tilde"; the sentence already says "about".
-      i18n.t("panelAnnounceTime", [formatDuration(minutes).replace(/^~/, "")]),
+      i18n.t("panelAnnounceTime", [formatDuration(minutes).replace(/^~/u, "")]),
     ];
     if (pending > 0) parts.push(i18n.t("panelAnnouncePartial", pending, [format(pending)]));
     status.textContent = parts.join(" ");
@@ -195,7 +209,13 @@ export const createPanel = (
   if (floating) {
     const narrow = matchMedia("(max-width: 480px), (max-height: 420px)");
     setCompact(narrow.matches);
-    narrow.addEventListener("change", () => setCompact(narrow.matches), { signal });
+    narrow.addEventListener(
+      "change",
+      () => {
+        setCompact(narrow.matches);
+      },
+      { signal },
+    );
   } else host.setAttribute("data-inline", "");
 
   const setVisible = (visible: boolean) => {
@@ -225,7 +245,9 @@ export const createPanel = (
     },
     renderBreakdown: breakdown.render,
     announce,
-    announceText: (text) => (status.textContent = text),
+    announceText: (text) => {
+      status.textContent = text;
+    },
     setVisible,
     setCompact,
     showUpdate: update.show,

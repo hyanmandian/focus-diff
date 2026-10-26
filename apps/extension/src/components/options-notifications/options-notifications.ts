@@ -8,10 +8,10 @@ import {
   normalizeNotify,
   type EventKind,
   type Exception,
-  type Interval,
   type NotifySettings,
   type When,
 } from "@/utils/inbox/inbox";
+import { keysOf, oneOf } from "@/utils/record/record";
 import { inboxItem } from "@/utils/storage/storage";
 
 /** The events, grouped by whose pull request they happen on, the way the popup's tabs are. */
@@ -79,7 +79,9 @@ export const createNotifications = ({
   );
   // Firefox can't keep a notification on screen.
   if (import.meta.env.FIREFOX)
-    document.querySelectorAll<HTMLElement>(".chrome-only").forEach((row) => (row.hidden = true));
+    document.querySelectorAll<HTMLElement>(".chrome-only").forEach((row) => {
+      row.hidden = true;
+    });
 
   // The repositories the reader has pull requests in, to pick from.
   void inboxItem.getValue().then((snapshot) => {
@@ -122,9 +124,10 @@ export const createNotifications = ({
     const button = h("button", { type: "button", className: "event-repos-toggle" });
     const panel = h("div", { className: "event-repos", id });
     const label = () =>
-      (button.textContent = setting.repos.length
-        ? i18n.t("notifyEventReposCount", setting.repos.length, [setting.repos.length])
-        : i18n.t("notifyEventReposSame"));
+      (button.textContent =
+        setting.repos.length > 0
+          ? i18n.t("notifyEventReposCount", setting.repos.length, [setting.repos.length])
+          : i18n.t("notifyEventReposSame"));
     label();
     panel.hidden = setting.repos.length === 0;
     button.setAttribute("aria-controls", id);
@@ -182,7 +185,7 @@ export const createNotifications = ({
       "div",
       { className: "event-details" },
       whenChoice(kind),
-      EXCEPTIONS[kind].length ? skipChips(kind) : null,
+      EXCEPTIONS[kind].length > 0 ? skipChips(kind) : null,
       ...eventRepos(kind),
     );
     details.hidden = !setting.on;
@@ -211,15 +214,14 @@ export const createNotifications = ({
     body.hidden = !settings.enabled;
     $("#notify-on-hint").textContent = i18n.t("notifyOnHint", [settings.interval]);
     $("#repos-only").replaceChildren(
-      picker("notify-repos", i18n.t("notifyReposOnly"), settings.repos, (repos) => (settings.repos = repos)),
+      picker("notify-repos", i18n.t("notifyReposOnly"), settings.repos, (repos) => {
+        settings.repos = repos;
+      }),
     );
     $("#repos-never").replaceChildren(
-      picker(
-        "notify-repos-never",
-        i18n.t("notifyReposNever"),
-        settings.excludeRepos,
-        (repos) => (settings.excludeRepos = repos),
-      ),
+      picker("notify-repos-never", i18n.t("notifyReposNever"), settings.excludeRepos, (repos) => {
+        settings.excludeRepos = repos;
+      }),
     );
     for (const group of GROUPS) $(group.list).replaceChildren(...group.events.map(eventRow));
     interval.value = String(settings.interval);
@@ -228,8 +230,7 @@ export const createNotifications = ({
     quietTo.value = settings.quiet.to;
     quietWeekends.checked = settings.quiet.weekends;
     syncQuiet();
-    for (const [key, input] of Object.entries(delivery))
-      input.checked = settings.delivery[key as keyof typeof delivery];
+    for (const key of keysOf(delivery)) delivery[key].checked = settings.delivery[key];
     $("#notify-sound").replaceChildren(
       soundPicker({ id: "notify-sound-choice", label: i18n.t("soundLabel"), value: settings.delivery.sound, onChange }),
     );
@@ -250,7 +251,7 @@ export const createNotifications = ({
   });
 
   interval.addEventListener("change", () => {
-    settings.interval = Number(interval.value) as Interval;
+    settings.interval = oneOf(INTERVALS, Number(interval.value), settings.interval);
     $("#notify-on-hint").textContent = i18n.t("notifyOnHint", [settings.interval]);
     onChange();
   });
@@ -259,25 +260,28 @@ export const createNotifications = ({
     syncQuiet();
     onChange();
   });
-  for (const [input, key] of [
-    [quietFrom, "from"],
-    [quietTo, "to"],
-  ] as const) {
+  (
+    [
+      [quietFrom, "from"],
+      [quietTo, "to"],
+    ] as const
+  ).forEach(([input, key]) => {
     input.addEventListener("change", () => {
       if (input.value) settings.quiet[key] = input.value;
       onChange();
     });
-  }
+  });
   quietWeekends.addEventListener("change", () => {
     settings.quiet.weekends = quietWeekends.checked;
     onChange();
   });
-  for (const [key, input] of Object.entries(delivery)) {
+  keysOf(delivery).forEach((key) => {
+    const input = delivery[key];
     input.addEventListener("change", () => {
-      settings.delivery[key as keyof typeof delivery] = input.checked;
+      settings.delivery[key] = input.checked;
       onChange();
     });
-  }
+  });
 
   return {
     render: (next: NotifySettings) => {
@@ -288,7 +292,9 @@ export const createNotifications = ({
     /** With review times on, each event can wait for the next one. */
     setReviewTime: (on: boolean) => {
       reviewTime = on;
-      document.querySelectorAll<HTMLElement>(".event-when").forEach((group) => (group.hidden = !on));
+      document.querySelectorAll<HTMLElement>(".event-when").forEach((group) => {
+        group.hidden = !on;
+      });
       $("#notify-when-hint").hidden = !on;
     },
     /** Whether every repository typed reads as one; if not, says so at the field, unfolding an event's if need be. */

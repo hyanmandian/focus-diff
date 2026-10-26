@@ -13,7 +13,9 @@ const embed = (data: unknown) => {
 };
 
 describe("pullRequestData", () => {
-  beforeEach(() => history.replaceState(null, "", `/octo/web/pull/${Math.random().toString(36).slice(2)}/changes`));
+  beforeEach(() => {
+    history.replaceState(null, "", `/octo/web/pull/${Math.random().toString(36).slice(2)}/changes`);
+  });
 
   it("reads files, counts, viewed state and threads and the reader's part in them wherever GitHub nests them", () => {
     embed({

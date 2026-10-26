@@ -39,7 +39,10 @@ export const pool = (size: number) => {
   let active = 0;
   const waiting: (() => void)[] = [];
   return async <T>(task: () => Promise<T>): Promise<T> => {
-    if (active >= size) await new Promise<void>((resolve) => waiting.push(resolve));
+    if (active >= size)
+      await new Promise<void>((resolve) => {
+        waiting.push(resolve);
+      });
     active += 1;
     try {
       return await task();
@@ -97,7 +100,7 @@ export const checkInbox = async (
     const requests = watching && inbox ? reviewListEvents(memory?.reviews ?? null, listed) : [];
     // Without the list of the ones asked of the reader by name, none is known to be a team's.
     const reviews =
-      skipTeams || requests.length
+      skipTeams || requests.length > 0
         ? await source.pulls("direct").then(
             (direct) => markTeams(listed, direct),
             () => listed,

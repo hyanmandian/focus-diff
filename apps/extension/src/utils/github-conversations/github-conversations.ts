@@ -20,7 +20,7 @@ const lineOf = (thread: ThreadSummary) => Number(thread.line.slice(1)) || 0;
 /** The open, expanded conversation for a thread, once GitHub has rendered its comments. */
 const openThread = (id: string) => {
   const thread = threadById(id);
-  return thread && threadComments(thread).length ? thread : null;
+  return thread && threadComments(thread).length > 0 ? thread : null;
 };
 
 /**
@@ -35,7 +35,7 @@ const knownThreads = (files: FileInfo[]) =>
     const kept = diff
       ? file.threads.filter((thread) => openIds.has(thread.id) || !threadRemoved(diff, thread.line))
       : file.threads;
-    if (!open.length) return kept.map((thread) => ({ file, thread }));
+    if (open.length === 0) return kept.map((thread) => ({ file, thread }));
     const answered = new Set(open.filter((thread) => thread.state === "answered").map((thread) => thread.id));
     const known = new Set(file.threads.map((thread) => thread.id));
     return [
@@ -85,7 +85,7 @@ const rendered = (file: FileInfo, thread: Thread): ConversationTarget => ({
     if (toggle) {
       toggle.click();
       // GitHub loads a resolved thread's comments on demand; it's ready once they're in.
-      await waitFor(() => (threadComments(thread.element).length ? thread.element : null), EXPAND_TIMEOUT_MS);
+      await waitFor(() => (threadComments(thread.element).length > 0 ? thread.element : null), EXPAND_TIMEOUT_MS);
     }
     return thread.element;
   },

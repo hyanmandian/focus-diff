@@ -53,10 +53,17 @@ export const createActiveTime = (ctx: ContentScriptContext, filesOnScreen: () =>
   };
 
   for (const type of EVENTS)
-    ctx.addEventListener(type === "selectionchange" ? document : window, type, () => sample(), {
-      passive: true,
-      capture: true,
-    });
+    ctx.addEventListener(
+      type === "selectionchange" ? document : window,
+      type,
+      () => {
+        sample();
+      },
+      {
+        passive: true,
+        capture: true,
+      },
+    );
   ctx.addEventListener(document, "visibilitychange", () => {
     const now = Date.now();
     if (document.hidden) {

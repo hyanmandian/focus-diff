@@ -8,7 +8,10 @@ const messages: Record<string, string> = Object.fromEntries(
 );
 
 const getMessage = (key: string, substitutions?: string | string[]) =>
-  (messages[key] ?? "").replace(/\$(\d)/g, (_, index: string) => [substitutions ?? []].flat()[Number(index) - 1] ?? "");
+  (messages[key] ?? "").replaceAll(
+    /\$(\d)/gu,
+    (_, index: string) => [substitutions ?? []].flat()[Number(index) - 1] ?? "",
+  );
 
 beforeEach(() => {
   fakeBrowser.reset();

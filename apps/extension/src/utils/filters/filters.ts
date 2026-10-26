@@ -1,7 +1,9 @@
+import { isRecord } from "@/utils/record/record";
+
 export const ALL = "all";
 
 /** A repository's path, `owner/name`, or deeper where a site nests groups, like `group/subgroup/name`. */
-export const REPO_PATTERN = /^[^/\s]+(?:\/[^/\s]+)+$/;
+export const REPO_PATTERN = /^[^/\s]+(?:\/[^/\s]+)+$/u;
 
 export interface Filter {
   id: string;
@@ -29,9 +31,13 @@ export const newId = (): string => Math.random().toString(36).slice(2, 10);
 export const compile = (source: string): Compiled => {
   if (!source) return { ok: true, regex: null };
   try {
+    // oxlint-disable-next-line eslint/require-unicode-regexp -- the reader's own patterns: the u flag would reject some that work today.
     return { ok: true, regex: new RegExp(source, "i") };
   } catch (error) {
-    return { ok: false, error: (error as Error).message.replace(/^Invalid regular expression: /, "") };
+    return {
+      ok: false,
+      error: (error instanceof Error ? error.message : String(error)).replace(/^Invalid regular expression: /u, ""),
+    };
   }
 };
 
@@ -53,11 +59,9 @@ export const filtersFor = (config: Config, repo: string): Filter[] => [
   ...config.repos.filter((entry) => entry.repo && repoMatches(entry.repo, repo)).flatMap((entry) => entry.filters),
 ];
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-
 const text = (value: unknown): string => (typeof value === "string" ? value : "");
 
-export const normalize = (input: unknown): Config => {
+export const normalize = (input?: unknown): Config => {
   const seen = new Set([ALL]);
   const uniqueId = (id: unknown) => {
     let next = typeof id === "string" && id ? id : newId();

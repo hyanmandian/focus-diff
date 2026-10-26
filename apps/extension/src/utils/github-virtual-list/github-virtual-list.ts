@@ -1,3 +1,5 @@
+import { isRecord } from "@/utils/record/record";
+
 /**
  * Closes up GitHub's virtual diff list around the files a filter hides. It runs in the page's own world, beside GitHub's
  * scripts, since the list's layout lives in JavaScript the bar's isolated content script can't reach.
@@ -35,30 +37,27 @@ interface Virtualizer {
 }
 
 const isVirtualizer = (value: unknown): value is Virtualizer => {
-  const candidate = value as Partial<Virtualizer> | null;
+  if (!isRecord(value) || !isRecord(value.options)) return false;
   return (
-    typeof candidate === "object" &&
-    candidate !== null &&
-    typeof candidate.getVirtualItems === "function" &&
-    typeof candidate.resizeItem === "function" &&
-    typeof candidate.setOptions === "function" &&
-    typeof candidate.options?.gap === "number" &&
-    typeof candidate.options.estimateSize === "function" &&
-    typeof candidate.options.getItemKey === "function"
+    typeof value.getVirtualItems === "function" &&
+    typeof value.resizeItem === "function" &&
+    typeof value.setOptions === "function" &&
+    typeof value.options.gap === "number" &&
+    typeof value.options.estimateSize === "function" &&
+    typeof value.options.getItemKey === "function"
   );
 };
 
 /** The virtualizer behind a list, from React's records on its element: the hook state of a component above it. */
 const virtualizerOf = (list: Element): Virtualizer | null => {
   const key = Object.keys(list).find((name) => name.startsWith("__reactFiber$"));
-  type Hook = { memoizedState?: unknown; next?: Hook | null };
-  type Fiber = { memoizedState?: Hook | null; return?: Fiber | null };
-  let fiber = key ? (list as unknown as Record<string, Fiber | undefined>)[key] : undefined;
-  for (let depth = 0; fiber && depth < 40; depth++, fiber = fiber.return ?? undefined) {
+  // React's records on the element, as plain objects: a fiber's hooks, linked by `next`, and its parent, `return`.
+  let fiber: unknown = key ? Reflect.get(list, key) : undefined;
+  for (let depth = 0; isRecord(fiber) && depth < 40; depth++, fiber = fiber.return) {
     let hook = fiber.memoizedState;
-    for (let index = 0; hook && typeof hook === "object" && index < 100; index++, hook = hook.next) {
-      const state = hook.memoizedState as { current?: unknown } | null | undefined;
-      for (const value of [state, state?.current]) if (isVirtualizer(value)) return value;
+    for (let index = 0; isRecord(hook) && index < 100; index++, hook = hook.next) {
+      const state = hook.memoizedState;
+      for (const value of [state, isRecord(state) ? state.current : undefined]) if (isVirtualizer(value)) return value;
     }
   }
   return null;
@@ -79,8 +78,10 @@ const parse = (value: string | null): Hidden => {
       return index && digest ? [[Number(index), digest] as const] : [];
     }),
   );
-  return files.size ? { count: Number(count), files } : NONE;
+  return files.size > 0 ? { count: Number(count), files } : NONE;
 };
+
+const indexOf = (row: HTMLElement) => Number(row.dataset.index);
 
 export const closeUpList = (): void => {
   let hidden = new Map<number, string>();
@@ -103,7 +104,6 @@ export const closeUpList = (): void => {
       : options;
 
   const rows = () => (list ? [...list.querySelectorAll<HTMLElement>(`:scope > ${ROW}`)] : []);
-  const indexOf = (row: HTMLElement) => Number(row.dataset.index);
 
   /** The rows on the page are the files the content script means: each hidden one where it says, and no other there. */
   const agrees = () => {
@@ -133,7 +133,7 @@ export const closeUpList = (): void => {
    */
   const resize = (before: Map<number, string>, wasClosing: boolean) => {
     if (!virtualizer || !latest) return;
-    const drawn = new Set(rows().map(indexOf));
+    const drawn = new Set(rows().map((each) => indexOf(each)));
     for (let index = 0; index < latest.count; index++) {
       const size = sizeOf(index);
       const was = before.has(index);
@@ -170,8 +170,8 @@ export const closeUpList = (): void => {
     wanted = next;
     const before = hidden;
     const wasClosing = closing();
-    hidden = virtualizer && latest && next.count === latest.count ? next.files : new Map();
-    if (closing() && !agrees()) hidden = new Map();
+    hidden = virtualizer && latest && next.count === latest.count ? next.files : new Map<number, string>();
+    if (closing() && !agrees()) hidden = new Map<number, string>();
     if (!virtualizer || !latest) return;
     gap = latest.gap;
     pad();
@@ -201,17 +201,19 @@ export const closeUpList = (): void => {
     attach();
     // Rows drawn as the page scrolls get their padding before they're measured.
     if (closing()) {
-      if (!agrees()) update(NONE);
-      else pad();
+      if (agrees()) {
+        pad();
+      } else {
+        update(NONE);
+      }
     }
   }).observe(document.body, { childList: true, subtree: true });
-  new MutationObserver(() => update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)))).observe(
-    document.documentElement,
-    {
-      attributes: true,
-      attributeFilter: [HIDDEN_ROWS],
-    },
-  );
+  new MutationObserver(() => {
+    update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)));
+  }).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: [HIDDEN_ROWS],
+  });
   attach();
   update(parse(document.documentElement.getAttribute(HIDDEN_ROWS)));
 };

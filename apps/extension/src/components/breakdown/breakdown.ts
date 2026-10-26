@@ -33,6 +33,34 @@ const diffstat = (additions: number, deletions: number) => {
   );
 };
 
+/** The (i) beside "Time left": its tooltip explains the estimate, and is read out as its description. */
+const timeInfoButton = () => {
+  const hint = i18n.t("timeHint", [format(LINES_PER_HOUR)]);
+  return h(
+    "button",
+    {
+      type: "button",
+      className: "info",
+      "aria-label": i18n.t("panelTimeInfo"),
+      "aria-description": hint,
+      "data-tip": hint,
+      "data-tip-instant": "",
+    },
+    infoIcon(),
+  );
+};
+
+const columns = () =>
+  h(
+    "div",
+    { className: "columns" },
+    h("span"),
+    h("span", { textContent: i18n.t("panelColumnFilter") }),
+    h("span", { textContent: i18n.t("panelColumnViewed") }),
+    h("span", { textContent: i18n.t("panelColumnLines") }),
+    h("span", { className: "column-time" }, i18n.t("panelColumnTime"), timeInfoButton()),
+  );
+
 /** How the pull request splits across the filters: files viewed, lines and time left for each. Rows toggle filters. */
 export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onOpen, fallback }: BreakdownActions) => {
   const rows = h("div", { className: "rows" });
@@ -60,34 +88,6 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     breakdownIcon(),
   );
 
-  /** The (i) beside "Time left": its tooltip explains the estimate, and is read out as its description. */
-  const timeInfoButton = () => {
-    const hint = i18n.t("timeHint", [format(LINES_PER_HOUR)]);
-    return h(
-      "button",
-      {
-        type: "button",
-        className: "info",
-        "aria-label": i18n.t("panelTimeInfo"),
-        "aria-description": hint,
-        "data-tip": hint,
-        "data-tip-instant": "",
-      },
-      infoIcon(),
-    );
-  };
-
-  const columns = () =>
-    h(
-      "div",
-      { className: "columns" },
-      h("span"),
-      h("span", { textContent: i18n.t("panelColumnFilter") }),
-      h("span", { textContent: i18n.t("panelColumnViewed") }),
-      h("span", { textContent: i18n.t("panelColumnLines") }),
-      h("span", { className: "column-time" }, i18n.t("panelColumnTime"), timeInfoButton()),
-    );
-
   const row = (data: BreakdownRow, selected: boolean) => {
     // A complete row already reads as done through its green Viewed count, so its time stays empty.
     const time = data.minutesLeft === 0 ? "" : formatDuration(data.minutesLeft);
@@ -114,7 +114,9 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
           format(data.deletions),
           data.minutesLeft === 0 ? i18n.t("timeDone") : i18n.t("timeLeft", [time]),
         ]),
-        onClick: () => disabled || onToggle(data.id),
+        onClick: () => {
+          if (!disabled) onToggle(data.id);
+        },
       },
       h("span", { className: "row-check" }, selected ? checkIcon() : null),
       h("span", { className: "row-name", textContent: data.name }),
@@ -150,7 +152,9 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     else if (onInfo) rows.querySelector<HTMLElement>(".info")?.focus();
   };
 
-  const reposition = () => centreOver(popover, toggle, host);
+  const reposition = () => {
+    centreOver(popover, toggle, host);
+  };
 
   const setOpen = (open: boolean) => {
     if (!open) returnFocus(popover, toggle, fallback, focused());
@@ -163,7 +167,9 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     } else drawnKey = "";
   };
   const isOpen = () => !popover.hidden;
-  toggle.addEventListener("click", () => setOpen(!isOpen()));
+  toggle.addEventListener("click", () => {
+    setOpen(!isOpen());
+  });
 
   /** Rows are only computed while it's open. */
   const render = (list: () => BreakdownRow[], selected: string[]) => {

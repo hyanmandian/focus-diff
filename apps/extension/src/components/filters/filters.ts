@@ -43,12 +43,19 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     const right = width - target.offsetLeft - target.offsetWidth;
     const bottom = indicator.offsetHeight - target.offsetTop - target.offsetHeight;
     indicator.style.clipPath = `inset(${target.offsetTop}px ${right}px ${bottom}px ${target.offsetLeft}px round 8px)`;
-    if (!indicator.classList.contains("ready")) requestAnimationFrame(() => indicator.classList.add("ready"));
+    if (!indicator.classList.contains("ready"))
+      requestAnimationFrame(() => {
+        indicator.classList.add("ready");
+      });
   };
 
   /** Chips change width as their counts come in, which moves the ones after them without resizing a full row. */
-  const chipObserver = new ResizeObserver(() => moveIndicator());
-  signal.addEventListener("abort", () => chipObserver.disconnect());
+  const chipObserver = new ResizeObserver(() => {
+    moveIndicator();
+  });
+  signal.addEventListener("abort", () => {
+    chipObserver.disconnect();
+  });
 
   /** Scrolls the row just enough to show a chip whole, past the fade at either side. */
   const reveal = (option: HTMLElement) => {
@@ -60,7 +67,7 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
 
   element.addEventListener("keydown", (event) => {
     const list = options();
-    const index = list.indexOf(focused() as HTMLButtonElement);
+    const index = list.findIndex((option) => option === focused());
     if (index === -1) return;
     const target =
       event.key === "Home" ? 0 : event.key === "End" ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
@@ -68,7 +75,9 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     event.preventDefault();
     const next = list[(target + list.length) % list.length];
     if (!next) return;
-    list.forEach((option) => (option.tabIndex = option === next ? 0 : -1));
+    list.forEach((option) => {
+      option.tabIndex = option === next ? 0 : -1;
+    });
     next.focus();
   });
 
@@ -80,7 +89,9 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     if (changed) {
       optionsKey = key;
       const keepFocus = element.contains(focused());
-      options().forEach((option) => option.remove());
+      options().forEach((option) => {
+        option.remove();
+      });
       chipObserver.disconnect();
       element.append(
         ...list.map(({ id, name }) =>
@@ -91,7 +102,9 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
               className: "option",
               "data-id": id,
               onClick: (event: MouseEvent) => {
-                if ((event.currentTarget as HTMLElement).getAttribute("aria-disabled") !== "true") onToggle(id);
+                const button = event.currentTarget;
+                if (button instanceof Element && button.getAttribute("aria-disabled") === "true") return;
+                onToggle(id);
               },
             },
             h("span", { className: "option-name", textContent: name }),

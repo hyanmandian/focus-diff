@@ -26,7 +26,7 @@ test("runs the demo on a plain web page, without the extension", async () => {
   await page.goto(SITE);
   const demo = page.getByRole("group", { name: "Sample pull request" });
   const bar = demo.locator(".panel");
-  await bar.getByRole("button", { name: /^Backend/ }).click();
+  await bar.getByRole("button", { name: /^Backend/u }).click();
   await expect(demo.locator(".demo-file:not([data-out])")).toHaveCount(3);
   await expect(bar.getByRole("status")).toContainText("Backend: 3 of 12 files");
   await bar.getByRole("button", { name: "Focus Diff settings" }).click();

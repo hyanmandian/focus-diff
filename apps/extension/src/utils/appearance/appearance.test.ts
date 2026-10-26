@@ -82,7 +82,9 @@ describe("appearanceCss", () => {
 describe("createStyler", () => {
   it("applies only the latest look when an earlier one is still loading", async () => {
     const applied: string[] = [];
-    const restyle = createStyler((css) => applied.push(css));
+    const restyle = createStyler((css) => {
+      applied.push(css);
+    });
     const first = restyle({ theme: PROVIDER_THEME, themes: [] });
     const second = restyle({ theme: "pink", themes: [pink] });
     await Promise.all([first, second]);

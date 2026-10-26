@@ -66,8 +66,11 @@ export const canTransition = (): boolean =>
   !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export const withTransition = async (update: () => void, pieces: () => Piece[]): Promise<void> => {
-  if (!canTransition()) return update();
-  if (!document.getElementById(STYLE_ID)) {
+  if (!canTransition()) {
+    update();
+    return;
+  }
+  if (!document.querySelector(`#${STYLE_ID}`)) {
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = CSS;
@@ -117,7 +120,7 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
           { duration: EXIT_MS, easing: "ease-in", fill: "both", pseudoElement: `::view-transition-old(${key})` },
         ),
       );
-    arriving.forEach((key, index) =>
+    arriving.forEach((key, index) => {
       animations.push(
         root.animate(
           { opacity: [0, 1], transform: ["translateY(28px) scale(0.98)", "none"] },
@@ -129,8 +132,8 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
             pseudoElement: `::view-transition-new(${key})`,
           },
         ),
-      ),
-    );
+      );
+    });
     await transition.finished;
   } catch {
     // Skipped, say by another transition starting; the update has still run.
@@ -144,6 +147,6 @@ export const withTransition = async (update: () => void, pieces: () => Piece[]):
 
 /** Takes out what the transitions added to the site's page. */
 export const removeTransitionStyle = (): void => {
-  document.getElementById(STYLE_ID)?.remove();
+  document.querySelector(`#${STYLE_ID}`)?.remove();
   document.documentElement.removeAttribute(ACTIVE);
 };

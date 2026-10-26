@@ -7,7 +7,7 @@ import { createPopupSettings } from "@/components/options-popup-settings/options
 import { createReviewTime } from "@/components/options-review-time/options-review-time";
 import { toaster } from "@/components/toast/toast";
 import { normalizeAppearance } from "@/utils/appearance/appearance";
-import { $, reveal, translate, translateDocument } from "@/utils/extension-page/extension-page";
+import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
 import {
   compile,
   filtersFor,
@@ -44,6 +44,59 @@ import {
   saveReviewTime,
 } from "@/utils/storage/storage";
 
+const repoProblem = (repo: string) => (REPO_PATTERN.test(repo.trim()) ? "" : i18n.t("errorRepo"));
+
+const filterCount = (value: Config) =>
+  value.global.length + value.repos.reduce((sum, entry) => sum + entry.filters.length, 0);
+
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the element its template holds.
+const clone = <T extends HTMLElement>(id: string): T => {
+  const element = templateElement<T>(id);
+  const holder = document.createElement("div");
+  holder.append(element);
+  translate(holder);
+  return element;
+};
+
+const filterProblems = (filter: Filter) => {
+  const problems: string[] = [];
+  if (!filter.name.trim()) problems.push(i18n.t("errorName"));
+  const include = compile(filter.include);
+  const exclude = compile(filter.exclude);
+  if (!include.ok) problems.push(i18n.t("errorRegex", [i18n.t("columnInclude"), include.error]));
+  if (!exclude.ok) problems.push(i18n.t("errorRegex", [i18n.t("columnExclude"), exclude.error]));
+  return { problems, name: !filter.name.trim(), include: !include.ok, exclude: !exclude.ok };
+};
+
+const label = (row: HTMLElement, filter: Filter) => {
+  const name = filter.name.trim() || i18n.t("untitledFilter");
+  $(".filter-fields", row).setAttribute("aria-label", name);
+  $(".remove-filter", row).setAttribute("aria-label", i18n.t("removeNamed", [name]));
+};
+
+/**
+ * What a switch or a button shows, like a section's settings or a review time's details, unrolls into place from the
+ * top instead of popping in. Watched on the whole page, so whatever is shown that way later does the same.
+ */
+const unrollShown = () => {
+  new MutationObserver((records) => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ease = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease-out";
+    for (const record of records) {
+      const element = record.target;
+      // `oldValue` is '' when it was hidden, and null when it wasn't.
+      if (!(element instanceof HTMLElement) || record.oldValue === null || element.hidden) continue;
+      element.animate(
+        [
+          { opacity: 0, transform: "translateY(-6px)", clipPath: "inset(0 0 100% 0)" },
+          { opacity: 1, transform: "none", clipPath: "inset(0 0 0 0)" },
+        ],
+        { duration: 320, easing: ease },
+      );
+    }
+  }).observe($("main"), { attributes: true, attributeFilter: ["hidden"], attributeOldValue: true, subtree: true });
+};
+
 /** The settings page: filters, the bar's look, notifications, the popup and review time. */
 export const startOptions = (): void => {
   type Field = "name" | "include" | "exclude";
@@ -51,14 +104,6 @@ export const startOptions = (): void => {
   type CheckableCard = HTMLElement & { check: (force: boolean) => boolean };
 
   const FIELDS: Field[] = ["name", "include", "exclude"];
-
-  const clone = <T extends HTMLElement>(id: string): T => {
-    const element = $<HTMLTemplateElement>(`#${id}`).content.firstElementChild?.cloneNode(true) as T;
-    const holder = document.createElement("div");
-    holder.append(element);
-    translate(holder);
-    return element;
-  };
 
   let uid = 0;
   const nextId = (prefix: string) => `${prefix}-${++uid}`;
@@ -83,21 +128,14 @@ export const startOptions = (): void => {
     clearTimeout(lowering);
     savebar.toggleAttribute("data-raised", Boolean(text));
     savebar.inert = !text;
-    if (tone === "ok") lowering = window.setTimeout(() => say(""), SAVED_MS);
+    if (tone === "ok")
+      lowering = window.setTimeout(() => {
+        say("");
+      }, SAVED_MS);
   };
   const setDirty = () => {
     dirty = true;
     say(i18n.t("statusUnsaved"), "warn");
-  };
-
-  const filterProblems = (filter: Filter) => {
-    const problems: string[] = [];
-    if (!filter.name.trim()) problems.push(i18n.t("errorName"));
-    const include = compile(filter.include);
-    const exclude = compile(filter.exclude);
-    if (!include.ok) problems.push(i18n.t("errorRegex", [i18n.t("columnInclude"), include.error]));
-    if (!exclude.ok) problems.push(i18n.t("errorRegex", [i18n.t("columnExclude"), exclude.error]));
-    return { problems, name: !filter.name.trim(), include: !include.ok, exclude: !exclude.ok };
   };
 
   const showFilterProblems = (row: HTMLElement, filter: Filter, { force = false } = {}) => {
@@ -118,12 +156,6 @@ export const startOptions = (): void => {
     const addButton = $<HTMLButtonElement>(".add-filter", block);
     const syncEmpty = () => {
       $(".empty", block).hidden = filters.length > 0;
-    };
-
-    const label = (row: HTMLElement, filter: Filter) => {
-      const name = filter.name.trim() || i18n.t("untitledFilter");
-      $(".filter-fields", row).setAttribute("aria-label", name);
-      $(".remove-filter", row).setAttribute("aria-label", i18n.t("removeNamed", [name]));
     };
 
     const addRow = (filter: Filter, focus: boolean) => {
@@ -151,8 +183,8 @@ export const startOptions = (): void => {
       $(".remove-filter", row).addEventListener("click", () => {
         const index = filters.indexOf(filter);
         filters.splice(index, 1);
-        const rows = [...list.children] as HTMLElement[];
-        const neighbour = rows[index + 1] || rows[index - 1];
+        const rows = [...list.children].filter((child) => child instanceof HTMLElement);
+        const neighbour = rows[index + 1] ?? rows[index - 1];
         row.remove();
         (neighbour ? $(".f-name", neighbour) : addButton).focus();
         syncEmpty();
@@ -166,7 +198,9 @@ export const startOptions = (): void => {
       if (focus) $(".f-name", row).focus();
     };
 
-    filters.forEach((filter) => addRow(filter, false));
+    filters.forEach((filter) => {
+      addRow(filter, false);
+    });
     syncEmpty();
     addButton.addEventListener("click", () => {
       const filter: Filter = { id: newId(), name: "", include: "", exclude: "" };
@@ -176,8 +210,6 @@ export const startOptions = (): void => {
     });
     return block;
   };
-
-  const repoProblem = (repo: string) => (REPO_PATTERN.test(repo.trim()) ? "" : i18n.t("errorRepo"));
 
   const renderRepo = (entry: RepoFilters, focus: boolean) => {
     const card = clone<CheckableCard>("repo-template");
@@ -191,8 +223,9 @@ export const startOptions = (): void => {
     input.value = entry.repo;
 
     const remove = $(".remove-repo", card);
-    const syncLabel = () =>
+    const syncLabel = () => {
       remove.setAttribute("aria-label", i18n.t("removeNamed", [entry.repo.trim() || i18n.t("thisRepository")]));
+    };
     const check = (force: boolean) => {
       const problem = entry.repo || force ? repoProblem(entry.repo) : "";
       error.textContent = problem;
@@ -209,7 +242,9 @@ export const startOptions = (): void => {
       setDirty();
       updateTryWhileTyping();
     });
-    input.addEventListener("blur", () => check(false));
+    input.addEventListener("blur", () => {
+      check(false);
+    });
     remove.addEventListener("click", () => {
       config.repos.splice(config.repos.indexOf(entry), 1);
       card.remove();
@@ -248,10 +283,11 @@ export const startOptions = (): void => {
     const shown = filters
       .filter((filter) => filter.name.trim() && toMatcher(filter)?.(path))
       .map((filter) => filter.name.trim());
-    result.dataset.tone = shown.length ? "ok" : "";
-    result.textContent = shown.length
-      ? i18n.t("tryShown", [i18n.t("filterAll"), shown.join(", ")])
-      : i18n.t("tryOnlyAll", [i18n.t("filterAll")]);
+    result.dataset.tone = shown.length > 0 ? "ok" : "";
+    result.textContent =
+      shown.length > 0
+        ? i18n.t("tryShown", [i18n.t("filterAll"), shown.join(", ")])
+        : i18n.t("tryOnlyAll", [i18n.t("filterAll")]);
   };
 
   /** The result is read out as it changes, so while typing it waits for a pause instead of speaking every keystroke. */
@@ -282,7 +318,10 @@ export const startOptions = (): void => {
       document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
       return;
     }
-    if (!lookOk) return say(i18n.t("statusFixTheme"), "error");
+    if (!lookOk) {
+      say(i18n.t("statusFixTheme"), "error");
+      return;
+    }
     if (!popupOk) {
       say(i18n.t("statusFixPopup"), "error");
       document.querySelector<HTMLElement>('#popup [aria-invalid="true"]')?.focus();
@@ -314,7 +353,7 @@ export const startOptions = (): void => {
       dirty = false;
       say(i18n.t("statusSaved"), "ok");
     } catch (error) {
-      const reason = (error as Error).message;
+      const reason = error instanceof Error ? error.message : String(error);
       const quota = {
         filters: i18n.t("statusQuota"),
         look: i18n.t("statusQuotaTheme"),
@@ -322,7 +361,7 @@ export const startOptions = (): void => {
         reviewTime: i18n.t("statusQuotaReview"),
         notifications: i18n.t("statusQuotaNotify"),
       }[saved];
-      say(/QUOTA/i.test(reason) ? quota : i18n.t("statusSaveError", [reason]), "error");
+      say(/QUOTA/iu.test(reason) ? quota : i18n.t("statusSaveError", [reason]), "error");
     } finally {
       saving = false;
     }
@@ -345,13 +384,13 @@ export const startOptions = (): void => {
     setDirty();
   });
 
-  ["#try-path", "#try-repo"].forEach((selector) => $(selector).addEventListener("input", updateTryWhileTyping));
+  ["#try-path", "#try-repo"].forEach((selector) => {
+    $(selector).addEventListener("input", updateTryWhileTyping);
+  });
 
   const notify = toaster($("#toast"));
-  const filterCount = (value: Config) =>
-    value.global.length + value.repos.reduce((sum, entry) => sum + entry.filters.length, 0);
 
-  $("#export").addEventListener("click", async () => {
+  const copyFilters = async () => {
     const json = JSON.stringify(normalize(config), null, 2);
     try {
       await navigator.clipboard.writeText(json);
@@ -365,7 +404,8 @@ export const startOptions = (): void => {
       fallback.focus();
       fallback.select();
     }
-  });
+  };
+  $("#export").addEventListener("click", () => void copyFilters());
 
   const importBox = $<HTMLTextAreaElement>("#json");
   const importButton = $<HTMLButtonElement>("#import");
@@ -407,7 +447,9 @@ export const startOptions = (): void => {
   const render = () => {
     $("#global").replaceChildren(renderFilters(config.global));
     $("#repos").replaceChildren();
-    config.repos.forEach((entry) => renderRepo(entry, false));
+    config.repos.forEach((entry) => {
+      renderRepo(entry, false);
+    });
     syncRepos();
     updateTry();
     // Review times pick from the filters.
@@ -417,7 +459,10 @@ export const startOptions = (): void => {
   // Another tab, the welcome page or another device changed the filters: follow along unless there are unsaved edits here.
   configItem.watch((value) => {
     if (saving) return;
-    if (dirty) return say(i18n.t("statusChangedElsewhere"), "warn");
+    if (dirty) {
+      say(i18n.t("statusChangedElsewhere"), "warn");
+      return;
+    }
     config = normalize(value);
     render();
   });
@@ -426,8 +471,11 @@ export const startOptions = (): void => {
 
   appearanceItem.watch((value) => {
     if (saving) return;
-    if (dirty) return say(i18n.t("statusChangedElsewhere"), "warn");
-    void look.render(normalizeAppearance(value));
+    if (dirty) {
+      say(i18n.t("statusChangedElsewhere"), "warn");
+      return;
+    }
+    look.render(normalizeAppearance(value));
   });
 
   const notifications = createNotifications({ onChange: setDirty, say });
@@ -435,7 +483,10 @@ export const startOptions = (): void => {
 
   popupItem.watch((value) => {
     if (saving) return;
-    if (dirty) return say(i18n.t("statusChangedElsewhere"), "warn");
+    if (dirty) {
+      say(i18n.t("statusChangedElsewhere"), "warn");
+      return;
+    }
     popupSettings.render(normalizePopup(value));
   });
 
@@ -443,18 +494,26 @@ export const startOptions = (): void => {
     onChange: setDirty,
     say,
     config: () => config,
-    onEnabled: (on) => notifications.setReviewTime(on),
+    onEnabled: (on) => {
+      notifications.setReviewTime(on);
+    },
   });
 
   reviewTimeItem.watch((value) => {
     if (saving) return;
-    if (dirty) return say(i18n.t("statusChangedElsewhere"), "warn");
+    if (dirty) {
+      say(i18n.t("statusChangedElsewhere"), "warn");
+      return;
+    }
     reviewTime.render(normalizeReviewTime(value));
   });
 
   notifyItem.watch((value) => {
     if (saving) return;
-    if (dirty) return say(i18n.t("statusChangedElsewhere"), "warn");
+    if (dirty) {
+      say(i18n.t("statusChangedElsewhere"), "warn");
+      return;
+    }
     notifications.render(normalizeNotify(value));
   });
 
@@ -467,10 +526,15 @@ export const startOptions = (): void => {
    * stays marked once the page gets there, even when it's too short to reach the top, until the reader scrolls on.
    */
   const sectionLinks = [...document.querySelectorAll<HTMLAnchorElement>(".sections a")];
-  const sections = sectionLinks.flatMap((link) => document.getElementById(link.hash.slice(1)) ?? []);
+  const sections = sectionLinks.flatMap((link) =>
+    link.hash ? (document.querySelector<HTMLElement>(`#${CSS.escape(link.hash.slice(1))}`) ?? []) : [],
+  );
   let picked: { id: string; y: number | null } | null = null;
   const markSection = () => {
-    if (picked && (picked.y === null || Math.abs(scrollY - picked.y) < 4)) return setCurrent(picked.id);
+    if (picked && (picked.y === null || Math.abs(scrollY - picked.y) < 4)) {
+      setCurrent(picked.id);
+      return;
+    }
     picked = null;
     const line = innerHeight * 0.3;
     const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
@@ -515,27 +579,6 @@ export const startOptions = (): void => {
   };
   addEventListener("resize", placeMark);
 
-  /**
-   * What a switch or a button shows, like a section's settings or a review time's details, unrolls into place from the
-   * top instead of popping in. Watched on the whole page, so whatever is shown that way later does the same.
-   */
-  const unrollShown = () =>
-    new MutationObserver((records) => {
-      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      const ease = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease-out";
-      for (const record of records) {
-        const element = record.target;
-        // `oldValue` is '' when it was hidden, and null when it wasn't.
-        if (!(element instanceof HTMLElement) || record.oldValue === null || element.hidden) continue;
-        element.animate(
-          [
-            { opacity: 0, transform: "translateY(-6px)", clipPath: "inset(0 0 100% 0)" },
-            { opacity: 1, transform: "none", clipPath: "inset(0 0 0 0)" },
-          ],
-          { duration: 320, easing: ease },
-        );
-      }
-    }).observe($("main"), { attributes: true, attributeFilter: ["hidden"], attributeOldValue: true, subtree: true });
   /** Where the page ends up once a jump is over; a jump that doesn't move the page is over at once. */
   const settle = () => {
     if (picked && picked.y === null) picked.y = scrollY;
@@ -553,7 +596,13 @@ export const startOptions = (): void => {
     if (link) pick(link.hash.slice(1));
   });
   addEventListener("scrollend", settle);
-  addEventListener("scroll", () => requestAnimationFrame(markSection), { passive: true });
+  addEventListener(
+    "scroll",
+    () => {
+      requestAnimationFrame(markSection);
+    },
+    { passive: true },
+  );
   addEventListener("resize", markSection);
 
   translateDocument(i18n.t("optionsTitle"));
@@ -577,7 +626,7 @@ export const startOptions = (): void => {
     if (message?.type !== "show-options") return;
     sendResponse(true);
     if (message.repo) location.hash = `repo=${encodeURIComponent(message.repo)}`;
-    else if (message.section) document.getElementById(message.section)?.scrollIntoView();
+    else if (message.section) document.querySelector(`#${CSS.escape(message.section)}`)?.scrollIntoView();
     void browser.tabs.getCurrent().then((tab) => {
       if (tab?.id === undefined) return;
       void browser.tabs.update(tab.id, { active: true });
@@ -586,15 +635,15 @@ export const startOptions = (): void => {
   });
 
   void Promise.all([loadConfig(), loadAppearance(), loadNotify(), loadReviewTime(), loadPopup()]).then(
-    async ([loaded, appearance, notify, review, popup]) => {
+    ([loaded, appearance, notifySettings, review, popup]) => {
       config = loaded;
       render();
       look.render(appearance);
       popupSettings.render(popup);
-      notifications.render(notify);
+      notifications.render(notifySettings);
       reviewTime.render(review);
       // Opened on a section, like Notifications from the popup: it's further down once everything above it has drawn.
-      if (/^#[\w-]+$/.test(location.hash)) {
+      if (/^#[\w-]+$/u.test(location.hash)) {
         document.querySelector(location.hash)?.scrollIntoView();
         pick(location.hash.slice(1));
       }

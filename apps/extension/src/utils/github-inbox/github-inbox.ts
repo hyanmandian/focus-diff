@@ -5,6 +5,7 @@
  * It runs in the background service worker, which has no DOMParser, so the HTML is read with patterns.
  */
 
+import { asRecord, asText } from "@/utils/record/record";
 import type { PullFile } from "@/utils/review-sessions/review-sessions";
 
 const ORIGIN = "https://github.com";
@@ -81,28 +82,25 @@ export class InboxError extends Error {
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 const decode = (text: string) =>
-  text.replace(/&(#x[\da-f]+|#\d+|\w+);/gi, (entity, code: string) => {
+  text.replaceAll(/&(#x[\da-f]+|#\d+|\w+);/giu, (entity, code: string) => {
     if (code[0] !== "#") return ENTITIES[code.toLowerCase()] ?? entity;
     const point = code[1]?.toLowerCase() === "x" ? Number.parseInt(code.slice(2), 16) : Number(code.slice(1));
     return Number.isFinite(point) ? String.fromCodePoint(point) : entity;
   });
 const textOf = (html: string) =>
-  decode(html.replace(/<[^>]*>/g, " "))
-    .replace(/\s+/g, " ")
+  decode(html.replaceAll(/<[^>]*>/gu, " "))
+    .replaceAll(/\s+/gu, " ")
     .trim();
 
-const PULL_URL = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/;
-
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+const PULL_URL = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/u;
 
 /** A dashboard list as GitHub sends it with `Accept: application/json`: its results, whatever route holds them. */
 export const parsePulls = (data: unknown): PullRequest[] => {
-  const routes = Object.values(record(record(data).payload));
-  const results = routes.map((route) => record(route).results).find(Array.isArray);
+  const routes = Object.values(asRecord(asRecord(data).payload));
+  const results = routes.map((route) => asRecord(route).results).find((each) => Array.isArray(each));
   if (!results) throw new InboxError("unreadable");
   return results.flatMap((value) => {
-    const item = record(value);
+    const item = asRecord(value);
     const url = typeof item.permalink === "string" ? item.permalink : "";
     const [, repo, number] = url.match(PULL_URL) ?? [];
     if (item.itemType !== "pull_request" || !repo || !number) return [];
@@ -112,7 +110,7 @@ export const parsePulls = (data: unknown): PullRequest[] => {
         number: Number(number),
         title: typeof item.title === "string" ? item.title : "",
         url,
-        author: String(record(item.author).displayLogin ?? ""),
+        author: asText(asRecord(item.author).displayLogin),
         draft: item.isDraft === true,
         comments: typeof item.commentCount === "number" ? item.commentCount : 0,
         createdAt: typeof item.createdAt === "string" ? item.createdAt : "",
@@ -133,23 +131,23 @@ const KINDS: Record<string, ActivityKind> = {
 /** The pull requests in the notifications inbox, each as of its latest event. Issues, releases and the rest are left out. */
 export const parseNotifications = (html: string): Activity[] =>
   html
-    .split(/(?=<li\b[^>]*\bnotifications-list-item\b)/)
+    .split(/(?=<li\b[^>]*\bnotifications-list-item\b)/u)
     .slice(1)
     .flatMap((item) => {
-      const thread = item.match(/data-notification-id="([^"]+)"/)?.[1];
-      const link = item.match(/<a\b[^>]*\bnotification-list-item-link\b[^>]*>/)?.[0] ?? "";
-      const href = decode(link.match(/\bhref="([^"]+)"/)?.[1] ?? "");
+      const thread = item.match(/data-notification-id="([^"]+)"/u)?.[1];
+      const link = item.match(/<a\b[^>]*\bnotification-list-item-link\b[^>]*>/u)?.[0] ?? "";
+      const href = decode(link.match(/\bhref="([^"]+)"/u)?.[1] ?? "");
       const [, repo, number] = href.match(PULL_URL) ?? [];
-      const hydro = decode(link.match(/\bdata-hydro-click="([^"]+)"/)?.[1] ?? "");
-      const field = (name: string) => hydro.match(new RegExp(`"${name}":"([^"]*)"`))?.[1] ?? "";
-      const updatedAt = field("last_updated_at") || (item.match(/<relative-time[^>]*datetime="([^"]+)"/)?.[1] ?? "");
+      const hydro = decode(link.match(/\bdata-hydro-click="([^"]+)"/u)?.[1] ?? "");
+      const field = (name: string) => hydro.match(new RegExp(`"${name}":"([^"]*)"`, "u"))?.[1] ?? "";
+      const updatedAt = field("last_updated_at") || (item.match(/<relative-time[^>]*datetime="([^"]+)"/u)?.[1] ?? "");
       if (!thread || !repo || !number || !updatedAt) return [];
       return [
         {
           thread,
           repo,
           number: Number(number),
-          title: textOf(item.match(/<p\b[^>]*\bmarkdown-title\b[^>]*>([\s\S]*?)<\/p>/)?.[1] ?? ""),
+          title: textOf(item.match(/<p\b[^>]*\bmarkdown-title\b[^>]*>([\s\S]*?)<\/p>/u)?.[1] ?? ""),
           url: href,
           reason: field("reason"),
           kind: KINDS[field("comment_type")] ?? "other",
@@ -160,16 +158,20 @@ export const parseNotifications = (html: string): Activity[] =>
     });
 
 const reviewState = (text: string): ReviewState =>
-  /approved these changes/.test(text) ? "approved" : /requested changes/.test(text) ? "changes-requested" : "commented";
+  text.includes("approved these changes")
+    ? "approved"
+    : text.includes("requested changes")
+      ? "changes-requested"
+      : "commented";
 
 /** How much of a comment a notification quotes. */
 const EXCERPT = 140;
 
 /** The text of the first comment body in an event's part of the page, cut short to fit a notification. */
 const excerptOf = (event: string) => {
-  const body = event.match(/<td\b[^>]*\bjs-comment-body\b[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "";
+  const body = event.match(/<td\b[^>]*\bjs-comment-body\b[^>]*>([\s\S]*?)<\/td>/u)?.[1] ?? "";
   // A quote of an earlier comment, or a block of code, says less than the words around it.
-  const text = textOf(body.replace(/<(blockquote|pre)\b[\s\S]*?<\/\1>/g, " "));
+  const text = textOf(body.replaceAll(/<(blockquote|pre)\b[\s\S]*?<\/\1>/gu, " "));
   return text.length > EXCERPT ? `${text.slice(0, EXCERPT - 1).trimEnd()}…` : text;
 };
 
@@ -178,20 +180,21 @@ export const parseDetail = (html: string, anchor: string, me: string): Detail =>
   const start = anchor ? html.indexOf(`id="${anchor}"`) : -1;
   // The event's part of the page, up to the next event's.
   const next =
-    start === -1 ? -1 : html.slice(start + anchor.length + 5).search(/id="(issuecomment|pullrequestreview)-\d+"/);
+    start === -1 ? -1 : html.slice(start + anchor.length + 5).search(/id="(issuecomment|pullrequestreview)-\d+"/u);
   const event = start === -1 ? "" : html.slice(start, next === -1 ? undefined : start + anchor.length + 5 + next);
   // The event's header: its author's link, a Bot label, and for a review, what it did. The header ends at its permalink.
   const header =
     start === -1 ? "" : html.slice(start, html.indexOf(`id="${anchor}-permalink"`, start) + 1 || start + 4000);
-  const author = header.match(/<a\b[^>]*\bclass="author\b[^>]*\bhref="\/(apps\/)?([^"/]+)"/);
+  const author = header.match(/<a\b[^>]*\bclass="author\b[^>]*\bhref="\/(apps\/)?([^"/]+)"/u);
   const status = me ? html.indexOf(`id="review-status-${me}"`) : -1;
   const mine = status === -1 ? "" : textOf(html.slice(status, status + 3000));
-  const said = new RegExp(`\\b${me}\\s+(approved these changes|requested changes|left review comments|reviewed)`).exec(
-    mine,
-  )?.[1];
+  const said = new RegExp(
+    `\\b${me}\\s+(approved these changes|requested changes|left review comments|reviewed)`,
+    "u",
+  ).exec(mine)?.[1];
   return {
     actor: author?.[2] ?? "",
-    bot: Boolean(author?.[1]) || /\bLabel\b[^>]*>\s*Bot\b/.test(header),
+    bot: Boolean(author?.[1]) || /\bLabel\b[^>]*>\s*Bot\b/u.test(header),
     review: anchor.startsWith("pullrequestreview-") && header ? reviewState(textOf(header)) : null,
     myReview: said ? reviewState(said) : null,
     excerpt: excerptOf(event),
@@ -199,7 +202,7 @@ export const parseDetail = (html: string, anchor: string, me: string): Detail =>
 };
 
 /** The signed-in reader's login, from any of GitHub's pages. */
-export const parseLogin = (html: string): string => html.match(/<meta name="user-login" content="([^"]*)"/)?.[1] ?? "";
+export const parseLogin = (html: string): string => html.match(/<meta name="user-login" content="([^"]*)"/u)?.[1] ?? "";
 
 const get = async (path: string, accept: "text/html" | "application/json") => {
   let response: Response;
@@ -220,9 +223,9 @@ const PAGES = 4;
 
 /** The number of pages a dashboard list has, or 1 when it doesn't say. */
 export const pageCount = (data: unknown): number => {
-  const routes = Object.values(record(record(data).payload));
+  const routes = Object.values(asRecord(asRecord(data).payload));
   const total = routes
-    .map((route) => record(record(route).pageInfo).totalPages)
+    .map((route) => asRecord(asRecord(route).pageInfo).totalPages)
     .find((pages) => typeof pages === "number");
   return typeof total === "number" && total > 1 ? Math.floor(total) : 1;
 };
@@ -238,7 +241,7 @@ const LISTS: Record<PullList, string> = {
 
 /** The pull requests waiting for the reader's review, the ones asked of them by name, or the open ones they wrote. */
 export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
-  const read = async (page: number) => {
+  const read = async (page: number): Promise<unknown> => {
     const path = page === 1 ? LISTS[list] : `${LISTS[list]}${LISTS[list].includes("?") ? "&" : "?"}page=${page}`;
     return (await get(path, "application/json")).json().catch(() => null);
   };
@@ -247,7 +250,7 @@ export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
     Array.from({ length: Math.min(pageCount(first), PAGES) - 1 }, (_, index) => read(index + 2)),
   );
   // A pull request updated between two pages' reads moves up a page, and would be read twice.
-  const pulls = new Map([first, ...rest].flatMap(parsePulls).map((pull) => [pull.url, pull]));
+  const pulls = new Map([first, ...rest].flatMap((each) => parsePulls(each)).map((pull) => [pull.url, pull]));
   return [...pulls.values()];
 };
 
@@ -269,11 +272,11 @@ export const fetchDetail = async (repo: string, number: number, anchor: string, 
  * GitHub sends it with `Accept: application/json`, the same summaries the bar reads off the page, a tenth of the HTML.
  */
 export const parseFiles = (data: unknown): PullFile[] => {
-  const routes = Object.values(record(record(data).payload));
-  const summaries = routes.map((route) => record(route).diffSummaries).find(Array.isArray);
+  const routes = Object.values(asRecord(asRecord(data).payload));
+  const summaries = routes.map((route) => asRecord(route).diffSummaries).find((each) => Array.isArray(each));
   if (!summaries) throw new InboxError("unreadable");
   return summaries.flatMap((value) => {
-    const summary = record(value);
+    const summary = asRecord(value);
     if (typeof summary.path !== "string") return [];
     return [
       [

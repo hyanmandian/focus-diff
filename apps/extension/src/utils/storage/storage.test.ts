@@ -25,7 +25,8 @@ describe("config", () => {
   it("normalizes what it reads and writes", async () => {
     await fakeBrowser.storage.sync.set({ config: { global: [{ name: " Docs ", include: "\\.md$" }, "junk"] } });
     const config = await loadConfig();
-    expect(config.global).toEqual([{ id: expect.any(String), name: "Docs", include: "\\.md$", exclude: "" }]);
+    expect(config.global).toEqual([{ id: config.global[0]?.id, name: "Docs", include: "\\.md$", exclude: "" }]);
+    expect(typeof config.global[0]?.id).toBe("string");
 
     await saveConfig({ global: [{ id: "all", name: "X", include: "", exclude: "" }], repos: [] });
     const saved = await configItem.getValue();

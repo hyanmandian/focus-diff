@@ -1,4 +1,4 @@
-import { browser } from "wxt/browser";
+import { browser, type Browser } from "wxt/browser";
 
 import { i18n } from "#i18n";
 import { isSilent, play } from "@/utils/background-sound/background-sound";
@@ -16,7 +16,7 @@ import {
   type InboxSnapshot,
   type NotifySettings,
 } from "@/utils/inbox/inbox";
-import type { Command, Message } from "@/utils/messages/messages";
+import { COMMANDS, type Message } from "@/utils/messages/messages";
 import {
   endRun,
   hold,
@@ -58,7 +58,7 @@ const isNotable = (previous: string, current: string) =>
  */
 const openOptions = async (repo?: string | null, section?: string) => {
   const message: Message = { type: "show-options", repo, section };
-  const shown = await browser.runtime.sendMessage(message).catch(() => false);
+  const shown: unknown = await browser.runtime.sendMessage(message).catch(() => false);
   if (shown === true) return;
   const hash = repo ? `#repo=${encodeURIComponent(repo)}` : section ? `#${section}` : "";
   const url = browser.runtime.getURL(`/options.html${hash}`);
@@ -89,7 +89,7 @@ const updateBadge = async (settings: NotifySettings, snapshot: InboxSnapshot | n
   const waiting =
     snapshot?.reviews.filter((pull) => !pull.draft && !isDone(done, pull) && inPopup(popup, pull)).length ?? 0;
   const signedOut = snapshot?.problem === "signed-out";
-  const text = !settings.enabled ? "" : signedOut ? "!" : waiting ? String(waiting) : "";
+  const text = settings.enabled ? (signedOut ? "!" : waiting ? String(waiting) : "") : "";
   await browser.action.setBadgeBackgroundColor({ color: signedOut ? "#d29922" : "#1f6feb" });
   await browser.action.setBadgeText({ text });
 };
@@ -120,13 +120,14 @@ const linkFor = (event: InboxEvent) =>
 const deliveryOptions = (delivery: Delivery) =>
   import.meta.env.FIREFOX ? {} : { silent: isSilent(delivery.sound), requireInteraction: delivery.sticky };
 
+const titleOf = (event: InboxEvent) => TITLES[event.kind](event.actor || event.repo, event);
+
 const showNotifications = async (events: InboxEvent[], delivery: Delivery) => {
-  if (!events.length || !browser.notifications) return;
+  if (events.length === 0 || !browser.notifications) return;
   if (!(await browser.permissions.contains({ permissions: ["notifications"] }))) return;
   const iconUrl = browser.runtime.getURL("/icon/128.png");
   const options = deliveryOptions(delivery);
   const links = await notificationLinksItem.getValue();
-  const titleOf = (event: InboxEvent) => TITLES[event.kind](event.actor || event.repo, event);
   // A notification shown under an id already on screen, or still in the system's list, only replaces it, without popping
   // up; each one gets an id of its own.
   const stamp = Date.now();
@@ -147,6 +148,7 @@ const showNotifications = async (events: InboxEvent[], delivery: Delivery) => {
       links[id] = linkFor(event);
       // What a comment or review said, with the pull request under it; a request or a draft made ready, the pull request.
       const where = `${event.repo}#${event.number}`;
+      // oxlint-disable-next-line eslint/no-await-in-loop -- one after another, so the system lists them in order.
       await browser.notifications.create(id, {
         type: "basic",
         iconUrl,
@@ -235,7 +237,9 @@ const look = (full: boolean): Promise<void> =>
     if (settings.enabled && !isQuiet(settings, new Date())) await showNotifications(now, settings.delivery);
     // Not waited on: the files pages take a few seconds, and the lists are already there to show.
     if (!failed) void readQueueFiles(snapshot.reviews);
-  })().finally(() => (running = null)));
+  })().finally(() => {
+    running = null;
+  }));
 
 const refresh = () => look(true);
 
@@ -281,6 +285,20 @@ const listenToNotifications = () => {
   browser.notifications.onButtonClicked?.addListener((id, button) => void onReviewNotification(id, button));
 };
 
+const onAlarm = async (alarm: Browser.alarms.Alarm) => {
+  if (alarm.name === ALARM) void refresh();
+  else await onReviewAlarm(alarm);
+};
+
+const onCommand = async (command: string, tab?: Browser.tabs.Tab) => {
+  const target = tab ?? (await browser.tabs.query({ active: true, currentWindow: true }))[0];
+  if (!target?.id) return;
+  const known = COMMANDS.find((each) => each === command);
+  if (!known) return;
+  const message: Message = { type: "command", command: known };
+  await browser.tabs.sendMessage(target.id, message).catch(() => {});
+};
+
 /** The background: checks GitHub on its alarms, sends notifications, keeps the badge and runs review time. */
 export const startBackground = (): void => {
   initReviewTime({
@@ -310,16 +328,15 @@ export const startBackground = (): void => {
   notifyItem.watch(() => void schedule());
   reviewTimeItem.watch(() => void scheduleReviewTime());
   reviewSkipItem.watch(() => void scheduleReviewTime());
-  doneItem.watch(async () => updateBadge(await loadNotify(), await inboxItem.getValue()));
+  doneItem.watch(
+    () => void Promise.all([loadNotify(), inboxItem.getValue()]).then(([notify, inbox]) => updateBadge(notify, inbox)),
+  );
   // Leaving out the reviews asked of the reader's teams takes reading the lists again, to tell which those are.
   popupItem.watch((next, previous) => {
-    if (next?.teams === false && previous?.teams !== false) void look(false);
+    if (!next?.teams && previous?.teams) void look(false);
     else void loadNotify().then(async (settings) => updateBadge(settings, await inboxItem.getValue()));
   });
-  browser.alarms.onAlarm.addListener(async (alarm) => {
-    if (alarm.name === ALARM) void refresh();
-    else await onReviewAlarm(alarm);
-  });
+  browser.alarms.onAlarm.addListener((alarm) => void onAlarm(alarm));
   listenToNotifications();
   browser.permissions.onAdded?.addListener(listenToNotifications);
 
@@ -330,7 +347,10 @@ export const startBackground = (): void => {
       // The popup is opening: a review time whose alarm was lost, like over a restart, is put right first.
       void recoverReviewTime()
         .then(refreshLists)
-        .then(() => sendResponse(true));
+        .then(() => {
+          sendResponse(true);
+        });
+      // oxlint-disable-next-line typescript/strict-void-return -- true keeps the channel open for sendResponse, as the browser asks.
       return true;
     }
     // Answered once done, so the popup can say so; a failure answers too, with false.
@@ -345,17 +365,17 @@ export const startBackground = (): void => {
     }[message?.type as string];
     if (reviewTime) {
       void Promise.resolve(reviewTime()).then(
-        (answer) => sendResponse(answer ?? true),
-        () => sendResponse(false),
+        (answer) => {
+          sendResponse(answer ?? true);
+        },
+        () => {
+          sendResponse(false);
+        },
       );
+      // oxlint-disable-next-line typescript/strict-void-return -- true keeps the channel open for sendResponse, as the browser asks.
       return true;
     }
   });
 
-  browser.commands.onCommand.addListener(async (command, tab) => {
-    const target = tab ?? (await browser.tabs.query({ active: true, currentWindow: true }))[0];
-    if (!target?.id) return;
-    const message: Message = { type: "command", command: command as Command };
-    await browser.tabs.sendMessage(target.id, message).catch(() => {});
-  });
+  browser.commands.onCommand.addListener((command, tab) => void onCommand(command, tab));
 };

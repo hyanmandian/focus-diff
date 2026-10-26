@@ -1,5 +1,7 @@
 import type { BrowserContext, Worker } from "@playwright/test";
 
+import type { HeldEvent, NotifySettings } from "../src/utils/inbox/inbox";
+import type { ReviewRun, ReviewTimeSettings } from "../src/utils/review-sessions/review-sessions";
 import { accessibilityViolations, expect, test } from "./fixtures";
 import { allowNotifications, dashboard, routeGitHubRest } from "./github";
 
@@ -33,7 +35,7 @@ const FILES: Record<number, [string, number][]> = {
 
 /** GitHub as review time reads it: the review queue, and each pull request's files. */
 const routeGitHub = async (context: BrowserContext) => {
-  await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/, (route) =>
+  await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/u, (route) =>
     route.fulfill({
       contentType: "application/json",
       body: route.request().url().endsWith("/reviews")
@@ -45,12 +47,12 @@ const routeGitHub = async (context: BrowserContext) => {
         : dashboard([]),
     }),
   );
-  await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/(\d+)\/changes$/, (route) => {
+  await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/(\d+)\/changes$/u, (route) => {
     const number = Number(
       route
         .request()
         .url()
-        .match(/pull\/(\d+)/)?.[1],
+        .match(/pull\/(\d+)/u)?.[1],
     );
     const diffSummaries = (FILES[number] ?? []).map(([path, linesAdded]) => ({
       path,
@@ -81,7 +83,9 @@ const heldEvent = (number: number, heldAt: number, until = "review") => ({
 });
 
 const run = (background: Worker) =>
-  background.evaluate(async () => (await chrome.storage.local.get("reviewRun")).reviewRun ?? null);
+  background.evaluate(
+    async () => (await chrome.storage.local.get<{ reviewRun?: ReviewRun }>("reviewRun")).reviewRun ?? null,
+  );
 
 test.describe("review time settings", () => {
   test("sets up a review time, with what to count and how notifications wait for it", async ({
@@ -128,8 +132,11 @@ test.describe("review time settings", () => {
 
     await page.locator("#save").click();
     await expect(page.locator("#status")).toContainText("Saved.");
-    const saved = await background.evaluate(
-      async () => (await chrome.storage.sync.get(["reviewTime", "notifications"])) as Record<string, any>,
+    const saved = await background.evaluate(() =>
+      chrome.storage.sync.get<{ reviewTime: ReviewTimeSettings; notifications: NotifySettings }>([
+        "reviewTime",
+        "notifications",
+      ]),
     );
     expect(saved.reviewTime).toMatchObject({ enabled: true, holdWhileReviewing: true, sound: { id: "marimba" } });
     expect(saved.reviewTime.sessions[0]).toMatchObject({
@@ -177,12 +184,12 @@ test.describe("review time in the popup", () => {
     // Waiting longest first, the ones that fit: 12 takes 33 minutes, 13 eight, 14 seventy-four.
     const rows = panel.getByRole("link");
     await expect(rows).toHaveCount(2);
-    await expect(rows.first()).toHaveAccessibleName(/^Cache the book covers\s*web#12\s*ada\s*~33 min\s*2 files$/);
-    await expect(rows.last()).toHaveAccessibleName(/^Fix the reader/);
+    await expect(rows.first()).toHaveAccessibleName(/^Cache the book covers\s*web#12\s*ada\s*~33 min\s*2 files$/u);
+    await expect(rows.last()).toHaveAccessibleName(/^Fix the reader/u);
     await expect(panel).toContainText("45 min left");
     await expect(panel).toContainText("0 of 2 reviewed · about 41 min planned. 1 more didn’t fit.");
     await expect(page.getByRole("button", { name: "Review now" })).toBeHidden();
-    expect((await run(background)).pulls).toHaveLength(2);
+    expect((await run(background))?.pulls).toHaveLength(2);
     await expect.poll(() => background.evaluate(() => chrome.action.getBadgeText({}))).toBe("45m");
     expect(await accessibilityViolations(page)).toEqual([]);
 
@@ -202,20 +209,20 @@ test.describe("review time in the popup", () => {
       await chrome.storage.local.set({ reviewQueueHistory: { [url]: { left: Date.now() - 3600_000 } } });
     }, "https://github.com/octo/web/pull/14");
     const page = await openExtensionPage("popup.html");
-    const rows = page.getByRole("tabpanel", { name: /Review queue/ }).getByRole("link");
+    const rows = page.getByRole("tabpanel", { name: /Review queue/u }).getByRole("link");
     await expect(rows.first()).toHaveAccessibleName(
-      /^Write the docs\s*#14\s*ada\s*About 1 h 15 min to review\s*Re-review/,
+      /^Write the docs\s*#14\s*ada\s*About 1 h 15 min to review\s*Re-review/u,
     );
-    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada\s*About 33 min to review/);
+    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada\s*About 33 min to review/u);
     await expect(rows.nth(2)).toContainText("~8 min");
     expect(await accessibilityViolations(page)).toEqual([]);
 
     // Turned off, the queue reads no files and says nothing of time.
     await background.evaluate(async () => {
-      const { reviewTime } = await chrome.storage.sync.get("reviewTime");
+      const { reviewTime } = await chrome.storage.sync.get<{ reviewTime: ReviewTimeSettings }>("reviewTime");
       await chrome.storage.sync.set({ reviewTime: { ...reviewTime, queueEstimates: false } });
     });
-    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada\s*\d+h ago$/);
+    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada\s*\d+h ago$/u);
   });
 
   test("offers one that runs over, saying so, with what was kept for it", async ({
@@ -264,9 +271,9 @@ test.describe("review time in the popup", () => {
     await expect(panel.getByRole("note")).toHaveText(
       "The one picked takes about 8 min, 3 min more than the 5 min set aside.",
     );
-    await expect(panel.getByRole("link", { name: /^Fix the reader/ })).toBeVisible();
-    await expect(panel.getByRole("region", { name: /Kept for review time/ }).getByRole("link")).toHaveAccessibleName(
-      /Sort books by rating/,
+    await expect(panel.getByRole("link", { name: /^Fix the reader/u })).toBeVisible();
+    await expect(panel.getByRole("region", { name: /Kept for review time/u }).getByRole("link")).toHaveAccessibleName(
+      /Sort books by rating/u,
     );
     expect(await accessibilityViolations(page)).toEqual([]);
 
@@ -334,13 +341,13 @@ test.describe("review time, when things go sideways", () => {
     await routeGitHub(context);
     const offeredAt = Date.now() - 60_000;
     await background.evaluate(
-      ({ offeredAt, heldNotifications }) =>
+      ({ offeredAt: at, heldNotifications }) =>
         chrome.storage.local.set({
           reviewRun: {
             session: "",
             name: "Review time",
             minutes: 30,
-            offeredAt,
+            offeredAt: at,
             startedAt: null,
             pulls: [
               {
@@ -367,9 +374,10 @@ test.describe("review time, when things go sideways", () => {
     // The one offered with it was seen; the one that came after waits for the next.
     const left = () =>
       background.evaluate(async () =>
-        ((await chrome.storage.local.get("heldNotifications")).heldNotifications ?? []).map(
-          (event: { number: number }) => event.number,
-        ),
+        (
+          (await chrome.storage.local.get<{ heldNotifications?: HeldEvent[] }>("heldNotifications"))
+            .heldNotifications ?? []
+        ).map((event) => event.number),
       );
     await expect.poll(left).toEqual([21]);
   });
@@ -379,7 +387,7 @@ test.describe("review time, when things go sideways", () => {
     openExtensionPage,
     background,
   }) => {
-    await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/, (route) =>
+    await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/u, (route) =>
       route.fulfill({ contentType: "application/json", body: dashboard([]) }),
     );
     await routeGitHubRest(context);

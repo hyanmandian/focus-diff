@@ -13,7 +13,7 @@ import {
 import { renderReviewPanel } from "@/components/popup-review-time/popup-review-time";
 import { FADE, scrollRow } from "@/components/scroll-row/scroll-row";
 import { customThemeCss, normalizeAppearance, type Appearance } from "@/utils/appearance/appearance";
-import { h } from "@/utils/dom/dom";
+import { cloneOf, h } from "@/utils/dom/dom";
 import { $, reveal, translateDocument } from "@/utils/extension-page/extension-page";
 import { formatDuration } from "@/utils/format/format";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
@@ -27,8 +27,8 @@ import {
   type DoneMarks,
   type InboxSnapshot,
   type PopupSettings,
+  type HeldEvent,
 } from "@/utils/inbox/inbox";
-import type { HeldEvent } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
 import {
   normalizeReviewTime,
@@ -58,6 +58,119 @@ import {
 
 import themeCss from "@/components/theme/theme.css?inline";
 
+const comments = (count: number) =>
+  h(
+    "span",
+    { className: "pull-comments" },
+    commentIcon(),
+    h("span", { "aria-hidden": "true", textContent: String(count) }),
+    h("span", { className: "visually-hidden", textContent: i18n.t("popupComments", count, [count]) }),
+  );
+
+/** Within a repository: what they were asked to review again first, then what changed since they last looked, then the rest, then drafts. */
+const order = (a: PullRequest, b: PullRequest) =>
+  Number(a.draft) - Number(b.draft) ||
+  Number(Boolean(b.again)) - Number(Boolean(a.again)) ||
+  Number(b.unread) - Number(a.unread) ||
+  b.updatedAt.localeCompare(a.updatedAt);
+
+const unread = (list: PullRequest[]) => list.filter((pull) => pull.unread).length;
+
+const latest = (list: PullRequest[]) => list.reduce((max, pull) => (pull.updatedAt > max ? pull.updatedAt : max), "");
+
+/** Rows standing in for the lists while the first look is on its way. */
+const skeleton = () =>
+  h(
+    "ul",
+    { className: "pulls skeleton", "aria-hidden": "true" },
+    ...[0.9, 0.7, 0.8].map((width) =>
+      h(
+        "li",
+        {},
+        h(
+          "span",
+          { className: "pull" },
+          h("span", { className: "avatar" }),
+          h("span", { className: "pull-body", style: `--w: ${width}` }),
+        ),
+      ),
+    ),
+  );
+
+/** The pull requests by repository, the ones with news first, then the most recently active. */
+const byRepo = (pulls: PullRequest[]) => {
+  const groups = new Map<string, PullRequest[]>();
+  for (const pull of pulls) groups.set(pull.repo, [...(groups.get(pull.repo) ?? []), pull]);
+  return [...groups]
+    .map(([repo, list]) => ({ repo, pulls: list.toSorted(order) }))
+    .toSorted((a, b) => unread(b.pulls) - unread(a.pulls) || latest(b.pulls).localeCompare(latest(a.pulls)));
+};
+
+/** A repository by its name alone, unless two owners have one by the same name. */
+const shortName = (repo: string, all: string[]) => {
+  const name = repo.slice(repo.lastIndexOf("/") + 1);
+  return all.filter((each) => each.endsWith(`/${name}`)).length > 1 ? repo : name;
+};
+
+/**
+ * Opens a folded section with its rows unrolling from the top while the list scrolls it up to the top, so what was
+ * opened is what's on screen; closing rolls them back up. With reduced motion it opens and scrolls at once.
+ */
+const unfold = (section: HTMLDetailsElement, body: HTMLElement, open: boolean) => {
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ease = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease-out";
+  for (const animation of body.getAnimations()) animation.cancel();
+  if (!open) {
+    if (still) return void (section.open = false);
+    body.style.overflow = "hidden";
+    const closing = body.animate(
+      [
+        { height: `${body.offsetHeight}px`, opacity: 1 },
+        { height: "0px", opacity: 0 },
+      ],
+      {
+        duration: 200,
+        easing: ease,
+      },
+    );
+    closing.onfinish = () => {
+      section.open = false;
+      body.style.overflow = "";
+    };
+    return;
+  }
+  section.open = true;
+  const scroller = section.closest<HTMLElement>(".scroll");
+  if (scroller) {
+    const top = scroller.scrollTop + section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    scroller.scrollTo({ top, behavior: still ? "auto" : "smooth" });
+  }
+  if (still) return;
+  // The rows are laid out at once, so the list can scroll to them; they're revealed from the top as it does.
+  body.animate(
+    [
+      { clipPath: "inset(0 0 100% 0)", opacity: 0, transform: "translateY(-6px)" },
+      { clipPath: "inset(0 0 0 0)", opacity: 1, transform: "none" },
+    ],
+    { duration: 320, easing: ease },
+  );
+};
+
+const openOptions = async (section?: string) => {
+  const message: Message = { type: "open-options", section };
+  await browser.runtime.sendMessage(message);
+  window.close();
+};
+
+const renderNotify = (enabled: boolean) => {
+  const button = $("#notify-setup");
+  button.classList.toggle("on", enabled);
+  button.replaceChildren(
+    bellIcon(),
+    h("span", { textContent: i18n.t(enabled ? "popupNotifyOn" : "popupNotifySetup") }),
+  );
+};
+
 /** The toolbar popup: the reader's pull requests, their review time and the bar's switch. */
 export const startPopup = (): void => {
   type List = "reviews" | "mine";
@@ -65,14 +178,17 @@ export const startPopup = (): void => {
   const TAB_KEY = "focus-diff:popup-tab";
 
   /** The bar's theme, with the reader's own colours over it, on the whole popup instead of the bar's shadow root. */
-  const themeStyle = document.head.appendChild(document.createElement("style"));
+  const themeStyle = document.createElement("style");
+  document.head.append(themeStyle);
   // GitHub's own colours aren't on this page, so only the defaults and the reader's colours apply, without waiting on
   // the provider's stylesheet.
   const restyle = (appearance: Appearance) => {
     const custom = appearance.themes.find((theme) => theme.id === appearance.theme);
     themeStyle.textContent = `${themeCss}\n${custom ? customThemeCss(custom) : ""}`.replaceAll(":host", ":root");
   };
-  appearanceItem.watch((value) => restyle(normalizeAppearance(value)));
+  appearanceItem.watch((value) => {
+    restyle(normalizeAppearance(value));
+  });
 
   const language = uiLanguage();
   const relative = new Intl.RelativeTimeFormat(language, { numeric: "auto", style: "narrow" });
@@ -123,7 +239,7 @@ export const startPopup = (): void => {
       avatars.set(login, image);
     }
     // An image can only be in one place; a second row by the same author gets a copy, from the cache.
-    const placed = image.isConnected ? (image.cloneNode() as HTMLImageElement) : image;
+    const placed = image.isConnected ? cloneOf(image, false) : image;
     const missing = () => {
       missingAvatars.add(login);
       placed.remove();
@@ -137,15 +253,6 @@ export const startPopup = (): void => {
     slot.append(placed);
     return slot;
   };
-
-  const comments = (count: number) =>
-    h(
-      "span",
-      { className: "pull-comments" },
-      commentIcon(),
-      h("span", { "aria-hidden": "true", textContent: String(count) }),
-      h("span", { className: "visually-hidden", textContent: i18n.t("popupComments", count, [count]) }),
-    );
 
   /** Which repositories to list. */
   let popup: PopupSettings = normalizePopup({});
@@ -173,7 +280,7 @@ export const startPopup = (): void => {
       { className: "pull-estimate" },
       h("span", { "aria-hidden": "true", textContent: text }),
       // The ~ would be read out as "tilde"; the sentence says "about".
-      h("span", { className: "visually-hidden", textContent: i18n.t("popupTakes", [text.replace(/^[~<]/, "")]) }),
+      h("span", { className: "visually-hidden", textContent: i18n.t("popupTakes", [text.replace(/^[~<]/u, "")]) }),
     );
   };
 
@@ -263,33 +370,10 @@ export const startPopup = (): void => {
       undoIcon(),
     );
     button.setAttribute("aria-label", i18n.t("popupNotDone", [pull.title]));
-    button.addEventListener("click", () => saveDone(unmarkDone(done, [pull])));
+    button.addEventListener("click", () => {
+      saveDone(unmarkDone(done, [pull]));
+    });
     return button;
-  };
-
-  /** Within a repository: what they were asked to review again first, then what changed since they last looked, then the rest, then drafts. */
-  const order = (a: PullRequest, b: PullRequest) =>
-    Number(a.draft) - Number(b.draft) ||
-    Number(Boolean(b.again)) - Number(Boolean(a.again)) ||
-    Number(b.unread) - Number(a.unread) ||
-    b.updatedAt.localeCompare(a.updatedAt);
-
-  /** The pull requests by repository, the ones with news first, then the most recently active. */
-  const byRepo = (pulls: PullRequest[]) => {
-    const groups = new Map<string, PullRequest[]>();
-    for (const pull of pulls) groups.set(pull.repo, [...(groups.get(pull.repo) ?? []), pull]);
-    const unread = (list: PullRequest[]) => list.filter((pull) => pull.unread).length;
-    const latest = (list: PullRequest[]) =>
-      list.reduce((max, pull) => (pull.updatedAt > max ? pull.updatedAt : max), "");
-    return [...groups]
-      .map(([repo, list]) => ({ repo, pulls: list.toSorted(order) }))
-      .toSorted((a, b) => unread(b.pulls) - unread(a.pulls) || latest(b.pulls).localeCompare(latest(a.pulls)));
-  };
-
-  /** A repository by its name alone, unless two owners have one by the same name. */
-  const shortName = (repo: string, all: string[]) => {
-    const name = repo.slice(repo.lastIndexOf("/") + 1);
-    return all.filter((each) => each.endsWith(`/${name}`)).length > 1 ? repo : name;
   };
 
   /** The repository each list is narrowed to, if any. */
@@ -304,7 +388,7 @@ export const startPopup = (): void => {
    */
   const repoFilter = (groups: ReturnType<typeof byRepo>, list: List, total: number) => {
     const repos = groups.map((group) => group.repo);
-    const order = ["", ...repos];
+    const repoOrder = ["", ...repos];
     // Taken now: placing the highlight on this row overwrites it.
     const slideFrom = highlightAt[list];
     const chip = (repo: string, label: string, count: number) => {
@@ -317,11 +401,11 @@ export const startPopup = (): void => {
       button.setAttribute("aria-pressed", String(narrowed[list] === repo));
       button.addEventListener("click", () => {
         if (narrowed[list] === repo) return;
-        const from = order.indexOf(narrowed[list]);
+        const from = repoOrder.indexOf(narrowed[list]);
         narrowed[list] = repo;
         render();
         $(`#panel-${list} .chip[aria-pressed="true"]`).focus();
-        slideIn($(`#panel-${list} .groups`), order.indexOf(repo) > from ? 1 : -1);
+        slideIn($(`#panel-${list} .groups`), repoOrder.indexOf(repo) > from ? 1 : -1);
       });
       return button;
     };
@@ -368,7 +452,9 @@ export const startPopup = (): void => {
         placeHighlight();
       } else {
         placeHighlight();
-        requestAnimationFrame(() => highlight.classList.add("ready"));
+        requestAnimationFrame(() => {
+          highlight.classList.add("ready");
+        });
       }
     });
     return row;
@@ -379,70 +465,28 @@ export const startPopup = (): void => {
    * each with a way back.
    */
   const foldedSection = (kind: Folded, pulls: PullRequest[], list: List) => {
-    const done = kind === "done";
+    const doneKind = kind === "done";
     const summary = h(
       "summary",
       {},
-      h("span", { textContent: i18n.t(done ? "popupDone" : "popupDrafts") }),
+      h("span", { textContent: i18n.t(doneKind ? "popupDone" : "popupDrafts") }),
       h("span", { className: "group-count", textContent: String(pulls.length) }),
     );
     const body = h(
       "div",
       { className: "fold-body" },
-      h("p", { className: "done-hint", textContent: i18n.t(done ? "popupDoneHint" : "popupDraftsHint") }),
-      h("ul", { className: "pulls", role: "list" }, ...pulls.toSorted(order).map((pull) => item(pull, list, done))),
+      h("p", { className: "done-hint", textContent: i18n.t(doneKind ? "popupDoneHint" : "popupDraftsHint") }),
+      h("ul", { className: "pulls", role: "list" }, ...pulls.toSorted(order).map((pull) => item(pull, list, doneKind))),
     );
     const section = h("details", { className: "done-section", open: foldedOpen[kind][list] }, summary, body);
-    section.addEventListener("toggle", () => (foldedOpen[kind][list] = section.open));
+    section.addEventListener("toggle", () => {
+      foldedOpen[kind][list] = section.open;
+    });
     summary.addEventListener("click", (event) => {
       event.preventDefault();
       unfold(section, body, !section.open);
     });
     return section;
-  };
-
-  /**
-   * Opens a folded section with its rows unrolling from the top while the list scrolls it up to the top, so what was
-   * opened is what's on screen; closing rolls them back up. With reduced motion it opens and scrolls at once.
-   */
-  const unfold = (section: HTMLDetailsElement, body: HTMLElement, open: boolean) => {
-    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const ease = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease-out";
-    for (const animation of body.getAnimations()) animation.cancel();
-    if (!open) {
-      if (still) return void (section.open = false);
-      body.style.overflow = "hidden";
-      const closing = body.animate(
-        [
-          { height: `${body.offsetHeight}px`, opacity: 1 },
-          { height: "0px", opacity: 0 },
-        ],
-        {
-          duration: 200,
-          easing: ease,
-        },
-      );
-      closing.onfinish = () => {
-        section.open = false;
-        body.style.overflow = "";
-      };
-      return;
-    }
-    section.open = true;
-    const scroller = section.closest<HTMLElement>(".scroll");
-    if (scroller) {
-      const top = scroller.scrollTop + section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-      scroller.scrollTo({ top, behavior: still ? "auto" : "smooth" });
-    }
-    if (still) return;
-    // The rows are laid out at once, so the list can scroll to them; they're revealed from the top as it does.
-    body.animate(
-      [
-        { clipPath: "inset(0 0 100% 0)", opacity: 0, transform: "translateY(-6px)" },
-        { clipPath: "inset(0 0 0 0)", opacity: 1, transform: "none" },
-      ],
-      { duration: 320, easing: ease },
-    );
   };
 
   /** On the review queue, drafts aren't ready for review: they wait folded at the end, and no count counts them. */
@@ -460,7 +504,7 @@ export const startPopup = (): void => {
       // With one repository on screen, its name says nothing new; the chip picked says it already.
       if (shown.length === 1) return h("div", { className: "group untitled" }, rows);
       const slash = group.repo.lastIndexOf("/") + 1;
-      const id = `${list}-${group.repo.replace(/[^\w-]/g, "-")}`;
+      const id = `${list}-${group.repo.replaceAll(/[^\w-]/gu, "-")}`;
       const section = h(
         "section",
         { className: "group" },
@@ -482,29 +526,10 @@ export const startPopup = (): void => {
     });
     const inRepo = (each: PullRequest[]) =>
       narrowed[list] ? each.filter((pull) => pull.repo === narrowed[list]) : each;
-    if (inRepo(drafts).length) sections.push(foldedSection("drafts", inRepo(drafts), list));
-    if (inRepo(finished).length) sections.push(foldedSection("done", inRepo(finished), list));
+    if (inRepo(drafts).length > 0) sections.push(foldedSection("drafts", inRepo(drafts), list));
+    if (inRepo(finished).length > 0) sections.push(foldedSection("done", inRepo(finished), list));
     return { filter: groups.length > 1 ? repoFilter(groups, list, pulls.length) : null, sections };
   };
-
-  /** Rows standing in for the lists while the first look is on its way. */
-  const skeleton = () =>
-    h(
-      "ul",
-      { className: "pulls skeleton", "aria-hidden": "true" },
-      ...[0.9, 0.7, 0.8].map((width) =>
-        h(
-          "li",
-          {},
-          h(
-            "span",
-            { className: "pull" },
-            h("span", { className: "avatar" }),
-            h("span", { className: "pull-body", style: `--w: ${width}` }),
-          ),
-        ),
-      ),
-    );
 
   const tabs = LISTS.map((list) => $<HTMLButtonElement>(`#tab-${list}`));
   const panels = LISTS.map((list) => $(`#panel-${list}`));
@@ -517,7 +542,10 @@ export const startPopup = (): void => {
     if (!tab?.offsetWidth) return;
     indicator.style.setProperty("--left", `${tab.offsetLeft}px`);
     indicator.style.setProperty("--width", `${tab.offsetWidth}px`);
-    if (!indicator.classList.contains("ready")) requestAnimationFrame(() => indicator.classList.add("ready"));
+    if (!indicator.classList.contains("ready"))
+      requestAnimationFrame(() => {
+        indicator.classList.add("ready");
+      });
   };
   new ResizeObserver(moveIndicator).observe($(".tabs"));
 
@@ -560,7 +588,9 @@ export const startPopup = (): void => {
     }
   };
   tabs.forEach((tab, index) => {
-    tab.addEventListener("click", () => select(LISTS[index] ?? "reviews"));
+    tab.addEventListener("click", () => {
+      select(LISTS[index] ?? "reviews");
+    });
     tab.addEventListener("keydown", (event) => {
       const target = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: LISTS.length - 1 }[event.key];
       if (target === undefined) return;
@@ -578,7 +608,7 @@ export const startPopup = (): void => {
       event.preventDefault();
       return;
     }
-    if (event.key === "Escape" && picked[currentList()].size) {
+    if (event.key === "Escape" && picked[currentList()].size > 0) {
       event.preventDefault();
       clearPicked();
       return;
@@ -666,7 +696,9 @@ export const startPopup = (): void => {
   /** The footer while something is picked, or just after marking: how many, and what to do with them. */
   function syncSelection() {
     const list = currentList();
-    LISTS.forEach((each, index) => panels[index]?.classList.toggle("selecting", picked[each].size > 0));
+    LISTS.forEach((each, index) => {
+      panels[index]?.classList.toggle("selecting", picked[each].size > 0);
+    });
     const count = picked[list].size;
     const showing = count > 0 || justMarked.length > 0;
     $("#selection").hidden = !showing;
@@ -674,12 +706,12 @@ export const startPopup = (): void => {
     $("#notify-setup").hidden = showing;
     $("#selection-text").textContent = count
       ? i18n.t("popupSelected", count, [count])
-      : justMarked.length
+      : justMarked.length > 0
         ? i18n.t("popupMarked", justMarked.length, [justMarked.length])
         : "";
     $("#selection-clear").hidden = !count;
     $("#mark-done").hidden = !count;
-    $("#undo-done").hidden = Boolean(count) || !justMarked.length;
+    $("#undo-done").hidden = Boolean(count) || justMarked.length === 0;
   }
 
   const saveDone = (next: DoneMarks) => {
@@ -746,28 +778,17 @@ export const startPopup = (): void => {
       });
   };
 
-  const openOptions = async (section?: string) => {
-    const message: Message = { type: "open-options", section };
-    await browser.runtime.sendMessage(message);
-    window.close();
-  };
-
-  const renderNotify = (enabled: boolean) => {
-    const button = $("#notify-setup");
-    button.classList.toggle("on", enabled);
-    button.replaceChildren(
-      bellIcon(),
-      h("span", { textContent: i18n.t(enabled ? "popupNotifyOn" : "popupNotifySetup") }),
-    );
-  };
-
   const settings = $("#settings");
   settings.append(settingsIcon());
   settings.title = i18n.t("panelSettings");
   settings.addEventListener("click", () => void openOptions());
   $("#notify-setup").addEventListener("click", () => void openOptions("notifications"));
-  document.querySelectorAll(".retry").forEach((button) => button.addEventListener("click", refresh));
-  document.querySelectorAll(".see-all").forEach((link) => link.append(externalIcon()));
+  document.querySelectorAll(".retry").forEach((button) => {
+    button.addEventListener("click", refresh);
+  });
+  document.querySelectorAll(".see-all").forEach((link) => {
+    link.append(externalIcon());
+  });
 
   translateDocument(i18n.t("popupTitle"));
   let initial: List = "reviews";
@@ -816,7 +837,10 @@ export const startPopup = (): void => {
     const kept = held.filter((event) => event.until === "review").length;
     reviewNow.dataset.count = kept ? String(kept) : "";
     reviewNow.setAttribute("aria-label", kept ? i18n.t("popupReviewNowHeld", kept, [kept]) : i18n.t("popupReviewNow"));
-    if (reviewCard.hidden) return reviewCard.replaceChildren();
+    if (reviewCard.hidden) {
+      reviewCard.replaceChildren();
+      return;
+    }
     renderReviewPanel(
       reviewCard,
       { settings: reviewTime, run, waiting, held, skipUntil },
@@ -871,7 +895,12 @@ export const startPopup = (): void => {
     snapshot = value;
     render();
   });
-  notifyItem.watch(() => void loadNotify().then((notify) => renderNotify(notify.enabled)));
+  notifyItem.watch(
+    () =>
+      void loadNotify().then((notify) => {
+        renderNotify(notify.enabled);
+      }),
+  );
   doneItem.watch((value) => {
     done = value ?? {};
     render();
@@ -889,14 +918,14 @@ export const startPopup = (): void => {
     learnedItem.getValue(),
     loadPopup(),
     loadAppearance().then(restyle),
-  ]).then(([value, notify, marks, settings, current, kept, skipping, files, pace, repos]) => {
+  ]).then(([value, notify, marks, savedReviewTime, current, kept, skipping, files, pace, repos]) => {
     popup = repos;
     skipUntil = skipping;
     pullFiles = files;
     learned = pace;
     snapshot = value;
     done = marks;
-    reviewTime = settings;
+    reviewTime = savedReviewTime;
     run = current;
     held = kept;
     renderNotify(notify.enabled);

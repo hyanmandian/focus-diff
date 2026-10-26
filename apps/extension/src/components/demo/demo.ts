@@ -109,7 +109,7 @@ export const createDemo = (
         h("span", { className: "demo-path", id: pathId, textContent: file.path }),
         // Said after the path for files outside the filter; empty otherwise.
         h("span", { className: "visually-hidden", id: outsideId }),
-        talks.length ? h("span", { className: "demo-talks", "aria-hidden": "true" }, ...talks) : null,
+        talks.length > 0 ? h("span", { className: "demo-talks", "aria-hidden": "true" }, ...talks) : null,
         h(
           "span",
           { className: "demo-lines" },
@@ -144,18 +144,22 @@ export const createDemo = (
   const panel = createPanel(
     { root: panelRoot, container, host, signal: controller.signal, floating: false },
     {
-      onToggle: (id) => choose(toggled(ids, id)),
+      onToggle: (id) => {
+        choose(toggled(ids, id));
+      },
       onSettings,
-      onNextFile: () => nextFile(),
+      onNextFile: () => {
+        nextFile();
+      },
       onComment: (direction) => {
-        const list = conversationsIn(shown);
-        if (!list.length) return;
-        const index = stepFrom(conversation, direction, list.length);
+        const threads = conversationsIn(shown);
+        if (threads.length === 0) return;
+        const index = stepFrom(conversation, direction, threads.length);
         conversation = index + 1;
-        goTo(shown.find((file) => file.path === list[index]?.path) ?? null);
+        goTo(shown.find((file) => file.path === threads[index]?.path) ?? null);
         apply();
         panel.announceText(
-          i18n.t("panelJumpedToComment", [String(conversation), String(list.length), list[index]?.path ?? ""]),
+          i18n.t("panelJumpedToComment", [String(conversation), String(threads.length), threads[index]?.path ?? ""]),
         );
       },
       onUpdateSeen: () => {},
@@ -164,12 +168,22 @@ export const createDemo = (
   const showReview = createReviewView(panel);
   // The bar's tooltip, for the files' buttons too: a disabled Viewed button says why.
   const tooltip = createTooltip(
-    { host: target, signal: controller.signal, focused: () => root.activeElement as HTMLElement | null },
+    {
+      host: target,
+      signal: controller.signal,
+      focused: () => (root.activeElement instanceof HTMLElement ? root.activeElement : null),
+    },
     list,
   );
-  root.addEventListener("keydown", (event) => (event as KeyboardEvent).key === "Escape" && tooltip.hide(), {
-    signal: controller.signal,
-  });
+  root.addEventListener(
+    "keydown",
+    (event) => {
+      if (event instanceof KeyboardEvent && event.key === "Escape") tooltip.hide();
+    },
+    {
+      signal: controller.signal,
+    },
+  );
 
   function apply(announce = false) {
     const now = review({ list: files, complete: true }, options, ids);
@@ -208,16 +222,16 @@ export const createDemo = (
   /** The next shown file left to review, after the current one; with none left, the next filter that has some. */
   function nextFile() {
     const left = shown.filter((file) => !file.viewed);
-    if (!left.length) {
-      const then = ids.length ? nextFilterWithWork(files, filters, ids) : undefined;
+    if (left.length === 0) {
+      const then = ids.length > 0 ? nextFilterWithWork(files, filters, ids) : undefined;
       if (then) choose([then.id]);
       return;
     }
     const from = current ? shown.indexOf(current) : -1;
-    const target = left.find((file) => shown.indexOf(file) > from) ?? left[0];
-    if (!target) return;
-    goTo(target);
-    panel.announceText(i18n.t("panelJumpedToFile", left.length, [target.path, format(left.length)]));
+    const upNext = left.find((file) => shown.indexOf(file) > from) ?? left[0];
+    if (!upNext) return;
+    goTo(upNext);
+    panel.announceText(i18n.t("panelJumpedToFile", left.length, [upNext.path, format(left.length)]));
   }
 
   /**
@@ -236,7 +250,9 @@ export const createDemo = (
   };
   const resizeObserver = new ResizeObserver(fit);
   resizeObserver.observe(list);
-  controller.signal.addEventListener("abort", () => resizeObserver.disconnect());
+  controller.signal.addEventListener("abort", () => {
+    resizeObserver.disconnect();
+  });
 
   apply();
   panel.setTheme(theme);

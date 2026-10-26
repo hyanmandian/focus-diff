@@ -6,10 +6,11 @@ import type { Panel } from "@/components/panel/panel";
 import type { Totals } from "@/components/stats/stats";
 import { createActiveTime, type OnScreen } from "@/utils/active-time/active-time";
 import { createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
+import { cloneOf } from "@/utils/dom/dom";
 import { ALL, filtersFor, normalize, toMatcher, type Config, type Matcher } from "@/utils/filters/filters";
 import { formatNumber as format } from "@/utils/format/format";
 import type { Message } from "@/utils/messages/messages";
-import type { Provider } from "@/utils/provider/provider";
+import type { PageCounters, Provider } from "@/utils/provider/provider";
 import { collectFiles, type FileInfo, type Files } from "@/utils/review-files/review-files";
 import { createNavigation, goToFile } from "@/utils/review-navigation/review-navigation";
 import { normalizeReviewTime, type ReviewTimeSettings } from "@/utils/review-sessions/review-sessions";
@@ -72,7 +73,7 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
     return;
   }
   if (!copy) {
-    copy = original.cloneNode(false) as HTMLElement;
+    copy = cloneOf(original, false);
     copy.removeAttribute("id");
     copy.removeAttribute("title");
     copy.setAttribute(COUNTER_COPY, "");
@@ -95,7 +96,7 @@ const filterTree = (
     for (let end = path.lastIndexOf("/"); end > 0; end = path.lastIndexOf("/", end - 1))
       folders.add(path.slice(0, end));
   };
-  shownPaths.forEach(keepFoldersOf);
+  for (const path of shownPaths) keepFoldersOf(path);
   for (const file of provider.tree.files()) {
     const path = pathByAnchor.get(file.anchor) ?? provider.tree.pathOf(file.element);
     const visible = matches(path);
@@ -105,11 +106,16 @@ const filterTree = (
   for (const folder of provider.tree.folders()) show(folder.element, !filtering || folders.has(folder.path));
 };
 
+/** Every counter the site shows, found or not. */
+const counterList = ({ files, additions, deletions }: PageCounters) => [files, additions, deletions];
+
 const updatePageCounters = (provider: Provider, totals: Totals, filtering: boolean) => {
   const counters = provider.counters();
   const number = provider.formatCount;
   if (!filtering) {
-    Object.values(counters).forEach((counter) => mirror(counter, null));
+    counterList(counters).forEach((counter) => {
+      mirror(counter, null);
+    });
     return;
   }
   mirror(counters.files, `${number(totals.visible)}/${number(totals.total)}`);
@@ -124,7 +130,9 @@ const restorePage = (provider: Provider) => {
   provider.closeUp?.([], 0);
   for (const item of provider.tree.files()) show(item.element, true);
   for (const folder of provider.tree.folders()) show(folder.element, true);
-  Object.values(provider.counters()).forEach((counter) => mirror(counter, null));
+  counterList(provider.counters()).forEach((counter) => {
+    mirror(counter, null);
+  });
 };
 
 /** Compiled filters, kept until the configuration changes. Each matcher remembers its answer per path. */
@@ -147,6 +155,12 @@ export interface Controller {
   nextUnviewed: () => void;
   dismissUpdate: () => void;
 }
+
+const changesElements = (record: MutationRecord) =>
+  record.type === "attributes" ||
+  [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element);
+
+const dismissUpdate = () => void updateItem.setValue(null);
 
 /** Runs the bar on one review site: reads its page through `provider`, and filters it as the reader picks filters. */
 export const startController = async (
@@ -209,11 +223,16 @@ export const startController = async (
     schedule();
   };
 
-  const select = (id: string) => choose(id === ALL ? [] : [id]);
+  const select = (id: string) => {
+    choose(id === ALL ? [] : [id]);
+  };
 
   const toggle = (id: string) => {
     const repo = provider.repository();
-    if (!repo) return select(ALL);
+    if (!repo) {
+      select(ALL);
+      return;
+    }
     choose(toggled(selectedIds(repo), id));
   };
 
@@ -240,9 +259,11 @@ export const startController = async (
   let pageChanged = false;
   let selectionKey = "";
   let shown: FileInfo[] = [];
-  const navigation = createNavigation(provider, panel, () => schedule());
+  const navigation = createNavigation(provider, panel, () => {
+    schedule();
+  });
   const showReview = createReviewView(panel);
-  const comment = (step: 1 | -1) => void navigation.comment(shown, files.complete, step);
+  const comment = (direction: 1 | -1) => void navigation.comment(shown, files.complete, direction);
 
   /**
    * The next shown file left to review, after the one at the top of the screen, wrapping around. With none left in the
@@ -252,9 +273,9 @@ export const startController = async (
     const repo = provider.repository();
     if (!repo) return;
     const left = shown.filter((file) => !file.viewed);
-    if (!left.length) {
+    if (left.length === 0) {
       const ids = selectedIds(repo);
-      const then = ids.length ? nextFilterWithWork(files.list, filters(repo), ids) : undefined;
+      const then = ids.length > 0 ? nextFilterWithWork(files.list, filters(repo), ids) : undefined;
       if (then) choose([then.id]);
       return;
     }
@@ -307,7 +328,7 @@ export const startController = async (
           ]
         : [];
     });
-    if (!samples.length) return;
+    if (samples.length === 0) return;
     // Read again first: another tab may have learned something since.
     let latest = normalizeLearned(await learnedItem.getValue());
     for (const sample of samples) latest = learnFile(latest, sample.path, sample.expected, sample.actual);
@@ -378,20 +399,25 @@ export const startController = async (
   let ticket = 0;
   /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
   let chosen = false;
+  const pieces = () =>
+    files.list.flatMap((file) =>
+      file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : [],
+    );
+
   const schedule = (when: "frame" | "idle" = "frame") => {
     if (ctx.isInvalid || pending === "frame" || pending === when) return;
     pending = when;
     const mine = ++ticket;
+
     const run = () => {
       if (mine !== ticket) return;
-      if (!chosen) return apply();
+      if (!chosen) {
+        apply();
+        return;
+      }
       // A new selection: the files on screen move into place at the first file left to review, in one motion.
       chosen = false;
-      let pending: FileInfo | undefined;
-      const pieces = () =>
-        files.list.flatMap((file) =>
-          file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : [],
-        );
+      let undrawn: FileInfo | undefined;
       // Inside a transition the move is the animation, so the scroll itself is instant.
       const behavior = canTransition() ? "instant" : undefined;
       void withTransition(() => {
@@ -400,10 +426,10 @@ export const startController = async (
         if (chosen) schedule();
         const next = shown.find((file) => !file.viewed);
         if (next?.diff?.element.isConnected) scrollToTop(next.diff.container, covered, behavior);
-        else pending = next;
+        else undrawn = next;
       }, pieces).then(() => {
         // A file the site hasn't drawn yet is opened once the motion is over.
-        if (pending) void goToFile(provider, pending);
+        if (undrawn) void goToFile(provider, undrawn);
       });
     };
     // A tab in the background draws no frames, so there even the reader's changes wait for idle time.
@@ -413,16 +439,12 @@ export const startController = async (
     else ctx.setTimeout(run, IDLE_TIMEOUT_MS / 4);
   };
 
-  const changesElements = (record: MutationRecord) =>
-    record.type === "attributes" ||
-    [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element);
-
   /** New diffs get filtered on the next frame so they never flash in; text-only changes, like ticking timestamps, are ignored. */
   const pageObserver = new MutationObserver((records) => {
-    const relevant = records.filter(changesElements);
-    if (!relevant.length) return;
+    const relevant = records.filter((each) => changesElements(each));
+    if (relevant.length === 0) return;
     const urgent = relevant.some(
-      (record) => record.type === "attributes" || [...record.addedNodes].some(provider.containsDiff),
+      (record) => record.type === "attributes" || [...record.addedNodes].some((each) => provider.containsDiff(each)),
     );
     schedule(urgent ? "frame" : "idle");
   });
@@ -436,7 +458,7 @@ export const startController = async (
         childList: true,
         subtree: true,
         attributes: provider.observedAttributes.length > 0,
-        ...(provider.observedAttributes.length ? { attributeFilter: provider.observedAttributes } : {}),
+        ...(provider.observedAttributes.length > 0 ? { attributeFilter: provider.observedAttributes } : {}),
       });
     else pageObserver.disconnect();
   };
@@ -471,11 +493,14 @@ export const startController = async (
     schedule();
   });
   panel.showUpdate(await updateItem.getValue());
-  const unwatchUpdate = updateItem.watch((version) => panel.showUpdate(version));
+  const unwatchUpdate = updateItem.watch((version) => {
+    panel.showUpdate(version);
+  });
   const unwatchAppearance = appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
-  const dismissUpdate = () => void updateItem.setValue(null);
 
-  ctx.addEventListener(window, "wxt:locationchange", () => schedule());
+  ctx.addEventListener(window, "wxt:locationchange", () => {
+    schedule();
+  });
 
   // A file picked in the site's tree scrolls smoothly from where the page was, and lines up below the sticky bar
   // instead of under it. The site still updates the address and the tree; a jump of its own is undone before it's painted.
@@ -494,15 +519,26 @@ export const startController = async (
       if (diff) {
         event.preventDefault();
         history.pushState(history.state, "", provider.hashOf(anchor));
-        ctx.requestAnimationFrame(() => bringIn(diff));
+        ctx.requestAnimationFrame(() => {
+          bringIn(diff);
+        });
       } else {
         // Not drawn yet: the site brings it in, then it's lined up.
-        void waitFor(() => provider.diffAt(anchor)).then((found) => found && scrollToTop(found, covered));
+        void waitFor(() => provider.diffAt(anchor)).then((found) => {
+          if (found) scrollToTop(found, covered);
+        });
       }
     },
     { capture: true },
   );
-  ctx.addEventListener(document, "change", () => schedule(), { capture: true });
+  ctx.addEventListener(
+    document,
+    "change",
+    () => {
+      schedule();
+    },
+    { capture: true },
+  );
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
     removeTransitionStyle();

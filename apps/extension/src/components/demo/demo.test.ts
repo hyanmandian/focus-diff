@@ -10,7 +10,7 @@ import theme from "@/components/github-theme/github-theme.css?inline";
 const mount = () => {
   const target = document.createElement("div");
   document.body.append(target);
-  const onSettings = vi.fn();
+  const onSettings = vi.fn<() => void>();
   const { destroy } = createDemo(target, structuredClone(SAMPLE_PULL_REQUEST), { onSettings, theme });
   const root = target.shadowRoot!;
   const bar = root.querySelector(".demo-bar")!.shadowRoot!;

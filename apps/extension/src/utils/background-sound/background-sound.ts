@@ -17,14 +17,16 @@ let creating: Promise<void> | null = null;
 const ensureOffscreen = async () => {
   const url = browser.runtime.getURL(OFFSCREEN);
   const existing = await browser.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"], documentUrls: [url] });
-  if (existing.length) return;
+  if (existing.length > 0) return;
   creating ??= browser.offscreen
     .createDocument({
       url: OFFSCREEN,
       reasons: ["AUDIO_PLAYBACK"],
       justification: "Plays the notification sound the reader picked.",
     })
-    .finally(() => (creating = null));
+    .finally(() => {
+      creating = null;
+    });
   await creating;
 };
 

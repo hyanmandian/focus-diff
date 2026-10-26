@@ -1,5 +1,6 @@
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Worker } from "@playwright/test";
 
+import type { NotifySettings } from "../src/utils/inbox/inbox";
 import { accessibilityViolations, expect, expectSoundPage, PAGE_VIEWS, test } from "./fixtures";
 import { allowNotifications, dashboard, routeGitHubRest } from "./github";
 
@@ -20,13 +21,13 @@ const pull = (number: number, extra: Record<string, unknown> = {}) => ({
  * teams: the search for the ones asked of them by name doesn't find it.
  */
 const routeGitHub = async (context: BrowserContext, { signedIn = true } = {}) => {
-  await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/, (route) =>
+  await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/u, (route) =>
     route.fulfill({
       contentType: "application/json",
       body: dashboard([pull(13, { isDraft: true, title: "Try a new reader" })]),
     }),
   );
-  await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/, (route) => {
+  await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/u, (route) => {
     if (!signedIn)
       return route.fulfill({ status: 302, headers: { location: "https://github.com/login?return_to=%2Fpulls" } });
     const reviews = route.request().url().endsWith("/reviews");
@@ -57,7 +58,7 @@ test.describe("popup", () => {
   }) => {
     await routeGitHub(context);
     const page = await openExtensionPage("popup.html");
-    const reviews = page.getByRole("tabpanel", { name: /Review queue/ });
+    const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
     // By repository, what changed since the reader last looked first. Drafts aren't ready for review: they wait folded
     // at the end, and nothing counts them, so the tab says what the icon does.
     // One repository needs no heading, nor chips to narrow it.
@@ -66,13 +67,13 @@ test.describe("popup", () => {
     await expect(web).toHaveCount(1);
     const fresh = web.first();
     await expect(fresh).toHaveAccessibleName(
-      /^Cache the book covers\s*#12\s*ada\s*New activity\s*3h ago\s*2 comments$/,
+      /^Cache the book covers\s*#12\s*ada\s*New activity\s*3h ago\s*2 comments$/u,
     );
     await expect(fresh).toHaveAttribute("href", "https://github.com/octo/web/pull/12/changes");
-    const draft = reviews.getByRole("link", { name: /^Try a new reader/ });
+    const draft = reviews.getByRole("link", { name: /^Try a new reader/u });
     await expect(draft).toBeHidden();
     await reviews.getByText("Drafts", { exact: true }).click();
-    await expect(draft).toHaveAccessibleName(/^Try a new reader\s*#13\s*ada\s*3h ago/);
+    await expect(draft).toHaveAccessibleName(/^Try a new reader\s*#13\s*ada\s*3h ago/u);
     await expect(reviews.getByRole("group", { name: "Repositories" })).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Review queue 1" })).toHaveAttribute("aria-selected", "true");
     await expect(page.locator("#updated")).toHaveText("Updated now");
@@ -83,26 +84,26 @@ test.describe("popup", () => {
     await expect(draft).toBeFocused();
 
     // The tabs take the arrow keys.
-    await page.getByRole("tab", { name: /Review queue/ }).focus();
+    await page.getByRole("tab", { name: /Review queue/u }).focus();
     await page.keyboard.press("ArrowRight");
-    const mine = page.getByRole("tabpanel", { name: /My PRs/ });
+    const mine = page.getByRole("tabpanel", { name: /My PRs/u });
     await expect(page.getByRole("tab", { name: "My PRs 2" })).toBeFocused();
-    await expect(mine.getByRole("link", { name: /Sort books by rating/ })).toHaveAttribute(
+    await expect(mine.getByRole("link", { name: /Sort books by rating/u })).toHaveAttribute(
       "href",
       "https://github.com/octo/web/pull/20",
     );
-    await expect(mine.getByRole("link", { name: /See them on GitHub/ })).toHaveAttribute(
+    await expect(mine.getByRole("link", { name: /See them on GitHub/u })).toHaveAttribute(
       "href",
       "https://github.com/pulls",
     );
-    await expect(mine.getByRole("heading")).toHaveText([/octo\/web\s*1/, /octo\/api\s*1/]);
+    await expect(mine.getByRole("heading")).toHaveText([/octo\/web\s*1/u, /octo\/api\s*1/u]);
 
     // With more than one repository, chips narrow the list to one.
     const repos = mine.getByRole("group", { name: "Repositories" });
-    await expect(repos.getByRole("button")).toHaveText([/All\s*2/, /web\s*1/, /api\s*1/]);
-    await repos.getByRole("button", { name: /api/ }).click();
-    await expect(repos.getByRole("button", { name: /api/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(mine.getByRole("link", { name: /#\d+/ })).toHaveAccessibleName(/^Return 404 for unknown authors/);
+    await expect(repos.getByRole("button")).toHaveText([/All\s*2/u, /web\s*1/u, /api\s*1/u]);
+    await repos.getByRole("button", { name: /api/u }).click();
+    await expect(repos.getByRole("button", { name: /api/u })).toHaveAttribute("aria-pressed", "true");
+    await expect(mine.getByRole("link", { name: /#\d+/u })).toHaveAccessibleName(/^Return 404 for unknown authors/u);
     // Narrowed to one, the chip says which; the heading goes.
     await expect(mine.getByRole("heading")).toHaveCount(0);
     await expect(reviews).toBeHidden();
@@ -115,8 +116,8 @@ test.describe("popup", () => {
   }) => {
     await routeGitHub(context);
     const page = await openExtensionPage("popup.html");
-    const reviews = page.getByRole("tabpanel", { name: /Review queue/ });
-    const cache = reviews.getByRole("link", { name: /^Cache the book covers/ });
+    const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
+    const cache = reviews.getByRole("link", { name: /^Cache the book covers/u });
 
     // A row is picked with `x`, or its checkbox, and the footer offers to mark it done.
     await cache.focus();
@@ -157,13 +158,11 @@ test.describe("popup", () => {
     );
     const page = await openExtensionPage("popup.html");
     const popupUrl = page.url();
-    type Tab = { id: number; active: boolean };
+    type Tab = { id?: number; active: boolean };
     const tabs = (): Promise<Tab[]> =>
-      background.evaluate(async () =>
-        (await chrome.tabs.query({})).map((tab: Tab) => ({ id: tab.id, active: tab.active })),
-      );
+      background.evaluate(async () => (await chrome.tabs.query({})).map((tab) => ({ id: tab.id, active: tab.active })));
     const before = new Set((await tabs()).map((tab) => tab.id));
-    await page.getByRole("link", { name: /^Cache the book covers/ }).click();
+    await page.getByRole("link", { name: /^Cache the book covers/u }).click();
     // One new tab, behind; the test's driver can be slow to catch up with where it went, so its address is checked after.
     await expect
       .poll(async () => (await tabs()).filter((tab) => !before.has(tab.id)))
@@ -244,17 +243,19 @@ test.describe("popup settings", () => {
 
     // #12 was asked of a team; the draft, of the reader, waits folded.
     const popup = await openExtensionPage("popup.html");
-    const reviews = popup.getByRole("tabpanel", { name: /Review queue/ });
+    const reviews = popup.getByRole("tabpanel", { name: /Review queue/u });
     await expect(popup.getByRole("tab", { name: "Review queue 0" })).toBeVisible();
-    await expect(reviews.getByRole("link", { name: /^Cache the book covers/ })).toHaveCount(0);
+    await expect(reviews.getByRole("link", { name: /^Cache the book covers/u })).toHaveCount(0);
     await reviews.getByText("Drafts", { exact: true }).click();
-    await expect(reviews.getByRole("link", { name: /^Try a new reader/ })).toBeVisible();
+    await expect(reviews.getByRole("link", { name: /^Try a new reader/u })).toBeVisible();
   });
 });
 
 test.describe("notification settings", () => {
-  const stored = (background: import("@playwright/test").Worker) =>
-    background.evaluate(async () => (await chrome.storage.sync.get("notifications")).notifications);
+  const stored = (background: Worker) =>
+    background.evaluate(
+      async () => (await chrome.storage.sync.get<{ notifications: NotifySettings }>("notifications")).notifications,
+    );
 
   test("turning them on shows what to be told about, which saves with the rest", async ({
     context,
@@ -345,7 +346,7 @@ test.describe("notification settings", () => {
     await routeGitHub(context);
     // Since the last look: #14 asked of the reader, #15 of their team, #16 of the reader again after they reviewed it,
     // and a comment on their own #20.
-    await context.route(/^https:\/\/github\.com\/pulls\/reviews$/, (route) =>
+    await context.route(/^https:\/\/github\.com\/pulls\/reviews$/u, (route) =>
       route.fulfill({
         contentType: "application/json",
         body: dashboard([
@@ -356,7 +357,7 @@ test.describe("notification settings", () => {
         ]),
       }),
     );
-    await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/, (route) =>
+    await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/u, (route) =>
       route.fulfill({ contentType: "application/json", body: dashboard([pull(12), pull(14), pull(16)]) }),
     );
     const hydro = JSON.stringify({
@@ -365,7 +366,7 @@ test.describe("notification settings", () => {
         metadata: { reason: "author", last_updated_at: "2026-10-09T03:02:24Z" },
       },
     });
-    await context.route(/^https:\/\/github\.com\/notifications/, (route) =>
+    await context.route(/^https:\/\/github\.com\/notifications/u, (route) =>
       route.fulfill({
         contentType: "text/html",
         body: `<meta name="user-login" content="me-too"><ul>
@@ -391,15 +392,18 @@ test.describe("notification settings", () => {
       const shown: unknown[] = [];
       Object.assign(globalThis, { shown });
       const notifications = {
-        create: async (id: string, options: object) => (shown.push({ id, ...options }), id),
-        clear: async () => true,
+        create: (id: string, options: object) => {
+          shown.push({ id, ...options });
+          return Promise.resolve(id);
+        },
+        clear: () => Promise.resolve(true),
         onClicked: { addListener: () => {} },
         onButtonClicked: { addListener: () => {} },
       };
       // Chromium has both namespaces, apart.
       for (const api of [chrome, (globalThis as unknown as { browser?: typeof chrome }).browser]) {
         if (!api) continue;
-        api.permissions.contains = async () => true;
+        api.permissions.contains = () => Promise.resolve(true);
         Object.assign(api, { notifications });
       }
     });
@@ -417,7 +421,7 @@ test.describe("notification settings", () => {
         { on: kind === "review-requested" || kind === "comment-mine", except: [], repos: [], when: "now" },
       ]),
     );
-    await background.evaluate(async (events) => {
+    await background.evaluate(async (settings) => {
       const reviews = [{ url: "https://github.com/octo/web/pull/12", draft: false }];
       await chrome.storage.local.set({
         inboxMemory: { threads: { NT_20: "2026-10-01T00:00:00Z" }, reviews },
@@ -425,7 +429,7 @@ test.describe("notification settings", () => {
         reviewQueueHistory: { "https://github.com/octo/web/pull/16": { left: Date.now() - 86_400_000 } },
       });
       await chrome.storage.sync.set({
-        notifications: { enabled: true, events, delivery: { sound: { id: "none", volume: 60 } } },
+        notifications: { enabled: true, events: settings, delivery: { sound: { id: "none", volume: 60 } } },
       });
     }, events);
 
@@ -445,7 +449,9 @@ test.describe("notification settings", () => {
     ]);
     // Each its own, so none only replaces one still in the system's list; the comment opens on itself.
     const links = await background.evaluate(
-      async () => (await chrome.storage.local.get("notificationLinks")).notificationLinks,
+      async () =>
+        (await chrome.storage.local.get<{ notificationLinks: Record<string, string> }>("notificationLinks"))
+          .notificationLinks,
     );
     expect(links[notifications[3]!.id]).toBe(
       "https://github.com/octo/web/pull/20?notification_referrer_id=NT_20#issuecomment-77",
@@ -457,7 +463,7 @@ test.describe("notification settings", () => {
   test("stays off when the browser doesn’t allow notifications", async ({ openExtensionPage }) => {
     const page = await openExtensionPage("options.html");
     await page.addInitScript(() => {
-      chrome.permissions.request = async () => false;
+      chrome.permissions.request = () => Promise.resolve(false);
     });
     await page.reload();
     await page.getByRole("switch", { name: "Notify me" }).click();

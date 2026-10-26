@@ -22,20 +22,14 @@ export const createPopupSettings = ({ onChange }: { onChange: () => void }) => {
       teams.checked = settings.teams;
       pickers.clear();
       $("#popup-repos").replaceChildren(
-        pickers.picker(
-          "popup-repos-only",
-          i18n.t("popupReposOnly"),
-          settings.repos,
-          (repos) => (settings.repos = repos),
-        ),
+        pickers.picker("popup-repos-only", i18n.t("popupReposOnly"), settings.repos, (repos) => {
+          settings.repos = repos;
+        }),
       );
       $("#popup-repos-never").replaceChildren(
-        pickers.picker(
-          "popup-repos-never-list",
-          i18n.t("popupReposNever"),
-          settings.excludeRepos,
-          (repos) => (settings.excludeRepos = repos),
-        ),
+        pickers.picker("popup-repos-never-list", i18n.t("popupReposNever"), settings.excludeRepos, (repos) => {
+          settings.excludeRepos = repos;
+        }),
       );
     },
     value: (): PopupSettings => normalizePopup(settings),

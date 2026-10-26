@@ -1,5 +1,6 @@
 import { REPO_PATTERN, repoMatches } from "@/utils/filters/filters";
 import type { Activity, Detail, InboxProblem, PullRequest } from "@/utils/github-inbox/github-inbox";
+import { asRecord, recordOf } from "@/utils/record/record";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
 /** Something on a pull request the reader can be told about. */
@@ -50,7 +51,7 @@ interface EventSetting {
 
 /** How often GitHub is read, in minutes. */
 export const INTERVALS = [2, 5, 10, 15, 30] as const;
-export type Interval = (typeof INTERVALS)[number];
+type Interval = (typeof INTERVALS)[number];
 
 /** Hours to keep quiet, like nights, and weekends too if asked; the lists still update, only nothing pops up. */
 interface QuietHours {
@@ -104,33 +105,29 @@ export const DEFAULT_NOTIFY: NotifySettings = {
 };
 
 /** The repositories typed in one field, apart: `octo/web, octo/*` or one per line. */
-export const splitRepos = (text: string): string[] => [...new Set(text.split(/[\s,]+/).filter(Boolean))];
+export const splitRepos = (text: string): string[] => [...new Set(text.split(/[\s,]+/u).filter(Boolean))];
 
 /** The ones that don't read as a repository path. */
 export const invalidRepos = (repos: string[]): string[] => repos.filter((repo) => !REPO_PATTERN.test(repo));
 
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
 export const repoList = (value: unknown): string[] =>
   Array.isArray(value) ? splitRepos(value.filter((repo) => typeof repo === "string").join(" ")) : [];
 
 export const normalizeNotify = (value: unknown): NotifySettings => {
-  const raw = record(value);
-  const saved = record(raw.events);
-  const events = Object.fromEntries(
-    EVENT_KINDS.map((kind): [EventKind, EventSetting] => {
-      const setting = record(saved[kind]);
-      if (!saved[kind]) return [kind, { ...DEFAULT_EVENTS[kind] }];
-      const except = Array.isArray(setting.except)
-        ? setting.except.filter((each) => EXCEPTIONS[kind].includes(each))
-        : [];
-      const when = setting.when === "now" || setting.when === "review" ? setting.when : DEFAULT_EVENTS[kind].when;
-      return [kind, { on: setting.on === true, except: [...new Set(except)], repos: repoList(setting.repos), when }];
-    }),
-  ) as Record<EventKind, EventSetting>;
-  const quiet = record(raw.quiet);
-  const delivery = record(raw.delivery);
+  const raw = asRecord(value);
+  const saved = asRecord(raw.events);
+  const events = recordOf(EVENT_KINDS, (kind): EventSetting => {
+    const setting = asRecord(saved[kind]);
+    if (!saved[kind]) return { ...DEFAULT_EVENTS[kind] };
+    const except = Array.isArray(setting.except)
+      ? setting.except.filter((each): each is Exception => EXCEPTIONS[kind].some((known) => known === each))
+      : [];
+    const when = setting.when === "now" || setting.when === "review" ? setting.when : DEFAULT_EVENTS[kind].when;
+    return { on: setting.on === true, except: [...new Set(except)], repos: repoList(setting.repos), when };
+  });
+  const quiet = asRecord(raw.quiet);
+  const delivery = asRecord(raw.delivery);
   const defaults = DEFAULT_NOTIFY.quiet;
   return {
     enabled: raw.enabled === true,
@@ -211,9 +208,9 @@ const excludes = (exception: Exception, event: InboxEvent) => EXCLUDES[exception
 export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: string): boolean => {
   const event = settings.events[kind];
   // An event's own repositories take the general ones' place; the ones never wanted are left out of every event.
-  const repos = event.repos.length ? event.repos : settings.repos;
+  const repos = event.repos.length > 0 ? event.repos : settings.repos;
   const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, repo));
-  return event.on && (!repos.length || among(repos)) && !among(settings.excludeRepos);
+  return event.on && (repos.length === 0 || among(repos)) && !among(settings.excludeRepos);
 };
 
 /** Whether the reader wants to be told about this event. */
@@ -251,7 +248,7 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
   const before = new Map(previous.map((pull) => [pull.url, pull]));
   return current.flatMap((pull): InboxEvent[] => {
     const earlier = before.get(pull.url);
-    const kind = !earlier ? "review-requested" : earlier.draft && !pull.draft ? "ready-for-review" : null;
+    const kind = earlier ? (earlier.draft && !pull.draft ? "ready-for-review" : null) : "review-requested";
     if (!kind) return [];
     return [
       {
@@ -339,7 +336,7 @@ export interface PopupSettings {
 export const DEFAULT_POPUP: PopupSettings = { repos: [], excludeRepos: [], teams: true };
 
 export const normalizePopup = (value: unknown): PopupSettings => {
-  const raw = record(value);
+  const raw = asRecord(value);
   return { repos: repoList(raw.repos), excludeRepos: repoList(raw.excludeRepos), teams: raw.teams !== false };
 };
 
@@ -347,7 +344,9 @@ export const normalizePopup = (value: unknown): PopupSettings => {
 export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, "repo" | "team">): boolean => {
   const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, pull.repo));
   return (
-    (!settings.repos.length || among(settings.repos)) && !among(settings.excludeRepos) && (settings.teams || !pull.team)
+    (settings.repos.length === 0 || among(settings.repos)) &&
+    !among(settings.excludeRepos) &&
+    (settings.teams || !pull.team)
   );
 };
 

@@ -13,7 +13,7 @@ import {
   type CustomTheme,
   type ThemeColor,
 } from "@/utils/appearance/appearance";
-import { $, translate } from "@/utils/extension-page/extension-page";
+import { $, templateElement, translate } from "@/utils/extension-page/extension-page";
 import { newId } from "@/utils/filters/filters";
 import { PROVIDERS } from "@/utils/providers/providers";
 
@@ -36,7 +36,7 @@ const COLOR_NAMES: Record<ThemeColor, string> = {
 
 /** A computed `rgb()` or `rgba()` colour as hex, with its alpha when it has one. */
 const hexOf = (color: string): string | null => {
-  const [r, g, b, a = 1] = color.match(/[\d.]+/g)?.map(Number) ?? [];
+  const [r, g, b, a = 1] = color.match(/[\d.]+/gu)?.map(Number) ?? [];
   if (r === undefined || g === undefined || b === undefined) return null;
   const channels = a < 1 ? [r, g, b, Math.round(a * 255)] : [r, g, b];
   return `#${channels.map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
@@ -45,7 +45,7 @@ const hexOf = (color: string): string | null => {
 /** `#rgb`, `#rgba` and `#rrggbbaa` as the `#rrggbb` a colour picker takes; its alpha, if any, is left out. */
 const pickerValue = (hex: string): string => {
   const digits = hex.slice(1);
-  const full = digits.length <= 4 ? [...digits].map((digit) => digit + digit).join("") : digits;
+  const full = digits.length <= 4 ? Array.from(digits, (digit) => digit + digit).join("") : digits;
   return `#${full.slice(0, 6).toLowerCase()}`;
 };
 
@@ -106,10 +106,10 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     void restylePreview(appearance);
   };
 
+  /** Each colour row's check: whether its value can be saved; if not, it says why at the field. */
+  const rowChecks = new WeakMap<HTMLElement, () => boolean>();
   const colorRow = (color: ThemeColor) => {
-    const template = $<HTMLTemplateElement>("#color-template").content.firstElementChild!.cloneNode(
-      true,
-    ) as HTMLElement;
+    const template = templateElement<HTMLElement>("color-template");
     translate(template);
     template.dataset.color = color;
     const id = `color-${color}`;
@@ -137,11 +137,13 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     };
     hex.addEventListener("input", () => {
       drafts[color] = hex.value.trim();
-      if (HEX_COLOR.test(drafts[color]!)) pick.value = pickerValue(drafts[color]!);
+      if (HEX_COLOR.test(drafts[color])) pick.value = pickerValue(drafts[color]);
       if (hex.hasAttribute("aria-invalid")) check();
       sync();
     });
-    hex.addEventListener("blur", check);
+    hex.addEventListener("blur", () => {
+      check();
+    });
     pick.addEventListener("input", () => {
       hex.value = pick.value;
       drafts[color] = pick.value;
@@ -155,7 +157,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
       sync();
       hex.focus();
     });
-    (template as HTMLElement & { check: () => boolean }).check = check;
+    rowChecks.set(template, check);
     return template;
   };
 
@@ -168,7 +170,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     nameError.textContent = "";
     name.removeAttribute("aria-invalid");
     drafts = { ...theme.colors };
-    list.replaceChildren(...THEME_COLORS.map(colorRow));
+    list.replaceChildren(...THEME_COLORS.map((each) => colorRow(each)));
     showDefaults();
   };
 
@@ -193,7 +195,9 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     onChange();
   };
 
-  select.addEventListener("change", () => choose(select.value));
+  select.addEventListener("change", () => {
+    choose(select.value);
+  });
   name.addEventListener("input", () => {
     if (name.value.trim()) {
       nameError.textContent = "";
@@ -228,7 +232,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     select.focus();
   });
 
-  $("#theme-copy").addEventListener("click", async () => {
+  const copyTheme = async () => {
     const theme = current();
     if (!theme) return;
     const json = shareTheme(theme);
@@ -243,7 +247,8 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
       fallback.focus();
       fallback.select();
     }
-  });
+  };
+  $("#theme-copy").addEventListener("click", () => void copyTheme());
 
   const importBox = $<HTMLTextAreaElement>("#theme-json");
   const importButton = $<HTMLButtonElement>("#theme-import");
@@ -284,7 +289,12 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
       $("#preview"),
       { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 2) },
       // Settings are this page; the button goes to the filters.
-      { onSettings: () => $("#global-h").focus(), theme: await appearanceCss(appearance) },
+      {
+        onSettings: () => {
+          $("#global-h").focus();
+        },
+        theme: await appearanceCss(appearance),
+      },
     );
     showDefaults();
   };
@@ -300,8 +310,8 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     check: (): boolean => {
       const theme = current();
       if (!theme) return true;
-      const rows = [...list.querySelectorAll<HTMLElement & { check: () => boolean }>(".color")];
-      const colorsOk = rows.map((row) => row.check()).every(Boolean);
+      const rows = [...list.querySelectorAll<HTMLElement>(".color")];
+      const colorsOk = rows.map((row) => rowChecks.get(row)?.() ?? true).every(Boolean);
       const named = Boolean(name.value.trim());
       nameError.textContent = named ? "" : i18n.t("errorThemeName");
       if (named) name.removeAttribute("aria-invalid");

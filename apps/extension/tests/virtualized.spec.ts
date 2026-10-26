@@ -9,11 +9,11 @@ test.describe("newer, virtualized diff view", () => {
     const pr = new PullRequestPage(await openPullRequest(VIRTUALIZED_PULL_REQUEST));
     expect(await pr.page.locator('[role="region"]').count()).toBeLessThan(8);
     // Eight files, one of them already viewed.
-    await expect.poll(() => pr.statsText()).toMatch(/^7 files left to review/);
+    await expect.poll(() => pr.statsText()).toMatch(/^7 files left to review/u);
     await expect(pr.stats).not.toHaveAttribute("data-tip");
     await expect(pr.panel.locator(".option .option-count")).toHaveText(["8", "1", "3", "1"]);
     await pr.pick("Backend");
-    await expect.poll(() => pr.statsText()).toMatch(/^3 files left to review \+25.*−10/);
+    await expect.poll(() => pr.statsText()).toMatch(/^3 files left to review \+25.*−10/u);
   });
 
   test("hides files outside the filter, and the list closes up around them", async ({ openPullRequest }) => {
@@ -21,7 +21,7 @@ test.describe("newer, virtualized diff view", () => {
     const region = (path: string) => pr.page.locator('[role="region"]', { hasText: path });
     // Where the list places a file, from the sizes it measured or estimated above it, with its 16px gap after each.
     const top = (index: number) =>
-      pr.page.evaluate((index) => (window as unknown as { topOf: (index: number) => number }).topOf(index), index);
+      pr.page.evaluate((at) => (window as unknown as { topOf: (index: number) => number }).topOf(at), index);
     expect(await top(3)).toBe(3 * (560 + 16));
     await pr.pick("Backend");
     await expect(region("api/books/service.py")).toBeVisible();
@@ -29,13 +29,17 @@ test.describe("newer, virtualized diff view", () => {
     // and the next file shown follows it as closely as GitHub would have it, the gap now its padding.
     await expect.poll(() => top(3)).toBe(0);
     await expect.poll(() => top(6)).toBe(560 + 16);
-    await pr.page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+    await pr.page.evaluate(() => {
+      scrollTo({ top: 0, behavior: "instant" });
+    });
     const card = region("web/src/book-card.tsx");
     await expect(card).toBeHidden();
     await expect(card.locator("xpath=..")).toHaveCSS("opacity", "1");
     // All puts the list back as GitHub had it.
     await pr.pick("All");
-    await pr.page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+    await pr.page.evaluate(() => {
+      scrollTo({ top: 0, behavior: "instant" });
+    });
     await expect(card).toBeVisible();
     await expect.poll(() => top(3)).toBe(3 * (560 + 16));
     await expect(card.locator("xpath=..")).toHaveCSS("padding-bottom", "0px");
@@ -63,11 +67,13 @@ test.describe("newer, virtualized diff view", () => {
     // One GitHub hasn’t drawn yet, then one it has.
     for (const path of ["web/src/book-card.stories.tsx", "api/books/service.py"]) {
       const name = path.slice(path.lastIndexOf("/") + 1);
-      await pr.page.locator('[role="tree"] a', { hasText: new RegExp(`^${name.replaceAll(".", "\\.")}$`) }).click();
+      await pr.page
+        .locator('[role="tree"] a', { hasText: new RegExp(`^${name.replaceAll(".", "\\.")}$`, "u") })
+        .click();
       const region = pr.page.locator('[role="region"]', { hasText: path });
       await expect.poll(() => region.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBe(58);
     }
-    await expect(pr.page).toHaveURL(/#diff-/);
+    await expect(pr.page).toHaveURL(/#diff-/u);
   });
 
   test("takes viewed files from the embedded data and the toggles", async ({ openPullRequest }) => {
@@ -146,7 +152,9 @@ test.describe("newer, virtualized diff view", () => {
   test("drops a conversation deleted after the page loaded", async ({ openPullRequest }) => {
     const { pr, comments } = await withConversations(openPullRequest);
     // Deleting its only comment takes the marker off the line; GitHub's embedded data still lists it.
-    await pr.page.locator('[class*="CommentIndicator"][data-line="R12"]').evaluate((marker) => marker.remove());
+    await pr.page.locator('[class*="CommentIndicator"][data-line="R12"]').evaluate((marker) => {
+      marker.remove();
+    });
     await expect(comments).toHaveAccessibleName("Conversations, 3 conversations");
   });
 

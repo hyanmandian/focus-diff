@@ -21,22 +21,23 @@ const richText = (text: string): Node[] =>
       const [, tag, content] = part.match(/^<(b|code)>(.*)<\/\1>$/u) ?? [];
       if (!tag) return document.createTextNode(part);
       const element = document.createElement(tag);
-      element.textContent = content ?? "";
+      element.textContent = content!;
       return element;
     });
 
+/** Fills each element marked with a message key; the selectors only find elements that have one. */
 export const translate = <T extends ParentNode>(root: T): T => {
   root.querySelectorAll<HTMLElement>("[data-i18n]").forEach((element) => {
-    element.textContent = message(element.dataset.i18n ?? "");
+    element.textContent = message(element.dataset.i18n!);
   });
   root.querySelectorAll<HTMLElement>("[data-i18n-html]").forEach((element) => {
-    element.replaceChildren(...richText(message(element.dataset.i18nHtml ?? "")));
+    element.replaceChildren(...richText(message(element.dataset.i18nHtml!)));
   });
   root.querySelectorAll<HTMLInputElement>("[data-i18n-placeholder]").forEach((element) => {
-    element.placeholder = message(element.dataset.i18nPlaceholder ?? "");
+    element.placeholder = message(element.dataset.i18nPlaceholder!);
   });
   root.querySelectorAll<HTMLElement>("[data-i18n-label]").forEach((element) => {
-    element.setAttribute("aria-label", message(element.dataset.i18nLabel ?? ""));
+    element.setAttribute("aria-label", message(element.dataset.i18nLabel!));
   });
   return root;
 };

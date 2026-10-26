@@ -37,115 +37,106 @@ import {
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
-const newStep = (kind: ActionStep["kind"]): ActionStep => {
-  switch (kind) {
-    case "comment":
-      return { kind, body: "" };
-    case "request":
-      return { kind, reviewers: [] };
-    case "unrequestMe":
-      return { kind };
-    case "label":
-      return { kind, labels: [] };
-    case "open":
-      return { kind, url: "https://" };
-    case "run":
-      return { kind, command: "" };
-  }
+/** Each kind of step as it starts, fresh each time. */
+const NEW_STEP: { [K in ActionStep["kind"]]: () => Extract<ActionStep, { kind: K }> } = {
+  comment: () => ({ kind: "comment", body: "" }),
+  request: () => ({ kind: "request", reviewers: [] }),
+  unrequestMe: () => ({ kind: "unrequestMe" }),
+  label: () => ({ kind: "label", labels: [] }),
+  open: () => ({ kind: "open", url: "https://" }),
+  run: () => ({ kind: "run", command: "" }),
 };
+const newStep = (kind: ActionStep["kind"]): ActionStep => NEW_STEP[kind]();
 
 // Called as a reviewer is added, so it reads the words then.
-const reviewerError = (v: string) => (/^[\w-]+(\/[\w.-]+)?$/.test(v) ? null : i18n()("settings.reviewerError"));
+const reviewerError = (v: string) => (/^[\w-]+(?:\/[\w.-]+)?$/u.test(v) ? null : i18n()("settings.reviewerError"));
 const PLACEHOLDERS = "{number} {title} {url} {repo} {author} {me}";
 
 function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: ActionStep) => void }) {
   const id = useId();
   const t = useT();
-  switch (step.kind) {
-    case "comment":
-      return (
-        <div className="flex flex-col gap-1">
-          <Textarea
-            aria-label={t("settings.comment")}
-            rows={3}
-            value={step.body}
-            onChange={(e) => {
-              onChange({ ...step, body: e.target.value });
-            }}
-            placeholder={t("settings.commentPlaceholder")}
-          />
-          <p className="text-subheadline text-muted-foreground">
-            {t("settings.commentHint", { placeholders: PLACEHOLDERS })}
-          </p>
-        </div>
-      );
-    case "request":
-      return (
-        <TagInput
-          label={t("settings.reviewers")}
-          value={step.reviewers}
-          onChange={(reviewers) => {
-            onChange({ ...step, reviewers });
+  if (step.kind === "comment")
+    return (
+      <div className="flex flex-col gap-1">
+        <Textarea
+          aria-label={t("settings.comment")}
+          rows={3}
+          value={step.body}
+          onChange={(e) => {
+            onChange({ ...step, body: e.target.value });
           }}
-          placeholder={t("settings.reviewerPlaceholder")}
-          validate={reviewerError}
+          placeholder={t("settings.commentPlaceholder")}
         />
-      );
-    case "unrequestMe":
-      return null;
-    case "label":
-      return (
-        <TagInput
-          label={t("settings.labels")}
-          value={step.labels}
-          onChange={(labels) => {
-            onChange({ ...step, labels });
+        <p className="text-subheadline text-muted-foreground">
+          {t("settings.commentHint", { placeholders: PLACEHOLDERS })}
+        </p>
+      </div>
+    );
+  if (step.kind === "request")
+    return (
+      <TagInput
+        label={t("settings.reviewers")}
+        value={step.reviewers}
+        onChange={(reviewers) => {
+          onChange({ ...step, reviewers });
+        }}
+        placeholder={t("settings.reviewerPlaceholder")}
+        validate={reviewerError}
+      />
+    );
+  if (step.kind === "unrequestMe") return null;
+  if (step.kind === "label")
+    return (
+      <TagInput
+        label={t("settings.labels")}
+        value={step.labels}
+        onChange={(labels) => {
+          onChange({ ...step, labels });
+        }}
+        placeholder={t("settings.labelPlaceholder")}
+      />
+    );
+  if (step.kind === "open")
+    return (
+      <div className="flex flex-col gap-1">
+        <Input
+          aria-label={t("settings.link")}
+          className="font-mono text-callout"
+          spellCheck={false}
+          value={step.url}
+          onChange={(e) => {
+            onChange({ ...step, url: e.target.value });
           }}
-          placeholder={t("settings.labelPlaceholder")}
         />
-      );
-    case "open":
-      return (
-        <div className="flex flex-col gap-1">
-          <Input
-            aria-label={t("settings.link")}
-            className="font-mono text-callout"
-            spellCheck={false}
-            value={step.url}
-            onChange={(e) => {
-              onChange({ ...step, url: e.target.value });
-            }}
-          />
-          <p className="text-subheadline text-muted-foreground">
-            {t("settings.linkHint", { placeholders: PLACEHOLDERS })}
-          </p>
-        </div>
-      );
-    case "run":
-      return (
-        <div className="flex flex-col gap-1">
-          <Label htmlFor={id} className="sr-only">
-            {t("settings.command")}
-          </Label>
-          <Textarea
-            id={id}
-            rows={3}
-            className="font-mono text-callout"
-            spellCheck={false}
-            value={step.command}
-            onChange={(e) => {
-              onChange({ ...step, command: e.target.value });
-            }}
-            placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
-          />
-          <p className="text-subheadline text-muted-foreground">
-            {t("settings.commandHintBefore")} <code className="font-mono">sh</code> {t("settings.commandHintMiddle")}{" "}
-            <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>.{" "}
-            {t("settings.commandHintAfter")}
-          </p>
-        </div>
-      );
-  }
+        <p className="text-subheadline text-muted-foreground">
+          {t("settings.linkHint", { placeholders: PLACEHOLDERS })}
+        </p>
+      </div>
+    );
+  // What's left is a script.
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={id} className="sr-only">
+        {t("settings.command")}
+      </Label>
+      <Textarea
+        id={id}
+        rows={3}
+        className="font-mono text-callout"
+        spellCheck={false}
+        value={step.command}
+        onChange={(e) => {
+          onChange({ ...step, command: e.target.value });
+        }}
+        placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
+      />
+      <p className="text-subheadline text-muted-foreground">
+        {t("settings.commandHintBefore")} <code className="font-mono">sh</code> {t("settings.commandHintMiddle")}{" "}
+        <code className="font-mono">$PR_NUMBER $PR_TITLE $PR_URL $PR_REPO $PR_AUTHOR $GITHUB_LOGIN</code>.{" "}
+        {t("settings.commandHintAfter")}
+      </p>
+    </div>
+  );
 }
 
 /** An action's (or a choice's) steps, in order, each editable, movable and removable. */
@@ -159,8 +150,7 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
   };
   const move = (index: number, by: number) => {
     const next = [...steps];
-    const [step] = next.splice(index, 1);
-    if (step) next.splice(index + by, 0, step);
+    next.splice(index + by, 0, ...next.splice(index, 1));
     onChange(next);
   };
   return (
@@ -168,6 +158,8 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
       {steps.length > 0 ? (
         <ol className="contents">
           {steps.map((step, i) => (
+            // Steps have no ids of their own; by place, a field keeps its focus while it's typed in.
+            // oxlint-disable-next-line react/no-array-index-key -- see above
             <li key={i} className="flex flex-col gap-2 px-3 py-3">
               <div className="flex items-center gap-2">
                 <span className="grid size-5 shrink-0 place-items-center rounded-full bg-fill text-subheadline font-medium tabular-nums">
@@ -347,8 +339,17 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
         !(await confirmRemove(t("settings.dropChoicesConfirm", { count: action.choices.length - 1 })))
       )
         return;
-      onChange({ ...action, steps: action.choices[0]?.steps ?? [], choices: [] });
+      onChange({ ...action, steps: action.choices[0]!.steps, choices: [] });
     }
+  };
+  const removeChoice = async (choice: ActionChoice) => {
+    if (
+      !(await confirmRemove(t("settings.removeChoiceConfirm", { name: choice.name || t("settings.untitledAction") })))
+    )
+      return;
+    const choices = action.choices.filter((c) => c.id !== choice.id);
+    // The last choice gone: a button again, with nothing to do yet.
+    onChange({ ...action, choices, steps: choices.length > 0 ? action.steps : [] });
   };
 
   return (
@@ -368,7 +369,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
         <Row label={t("settings.showAs")} description={t("settings.showAsHint")}>
           <ToggleGroup
             value={[menu ? "menu" : "button"]}
-            onValueChange={(v: string[]) => v[0] && void showAs(v[0])}
+            onValueChange={(v: string[]) => {
+              if (v[0]) void showAs(v[0]);
+            }}
             variant="outline"
             size="sm"
             aria-label={t("settings.showAs")}
@@ -400,20 +403,11 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
               }}
               onMove={(by) => {
                 const choices = [...action.choices];
-                const [moved] = choices.splice(i, 1);
-                if (moved) choices.splice(i + by, 0, moved);
+                choices.splice(i + by, 0, ...choices.splice(i, 1));
                 setChoices(choices);
               }}
-              onRemove={async () => {
-                if (
-                  !(await confirmRemove(
-                    t("settings.removeChoiceConfirm", { name: choice.name || t("settings.untitledAction") }),
-                  ))
-                )
-                  return;
-                const choices = action.choices.filter((c) => c.id !== choice.id);
-                // The last choice gone: a button again, with nothing to do yet.
-                onChange({ ...action, choices, steps: choices.length > 0 ? action.steps : [] });
+              onRemove={() => {
+                void removeChoice(choice);
               }}
             />
           ))}
@@ -491,6 +485,14 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
     setActions([...config.actions, action]);
     detail.open(action.id);
   };
+  const remove = async (action: Action) => {
+    if (
+      !(await confirmRemove(t("settings.removeActionConfirm", { name: action.name || t("settings.untitledAction") })))
+    )
+      return;
+    setActions(config.actions.filter((a) => a.id !== action.id));
+    detail.close();
+  };
 
   if (selected)
     return (
@@ -503,15 +505,8 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
             size="icon"
             aria-label={t("settings.deleteNamed", { name: selected.name })}
             title={t("settings.deleteAction")}
-            onClick={async () => {
-              if (
-                !(await confirmRemove(
-                  t("settings.removeActionConfirm", { name: selected.name || t("settings.untitledAction") }),
-                ))
-              )
-                return;
-              setActions(config.actions.filter((a) => a.id !== selected.id));
-              detail.close();
+            onClick={() => {
+              void remove(selected);
             }}
           >
             <Trash2 />
@@ -531,29 +526,27 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
   return (
     <Pane title={t("settings.pane.actions")} hero="actions">
       {config.actions.length > 0 ? (
-        <>
-          <Group title={t("settings.buttons")} accessory={<AddAction config={config} onAdd={add} small />}>
-            {config.actions.map((action) => (
-              <LinkRow
-                key={action.id}
-                ref={detail.rowRef(action.id)}
-                leading={
-                  <span
-                    className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-fill text-muted-foreground"
-                    aria-hidden
-                  >
-                    <Zap className="size-3" strokeWidth={2.25} />
-                  </span>
-                }
-                label={action.name || t("settings.untitledAction")}
-                description={stepsSummary(action, t)}
-                onOpen={() => {
-                  detail.open(action.id);
-                }}
-              />
-            ))}
-          </Group>
-        </>
+        <Group title={t("settings.buttons")} accessory={<AddAction config={config} onAdd={add} small />}>
+          {config.actions.map((action) => (
+            <LinkRow
+              key={action.id}
+              ref={detail.rowRef(action.id)}
+              leading={
+                <span
+                  className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-fill text-muted-foreground"
+                  aria-hidden
+                >
+                  <Zap className="size-3" strokeWidth={2.25} />
+                </span>
+              }
+              label={action.name || t("settings.untitledAction")}
+              description={stepsSummary(action, t)}
+              onOpen={() => {
+                detail.open(action.id);
+              }}
+            />
+          ))}
+        </Group>
       ) : (
         <div className="flex flex-col items-center gap-2 px-6 pt-20 text-center">
           <Zap className="size-5 text-muted-foreground" aria-hidden />

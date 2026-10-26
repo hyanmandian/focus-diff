@@ -28,10 +28,10 @@ export function useNewChanges(
     setShown(head);
     if (found && found.head === head) setFound(null);
   }
-  const known = useRef({ head, updatedAt });
+  const known = useRef(updatedAt);
   const activity = useRef(onActivity);
   useLayoutEffect(() => {
-    known.current = { head, updatedAt };
+    known.current = updatedAt;
     activity.current = onActivity;
   });
 
@@ -45,9 +45,9 @@ export function useNewChanges(
       try {
         const pr = await github<Rest>("GET", `/repos/${repo}/pulls/${number}`);
         if (!live) return;
-        const now = known.current;
-        if (now.head && pr.head.sha !== now.head) setFound({ head: pr.head.sha, at: Date.now() });
-        else if (now.updatedAt && Date.parse(pr.updated_at) > Date.parse(now.updatedAt)) activity.current();
+        const since = known.current;
+        if (pr.head.sha !== head) setFound({ head: pr.head.sha, at: Date.now() });
+        else if (since && Date.parse(pr.updated_at) > Date.parse(since)) activity.current();
       } catch {
         // Offline or the like: the next look tries again.
       } finally {

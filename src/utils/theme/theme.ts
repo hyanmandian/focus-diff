@@ -38,9 +38,13 @@ export function useTheme(theme: Config["theme"] | undefined) {
       } catch {
         // Picked up from the settings next time.
       }
-    const update = () => apply(current);
+    const update = () => {
+      apply(current);
+    };
     update();
     media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    return () => {
+      media.removeEventListener("change", update);
+    };
   }, [theme]);
 }

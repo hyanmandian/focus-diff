@@ -61,7 +61,9 @@ export function preview(text: string, repo: string): Promise<string> {
   const asked = github<string>("POST", "/markdown", { text, mode: "gfm", context: repo }, "text/html");
   previews.set(key, asked);
   // A failure isn't kept: the next look asks again.
-  asked.catch(() => previews.delete(key));
+  asked.catch(() => {
+    previews.delete(key);
+  });
   return asked;
 }
 
@@ -130,7 +132,7 @@ export function referable(repo: string, query: string): Promise<Reference[]> {
         }
       }
     `,
-    { q: `repo:${repo} ${words} sort:updated-desc`.replace(/\s+/g, " ").trim() },
+    { q: `repo:${repo} ${words} sort:updated-desc`.replaceAll(/\s+/g, " ").trim() },
   ).then((d) =>
     d.search.nodes.flatMap((n): Reference[] =>
       n.number && n.title
@@ -146,7 +148,9 @@ export function referable(repo: string, query: string): Promise<Reference[]> {
     ),
   );
   references.set(key, asked);
-  asked.catch(() => references.delete(key));
+  asked.catch(() => {
+    references.delete(key);
+  });
   return asked;
 }
 

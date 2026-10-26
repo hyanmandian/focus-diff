@@ -80,7 +80,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
           </Button>
         </p>
       ) : null}
-      {config.ai.prompts.length ? (
+      {config.ai.prompts.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {config.ai.prompts.map((p) => (
             <Button key={p.id} variant="outline" size="xs" disabled={busy} onClick={() => void run(p.name, p.prompt)}>
@@ -92,7 +92,9 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       <form onSubmit={submit} className="flex items-center gap-1.5">
         <Input
           value={question}
-          onChange={(e) => setQuestion(e.target.value)}
+          onChange={(e) => {
+            setQuestion(e.target.value);
+          }}
           placeholder={t("shared.askPlaceholder")}
           aria-label={t("shared.askLabel", { provider: PROVIDERS[provider].name })}
           maxLength={2000}
@@ -107,7 +109,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
           <ArrowUp />
         </Button>
       </form>
-      {state.phase !== "idle" ? (
+      {state.phase === "idle" ? null : (
         <div className="flex flex-col gap-1.5 border-t pt-2.5" aria-live="polite">
           <p className="line-clamp-2 text-subheadline font-medium text-muted-foreground">{state.asked}</p>
           {state.phase === "done" ? (
@@ -127,7 +129,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
             </p>
           )}
         </div>
-      ) : null}
+      )}
     </section>
   );
 }

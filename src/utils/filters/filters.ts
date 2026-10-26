@@ -14,7 +14,7 @@ export function repoMatches(pattern: string, repo: string): boolean {
 
 /** The filters a repository gets: those for everywhere, and its own. */
 export const filtersFor = (filters: DiffFilter[], repo: string) =>
-  filters.filter((f) => !f.repos.length || f.repos.some((p) => repoMatches(p, repo)));
+  filters.filter((f) => f.repos.length === 0 || f.repos.some((p) => repoMatches(p, repo)));
 
 /** A repository's choice as it was kept: one filter id before filters could be combined, a list now. */
 export const keptSelection = (value: unknown): string[] =>
@@ -26,10 +26,11 @@ export const keptSelection = (value: unknown): string[] =>
 
 /** The choice after a chip is pressed: All ("") clears it, a filter joins it or leaves it. */
 export const toggled = (ids: string[], id: string): string[] =>
-  !id ? [] : ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id];
+  id ? (ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]) : [];
 
 /** Whether a file is in any of the chosen filters; with none chosen, every file is. */
-export const inAny = (chosen: DiffFilter[], path: string) => !chosen.length || chosen.some((f) => inFilter(f, path));
+export const inAny = (chosen: DiffFilter[], path: string) =>
+  chosen.length === 0 || chosen.some((f) => inFilter(f, path));
 
 export type FileLike = { path: string; additions: number; deletions: number };
 
@@ -72,7 +73,7 @@ export function nextFilterWithWork<F extends FileLike>(
     const left = files.filter((f) => !isViewed(f) && inFilter(filter, f.path)).length;
     if (left) return { id: filter.id, name: filter.name, left };
   }
-  return undefined;
+  return;
 }
 
 /** The file to go to next: the first not viewed after the one at the top of the screen, wrapping
@@ -120,7 +121,7 @@ export function exportFilters(filters: DiffFilter[]): string {
     include: f.include,
     exclude: f.exclude,
   });
-  const out: Shared = { global: filters.filter((f) => !f.repos.length).map(shared), repos: [] };
+  const out: Shared = { global: filters.filter((f) => f.repos.length === 0).map(shared), repos: [] };
   for (const f of filters)
     for (const repo of f.repos) {
       const entry = out.repos.find((e) => e.repo === repo) ?? out.repos[out.repos.push({ repo, filters: [] }) - 1]!;

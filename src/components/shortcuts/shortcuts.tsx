@@ -74,7 +74,13 @@ export function Shortcuts({ open, onOpenChange }: { open: boolean; onOpenChange:
           ))}
         </div>
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>{t("diff.done")}</Button>
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+            }}
+          >
+            {t("diff.done")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

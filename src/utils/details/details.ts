@@ -175,7 +175,7 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
         url: c.url as string,
       }));
       // Replies in threads come as empty "commented" reviews: only keep reviews that say something.
-      if (node.state === "COMMENTED" && !(node.bodyHTML as string)?.trim() && !comments.length) continue;
+      if (node.state === "COMMENTED" && !(node.bodyHTML as string)?.trim() && comments.length === 0) continue;
       entries.push({
         kind: "review",
         id: node.id as string,

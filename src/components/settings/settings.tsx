@@ -70,14 +70,25 @@ function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => 
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         {PRESETS.map((kind) => (
-          <DropdownMenuItem key={kind} className={TWO_LINE_ITEM} onClick={() => onAdd(TEMPLATES[kind].make())}>
+          <DropdownMenuItem
+            key={kind}
+            className={TWO_LINE_ITEM}
+            onClick={() => {
+              onAdd(TEMPLATES[kind].make());
+            }}
+          >
             <span>{t(`config.queue.${kind}`)}</span>
             <span className="text-subheadline text-muted-foreground">{t(`config.queue.${kind}.hint`)}</span>
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
         {/* From nothing: every option there to choose, so any of the above can be made by hand too. */}
-        <DropdownMenuItem className={TWO_LINE_ITEM} onClick={() => onAdd(TEMPLATES.custom.make())}>
+        <DropdownMenuItem
+          className={TWO_LINE_ITEM}
+          onClick={() => {
+            onAdd(TEMPLATES.custom.make());
+          }}
+        >
           <span>{t("config.queue.blank")}</span>
           <span className="text-subheadline text-muted-foreground">{t("config.queue.blank.hint")}</span>
         </DropdownMenuItem>
@@ -90,8 +101,12 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
   const detail = useDetail();
   const t = useT();
   const selected = config.queues.find((q) => q.id === detail.openId) ?? null;
-  const setQueues = (queues: Queue[]) => onChange({ ...config, queues });
-  const replace = (queue: Queue) => setQueues(config.queues.map((q) => (q.id === queue.id ? queue : q)));
+  const setQueues = (queues: Queue[]) => {
+    onChange({ ...config, queues });
+  };
+  const replace = (queue: Queue) => {
+    setQueues(config.queues.map((q) => (q.id === queue.id ? queue : q)));
+  };
   const move = (index: number, by: number) => {
     const queues = [...config.queues];
     const [queue] = queues.splice(index, 1);
@@ -114,7 +129,9 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               aria-label={t("settings.moveUp")}
               title={t("settings.moveUp")}
               disabled={index === 0}
-              onClick={() => move(index, -1)}
+              onClick={() => {
+                move(index, -1);
+              }}
             >
               <ArrowUp />
             </Button>
@@ -124,7 +141,9 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               aria-label={t("settings.moveDown")}
               title={t("settings.moveDown")}
               disabled={index === config.queues.length - 1}
-              onClick={() => move(index, 1)}
+              onClick={() => {
+                move(index, 1);
+              }}
             >
               <ArrowDown />
             </Button>
@@ -159,7 +178,9 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               id="queue-enabled"
               size="sm"
               checked={selected.enabled}
-              onCheckedChange={(enabled) => replace({ ...selected, enabled })}
+              onCheckedChange={(enabled) => {
+                replace({ ...selected, enabled });
+              }}
             />
           </Row>
         </Group>
@@ -183,7 +204,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         }
         footer={t("settings.queuesFooter")}
       >
-        {config.queues.length ? (
+        {config.queues.length > 0 ? (
           config.queues.map((queue) => (
             <LinkRow
               key={queue.id}
@@ -201,12 +222,16 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
               label={queue.name || t("settings.untitledQueue")}
               description={queueSummary(queue, t)}
               muted={!queue.enabled}
-              onOpen={() => detail.open(queue.id)}
+              onOpen={() => {
+                detail.open(queue.id);
+              }}
               control={
                 <Switch
                   size="sm"
                   checked={queue.enabled}
-                  onCheckedChange={(enabled) => replace({ ...queue, enabled })}
+                  onCheckedChange={(enabled) => {
+                    replace({ ...queue, enabled });
+                  }}
                   aria-label={t("settings.showNamedInPanel", { name: queue.name })}
                 />
               }
@@ -226,9 +251,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   const t = useT();
   return (
     <Pane title={t("settings.pane.account")} hero="account">
-      {!auth ? (
-        <Loader2 className="m-3 animate-spin text-muted-foreground" aria-label={t("settings.loading")} />
-      ) : (
+      {auth ? (
         <Group title="GitHub" footer={t("settings.githubFooter")}>
           {auth.signed_in && auth.login ? (
             <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
@@ -257,6 +280,8 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
             </div>
           )}
         </Group>
+      ) : (
+        <Loader2 className="m-3 animate-spin text-muted-foreground" aria-label={t("settings.loading")} />
       )}
       {auth?.signed_in ? <Attachments /> : null}
     </Pane>
@@ -350,7 +375,9 @@ function Updates() {
           disabled={state.phase === "installing"}
           onClick={() => {
             setState({ phase: "installing" });
-            void bridge.installUpdate().catch((e: unknown) => setState({ phase: "error", message: String(e) }));
+            void bridge.installUpdate().catch((e: unknown) => {
+              setState({ phase: "error", message: String(e) });
+            });
           }}
         >
           {state.phase === "installing" ? <Loader2 className="animate-spin" /> : null} {t("settings.updateRestart")}
@@ -375,7 +402,9 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
         <Row label={t("settings.checkEvery")} description={t("settings.checkEveryHint")}>
           <Select
             value={String(config.pollSeconds)}
-            onValueChange={(v) => onChange({ ...config, pollSeconds: Number(v) })}
+            onValueChange={(v) => {
+              onChange({ ...config, pollSeconds: Number(v) });
+            }}
           >
             <SelectTrigger className="min-w-36" aria-label={t("settings.refreshInterval")}>
               <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
@@ -390,7 +419,12 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           </Select>
         </Row>
         <Row label={t("settings.appearance")}>
-          <Select value={config.theme} onValueChange={(v) => onChange({ ...config, theme: v as Config["theme"] })}>
+          <Select
+            value={config.theme}
+            onValueChange={(v) => {
+              onChange({ ...config, theme: v as Config["theme"] });
+            }}
+          >
             <SelectTrigger className="min-w-44" aria-label={t("settings.appearance")}>
               <SelectValue>{(v: Config["theme"]) => t(`settings.theme.${v}`)}</SelectValue>
             </SelectTrigger>
@@ -430,7 +464,9 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
             id="sound"
             size="sm"
             checked={config.sound}
-            onCheckedChange={(sound) => onChange({ ...config, sound })}
+            onCheckedChange={(sound) => {
+              onChange({ ...config, sound });
+            }}
           />
         </Row>
       </Group>
@@ -438,7 +474,15 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
   );
 }
 
-const PANE_IDS: PaneId[] = ["account", "queues", "review", "filters", "actions", "ai", "general"];
+const PANE_IDS: ReadonlySet<string> = new Set<PaneId>([
+  "account",
+  "queues",
+  "review",
+  "filters",
+  "actions",
+  "ai",
+  "general",
+]);
 
 /** The panes in the sidebar under the account, in order. */
 const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as const).map((value) => ({
@@ -494,7 +538,7 @@ const PANE_KEY = "settings-pane";
 function rememberedPane(): PaneId {
   try {
     const v = localStorage.getItem(PANE_KEY);
-    return PANE_IDS.includes(v as PaneId) ? (v as PaneId) : "queues";
+    return v !== null && PANE_IDS.has(v) ? (v as PaneId) : "queues";
   } catch {
     return "queues";
   }
@@ -532,7 +576,9 @@ function Sidebar({
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const { accountMatch, panes } = findPanes(query, config, auth, t);
@@ -560,7 +606,9 @@ function Sidebar({
               value={query}
               spellCheck={false}
               autoCorrect="off"
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Escape" && query) {
                   e.preventDefault();
@@ -657,8 +705,11 @@ export function Settings() {
   useTheme(config?.theme);
   // Another window sending the person here for something (the AI's setup, say).
   useEffect(() => {
-    const off = bridge.on<PaneId>("settings-pane", (p) => PANE_IDS.includes(p) && setPane(p));
-    return () => void off.then((stop) => stop());
+    const off = bridge.on<PaneId>("settings-pane", (p) => PANE_IDS.has(p) && setPane(p));
+    return () =>
+      void off.then((stop) => {
+        stop();
+      });
   }, []);
   // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {
@@ -676,7 +727,7 @@ export function Settings() {
     if (!config || !q.trim()) return;
     const { accountMatch, panes } = findPanes(q, config, auth, t);
     const hits: PaneId[] = [...(accountMatch ? ["account" as const] : []), ...panes.map((p) => p.value)];
-    if (hits.length && !hits.includes(pane)) setPane(hits[0]!);
+    if (hits.length > 0 && !hits.includes(pane)) setPane(hits[0]!);
   };
 
   if (!config)
@@ -691,7 +742,9 @@ export function Settings() {
   return (
     <TabsPrimitive.Root
       value={pane}
-      onValueChange={(v: PaneId) => setPane(v)}
+      onValueChange={(v: PaneId) => {
+        setPane(v);
+      }}
       orientation="vertical"
       className="flex h-full text-body"
     >

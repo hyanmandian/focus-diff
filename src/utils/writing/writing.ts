@@ -21,7 +21,7 @@ export function tokenAt(text: string, caret: number): Token | null {
   // GitHub's logins are 39 characters at most. An emoji after two letters, as GitHub offers them
   // (so a time like 10:30 or a "Note:" isn't one).
   if (query.length > 39 || inCode(text, i - 1)) return null;
-  if (trigger === ":" ? !/^[a-z0-9_+-]{2,}$/i.test(query) : /\+/.test(query)) return null;
+  if (trigger === ":" ? !/^[a-z0-9_+-]{2,}$/i.test(query) : query.includes("\+")) return null;
   return { kind: TRIGGERS[trigger], query, start: i - 1 };
 }
 

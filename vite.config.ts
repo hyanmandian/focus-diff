@@ -60,6 +60,27 @@ export default defineConfig({
     ],
     categories: { correctness: "error", suspicious: "error", perf: "error", pedantic: "error" },
     rules: {
+      // What the categories turn on that doesn't fit: the old JSX transform's rule, readonly
+      // parameters and strict booleans (outside typescript-eslint's strict sets too), render
+      // performance rules the React Compiler makes moot, JSDoc @param/@returns that would only
+      // repeat the types, and size limits on files and functions.
+      "react/react-in-jsx-scope": "off",
+      "typescript/prefer-readonly-parameter-types": "off",
+      "typescript/strict-boolean-expressions": "off",
+      "react-perf/jsx-no-new-function-as-prop": "off",
+      "react-perf/jsx-no-new-object-as-prop": "off",
+      "react-perf/jsx-no-new-array-as-prop": "off",
+      "react-perf/jsx-no-jsx-as-prop": "off",
+      "jsdoc/require-param": "off",
+      "jsdoc/require-returns": "off",
+      "eslint/max-lines-per-function": "off",
+      "eslint/max-lines": "off",
+      "import/max-dependencies": "off",
+      "eslint/no-inline-comments": "off",
+      // Not type-aware: it would have data-* set through .dataset on elements that have none (an Element).
+      "unicorn/prefer-dom-node-dataset": "off",
+      // GraphQL's __typename and Tauri's __TAURI_INTERNALS__ are names we don't choose.
+      "eslint/no-underscore-dangle": ["error", { allow: ["__typename", "__TAURI_INTERNALS__"] }],
       // No barrels, no cycles, nothing unused.
       "import/no-cycle": "error",
       "import/no-self-import": "error",

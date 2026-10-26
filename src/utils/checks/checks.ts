@@ -81,7 +81,7 @@ type Raw = {
   };
 };
 
-const FAILED = ["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"];
+const FAILED = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"]);
 
 /** One check as the list shows it. */
 export function toCheck(node: RawNode): CheckItem {
@@ -114,7 +114,7 @@ export function toCheck(node: RawNode): CheckItem {
     ? "pending"
     : conclusion === "SUCCESS"
       ? "success"
-      : FAILED.includes(conclusion)
+      : FAILED.has(conclusion)
         ? "failure"
         : "neutral";
   const actions = node.checkSuite?.app?.slug === "github-actions";
@@ -275,7 +275,7 @@ export async function loadCheckDetail(id: string): Promise<CheckDetail> {
           ? "pending"
           : s.conclusion === "SUCCESS"
             ? "success"
-            : FAILED.includes(s.conclusion ?? "")
+            : FAILED.has(s.conclusion ?? "")
               ? "failure"
               : "neutral",
     })),
@@ -296,7 +296,7 @@ export type LogLine = { text: string; kind: "group" | "error" | "warning" | "com
 export function parseLog(text: string): LogLine[] {
   const lines: LogLine[] = [];
   for (const raw of text.split(/\r?\n/)) {
-    const line = raw.replace(/^﻿?\d{4}-\d\d-\d\dT[\d:.]+Z ?/, "").replace(/\u001b\[[0-9;]*[A-Za-z]/g, "");
+    const line = raw.replace(/^﻿?\d{4}-\d\d-\d\dT[\d:.]+Z ?/, "").replaceAll(/\u001B\[[0-9;]*[A-Za-z]/g, "");
     const marker = /^##\[(\w+)\](.*)$/.exec(line);
     if (marker) {
       const [, name, rest = ""] = marker;
@@ -315,7 +315,7 @@ export function parseLog(text: string): LogLine[] {
     } else if (line.startsWith("[command]")) lines.push({ text: line.slice(9), kind: "command" });
     else lines.push({ text: line, kind: "plain" });
   }
-  while (lines.length && !lines.at(-1)!.text) lines.pop();
+  while (lines.length > 0 && !lines.at(-1)!.text) lines.pop();
   return lines;
 }
 
@@ -365,7 +365,9 @@ export function useChecks(ref: PullRef, head: string | undefined, initial: Check
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void reload(true);
     }, POLL);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+    };
   }, [running, reload]);
   return { checks: checks ?? initial ?? [], loaded: loadedFor !== null, running, reload, setChecks };
 }

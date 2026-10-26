@@ -71,7 +71,9 @@ const hours = (h: number, t: T) =>
   h === 0 ? t("settings.never") : h < 24 ? t("settings.hours", { count: h }) : t("settings.days", { count: h / 24 });
 
 export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queue: Queue) => void }) {
-  const set = <K extends keyof Queue>(key: K, value: Queue[K]) => onChange({ ...queue, [key]: value });
+  const set = <K extends keyof Queue>(key: K, value: Queue[K]) => {
+    onChange({ ...queue, [key]: value });
+  };
   const ids = { name: useId(), include: useId(), exclude: useId(), query: useId() };
   const events = KIND_EVENTS[queue.kind];
   const source = sourceOf(queue);
@@ -85,7 +87,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             id={ids.name}
             value={queue.name}
             maxLength={40}
-            onChange={(e) => set("name", e.target.value)}
+            onChange={(e) => {
+              set("name", e.target.value);
+            }}
             className="w-56"
           />
         </Row>
@@ -99,7 +103,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 aria-checked={queue.tone === tone}
                 tabIndex={queue.tone === tone ? 0 : -1}
                 aria-label={t(`settings.tone.${tone}`)}
-                onClick={() => set("tone", tone)}
+                onClick={() => {
+                  set("tone", tone);
+                }}
                 // The picked colour ringed, as the accent colours in System Settings are; no change under the pointer.
                 className={cn(
                   "size-4 cursor-default rounded-full focus-ring outline-offset-2",
@@ -127,7 +133,12 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           </ToggleGroup>
         </Row>
         <Row label={t("settings.myPart")} description={t("settings.myPartHint")}>
-          <Select value={source.part} onValueChange={(v) => onChange(withSource(queue, source.state, v as QueuePart))}>
+          <Select
+            value={source.part}
+            onValueChange={(v) => {
+              onChange(withSource(queue, source.state, v as QueuePart));
+            }}
+          >
             <SelectTrigger className="min-w-64" aria-label={t("settings.myPart")}>
               <SelectValue>{(v: QueuePart) => t(`settings.part.${v}`)}</SelectValue>
             </SelectTrigger>
@@ -144,29 +155,40 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <>
             <SwitchRow
               checked={queue.hideOnceReviewed}
-              onChange={(v) => set("hideOnceReviewed", v)}
+              onChange={(v) => {
+                set("hideOnceReviewed", v);
+              }}
               label={t("settings.hideOnceReviewed")}
               hint={t("settings.hideOnceReviewedHint")}
             />
             <SwitchRow
               checked={queue.directOnly}
-              onChange={(v) => set("directOnly", v)}
+              onChange={(v) => {
+                set("directOnly", v);
+              }}
               label={t("settings.directOnly")}
               hint={t("settings.directOnlyHint")}
             />
-            {!queue.directOnly ? (
+            {queue.directOnly ? null : (
               <Row stacked label={t("settings.teamsMine")} description={t("settings.allMyTeams")}>
                 <TagInput
                   label={t("settings.teams")}
                   value={queue.teams}
-                  onChange={(v) => set("teams", v)}
+                  onChange={(v) => {
+                    set("teams", v);
+                  }}
                   placeholder="acme/web-platform"
                   validate={teamError}
                 />
               </Row>
-            ) : null}
+            )}
             <Row label={t("settings.stale")} description={t("settings.staleHint")}>
-              <Select value={String(queue.staleHours)} onValueChange={(v) => set("staleHours", Number(v))}>
+              <Select
+                value={String(queue.staleHours)}
+                onValueChange={(v) => {
+                  set("staleHours", Number(v));
+                }}
+              >
                 <SelectTrigger className="min-w-32" aria-label={t("settings.staleLabel")}>
                   <SelectValue>{(v: string) => hours(Number(v), t)}</SelectValue>
                 </SelectTrigger>
@@ -182,12 +204,23 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           </>
         ) : null}
         {queue.kind === "involved" ? (
-          <SwitchRow checked={queue.onlyNews} onChange={(v) => set("onlyNews", v)} label={t("settings.onlyNews")} />
+          <SwitchRow
+            checked={queue.onlyNews}
+            onChange={(v) => {
+              set("onlyNews", v);
+            }}
+            label={t("settings.onlyNews")}
+          />
         ) : null}
         {queue.kind === "merged" ? (
           <>
             <Row label={t("settings.inTheLast")}>
-              <Select value={String(queue.mergedDays)} onValueChange={(v) => set("mergedDays", Number(v))}>
+              <Select
+                value={String(queue.mergedDays)}
+                onValueChange={(v) => {
+                  set("mergedDays", Number(v));
+                }}
+              >
                 <SelectTrigger className="min-w-28" aria-label={t("settings.daysLabel")}>
                   <SelectValue>{(v: string) => t("settings.days", { count: Number(v) })}</SelectValue>
                 </SelectTrigger>
@@ -201,7 +234,12 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
               </Select>
             </Row>
             <Row label={t("settings.skipIfI")} description={t("settings.skipIfIHint")}>
-              <Select value={queue.skipIfI} onValueChange={(v) => set("skipIfI", v as Queue["skipIfI"])}>
+              <Select
+                value={queue.skipIfI}
+                onValueChange={(v) => {
+                  set("skipIfI", v as Queue["skipIfI"]);
+                }}
+              >
                 <SelectTrigger className="min-w-48" aria-label={t("settings.skipIfI")}>
                   <SelectValue>{(v: Queue["skipIfI"]) => t(`settings.skip.${v}`)}</SelectValue>
                 </SelectTrigger>
@@ -218,28 +256,34 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
               <>
                 <SwitchRow
                   checked={queue.directOnly}
-                  onChange={(v) => set("directOnly", v)}
+                  onChange={(v) => {
+                    set("directOnly", v);
+                  }}
                   label={t("settings.directOnlyPast")}
                   hint={t("settings.directOnlyPastHint")}
                 />
-                {!queue.directOnly ? (
+                {queue.directOnly ? null : (
                   <Row stacked label={t("settings.teamsAsks")} description={t("settings.allMyTeams")}>
                     <TagInput
                       label={t("settings.teams")}
                       value={queue.teams}
-                      onChange={(v) => set("teams", v)}
+                      onChange={(v) => {
+                        set("teams", v);
+                      }}
                       placeholder="acme/web-platform"
                       validate={teamError}
                     />
                   </Row>
-                ) : null}
+                )}
               </>
             ) : null}
             <Row stacked label={t("settings.skipMergedBy")}>
               <TagInput
                 label={t("settings.skipMergedByLabel")}
                 value={queue.skipMergedBy}
-                onChange={(v) => set("skipMergedBy", v)}
+                onChange={(v) => {
+                  set("skipMergedBy", v);
+                }}
                 placeholder={t("settings.usernamePlaceholder")}
                 validate={userError}
               />
@@ -253,7 +297,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             className="font-mono text-callout"
             spellCheck={false}
             value={queue.query}
-            onChange={(e) => set("query", e.target.value)}
+            onChange={(e) => {
+              set("query", e.target.value);
+            }}
             placeholder="team-review-requested:acme/web label:urgent"
           />
         </Row>
@@ -264,7 +310,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <TagInput
             label={t("settings.repositories")}
             value={queue.repos}
-            onChange={(v) => set("repos", v)}
+            onChange={(v) => {
+              set("repos", v);
+            }}
             placeholder={t("settings.repoPlaceholder")}
             validate={repoError}
           />
@@ -282,7 +330,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 variant="outline"
                 className={PRESSED_CHIP}
                 aria-pressed={queue.includePaths === preset.include && queue.excludePaths === preset.exclude}
-                onClick={() => onChange({ ...queue, includePaths: preset.include, excludePaths: preset.exclude })}
+                onClick={() => {
+                  onChange({ ...queue, includePaths: preset.include, excludePaths: preset.exclude });
+                }}
               >
                 {t(`settings.preset.${preset.name}`)}
               </Button>
@@ -292,7 +342,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 type="button"
                 size="xs"
                 variant="link"
-                onClick={() => onChange({ ...queue, includePaths: "", excludePaths: "" })}
+                onClick={() => {
+                  onChange({ ...queue, includePaths: "", excludePaths: "" });
+                }}
               >
                 {t("settings.anyFile")}
               </Button>
@@ -306,7 +358,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             spellCheck={false}
             value={queue.includePaths}
             aria-invalid={!validPattern(queue.includePaths)}
-            onChange={(e) => set("includePaths", e.target.value)}
+            onChange={(e) => {
+              set("includePaths", e.target.value);
+            }}
             placeholder={t("settings.anyFilePlaceholder")}
           />
         </Row>
@@ -317,7 +371,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             spellCheck={false}
             value={queue.excludePaths}
             aria-invalid={!validPattern(queue.excludePaths)}
-            onChange={(e) => set("excludePaths", e.target.value)}
+            onChange={(e) => {
+              set("excludePaths", e.target.value);
+            }}
             placeholder={t("settings.nothingPlaceholder")}
           />
         </Row>
@@ -349,7 +405,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
       <Group title={t("settings.leaveOut")}>
         <SwitchRow
           checked={queue.hideBots}
-          onChange={(v) => set("hideBots", v)}
+          onChange={(v) => {
+            set("hideBots", v);
+          }}
           label={t("settings.hideBots")}
           hint={t("settings.hideBotsHint")}
         />
@@ -357,7 +415,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <TagInput
             label={t("settings.authorsLabel")}
             value={queue.excludeAuthors}
-            onChange={(v) => set("excludeAuthors", v)}
+            onChange={(v) => {
+              set("excludeAuthors", v);
+            }}
             placeholder={t("settings.usernamePlaceholder")}
             validate={userError}
           />
@@ -366,7 +426,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <TagInput
             label={t("settings.approversLabel")}
             value={queue.skipApprovedBy}
-            onChange={(v) => set("skipApprovedBy", v)}
+            onChange={(v) => {
+              set("skipApprovedBy", v);
+            }}
             placeholder={t("settings.usernamePlaceholder")}
             validate={userError}
           />
@@ -375,7 +437,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <TagInput
             label={t("settings.onlyLabelsLabel")}
             value={queue.includeLabels}
-            onChange={(v) => set("includeLabels", v)}
+            onChange={(v) => {
+              set("includeLabels", v);
+            }}
             placeholder={t("settings.labelPlaceholder")}
           />
         </Row>
@@ -383,7 +447,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <TagInput
             label={t("settings.withoutLabelsLabel")}
             value={queue.excludeLabels}
-            onChange={(v) => set("excludeLabels", v)}
+            onChange={(v) => {
+              set("excludeLabels", v);
+            }}
             placeholder={t("settings.labelPlaceholder")}
           />
         </Row>
@@ -394,13 +460,15 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           <SwitchRow
             key={kind}
             checked={queue.notify.includes(kind)}
-            onChange={(on) => set("notify", on ? [...queue.notify, kind] : queue.notify.filter((k) => k !== kind))}
+            onChange={(on) => {
+              set("notify", on ? [...queue.notify, kind] : queue.notify.filter((k) => k !== kind));
+            }}
             label={t(`events.label.${kind}`)}
           />
         ))}
       </Group>
 
-      {queue.notify.length ? (
+      {queue.notify.length > 0 ? (
         <>
           <Group footer={t("settings.notifyAtFooter")}>
             <Row label={t("settings.tellMe")}>
@@ -421,12 +489,12 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
               <SwitchRow
                 key={kind}
                 checked={queue.notifyLeaveOut.includes(kind)}
-                onChange={(on) =>
+                onChange={(on) => {
                   set(
                     "notifyLeaveOut",
                     on ? [...queue.notifyLeaveOut, kind] : queue.notifyLeaveOut.filter((k) => k !== kind),
-                  )
-                }
+                  );
+                }}
                 label={t(`settings.leaveOut.${kind}`)}
                 hint={LEAVE_OUT_HINTS[kind] ? t(LEAVE_OUT_HINTS[kind]) : undefined}
               />
@@ -435,7 +503,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
               <TagInput
                 label={t("settings.notifyReposLabel")}
                 value={queue.notifyRepos}
-                onChange={(v) => set("notifyRepos", v)}
+                onChange={(v) => {
+                  set("notifyRepos", v);
+                }}
                 placeholder={t("settings.repoPlaceholder")}
                 validate={repoError}
               />
@@ -453,12 +523,12 @@ export function queueSummary(queue: Queue, t: T): string {
   const source = sourceOf(queue);
   const parts = [t(`settings.summary.${source.state}.${source.part}`)];
   if (queue.query.trim()) parts.push(queue.query.trim());
-  if (queue.repos.length)
+  if (queue.repos.length > 0)
     parts.push(queue.repos.length === 1 ? queue.repos[0]! : t("settings.summaryRepos", { count: queue.repos.length }));
   if (queue.includePaths || queue.excludePaths) {
     const preset = PATH_PRESETS.find((p) => p.include === queue.includePaths && p.exclude === queue.excludePaths);
     parts.push(preset ? t(`settings.preset.${preset.name}`) : t("settings.summaryFiles"));
   }
-  if (queue.includeLabels.length) parts.push(queue.includeLabels.join(", "));
+  if (queue.includeLabels.length > 0) parts.push(queue.includeLabels.join(", "));
   return parts.join(" · ");
 }

@@ -98,7 +98,12 @@ export function Pane({
           {tools ? <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">{tools}</div> : null}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto" onScroll={(e) => setScrolled(e.currentTarget.scrollTop)}>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onScroll={(e) => {
+          setScrolled(e.currentTarget.scrollTop);
+        }}
+      >
         <div className={cn("mx-auto flex max-w-[620px] flex-col gap-6 px-5 pt-1 pb-8", className)}>
           {meta && Icon ? (
             <div className="flex flex-col items-center gap-1.5 pt-1 pb-3 text-center">
@@ -296,7 +301,9 @@ export function useDetail() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [openId]);
   const rowRef = (id: string) => (el: HTMLButtonElement | null) => {
     if (el) rows.current.set(id, el);

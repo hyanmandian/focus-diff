@@ -126,7 +126,7 @@ function Breakdown({
         </span>
       </div>
       {rows.map(({ id, name, sums }, i) => {
-        const selected = id ? chosen.includes(id) : !chosen.length;
+        const selected = id ? chosen.includes(id) : chosen.length === 0;
         const complete = sums.files > 0 && sums.viewed === sums.files;
         // A filter with nothing in this pull request can't be turned on.
         const empty = sums.files === 0 && !selected;
@@ -183,7 +183,7 @@ export function FilterBar(props: Props) {
   const label = nextLabel(next, t);
   const stuck = !next.left && !next.nextFilter;
   const chip = (id: string, name: string, count: number) => {
-    const pressed = id ? chosen.includes(id) : !chosen.length;
+    const pressed = id ? chosen.includes(id) : chosen.length === 0;
     return (
       <button
         key={id || "all"}
@@ -191,7 +191,9 @@ export function FilterBar(props: Props) {
         aria-pressed={pressed}
         aria-keyshortcuts={id ? undefined : "Alt+Shift+0"}
         title={id ? undefined : t("review.showAll", { shortcut: chord("0") })}
-        onClick={() => onToggle(id)}
+        onClick={() => {
+          onToggle(id);
+        }}
         className={cn(
           // Toggle buttons: the ones on in the accent, no highlight under the pointer.
           "flex h-8 shrink-0 cursor-default items-center gap-1.5 rounded-[8px] pr-2 pl-3 text-body font-medium focus-ring transition-colors duration-150 outline-none",
@@ -216,7 +218,7 @@ export function FilterBar(props: Props) {
     <div
       role="group"
       aria-label={t("review.reviewOnePart")}
-      aria-keyshortcuts={filters.length ? "Alt+Shift+. Alt+Shift+," : undefined}
+      aria-keyshortcuts={filters.length > 0 ? "Alt+Shift+. Alt+Shift+," : undefined}
       // Floats over the code on the system's menu material (opaque with Reduce Transparency).
       className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] [scrollbar-width:none] items-center gap-1 overflow-x-auto rounded-[12px] border border-border bg-popover p-1.5 shadow-(--shadow-menu)"
     >
@@ -240,7 +242,7 @@ export function FilterBar(props: Props) {
           {label} {stuck ? null : <Kbd>{chord("J")}</Kbd>}
         </TooltipContent>
       </Tooltip>
-      {filters.length ? (
+      {filters.length > 0 ? (
         <>
           <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
           {/* Neighbours both on read as one pill, as in the extension (index.css). */}
@@ -295,7 +297,7 @@ export function FilterBar(props: Props) {
           <TooltipContent className="max-w-72">{timeHint(learned, t)}</TooltipContent>
         </Tooltip>
       </span>
-      {filters.length ? (
+      {filters.length > 0 ? (
         <Popover>
           <Tooltip>
             <TooltipTrigger

@@ -681,7 +681,9 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
     case "github_web_session":
       return webLogin;
     case "sign_in_web":
-      setTimeout(() => emit("web-session", (webLogin = "you")), 600);
+      setTimeout(() => {
+        emit("web-session", (webLogin = "you"));
+      }, 600);
       return;
     case "sign_out_web":
       emit("web-session", (webLogin = null));

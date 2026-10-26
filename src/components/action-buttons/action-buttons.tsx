@@ -32,7 +32,7 @@ function useRun(action: Action, pr: ActionContext, onResult: Result) {
       const steps = action.steps
         .map(
           (step) =>
-            `${t(`config.step.${step.kind}`)}${step.kind === "request" && step.reviewers.length ? `: ${step.reviewers.join(", ")}` : step.kind === "label" && step.labels.length ? `: ${step.labels.join(", ")}` : ""}`,
+            `${t(`config.step.${step.kind}`)}${step.kind === "request" && step.reviewers.length > 0 ? `: ${step.reviewers.join(", ")}` : step.kind === "label" && step.labels.length > 0 ? `: ${step.labels.join(", ")}` : ""}`,
         )
         .join("\n");
       if (
@@ -109,10 +109,15 @@ function ActionButton({
   onResult: Result;
 }) {
   const { busy, run } = useRun(action, pr, onResult);
-  if (action.choices.length)
+  if (action.choices.length > 0)
     return <ActionPullDown action={action} pr={pr} className={className} onResult={onResult} />;
   return (
-    <Button variant="ghost" className={className} disabled={busy || !action.steps.length} onClick={() => void run()}>
+    <Button
+      variant="ghost"
+      className={className}
+      disabled={busy || action.steps.length === 0}
+      onClick={() => void run()}
+    >
       {busy ? <Loader2 className="animate-spin" /> : <Zap />} {action.name}
       {action.confirm ? "…" : ""}
     </Button>
@@ -132,7 +137,7 @@ function ActionItem({
 }) {
   const { busy, run } = useRun(action, pr, onResult);
   return (
-    <DropdownMenuItem disabled={busy || !action.steps.length} onClick={() => void run()}>
+    <DropdownMenuItem disabled={busy || action.steps.length === 0} onClick={() => void run()}>
       {label}
       {action.confirm ? "…" : ""}
     </DropdownMenuItem>
@@ -150,7 +155,7 @@ export function ActionButtons({
   className?: string;
   onResult: Result;
 }) {
-  if (!pr || !actions.length) return null;
+  if (!pr || actions.length === 0) return null;
   return (
     <>
       {actions.map((action) => (
@@ -170,12 +175,12 @@ export function ActionMenuItems({
   pr: ActionContext | null;
   onResult: Result;
 }) {
-  if (!pr || !actions.length) return null;
+  if (!pr || actions.length === 0) return null;
   return (
     <>
       {actions.map((action) =>
         // In a menu already, a menu action's choices are a submenu.
-        action.choices.length ? (
+        action.choices.length > 0 ? (
           <DropdownMenuSub key={action.id}>
             <DropdownMenuSubTrigger>{action.name}</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>

@@ -156,17 +156,18 @@ export function useConversation({
     );
   }, [details, conversation, threads, me]);
 
-  const patchComment = (id: string, patch: Partial<ThreadComment> | null) =>
+  const patchComment = (id: string, patch: Partial<ThreadComment> | null) => {
     setThreads((list) =>
       list.flatMap((t) => {
         if (!t.comments.some((c) => c.id === id)) return [t];
         const comments = patch
           ? t.comments.map((c) => (c.id === id ? { ...c, ...patch } : c))
           : t.comments.filter((c) => c.id !== id);
-        return comments.length ? [{ ...t, comments }] : [];
+        return comments.length > 0 ? [{ ...t, comments }] : [];
       }),
     );
-  const patchEntry = (id: string, patch: Partial<Conversation["entries"][number]> | null) =>
+  };
+  const patchEntry = (id: string, patch: Partial<Conversation["entries"][number]> | null) => {
     setConversation(
       (c) =>
         c && {
@@ -176,6 +177,7 @@ export function useConversation({
             : c.entries.filter((e) => e.id !== id),
         },
     );
+  };
 
   const confirmDelete = () => {
     const t = i18n();
@@ -195,8 +197,9 @@ export function useConversation({
     draftError: (key) => pending.errors[key],
     draftSending: (key) => pending.sending.has(key),
     retryDrafts: pending.retry,
-    replyLater: (thread, body) =>
-      pending.add({ path: thread.path, side: thread.side, line: thread.line, body, replyTo: thread.id }),
+    replyLater: (thread, body) => {
+      pending.add({ path: thread.path, side: thread.side, line: thread.line, body, replyTo: thread.id });
+    },
     editComment: async (comment, body) => {
       const html = await editOnGitHub("review-comment", comment.id, body);
       patchComment(comment.id, { body, html, edited: true });
@@ -239,13 +242,19 @@ export function useConversation({
           : c;
       });
     },
-    copyLink: (url) => void copyText(url).then(() => say(i18n()("review.linkCopied"))),
+    copyLink: (url) =>
+      void copyText(url).then(() => {
+        say(i18n()("review.linkCopied"));
+      }),
     batch,
-    toggleBatch: (item) =>
+    toggleBatch: (item) => {
       setBatch((list) =>
         list.some((i) => i.comment === item.comment) ? list.filter((i) => i.comment !== item.comment) : [...list, item],
-      ),
-    clearBatch: () => setBatch([]),
+      );
+    },
+    clearBatch: () => {
+      setBatch([]);
+    },
     commit: async (items, headline, body) => {
       if (!conversation?.headRepo || !details) return;
       const t = i18n();
@@ -263,7 +272,7 @@ export function useConversation({
         if (e instanceof StaleHead) {
           // What's shown is behind the branch: it's brought up to date to try again on.
           reloadAll();
-          throw new Error(t("review.branchMoved"));
+          throw new Error(t("review.branchMoved"), { cause: e });
         }
         if (e instanceof SuggestionError)
           throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"));

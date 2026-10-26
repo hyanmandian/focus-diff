@@ -26,7 +26,10 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
     const next = raw.trim().replace(/,$/, "");
     if (!next) return;
     const problem = validate?.(next) ?? (value.includes(next) ? t("settings.alreadyAdded") : null);
-    if (problem) return setError(problem);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     onChange([...value, next]);
     setDraft("");
     setError(null);
@@ -54,7 +57,9 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
               type="button"
               className="grid size-4 cursor-default place-items-center rounded-[3px] text-muted-foreground focus-ring outline-none active:bg-(--fill-control-pressed)"
               aria-label={t("settings.removeNamed", { name: v })}
-              onClick={() => onChange(value.filter((x) => x !== v))}
+              onClick={() => {
+                onChange(value.filter((x) => x !== v));
+              }}
             >
               <X className="size-3" />
             </button>
@@ -65,7 +70,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
           className="h-[18px] min-w-32 flex-1 bg-transparent px-1 text-body caret-primary outline-none placeholder:text-muted-foreground"
-          placeholder={value.length ? "" : placeholder}
+          placeholder={value.length > 0 ? "" : placeholder}
           value={draft}
           spellCheck={false}
           autoCapitalize="off"
@@ -79,11 +84,13 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
             if (e.key === "Enter") {
               e.preventDefault();
               add(draft);
-            } else if (e.key === "Backspace" && !draft && value.length) {
+            } else if (e.key === "Backspace" && !draft && value.length > 0) {
               onChange(value.slice(0, -1));
             }
           }}
-          onBlur={() => add(draft)}
+          onBlur={() => {
+            add(draft);
+          }}
         />
       </div>
       {error ? (

@@ -84,7 +84,7 @@ export const header = (f: { filename: string; previous_filename?: string; status
   return [
     `diff --git a/${old} b/${f.filename}`,
     // Named a rename, the file's header says "old → new" and its old version is read under the old name.
-    ...(old !== f.filename ? [`rename from ${old}`, `rename to ${f.filename}`] : []),
+    ...(old === f.filename ? [] : [`rename from ${old}`, `rename to ${f.filename}`]),
     f.status === "added" ? "--- /dev/null" : `--- a/${old}`,
     f.status === "removed" ? "+++ /dev/null" : `+++ b/${f.filename}`,
   ].join("\n");
@@ -116,7 +116,7 @@ export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[
     // Carry on while pages come back full: a few at a time without a count, one by one past a
     // count that's behind what's there now.
     const step = known ? 1 : 4;
-    for (let next = Math.max(2, known + 1); next <= PAGES && pages[pages.length - 1]!.length === 100; next += step) {
+    for (let next = Math.max(2, known + 1); next <= PAGES && pages.at(-1)!.length === 100; next += step) {
       pages.push(
         ...(await Promise.all(Array.from({ length: Math.min(step, PAGES - next + 1) }, (_, i) => page(next + i)))),
       );

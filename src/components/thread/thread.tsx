@@ -77,7 +77,10 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (action: (body: string) => Promise<void> | void) => {
-    if (!body.trim()) return setError(i18n()("review.writeFirst"));
+    if (!body.trim()) {
+      setError(i18n()("review.writeFirst"));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -169,8 +172,20 @@ function CommentView({
               {comment.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
               <CommentMenu
                 url={comment.url}
-                onQuote={comment.body !== undefined ? () => onQuote(comment.body ?? "") : undefined}
-                onEdit={comment.canEdit && comment.body !== undefined ? () => setEditing(true) : undefined}
+                onQuote={
+                  comment.body === undefined
+                    ? undefined
+                    : () => {
+                        onQuote(comment.body ?? "");
+                      }
+                }
+                onEdit={
+                  comment.canEdit && comment.body !== undefined
+                    ? () => {
+                        setEditing(true);
+                      }
+                    : undefined
+                }
                 onDelete={comment.canDelete ? () => void api.deleteComment(comment) : undefined}
               />
             </span>
@@ -186,7 +201,9 @@ function CommentView({
                 await api.editComment(comment, body);
                 setEditing(false);
               }}
-              onCancel={() => setEditing(false)}
+              onCancel={() => {
+                setEditing(false);
+              }}
             />
           </div>
         ) : (
@@ -235,7 +252,9 @@ export function ThreadView({
         <button
           type="button"
           className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground focus-ring outline-none"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+          }}
         >
           <Check className="size-3.5 text-success" />{" "}
           {t("review.resolvedConversation", { comments: t("common.comments", { count: thread.comments.length }) })}
@@ -257,16 +276,45 @@ export function ThreadView({
       <div className="flex flex-col gap-3">
         {shown.map((c) =>
           c ? (
-            <CommentView key={c.id} thread={thread} comment={c} onQuote={(text) => setReplying(quote(text))} />
+            <CommentView
+              key={c.id}
+              thread={thread}
+              comment={c}
+              onQuote={(text) => {
+                setReplying(quote(text));
+              }}
+            />
           ) : (
-            <Button key="more" variant="ghost" className="self-start text-link" onClick={() => setWhole(true)}>
+            <Button
+              key="more"
+              variant="ghost"
+              className="self-start text-link"
+              onClick={() => {
+                setWhole(true);
+              }}
+            >
               {t("review.showMoreReplies", { count: hidden })}
             </Button>
           ),
         )}
       </div>
       <div className="mt-3 border-t pt-3">
-        {replying !== null ? (
+        {replying === null ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setReplying("");
+              }}
+            >
+              <CornerDownRight /> {t("review.reply")}
+            </Button>
+            <Button variant="ghost" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : thread.resolved ? <Undo2 /> : <Check />}
+              {thread.resolved ? t("review.unresolve") : t("review.resolve")}
+            </Button>
+          </div>
+        ) : (
           <Composer
             placeholder={t("review.reply")}
             submitLabel={t("review.reply")}
@@ -287,18 +335,10 @@ export function ThreadView({
                   }
                 : undefined
             }
-            onCancel={() => setReplying(null)}
+            onCancel={() => {
+              setReplying(null);
+            }}
           />
-        ) : (
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => setReplying("")}>
-              <CornerDownRight /> {t("review.reply")}
-            </Button>
-            <Button variant="ghost" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
-              {busy ? <Loader2 className="animate-spin" /> : thread.resolved ? <Undo2 /> : <Check />}
-              {thread.resolved ? t("review.unresolve") : t("review.resolve")}
-            </Button>
-          </div>
         )}
       </div>
     </Box>
@@ -331,7 +371,9 @@ export function DraftView({
             onEdit(body);
             setEditing(false);
           }}
-          onCancel={() => setEditing(false)}
+          onCancel={() => {
+            setEditing(false);
+          }}
         />
       ) : (
         <div className="flex items-start gap-2">
@@ -366,7 +408,9 @@ export function DraftView({
             size="icon-xs"
             className="text-muted-foreground"
             aria-label={t("review.editComment")}
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setEditing(true);
+            }}
           >
             <Pencil />
           </Button>
@@ -470,11 +514,16 @@ export function NewComment({
     latest.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
   }, [turns]);
 
-  const fail = (e: unknown) => setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+  const fail = (e: unknown) => {
+    setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+  };
 
   const comment = async (now: boolean) => {
     const text = body.trim();
-    if (!text) return setError(i18n()("review.writeFirst"));
+    if (!text) {
+      setError(i18n()("review.writeFirst"));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -541,7 +590,9 @@ export function NewComment({
               id={`${tabs}-${value}`}
               aria-selected={mode === value}
               aria-controls={`${tabs}-panel`}
-              onClick={() => setMode(value)}
+              onClick={() => {
+                setMode(value);
+              }}
               className={cn(
                 "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body focus-ring outline-none",
                 mode === value ? "text-selected-foreground" : "text-foreground",
@@ -560,7 +611,7 @@ export function NewComment({
         aria-labelledby={`${tabs}-${mode}`}
         className="flex flex-col gap-2 px-3 pt-2.5"
       >
-        {asking && turns.length ? (
+        {asking && turns.length > 0 ? (
           <ol
             aria-label={t("review.conversationWith", { name: askName })}
             className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1"
@@ -625,18 +676,7 @@ export function NewComment({
 
         {asking && !ask ? (
           <p className="py-2 text-body text-muted-foreground">{t("review.setUpAi")}</p>
-        ) : !asking ? (
-          <MarkdownField
-            value={body}
-            onChange={setBody}
-            label={t("review.commentLabel")}
-            placeholder={t("review.commentForAuthor")}
-            onSubmit={submit}
-            onCancel={onCancel}
-            suggestion={picked}
-            base={picked ?? undefined}
-          />
-        ) : (
+        ) : asking ? (
           <>
             <label htmlFor={`${tabs}-field`} className="sr-only">
               {asking ? t("review.questionLabel") : t("review.commentLabel")}
@@ -649,7 +689,9 @@ export function NewComment({
               placeholder={
                 asking ? (turns.length ? t("review.askFollowUp") : t("review.askAbout")) : t("review.commentForAuthor")
               }
-              onChange={(e) => (asking ? setQuestion(e.target.value) : setBody(e.target.value))}
+              onChange={(e) => {
+                asking ? setQuestion(e.target.value) : setBody(e.target.value);
+              }}
               onKeyDown={(e) => {
                 // Asking is a chat: Enter sends, Shift+Enter breaks the line. A comment, like GitHub's: ⌘/Ctrl+Enter.
                 if (
@@ -666,6 +708,17 @@ export function NewComment({
               className="resize-y"
             />
           </>
+        ) : (
+          <MarkdownField
+            value={body}
+            onChange={setBody}
+            label={t("review.commentLabel")}
+            placeholder={t("review.commentForAuthor")}
+            onSubmit={submit}
+            onCancel={onCancel}
+            suggestion={picked}
+            base={picked ?? undefined}
+          />
         )}
         {error ? (
           <p className="text-callout text-destructive" role="alert">

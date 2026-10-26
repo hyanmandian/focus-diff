@@ -13,7 +13,9 @@ type Picture = { src: string; alt: string };
 
 let current: Picture | null = null;
 const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
+const emit = () => {
+  listeners.forEach((l) => l());
+};
 
 export function openViewer(picture: Picture) {
   current = picture;
@@ -40,7 +42,9 @@ export function Viewer() {
   const closeButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<Element | null>(null);
 
-  const zoom = useCallback((by: number) => setScale((s) => Math.min(MAX, Math.max(MIN, s * by))), []);
+  const zoom = useCallback((by: number) => {
+    setScale((s) => Math.min(MAX, Math.max(MIN, s * by)));
+  }, []);
   const reset = () => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
@@ -86,7 +90,9 @@ export function Viewer() {
           size="icon-sm"
           className="text-white hover:bg-white/15 hover:text-white"
           aria-label={t("shared.zoomOut")}
-          onClick={() => zoom(0.8)}
+          onClick={() => {
+            zoom(0.8);
+          }}
         >
           <Minus />
         </Button>
@@ -98,7 +104,9 @@ export function Viewer() {
           size="icon-sm"
           className="text-white hover:bg-white/15 hover:text-white"
           aria-label={t("shared.zoomIn")}
-          onClick={() => zoom(1.25)}
+          onClick={() => {
+            zoom(1.25);
+          }}
         >
           <Plus />
         </Button>
@@ -141,7 +149,9 @@ export function Viewer() {
           draggable={false}
           className="max-h-full max-w-full transition-transform duration-100 ease-out select-none motion-reduce:transition-none"
           style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
-          onDoubleClick={() => (scale === 1 ? zoom(2) : reset())}
+          onDoubleClick={() => {
+            scale === 1 ? zoom(2) : reset();
+          }}
         />
       </div>
     </div>,

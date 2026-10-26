@@ -100,7 +100,7 @@ export function translator(locale: Locale): T {
   };
 
   const fill = (text: string, params: Record<string, string | number>) =>
-    text.replace(/\{(\w+)\}/g, (match, name: string) => {
+    text.replaceAll(/\{(\w+)\}/g, (match, name: string) => {
       const value = params[name];
       return value === undefined ? match : typeof value === "number" ? numbers.format(value) : value;
     });
@@ -196,7 +196,10 @@ export function setLanguage(next: Language | undefined) {
 }
 
 // The Mac's languages changing reaches the web view as this.
-if (typeof window !== "undefined") window.addEventListener("languagechange", () => setLanguage(language));
+if (typeof window !== "undefined")
+  window.addEventListener("languagechange", () => {
+    setLanguage(language);
+  });
 
 /** The words in the language in use, for code outside components (an error made in a callback). */
 export const i18n = () => current;

@@ -32,14 +32,18 @@ export function SlidingPill({
       setBox({ x: option.offsetLeft, y: option.offsetTop, w: option.offsetWidth, h: option.offsetHeight });
       if (!placed.current) {
         placed.current = true;
-        requestAnimationFrame(() => setReady(true));
+        requestAnimationFrame(() => {
+          setReady(true);
+        });
       }
     };
     place();
     const observer = new ResizeObserver(place);
     observer.observe(el);
     for (const option of el.querySelectorAll("[data-pill]")) observer.observe(option);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [selected]);
 
   return (

@@ -175,7 +175,7 @@ export function MergeBox({ details, pull }: Props) {
         ) : null}
       </div>
 
-      {view.reasons.length && open && !details.isDraft ? (
+      {view.reasons.length > 0 && open && !details.isDraft ? (
         <ul className="flex flex-col gap-1 border-t px-4 py-2.5">
           {view.reasons.map((reason) => {
             const r = REASON_ICON[reason];
@@ -244,7 +244,7 @@ export function MergeBox({ details, pull }: Props) {
           ) : null}
           <div className="flex flex-wrap items-center justify-end gap-2">
             {details.mergeMethods.length > 1 && (merging || view.canAutoMerge) ? (
-              <Select value={chosen} onValueChange={(v) => v && setMethod(v as Method)}>
+              <Select value={chosen} onValueChange={(v) => v && setMethod(v)}>
                 <SelectTrigger aria-label={t("manage.mergeMethod")}>
                   <SelectValue>{(v: Method) => t(`review.mergeMethod.${v}`)}</SelectValue>
                 </SelectTrigger>

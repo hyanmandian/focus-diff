@@ -35,8 +35,8 @@ const HIGHLIGHTER = {
 // which ends the pool when it unmounts, as StrictMode's rehearsal unmount does in development.
 const pool = getOrCreateWorkerPoolSingleton({ poolOptions: POOL, highlighterOptions: HIGHLIGHTER });
 
-const root = createRoot(document.getElementById("root")!);
-const show = (target: Target) =>
+const root = createRoot(document.querySelector("#root")!);
+const show = (target: Target) => {
   root.render(
     <StrictMode>
       <WorkerPoolContext.Provider value={pool}>
@@ -48,6 +48,7 @@ const show = (target: Target) =>
       </WorkerPoolContext.Provider>
     </StrictMode>,
   );
+};
 
 const params = new URLSearchParams(location.search);
 // Told which pull request to show: as a spare, the first; then the next of its queue (switch_review).

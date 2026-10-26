@@ -72,9 +72,9 @@ export function describe(e: TimelineEvent, t: T): string {
     case "reviewRequestRemoved":
       return t(`manage.event.${e.kind}`, { who, reviewer: e.reviewer });
     case "labels":
-      return e.added.length && e.removed.length
+      return e.added.length > 0 && e.removed.length > 0
         ? t("manage.event.labelsBoth", { who })
-        : e.added.length
+        : e.added.length > 0
           ? t("manage.event.labelsAdded", { who })
           : t("manage.event.labelsRemoved", { who });
     case "renamed":
@@ -141,7 +141,9 @@ export function TimelineRow({ event: e }: { event: TimelineEvent }) {
               type="button"
               aria-expanded={open}
               className="cursor-default text-left focus-ring outline-none hover:text-foreground"
-              onClick={() => setOpen(!open)}
+              onClick={() => {
+                setOpen(!open);
+              }}
             >
               {text}
             </button>

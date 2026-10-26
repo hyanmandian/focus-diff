@@ -140,8 +140,8 @@ function ReviewSummary({
         <>
           {review.summary ? <AiAnswer text={review.summary} /> : null}
           <p className="text-callout text-muted-foreground">
-            {review.findings.length
-              ? elsewhere.length
+            {review.findings.length > 0
+              ? elsewhere.length > 0
                 ? t("review.onDiffElsewhere", { count: onLines, elsewhere: elsewhere.length })
                 : t("review.onDiff", { count: onLines })
               : t("review.nothingWorth")}
@@ -157,7 +157,9 @@ function ReviewSummary({
                   variant="ghost"
                   size="xs"
                   className="shrink-0"
-                  onClick={() => onJump(f.path, null)}
+                  onClick={() => {
+                    onJump(f.path, null);
+                  }}
                   aria-label={t("review.showInDiff", { path: f.path })}
                 >
                   <ArrowDownToLine /> {t("review.goToFile")}
@@ -215,7 +217,9 @@ function Where({ path, line, onJump }: { path: string; line: number | null; onJu
         variant="ghost"
         size="xs"
         className="shrink-0"
-        onClick={() => onJump(path, line)}
+        onClick={() => {
+          onJump(path, line);
+        }}
         aria-label={line ? t("review.showLineInDiff", { path, line: String(line) }) : t("review.showInDiff", { path })}
       >
         <ArrowDownToLine /> {line ? t("review.goToLine") : t("review.goToFile")}
@@ -253,7 +257,13 @@ function AddComment({
       }}
     />
   ) : (
-    <Button variant="outline" className="self-start" onClick={() => setOpen(true)}>
+    <Button
+      variant="outline"
+      className="self-start"
+      onClick={() => {
+        setOpen(true);
+      }}
+    >
       <MessageSquarePlus /> {t("review.addComment")}
     </Button>
   );
@@ -321,7 +331,7 @@ function EntryView({
         })
       : [];
   // A review that's only replies to conversations shown above has nothing of its own.
-  if (entry.kind === "review" && !entry.html.trim() && !parts.length && entry.state === "COMMENTED") return null;
+  if (entry.kind === "review" && !entry.html.trim() && parts.length === 0 && entry.state === "COMMENTED") return null;
   // A review's words can be edited, not deleted; a comment both.
   const said = entry.kind === "comment" || entry.html.trim() || editing;
   return (
@@ -342,8 +352,20 @@ function EntryView({
               {said && entry.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
               <CommentMenu
                 url={entry.url}
-                onQuote={entry.body ? () => onQuote(quote(entry.body ?? "")) : undefined}
-                onEdit={entry.canEdit && entry.body !== undefined ? () => setEditing(true) : undefined}
+                onQuote={
+                  entry.body
+                    ? () => {
+                        onQuote(quote(entry.body ?? ""));
+                      }
+                    : undefined
+                }
+                onEdit={
+                  entry.canEdit && entry.body !== undefined
+                    ? () => {
+                        setEditing(true);
+                      }
+                    : undefined
+                }
                 onDelete={
                   entry.kind === "comment" && entry.canDelete ? () => void api.deleteEntry(entry.id) : undefined
                 }
@@ -357,7 +379,9 @@ function EntryView({
           editing={editing}
           className="mt-1"
           onSave={(body) => api?.editEntry(entry.kind, entry.id, body) ?? Promise.resolve()}
-          onDone={() => setEditing(false)}
+          onDone={() => {
+            setEditing(false);
+          }}
         />
         {said ? (
           <ReactionList reactions={reactions} canReact={Boolean(api && entry.canReact)} onToggle={toggle} />
@@ -396,8 +420,12 @@ function Branch({ name }: { name: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, 1500);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [copied]);
   return (
     <span className="inline-flex max-w-full min-w-0 items-center rounded-[6px] bg-fill pl-1.5 text-foreground">
@@ -409,7 +437,11 @@ function Branch({ name }: { name: string }) {
         size="icon-xs"
         className="shrink-0 text-muted-foreground"
         aria-label={copied ? t("review.branchCopied") : t("review.copyBranch", { name })}
-        onClick={() => void copyText(name).then(() => setCopied(true))}
+        onClick={() =>
+          void copyText(name).then(() => {
+            setCopied(true);
+          })
+        }
       >
         {copied ? <Check className="text-success" /> : <Copy />}
       </Button>
@@ -472,7 +504,9 @@ function Description({ details, conversation }: { details: Details; conversation
             size="icon-xs"
             className="text-muted-foreground"
             aria-label={t("review.editDescription")}
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setEditing(true);
+            }}
           >
             <Pencil />
           </Button>
@@ -484,7 +518,9 @@ function Description({ details, conversation }: { details: Details; conversation
           body={conversation?.body}
           editing={editing}
           onSave={(body) => api?.editDescription(body) ?? Promise.resolve()}
-          onDone={() => setEditing(false)}
+          onDone={() => {
+            setEditing(false);
+          }}
         />
       ) : (
         <Html html={html} />
@@ -535,9 +571,13 @@ export function Overview({
     const behavior = still ? "auto" : "smooth";
     const entry = landed ? document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(landed)}"]`) : null;
     if (!entry) {
-      document.getElementById("conversation")?.scrollIntoView({ behavior, block: "start" });
-      const giveUp = setTimeout(() => setLanded(null), 4000);
-      return () => clearTimeout(giveUp);
+      document.querySelector("#conversation")?.scrollIntoView({ behavior, block: "start" });
+      const giveUp = setTimeout(() => {
+        setLanded(null);
+      }, 4000);
+      return () => {
+        clearTimeout(giveUp);
+      };
     }
     setLanded(null);
     entry.scrollIntoView({ behavior, block: "center" });
@@ -561,7 +601,7 @@ export function Overview({
             {t("review.conversation")}{" "}
             <span className="font-normal text-muted-foreground tabular-nums">{entries.length}</span>
           </h2>
-          {items.length ? (
+          {items.length > 0 ? (
             items
               .slice(0, shown)
               .map((item) =>
@@ -583,7 +623,13 @@ export function Overview({
             <p className="text-body text-muted-foreground">{t("review.noConversation")}</p>
           )}
           {items.length > shown ? (
-            <Button variant="ghost" className="self-start text-link" onClick={() => setShown((n) => n + PAGE * 3)}>
+            <Button
+              variant="ghost"
+              className="self-start text-link"
+              onClick={() => {
+                setShown((n) => n + PAGE * 3);
+              }}
+            >
               {t("review.showOlder", { count: Math.min(items.length - shown, PAGE * 3) })}
             </Button>
           ) : pull.older ? (
@@ -591,7 +637,9 @@ export function Overview({
               variant="ghost"
               className="self-start text-muted-foreground"
               onClick={() =>
-                void pull.loadOlder().catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
+                void pull.loadOlder().catch((e: unknown) => {
+                  say(e instanceof Error ? e.message : String(e));
+                })
               }
             >
               {t("manage.olderEvents")}
@@ -604,7 +652,9 @@ export function Overview({
               return id;
             }}
             quoted={quoted}
-            onQuoted={() => setQuoted(null)}
+            onQuoted={() => {
+              setQuoted(null);
+            }}
           />
         </section>
       </div>

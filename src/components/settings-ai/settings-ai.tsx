@@ -37,7 +37,11 @@ function CopyCommand({ command }: { command: string }) {
         variant="ghost"
         size="icon-xs"
         aria-label={t("settings.copyNamed", { command })}
-        onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}
+        onClick={() =>
+          void navigator.clipboard.writeText(command).then(() => {
+            setCopied(true);
+          })
+        }
       >
         {copied ? <Check /> : <Copy />}
       </Button>
@@ -68,17 +72,26 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
 
   const selected = config.ai.provider;
   const ai = config.ai;
-  const setAi = (patch: Partial<Config["ai"]>) => onChange({ ...config, ai: { ...ai, ...patch } });
+  const setAi = (patch: Partial<Config["ai"]>) => {
+    onChange({ ...config, ai: { ...ai, ...patch } });
+  };
   // Model and effort belong to one CLI: another starts from its defaults.
-  const choose = (provider: AiProvider | null) =>
+  const choose = (provider: AiProvider | null) => {
     setAi(provider === ai.provider ? {} : { provider, model: "", effort: "" });
+  };
   useEffect(() => {
     setModels([]);
-    if (selected) void bridge.aiModels(selected).then(setModels, () => setModels([]));
+    if (selected)
+      void bridge.aiModels(selected).then(setModels, () => {
+        setModels([]);
+      });
   }, [selected]);
-  const setPrompts = (prompts: Prompt[]) => setAi({ prompts });
-  const updatePrompt = (id: string, patch: Partial<Prompt>) =>
+  const setPrompts = (prompts: Prompt[]) => {
+    setAi({ prompts });
+  };
+  const updatePrompt = (id: string, patch: Partial<Prompt>) => {
     setPrompts(ai.prompts.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
   const movePrompt = (index: number, by: number) => {
     const prompts = [...ai.prompts];
     const [prompt] = prompts.splice(index, 1);
@@ -111,7 +124,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   role="radio"
                   aria-checked={active}
                   tabIndex={active ? 0 : -1}
-                  onClick={() => choose(provider)}
+                  onClick={() => {
+                    choose(provider);
+                  }}
                   className="group flex min-w-0 flex-1 cursor-default items-start gap-2.5 rounded-(--radius-control-sm) text-left focus-ring outline-none"
                 >
                   {/* A radio button as AppKit draws one: the field's well and edge, the accent once picked. */}
@@ -127,28 +142,30 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   <span className="text-body">{provider ? PROVIDERS[provider].name : t("settings.noAi")}</span>
                 </button>
                 <p className="max-w-[60%] pt-px text-right text-subheadline text-muted-foreground">
-                  {!provider ? (
-                    t("settings.worksWithout")
-                  ) : !statuses ? (
-                    t("settings.checking")
-                  ) : !status?.installed ? (
-                    <>
-                      {t("settings.notInstalled")}{" "}
-                      <Button
-                        variant="link"
-                        size="xs"
-                        className="h-auto p-0"
-                        onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}
-                      >
-                        {t("settings.getIt")} <ExternalLink />
-                      </Button>
-                    </>
-                  ) : status.signed_in ? (
-                    <span className="text-success">{t("settings.ready", { version: status.version ?? "" })}</span>
+                  {provider ? (
+                    !statuses ? (
+                      t("settings.checking")
+                    ) : !status?.installed ? (
+                      <>
+                        {t("settings.notInstalled")}{" "}
+                        <Button
+                          variant="link"
+                          size="xs"
+                          className="h-auto p-0"
+                          onClick={() => void bridge.openUrl(PROVIDERS[provider].install)}
+                        >
+                          {t("settings.getIt")} <ExternalLink />
+                        </Button>
+                      </>
+                    ) : status.signed_in ? (
+                      <span className="text-success">{t("settings.ready", { version: status.version ?? "" })}</span>
+                    ) : (
+                      <>
+                        {t("settings.notSignedInRun")} <CopyCommand command={status.login_command} />
+                      </>
+                    )
                   ) : (
-                    <>
-                      {t("settings.notSignedInRun")} <CopyCommand command={status.login_command} />
-                    </>
+                    t("settings.worksWithout")
                   )}
                 </p>
               </div>
@@ -172,7 +189,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 spellCheck={false}
                 autoComplete="off"
                 value={ai.model}
-                onChange={(e) => setAi({ model: e.target.value })}
+                onChange={(e) => {
+                  setAi({ model: e.target.value });
+                }}
                 placeholder={t("settings.modelPlaceholder", { provider: PROVIDERS[selected].name })}
               />
               <datalist id={`${modelId}-list`}>
@@ -181,11 +200,13 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 ))}
               </datalist>
             </Row>
-            {PROVIDERS[selected].efforts.length ? (
+            {PROVIDERS[selected].efforts.length > 0 ? (
               <Row label={t("settings.effort")} htmlFor={effortId} description={t("settings.effortHint")}>
                 <Select
                   value={ai.effort}
-                  onValueChange={(v) => setAi({ effort: (v ?? "") as Effort | "" })}
+                  onValueChange={(v) => {
+                    setAi({ effort: (v ?? "") as Effort | "" });
+                  }}
                   items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: t(`config.effort.${e}`) }))}
                 >
                   <SelectTrigger id={effortId} className="w-40">
@@ -207,7 +228,14 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
 
           <Group>
             <Row label={t("settings.project")} htmlFor={projectId} description={t("settings.projectHint")}>
-              <Switch id={projectId} size="sm" checked={ai.project} onCheckedChange={(project) => setAi({ project })} />
+              <Switch
+                id={projectId}
+                size="sm"
+                checked={ai.project}
+                onCheckedChange={(project) => {
+                  setAi({ project });
+                }}
+              />
             </Row>
           </Group>
 
@@ -217,7 +245,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 id={autoId}
                 size="sm"
                 checked={ai.review.auto}
-                onCheckedChange={(auto) => setAi({ review: { ...ai.review, auto } })}
+                onCheckedChange={(auto) => {
+                  setAi({ review: { ...ai.review, auto } });
+                }}
               />
             </Row>
             <Row stacked>
@@ -225,23 +255,27 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 <label htmlFor={reviewPromptId} className="text-body">
                   {t("settings.reviewLooksFor")}
                 </label>
-                {ai.review.prompt !== REVIEW_PROMPT ? (
+                {ai.review.prompt === REVIEW_PROMPT ? null : (
                   <Button
                     variant="link"
                     size="xs"
                     className="ml-auto h-auto p-0"
-                    onClick={() => setAi({ review: { ...ai.review, prompt: REVIEW_PROMPT } })}
+                    onClick={() => {
+                      setAi({ review: { ...ai.review, prompt: REVIEW_PROMPT } });
+                    }}
                   >
                     {t("settings.restoreDefault")}
                   </Button>
-                ) : null}
+                )}
               </div>
               <Textarea
                 id={reviewPromptId}
                 className="min-h-20"
                 maxLength={8000}
                 value={ai.review.prompt}
-                onChange={(e) => setAi({ review: { ...ai.review, prompt: e.target.value } })}
+                onChange={(e) => {
+                  setAi({ review: { ...ai.review, prompt: e.target.value } });
+                }}
               />
             </Row>
           </Group>
@@ -253,7 +287,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 className="min-h-20"
                 value={ai.instructions}
                 maxLength={4000}
-                onChange={(e) => setAi({ instructions: e.target.value })}
+                onChange={(e) => {
+                  setAi({ instructions: e.target.value });
+                }}
                 placeholder={t("settings.guidelinesPlaceholder")}
               />
             </Row>
@@ -262,7 +298,14 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
           <Group
             title={t("settings.prompts")}
             accessory={
-              <Button variant="link" size="xs" className="h-auto p-0" onClick={() => setPrompts(defaultPrompts())}>
+              <Button
+                variant="link"
+                size="xs"
+                className="h-auto p-0"
+                onClick={() => {
+                  setPrompts(defaultPrompts());
+                }}
+              >
                 {t("settings.restoreDefaults")}
               </Button>
             }
@@ -276,7 +319,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                     className="max-w-52"
                     maxLength={30}
                     value={p.name}
-                    onChange={(e) => updatePrompt(p.id, { name: e.target.value })}
+                    onChange={(e) => {
+                      updatePrompt(p.id, { name: e.target.value });
+                    }}
                   />
                   <Button
                     variant="ghost"
@@ -284,7 +329,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                     className="ml-auto"
                     aria-label={t("settings.moveNamedUp", { name: p.name })}
                     disabled={i === 0}
-                    onClick={() => movePrompt(i, -1)}
+                    onClick={() => {
+                      movePrompt(i, -1);
+                    }}
                   >
                     <ArrowUp />
                   </Button>
@@ -293,7 +340,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                     size="icon-xs"
                     aria-label={t("settings.moveNamedDown", { name: p.name })}
                     disabled={i === ai.prompts.length - 1}
-                    onClick={() => movePrompt(i, 1)}
+                    onClick={() => {
+                      movePrompt(i, 1);
+                    }}
                   >
                     <ArrowDown />
                   </Button>
@@ -314,7 +363,9 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   className="min-h-16"
                   maxLength={8000}
                   value={p.prompt}
-                  onChange={(e) => updatePrompt(p.id, { prompt: e.target.value })}
+                  onChange={(e) => {
+                    updatePrompt(p.id, { prompt: e.target.value });
+                  }}
                 />
               </Row>
             ))}
@@ -322,7 +373,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               <Button
                 variant="outline"
                 disabled={ai.prompts.length >= 12}
-                onClick={() =>
+                onClick={() => {
                   setPrompts([
                     ...ai.prompts,
                     {
@@ -330,8 +381,8 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                       name: t("settings.newPrompt"),
                       prompt: "What should I ask the author before approving?",
                     },
-                  ])
-                }
+                  ]);
+                }}
               >
                 <Plus /> {t("settings.addPrompt")}
               </Button>

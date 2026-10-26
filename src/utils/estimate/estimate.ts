@@ -187,7 +187,7 @@ export function useLearned(): Learned | null {
 /** Learns from files just reviewed, on top of what's on disk (another window may have learned
  *  something since). */
 export async function learnFiles(samples: Array<{ path: string; expected: number; actual: number }>) {
-  if (!samples.length) return;
+  if (samples.length === 0) return;
   await read();
   let next = learned ?? normalizeLearned(null);
   for (const s of samples) next = learnFile(next, s.path, s.expected, s.actual);

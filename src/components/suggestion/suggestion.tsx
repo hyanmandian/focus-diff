@@ -64,7 +64,9 @@ function CommitPopover({
         <PopoverTitle>{t("review.commitTitle", { count: items.length })}</PopoverTitle>
         <Input
           value={headline}
-          onChange={(e) => setHeadline(e.target.value)}
+          onChange={(e) => {
+            setHeadline(e.target.value);
+          }}
           placeholder={defaultHeadline(items)}
           aria-label={t("review.commitHeadline")}
           onKeyDown={(e) => e.key === "Enter" && void commit()}
@@ -72,7 +74,9 @@ function CommitPopover({
         <Textarea
           rows={3}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value);
+          }}
           placeholder={t("review.commitBody")}
           aria-label={t("review.commitBody")}
           className="resize-y"
@@ -98,7 +102,7 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
   const api = useConversationApi();
   if (!api?.canApplySuggestion || !comment.body) return null;
   const blocks = suggestionsIn(comment.body);
-  if (!blocks.length) return null;
+  if (blocks.length === 0) return null;
   const why = whyNot(thread, comment, blocks.length);
   if (why) return <p className="mt-1.5 text-callout text-muted-foreground">{t(`review.cantApply.${why}`)}</p>;
   const item: Applied = {
@@ -114,7 +118,12 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
       {batched ? null : <CommitPopover items={[item]}>{t("review.commitSuggestion")}</CommitPopover>}
-      <Button variant="ghost" onClick={() => api.toggleBatch(item)}>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          api.toggleBatch(item);
+        }}
+      >
         {batched ? t("review.removeFromBatch") : t("review.addToBatch")}
       </Button>
       {batched ? (

@@ -7,14 +7,14 @@
 export function suggestionBlock(lines: string[]): string {
   const longest = Math.max(0, ...lines.flatMap((l) => (l.match(/`+/g) ?? []).map((run) => run.length)));
   const fence = "`".repeat(Math.max(3, longest + 1));
-  return `${fence}suggestion\n${lines.length ? `${lines.join("\n")}\n` : ""}${fence}`;
+  return `${fence}suggestion\n${lines.length > 0 ? `${lines.join("\n")}\n` : ""}${fence}`;
 }
 
 /** What each ```suggestion block in a comment's markdown replaces its lines with (none: removes
  *  them). An unclosed block runs to the end, as Markdown reads it. */
 export function suggestionsIn(markdown: string): string[][] {
   const found: string[][] = [];
-  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const lines = markdown.replaceAll(/\r\n?/g, "\n").split("\n");
   let open: { fence: string; lines: string[]; suggestion: boolean } | null = null;
   for (const line of lines) {
     if (open) {

@@ -251,7 +251,7 @@ const log = [
   "2026-10-26T12:00:02.0000000Z ##[group]Run go vet ./...",
   "2026-10-26T12:00:02.1000000Z [command]/usr/bin/go vet ./...",
   "2026-10-26T12:00:09.0000000Z # acme/api/promo",
-  "2026-10-26T12:00:09.0000000Z \u001b[31mapi/promo.go:24:14: promo.Minimum undefined (type Promo has no field or method Minimum)\u001b[0m",
+  "2026-10-26T12:00:09.0000000Z \u001B[31mapi/promo.go:24:14: promo.Minimum undefined (type Promo has no field or method Minimum)\u001B[0m",
   "2026-10-26T12:00:09.1000000Z ##[error]Process completed with exit code 1.",
   "2026-10-26T12:00:09.2000000Z ##[endgroup]",
   "2026-10-26T12:00:10.0000000Z Post job cleanup.",

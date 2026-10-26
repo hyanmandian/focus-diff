@@ -106,17 +106,17 @@ type Row = { kind: "deletion" | "addition"; code: Node[] };
  *  text (and the names of its syntax colors) gets through. */
 function suggestion(doc: Document, rows: Row[]) {
   const box = doc.createElement("div");
-  box.setAttribute("data-suggestion", "");
+  box.dataset.suggestion = "";
   const head = doc.createElement("p");
-  head.setAttribute("data-suggestion-head", "");
+  head.dataset.suggestionHead = "";
   head.textContent = i18n()("review.suggestedChange");
   const table = doc.createElement("table");
   const body = doc.createElement("tbody");
   for (const row of rows) {
     const tr = doc.createElement("tr");
-    tr.setAttribute("data-diff", row.kind);
+    tr.dataset.diff = row.kind;
     const sign = doc.createElement("td");
-    sign.setAttribute("data-sign", "");
+    sign.dataset.sign = "";
     sign.textContent = row.kind === "deletion" ? "−" : "+";
     const code = doc.createElement("td");
     code.append(...row.code);
@@ -137,7 +137,7 @@ function code(doc: Document, from: Node): Node[] {
     const inner = code(doc, child);
     if (!color) return inner;
     const span = doc.createElement("span");
-    span.setAttribute("data-pl", color.slice(3));
+    span.dataset.pl = color.slice(3);
     span.append(...inner);
     return [span];
   });
@@ -189,7 +189,7 @@ function clean(node: Node, base?: string[]) {
       const source = element.querySelector("pre")?.textContent ?? "";
       const pre = element.ownerDocument.createElement("pre");
       pre.textContent = source;
-      if (element.getAttribute("data-type") === "mermaid") pre.setAttribute("data-mermaid", "");
+      if (element.getAttribute("data-type") === "mermaid") pre.dataset.mermaid = "";
       element.replaceWith(pre);
       continue;
     }
@@ -209,7 +209,7 @@ function clean(node: Node, base?: string[]) {
       const href = element.getAttribute("href") ?? "";
       const label = element.querySelector("img")?.getAttribute("alt")?.trim() ?? "";
       for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name);
-      if (/^https:\/\//.test(href)) element.setAttribute("href", href);
+      if (href.startsWith("https://")) element.setAttribute("href", href);
       element.setAttribute("data-button", "");
       element.textContent = label;
       continue;
@@ -230,7 +230,7 @@ function clean(node: Node, base?: string[]) {
     }
     if (tag === "a") {
       const href = element.getAttribute("href") ?? "";
-      if (!/^https:\/\//.test(href)) element.removeAttribute("href");
+      if (!href.startsWith("https://")) element.removeAttribute("href");
     }
     if (tag === "img" || tag === "video") {
       const src = element.getAttribute("src") ?? "";
@@ -254,7 +254,7 @@ function clean(node: Node, base?: string[]) {
       if (isVideo(href) && IMAGE_HOSTS.test(href) && !element.querySelector("img")) {
         const video = element.ownerDocument.createElement("video");
         video.setAttribute("src", media(href));
-        video.setAttribute("data-original", href);
+        video.dataset.original = href;
         video.setAttribute("controls", "");
         video.setAttribute("preload", "metadata");
         video.setAttribute("playsinline", "");
@@ -264,8 +264,11 @@ function clean(node: Node, base?: string[]) {
     }
     // Task list checkboxes are shown, never toggled from here.
     if (tag === "input") {
-      if (element.getAttribute("type") !== "checkbox") element.remove();
-      else element.setAttribute("disabled", "");
+      if (element.getAttribute("type") === "checkbox") {
+        element.setAttribute("disabled", "");
+      } else {
+        element.remove();
+      }
     }
     clean(element, base);
   }

@@ -58,7 +58,7 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   const refresh = useCallback(async () => {
     const turn = ++asked.current;
     const [onGitHub, queued] = await Promise.all([
-      loadPending(ref).catch(() => undefined),
+      loadPending(ref).catch(() => {}),
       bridge.draftsState(prId).catch(() => null),
     ]);
     if (turn !== asked.current) return null;
@@ -84,7 +84,10 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
       for (const draft of unsent(readKept(prId), now.onGitHub, now.queued)) send(draft);
     });
     const off = bridge.on<string>("drafts", (pull) => pull === prId && void refresh());
-    return () => void off.then((f) => f());
+    return () =>
+      void off.then((f) => {
+        f();
+      });
   }, [prId, refresh, send]);
 
   const add = (draft: Omit<Draft, "key">) => {

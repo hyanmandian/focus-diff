@@ -212,9 +212,10 @@ export async function askAboutLines(
   const file = files.find((f) => f.path === path);
   const lines = file ? linesFromPatch(file.patch, start, end, side) : "";
   const where = `${path}, ${start === end ? `line ${start}` : `lines ${start}–${end}`} of the ${side === "additions" ? "new" : "old"} version`;
-  const before = earlier.length
-    ? `\n\nWhat they asked about it before, and your answers:\n\n${earlier.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")}`
-    : "";
+  const before =
+    earlier.length > 0
+      ? `\n\nWhat they asked about it before, and your answers:\n\n${earlier.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join("\n\n")}`
+      : "";
   return run(
     config,
     details,

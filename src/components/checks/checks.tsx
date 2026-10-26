@@ -175,7 +175,7 @@ function Opened({
   return (
     <div className="flex flex-col gap-2.5 pt-1.5 pb-2 pl-5.5">
       {check.description ? <p className="text-callout text-muted-foreground">{check.description}</p> : null}
-      {failedSteps.length ? (
+      {failedSteps.length > 0 ? (
         <ul className="flex flex-col gap-0.5" aria-label={t("manage.failedSteps")}>
           {failedSteps.map((s) => (
             <li key={s.number} className="flex items-center gap-1.5 text-callout">
@@ -202,7 +202,9 @@ function Opened({
                       variant="ghost"
                       size="xs"
                       className="shrink-0"
-                      onClick={() => onJump(a.path, a.line)}
+                      onClick={() => {
+                        onJump(a.path, a.line);
+                      }}
                       aria-label={
                         a.line
                           ? t("review.showLineInDiff", { path: a.path, line: String(a.line) })
@@ -243,8 +245,12 @@ function Opened({
             variant="outline"
             onClick={() =>
               void rerunJob(pr, check.job!)
-                .then(() => say(t("manage.rerunning")))
-                .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)))
+                .then(() => {
+                  say(t("manage.rerunning"));
+                })
+                .catch((e: unknown) => {
+                  say(e instanceof Error ? e.message : String(e));
+                })
             }
           >
             <RotateCw /> {t("manage.rerunJob")}
@@ -318,12 +324,13 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
   const failing = counts.failure > 0;
   // Open when something needs looking at; closed when everything passed.
   const [open, setOpen] = useState(failing || counts.pending > 0);
-  if (!checks.length && !pull.awaiting.length) return null;
+  if (checks.length === 0 && pull.awaiting.length === 0) return null;
   const summary = (["failure", "pending", "neutral", "success"] as CheckState[])
     .filter((s) => counts[s])
     .map((s) => t(`manage.count.${s}`, { count: counts[s] }));
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
     setOpened((s) => (s.has(id) ? new Set([...s].filter((x) => x !== id)) : new Set([...s, id])));
+  };
   return (
     <section aria-labelledby="checks" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -354,15 +361,26 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
                 <ChevronDown className="size-3 opacity-70" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled={!failing} onClick={() => pull.actions.rerun("failed")}>
+                <DropdownMenuItem
+                  disabled={!failing}
+                  onClick={() => {
+                    pull.actions.rerun("failed");
+                  }}
+                >
                   {t("manage.rerunFailed")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => pull.actions.rerun("all")}>{t("manage.rerunAll")}</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    pull.actions.rerun("all");
+                  }}
+                >
+                  {t("manage.rerunAll")}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
         </div>
-        {pull.awaiting.length && write && pr.state === "OPEN" ? (
+        {pull.awaiting.length > 0 && write && pr.state === "OPEN" ? (
           <div className="mx-4 mb-2.5 flex items-center gap-2 rounded-lg bg-warning/10 px-3 py-2 text-callout">
             <TriangleAlert className="size-3.5 shrink-0 text-warning" aria-hidden />
             <span className="min-w-0 flex-1">{t("manage.awaitingApproval", { count: pull.awaiting.length })}</span>
@@ -381,7 +399,13 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
                 <ul className="flex flex-col">
                   {g.checks.map((check) => (
                     <li key={check.id}>
-                      <Row check={check} open={opened.has(check.id)} onToggle={() => toggle(check.id)} />
+                      <Row
+                        check={check}
+                        open={opened.has(check.id)}
+                        onToggle={() => {
+                          toggle(check.id);
+                        }}
+                      />
                       {opened.has(check.id) ? (
                         <Opened pr={pr} check={check} write={write} hasFile={hasFile} onJump={onJump} say={say} />
                       ) : null}

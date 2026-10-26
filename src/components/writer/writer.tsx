@@ -106,7 +106,7 @@ function caretAt(field: HTMLTextAreaElement, index: number) {
 /** Your saved replies on GitHub, to start from. */
 function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
   const t = useT();
-  const [replies, setReplies] = useState<SavedReply[] | null | undefined>(undefined);
+  const [replies, setReplies] = useState<SavedReply[] | null | undefined>();
   return (
     <DropdownMenu onOpenChange={(open) => open && replies === undefined && void savedReplies().then(setReplies)}>
       <Tooltip>
@@ -139,9 +139,14 @@ function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
             <p className="max-w-64 px-2.5 py-1 text-callout whitespace-normal text-muted-foreground">
               {t("review.savedRepliesPermission")}
             </p>
-          ) : replies.length ? (
+          ) : replies.length > 0 ? (
             replies.map((r) => (
-              <DropdownMenuItem key={r.id} onClick={() => onPick(r.body)}>
+              <DropdownMenuItem
+                key={r.id}
+                onClick={() => {
+                  onPick(r.body);
+                }}
+              >
                 <span className="max-w-64 truncate">{r.title}</span>
               </DropdownMenuItem>
             ))
@@ -230,7 +235,10 @@ export function MarkdownField({
   const lookUp = (text: string, caret: number) => {
     const next = api ? tokenAt(text, caret) : null;
     setToken(next);
-    if (!next || !api || !field.current) return setOptions([]);
+    if (!next || !api || !field.current) {
+      setOptions([]);
+      return;
+    }
     setAt(caretAt(field.current, next.start));
     const turn = ++asked.current;
     const found: Promise<Option[]> =
@@ -267,7 +275,9 @@ export function MarkdownField({
       ? document.execCommand("insertText", false, change.insert)
       : document.execCommand("delete");
     if (!typed) onChange(value.slice(0, change.from) + change.insert + value.slice(change.to));
-    requestAnimationFrame(() => el.setSelectionRange(...change.select));
+    requestAnimationFrame(() => {
+      el.setSelectionRange(...change.select);
+    });
   };
 
   /** Text in at the caret (over what's selected), on lines of its own when it's a block. */
@@ -279,9 +289,9 @@ export function MarkdownField({
     const before = block && start > 0 && value[start - 1] !== "\n" ? "\n" : "";
     const after = block && value[end] !== "\n" ? "\n" : "";
     const full = before + text + after;
-    requestAnimationFrame(() =>
-      apply({ from: start, to: end, insert: full, select: [start + full.length, start + full.length] }),
-    );
+    requestAnimationFrame(() => {
+      apply({ from: start, to: end, insert: full, select: [start + full.length, start + full.length] });
+    });
   };
 
   /** One placeholder swapped for what took its place, keeping the caret where it was. */
@@ -296,18 +306,23 @@ export function MarkdownField({
     onChange(next);
     if (caret && el) {
       const shift = (i: number) => (i > at ? Math.max(at, i + next.length - before.length) : i);
-      requestAnimationFrame(() => el.setSelectionRange(shift(caret[0]!), shift(caret[1]!)));
+      requestAnimationFrame(() => {
+        el.setSelectionRange(shift(caret[0]!), shift(caret[1]!));
+      });
     }
   };
 
   /** Pictures and videos into the comment: a placeholder for each at the caret, then each as
    *  github.com writes it once it's uploaded. */
   const attach = (files: File[]) => {
-    if (!api || !number || !files.length) return;
+    if (!api || !number || files.length === 0) return;
     const list = files.filter(attachable);
     if (list.length < files.length) setMessage({ kind: "error", text: t("review.uploadUnsupported") });
-    if (!list.length) return;
-    if (session === null) return setMessage({ kind: "sign-in" });
+    if (list.length === 0) return;
+    if (session === null) {
+      setMessage({ kind: "sign-in" });
+      return;
+    }
     if (list.length === files.length) setMessage(null);
     let text = latest.current;
     const marks = list.map((file) => {
@@ -318,7 +333,9 @@ export function MarkdownField({
     insert(marks.join("\n"), true);
     for (const [i, file] of list.entries()) {
       Promise.all([bridge.uploadAttachment(api.repo, number, file), displayWidth(file)]).then(
-        ([uploaded, width]) => replace(marks[i]!, markdownFor(uploaded.kind, uploaded.href, file.name, width)),
+        ([uploaded, width]) => {
+          replace(marks[i]!, markdownFor(uploaded.kind, uploaded.href, file.name, width));
+        },
         (e: UploadError | string) => {
           replace(marks[i]!, "");
           if (typeof e === "string") setMessage({ kind: "error", text: e });
@@ -352,7 +369,7 @@ export function MarkdownField({
     setOptions([]);
   };
 
-  const open = Boolean(token && options.length && tab === "write");
+  const open = Boolean(token && options.length > 0 && tab === "write");
   const listId = `${id}-options`;
   const shortcut = isMac ? "⌘" : "Ctrl+";
 
@@ -386,7 +403,9 @@ export function MarkdownField({
               aria-selected={tab === value_}
               aria-controls={`${id}-panel`}
               disabled={value_ === "preview" && !api}
-              onClick={() => setTab(value_)}
+              onClick={() => {
+                setTab(value_);
+              }}
               className="flex h-(--control-h-sm) cursor-default items-center rounded-(--radius-control-sm) px-2 text-subheadline text-foreground focus-ring outline-none disabled:text-(--label-tertiary)"
             >
               {name}
@@ -402,7 +421,9 @@ export function MarkdownField({
                   variant="ghost"
                   size="xs"
                   className="text-muted-foreground"
-                  onClick={() => insert(suggestionBlock(suggestion), true)}
+                  onClick={() => {
+                    insert(suggestionBlock(suggestion), true);
+                  }}
                 />
               }
             >
@@ -440,7 +461,13 @@ export function MarkdownField({
             e.target.value = "";
           }}
         />
-        {api ? <SavedReplies onPick={(body) => insert(body)} /> : null}
+        {api ? (
+          <SavedReplies
+            onPick={(body) => {
+              insert(body);
+            }}
+          />
+        ) : null}
       </div>
 
       <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`}>
@@ -449,18 +476,20 @@ export function MarkdownField({
             className="min-h-16 rounded-(--radius-field) border border-input bg-(--field-bg) px-2 py-1.5"
             aria-busy={rendered?.text !== value}
           >
-            {!value.trim() ? (
-              <p className="text-body text-muted-foreground">{t("review.nothingToPreview")}</p>
-            ) : rendered?.text !== value ? (
-              <p className="flex items-center gap-1.5 text-body text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("review.loadingPreview")}
-              </p>
-            ) : rendered.html !== null ? (
-              <CommentHtml html={rendered.html} base={base} />
+            {value.trim() ? (
+              rendered?.text !== value ? (
+                <p className="flex items-center gap-1.5 text-body text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("review.loadingPreview")}
+                </p>
+              ) : rendered.html !== null ? (
+                <CommentHtml html={rendered.html} base={base} />
+              ) : (
+                <p className="text-callout text-destructive" role="alert">
+                  {rendered.error}
+                </p>
+              )
             ) : (
-              <p className="text-callout text-destructive" role="alert">
-                {rendered.error}
-              </p>
+              <p className="text-body text-muted-foreground">{t("review.nothingToPreview")}</p>
             )}
           </div>
         ) : (
@@ -489,7 +518,9 @@ export function MarkdownField({
                 const caret = e.currentTarget.selectionStart;
                 if (token && (caret < token.start || caret > token.start + token.query.length + 1)) setToken(null);
               }}
-              onBlur={() => setToken(null)}
+              onBlur={() => {
+                setToken(null);
+              }}
               onKeyDown={(e) => {
                 const mod = isMac ? e.metaKey : e.ctrlKey;
                 if (open) {
@@ -529,7 +560,7 @@ export function MarkdownField({
               }}
               onPaste={(e) => {
                 const files = [...e.clipboardData.files];
-                if (files.length) {
+                if (files.length > 0) {
                   e.preventDefault();
                   attach(files);
                   return;
@@ -544,7 +575,7 @@ export function MarkdownField({
               }}
               onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
               onDrop={(e) => {
-                if (!e.dataTransfer.files.length) return;
+                if (e.dataTransfer.files.length === 0) return;
                 e.preventDefault();
                 // Where it's dropped is where it goes.
                 const el = e.currentTarget;
@@ -571,7 +602,9 @@ export function MarkdownField({
                   left: Math.min(at.left, Math.max(0, (field.current?.clientWidth ?? 288) - 288)),
                 }}
                 // A click picks without taking the focus from the field.
-                onMouseDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                }}
               >
                 {options.map((o, i) => (
                   <li
@@ -579,8 +612,12 @@ export function MarkdownField({
                     id={`${listId}-${i}`}
                     role="option"
                     aria-selected={i === active}
-                    onMouseEnter={() => setActive(i)}
-                    onClick={() => pick(o)}
+                    onMouseEnter={() => {
+                      setActive(i);
+                    }}
+                    onClick={() => {
+                      pick(o);
+                    }}
                     className={cn(
                       "flex h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-2 text-body",
                       i === active && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)",
@@ -634,11 +671,11 @@ export function MarkdownField({
           {message.kind === "error"
             ? message.text
             : t(message.kind === "ended" ? "review.uploadSessionEnded" : "review.uploadSignIn")}
-          {message.kind !== "error" ? (
+          {message.kind === "error" ? null : (
             <Button variant="link" size="xs" className="h-auto px-0" onClick={() => void bridge.signInWeb()}>
               {t("review.signInGitHubCom")}
             </Button>
-          ) : null}
+          )}
         </p>
       ) : (
         <p id={`${id}-hint`} className="sr-only">

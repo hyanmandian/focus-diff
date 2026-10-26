@@ -202,7 +202,9 @@ export const bridge = {
   quit: () => invoke<void>("quit"),
 
   on: <T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> =>
-    listen<T>(event, (e) => handler(e.payload)),
+    listen<T>(event, (e) => {
+      handler(e.payload);
+    }),
 };
 
 /** A GitHub REST or GraphQL call. Throws GitHubError for HTTP errors, with GitHub's message. */

@@ -64,9 +64,13 @@ export function FileTree({
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => setHeight(el.clientHeight));
+    const observer = new ResizeObserver(() => {
+      setHeight(el.clientHeight);
+    });
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   /** Brings a row into view, as a list scrolls to its selection. */
@@ -84,18 +88,21 @@ export function FileTree({
     setCursor(`f:${picked}`);
     setCollapsed((c) => {
       const closed = foldersOf(picked).filter((p) => c.has(p));
-      return closed.length ? new Set([...c].filter((p) => !closed.includes(p))) : c;
+      return closed.length > 0 ? new Set([...c].filter((p) => !closed.includes(p))) : c;
     });
   }, [picked]);
-  useEffect(() => reveal(at), [at]);
+  useEffect(() => {
+    reveal(at);
+  }, [at]);
 
-  const toggle = (path: string, open?: boolean) =>
+  const toggle = (path: string, open?: boolean) => {
     setCollapsed((c) => {
       const next = new Set(c);
       if (open ?? next.has(path)) next.delete(path);
       else next.add(path);
       return next;
     });
+  };
 
   const activate = (row: TreeRow<ReviewFile>) => {
     setCursor(keyOf(row));
@@ -149,7 +156,9 @@ export function FileTree({
       aria-activedescendant={at >= 0 ? `tree-row-${at}` : undefined}
       onKeyDown={onKeyDown}
       onFocus={() => at < 0 && rows[0] && setCursor(keyOf(rows[0]))}
-      onScroll={(e) => setTop(e.currentTarget.scrollTop)}
+      onScroll={(e) => {
+        setTop(e.currentTarget.scrollTop);
+      }}
       className="group/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-1.5 focus-ring-inset outline-none"
     >
       <div className="relative" style={{ height: rows.length * ROW }}>

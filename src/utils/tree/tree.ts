@@ -29,7 +29,7 @@ export function buildTree<F extends { path: string }>(files: F[]): Array<TreeNod
       folder.files.push(file);
       parent = folder;
     }
-    parent.children.push({ kind: "file", path: file.path, name: parts[parts.length - 1]!, file });
+    parent.children.push({ kind: "file", path: file.path, name: parts.at(-1)!, file });
   }
   const tidy = (folder: TreeFolder<F>): TreeFolder<F> => {
     let f = folder;
@@ -93,7 +93,7 @@ export function outlineKey<F>(
   collapsed: ReadonlySet<string>,
 ): OutlineAction {
   const row = rows[at];
-  if (!rows.length) return null;
+  if (rows.length === 0) return null;
   if (!row) return { focus: 0 };
   switch (key) {
     case "ArrowDown":

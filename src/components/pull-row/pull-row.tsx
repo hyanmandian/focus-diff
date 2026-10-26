@@ -140,7 +140,9 @@ export const PullRow = memo(function PullRow({
       onArrived(pr.id);
     };
     el.addEventListener("animationend", done, { once: true });
-    return () => el.removeEventListener("animationend", done);
+    return () => {
+      el.removeEventListener("animationend", done);
+    };
   }, [arriving, onArrived, pr.id]);
 
   const news = item.events.filter((e) => e.kind !== "new");
@@ -153,9 +155,9 @@ export const PullRow = memo(function PullRow({
   const when =
     queue.kind === "merged" && pr.mergedAt ? Date.parse(pr.mergedAt) : (latest?.at ?? Date.parse(pr.updatedAt));
 
-  const teams = item.viaTeams?.length && !kinds.length ? item.viaTeams : [];
+  const teams = item.viaTeams?.length && kinds.length === 0 ? item.viaTeams : [];
   const ci = (item.ci === "FAILURE" || item.ci === "ERROR") && !kinds.includes("ci-failed");
-  const status = item.status && item.status !== "MENTIONED" && !kinds.length ? item.status : null;
+  const status = item.status && item.status !== "MENTIONED" && kinds.length === 0 ? item.status : null;
   // "3d", "5h": how long it's been waiting, an hour at least.
   const waited = t.since(Date.now() - Math.max(waiting, 3_600_000));
   // How long a review would take, for what's waiting on yours: from its totals, at your pace.
@@ -178,7 +180,9 @@ export const PullRow = memo(function PullRow({
           opens the pull request; shift-click picks a run of rows, as in Finder. */}
       <div
         aria-hidden
-        onClick={(e) => onPick(item, !picked, e.shiftKey)}
+        onClick={(e) => {
+          onPick(item, !picked, e.shiftKey);
+        }}
         onMouseDown={(e) => e.shiftKey && e.preventDefault()}
         className="absolute inset-y-0 left-0 z-10 w-11 cursor-default"
       />
@@ -186,7 +190,9 @@ export const PullRow = memo(function PullRow({
         type="checkbox"
         tabIndex={-1}
         checked={picked}
-        onChange={(e) => onPick(item, e.target.checked)}
+        onChange={(e) => {
+          onPick(item, e.target.checked);
+        }}
         aria-label={t("panel.select", { title: pr.title })}
         className="pointer-events-none absolute top-3 left-[18px] z-10 m-0 size-4 cursor-default accent-(--primary) opacity-0 group-hover:opacity-100 group-has-[[data-row]:focus-visible]:opacity-100 group-data-pending:opacity-100 group-data-picked:opacity-100 group-data-selecting:opacity-100"
       />
@@ -194,9 +200,13 @@ export const PullRow = memo(function PullRow({
         type="button"
         data-row
         aria-keyshortcuts="x"
-        onClick={(e) => onOpen(item, e.currentTarget.getBoundingClientRect())}
+        onClick={(e) => {
+          onOpen(item, e.currentTarget.getBoundingClientRect());
+        }}
         onPointerEnter={() => (intent.current = setTimeout(ahead, 120))}
-        onPointerLeave={() => clearTimeout(intent.current)}
+        onPointerLeave={() => {
+          clearTimeout(intent.current);
+        }}
         onFocus={ahead}
         className={cn(
           // The extension's row: the picture on a 14pt inset, a quiet rounded highlight under the
@@ -236,7 +246,7 @@ export const PullRow = memo(function PullRow({
               onto a hidden second line, rather than ending in "…". The full list is its tooltip. */}
           <span
             className="flex h-[18px] min-w-0 flex-wrap items-center overflow-hidden text-callout leading-[18px] text-muted-foreground"
-            title={teams.length ? t("panel.askedOf", { teams: t.list(teams) }) : undefined}
+            title={teams.length > 0 ? t("panel.askedOf", { teams: t.list(teams) }) : undefined}
           >
             <span className="shrink-0 tabular-nums">#{pr.number}</span>
             {!mine && pr.author ? (
@@ -244,14 +254,14 @@ export const PullRow = memo(function PullRow({
                 <span className="truncate">{pr.author.login}</span>
               </Part>
             ) : null}
-            {minutes !== null ? (
+            {minutes === null ? null : (
               <Part
                 className="text-foreground tabular-nums"
                 title={t("panel.aboutToReview", { time: t.duration(minutes).replace(/^~/, "") })}
               >
                 {t.duration(minutes)}
               </Part>
-            ) : null}
+            )}
             {queue.kind === "merged" && pr.mergedBy ? (
               <Part>{t("panel.mergedBy", { name: firstName(pr.mergedBy, t) })}</Part>
             ) : null}
@@ -271,7 +281,7 @@ export const PullRow = memo(function PullRow({
               </Part>
             ) : null}
             {ci ? <Part tone="red">{t("panel.ciFailed")}</Part> : null}
-            {teams.length ? (
+            {teams.length > 0 ? (
               <Part className="max-w-[24ch]">
                 <span className="truncate">
                   {t("panel.via", { team: teams[0]!.split("/")[1]! })}
@@ -305,7 +315,11 @@ export const PullRow = memo(function PullRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => void bridge.openUrl(pr.url)}>{t("panel.openOnGitHub")}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onDismiss(item)}>
+          <DropdownMenuItem
+            onClick={() => {
+              onDismiss(item);
+            }}
+          >
             {queue.kind === "merged" ? t("panel.markSeen") : t("panel.ignore")}
           </DropdownMenuItem>
         </DropdownMenuContent>

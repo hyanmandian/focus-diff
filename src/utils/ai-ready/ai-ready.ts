@@ -69,7 +69,10 @@ export function useAiProblem(config: Config | null) {
   const [problem, setProblem] = useState<{ title: string; message: string } | null>(null);
   const provider = config?.ai.provider;
   useEffect(() => {
-    if (!config || !provider) return setProblem(null);
+    if (!config || !provider) {
+      setProblem(null);
+      return;
+    }
     let live = true;
     const look = () => void aiProblem(config).then((p) => live && setProblem(p));
     look();

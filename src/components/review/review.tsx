@@ -127,12 +127,13 @@ function store(key: string, value: unknown) {
 function usePersisted<T>(key: string, fallback: T) {
   const [value, setValue] = useState<T>(() => stored(key, fallback));
   const set = useCallback(
-    (next: T | ((v: T) => T)) =>
+    (next: T | ((v: T) => T)) => {
       setValue((v) => {
         const resolved = typeof next === "function" ? (next as (v: T) => T)(v) : next;
         store(key, resolved);
         return resolved;
-      }),
+      });
+    },
     [key],
   );
   return [value, set] as const;
@@ -146,9 +147,13 @@ const useDark = (config: Config | null) => {
   useEffect(() => {
     // The theme may already be applied by the time this runs.
     setDark(document.documentElement.classList.contains("dark"));
-    const observer = new MutationObserver(() => setDark(document.documentElement.classList.contains("dark")));
+    const observer = new MutationObserver(() => {
+      setDark(document.documentElement.classList.contains("dark"));
+    });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [config]);
   return dark;
 };
@@ -210,7 +215,7 @@ function SubmitReview({
       <PopoverTrigger render={<Button className="h-(--toolbar-item-h) rounded-full px-3.5" />}>
         <span className="@max-[860px]:hidden">{t("review.submit")}</span>
         <span className="hidden @max-[860px]:inline">{t("review.submitShort")}</span>
-        {drafts.length ? (
+        {drafts.length > 0 ? (
           <Badge variant="secondary" className="ml-0.5 bg-white/25 text-primary-foreground">
             {drafts.length}
           </Badge>
@@ -222,7 +227,9 @@ function SubmitReview({
           <Textarea
             rows={4}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(e) => {
+              setBody(e.target.value);
+            }}
             placeholder={t("review.leaveComment")}
             aria-label={t("review.reviewComment")}
             className="resize-y"
@@ -251,7 +258,7 @@ function SubmitReview({
             </ToggleGroupItem>
           </ToggleGroup>
           {own ? <p className="text-callout text-muted-foreground">{t("review.ownPull")}</p> : null}
-          {drafts.length ? (
+          {drafts.length > 0 ? (
             <p className="text-callout text-muted-foreground">{t("review.sendsPending", { count: drafts.length })}</p>
           ) : null}
           {error ? (
@@ -262,7 +269,7 @@ function SubmitReview({
           {/* The default button, bottom right; ⌘↩ sends from the field. Throwing the pending review
               away can't be undone: a native alert asks first. */}
           <div className="flex items-center justify-end gap-2">
-            {drafts.length ? (
+            {drafts.length > 0 ? (
               <Button
                 variant="destructive"
                 className="mr-auto"
@@ -406,7 +413,9 @@ export function Review({ target }: { target: Target }) {
     place();
     const observer = new ResizeObserver(place);
     for (const el of [bar, leading, trailing]) observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, []);
   const filterField = useRef<HTMLInputElement>(null);
 
@@ -430,7 +439,7 @@ export function Review({ target }: { target: Target }) {
   const shownOnce = useRef(false);
   /** What you've viewed on github.com, for the files not marked here; what's marked here goes to GitHub. */
   const followGitHub = useCallback(
-    (list: ReviewFile[], states: Map<string, ViewedState>, queued: Record<string, boolean>) =>
+    (list: ReviewFile[], states: Map<string, ViewedState>, queued: Record<string, boolean>) => {
       setViewed((m) => {
         const next = { ...m };
         for (const f of list) {
@@ -445,7 +454,8 @@ export function Review({ target }: { target: Target }) {
           else delete next[f.path];
         }
         return next;
-      }),
+      });
+    },
     [setViewed, prId],
   );
   // What's on screen, to fetch only what changed since: the copy kept on disk for the first
@@ -501,7 +511,9 @@ export function Review({ target }: { target: Target }) {
 
   useEffect(() => {
     void loadConfig().then(setConfig);
-    void bridge.authStatus().then((a) => setMe(a.login));
+    void bridge.authStatus().then((a) => {
+      setMe(a.login);
+    });
     void load();
   }, [load]);
 
@@ -535,7 +547,7 @@ export function Review({ target }: { target: Target }) {
     if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
       void runReview(false);
   }, [ai, details, files, current, reviewing, reviewError, runReview]);
-  const dropFinding = (finding: Finding) =>
+  const dropFinding = (finding: Finding) => {
     setReviewed((r) =>
       r
         ? {
@@ -550,10 +562,13 @@ export function Review({ target }: { target: Target }) {
           }
         : r,
     );
+  };
 
   const say = (message: string) => {
     setNotice(message);
-    window.setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
+    window.setTimeout(() => {
+      setNotice((n) => (n === message ? null : n));
+    }, 3500);
   };
   // The whole conversation, and what its comments can do wherever they're drawn (use-conversation.tsx).
   const talk = useConversation({
@@ -634,7 +649,7 @@ export function Review({ target }: { target: Target }) {
     return {
       left,
       nextFilter:
-        chosen.length && !left ? nextFilterWithWork(files ?? [], repoFilters, chosenIds, isViewed) : undefined,
+        chosen.length > 0 && !left ? nextFilterWithWork(files ?? [], repoFilters, chosenIds, isViewed) : undefined,
     };
   }, [visible, isViewed, chosen, chosenIds, files, repoFilters]);
 
@@ -647,7 +662,7 @@ export function Review({ target }: { target: Target }) {
     [setKept],
   );
   // Next and previous filter stop only at filters with files here.
-  const stepPart = (by: 1 | -1) =>
+  const stepPart = (by: 1 | -1) => {
     choose(
       stepFilter(
         repoFilters.filter((f) => files?.some((x) => inFilter(f, x.path))).map((f) => f.id),
@@ -655,6 +670,7 @@ export function Review({ target }: { target: Target }) {
         by,
       ),
     );
+  };
   /** The next file left to review, after the one at the top of the screen; with none left in the
    *  chosen filters, the next filter that has some. */
   const goToNextFile = () => {
@@ -748,7 +764,7 @@ export function Review({ target }: { target: Target }) {
   );
   const step = useCallback(
     (by: 1 | -1) => {
-      if (!stops.length) return;
+      if (stops.length === 0) return;
       const next = (stop + by + stops.length) % stops.length;
       setStop(next);
       const at = stops[next]!;
@@ -777,9 +793,15 @@ export function Review({ target }: { target: Target }) {
       if (e.altKey && e.shiftKey) {
         const keys = filterKeys.current;
         const action = {
-          Period: () => keys.stepPart(1),
-          Comma: () => keys.stepPart(-1),
-          Digit0: () => keys.choose([]),
+          Period: () => {
+            keys.stepPart(1);
+          },
+          Comma: () => {
+            keys.stepPart(-1);
+          },
+          Digit0: () => {
+            keys.choose([]);
+          },
           KeyJ: keys.goToNextFile,
         }[e.code];
         if (!action || !files) return;
@@ -806,7 +828,9 @@ export function Review({ target }: { target: Target }) {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [tab, step, files, setTab]);
 
   const actionResult = (message: string, ok: boolean) => {
@@ -845,7 +869,9 @@ export function Review({ target }: { target: Target }) {
         say(i18n()("review.left"));
         void bridge.refresh(true);
       })
-      .catch((e: unknown) => say(e instanceof Error ? e.message : String(e)));
+      .catch((e: unknown) => {
+        say(e instanceof Error ? e.message : String(e));
+      });
   };
 
   // The menu bar's review commands (src-tauri/src/menu.rs) come here when this window is in front;
@@ -857,29 +883,53 @@ export function Review({ target }: { target: Target }) {
         setTab("diff");
         requestAnimationFrame(() => filterField.current?.focus());
       },
-      overview: () => setTab("overview"),
-      diff: () => setTab("diff"),
-      wrap: () => setWrap(!wrap),
-      whitespace: () => setWhitespace(!whitespace),
+      overview: () => {
+        setTab("overview");
+      },
+      diff: () => {
+        setTab("diff");
+      },
+      wrap: () => {
+        setWrap(!wrap);
+      },
+      whitespace: () => {
+        setWhitespace(!whitespace);
+      },
       "file-next": () => {
         setTab("diff");
-        requestAnimationFrame(() => stepToFile(1));
+        requestAnimationFrame(() => {
+          stepToFile(1);
+        });
       },
       "file-previous": () => {
         setTab("diff");
-        requestAnimationFrame(() => stepToFile(-1));
+        requestAnimationFrame(() => {
+          stepToFile(-1);
+        });
       },
       "toggle-viewed": toggleViewedAtTop,
-      shortcuts: () => setShortcuts(true),
+      shortcuts: () => {
+        setShortcuts(true);
+      },
       "next-file": goToNextFile,
-      "next-comment": () => step(1),
-      "previous-comment": () => step(-1),
+      "next-comment": () => {
+        step(1);
+      },
+      "previous-comment": () => {
+        step(-1);
+      },
       "ai-review": () => void runReview(),
-      submit: () => setSubmitting(true),
-      merge: () => setMergeMenu(true),
+      submit: () => {
+        setSubmitting(true);
+      },
+      merge: () => {
+        setMergeMenu(true);
+      },
       commits: () => {
         setTab("diff");
-        requestAnimationFrame(() => setRangeMenu(true));
+        requestAnimationFrame(() => {
+          setRangeMenu(true);
+        });
       },
       ...pull.menu,
       "open-github": () => details && void bridge.openUrl(details.url),
@@ -888,7 +938,10 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
-    return () => void off.then((f) => f());
+    return () =>
+      void off.then((f) => {
+        f();
+      });
   }, []);
   const isOpen = details?.state === "OPEN";
   const allowed = {
@@ -969,7 +1022,9 @@ export function Review({ target }: { target: Target }) {
                 aria-selected={tab === value}
                 aria-controls={`panel-${value}`}
                 data-pill={value}
-                onClick={() => setTab(value)}
+                onClick={() => {
+                  setTab(value);
+                }}
                 className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring outline-none"
               >
                 {label}
@@ -1067,8 +1122,10 @@ export function Review({ target }: { target: Target }) {
                         size="icon"
                         className={TOOL_ICON}
                         aria-label={t("review.previousComment")}
-                        disabled={!stops.length}
-                        onClick={() => step(-1)}
+                        disabled={stops.length === 0}
+                        onClick={() => {
+                          step(-1);
+                        }}
                       />
                     }
                   >
@@ -1080,14 +1137,14 @@ export function Review({ target }: { target: Target }) {
                 </Tooltip>
                 <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
                   <span className="inline-block min-w-[6.5rem] @max-[1360px]:sr-only">
-                    {stops.length
+                    {stops.length > 0
                       ? stop >= 0
                         ? t("review.commentOf", { index: stop + 1, total: stops.length })
                         : t("common.comments", { count: stops.length })
                       : t("review.noOpenComments")}
                   </span>
                   <span aria-hidden className="hidden min-w-5 @max-[1360px]:inline-block">
-                    {stops.length ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
+                    {stops.length > 0 ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
                   </span>
                 </span>
                 <Tooltip>
@@ -1098,8 +1155,10 @@ export function Review({ target }: { target: Target }) {
                         size="icon"
                         className={TOOL_ICON}
                         aria-label={t("review.nextComment")}
-                        disabled={!stops.length}
-                        onClick={() => step(1)}
+                        disabled={stops.length === 0}
+                        onClick={() => {
+                          step(1);
+                        }}
                       />
                     }
                   >
@@ -1150,7 +1209,9 @@ export function Review({ target }: { target: Target }) {
                         className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")}
                         aria-pressed={wrap}
                         aria-label={t("review.wrap")}
-                        onClick={() => setWrap(!wrap)}
+                        onClick={() => {
+                          setWrap(!wrap);
+                        }}
                       />
                     }
                   >
@@ -1167,7 +1228,9 @@ export function Review({ target }: { target: Target }) {
                         className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")}
                         aria-pressed={whitespace}
                         aria-label={t("diff.hideWhitespace")}
-                        onClick={() => setWhitespace(!whitespace)}
+                        onClick={() => {
+                          setWhitespace(!whitespace);
+                        }}
                       />
                     }
                   >
@@ -1287,7 +1350,13 @@ export function Review({ target }: { target: Target }) {
                       <ChevronDown className="size-3 opacity-70" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <MergeMenuItems details={details} pull={pull} onDetails={() => setTab("overview")} />
+                      <MergeMenuItems
+                        details={details}
+                        pull={pull}
+                        onDetails={() => {
+                          setTab("overview");
+                        }}
+                      />
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
@@ -1318,7 +1387,13 @@ export function Review({ target }: { target: Target }) {
                   {t("review.openOnGitHub")}
                 </DropdownMenuItem>
                 <PullMenuItems pull={pull} details={details} />
-                <DropdownMenuItem onClick={() => setShortcuts(true)}>{t("diff.shortcuts")}</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShortcuts(true);
+                  }}
+                >
+                  {t("diff.shortcuts")}
+                </DropdownMenuItem>
                 {canLeave ? (
                   <>
                     <DropdownMenuSeparator />
@@ -1429,7 +1504,9 @@ export function Review({ target }: { target: Target }) {
       <ConversationProvider value={talk.api}>
         <main
           className="relative flex min-h-0 flex-1 flex-col"
-          onScrollCapture={(e) => setScrolled((e.target as HTMLElement).scrollTop > 0)}
+          onScrollCapture={(e) => {
+            setScrolled((e.target as HTMLElement).scrollTop > 0);
+          }}
         >
           {newChanges ? (
             // Over the top of either tab, as GitHub's bar, without moving what's under it.
@@ -1540,7 +1617,9 @@ export function Review({ target }: { target: Target }) {
                     <button
                       type="button"
                       aria-label={t("review.clear")}
-                      onClick={() => setFilter("")}
+                      onClick={() => {
+                        setFilter("");
+                      }}
                       className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background focus-ring outline-none"
                     >
                       <X className="size-2.5" strokeWidth={3} aria-hidden />
@@ -1549,7 +1628,7 @@ export function Review({ target }: { target: Target }) {
                 </div>
                 <div className="flex items-center gap-2 text-subheadline text-muted-foreground">
                   <Progress
-                    value={inPart.length ? (viewedCount / inPart.length) * 100 : 0}
+                    value={inPart.length > 0 ? (viewedCount / inPart.length) * 100 : 0}
                     className="flex-1"
                     aria-label={t("review.filesViewed")}
                   />
@@ -1583,7 +1662,7 @@ export function Review({ target }: { target: Target }) {
                 error={ranged.error}
               />
               {shownFiles ? (
-                visible.length ? (
+                visible.length > 0 ? (
                   <Diffs
                     ref={diffs}
                     files={visible}
@@ -1650,7 +1729,7 @@ export function Review({ target }: { target: Target }) {
                   />
                 ) : (
                   <p className="p-10 text-center text-body text-muted-foreground">
-                    {chosen.length && !inPart.length
+                    {chosen.length > 0 && inPart.length === 0
                       ? t("review.noFilesIn", { filters: chosen.map((f) => f.name).join(" + ") })
                       : t("review.noFilesMatch")}
                   </p>
@@ -1673,7 +1752,9 @@ export function Review({ target }: { target: Target }) {
                   isViewed={isViewed}
                   minutesOf={minutesOf}
                   learned={learned}
-                  onToggle={(id) => choose(toggled(chosenIds, id))}
+                  onToggle={(id) => {
+                    choose(toggled(chosenIds, id));
+                  }}
                   onNextFile={goToNextFile}
                 />
               ) : null}

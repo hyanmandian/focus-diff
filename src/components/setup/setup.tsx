@@ -107,13 +107,14 @@ export function Setup() {
   if (!config)
     return <Loader2 className="m-auto size-5 animate-spin text-muted-foreground" aria-label={t("setup.loading")} />;
 
-  const toggle = (kind: QueueKind) =>
+  const toggle = (kind: QueueKind) => {
     setKinds((k) => {
       const next = new Set(k);
       if (next.has(kind)) next.delete(kind);
       else next.add(kind);
       return next;
     });
+  };
 
   /** The chosen queues: the ones you had stay as they were, new ones come from their template;
    *  your own searches are left alone. */
@@ -121,7 +122,7 @@ export function Setup() {
     const queues = OFFERED.flatMap((kind) => {
       if (!kinds.has(kind)) return [];
       const had = config.queues.filter((q) => q.kind === kind);
-      return (had.length ? had.map((q) => ({ ...q, enabled: true })) : [TEMPLATES[kind].make()]).map((q) => ({
+      return (had.length > 0 ? had.map((q) => ({ ...q, enabled: true })) : [TEMPLATES[kind].make()]).map((q) => ({
         ...q,
         repos,
       }));
@@ -220,7 +221,9 @@ export function Setup() {
                 <Choice
                   key={kind}
                   checked={kinds.has(kind)}
-                  onClick={() => toggle(kind)}
+                  onClick={() => {
+                    toggle(kind);
+                  }}
                   title={t(`config.queue.${kind}`)}
                 >
                   {t(`config.queue.${kind}.hint`)}
@@ -256,7 +259,9 @@ export function Setup() {
                   id="sound"
                   size="sm"
                   checked={config.sound}
-                  onCheckedChange={(sound) => setConfig({ ...config, sound })}
+                  onCheckedChange={(sound) => {
+                    setConfig({ ...config, sound });
+                  }}
                 />
               </div>
               <div className="flex min-h-10 items-center justify-between gap-4 px-3 py-2">
@@ -266,7 +271,9 @@ export function Setup() {
                 </div>
                 <Select
                   value={String(config.pollSeconds)}
-                  onValueChange={(v) => setConfig({ ...config, pollSeconds: Number(v) })}
+                  onValueChange={(v) => {
+                    setConfig({ ...config, pollSeconds: Number(v) });
+                  }}
                 >
                   <SelectTrigger className="min-w-36" aria-label={t("setup.checkEvery")}>
                     <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
@@ -294,17 +301,19 @@ export function Setup() {
               <Choice
                 role="radio"
                 checked={!config.ai.provider}
-                onClick={() => setConfig({ ...config, ai: { ...config.ai, provider: null } })}
+                onClick={() => {
+                  setConfig({ ...config, ai: { ...config.ai, provider: null } });
+                }}
                 title={t("setup.noAi")}
               >
                 {t("setup.noAiHint")}
               </Choice>
-              {!statuses ? (
+              {statuses ? null : (
                 <Loader2
                   className="size-4 animate-spin text-muted-foreground"
                   aria-label={t("setup.lookingForAgents")}
                 />
-              ) : null}
+              )}
               {statuses
                 ? AI_PROVIDERS.map((provider: AiProvider) => {
                     const status = statuses.find((s) => s.provider === provider);
@@ -326,7 +335,7 @@ export function Setup() {
                               t("setup.notInstalled")
                             )}
                           </span>
-                          {!status?.installed ? (
+                          {status?.installed ? null : (
                             <Button
                               variant="link"
                               size="xs"
@@ -334,7 +343,7 @@ export function Setup() {
                             >
                               {t("setup.getIt")} <ExternalLink />
                             </Button>
-                          ) : null}
+                          )}
                         </div>
                       );
                     }
@@ -343,7 +352,7 @@ export function Setup() {
                         key={provider}
                         role="radio"
                         checked={config.ai.provider === provider}
-                        onClick={() =>
+                        onClick={() => {
                           setConfig({
                             ...config,
                             ai: {
@@ -352,8 +361,8 @@ export function Setup() {
                               model: provider === config.ai.provider ? config.ai.model : "",
                               effort: provider === config.ai.provider ? config.ai.effort : "",
                             },
-                          })
-                        }
+                          });
+                        }}
                         title={PROVIDERS[provider].name}
                       >
                         {t("setup.readyVersion", { version: status.version ?? "" })}
@@ -387,12 +396,24 @@ export function Setup() {
             <span className="text-callout text-muted-foreground">{t("setup.laterAi")}</span>
           ) : null}
           {step > 0 ? (
-            <Button variant="outline" className="min-w-20" onClick={() => setStep(step - 1)}>
+            <Button
+              variant="outline"
+              className="min-w-20"
+              onClick={() => {
+                setStep(step - 1);
+              }}
+            >
               {t("setup.back")}
             </Button>
           ) : null}
           {step < STEPS.length - 1 ? (
-            <Button className="min-w-20" onClick={() => setStep(step + 1)} disabled={!canContinue}>
+            <Button
+              className="min-w-20"
+              onClick={() => {
+                setStep(step + 1);
+              }}
+              disabled={!canContinue}
+            >
               {t("setup.continue")}
             </Button>
           ) : (

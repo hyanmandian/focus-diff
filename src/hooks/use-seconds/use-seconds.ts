@@ -7,8 +7,12 @@ export function useSeconds(since: number | null) {
   useEffect(() => {
     if (since === null) return;
     setNow(Date.now());
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
+    const tick = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      clearInterval(tick);
+    };
   }, [since]);
   return since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000));
 }

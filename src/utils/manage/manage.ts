@@ -296,7 +296,9 @@ export function useManage(prId: string, ref: PullRef) {
   useEffect(() => {
     void reload();
   }, [reload]);
-  const patch = useCallback((change: (m: Manage) => Manage) => setManage((m) => (m ? change(m) : m)), []);
+  const patch = useCallback((change: (m: Manage) => Manage) => {
+    setManage((m) => (m ? change(m) : m));
+  }, []);
   return { manage, error, reload, patch };
 }
 

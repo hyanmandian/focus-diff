@@ -41,7 +41,10 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
       current.current = read.current();
     };
     const visibility = () => {
-      if (!document.hidden) return sample();
+      if (!document.hidden) {
+        sample();
+        return;
+      }
       settle(Date.now());
       last.current = 0;
     };

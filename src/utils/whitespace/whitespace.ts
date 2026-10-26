@@ -8,7 +8,7 @@
 /** Past this many line pairs in one run, lines pair only in order (no full search). */
 const LARGEST = 4_000_000;
 
-const bare = (line: string) => line.slice(1).replace(/\s+/g, "");
+const bare = (line: string) => line.slice(1).replaceAll(/\s+/g, "");
 
 /** The removed and added lines of one run, as unchanged pairs and what's left, in order. */
 function pairUp(removed: string[], added: string[]): string[] {
@@ -52,7 +52,7 @@ export function ignoreWhitespace(patch: string): string {
   const hunks: string[][] = [];
   for (const line of lines) {
     if (line.startsWith("@@")) hunks.push([line]);
-    else if (hunks.length) hunks[hunks.length - 1]!.push(line);
+    else if (hunks.length > 0) hunks.at(-1)!.push(line);
     else head.push(line);
   }
   const changed = hunks.map((hunk) => {
@@ -71,7 +71,7 @@ export function ignoreWhitespace(patch: string): string {
       run = [];
     };
     for (const line of hunk.slice(1)) {
-      if (line[0] === "-" || line[0] === "+" || (line[0] === "\\" && run.length)) run.push(line);
+      if (line[0] === "-" || line[0] === "+" || (line[0] === "\\" && run.length > 0)) run.push(line);
       else {
         end();
         out.push(line);
@@ -81,6 +81,6 @@ export function ignoreWhitespace(patch: string): string {
     return out;
   });
   const kept = changed.filter((hunk) => hunk.some((l) => l[0] === "+" || l[0] === "-"));
-  if (!kept.length) return patch;
+  if (kept.length === 0) return patch;
   return `${[...head, ...kept.flat()].join("\n")}\n`;
 }

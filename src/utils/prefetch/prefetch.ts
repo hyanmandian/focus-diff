@@ -22,11 +22,15 @@ export function prefetch(id: string, nameWithOwner: string, number: number, upda
   const ref = { owner, repo, number };
   // What's around it (merging, people, commits) is kept on the shelf the window reads first.
   void loadManage(ref).then(
-    (m) => shelve(`manage:${id}`, m),
+    (m) => {
+      shelve(`manage:${id}`, m);
+    },
     () => {},
   );
   void loadCommits(ref).then(
-    (c) => shelve(`commits:${id}`, c),
+    (c) => {
+      shelve(`commits:${id}`, c);
+    },
     () => {},
   );
   return Promise.all([loadDetails(nameWithOwner, number), loadFiles(ref), loadThreads(ref)])

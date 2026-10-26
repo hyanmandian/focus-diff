@@ -31,8 +31,12 @@ export function useReactions(subject: string, given: Reaction[]) {
     setMine(after);
     api.react(subject, content, on, after).then(
       // GitHub's copy has it now: back to following it.
-      () => setMine(null),
-      () => setMine(null),
+      () => {
+        setMine(null);
+      },
+      () => {
+        setMine(null);
+      },
     );
   };
   return [reactions, toggle] as const;
@@ -108,7 +112,7 @@ export function ReactionList({
   onToggle: (content: ReactionContent) => void;
 }) {
   const t = useT();
-  if (!reactions.length) return null;
+  if (reactions.length === 0) return null;
   return (
     <ul className="mt-1.5 flex flex-wrap gap-1" aria-label={t("review.reactions")}>
       {reactions.map((r) => {
@@ -125,7 +129,9 @@ export function ReactionList({
                     aria-pressed={r.mine}
                     aria-label={label}
                     disabled={!canReact}
-                    onClick={() => onToggle(r.content)}
+                    onClick={() => {
+                      onToggle(r.content);
+                    }}
                     className={cn(
                       "flex h-(--control-h-sm) cursor-default items-center gap-1 rounded-full border px-2 text-subheadline tabular-nums focus-ring outline-none disabled:opacity-100",
                       r.mine

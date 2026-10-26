@@ -74,7 +74,7 @@ describe("logs", () => {
     const text = [
       "﻿2026-10-26T12:00:00.0000000Z ##[group]Run tests",
       "2026-10-26T12:00:01.1234567Z [command]/usr/bin/npm test",
-      "2026-10-26T12:00:02.0000000Z \u001b[31mFAIL\u001b[0m src/a.test.ts",
+      "2026-10-26T12:00:02.0000000Z \u001B[31mFAIL\u001B[0m src/a.test.ts",
       "2026-10-26T12:00:03.0000000Z ##[error]Process completed with exit code 1.",
       "2026-10-26T12:00:03.0000000Z ##[warning]Node 16 is deprecated",
       "2026-10-26T12:00:04.0000000Z ##[endgroup]",

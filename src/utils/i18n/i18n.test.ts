@@ -33,7 +33,7 @@ describe("translations", () => {
     for (const dictionary of [english, portuguese])
       for (const [namespace, messages] of Object.entries(dictionary))
         for (const [name, value] of Object.entries(messages))
-          expect(JSON.stringify(value).replace(/"(one|other|zero|many)":/g, ""), `${namespace}.${name}`).not.toMatch(
+          expect(JSON.stringify(value).replaceAll(/"(one|other|zero|many)":/g, ""), `${namespace}.${name}`).not.toMatch(
             /""/,
           );
   });

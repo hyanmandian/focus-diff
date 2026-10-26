@@ -99,7 +99,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       tries.current++;
       void revalidate();
     }, 2500);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [unknown, revalidate, details?.updatedAt]);
   // Checks finishing changes what stands in the way of merging.
   const wasRunning = useRef(checks.running);
@@ -216,11 +218,12 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "auto",
         () => enableAutoMerge(details, method, text),
-        () =>
+        () => {
           patch((m) => ({
             ...m,
             autoMerge: { method: method === "squash" ? "SQUASH" : method === "rebase" ? "REBASE" : "MERGE", by: null },
-          })),
+          }));
+        },
         t()("manage.autoMergeOn"),
       ),
     disableAutoMerge: () =>
@@ -228,7 +231,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "auto",
         () => disableAutoMerge(details),
-        () => patch((m) => ({ ...m, autoMerge: null })),
+        () => {
+          patch((m) => ({ ...m, autoMerge: null }));
+        },
         t()("manage.autoMergeOff"),
       ),
     enqueue: () =>
@@ -236,7 +241,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "queue",
         () => enqueue(details),
-        () => patch((m) => ({ ...m, isInMergeQueue: true })),
+        () => {
+          patch((m) => ({ ...m, isInMergeQueue: true }));
+        },
         t()("manage.queued"),
       ),
     dequeue: () =>
@@ -244,7 +251,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "queue",
         () => dequeue(details),
-        () => patch((m) => ({ ...m, isInMergeQueue: false, queuePosition: null })),
+        () => {
+          patch((m) => ({ ...m, isInMergeQueue: false, queuePosition: null }));
+        },
         t()("manage.dequeued"),
       ),
     updateBranch: (how: "MERGE" | "REBASE") =>
@@ -252,7 +261,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "update",
         () => updateBranch(details, how),
-        () => patch((m) => ({ ...m, viewerCanUpdateBranch: false })),
+        () => {
+          patch((m) => ({ ...m, viewerCanUpdateBranch: false }));
+        },
         t()("manage.branchUpdated"),
       ),
     ready: () =>
@@ -260,7 +271,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "ready",
         () => markReady(details),
-        () => setDetails((d) => (d ? { ...d, isDraft: false } : d)),
+        () => {
+          setDetails((d) => (d ? { ...d, isDraft: false } : d));
+        },
         t()("review.readyNotice"),
       ),
     draft: () =>
@@ -268,7 +281,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "ready",
         () => convertToDraft(details.id),
-        () => setDetails((d) => (d ? { ...d, isDraft: true } : d)),
+        () => {
+          setDetails((d) => (d ? { ...d, isDraft: true } : d));
+        },
         t()("manage.draftNotice"),
       ),
     close: () =>
@@ -276,7 +291,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "close",
         () => closePull(details.id),
-        () => setDetails((d) => (d ? { ...d, state: "CLOSED" } : d)),
+        () => {
+          setDetails((d) => (d ? { ...d, state: "CLOSED" } : d));
+        },
         t()("manage.closedNotice"),
       ),
     reopen: () =>
@@ -284,7 +301,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       act(
         "close",
         () => reopenPull(details.id),
-        () => setDetails((d) => (d ? { ...d, state: "OPEN" } : d)),
+        () => {
+          setDetails((d) => (d ? { ...d, state: "OPEN" } : d));
+        },
         t()("manage.reopenedNotice"),
       ),
     /** GitHub can restore a deleted branch, but it's gone for anyone using it: asked first. */
@@ -301,18 +320,20 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       await act(
         "branch",
         () => deleteBranch(manage, details.headRefName),
-        () => patch((m) => ({ ...m, headRefExists: false })),
+        () => {
+          patch((m) => ({ ...m, headRefExists: false }));
+        },
         t()("manage.branchDeleted"),
       );
     },
     rerun: (which: "failed" | "all") => {
       const runs = which === "failed" ? failedRuns(checks.checks) : allRuns(checks.checks);
-      if (!runs.length) return;
+      if (runs.length === 0) return;
       void act(
         "rerun",
         () => Promise.all(runs.map((run) => (which === "failed" ? rerunFailed(ref, run) : rerunAll(ref, run)))),
         // Shown as running again at once; the poll takes over from there.
-        () =>
+        () => {
           checks.setChecks(
             (list) =>
               list?.map((c) =>
@@ -320,7 +341,8 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
                   ? { ...c, state: "pending", detail: "queued" }
                   : c,
               ) ?? list,
-          ),
+          );
+        },
         t()("manage.rerunning"),
       ).then(() => window.setTimeout(() => void checks.reload(true), 3000));
     },
@@ -329,7 +351,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       void act(
         "approve",
         () => Promise.all(runs.map((r) => approveRun(ref, r.id))),
-        () => setAwaiting([]),
+        () => {
+          setAwaiting([]);
+        },
         t()("manage.approved"),
       ).then(() => window.setTimeout(() => void checks.reload(true), 3000));
     },
@@ -365,8 +389,12 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     close: () => void actions.close(),
     reopen: () => void actions.reopen(),
     "delete-branch": () => void actions.deleteBranch(),
-    "rerun-failed": () => actions.rerun("failed"),
-    "all-changes": () => setRange(null),
+    "rerun-failed": () => {
+      actions.rerun("failed");
+    },
+    "all-changes": () => {
+      setRange(null);
+    },
     "since-review": () => since && setRange(since.range),
   };
 

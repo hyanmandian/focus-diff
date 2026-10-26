@@ -9,10 +9,13 @@ import { i18n } from "@/utils/i18n/i18n";
 /** {number} {title} {url} {repo} {author} {me} in text. In links (`encode`), values are encoded,
  *  except one that starts the link, like a bare {url}. */
 export function fill(template: string, pr: ActionContext, encode = false): string {
-  return template.replace(/\{(number|title|url|repo|author|me)\}/g, (_, key: keyof ActionContext, offset: number) => {
-    const value = String(pr[key]);
-    return encode && offset > 0 ? encodeURIComponent(value) : value;
-  });
+  return template.replaceAll(
+    /\{(number|title|url|repo|author|me)\}/g,
+    (_, key: keyof ActionContext, offset: number) => {
+      const value = String(pr[key]);
+      return encode && offset > 0 ? encodeURIComponent(value) : value;
+    },
+  );
 }
 
 async function runStep(action: Action, index: number, step: ActionStep, pr: ActionContext): Promise<string | null> {
@@ -25,7 +28,7 @@ async function runStep(action: Action, index: number, step: ActionStep, pr: Acti
     case "request": {
       const users = step.reviewers.filter((r) => !r.includes("/"));
       const teams = step.reviewers.filter((r) => r.includes("/")).map((r) => r.split("/")[1]!);
-      if (!users.length && !teams.length) return null;
+      if (users.length === 0 && teams.length === 0) return null;
       await github("POST", `${base}/pulls/${pr.number}/requested_reviewers`, {
         reviewers: users,
         team_reviewers: teams,
@@ -39,7 +42,7 @@ async function runStep(action: Action, index: number, step: ActionStep, pr: Acti
       });
       return null;
     case "label":
-      if (!step.labels.length) return null;
+      if (step.labels.length === 0) return null;
       await github("POST", `${base}/issues/${pr.number}/labels`, { labels: step.labels });
       return null;
     case "open":
@@ -63,6 +66,7 @@ export async function runAction(action: Action, pr: ActionContext): Promise<stri
         action.steps.length > 1
           ? i18n()("config.action.failed", { step: i18n()(`config.step.${step.kind}`), message })
           : message,
+        { cause: e },
       );
     }
   }

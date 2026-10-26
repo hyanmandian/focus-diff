@@ -140,7 +140,10 @@ export function clearArrival(prId: string) {
 export async function start() {
   void bridge.on<Live>("snapshot", (live) => void follow(live));
   void bridge.on<string>("file-changed", (name) => {
-    if (name === "config") void loadConfig().then((config) => set({ config }));
+    if (name === "config")
+      void loadConfig().then((config) => {
+        set({ config });
+      });
   });
   void bridge.on("panel-shown", () => void refresh());
   const [config, live] = await Promise.all([loadConfig(), bridge.snapshot<Live>()]);

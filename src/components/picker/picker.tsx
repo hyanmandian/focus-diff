@@ -115,15 +115,19 @@ export function Picker({
           aria-label={title}
           className="-mx-0.5 max-h-72 overflow-y-auto overscroll-contain"
         >
-          {shown.length ? (
+          {shown.length > 0 ? (
             shown.map((c, i) => (
               <li
                 key={c.id}
                 id={`${list}-${i}`}
                 role="option"
                 aria-selected={c.selected}
-                onMouseMove={() => setActive(i)}
-                onClick={() => onPick(c)}
+                onMouseMove={() => {
+                  setActive(i);
+                }}
+                onClick={() => {
+                  onPick(c);
+                }}
                 className={cn(
                   "flex min-h-(--menu-item-h) cursor-default items-center gap-2 rounded-(--radius-menu-item) px-1.5 py-1 text-body",
                   i === at && "bg-(--selection-bg) text-(--selection-fg) **:text-(--selection-fg)",

@@ -14,7 +14,7 @@ export const attachable = (file: File) => NAMES.test(file.name) || ACCEPT.split(
 
 /** A placeholder no other in `text` has, so each upload finds its own. */
 export function uploadMark(name: string, uploading: string, text: string): string {
-  const clean = name.replace(/[[\]\n]/g, " ");
+  const clean = name.replaceAll(/[[\]\n]/g, " ");
   for (let n = 1; ; n++) {
     const mark = `![${uploading.replace("{name}", n === 1 ? clean : `${clean} (${n})`)}]()`;
     if (!text.includes(mark)) return mark;
@@ -33,7 +33,7 @@ export function swap(text: string, mark: string, by: string): string {
 /** As GitHub writes it: a picture by its name without the extension, at the width it shows. */
 export function markdownFor(kind: "image" | "video", href: string, name: string, width: number | null): string {
   if (kind === "video") return href;
-  const alt = name.replace(/\.[^.]+$/, "").replace(/"/g, "&quot;");
+  const alt = name.replace(/\.[^.]+$/, "").replaceAll('"', "&quot;");
   return width ? `<img width="${width}" alt="${alt}" src="${href}" />` : `![${alt}](${href})`;
 }
 
@@ -76,7 +76,7 @@ export async function displayWidth(file: File): Promise<number | null> {
 
 /** Who's signed in on github.com for attaching files: undefined until known, null when nobody is. */
 export function useWebSession(): string | null | undefined {
-  const [login, setLogin] = useState<string | null | undefined>(undefined);
+  const [login, setLogin] = useState<string | null | undefined>();
   useEffect(() => {
     let current = true;
     void bridge.webSession().then(
@@ -86,7 +86,9 @@ export function useWebSession(): string | null | undefined {
     const off = bridge.on<string | null>("web-session", (l) => current && setLogin(l));
     return () => {
       current = false;
-      void off.then((f) => f());
+      void off.then((f) => {
+        f();
+      });
     };
   }, []);
   return login;

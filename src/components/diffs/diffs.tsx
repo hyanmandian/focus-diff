@@ -217,7 +217,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   };
   const scrollToLine = (path: string, line: number, side: Side = "additions") => {
     const diff = diffOf(path);
-    if (!diff || line <= 0 || !shows(diff, side, line)) return scrollToFile(path);
+    if (!diff || line <= 0 || !shows(diff, side, line)) {
+      scrollToFile(path);
+      return;
+    }
     viewer.current?.scrollTo({
       type: "line",
       id: path,
@@ -417,7 +420,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       const diff = parseDiffFromFile(
         oldText === null ? null : { name: file.previousPath ?? file.path, contents: oldText },
         newText === null ? null : { name: file.path, contents: newText },
-      ) as FileDiffMetadata;
+      );
       setLoaded((m) => new Map(m).set(file.path, { state: "done", diff }));
     } catch (e) {
       const message =
@@ -430,8 +433,12 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
 
   const copy = (text: string, done: string) =>
     navigator.clipboard.writeText(text).then(
-      () => props.onSay(done),
-      () => props.onSay(t("diff.noClipboard")),
+      () => {
+        props.onSay(done);
+      },
+      () => {
+        props.onSay(t("diff.noClipboard"));
+      },
     );
   /** A permalink: the new version's lines at the head commit, the old's at the merge base. */
   const copyPermalink = async (path: string, lines?: { side: Side; start: number; end: number }) => {
@@ -474,7 +481,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         onOpenChange={(open) => {
           if (!open) return;
           const line = hovered.current;
-          if (!line) return setMenuAt(null);
+          if (!line) {
+            setMenuAt(null);
+            return;
+          }
           // Lines picked in that file: the menu is about them; otherwise the line under the pointer.
           const range = composing?.path === line.path ? lineRange(composing.range) : null;
           setMenuAt(
@@ -499,7 +509,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
             if (!hovered.current || typing(e.target) || (selected && !selected.isCollapsed)) e.stopPropagation();
           }}
         >
-          <CodeView<Annotation, undefined>
+          <CodeView<Annotation>
             ref={viewer}
             items={items}
             // The code can be selected and copied (it inherits into the library's shadow root).
@@ -534,7 +544,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               return (
                 <span
                   className="flex items-center gap-0.5 font-sans text-foreground select-none"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
                 >
                   {isMarkdown(file.path) && source && file.patch ? (
                     <Tooltip>
@@ -546,13 +558,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                             aria-pressed={asRendered}
                             aria-label={asRendered ? t("diff.showSource") : t("diff.showRendered")}
                             className="text-muted-foreground aria-pressed:text-primary"
-                            onClick={() =>
+                            onClick={() => {
                               setRendered((s) =>
                                 s.has(file.path)
                                   ? new Set([...s].filter((p) => p !== file.path))
                                   : new Set([...s, file.path]),
-                              )
-                            }
+                              );
+                            }}
                           />
                         }
                       >
@@ -569,13 +581,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                           size="icon-xs"
                           className="text-muted-foreground"
                           aria-label={t("review.commentOnFile", { path: file.path })}
-                          onClick={() =>
+                          onClick={() => {
                             setComposing({
                               path: file.path,
                               range: { start: 0, end: 0, side: "additions", endSide: "additions" },
                               file: true,
-                            })
-                          }
+                            });
+                          }}
                         />
                       }
                     >
@@ -618,7 +630,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                   <label className="flex items-center gap-1.5 px-1.5 py-1 text-body">
                     <Checkbox
                       checked={isViewed(file)}
-                      onCheckedChange={(v) => props.onViewed(file, v)}
+                      onCheckedChange={(v) => {
+                        props.onViewed(file, v);
+                      }}
                       aria-label={t("review.viewedFile", { path: file.path })}
                       className="size-3.5"
                     />
@@ -628,7 +642,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               );
             }}
             renderAnnotation={(...[annotation]) => {
-              const a = annotation.metadata as Annotation;
+              const a = annotation.metadata;
               if (a.kind === "rendered") return source ? <Rendered file={a.file} source={source} /> : null;
               if (a.kind === "thread")
                 return (
@@ -643,7 +657,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                 return (
                   <DraftView
                     draft={a.draft}
-                    onEdit={(body) => props.onEditDraft(a.draft.key, body)}
+                    onEdit={(body) => {
+                      props.onEditDraft(a.draft.key, body);
+                    }}
                     onRemove={async () => {
                       const t = i18n();
                       if (
@@ -663,10 +679,12 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                   <FindingView
                     finding={a.finding}
                     by={props.findingsBy}
-                    onAdd={() =>
-                      props.onAcceptFinding(a.finding, diff ? findingSide(diff, a.finding.line) : "additions")
-                    }
-                    onDismiss={() => props.onDismissFinding(a.finding)}
+                    onAdd={() => {
+                      props.onAcceptFinding(a.finding, diff ? findingSide(diff, a.finding.line) : "additions");
+                    }}
+                    onDismiss={() => {
+                      props.onDismissFinding(a.finding);
+                    }}
                   />
                 );
               }
@@ -692,7 +710,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                     );
                     setComposing(null);
                   }}
-                  onCancel={() => setComposing(null)}
+                  onCancel={() => {
+                    setComposing(null);
+                  }}
                   ask={
                     props.onAsk
                       ? (question, earlier, run) => props.onAsk!(a.path, a.range, question, earlier, run)
@@ -703,7 +723,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               );
             }}
             renderCodeViewFooter={() =>
-              noPatch.length ? (
+              noPatch.length > 0 ? (
                 <div className="flex flex-col gap-3 px-3 pb-6">
                   {noPatch.map((f) => {
                     const load = loaded.get(f.path);
@@ -716,7 +736,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                         viewed={isViewed(f)}
                         loading={load?.state === "loading"}
                         error={load?.state === "error" ? load.message : null}
-                        onViewed={(v) => props.onViewed(f, v)}
+                        onViewed={(v) => {
+                          props.onViewed(f, v);
+                        }}
                         onLoad={() => void loadFile(f)}
                       />
                     );
@@ -730,12 +752,12 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           {menuAt ? (
             <>
               <DropdownMenuItem
-                onClick={() =>
+                onClick={() => {
                   setComposing({
                     path: menuAt.path,
                     range: { start: menuAt.start, side: menuAt.startSide, end: menuAt.end, endSide: menuAt.side },
-                  })
-                }
+                  });
+                }}
               >
                 {t("diff.commentHere")}
               </DropdownMenuItem>

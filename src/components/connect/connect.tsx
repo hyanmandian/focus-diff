@@ -40,7 +40,9 @@ export function Connect({ auth, onConnected }: Props) {
       const started = await bridge.authDeviceStart();
       setCode(started);
       await navigator.clipboard.writeText(started.user_code).then(
-        () => setCopied(true),
+        () => {
+          setCopied(true);
+        },
         () => {},
       );
       await bridge.openUrl(started.verification_uri);
@@ -62,7 +64,11 @@ export function Connect({ auth, onConnected }: Props) {
             variant="ghost"
             size="icon"
             aria-label={t("shared.connectCopyCode")}
-            onClick={() => navigator.clipboard.writeText(code.user_code).then(() => setCopied(true))}
+            onClick={() =>
+              navigator.clipboard.writeText(code.user_code).then(() => {
+                setCopied(true);
+              })
+            }
           >
             {copied ? <Check /> : <Copy />}
           </Button>
@@ -112,7 +118,9 @@ export function Connect({ auth, onConnected }: Props) {
             spellCheck={false}
             placeholder={t("shared.connectTokenPlaceholder")}
             value={token}
-            onChange={(e) => setToken(e.target.value)}
+            onChange={(e) => {
+              setToken(e.target.value);
+            }}
           />
           <p className="text-callout text-muted-foreground">
             {t("shared.connectTokenNeedsBefore")} <code>repo</code> {t("shared.connectTokenNeedsAnd")}{" "}
@@ -125,7 +133,12 @@ export function Connect({ auth, onConnected }: Props) {
           </Button>
         </form>
       ) : (
-        <Button variant="ghost" onClick={() => setShowToken(true)}>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setShowToken(true);
+          }}
+        >
           {t("shared.connectUseTokenInstead")}
         </Button>
       )}

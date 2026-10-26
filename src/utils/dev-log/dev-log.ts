@@ -18,7 +18,7 @@ export function forwardErrors() {
   window.addEventListener("error", (e) => {
     if (!e.message.startsWith("ResizeObserver loop")) send(`${e.message} at ${e.filename}:${e.lineno}`);
   });
-  window.addEventListener("unhandledrejection", (e) =>
-    send(`Unhandled: ${e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack}` : String(e.reason)}`),
-  );
+  window.addEventListener("unhandledrejection", (e) => {
+    send(`Unhandled: ${e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack}` : String(e.reason)}`);
+  });
 }

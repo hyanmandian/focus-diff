@@ -22,13 +22,13 @@ const groups = (given: Record<string, string[]> = {}) =>
     reactors: { totalCount: (given[content] ?? []).length, nodes: (given[content] ?? []).map((login) => ({ login })) },
   }));
 
-const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const escape = (s: string) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 /** Just enough of GitHub's Markdown for the sample: fences (a suggestion as GitHub's API renders
  *  it), quotes, code, bold, mentions and paragraphs. */
 function markdown(text: string) {
   const out: string[] = [];
-  const parts = text.replace(/\r\n/g, "\n").split(/^(`{3,}[^\n]*\n[\s\S]*?\n?`{3,})$/m);
+  const parts = text.replaceAll("\r\n", "\n").split(/^(`{3,}[^\n]*\n[\s\S]*?\n?`{3,})$/m);
   for (const part of parts) {
     const fence = part.match(/^`{3,}(\w*)\n([\s\S]*?)\n?`{3,}$/);
     if (fence) {
@@ -41,13 +41,13 @@ function markdown(text: string) {
     }
     for (const block of part.split(/\n{2,}/).filter((b) => b.trim())) {
       const inline = escape(block)
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/(^|\s)@([\w-]+)/g, '$1<a href="https://github.com/$2">@$2</a>')
-        .replace(/\n/g, "<br>");
+        .replaceAll(/`([^`]+)`/g, "<code>$1</code>")
+        .replaceAll(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replaceAll(/(^|\s)@([\w-]+)/g, '$1<a href="https://github.com/$2">@$2</a>')
+        .replaceAll("\n", "<br>");
       out.push(
         block.startsWith("&gt; ") || block.startsWith("> ")
-          ? `<blockquote><p>${inline.replace(/^&gt; ?/gm, "").replace(/<br>&gt; ?/g, "<br>")}</p></blockquote>`
+          ? `<blockquote><p>${inline.replaceAll(/^&gt; ?/gm, "").replaceAll(/<br>&gt; ?/g, "<br>")}</p></blockquote>`
           : `<p>${inline}</p>`,
       );
     }
@@ -235,7 +235,7 @@ function seed({ people, threads, details, files }: Seed) {
     ...older,
     ...pr.timelineItems.nodes.map((n) => ({
       ...n,
-      ...said(String(n.bodyHTML ?? "").replace(/<[^>]+>/g, ""), 15),
+      ...said(String(n.bodyHTML ?? "").replaceAll(/<[^>]+>/g, ""), 15),
       ...(n.__typename === "IssueComment"
         ? { reactionGroups: groups({ HEART: ["octocat", "defunkt", "you"], ROCKET: ["mojombo"] }) }
         : {}),
@@ -303,7 +303,11 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
   const path = args.path as string;
   if (path === "/markdown") {
     const { text } = JSON.parse(args.body as string) as { text: string };
-    return new Promise((r) => setTimeout(() => r({ status: 200, body: markdown(text) }), 250));
+    return new Promise((r) =>
+      setTimeout(() => {
+        r({ status: 200, body: markdown(text) });
+      }, 250),
+    );
   }
   if (path.includes("/contents/"))
     return { status: 200, body: fileAt(decodeURIComponent(path.split("/contents/")[1]!.split("?")[0]!)) };
@@ -485,7 +489,11 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
     return ok({ deletePullRequestReview: { clientMutationId: null } });
   }
   if (query.includes("createCommitOnBranch"))
-    return new Promise((r) => setTimeout(() => r(ok({ createCommitOnBranch: { commit: { oid: "def456" } } })), 600));
+    return new Promise((r) =>
+      setTimeout(() => {
+        r(ok({ createCommitOnBranch: { commit: { oid: "def456" } } }));
+      }, 600),
+    );
   return undefined;
 }
 
@@ -552,7 +560,7 @@ function drafts(cmd: string, args: Args): unknown {
         const wait = () =>
           queue.jobs.some((j) => j.error)
             ? reject(queue.jobs.find((j) => j.error)!.error)
-            : queue.jobs.length
+            : queue.jobs.length > 0
               ? setTimeout(wait, 100)
               : resolve(null);
         wait();

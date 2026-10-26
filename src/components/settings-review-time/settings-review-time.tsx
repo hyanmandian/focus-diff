@@ -44,7 +44,7 @@ const clock = (time: string, t: T) => t.clock(new Date(2024, 0, 1, Number(time.s
 
 /** "Weekdays at 3:00 PM · 30 min", the way a review time reads in its row. */
 function summary(session: ReviewSession, t: T) {
-  if (!session.days.length) return t("settings.noDays");
+  if (session.days.length === 0) return t("settings.noDays");
   const picked = session.days.join();
   const days =
     picked === "0,1,2,3,4,5,6"
@@ -54,7 +54,7 @@ function summary(session: ReviewSession, t: T) {
         : picked === "0,6"
           ? t("settings.weekends")
           : t.list(WEEK.filter((d) => session.days.includes(d)).map((d) => t.weekday(d, "short")));
-  return session.times.length
+  return session.times.length > 0
     ? t("settings.summaryAt", {
         days,
         times: t.list(session.times.map((time) => clock(time, t))),
@@ -80,8 +80,9 @@ function SessionEditor({
   queues: Queue[];
   onChange: (session: ReviewSession) => void;
 }) {
-  const set = <K extends keyof ReviewSession>(key: K, value: ReviewSession[K]) =>
+  const set = <K extends keyof ReviewSession>(key: K, value: ReviewSession[K]) => {
     onChange({ ...session, [key]: value });
+  };
   const nameId = useId();
   const picked = (id: string) => session.queues.includes(id);
   const t = useT();
@@ -94,24 +95,32 @@ function SessionEditor({
             value={session.name}
             maxLength={40}
             placeholder={t("settings.reviewTimeName")}
-            onChange={(e) => set("name", e.target.value)}
+            onChange={(e) => {
+              set("name", e.target.value);
+            }}
             className="w-56"
           />
         </Row>
-        <SwitchRow checked={session.on} onChange={(v) => set("on", v)} label={t("settings.on")} />
+        <SwitchRow
+          checked={session.on}
+          onChange={(v) => {
+            set("on", v);
+          }}
+          label={t("settings.on")}
+        />
       </Group>
 
-      <Group title={t("settings.when")} footer={session.times.length ? undefined : t("settings.addTime")}>
+      <Group title={t("settings.when")} footer={session.times.length > 0 ? undefined : t("settings.addTime")}>
         <Row label={t("settings.daysLabel")}>
           <ToggleGroup
             multiple
             value={session.days.map(String)}
-            onValueChange={(v: string[]) =>
+            onValueChange={(v: string[]) => {
               set(
                 "days",
                 v.map(Number).sort((a, b) => a - b),
-              )
-            }
+              );
+            }}
             variant="outline"
             size="sm"
             spacing={0}
@@ -128,13 +137,20 @@ function SessionEditor({
           <TagInput
             label={t("settings.times")}
             value={session.times}
-            onChange={(v) => set("times", [...v].sort())}
+            onChange={(v) => {
+              set("times", [...v].sort());
+            }}
             placeholder="15:00"
             validate={timeError}
           />
         </Row>
         <Row label={t("settings.for")}>
-          <Select value={String(session.minutes)} onValueChange={(v) => set("minutes", Number(v))}>
+          <Select
+            value={String(session.minutes)}
+            onValueChange={(v) => {
+              set("minutes", Number(v));
+            }}
+          >
             <SelectTrigger className="min-w-32" aria-label={t("settings.howLong")}>
               <SelectValue>{(v: string) => t("settings.minutes", { minutes: Number(v) })}</SelectValue>
             </SelectTrigger>
@@ -153,7 +169,12 @@ function SessionEditor({
 
       <Group title={t("settings.whatToReview")} footer={t("settings.whatToReviewFooter", { lines: LINES_PER_HOUR })}>
         <Row label={t("settings.whatGoesFirst")} description={t(`settings.order.${session.order}.hint`)}>
-          <Select value={session.order} onValueChange={(v) => set("order", v as ReviewOrder)}>
+          <Select
+            value={session.order}
+            onValueChange={(v) => {
+              set("order", v as ReviewOrder);
+            }}
+          >
             <SelectTrigger className="min-w-40" aria-label={t("settings.whatGoesFirst")}>
               <SelectValue>{(v: ReviewOrder) => t(`settings.order.${v}`)}</SelectValue>
             </SelectTrigger>
@@ -166,7 +187,13 @@ function SessionEditor({
             </SelectContent>
           </Select>
         </Row>
-        <SwitchRow checked={session.drafts} onChange={(v) => set("drafts", v)} label={t("settings.includeDrafts")} />
+        <SwitchRow
+          checked={session.drafts}
+          onChange={(v) => {
+            set("drafts", v);
+          }}
+          label={t("settings.includeDrafts")}
+        />
         <Row stacked label={t("settings.fromQueues")}>
           <div className="flex flex-wrap gap-1.5">
             {queues.map((queue) => (
@@ -177,12 +204,12 @@ function SessionEditor({
                 variant="outline"
                 className={PRESSED_CHIP}
                 aria-pressed={picked(queue.id)}
-                onClick={() =>
+                onClick={() => {
                   set(
                     "queues",
                     picked(queue.id) ? session.queues.filter((q) => q !== queue.id) : [...session.queues, queue.id],
-                  )
-                }
+                  );
+                }}
               >
                 {queue.name}
               </Button>
@@ -197,8 +224,12 @@ function SessionEditor({
 export function ReviewTimePane({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const detail = useDetail();
   const review = config.reviewTime;
-  const set = (patch: Partial<ReviewTime>) => onChange({ ...config, reviewTime: { ...review, ...patch } });
-  const setSessions = (sessions: ReviewSession[]) => set({ sessions });
+  const set = (patch: Partial<ReviewTime>) => {
+    onChange({ ...config, reviewTime: { ...review, ...patch } });
+  };
+  const setSessions = (sessions: ReviewSession[]) => {
+    set({ sessions });
+  };
   const selected = review.sessions.find((s) => s.id === detail.openId) ?? null;
   const enabledId = useId();
   const t = useT();
@@ -232,7 +263,9 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
           key={selected.id}
           session={selected}
           queues={config.queues.filter((q) => q.enabled)}
-          onChange={(s) => setSessions(review.sessions.map((x) => (x.id === s.id ? s : x)))}
+          onChange={(s) => {
+            setSessions(review.sessions.map((x) => (x.id === s.id ? s : x)));
+          }}
         />
       </Pane>
     );
@@ -246,9 +279,8 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
       <Intro>{t("settings.reviewIntro")}</Intro>
       <Group
         footer={
-          !review.enabled
-            ? undefined
-            : next
+          review.enabled
+            ? next
               ? t("settings.next", {
                   day: t.weekday(next.at.getDay(), "long"),
                   time: t.clock(next.at),
@@ -256,10 +288,18 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
                   minutes: next.session.minutes,
                 })
               : t("settings.noneOn")
+            : undefined
         }
       >
         <Row label={t("settings.remindMe")} htmlFor={enabledId}>
-          <Switch id={enabledId} size="sm" checked={review.enabled} onCheckedChange={(enabled) => set({ enabled })} />
+          <Switch
+            id={enabledId}
+            size="sm"
+            checked={review.enabled}
+            onCheckedChange={(enabled) => {
+              set({ enabled });
+            }}
+          />
         </Row>
       </Group>
 
@@ -279,7 +319,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
           </Button>
         }
       >
-        {review.sessions.length ? (
+        {review.sessions.length > 0 ? (
           review.sessions.map((session) => (
             <LinkRow
               key={session.id}
@@ -295,14 +335,16 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
               label={session.name || reviewTimeName}
               description={summary(session, t)}
               muted={!session.on}
-              onOpen={() => detail.open(session.id)}
+              onOpen={() => {
+                detail.open(session.id);
+              }}
               control={
                 <Switch
                   size="sm"
                   checked={session.on}
-                  onCheckedChange={(on) =>
-                    setSessions(review.sessions.map((s) => (s.id === session.id ? { ...s, on } : s)))
-                  }
+                  onCheckedChange={(on) => {
+                    setSessions(review.sessions.map((s) => (s.id === session.id ? { ...s, on } : s)));
+                  }}
                   aria-label={t("settings.sessionOn", { name: session.name || reviewTimeName })}
                 />
               }
@@ -316,28 +358,36 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
       <Group
         title={t("settings.whenItsTime")}
         footer={
-          waiting.length ? t("settings.waitingQueues", { queues: t.list(waiting) }) : t("settings.noWaitingQueues")
+          waiting.length > 0 ? t("settings.waitingQueues", { queues: t.list(waiting) }) : t("settings.noWaitingQueues")
         }
       >
         <SwitchRow
           checked={review.againFirst}
-          onChange={(againFirst) => set({ againFirst })}
+          onChange={(againFirst) => {
+            set({ againFirst });
+          }}
           label={t("settings.againFirst")}
           hint={t("settings.againFirstHint")}
         />
         <SwitchRow
           checked={review.remindEnd}
-          onChange={(remindEnd) => set({ remindEnd })}
+          onChange={(remindEnd) => {
+            set({ remindEnd });
+          }}
           label={t("settings.remindEnd")}
         />
         <SwitchRow
           checked={review.skipEmpty}
-          onChange={(skipEmpty) => set({ skipEmpty })}
+          onChange={(skipEmpty) => {
+            set({ skipEmpty });
+          }}
           label={t("settings.skipEmpty")}
         />
         <SwitchRow
           checked={review.holdWhileReviewing}
-          onChange={(holdWhileReviewing) => set({ holdWhileReviewing })}
+          onChange={(holdWhileReviewing) => {
+            set({ holdWhileReviewing });
+          }}
           label={t("settings.hold")}
           hint={t("settings.holdHint")}
         />

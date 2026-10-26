@@ -46,6 +46,6 @@ async function draw(blocks: HTMLPreElement[]) {
 export function useDiagrams(ref: RefObject<HTMLElement | null>, html: string) {
   useEffect(() => {
     const blocks = [...(ref.current?.querySelectorAll<HTMLPreElement>("pre[data-mermaid]") ?? [])];
-    if (blocks.length) void draw(blocks);
+    if (blocks.length > 0) void draw(blocks);
   }, [ref, html]);
 }

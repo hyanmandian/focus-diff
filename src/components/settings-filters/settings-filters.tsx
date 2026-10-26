@@ -43,12 +43,14 @@ function Pattern({
     <Row
       label={label}
       htmlFor={id}
-      description={!valid ? <span className="text-destructive">{t("settings.notValidRegex")}</span> : undefined}
+      description={valid ? undefined : <span className="text-destructive">{t("settings.notValidRegex")}</span>}
     >
       <Input
         id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+        }}
         placeholder={placeholder}
         spellCheck={false}
         aria-invalid={!valid}
@@ -70,7 +72,10 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
 
   const doImport = () => {
     const imported = importFilters(text);
-    if (!imported?.length) return setError(imported ? t("settings.importEmpty") : t("settings.importInvalid"));
+    if (!imported?.length) {
+      setError(imported ? t("settings.importEmpty") : t("settings.importInvalid"));
+      return;
+    }
     const { filters: next, added, skipped } = addImported(filters, imported);
     onImport(next);
     setText("");
@@ -91,14 +96,20 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
       <Row label={t("settings.copyYours")} description={t("settings.copyYoursHint")}>
         <Button
           variant="outline"
-          disabled={!filters.length}
+          disabled={filters.length === 0}
           onClick={() =>
             void navigator.clipboard.writeText(exportFilters(filters)).then(
-              () => setCopied(true),
-              () => setDone(t("settings.noClipboard")),
+              () => {
+                setCopied(true);
+              },
+              () => {
+                setDone(t("settings.noClipboard"));
+              },
             )
           }
-          onBlur={() => setCopied(false)}
+          onBlur={() => {
+            setCopied(false);
+          }}
         >
           {copied ? <Check /> : <Copy />} {copied ? t("settings.copied") : t("settings.copyFilters")}
         </Button>
@@ -140,9 +151,12 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
 
 export function Filters({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const filters = config.filters;
-  const set = (next: DiffFilter[]) => onChange({ ...config, filters: next });
-  const update = (id: string, patch: Partial<DiffFilter>) =>
+  const set = (next: DiffFilter[]) => {
+    onChange({ ...config, filters: next });
+  };
+  const update = (id: string, patch: Partial<DiffFilter>) => {
     set(filters.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  };
   const move = (index: number, by: number) => {
     const next = [...filters];
     const [f] = next.splice(index, 1);
@@ -151,8 +165,9 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
     set(next);
   };
   const t = useT();
-  const add = (list: Array<Omit<DiffFilter, "id" | "repos">>) =>
+  const add = (list: Array<Omit<DiffFilter, "id" | "repos">>) => {
     set([...filters, ...list.map((f) => ({ ...f, id: newId(), repos: [] }))].slice(0, 12));
+  };
 
   return (
     <Pane title={t("settings.pane.filters")} hero="filters">
@@ -165,7 +180,9 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
               className="max-w-52"
               maxLength={24}
               value={f.name}
-              onChange={(e) => update(f.id, { name: e.target.value })}
+              onChange={(e) => {
+                update(f.id, { name: e.target.value });
+              }}
             />
             <div className="ml-auto flex">
               <Button
@@ -173,7 +190,9 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
                 size="icon-xs"
                 aria-label={t("settings.moveNamedUp", { name: f.name })}
                 disabled={i === 0}
-                onClick={() => move(i, -1)}
+                onClick={() => {
+                  move(i, -1);
+                }}
               >
                 <ArrowUp />
               </Button>
@@ -182,7 +201,9 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
                 size="icon-xs"
                 aria-label={t("settings.moveNamedDown", { name: f.name })}
                 disabled={i === filters.length - 1}
-                onClick={() => move(i, 1)}
+                onClick={() => {
+                  move(i, 1);
+                }}
               >
                 <ArrowDown />
               </Button>
@@ -202,20 +223,30 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
           <Pattern
             label={t("settings.include")}
             value={f.include}
-            onChange={(include) => update(f.id, { include })}
+            onChange={(include) => {
+              update(f.id, { include });
+            }}
             placeholder="\.(tsx?|css)$"
           />
           <Pattern
             label={t("settings.leaveOut")}
             value={f.exclude}
-            onChange={(exclude) => update(f.id, { exclude })}
+            onChange={(exclude) => {
+              update(f.id, { exclude });
+            }}
             placeholder="\.test\."
           />
-          <Row stacked label={t("settings.onlyIn")} description={f.repos.length ? undefined : t("settings.onlyInHint")}>
+          <Row
+            stacked
+            label={t("settings.onlyIn")}
+            description={f.repos.length > 0 ? undefined : t("settings.onlyInHint")}
+          >
             <TagInput
               label={t("settings.reposFor", { name: f.name })}
               value={f.repos}
-              onChange={(repos) => update(f.id, { repos })}
+              onChange={(repos) => {
+                update(f.id, { repos });
+              }}
               placeholder={t("settings.repoPlaceholder")}
               validate={repoError}
             />
@@ -230,13 +261,23 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           {filterRecipes(t).map((recipe) => (
-            <DropdownMenuItem key={recipe.title} onClick={() => add(recipe.filters)} className={TWO_LINE_ITEM}>
+            <DropdownMenuItem
+              key={recipe.title}
+              onClick={() => {
+                add(recipe.filters);
+              }}
+              className={TWO_LINE_ITEM}
+            >
               <span>{recipe.title}</span>
               <span className="text-subheadline text-muted-foreground">{recipe.description}</span>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => add([{ name: t("settings.newFilter"), include: "", exclude: "" }])}>
+          <DropdownMenuItem
+            onClick={() => {
+              add([{ name: t("settings.newFilter"), include: "", exclude: "" }]);
+            }}
+          >
             {t("settings.blank")}
           </DropdownMenuItem>
         </DropdownMenuContent>

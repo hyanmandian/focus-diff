@@ -69,7 +69,9 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
             aria-label={t("settings.comment")}
             rows={3}
             value={step.body}
-            onChange={(e) => onChange({ ...step, body: e.target.value })}
+            onChange={(e) => {
+              onChange({ ...step, body: e.target.value });
+            }}
             placeholder={t("settings.commentPlaceholder")}
           />
           <p className="text-subheadline text-muted-foreground">
@@ -82,7 +84,9 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
         <TagInput
           label={t("settings.reviewers")}
           value={step.reviewers}
-          onChange={(reviewers) => onChange({ ...step, reviewers })}
+          onChange={(reviewers) => {
+            onChange({ ...step, reviewers });
+          }}
           placeholder={t("settings.reviewerPlaceholder")}
           validate={reviewerError}
         />
@@ -94,7 +98,9 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
         <TagInput
           label={t("settings.labels")}
           value={step.labels}
-          onChange={(labels) => onChange({ ...step, labels })}
+          onChange={(labels) => {
+            onChange({ ...step, labels });
+          }}
           placeholder={t("settings.labelPlaceholder")}
         />
       );
@@ -106,7 +112,9 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
             className="font-mono text-callout"
             spellCheck={false}
             value={step.url}
-            onChange={(e) => onChange({ ...step, url: e.target.value })}
+            onChange={(e) => {
+              onChange({ ...step, url: e.target.value });
+            }}
           />
           <p className="text-subheadline text-muted-foreground">
             {t("settings.linkHint", { placeholders: PLACEHOLDERS })}
@@ -125,7 +133,9 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
             className="font-mono text-callout"
             spellCheck={false}
             value={step.command}
-            onChange={(e) => onChange({ ...step, command: e.target.value })}
+            onChange={(e) => {
+              onChange({ ...step, command: e.target.value });
+            }}
             placeholder={'curl -s -X POST "$SLACK_WEBHOOK" -d "{\\"text\\": \\"Review please: $PR_URL\\"}"'}
           />
           <p className="text-subheadline text-muted-foreground">
@@ -155,7 +165,7 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
   };
   return (
     <>
-      {steps.length ? (
+      {steps.length > 0 ? (
         <ol className="contents">
           {steps.map((step, i) => (
             <li key={i} className="flex flex-col gap-2 px-3 py-3">
@@ -173,7 +183,9 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
                     size="icon-xs"
                     aria-label={t("settings.moveUp")}
                     disabled={i === 0}
-                    onClick={() => move(i, -1)}
+                    onClick={() => {
+                      move(i, -1);
+                    }}
                   >
                     <ArrowUp />
                   </Button>
@@ -182,7 +194,9 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
                     size="icon-xs"
                     aria-label={t("settings.moveDown")}
                     disabled={i === steps.length - 1}
-                    onClick={() => move(i, 1)}
+                    onClick={() => {
+                      move(i, 1);
+                    }}
                   >
                     <ArrowDown />
                   </Button>
@@ -190,13 +204,20 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
                     variant="ghost"
                     size="icon-xs"
                     aria-label={t("settings.removeStep", { number: i + 1 })}
-                    onClick={() => setStep(i, null)}
+                    onClick={() => {
+                      setStep(i, null);
+                    }}
                   >
                     <X />
                   </Button>
                 </div>
               </div>
-              <StepEditor step={step} onChange={(next) => setStep(i, next)} />
+              <StepEditor
+                step={step}
+                onChange={(next) => {
+                  setStep(i, next);
+                }}
+              />
             </li>
           ))}
         </ol>
@@ -211,7 +232,9 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
               <DropdownMenuItem
                 key={kind}
                 className={TWO_LINE_ITEM}
-                onClick={() => onChange([...steps, newStep(kind)])}
+                onClick={() => {
+                  onChange([...steps, newStep(kind)]);
+                }}
               >
                 <span>{t(`config.step.${kind}`)}</span>
                 <span className="text-subheadline text-muted-foreground">{t(`settings.stepHint.${kind}`)}</span>
@@ -252,7 +275,9 @@ function ChoiceEditor({
             size="icon-xs"
             aria-label={t("settings.moveUp")}
             disabled={index === 0}
-            onClick={() => onMove(-1)}
+            onClick={() => {
+              onMove(-1);
+            }}
           >
             <ArrowUp />
           </Button>
@@ -261,7 +286,9 @@ function ChoiceEditor({
             size="icon-xs"
             aria-label={t("settings.moveDown")}
             disabled={index === count - 1}
-            onClick={() => onMove(1)}
+            onClick={() => {
+              onMove(1);
+            }}
           >
             <ArrowDown />
           </Button>
@@ -281,11 +308,18 @@ function ChoiceEditor({
           id={nameId}
           value={choice.name}
           maxLength={30}
-          onChange={(e) => onChange({ ...choice, name: e.target.value })}
+          onChange={(e) => {
+            onChange({ ...choice, name: e.target.value });
+          }}
           className="w-56"
         />
       </Row>
-      <StepsEditor steps={choice.steps} onChange={(steps) => onChange({ ...choice, steps })} />
+      <StepsEditor
+        steps={choice.steps}
+        onChange={(steps) => {
+          onChange({ ...choice, steps });
+        }}
+      />
     </Group>
   );
 }
@@ -294,7 +328,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   const nameId = useId();
   const t = useT();
   const menu = action.choices.length > 0;
-  const setChoices = (choices: ActionChoice[]) => onChange({ ...action, choices });
+  const setChoices = (choices: ActionChoice[]) => {
+    onChange({ ...action, choices });
+  };
   const newChoice = (steps: ActionStep[] = [newStep("run")]): ActionChoice => ({
     id: newId(),
     name: t("settings.newChoice", { number: action.choices.length + 1 }),
@@ -304,7 +340,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   // stay (after asking, when that drops other choices).
   const showAs = async (as: string) => {
     if (as === "menu" && !menu)
-      onChange({ ...action, choices: [newChoice(action.steps.length ? action.steps : undefined)], steps: [] });
+      onChange({ ...action, choices: [newChoice(action.steps.length > 0 ? action.steps : undefined)], steps: [] });
     if (as === "button" && menu) {
       if (
         action.choices.length > 1 &&
@@ -323,7 +359,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
             id={nameId}
             value={action.name}
             maxLength={30}
-            onChange={(e) => onChange({ ...action, name: e.target.value })}
+            onChange={(e) => {
+              onChange({ ...action, name: e.target.value });
+            }}
             className="w-56"
           />
         </Row>
@@ -341,7 +379,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
         </Row>
         <SwitchRow
           checked={action.confirm}
-          onChange={(confirm) => onChange({ ...action, confirm })}
+          onChange={(confirm) => {
+            onChange({ ...action, confirm });
+          }}
           label={t("settings.confirm")}
           hint={t("settings.confirmHint")}
         />
@@ -355,7 +395,9 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
               choice={choice}
               index={i}
               count={action.choices.length}
-              onChange={(next) => setChoices(action.choices.map((c) => (c.id === next.id ? next : c)))}
+              onChange={(next) => {
+                setChoices(action.choices.map((c) => (c.id === next.id ? next : c)));
+              }}
               onMove={(by) => {
                 const choices = [...action.choices];
                 const [moved] = choices.splice(i, 1);
@@ -371,7 +413,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
                   return;
                 const choices = action.choices.filter((c) => c.id !== choice.id);
                 // The last choice gone: a button again, with nothing to do yet.
-                onChange({ ...action, choices, steps: choices.length ? action.steps : [] });
+                onChange({ ...action, choices, steps: choices.length > 0 ? action.steps : [] });
               }}
             />
           ))}
@@ -379,14 +421,21 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
             variant="outline"
             className="self-start"
             disabled={action.choices.length >= 12}
-            onClick={() => setChoices([...action.choices, newChoice()])}
+            onClick={() => {
+              setChoices([...action.choices, newChoice()]);
+            }}
           >
             <Plus /> {t("settings.addChoice")}
           </Button>
         </>
       ) : (
         <Group title={t("settings.steps")} footer={t("settings.stepsFooter")}>
-          <StepsEditor steps={action.steps} onChange={(steps) => onChange({ ...action, steps })} />
+          <StepsEditor
+            steps={action.steps}
+            onChange={(steps) => {
+              onChange({ ...action, steps });
+            }}
+          />
         </Group>
       )}
     </>
@@ -411,7 +460,9 @@ function AddAction({
       size={small ? "sm" : "default"}
       disabled={config.actions.length >= 12}
       aria-label={t("settings.addActionLabel")}
-      onClick={() => onAdd(newAction(t))}
+      onClick={() => {
+        onAdd(newAction(t));
+      }}
     >
       <Plus /> {t("settings.add")}
     </Button>
@@ -421,9 +472,9 @@ function AddAction({
 /** "Comment, then ask for reviews": each step after the first is said in lower case, as part of
  *  the sentence. */
 const stepsSummary = (action: Action, t: T) =>
-  action.choices.length
+  action.choices.length > 0
     ? t("settings.menuOf", { choices: action.choices.map((c) => c.name).join(", ") })
-    : action.steps.length
+    : action.steps.length > 0
       ? action.steps
           .map((s) => t(`config.step.${s.kind}`))
           .reduce((said, label) => t("settings.stepsThen", { first: said, rest: label.toLocaleLowerCase(t.locale) }))
@@ -433,7 +484,9 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
   const detail = useDetail();
   const selected = config.actions.find((a) => a.id === detail.openId) ?? null;
   const t = useT();
-  const setActions = (actions: Action[]) => onChange({ ...config, actions });
+  const setActions = (actions: Action[]) => {
+    onChange({ ...config, actions });
+  };
   const add = (action: Action) => {
     setActions([...config.actions, action]);
     detail.open(action.id);
@@ -468,14 +521,16 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
         <ActionEditor
           key={selected.id}
           action={selected}
-          onChange={(action) => setActions(config.actions.map((a) => (a.id === action.id ? action : a)))}
+          onChange={(action) => {
+            setActions(config.actions.map((a) => (a.id === action.id ? action : a)));
+          }}
         />
       </Pane>
     );
 
   return (
     <Pane title={t("settings.pane.actions")} hero="actions">
-      {config.actions.length ? (
+      {config.actions.length > 0 ? (
         <>
           <Group title={t("settings.buttons")} accessory={<AddAction config={config} onAdd={add} small />}>
             {config.actions.map((action) => (
@@ -492,7 +547,9 @@ export function Actions({ config, onChange }: { config: Config; onChange: (c: Co
                 }
                 label={action.name || t("settings.untitledAction")}
                 description={stepsSummary(action, t)}
-                onOpen={() => detail.open(action.id)}
+                onOpen={() => {
+                  detail.open(action.id);
+                }}
               />
             ))}
           </Group>

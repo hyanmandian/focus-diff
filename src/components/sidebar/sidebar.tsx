@@ -147,10 +147,18 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
     }));
   const fetch = (query: string) => {
     setLoading(true);
-    const done = () => setLoading(false);
+    const done = () => {
+      setLoading(false);
+    };
     void Promise.allSettled([
-      loadPeople(pr, query, (people) => setCandidates((c) => ({ ...c, people }))),
-      m?.orgOwned ? loadTeams(pr, query, (teams) => setCandidates((c) => ({ ...c, teams }))) : Promise.resolve(),
+      loadPeople(pr, query, (people) => {
+        setCandidates((c) => ({ ...c, people }));
+      }),
+      m?.orgOwned
+        ? loadTeams(pr, query, (teams) => {
+            setCandidates((c) => ({ ...c, teams }));
+          })
+        : Promise.resolve(),
     ]).then(done);
   };
   const requested = new Set(list.filter((r) => r.requested).map((r) => r.key));
@@ -231,7 +239,9 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
             empty={t("manage.nobodyFound")}
             choices={choices}
             loading={loading}
-            onPick={(c) => toggle(c.id, !c.selected)}
+            onPick={(c) => {
+              toggle(c.id, !c.selected);
+            }}
             onQuery={fetch}
             onOpenChange={(open) => open && fetch("")}
             trigger={gear(t("manage.editReviewers"))}
@@ -241,7 +251,7 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
         ) : null
       }
     >
-      {list.length ? (
+      {list.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
           {list.map((r) => (
             <li key={r.key} className="flex items-center gap-2 text-body">
@@ -270,7 +280,9 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
                         size="icon-xs"
                         className="-mr-1 shrink-0 text-muted-foreground"
                         aria-label={t("manage.reRequest", { name: firstName(r.actor, t) })}
-                        onClick={() => toggle(r.key, true)}
+                        onClick={() => {
+                          toggle(r.key, true);
+                        }}
                       />
                     }
                   >
@@ -317,7 +329,9 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
   const assigned = m?.assignees ?? [];
   const fetch = (query: string) => {
     setLoading(true);
-    void loadPeople(pr, query, setPeople).finally(() => setLoading(false));
+    void loadPeople(pr, query, setPeople).finally(() => {
+      setLoading(false);
+    });
   };
   const choices: Choice[] = people.map((p) => ({
     id: p.login,
@@ -355,7 +369,9 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
             empty={t("manage.nobodyFound")}
             choices={choices}
             loading={loading}
-            onPick={(c) => toggle(c.id, !c.selected)}
+            onPick={(c) => {
+              toggle(c.id, !c.selected);
+            }}
             onQuery={fetch}
             onOpenChange={(open) => open && fetch("")}
             trigger={gear(t("manage.editAssignees"))}
@@ -365,7 +381,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
         ) : null
       }
     >
-      {assigned.length ? (
+      {assigned.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
           {assigned.map((a) => (
             <li key={a.login} className="flex items-center gap-2 text-body">
@@ -383,7 +399,9 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
               <button
                 type="button"
                 className="cursor-default text-link focus-ring outline-none"
-                onClick={() => toggle(me, true)}
+                onClick={() => {
+                  toggle(me, true);
+                }}
               >
                 {t("manage.assignYourself")}
               </button>
@@ -432,11 +450,15 @@ function Labels({ pr, pull, onError }: Props) {
             empty={t("manage.noLabelsFound")}
             choices={choices}
             loading={loading}
-            onPick={(c) => toggle(c.id, !c.selected)}
+            onPick={(c) => {
+              toggle(c.id, !c.selected);
+            }}
             onOpenChange={(open) => {
               if (!open) return;
               setLoading(true);
-              void loadLabels(pr, setAll).finally(() => setLoading(false));
+              void loadLabels(pr, setAll).finally(() => {
+                setLoading(false);
+              });
             }}
             trigger={gear(t("manage.editLabels"))}
           >
@@ -445,7 +467,7 @@ function Labels({ pr, pull, onError }: Props) {
         ) : null
       }
     >
-      {chosen.length ? (
+      {chosen.length > 0 ? (
         <ul className="flex flex-wrap gap-1.5">
           {chosen.map((l) => (
             <li key={l.name} title={l.description ?? undefined} className="max-w-full">
@@ -505,7 +527,9 @@ function MilestoneSection({ pr, pull, onError }: Props) {
               setOpen(next);
               if (!next) return;
               setLoading(true);
-              void loadMilestones(pr, setAll).finally(() => setLoading(false));
+              void loadMilestones(pr, setAll).finally(() => {
+                setLoading(false);
+              });
             }}
             trigger={gear(t("manage.editMilestone"))}
           >
@@ -530,7 +554,7 @@ const ISSUE_ICON = {
 function Development({ pull }: { pull: Pull }) {
   const t = useT();
   const issues = pull.manage?.issues ?? [];
-  if (!issues.length) return null;
+  if (issues.length === 0) return null;
   return (
     <Section id="development" title={t("manage.development")}>
       <ul className="flex flex-col gap-1">
@@ -583,7 +607,7 @@ const DEPLOY_TONE: Record<string, string> = {
 function Deployments({ pull }: { pull: Pull }) {
   const t = useT();
   const deployments = pull.manage?.deployments ?? [];
-  if (!deployments.length) return null;
+  if (deployments.length === 0) return null;
   // The latest per environment, as GitHub shows them.
   const latest = [...new Map(deployments.map((d) => [d.environment, d])).values()];
   return (

@@ -117,7 +117,9 @@ function Figure({
           src={picture.url}
           alt={label}
           className="max-h-[60vh] max-w-full object-contain"
-          onLoad={(e) => setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          onLoad={(e) => {
+            setSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight });
+          }}
         />
       </div>
       <p className="text-subheadline text-muted-foreground tabular-nums">
@@ -208,7 +210,9 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
               min={0}
               max={100}
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              onChange={(e) => {
+                setAmount(Number(e.target.value));
+              }}
               aria-label={mode === "swipe" ? t("diff.swipePosition") : t("diff.opacity")}
               className="flex-1 accent-(--accent)"
             />

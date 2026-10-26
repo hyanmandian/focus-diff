@@ -7,7 +7,7 @@ describe("a patch's hash", () => {
     const file = { patch: "@@ -1 +1 @@\n-a\n+b\n" };
     expect(patchHash(file)).toBe(hash(file.patch));
     // Worked out once: the same object answers the same, however often it's asked.
-    (file as { patch: string }).patch = "changed";
+    file.patch = "changed";
     expect(patchHash(file)).toBe(hash("@@ -1 +1 @@\n-a\n+b\n"));
   });
 

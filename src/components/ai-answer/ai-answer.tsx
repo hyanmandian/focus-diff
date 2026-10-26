@@ -27,7 +27,7 @@ export function AiAnswer({ text }: { text: string }) {
     }
     const point = /^[-*•]\s+/.test(line);
     const last = blocks.at(-1);
-    if (last && last.list === point && (point || last.lines.length)) last.lines.push(line.replace(/^[-*•]\s+/, ""));
+    if (last && last.list === point && (point || last.lines.length > 0)) last.lines.push(line.replace(/^[-*•]\s+/, ""));
     else blocks.push({ list: point, lines: [line.replace(/^[-*•]\s+/, "")] });
   }
   return (

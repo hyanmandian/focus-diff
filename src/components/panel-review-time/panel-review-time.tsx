@@ -17,8 +17,12 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
   const t = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(timer);
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 15_000);
+    return () => {
+      clearInterval(timer);
+    };
   }, []);
   const { run, endsAt } = review;
   const left = minutesLeft(endsAt, now);
@@ -65,7 +69,9 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
           <li key={pull.id}>
             <button
               type="button"
-              onClick={() => open(pull)}
+              onClick={() => {
+                open(pull);
+              }}
               className="flex w-full cursor-default items-baseline gap-2 rounded-[5px] px-1.5 py-0.5 text-left text-callout outline-none hover:bg-foreground/5 focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg) active:bg-foreground/9"
             >
               <span className="min-w-0 flex-1 truncate">{pull.title}</span>

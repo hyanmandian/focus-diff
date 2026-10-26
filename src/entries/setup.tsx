@@ -14,7 +14,7 @@ else if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardE
 // The language picked in Settings, followed live.
 followLanguage();
 
-createRoot(document.getElementById("root")!).render(
+createRoot(document.querySelector("#root")!).render(
   <StrictMode>
     <TooltipProvider>
       <Setup />

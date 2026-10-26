@@ -57,11 +57,11 @@ export function toggled(reactions: Reaction[], content: ReactionContent, me: str
   const at = reactions.find((r) => r.content === content);
   if (at?.mine) {
     return reactions.flatMap((r) =>
-      r.content !== content
-        ? [r]
-        : r.count > 1
+      r.content === content
+        ? r.count > 1
           ? [{ ...r, count: r.count - 1, mine: false, who: r.who.filter((w) => w !== me) }]
-          : [],
+          : []
+        : [r],
     );
   }
   if (at)

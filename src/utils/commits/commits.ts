@@ -181,7 +181,7 @@ export function inRange(commits: Commit[], range: Range): number[] {
   if (end === -1) return [];
   const start = commits.findIndex((c) => c.oid === range.from);
   // `from` is the commit before the first shown: the base's for the first commit.
-  const first = start !== -1 ? start + 1 : commits.findIndex((c) => c.parent === range.from);
+  const first = start === -1 ? commits.findIndex((c) => c.parent === range.from) : start + 1;
   if (first === -1 || first > end) return [];
   return Array.from({ length: end - first + 1 }, (_, i) => first + i);
 }

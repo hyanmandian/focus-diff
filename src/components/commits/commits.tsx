@@ -77,7 +77,7 @@ export function rangeLabel(range: Range, list: List | null, since: Pull["since"]
   if (since && sameRange(range, since.range)) return t("manage.sinceReview");
   const shown = list ? inRange(list.commits, range) : [];
   if (shown.length === 1) return list!.commits[shown[0]!]!.short;
-  if (shown.length) return t("manage.commitCount", { count: shown.length });
+  if (shown.length > 0) return t("manage.commitCount", { count: shown.length });
   return `${range.from.slice(0, 7)}…${range.to.slice(0, 7)}`;
 }
 
@@ -116,14 +116,20 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
               {t("manage.commits")}{" "}
               <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
             </h2>
-            {list.forcePushes.length ? (
+            {list.forcePushes.length > 0 ? (
               <span className="truncate text-callout text-muted-foreground">
                 {t("manage.forcePushes", { count: list.forcePushes.length })}
               </span>
             ) : null}
           </CollapsibleTrigger>
           {since ? (
-            <Button variant="outline" className="shrink-0" onClick={() => onOpen(since.range)}>
+            <Button
+              variant="outline"
+              className="shrink-0"
+              onClick={() => {
+                onOpen(since.range);
+              }}
+            >
               <History />{" "}
               {since.rewritten
                 ? t("manage.sinceReviewRewritten")
@@ -139,7 +145,9 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
                   <button
                     type="button"
                     className="flex w-full cursor-default items-center gap-2 rounded-(--radius-row) px-2 py-1 text-left text-body focus-ring-inset outline-none hover:bg-fill"
-                    onClick={() => onOpen(commitRange(list.commits, row.index, row.index))}
+                    onClick={() => {
+                      onOpen(commitRange(list.commits, row.index, row.index));
+                    }}
                     title={row.commit.body ? `${row.commit.headline}\n\n${row.commit.body}` : row.commit.headline}
                   >
                     <Face
@@ -267,19 +275,21 @@ export function RangePicker({
             />
           ) : null}
           <div className="mx-1.5 my-1 h-px bg-border" />
-          {!list ? (
-            <Loader2 className="m-2 size-4 animate-spin text-muted-foreground" aria-label={t("review.loading")} />
-          ) : (
+          {list ? (
             list.commits.map((c, i) => (
               <Choice
                 key={c.oid}
                 selected={Boolean(range) && shown.has(i)}
-                onPick={(extend) => pick(i, extend)}
+                onPick={(extend) => {
+                  pick(i, extend);
+                }}
                 label={c.headline}
                 detail={`${c.short} · ${c.author.login ?? c.author.name} · ${t.since(Date.parse(c.at))}`}
                 mono={false}
               />
             ))
+          ) : (
+            <Loader2 className="m-2 size-4 animate-spin text-muted-foreground" aria-label={t("review.loading")} />
           )}
         </div>
         <p className="px-1.5 pt-1 text-subheadline text-muted-foreground">{t("manage.shiftClick")}</p>
@@ -306,7 +316,9 @@ function Choice({
       type="button"
       role="option"
       aria-selected={selected}
-      onClick={(e) => onPick(e.shiftKey)}
+      onClick={(e) => {
+        onPick(e.shiftKey);
+      }}
       className={cn(
         "flex min-h-(--menu-item-h) w-full shrink-0 cursor-default items-center gap-2 rounded-(--radius-menu-item) px-1.5 py-1 text-left text-body outline-none hover:bg-fill focus-visible:bg-(--selection-bg) focus-visible:text-(--selection-fg) focus-visible:**:text-(--selection-fg)",
         selected && "bg-(--selection-bg-inactive)",
@@ -355,7 +367,13 @@ export function RangeBanner({
         {error ?? t("manage.showingRange", { range: rangeLabel(range, commits, since, t) })}
         {older && !error ? <span className="text-muted-foreground"> · {t("manage.olderVersion")}</span> : null}
       </span>
-      <Button variant="outline" className="shrink-0" onClick={() => setRange(null)}>
+      <Button
+        variant="outline"
+        className="shrink-0"
+        onClick={() => {
+          setRange(null);
+        }}
+      >
         {t("manage.showAllChanges")}
       </Button>
     </div>

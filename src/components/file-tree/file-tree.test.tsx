@@ -82,6 +82,23 @@ afterEach(() => {
 });
 
 describe("FileTree", () => {
+  it("watches the list's height once the files have loaded", () => {
+    const observed: Element[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(el: Element) {
+          observed.push(el);
+        }
+        disconnect() {}
+      },
+    );
+    const { rerender } = tree({ files: null });
+    expect(observed).toHaveLength(0);
+    rerender({ files: FILES });
+    expect(observed).toHaveLength(1);
+  });
+
   it("shows placeholders while the files load", () => {
     tree({ files: null, flat: true });
     const { container } = tree({ files: null });

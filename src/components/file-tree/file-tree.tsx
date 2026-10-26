@@ -61,17 +61,20 @@ export function FileTree({
   );
   const at = cursor ? rows.findIndex((r) => keyOf(r) === cursor) : -1;
 
+  // The list's height, to draw only the rows in view. The list isn't there while the files load,
+  // so it's watched again once they have.
+  const loading = files === null;
   useLayoutEffect(() => {
     const el = box.current;
+    if (loading || !el) return () => {};
     const observer = new ResizeObserver(() => {
-      setHeight(el!.clientHeight);
+      setHeight(el.clientHeight);
     });
-    // Not there while the files load.
-    if (el) observer.observe(el);
+    observer.observe(el);
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [loading]);
 
   // A file picked elsewhere (a comment jumped to, the next file to review): its folders open and
   // its row is selected (and brought into view, below). Done as it renders, so it shows at once.

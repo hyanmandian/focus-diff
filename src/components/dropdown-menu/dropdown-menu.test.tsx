@@ -56,7 +56,7 @@ function Menu({ onArchive }: { onArchive: () => void }) {
 
 describe("DropdownMenu", () => {
   it("opens from its trigger and runs the item chosen", async () => {
-    const onArchive = vi.fn();
+    const onArchive = vi.fn<() => void>();
     render(<Menu onArchive={onArchive} />);
     expect(screen.queryByRole("menu")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "View" }));

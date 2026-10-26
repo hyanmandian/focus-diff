@@ -6,7 +6,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-g
 
 describe("ToggleGroup", () => {
   it("is a segmented control: one segment chosen at a time", async () => {
-    const onValueChange = vi.fn();
+    const onValueChange = vi.fn<() => void>();
     render(
       <ToggleGroup variant="outline" size="sm" defaultValue={["unified"]} onValueChange={onValueChange}>
         <ToggleGroupItem value="unified">Unified</ToggleGroupItem>

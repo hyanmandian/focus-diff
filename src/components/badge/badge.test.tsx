@@ -9,10 +9,8 @@ describe("Badge", () => {
     expect(screen.getByText("3 new").tagName).toBe("SPAN");
   });
 
-  it("can be drawn as a link", () => {
-    render(<Badge render={<a href="https://github.com/org/repo/labels/bug" />}>bug</Badge>);
-    expect(screen.getByRole("link", { name: "bug" }).getAttribute("href")).toBe(
-      "https://github.com/org/repo/labels/bug",
-    );
+  it("can be drawn as another element", () => {
+    render(<Badge render={<strong />}>Draft</Badge>);
+    expect(screen.getByText("Draft").tagName).toBe("STRONG");
   });
 });

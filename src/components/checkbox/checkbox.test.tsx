@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/checkbox/checkbox";
 
 describe("Checkbox", () => {
   it("checks and unchecks when clicked", async () => {
-    const onCheckedChange = vi.fn();
+    const onCheckedChange = vi.fn<() => void>();
     render(<Checkbox aria-label="Viewed" onCheckedChange={onCheckedChange} />);
     const box = screen.getByRole("checkbox", { name: "Viewed" });
     expect(box.getAttribute("aria-checked")).toBe("false");

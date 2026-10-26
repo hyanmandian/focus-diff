@@ -7,7 +7,7 @@ import { DropdownMenuItem } from "@/components/dropdown-menu/dropdown-menu";
 
 describe("ContextMenu", () => {
   it("opens on a secondary click and runs the item chosen", async () => {
-    const onCopy = vi.fn();
+    const onCopy = vi.fn<() => void>();
     render(
       <ContextMenu>
         <ContextMenuTrigger>src/app.ts</ContextMenuTrigger>

@@ -17,7 +17,7 @@ const ITEMS = { squash: "Squash and merge", merge: "Create a merge commit", reba
 
 describe("Select", () => {
   it("shows the value chosen and changes it from the list", async () => {
-    const onValueChange = vi.fn();
+    const onValueChange = vi.fn<() => void>();
     render(
       <Select items={ITEMS} defaultValue="squash" onValueChange={onValueChange}>
         <SelectTrigger size="sm" aria-label="Merge method">

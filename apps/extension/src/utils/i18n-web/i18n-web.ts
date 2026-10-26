@@ -8,7 +8,7 @@ const ENGLISH: Messages = en;
 const LOCALES: Record<string, Messages> = { en: ENGLISH, pt: ptBR };
 
 /** The messages for a language, by its first part; English for any other. */
-const messagesFor = (language: string): Messages => LOCALES[language.toLowerCase().split("-")[0] ?? ""] ?? ENGLISH;
+const messagesFor = (language: string): Messages => LOCALES[language.toLowerCase().split("-")[0]!] ?? ENGLISH;
 
 /**
  * The extension's messages for a web page, where there's no `browser.i18n`: what the demo reads through `#i18n` when it's

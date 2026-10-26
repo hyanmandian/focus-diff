@@ -49,6 +49,7 @@ describe("sharing themes", () => {
     expect(importThemes(`[${shared}, {"name": "Blue", "colors": {"accent": "#0969da"}}]`)).toHaveLength(2);
     expect(importThemes("not json")).toBeNull();
     expect(importThemes('{"colors": {}}')).toEqual([]);
+    expect(importThemes('{"name": " Bare ", "colors": "pink"}')).toMatchObject([{ name: "Bare", colors: {} }]);
   });
 });
 

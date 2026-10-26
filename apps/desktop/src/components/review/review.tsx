@@ -50,6 +50,7 @@ import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menu
 import { Shortcuts } from "@/components/shortcuts/shortcuts";
 import { Skeleton } from "@/components/skeleton/skeleton";
 import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
+import { StackMenu } from "@/components/stack-menu/stack-menu";
 import { SuggestionBatch } from "@/components/suggestion/suggestion";
 import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
@@ -60,6 +61,7 @@ import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { published, usePending } from "@/hooks/use-pending/use-pending";
 import { usePull } from "@/hooks/use-pull/use-pull";
+import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import { bridge } from "@/utils/bridge/bridge";
@@ -98,6 +100,7 @@ import {
   type Thread,
   type ViewedState,
 } from "@/utils/review/review";
+import type { StackPull } from "@/utils/stack/stack";
 import { useTheme } from "@/utils/theme/theme";
 import { inTreeOrder } from "@/utils/tree/tree";
 
@@ -379,7 +382,21 @@ export function Review({ target }: { target: Target }) {
         : null,
     [details, prId, number, repo, teams, target.queue],
   );
-  const { next: nextPull, go: goNext, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
+  const { next: nextPull, go: goNext, goTo, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
+  // Reviewing a stack, Next goes up it, in order, before going on with the queue.
+  const stack = useStack(details);
+  const upStack = stack && stack.at < stack.pulls.length - 1 ? stack.pulls[stack.at + 1] : null;
+  const visitOf = (pull: StackPull): Visit => ({
+    pr: {
+      id: pull.id,
+      number: pull.number,
+      title: pull.title,
+      repository: { nameWithOwner: repo },
+      author: pull.author,
+    },
+    teams: [],
+    queue: target.queue ?? null,
+  });
   const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
   const say = (message: string) => {
     setNotice(message);
@@ -389,6 +406,7 @@ export function Review({ target }: { target: Target }) {
   };
   // On to the next, or saying the queue's done when there's none.
   const nextInQueue = async () => {
+    if (upStack) return goTo(visitOf(upStack));
     if (!(await goNext())) say(t("review.queueDone", { queue: queueName || t("review.theQueue") }));
   };
   const goNextRef = useRef(nextInQueue);
@@ -1453,7 +1471,8 @@ export function Review({ target }: { target: Target }) {
             {/* Back to the pull request shown before and on to the next of the queue it was opened
               from, in this window, as back and forward in Safari: the last item, where the eye goes
               once the review is sent. */}
-            {nextPull || previous ? (
+            {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
+            {nextPull || previous || upStack ? (
               <div
                 // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)
                 role="group"
@@ -1497,15 +1516,17 @@ export function Review({ target }: { target: Target }) {
                       <Button
                         variant="ghost"
                         className={cn(TOOL, "gap-1 pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                        aria-disabled={!nextPull}
+                        aria-disabled={!nextPull && !upStack}
                         aria-label={
-                          nextPull
-                            ? t("review.nextPullLabel", {
-                                queue: queueName,
-                                number: String(nextPull.pr.number),
-                                title: nextPull.pr.title,
-                              })
-                            : t("review.nextPull")
+                          upStack
+                            ? t("review.nextInStackLabel", { number: String(upStack.number), title: upStack.title })
+                            : nextPull
+                              ? t("review.nextPullLabel", {
+                                  queue: queueName,
+                                  number: String(nextPull.pr.number),
+                                  title: nextPull.pr.title,
+                                })
+                              : t("review.nextPull")
                         }
                         aria-keyshortcuts="Meta+]"
                         onClick={() => void nextInQueue()}
@@ -1517,12 +1538,19 @@ export function Review({ target }: { target: Target }) {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-80">
                     <span className="block font-semibold">
-                      {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")} <Kbd>⌘]</Kbd>
+                      {upStack
+                        ? t("review.nextInStack")
+                        : queueName
+                          ? t("review.nextPullIn", { queue: queueName })
+                          : t("review.nextPull")}{" "}
+                      <Kbd>⌘]</Kbd>
                     </span>
                     <span className="block truncate">
-                      {nextPull
-                        ? `#${nextPull.pr.number} · ${nextPull.pr.title}`
-                        : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
+                      {upStack
+                        ? `#${upStack.number} · ${upStack.title}`
+                        : nextPull
+                          ? `#${nextPull.pr.number} · ${nextPull.pr.title}`
+                          : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
                     </span>
                   </TooltipContent>
                 </Tooltip>

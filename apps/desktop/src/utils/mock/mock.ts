@@ -3,7 +3,7 @@
 // be worked on and screenshotted without GitHub. Never part of a build (see entries/panel.tsx).
 
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
-import { type Args, fail, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
+import { type Args, fail, isRecord, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
 import { manageRoute } from "@/utils/mock-manage/mock-manage";
 
 const now = Date.now();
@@ -674,6 +674,31 @@ async function invoke(cmd: string, args: Args = {}, options?: { headers?: Record
       const query = str(json(args, "body"), "query");
       if (query.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (query.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
+      // #1807 is the bottom of a stack of two: #1812 is built on its branch.
+      if (query.includes("above: pullRequests")) {
+        const sent = json(args, "body").variables;
+        const head = isRecord(sent) ? str(sent, "head") : "";
+        const above =
+          head === "ana/keep-promo-code"
+            ? [
+                {
+                  id: "PR_1812",
+                  number: 1812,
+                  title: "Show why a promo code stopped applying",
+                  isDraft: false,
+                  isCrossRepository: false,
+                  headRefName: "ana/promo-reasons",
+                  baseRefName: "ana/keep-promo-code",
+                  reviewDecision: "REVIEW_REQUIRED",
+                  author: { login: "octocat", name: "Ana Lima" },
+                },
+              ]
+            : [];
+        return {
+          status: 200,
+          body: JSON.stringify({ data: { repository: { above: { nodes: above }, below: { nodes: [] } } } }),
+        };
+      }
       if (query.includes("squashMergeAllowed"))
         return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };

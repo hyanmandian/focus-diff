@@ -520,15 +520,23 @@ fn open_setup(app: AppHandle) -> Result<(), String> {
     show_setup(&app).map_err(|e| e.to_string())
 }
 
+/// Where the tray icon is, to show the panel by it. Linux doesn't say where its tray icon is, so
+/// there it's the top right corner of the main screen, where GNOME and KDE put theirs.
+pub(crate) fn tray_rect<R: Runtime>(app: &AppHandle<R>) -> Rect {
+    let rect = app.try_state::<Tray<R>>().and_then(|tray| tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten()));
+    rect.unwrap_or_else(|| {
+        let (x, y) = app.primary_monitor().ok().flatten().map_or((0, 0), |m| (m.position().x + m.size().width as i32, m.position().y));
+        Rect { position: tauri::PhysicalPosition::new(x, y).into(), size: tauri::PhysicalSize::new(1, 1).into() }
+    })
+}
+
 /// The panel under the tray icon, as a click on it would show it (from setup's last step).
 #[tauri::command]
-fn open_panel(app: AppHandle, tray: State<'_, Tray<tauri::Wry>>) -> Result<(), String> {
-    let rect = tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
-    let Some(rect) = rect else { return Ok(()) };
+fn open_panel(app: AppHandle) -> Result<(), String> {
     if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
         return Ok(());
     }
-    toggle_panel(&app, &rect).map_err(|e| e.to_string())
+    toggle_panel(&app, &tray_rect(&app)).map_err(|e| e.to_string())
 }
 
 /// Review windows: which pull request each shows, and the one made ahead of time, loaded and
@@ -1144,7 +1152,32 @@ fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
         });
     #[cfg(target_os = "macos")]
     let builder = builder.icon_as_template(true);
+    // Elsewhere the icon has a menu too: Windows opens it with the right button, and Linux only
+    // ever shows a menu (its tray icons don't report clicks).
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.menu(&tray_menu(app)?).on_menu_event(|app, event| match event.id().as_ref() {
+        "open" => {
+            let _ = toggle_panel(app, &tray_rect(app));
+        }
+        "settings" => {
+            let _ = show_settings(app);
+        }
+        "quit" => app.exit(0),
+        _ => {}
+    });
     builder.build(app)
+}
+
+/// The tray icon's menu where it has one (create_tray).
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder};
+    MenuBuilder::new(app)
+        .item(&MenuItemBuilder::with_id("open", i18n::tr!("Open Focus Diff", "Abrir o Focus Diff")).build(app)?)
+        .item(&MenuItemBuilder::with_id("settings", i18n::tr!("Settings…", "Configurações…")).accelerator("CmdOrCtrl+,").build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("quit", i18n::tr!("Quit Focus Diff", "Sair do Focus Diff")).build(app)?)
+        .build()
 }
 
 /// Before the rename to Focus Diff the app's folder was com.focusdiff.pro: its files move over once.

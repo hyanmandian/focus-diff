@@ -25,8 +25,8 @@ pub fn minutes_of(time: &str) -> Option<i64> {
 }
 
 /// How far local time is ahead of UTC at a moment (ms), by the system's time zone as it is now
-/// (it follows a change in System Settings). Elsewhere than macOS there's no time zone to read
-/// without another library, so review times are in UTC there.
+/// (it follows a change in System Settings): Foundation's on the Mac, chrono's elsewhere (the
+/// time zone database on Linux, the system's on Windows).
 pub fn local_offset(at: i64) -> i64 {
     #[cfg(target_os = "macos")]
     {
@@ -36,8 +36,8 @@ pub fn local_offset(at: i64) -> i64 {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = at;
-        0
+        use chrono::{Local, Offset, TimeZone};
+        Local.timestamp_millis_opt(at).single().map_or(0, |t| i64::from(t.offset().fix().local_minus_utc()) * 1000)
     }
 }
 

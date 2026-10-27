@@ -28,7 +28,7 @@ export const settings = {
   notSignedIn: "Not signed in",
   noMatch: "No settings match “{query}”.",
   backTo: "Back to {pane}",
-  backToShortcut: "Back to {pane} (⌘[)",
+  backToShortcut: "Back to {pane} ({shortcut})",
   loading: "Loading",
   moveUp: "Move up",
   moveDown: "Move down",

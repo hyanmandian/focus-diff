@@ -42,6 +42,7 @@ import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } f
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { interval } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
+import { primary } from "@/utils/os/os";
 import { platform } from "@/utils/platform/platform";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 import { useTheme } from "@/utils/theme/theme";
@@ -580,10 +581,10 @@ function Sidebar({
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const t = useT();
-  // ⌘F finds a setting, as in System Settings.
+  // ⌘F (Ctrl+F) finds a setting, as in System Settings.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key.toLowerCase() === "f") {
+      if (primary(e) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         searchRef.current?.focus();
         searchRef.current?.select();

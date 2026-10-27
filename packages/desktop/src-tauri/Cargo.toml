@@ -32,6 +32,10 @@ tokio = { version = "1", default-features = false, features = ["time"] }
 
 # Already in the build through Tauri's window library: to activate the app the current way, and
 # for review time's sound, the local time zone and the Mac's preferred languages.
+# The local time zone for review times (review.rs), where Foundation isn't there to ask.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSApplication", "NSResponder", "NSWindow", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "NSFontDescriptor", "NSView", "NSControl", "NSButton", "NSToolbar", "NSPanel", "NSSound", "NSAnimation", "NSAnimationContext", "NSWorkspace", "NSAccessibility", "NSAttributedString", "NSBox", "NSColor", "NSFont", "NSParagraphStyle", "NSText", "objc2-quartz-core"] }

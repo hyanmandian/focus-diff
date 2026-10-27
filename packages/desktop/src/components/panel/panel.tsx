@@ -29,7 +29,7 @@ import type { Queue } from "@/utils/config/config";
 import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
-import { shortcut } from "@/utils/os/os";
+import { isMac, primary, shortcut } from "@/utils/os/os";
 import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
 import {
@@ -207,7 +207,7 @@ export function Panel() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // The app's own shortcuts, which the menu bar would answer if a tray app had one showing.
-      if (e.metaKey && !e.altKey && !e.ctrlKey && (e.key === "," || e.key === "q")) {
+      if (primary(e) && !e.altKey && !(isMac && e.ctrlKey) && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {

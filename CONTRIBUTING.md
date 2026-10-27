@@ -105,6 +105,6 @@ The Mac app has its own release pull request (tagged `desktop-v…`). Merging it
 
 - Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
-- Put new text in both `src/locales/en.json` and `src/locales/pt_BR.json`.
+- Put new text in both languages: the extension's in `src/locales/en.json` and `src/locales/pt_BR.json`, the Mac app's in `src/locales/en/` and `src/locales/pt-BR/`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.
 - Check the panel in the site's light and dark themes, and with the keyboard.

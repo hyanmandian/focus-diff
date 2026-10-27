@@ -4,7 +4,7 @@
 // viewed marks are (utils/viewed-outbox). What GitHub refuses is kept, with why, until it's changed, removed or tried
 // again: what someone wrote is never dropped.
 
-import type { DraftChange, DraftPut, DraftsState } from "@focus-diff/app/utils/bridge";
+import type { DraftChange, DraftPut, DraftsState } from "@focus-diff/desktop/utils/bridge";
 
 import { storage } from "#imports";
 import type { GitHubApi } from "@/utils/github-api/github-api";

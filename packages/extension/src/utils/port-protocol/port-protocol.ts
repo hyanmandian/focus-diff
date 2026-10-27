@@ -1,5 +1,5 @@
 // What the extension's pages (the panel in the popup, Settings, setup, a review) and the background say to each other
-// over a port: the app's commands by name, as the desktop's pages ask Rust (@focus-diff/app's utils/bridge), and the
+// over a port: the app's commands by name, as the desktop's pages ask Rust (@focus-diff/desktop's utils/bridge), and the
 // events the background sends back. Messages cross as JSON, so bytes go as base64 inside a marked object.
 
 /** The port's name: which window a page is, as the app names its windows ("panel", "settings", "review-3"). */

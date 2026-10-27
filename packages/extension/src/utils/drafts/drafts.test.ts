@@ -1,4 +1,4 @@
-import type { DraftPut } from "@focus-diff/app/utils/bridge";
+import type { DraftPut } from "@focus-diff/desktop/utils/bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DraftQueue, draftsItem, FLUSH_FOR, graphql, send, startDrafts, type Job } from "./drafts";

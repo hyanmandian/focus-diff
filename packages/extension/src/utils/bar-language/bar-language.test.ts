@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { i18n } from "@focus-diff/app/utils/i18n";
+import { i18n } from "@focus-diff/desktop/utils/i18n";
 import { describe, expect, it, vi } from "vitest";
 
 import { applyLanguage } from "./bar-language";

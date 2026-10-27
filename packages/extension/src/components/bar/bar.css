@@ -13,7 +13,7 @@
 
 @source "../../../../design-system/src/components";
 @source not "../../../../design-system/src/**/*.test.tsx";
-@source "../../../../app/src/components/filter-bar/filter-bar.tsx";
+@source "../../../../desktop/src/components/filter-bar/filter-bar.tsx";
 @source "./bar.tsx";
 
 /* The text the bar starts from, as a page of the app's does (the design system's base.css, for a page's body). */

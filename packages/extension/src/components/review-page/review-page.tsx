@@ -2,10 +2,10 @@
 // Its address says which pull request it shows; moving on to the next of its queue (switch_review), the background
 // tells it which one instead, and the tab shows that one in place.
 
-import { Review, type Target } from "@focus-diff/app/components/review";
-import { Viewer } from "@focus-diff/app/components/viewer";
-import { DIRECTION } from "@focus-diff/app/hooks/use-next-in-queue";
-import { platform } from "@focus-diff/app/utils/platform";
+import { Review, type Target } from "@focus-diff/desktop/components/review";
+import { Viewer } from "@focus-diff/desktop/components/viewer";
+import { DIRECTION } from "@focus-diff/desktop/hooks/use-next-in-queue";
+import { platform } from "@focus-diff/desktop/utils/platform";
 import { WorkerPoolContext } from "@pierre/diffs/react";
 import type { ComponentProps } from "react";
 import { flushSync } from "react-dom";

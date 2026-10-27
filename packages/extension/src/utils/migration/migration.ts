@@ -4,7 +4,7 @@
 // GitHub has listed them. What has no equivalent in the app is left behind, and named. It runs once, when the
 // extension updates; a fresh install has nothing to move.
 //
-// Built here rather than with @focus-diff/app's config helpers: those name things in the page's language through the
+// Built here rather than with @focus-diff/desktop's config helpers: those name things in the page's language through the
 // app's i18n, which needs a page (`document`), and this runs in the background. What's left out (the AI, actions, the
 // default filters when there were none) the app's own normalize fills in when a page reads the file.
 

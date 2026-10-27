@@ -1,4 +1,4 @@
-import { platform } from "@focus-diff/app/utils/platform";
+import { platform } from "@focus-diff/desktop/utils/platform";
 import { screen } from "@testing-library/react";
 import { act } from "react";
 import { beforeEach, describe, expect, it } from "vitest";

@@ -1,7 +1,7 @@
 // Light or dark, for the bar: the one picked in the app's Settings, or with "system", the one GitHub's page shows
 // (its data-color-mode, which follows the system itself when it's "auto"), so the bar matches what it sits on.
 
-import type { Config } from "@focus-diff/app/utils/config";
+import type { Config } from "@focus-diff/desktop/utils/config";
 
 const media = () => matchMedia("(prefers-color-scheme: dark)");
 

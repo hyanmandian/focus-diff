@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { normalize } from "@focus-diff/app/utils/config";
+import { normalize } from "@focus-diff/desktop/utils/config";
 import { describe, expect, it } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 

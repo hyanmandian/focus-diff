@@ -1,5 +1,5 @@
 // First run (or "Run setup again"): the desktop's setup window.
-import { Setup } from "@focus-diff/app/components/setup";
+import { Setup } from "@focus-diff/desktop/components/setup";
 
 import { startPage } from "@/utils/start-page/start-page";
 

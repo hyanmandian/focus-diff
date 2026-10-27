@@ -2,9 +2,9 @@
 // browser as the screens' platform, under the window's name, follows the language picked in Settings, and draws the
 // screen.
 
-import { followLanguage } from "@focus-diff/app/utils/language";
-import { setPlatform } from "@focus-diff/app/utils/platform";
 import { TooltipProvider } from "@focus-diff/design-system/components/tooltip";
+import { followLanguage } from "@focus-diff/desktop/utils/language";
+import { setPlatform } from "@focus-diff/desktop/utils/platform";
 import { StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 

@@ -1,9 +1,9 @@
-/* The extension's pages: the Mac app's screens (packages/app) on the design system, as the desktop's index.css has them,
+/* The extension's pages: the Mac app's screens (packages/desktop) on the design system, as the desktop's index.css has them,
    with what a browser has in place of the Mac's windows. */
 @import "tailwindcss";
 @import "@focus-diff/design-system/styles.css";
-@import "@focus-diff/app/styles.css";
-@import "@focus-diff/app/components/settings.css";
+@import "@focus-diff/desktop/styles.css";
+@import "@focus-diff/desktop/components/settings.css";
 
 /* MARK: Browser */
 

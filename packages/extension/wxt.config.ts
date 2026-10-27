@@ -21,7 +21,7 @@ export default defineConfig({
   srcDir: "src",
   modules: ["@wxt-dev/i18n/module"],
   manifestVersion: 3,
-  // The Mac app's screens (@focus-diff/app) and design system, built here as the desktop builds them: React with the
+  // The Mac app's screens (@focus-diff/desktop) and design system, built here as the desktop builds them: React with the
   // React Compiler (run over those packages' files too, as they resolve outside node_modules) and Tailwind v4.
   vite: () => ({
     plugins: [babel({ presets: [reactCompiler] }), tailwindcss()],

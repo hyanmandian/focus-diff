@@ -2,7 +2,7 @@
 // the page's storage and sets <html lang> for a page of its own; here the page is GitHub's, so both go back as they
 // were.
 
-import { setLanguage, type Language } from "@focus-diff/app/utils/i18n";
+import { setLanguage, type Language } from "@focus-diff/desktop/utils/i18n";
 
 import { restoreHostPage } from "@/utils/host-page/host-page";
 

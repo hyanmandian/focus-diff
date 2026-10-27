@@ -22,6 +22,8 @@ mod i18n;
 mod kept;
 mod logs;
 mod media;
+#[cfg(target_os = "macos")]
+mod notify;
 mod about;
 mod menu;
 mod outbox;
@@ -48,6 +50,7 @@ use tauri::{
 };
 use tauri::utils::config::WindowEffectsConfig;
 use tauri::window::{Effect, EffectState};
+#[cfg(not(target_os = "macos"))]
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -136,6 +139,12 @@ fn mark_queue_seen(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: Str
 #[tauri::command]
 fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_id: String) {
     watch.dismiss(&app, &queue_id, &pr_id);
+}
+
+/// Settings' test: a notification now, to see they get through.
+#[tauri::command]
+fn test_notification(app: AppHandle, sound: bool) {
+    show_notification(&app, i18n::tr!("Notifications work", "As notificações funcionam"), i18n::tr!("Focus Diff will tell you here when something needs you.", "O Focus Diff vai te avisar aqui quando algo precisar de você."), sound);
 }
 
 #[tauri::command]
@@ -426,9 +435,17 @@ pub(crate) fn show_notification<R: Runtime>(app: &AppHandle<R>, title: String, b
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[notify] {title} | {} | sound {sound}", body.replace('\n', " / "));
     }
-    let builder = app.notification().builder().title(title).body(body);
-    let builder = if sound { builder.sound("default") } else { builder };
-    let _ = builder.show();
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app;
+        notify::show(&title, &body, sound);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let builder = app.notification().builder().title(title).body(body);
+        let builder = if sound { builder.sound("default") } else { builder };
+        let _ = builder.show();
+    }
 }
 
 pub(crate) fn update_tray<R: Runtime>(app: &AppHandle<R>, count: u32, animate: bool) {
@@ -1205,6 +1222,7 @@ pub fn run() {
             mark_queue_seen,
             dismiss,
             reviewed,
+            test_notification,
             restore,
             end_review,
             clear_arrival,
@@ -1249,6 +1267,9 @@ pub fn run() {
             // A tray app: no Dock icon, no app switcher entry.
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            // The system asks the first time whether Focus Diff may notify.
+            #[cfg(target_os = "macos")]
+            notify::ask();
 
             let handle = app.handle().clone();
             move_old_files(&handle);

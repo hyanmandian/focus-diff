@@ -17,7 +17,7 @@ export const settings: Dictionary["settings"] = {
   "keywords.actions": "Botões|Passos|Comentar|Pedir revisão|Labels|Abrir um link|Rodar um comando|Pedir confirmação",
   "keywords.ai": "Agente de código|Modelo|Esforço|Ler o projeto inteiro|Revisão da IA|Diretrizes de revisão|Prompts",
   "keywords.general":
-    "Atualização de software|Buscar atualizações|Versão|Checar o GitHub a cada|Intervalo|Aparência|Tema|Escuro|Claro|Idioma|English|Português|Tocar um som com as notificações",
+    "Atualização de software|Buscar atualizações|Versão|Checar o GitHub a cada|Intervalo|Aparência|Tema|Escuro|Claro|Idioma|English|Português|Tocar um som com as notificações|Notificações|Notificação de teste",
   "keywords.account": "Conta|GitHub|Entrar|Desconectar|Sair|Token|Login|Anexos|Enviar|Imagens|Vídeos|github.com",
   search: "Buscar nos ajustes",
   searchPlaceholder: "Buscar nos ajustes…",
@@ -172,6 +172,9 @@ export const settings: Dictionary["settings"] = {
   language: "Idioma",
   "language.system": "Igual ao sistema",
   sound: "Tocar um som com as notificações",
+  notifications: "Notificações",
+  testNotification: "Enviar notificação de teste",
+  testNotificationHint: "Nada aparece? Permita o Focus Diff em Ajustes do Sistema › Notificações.",
   versionOut: "A versão {version} saiu.",
   latest: "Você tem a versão mais recente.",
   checkFailed: "Não foi possível checar: {message}",

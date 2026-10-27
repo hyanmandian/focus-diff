@@ -170,6 +170,8 @@ export const bridge = {
   dismiss: (queueId: string, prId: string) => invoke<void>("dismiss", { queueId, prId }),
   /** Your review sent, or you off its reviewers: off the review queues at once. */
   reviewed: (prId: string) => invoke<void>("reviewed", { prId }),
+  /** A notification now, to see they get through. */
+  testNotification: (sound: boolean) => invoke<void>("test_notification", { sound }),
   restore: (queueId: string, prId: string) => invoke<void>("restore", { queueId, prId }),
   clearArrival: (prId: string) => invoke<void>("clear_arrival", { prId }),
   /** Ends the review time under way before its time is up. */

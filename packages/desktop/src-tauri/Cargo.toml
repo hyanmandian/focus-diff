@@ -36,7 +36,10 @@ tokio = { version = "1", default-features = false, features = ["time"] }
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSApplication", "NSResponder", "NSWindow", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphicsContext", "NSGraphics", "NSFontDescriptor", "NSView", "NSControl", "NSButton", "NSToolbar", "NSPanel", "NSSound", "NSAnimation", "NSAnimationContext", "NSWorkspace", "NSAccessibility", "NSAttributedString", "NSBox", "NSColor", "NSFont", "NSParagraphStyle", "NSText", "objc2-quartz-core"] }
 objc2-quartz-core = { version = "0.3", default-features = false, features = ["std", "CAMediaTimingFunction"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSString", "NSGeometry", "NSData", "NSDate", "NSTimeZone", "NSLocale", "NSArray", "NSAttributedString", "NSDictionary", "NSRange", "NSURL", "NSValue"] }
+# Notifications: the plugin's way on macOS no longer reaches Notification Center (notify.rs).
+objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "bitflags", "UNUserNotificationCenter", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNNotificationTrigger"] }
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "objc2-core-foundation", "NSBundle", "NSError", "NSString", "NSGeometry", "NSData", "NSDate", "NSTimeZone", "NSLocale", "NSArray", "NSAttributedString", "NSDictionary", "NSRange", "NSURL", "NSValue"] }
 
 [features]
 # Development only: the devctl test driver in a release build, to measure it (never shipped).

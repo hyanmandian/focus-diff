@@ -477,6 +477,12 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
             }}
           />
         </Row>
+        {/* To see that notifications get through: the system may have them off for the app. */}
+        <Row label={t("settings.notifications")} description={t("settings.testNotificationHint")}>
+          <Button variant="outline" onClick={() => void bridge.testNotification(config.sound)}>
+            {t("settings.testNotification")}
+          </Button>
+        </Row>
       </Group>
     </Pane>
   );

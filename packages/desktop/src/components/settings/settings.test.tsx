@@ -413,6 +413,12 @@ describe("General pane", () => {
     });
   });
 
+  it("sends a test notification, with the sound as set", async () => {
+    const rust = await general();
+    await userEvent.click(within(panel()).getByRole("button", { name: "Send a Test Notification" }));
+    expect(rust.called("test_notification").at(-1)?.args).toEqual({ sound: false });
+  });
+
   it("changes how often GitHub is checked, the appearance and the language", async () => {
     const rust = await general();
     await userEvent.click(within(panel()).getByRole("combobox", { name: "Refresh interval" }));

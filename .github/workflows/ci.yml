@@ -167,13 +167,13 @@ jobs:
       - name: Start the app and check it stays up (Linux)
         if: runner.os == 'Linux'
         working-directory: packages/desktop/src-tauri/target/release
+        # In its own session, so closing it (and xvfb-run with it) leaves this shell alone; timeout's
+        # 124 means it was still running when its 20 seconds were up.
         run: |
-          xvfb-run -a dbus-run-session -- ./focus-diff > launch.log 2>&1 &
-          pid=$!
-          sleep 20
-          if ! kill -0 "$pid" 2>/dev/null; then cat launch.log; echo "The app quit at start"; exit 1; fi
-          kill "$pid"
+          status=0
+          setsid timeout 20 xvfb-run -a dbus-run-session -- ./focus-diff > launch.log 2>&1 || status=$?
           cat launch.log
+          if [ "$status" -ne 124 ]; then echo "The app quit at start (exit $status)"; exit 1; fi
 
       - name: Start the app and check it stays up (Windows)
         if: runner.os == 'Windows'

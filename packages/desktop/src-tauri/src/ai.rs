@@ -89,7 +89,10 @@ struct LoginEnv {
 fn login_env() -> &'static LoginEnv {
     static ENV: OnceLock<LoginEnv> = OnceLock::new();
     ENV.get_or_init(|| {
+        // Filled in from the login shell on Mac and Linux (below); as they are on Windows.
+        #[cfg_attr(windows, allow(unused_mut))]
         let mut path = std::env::var("PATH").unwrap_or_default();
+        #[cfg_attr(windows, allow(unused_mut))]
         let mut claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok().filter(|d| !d.is_empty());
         #[cfg(unix)]
         {

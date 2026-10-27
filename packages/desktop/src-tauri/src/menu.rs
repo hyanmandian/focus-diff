@@ -27,7 +27,8 @@ pub struct ReviewItems<R: Runtime> {
     state: Mutex<HashMap<String, HashMap<String, bool>>>,
 }
 
-/// The menu bar in the language in use; `items`: its review commands, by id.
+/// The menu bar in the language in use; `items`: its review commands, by id. Only the Mac has one.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewItems<R>)> {
     let (menu, items) = make(app)?;
     Ok((menu, ReviewItems { items: Mutex::new(items), state: Mutex::new(HashMap::new()) }))
@@ -38,10 +39,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewIt
 pub fn relocalize<R: Runtime>(app: &AppHandle<R>) {
     // Where there's no menu bar, the tray icon's menu is the one to say again.
     #[cfg(not(target_os = "macos"))]
-    if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray<R>>(), crate::tray_menu(app)) {
-        if let Some(icon) = tray.0.lock().unwrap().as_ref() {
-            let _ = icon.set_menu(Some(menu));
-        }
+    if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray<R>>(), crate::tray_menu(app))
+        && let Some(icon) = tray.0.lock().unwrap().as_ref()
+    {
+        let _ = icon.set_menu(Some(menu));
     }
     let Some(review) = app.try_state::<ReviewItems<R>>() else { return };
     let Ok((menu, items)) = make(app) else { return };

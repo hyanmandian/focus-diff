@@ -47,7 +47,10 @@ use tauri::{
     AppHandle, Emitter, Manager, Rect, Runtime, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri::utils::config::WindowEffectsConfig;
-use tauri::window::{Effect, EffectState};
+// The window materials: the Mac's and Windows' (Linux has none to ask for).
+#[cfg(any(target_os = "macos", windows))]
+use tauri::window::Effect;
+use tauri::window::EffectState;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -619,6 +622,8 @@ fn drop_spare<R: Runtime>(app: &AppHandle<R>) {
 /// In the Dock and the app switcher while a window of its own is open (a review, settings, setup);
 /// only in the menu bar otherwise.
 pub(crate) fn update_presence<R: Runtime>(app: &AppHandle<R>) {
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
     #[cfg(target_os = "macos")]
     {
         let spare = app.state::<Reviews>().spare.lock().unwrap().clone();
@@ -725,8 +730,10 @@ fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo:
     window.emit_to(window.label(), "review-open", ReviewTarget { id, repo, number, teams, queue }).map_err(|e| e.to_string())
 }
 
-/// The card a review was opened from, in the panel's points from its top left.
+/// The card a review was opened from, in the panel's points from its top left (only the Mac grows
+/// a window out of it).
 #[derive(Clone, Copy, serde::Deserialize)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 struct Card {
     x: f64,
     y: f64,
@@ -737,6 +744,8 @@ struct Card {
 /// Shows a review window growing out of the card that was clicked to its full size, the way a Mac
 /// window zooms from where it came from; with Reduce Motion it only fades in. Main thread.
 fn show_growing<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>, from: Option<Card>) -> tauri::Result<()> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, from);
     #[cfg(target_os = "macos")]
     if let (Some(card), Some(panel)) = (from, app.get_webview_window(PANEL)) {
         use objc2_foundation::{NSPoint, NSRect, NSSize};

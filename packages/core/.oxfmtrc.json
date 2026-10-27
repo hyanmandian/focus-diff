@@ -3,5 +3,5 @@
   "printWidth": 120,
   "sortImports": true,
   "sortPackageJson": true,
-  "ignorePatterns": ["coverage/**", "node_modules/**", "src/rust-parity/rust-parity.json"]
+  "ignorePatterns": ["coverage/**", "node_modules/**"]
 }

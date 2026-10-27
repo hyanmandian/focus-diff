@@ -36,6 +36,20 @@ describe("the operating system", () => {
     expect(windows.shortcut("K")).toBe("K");
   });
 
+  it("writes the Mac's glyphs as the system does, and takes its command key", async () => {
+    const mac = await load(MAC);
+    expect(mac.written("⌥⇧J")).toBe("⌥⇧J");
+    expect(mac.primary({ metaKey: true, ctrlKey: false })).toBe(true);
+    expect(mac.primary({ metaKey: false, ctrlKey: true })).toBe(false);
+    const linux = await load(LINUX);
+    expect(linux.written("⌥⇧J")).toBe("Alt+Shift+J");
+    expect(linux.written("⌘↩")).toBe("Ctrl+Enter");
+    expect(linux.written("⌃1")).toBe("Ctrl+1");
+    expect(linux.written("?")).toBe("?");
+    expect(linux.primary({ metaKey: true, ctrlKey: false })).toBe(false);
+    expect(linux.primary({ metaKey: false, ctrlKey: true })).toBe(true);
+  });
+
   it("draws the window as inactive while it isn't the key one", async () => {
     const focused = vi.spyOn(document, "hasFocus").mockReturnValue(true);
     await load(MAC);

@@ -86,7 +86,7 @@ import { i18n, useT } from "@/utils/i18n/i18n";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
 import { tabKeys } from "@/utils/keys/keys";
 import { stepFile } from "@/utils/navigate/navigate";
-import { isMac } from "@/utils/os/os";
+import { isMac, primary, shortcut } from "@/utils/os/os";
 import {
   commentNow,
   loadFiles,
@@ -807,8 +807,9 @@ export function Review({ target }: { target: Target }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || typing(e.target)) return;
-      // ⌘] on to the next pull request of the queue and ⌘[ back, as forward and back in Safari.
-      if (e.metaKey && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
+      // ⌘] on to the next pull request of the queue and ⌘[ back, as forward and back in Safari
+      // (Ctrl elsewhere).
+      if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
         e.preventDefault();
         void (e.key === "]" ? goNextRef : goBackRef).current();
         return;
@@ -970,7 +971,19 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
+    // Without a menu bar (Windows, Linux: a tray app's windows have none), its shortcuts are the page's.
+    const keys: Record<string, string> = { "1": "overview", "2": "diff", f: "find", ",": "settings", q: "quit" };
+    const onKey = (e: KeyboardEvent) => {
+      const id = keys[e.key.toLowerCase()];
+      if (isMac || !id || !e.ctrlKey || e.altKey || e.shiftKey) return;
+      e.preventDefault();
+      if (id === "settings") void bridge.openSettings();
+      else if (id === "quit") void bridge.quit();
+      else menuActions.current[id]?.();
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
+      window.removeEventListener("keydown", onKey);
       void (async () => {
         (await off)();
       })();
@@ -1460,7 +1473,7 @@ export function Review({ target }: { target: Target }) {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-80">
                     <span className="block font-semibold">
-                      {t("review.back")} <Kbd>⌘[</Kbd>
+                      {t("review.back")} <Kbd>{shortcut("[", ["cmd"])}</Kbd>
                     </span>
                     {previous ? (
                       <span className="block truncate">
@@ -1495,7 +1508,8 @@ export function Review({ target }: { target: Target }) {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-80">
                     <span className="block font-semibold">
-                      {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")} <Kbd>⌘]</Kbd>
+                      {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")}{" "}
+                      <Kbd>{shortcut("]", ["cmd"])}</Kbd>
                     </span>
                     <span className="block truncate">
                       {nextPull

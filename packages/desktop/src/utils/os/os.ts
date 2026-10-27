@@ -22,6 +22,21 @@ export function shortcut(key: string, mods: Array<"ctrl" | "alt" | "shift" | "cm
   return [...mods.map((m) => ({ ctrl: "Ctrl", alt: "Alt", shift: "Shift", cmd: "Ctrl" })[m]), key].join("+");
 }
 
+/** A shortcut written with the Mac's glyphs (⌥⇧J, ⌘↩) as this system writes it: as is on the Mac,
+ *  Alt+Shift+J and Ctrl+Enter elsewhere. */
+export function written(keys: string) {
+  if (isMac) return keys;
+  const names: Record<string, string> = { "⌃": "Ctrl", "⌥": "Alt", "⇧": "Shift", "⌘": "Ctrl" };
+  // The glyphs lead, the key follows (one character, or ↩).
+  const key = keys.replace(/^[⌃⌥⇧⌘]+/u, "");
+  const mods = Array.from(keys.slice(0, keys.length - key.length).matchAll(/./gu), (m) => names[m[0]]);
+  return [...mods, key.replace("↩", "Enter")].join("+");
+}
+
+/** Whether a key event holds the system's command key: ⌘ on the Mac, Ctrl elsewhere (where the
+ *  Windows and Super keys belong to the system). */
+export const primary = (e: Pick<KeyboardEvent, "metaKey" | "ctrlKey">) => (isMac ? e.metaKey : e.ctrlKey);
+
 const root = document.documentElement;
 root.dataset.platform = os;
 

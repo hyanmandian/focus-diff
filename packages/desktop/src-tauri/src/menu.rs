@@ -27,7 +27,8 @@ pub struct ReviewItems<R: Runtime> {
     state: Mutex<HashMap<String, HashMap<String, bool>>>,
 }
 
-/// The menu bar in the language in use; `items`: its review commands, by id.
+/// The menu bar in the language in use; `items`: its review commands, by id. Only the Mac has one.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewItems<R>)> {
     let (menu, items) = make(app)?;
     Ok((menu, ReviewItems { items: Mutex::new(items), state: Mutex::new(HashMap::new()) }))
@@ -36,6 +37,13 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewIt
 /// The language changed: the menu bar is made again in it, the review commands as the window in
 /// front last said.
 pub fn relocalize<R: Runtime>(app: &AppHandle<R>) {
+    // Where there's no menu bar, the tray icon's menu is the one to say again.
+    #[cfg(not(target_os = "macos"))]
+    if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray<R>>(), crate::tray_menu(app))
+        && let Some(icon) = tray.0.lock().unwrap().as_ref()
+    {
+        let _ = icon.set_menu(Some(menu));
+    }
     let Some(review) = app.try_state::<ReviewItems<R>>() else { return };
     let Ok((menu, items)) = make(app) else { return };
     if app.set_menu(menu).is_err() {
@@ -167,7 +175,9 @@ pub fn focused<R: Runtime>(app: &AppHandle<R>, label: &str) {
 #[tauri::command]
 pub fn menu_state(app: AppHandle, window: tauri::WebviewWindow, items: HashMap<String, bool>) {
     let label = window.label().to_string();
-    app.state::<ReviewItems<tauri::Wry>>().state.lock().unwrap().insert(label.clone(), items);
+    // No menu bar (and so nothing to keep) where the app has none: Windows and Linux.
+    let Some(review) = app.try_state::<ReviewItems<tauri::Wry>>() else { return };
+    review.state.lock().unwrap().insert(label.clone(), items);
     if window.is_focused().unwrap_or(false) {
         focused(&app, &label);
     }

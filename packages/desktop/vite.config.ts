@@ -140,6 +140,13 @@ export default defineConfig({
 
   test: {
     environment: "happy-dom",
+    // A Mac's web view on every machine: happy-dom names the system it runs on, and the pages take
+    // the Mac's shortcuts and look from it (utils/os). Other systems' are tested by setting it.
+    environmentOptions: {
+      happyDOM: {
+        settings: { navigator: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15" } },
+      },
+    },
     setupFiles: ["src/utils/test-setup/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {

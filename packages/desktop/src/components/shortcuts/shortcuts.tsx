@@ -5,6 +5,7 @@ import { Button } from "@/components/button/button";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/dialog/dialog";
 import { Kbd } from "@/components/kbd/kbd";
 import { useT, type Key } from "@/utils/i18n/i18n";
+import { written } from "@/utils/os/os";
 
 /** The sheet's words: none takes a placeholder. */
 type Words = Extract<Key, `diff.key${string}`>;
@@ -66,7 +67,7 @@ export function Shortcuts({ open, onOpenChange }: { open: boolean; onOpenChange:
                   <div key={keys} className="flex h-(--row-h-sm) items-center justify-between gap-4 text-body">
                     <dt>{t(does)}</dt>
                     <dd>
-                      <Kbd className="text-body">{keys}</Kbd>
+                      <Kbd className="text-body">{written(keys)}</Kbd>
                     </dd>
                   </div>
                 ))}

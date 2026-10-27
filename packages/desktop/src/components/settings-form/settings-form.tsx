@@ -10,6 +10,7 @@ import { Switch } from "@/components/switch/switch";
 import { cn } from "@/utils/cn/cn";
 import type { Queue } from "@/utils/config/config";
 import { useT } from "@/utils/i18n/i18n";
+import { primary, shortcut } from "@/utils/os/os";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 
 /** A queue's colour, as a fill: the system colours (the -ic ones are for text). */
@@ -42,7 +43,7 @@ function Back({ label, onBack, ref }: { label: string; onBack: () => void; ref?:
       type="button"
       onClick={onBack}
       aria-label={t("settings.backTo", { pane: label })}
-      title={t("settings.backToShortcut", { pane: label })}
+      title={t("settings.backToShortcut", { pane: label, shortcut: shortcut("[", ["cmd"]) })}
       className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground focus-ring outline-none hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
     >
       {/* A toolbar item, which (unlike a button in the content) may light up under the pointer. */}
@@ -299,7 +300,7 @@ export function useDetail() {
   }, [openId]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (openId && e.metaKey && e.key === "[") {
+      if (openId && primary(e) && e.key === "[") {
         e.preventDefault();
         returnTo.current = openId;
         setOpenId(null);

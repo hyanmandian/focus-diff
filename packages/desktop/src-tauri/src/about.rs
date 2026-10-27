@@ -17,6 +17,7 @@ pub fn show<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// The credits, a paragraph to a line; the website's address is made a link.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn credits() -> String {
     [
         tr!("Code review without opening GitHub.", "Code review sem abrir o GitHub."),
@@ -27,6 +28,7 @@ fn credits() -> String {
     .join("\n\n")
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 const WEBSITE: &str = "focus-diff.com";
 
 #[cfg(target_os = "macos")]

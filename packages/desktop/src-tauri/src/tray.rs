@@ -196,7 +196,8 @@ fn tooltip(count: u32) -> String {
     }
 }
 
-/// The countdown beside the icon, as text.
+/// The countdown beside the icon, as text (only the Mac's menu bar shows text beside an icon).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn title() -> Option<String> {
     COUNTDOWN.lock().unwrap().map(left)
 }

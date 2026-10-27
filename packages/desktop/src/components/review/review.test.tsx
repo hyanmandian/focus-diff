@@ -148,6 +148,8 @@ vi.mock("@/utils/os/os", () => ({
   get isMac() {
     return h.mac;
   },
+  primary: (e: KeyboardEvent) => (h.mac ? e.metaKey : e.ctrlKey),
+  shortcut: (key: string) => (h.mac ? `⌘${key}` : `Ctrl+${key}`),
 }));
 vi.mock("@/components/overview/overview", () => ({
   Overview: (props: OverviewProps) => {
@@ -777,6 +779,31 @@ describe("Review", () => {
       panel.scrollTop = 40;
       fireEvent.scroll(panel);
       expect(header.className).toContain("shadow-");
+    });
+
+    it("answers the menu bar's shortcuts with Ctrl where there's no menu bar", async () => {
+      h.mac = false;
+      await openReview();
+      press("2", { ctrlKey: true });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+      press("1", { ctrlKey: true });
+      expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
+      press("f", { ctrlKey: true });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+      press(",", { ctrlKey: true });
+      press("q", { ctrlKey: true });
+      expect(sent("open_settings")).toHaveLength(1);
+      expect(sent("quit")).toHaveLength(1);
+      // Not with another modifier, nor a key it doesn't know.
+      press("1", { ctrlKey: true, shiftKey: true });
+      press("x", { ctrlKey: true });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+    });
+
+    it("leaves the menu bar's shortcuts to the menu bar on a Mac", async () => {
+      await openReview();
+      press("2", { ctrlKey: true });
+      expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
     });
 
     it("leaves room for the traffic lights only on a Mac", async () => {

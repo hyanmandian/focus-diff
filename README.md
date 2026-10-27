@@ -80,9 +80,13 @@ Every [release](https://github.com/hyanmandian/focus-diff/releases/latest) also 
 
 To build from source instead, run `npm install`, then `npm run build` (or `build:firefox`, `build:safari`) in `packages/extension`; the builds land in `packages/extension/.output/`.
 
-## Focus Diff for Mac
+## Focus Diff for Mac, Windows and Linux
 
-The desktop app lives in the menu bar: your review queues at a glance, and every pull request opens in its own window to review it whole (overview, diff, conversations, checks, merging), without github.com. Download `Focus-Diff.dmg` from the newest [`desktop-v` release](https://github.com/hyanmandian/focus-diff/releases), drag it to Applications and open it. It isn't signed with an Apple Developer ID yet, so the first time macOS asks you to confirm: right-click it and choose **Open** (or **System Settings › Privacy & Security › Open Anyway**). After that it updates itself.
+The desktop app lives in the menu bar (the system tray on Windows and Linux): your review queues at a glance, and every pull request opens in its own window to review it whole (overview, diff, conversations, checks, merging), without github.com. Download it from the newest [`desktop-v` release](https://github.com/hyanmandian/focus-diff/releases); after the first install it updates itself.
+
+- **Mac:** `Focus-Diff.dmg`, drag it to Applications and open it. It isn't signed with an Apple Developer ID yet, so the first time macOS asks you to confirm: right-click it and choose **Open** (or **System Settings › Privacy & Security › Open Anyway**).
+- **Windows:** `Focus-Diff-Setup.exe`, installed for your user (no administrator needed). It isn't code-signed yet, so SmartScreen may warn you the first time: choose **More info › Run anyway**.
+- **Linux:** `Focus-Diff.AppImage` (make it executable and run it), or `Focus-Diff.deb` / `Focus-Diff.rpm`. The tray icon needs a desktop with tray support (KDE, or GNOME with the AppIndicator extension); its menu opens the panel.
 
 ## Contributing
 

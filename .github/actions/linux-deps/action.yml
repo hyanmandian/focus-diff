@@ -1,0 +1,13 @@
+name: Linux dependencies
+description: The system libraries Tauri builds against on Linux (WebKitGTK, the tray, the keyring's D-Bus) and the tools that make the AppImage and the RPM.
+
+runs:
+  using: composite
+  steps:
+    - name: Install the libraries
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev libxdo-dev \
+          patchelf rpm

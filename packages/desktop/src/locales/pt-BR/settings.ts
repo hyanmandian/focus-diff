@@ -26,7 +26,7 @@ export const settings: Dictionary["settings"] = {
   notSignedIn: "Não conectado",
   noMatch: "Nenhum ajuste corresponde a “{query}”.",
   backTo: "Voltar para {pane}",
-  backToShortcut: "Voltar para {pane} (⌘[)",
+  backToShortcut: "Voltar para {pane} ({shortcut})",
   loading: "Carregando",
   moveUp: "Mover para cima",
   moveDown: "Mover para baixo",

@@ -139,6 +139,11 @@ fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_
 }
 
 #[tauri::command]
+fn reviewed(app: AppHandle, watch: State<'_, watch::Watch>, pr_id: String) {
+    watch.reviewed(&app, &pr_id);
+}
+
+#[tauri::command]
 fn restore(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_id: String) {
     watch.restore(&app, &queue_id, &pr_id);
 }
@@ -1199,6 +1204,7 @@ pub fn run() {
             mark_seen,
             mark_queue_seen,
             dismiss,
+            reviewed,
             restore,
             end_review,
             clear_arrival,

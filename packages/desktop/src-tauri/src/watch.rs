@@ -427,6 +427,21 @@ impl Watch {
         });
     }
 
+    /// Your review sent, or you off its reviewers: off the queues waiting on your review at once,
+    /// not at the next refresh, and kept off while GitHub's search, a while behind, still has it.
+    pub fn reviewed<R: Runtime>(&self, app: &AppHandle<R>, pr_id: &str) {
+        self.change(app, |state| {
+            let queues: Vec<String> = state.config.iter().flat_map(|c| c.enabled()).filter(|q| q.kind == crate::config::Kind::Review).map(|q| q.id.clone()).collect();
+            for queue_id in queues {
+                state.persisted.dismissed.insert(format!("{queue_id}:{pr_id}"), true);
+                if let Some((_, items)) = state.items.iter_mut().find(|(id, _)| *id == queue_id) {
+                    items.retain(|i| i.pr.id != pr_id);
+                }
+            }
+            state.arrivals.remove(pr_id);
+        });
+    }
+
     /// Undo for `dismiss`: the pull request back on its queue, as unread as it was.
     pub fn restore<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {

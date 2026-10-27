@@ -915,6 +915,7 @@ export function Review({ target }: { target: Target }) {
       return;
     try {
       await leaveReview(details, me, teams);
+      void bridge.reviewed(details.id);
       say(i18n()("review.left"));
       void bridge.refresh(true);
     } catch (e) {
@@ -1423,6 +1424,8 @@ export function Review({ target }: { target: Target }) {
                   say(i18n()("review.reviewDiscarded"));
                 }}
                 onSubmitted={() => {
+                  // Sending any review takes the request off you: off the review queues now.
+                  void bridge.reviewed(details.id);
                   say(i18n()("review.reviewSent"));
                   void changed();
                 }}

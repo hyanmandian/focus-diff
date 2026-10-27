@@ -1368,6 +1368,8 @@ describe("Review", () => {
         expect(screen.getByRole("status").textContent).toBe("You left the review");
       });
       expect(leaveReview).toHaveBeenCalledWith(expect.objectContaining({ number: 7 }), "me", ["acme/web"]);
+      // Off the review queues at once, not at the next refresh.
+      expect(sent("reviewed")).toEqual([{ prId: "PR_7" }]);
       vi.mocked(leaveReview).mockRejectedValueOnce(new Error("Not requested"));
       await menu("leave");
       await waitFor(() => {
@@ -1418,6 +1420,7 @@ describe("Review", () => {
       await waitFor(() => {
         expect(screen.getByRole("status").textContent).toBe("Review sent");
       });
+      expect(sent("reviewed")).toEqual([{ prId: "PR_7" }]);
       expect(loadThreads).toHaveBeenCalled();
       expect(localStorage.getItem("review-body:PR_7")).toBe('""');
     });

@@ -162,24 +162,32 @@ jobs:
       - name: Build the installers
         run: npm run tauri build -- --no-sign
 
-      # Up for 20 seconds on a virtual screen, with a session bus for the tray and the keyring, then
-      # ended: a crash at start (a panic, a missing library) ends it sooner and fails the step, with
-      # what it wrote shown. In a session of its own, so a signal to its group can't end the step.
-      - name: Start the app and check it stays up (Linux)
+      # The .deb installed in a clean Ubuntu container (which also checks it names every library it
+      # needs), then up for 20 seconds on a virtual screen with a session bus for the tray and the
+      # keyring: a crash at start (a panic, a missing library) ends it sooner and fails the step,
+      # with what it wrote shown. In a container, since started on the runner itself the runner
+      # was told to shut down a moment after the app started (and never in a container).
+      - name: Install the .deb and check the app stays up (Linux)
         if: runner.os == 'Linux'
-        working-directory: packages/desktop/src-tauri/target/release
+        working-directory: packages/desktop/src-tauri/target/release/bundle/deb
         run: |
-          Xvfb :99 -screen 0 1440x900x24 > /dev/null 2>&1 &
-          export DISPLAY=:99
-          eval "$(dbus-launch --sh-syntax)"
-          trap 'cat launch.log' EXIT
-          setsid ./focus-diff > launch.log 2>&1 < /dev/null &
-          pid=$!
-          sleep 20
-          alive=0
-          if kill -0 "$pid" 2> /dev/null; then alive=1; fi
-          kill -9 "$pid" 2> /dev/null || true
-          if [ "$alive" -ne 1 ]; then echo "The app quit at start"; exit 1; fi
+          cp ./*.deb focus-diff.deb
+          docker run --rm -v "$PWD:/deb:ro" ubuntu:24.04 bash -c '
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq /deb/focus-diff.deb xvfb dbus-x11 > /dev/null
+            Xvfb :99 -screen 0 1440x900x24 > /dev/null 2>&1 &
+            export DISPLAY=:99
+            eval "$(dbus-launch --sh-syntax)"
+            focus-diff > /tmp/launch.log 2>&1 &
+            pid=$!
+            sleep 20
+            alive=0
+            if kill -0 "$pid" 2> /dev/null; then alive=1; fi
+            cat /tmp/launch.log
+            if [ "$alive" -ne 1 ]; then echo "The app quit at start"; exit 1; fi
+          '
 
       - name: Start the app and check it stays up (Windows)
         if: runner.os == 'Windows'

@@ -8,7 +8,7 @@ import html from "@/entrypoints/popup/index.html?raw";
 import { h } from "@/utils/dom/dom";
 import { $ } from "@/utils/extension-page/extension-page";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
-import { DEFAULT_NOTIFY, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
+import { DEFAULT_NOTIFY, normalizePopup, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
 import { pageBody } from "@/utils/page-body/page-body";
 import { DEFAULT_REVIEW_TIME, type ReviewRun } from "@/utils/review-sessions/review-sessions";
@@ -16,10 +16,12 @@ import {
   appearanceItem,
   doneItem,
   heldItem,
+  ignoredItem,
   inboxItem,
   learnedItem,
   notifyItem,
   popupItem,
+  pullBranchesItem,
   pullFilesItem,
   reviewRunItem,
   reviewSkipItem,
@@ -289,11 +291,11 @@ describe("startPopup", () => {
   });
 
   it("leaves out the repositories the reader doesn't want here", async () => {
-    await popupItem.setValue({ repos: [], excludeRepos: ["acme/api"], teams: true });
+    await popupItem.setValue({ repos: [], excludeRepos: ["acme/api"], teams: true, updates: false, merged: false });
     await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "b", repo: "acme/api" })] }));
     await start();
     expect($$("#panel-reviews .pull")).toHaveLength(1);
-    await popupItem.setValue({ repos: [], excludeRepos: [], teams: true });
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: true, updates: false, merged: false });
     await settle();
     expect($$("#panel-reviews .pull")).toHaveLength(2);
   });
@@ -787,5 +789,231 @@ describe("startPopup", () => {
     await pullFilesItem.setValue({});
     await settle();
     expect($$(".pull-estimate")).toHaveLength(0);
+  });
+
+  it("puts a stack's pull requests together, bottom first, each with its place, joined by a line", async () => {
+    const branch = (head: string, base: string) => ({ sha: "abc", head, base, fork: false });
+    await pullBranchesItem.setValue({ top: branch("c", "b"), bottom: branch("a", "main"), middle: branch("b", "a") });
+    await inboxItem.setValue(
+      inbox({
+        reviews: [
+          pull({ url: "top", title: "Top", unread: true }),
+          pull({ url: "lone", title: "Lone", updatedAt: "2026-10-26T10:00:00Z" }),
+          pull({ url: "bottom", title: "Bottom" }),
+          pull({ url: "middle", title: "Middle", updatedAt: "2026-10-20T00:00:00Z" }),
+        ],
+        // GitHub's own stacks say where each stands, on the list or not.
+        mine: [pull({ url: "native", title: "Native", stack: { position: 2, size: 3 } })],
+      }),
+    );
+    await start();
+    expect(titles()).toStrictEqual(["Bottom", "Middle", "Top", "Lone"]);
+    const rows = $$("#panel-reviews .row");
+    expect(rows.map((row) => row.querySelector(".pull-stack > [aria-hidden]")?.textContent ?? "")).toStrictEqual([
+      "1/3",
+      "2/3",
+      "3/3",
+      "",
+    ]);
+    expect(rows[0]!.querySelector(".pull-stack .visually-hidden")?.textContent).toBe(
+      "1 of 3 in a stack, from the bottom",
+    );
+    expect(rows.map((row) => ["stack-up", "stack-down"].filter((name) => row.classList.contains(name)))).toStrictEqual([
+      ["stack-down"],
+      ["stack-up", "stack-down"],
+      ["stack-up"],
+      [],
+    ]);
+    expect($("#panel-mine .pull-stack").getAttribute("title")).toBe("2 of 3 in a stack, from the bottom");
+    expect($("#panel-mine .row").classList.contains("stack-up")).toBe(false);
+    // Branches read later put it together then.
+    await pullBranchesItem.setValue({});
+    await settle();
+    expect(titles()).toStrictEqual(["Top", "Lone", "Bottom", "Middle"]);
+  });
+
+  it("adds the lists the reader turned on in settings, as tabs of their own", async () => {
+    await popupItem.setValue({ ...normalizePopup({}), updates: true, merged: true });
+    await inboxItem.setValue(
+      inbox({
+        updates: [pull({ url: "u", title: "Talked about", author: "bo" })],
+        merged: [pull({ url: "m", title: "Merged without me" }), pull({ url: "m2", draft: true })],
+      }),
+    );
+    await start();
+    expect($$(".tab").map((tab) => tab.hidden)).toStrictEqual([false, false, false, false]);
+    expect($(".tabs").dataset.count).toBe("4");
+    expect([$("#count-updates").textContent, $("#count-merged").textContent]).toStrictEqual(["1", "2"]);
+    expect($("#panel-updates a.pull").getAttribute("href")).toBe("u");
+    expect($("#panel-updates .pull-author").textContent).toBe("bo");
+    expect($("#panel-merged a.pull").getAttribute("href")).toBe("m/changes");
+    // Only the review queue folds its drafts away.
+    expect($$("#panel-merged details")).toHaveLength(0);
+    const query = (list: string) => new URL($<HTMLAnchorElement>(`#panel-${list} .see-all`).href).searchParams.get("q");
+    expect(query("updates")).toContain("involves:@me");
+    expect(query("merged")).toContain("merged:>=2026-10-19");
+    // The tabs' keys go between the lists there are.
+    $("#tab-merged").click();
+    press($("#tab-merged"), "ArrowRight");
+    expect(document.activeElement).toBe($("#tab-reviews"));
+    press($("#tab-reviews"), "End");
+    expect(document.activeElement).toBe($("#tab-merged"));
+
+    // Taken away while on it, the popup goes back to the review queue.
+    await popupItem.setValue({ ...normalizePopup({}), updates: true });
+    await settle();
+    expect($("#tab-merged").hidden).toBe(true);
+    expect($(".tabs").dataset.count).toBe("3");
+    expect($("#tab-reviews").getAttribute("aria-selected")).toBe("true");
+    press($("#tab-reviews"), "End");
+    expect(document.activeElement).toBe($("#tab-updates"));
+  });
+
+  it("stands rows in for a list just added, until its first look is back", async () => {
+    await popupItem.setValue({ ...normalizePopup({}), updates: true });
+    await inboxItem.setValue(inbox({ reviews: [pull()] }));
+    answer = "never";
+    await start();
+    expect($("#panel-updates").getAttribute("aria-busy")).toBe("true");
+    expect($$("#panel-updates .skeleton")).toHaveLength(1);
+    expect($$("#panel-reviews .skeleton")).toHaveLength(0);
+    expect($$("#panel-merged .skeleton")).toHaveLength(0);
+  });
+
+  it("opens on a list it was on only while the reader has it", async () => {
+    localStorage.setItem("focus-diff:popup-tab", "merged");
+    await start();
+    expect($("#tab-reviews").getAttribute("aria-selected")).toBe("true");
+    localStorage.setItem("focus-diff:popup-tab", "merged");
+    await popupItem.setValue({ ...normalizePopup({}), merged: true });
+    document.body.innerHTML = pageBody(html);
+    await start();
+    expect($("#tab-merged").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("opens a pull request on GitHub, and copies its link, from its row's menu", async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    await inboxItem.setValue(inbox({ reviews: [pull({ comments: 2 })] }));
+    await start();
+    const menu = $("#panel-reviews .row-menu");
+    expect(menu.getAttribute("aria-label")).toBe("More for “Fix the header”");
+    menu.click();
+    const items = $$<HTMLButtonElement>("#panel-reviews [role=menuitem]");
+    expect(items.map((item) => item.textContent)).toStrictEqual(["Open on GitHub", "Copy link", "Ignore"]);
+    items[0]!.click();
+    expect(fakeBrowser.tabs.create).toHaveBeenCalledWith({ url: "https://github.com/acme/web/pull/1", active: false });
+    items[1]!.click();
+    expect(writeText).toHaveBeenCalledWith("https://github.com/acme/web/pull/1");
+    await settle();
+    expect($("#flash").textContent).toBe("Link copied");
+    expect($("#updated").hidden).toBe(true);
+    vi.advanceTimersByTime(2400);
+    expect($("#flash").textContent).toBe("");
+    expect($("#updated").hidden).toBe(false);
+    // A link that couldn't be copied says nothing.
+    writeText.mockRejectedValueOnce(new Error("denied"));
+    items[1]!.click();
+    await settle();
+    expect($("#flash").textContent).toBe("");
+  });
+
+  it("holds the rows as they are while a row's menu is open, and draws them once it closes", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ title: "Before" })] }));
+    await start();
+    $("#panel-reviews .row-menu").click();
+    await inboxItem.setValue(inbox({ reviews: [pull({ title: "After" })] }));
+    await settle();
+    expect(titles()).toStrictEqual(["Before"]);
+    press($("#panel-reviews [role=menu]"), "Escape");
+    expect(titles()).toStrictEqual(["After"]);
+  });
+
+  it("ignores a pull request on one list, with Undo, and a way back from the Ignored section", async () => {
+    await inboxItem.setValue(
+      inbox({ reviews: [pull({ url: "a", title: "A" }), pull({ url: "b", title: "B" })], mine: [pull({ url: "a" })] }),
+    );
+    await start();
+    const ignoreIt = (title: string) => {
+      const row = $$("#panel-reviews .row").find((each) => each.querySelector(".pull-title")?.textContent === title)!;
+      row.querySelector<HTMLButtonElement>(".row-menu")!.click();
+      row.querySelectorAll<HTMLButtonElement>("[role=menuitem]")[2]!.click();
+    };
+    ignoreIt("A");
+    expect(titles()).toStrictEqual(["B"]);
+    expect(await ignoredItem.getValue()).toStrictEqual({ reviews: ["a"] });
+    expect($$("#panel-mine .row")).toHaveLength(1);
+    expect($("#count-reviews").textContent).toBe("1");
+    expect(document.activeElement).toBe($("#panel-reviews"));
+    expect($("#selection-text").textContent).toBe("Ignored");
+    expect($("#undo-done").hidden).toBe(false);
+    $("#undo-done").click();
+    expect(titles()).toStrictEqual(["A", "B"]);
+    expect(await ignoredItem.getValue()).toStrictEqual({ reviews: [] });
+    expect($("#selection").hidden).toBe(true);
+
+    ignoreIt("A");
+    const section = $<HTMLDetailsElement>("#panel-reviews details");
+    expect(section.querySelector("summary")?.textContent).toBe("Ignored1");
+    expect(section.querySelector(".row-menu")).toBeNull();
+    // Undo stays a few seconds, then goes.
+    vi.advanceTimersByTime(6000);
+    expect($("#selection").hidden).toBe(true);
+    const restore = section.querySelector<HTMLButtonElement>(".restore")!;
+    expect(restore.getAttribute("aria-label")).toBe("Bring back “A”");
+    restore.click();
+    expect(titles()).toStrictEqual(["A", "B"]);
+
+    // Picking or marking done lets go of the Undo for it.
+    ignoreIt("A");
+    $<HTMLInputElement>("#panel-reviews .pick").click();
+    expect($("#selection-text").textContent).toBe("1 selected");
+    $("#mark-done").click();
+    $("#undo-done").click();
+    expect(await ignoredItem.getValue()).toStrictEqual({ reviews: ["a"] });
+    // Ignored elsewhere, it goes here too.
+    await ignoredItem.setValue({ reviews: ["a", "b"] });
+    await settle();
+    expect(titles()).toStrictEqual([]);
+  });
+
+  it("marks a merged pull request as seen", async () => {
+    await popupItem.setValue({ ...normalizePopup({}), merged: true });
+    await inboxItem.setValue(inbox({ merged: [pull({ url: "m", title: "M" })] }));
+    await start();
+    $("#tab-merged").click();
+    $("#panel-merged .row-menu").click();
+    const seen = $$<HTMLButtonElement>("#panel-merged [role=menuitem]")[2]!;
+    expect(seen.textContent).toBe("Mark as seen");
+    seen.click();
+    expect($("#selection-text").textContent).toBe("Marked as seen");
+    expect($("#panel-merged summary").textContent).toBe("Seen1");
+    expect($("#panel-merged .done-hint").textContent).toBe("They stay off this list until you bring them back.");
+  });
+
+  it("opens a pull request's link pasted outside a field on its changes", async () => {
+    await start();
+    const paste = (text: string | null, target: Element = document.body) => {
+      const event = new Event("paste", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "clipboardData", {
+        value: text === null ? null : { getData: (type: string) => (type === "text/plain" ? text : "") },
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+    expect(paste("  github.com/acme/web/pull/12/files#diff-1 ").defaultPrevented).toBe(true);
+    expect(fakeBrowser.tabs.create).toHaveBeenCalledWith({
+      url: "https://github.com/acme/web/pull/12/changes",
+      active: false,
+    });
+    expect($("#flash").textContent).toBe("Opened acme/web#12 in a new tab");
+    vi.mocked(fakeBrowser.tabs.create).mockClear();
+    expect(paste("https://github.com/acme/web/issues/12").defaultPrevented).toBe(false);
+    expect(paste(null).defaultPrevented).toBe(false);
+    const field = document.createElement("input");
+    document.body.append(field);
+    expect(paste("https://github.com/acme/web/pull/12", field).defaultPrevented).toBe(false);
+    document.dispatchEvent(new Event("paste"));
+    expect(fakeBrowser.tabs.create).not.toHaveBeenCalled();
   });
 });

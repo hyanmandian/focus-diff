@@ -2,7 +2,7 @@ import type { BrowserContext, Worker } from "@playwright/test";
 
 import type { NotifySettings } from "../src/utils/inbox/inbox";
 import { accessibilityViolations, expect, expectSoundPage, PAGE_VIEWS, test } from "./fixtures";
-import { allowNotifications, dashboard, routeGitHubRest } from "./github";
+import { allowNotifications, dashboard, hovercard, routeGitHubRest } from "./github";
 
 const pull = (number: number, extra: Record<string, unknown> = {}) => ({
   itemType: "pull_request",
@@ -173,6 +173,137 @@ test.describe("popup", () => {
     expect(page.url()).toBe(popupUrl);
   });
 
+  test("puts a stack’s pull requests together, bottom first, each with its place", async ({
+    context,
+    openExtensionPage,
+  }) => {
+    await routeGitHub(context);
+    // Three built on one another, listed out of order, and one alone; GitHub numbers a stack of its own on My PRs.
+    await context.route("https://github.com/pulls/reviews", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: dashboard([
+          pull(32, { title: "Show the covers", isReadByCurrentUser: false }),
+          pull(40, { title: "Fix a typo" }),
+          pull(30, { title: "Store the covers" }),
+          pull(31, { title: "Resize the covers" }),
+        ]),
+      }),
+    );
+    await context.route("https://github.com/pulls/authored", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: dashboard([pull(20, { title: "Sort books by rating", stackPosition: 2, stackSize: 2 })]),
+      }),
+    );
+    const branches: Record<string, [string, string]> = {
+      30: ["main", "covers-store"],
+      31: ["covers-store", "covers-resize"],
+      32: ["covers-resize", "covers-show"],
+      40: ["main", "typo"],
+    };
+    await context.route(/^https:\/\/github\.com\/octo\/web\/pull\/(\d+)\/hovercard$/u, (route) => {
+      const [base, head] = branches[route.request().url().split("/").at(-2)!]!;
+      return route.fulfill({ contentType: "text/html", body: hovercard(base, head) });
+    });
+    const page = await openExtensionPage("popup.html");
+    const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
+    await expect(reviews.locator(".pull-title")).toHaveText([
+      "Store the covers",
+      "Resize the covers",
+      "Show the covers",
+      "Fix a typo",
+    ]);
+    await expect(reviews.getByRole("link", { name: /^Resize the covers/u })).toHaveAccessibleName(
+      /#31\s*2 of 3 in a stack, from the bottom\s*ada/u,
+    );
+    await expect(reviews.locator(".row.stack-up")).toHaveCount(2);
+    await expect(reviews.locator(".row.stack-down")).toHaveCount(2);
+    await page.getByRole("tab", { name: /My PRs/u }).click();
+    await expect(page.getByRole("link", { name: /^Sort books by rating/u })).toHaveAccessibleName(
+      /2 of 2 in a stack, from the bottom/u,
+    );
+  });
+
+  test("has a menu on each row: open on GitHub, copy the link, ignore, with a way back", async ({
+    context,
+    openExtensionPage,
+    background,
+  }) => {
+    await routeGitHub(context);
+    const page = await openExtensionPage("popup.html");
+    const more = page.getByRole("button", { name: "More for “Cache the book covers”" });
+    const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
+    const cache = reviews.getByRole("link", { name: /^Cache the book covers/u });
+    // From the row, Tab goes to its menu, which opens on its first action.
+    await cache.focus();
+    await page.keyboard.press("Tab");
+    await expect(more).toBeFocused();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("menu", { name: "More for “Cache the book covers”" });
+    await expect(menu.getByRole("menuitem")).toHaveText(["Open on GitHub", "Copy link", "Ignore"]);
+    await expect(menu.getByRole("menuitem", { name: "Open on GitHub" })).toBeFocused();
+    expect(await accessibilityViolations(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(more).toBeFocused();
+
+    // Reading the clipboard back takes a permission an extension's page can't be given here, so what's written is
+    // noted on its way there.
+    await page.evaluate(() => {
+      const write = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = async (text) => {
+        document.body.dataset.copied = text;
+        await write(text);
+      };
+    });
+    await more.click();
+    await menu.getByRole("menuitem", { name: "Copy link" }).click();
+    await expect(page.locator("#flash")).toHaveText("Link copied");
+    await expect(page.locator("body")).toHaveAttribute("data-copied", "https://github.com/octo/web/pull/12");
+
+    await more.click();
+    await menu.getByRole("menuitem", { name: "Ignore" }).click();
+    await expect(cache).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Review queue 0" })).toBeVisible();
+    await expect(page.locator("#selection-text")).toHaveText("Ignored");
+    const ignored = () =>
+      background.evaluate(async () => (await chrome.storage.sync.get("inboxIgnored")).inboxIgnored ?? {});
+    expect(await ignored()).toEqual({ reviews: ["https://github.com/octo/web/pull/12"] });
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(cache).toBeVisible();
+
+    // Ignored again, it waits folded at the end, until brought back; nothing new brings it back on its own.
+    await more.click();
+    await menu.getByRole("menuitem", { name: "Ignore" }).click();
+    await reviews.getByText("Ignored", { exact: true }).click();
+    await reviews.getByRole("button", { name: "Bring back “Cache the book covers”" }).click();
+    await expect(cache).toBeVisible();
+    expect(await ignored()).toEqual({ reviews: [] });
+  });
+
+  test("opens a pull request’s link pasted in it on its changes, behind it", async ({ context, openExtensionPage }) => {
+    await routeGitHub(context);
+    await context.route("https://github.com/acme/web/pull/7/changes", (route) =>
+      route.fulfill({ contentType: "text/html", body: "<title>#7</title>" }),
+    );
+    const page = await openExtensionPage("popup.html");
+    await expect(page.locator(".pull").first()).toBeVisible();
+    const paste = (text: string) =>
+      page.evaluate((value) => {
+        const data = new DataTransfer();
+        data.setData("text/plain", value);
+        document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+      }, text);
+    // Anything else pasted does nothing.
+    await paste("https://github.com/acme/web/issues/7");
+    await paste("https://github.com/acme/web/pull/7#issuecomment-1");
+    await expect(page.locator("#flash")).toHaveText("Opened acme/web#7 in a new tab");
+    await expect
+      .poll(() => context.pages().map((each) => each.url()), { timeout: 15_000 })
+      .toContain("https://github.com/acme/web/pull/7/changes");
+  });
+
   test("says when the reader is signed out of GitHub", async ({ context, openExtensionPage }) => {
     await routeGitHub(context, { signedIn: false });
     const page = await openExtensionPage("popup.html");
@@ -216,12 +347,75 @@ test.describe("popup settings", () => {
       repos: ["octo/api"],
       excludeRepos: [],
       teams: true,
+      updates: false,
+      merged: false,
     });
     expect(await accessibilityViolations(page, "#popup")).toEqual([]);
 
     const popup = await openExtensionPage("popup.html");
     await expect(popup.getByRole("tab", { name: "My PRs 1" })).toBeVisible();
     await expect(popup.getByRole("tab", { name: "Review queue 0" })).toBeVisible();
+  });
+
+  test("adds Updates and Merged as tabs of their own, when asked", async ({
+    context,
+    openExtensionPage,
+    background,
+  }) => {
+    await routeGitHub(context);
+    // Each search as GitHub would answer it.
+    await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/u, (route) => {
+      const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+      const results = query.includes("involves:@me")
+        ? [pull(50, { title: "Talk about the reader", author: { displayLogin: "bo" } })]
+        : query.includes("is:merged")
+          ? [pull(60, { title: "Merged without me" }), pull(61, { title: "Also merged" })]
+          : [];
+      return route.fulfill({ contentType: "application/json", body: dashboard(results) });
+    });
+    const page = await openExtensionPage("options.html#popup");
+    for (const name of ["Show the Updates tab", "Show the Merged tab"]) {
+      const toggle = page.getByRole("switch", { name });
+      await expect(toggle).not.toBeChecked();
+      await toggle.click();
+    }
+    await page.locator("#save").click();
+    await expect(page.locator("#status")).toContainText("Saved.");
+    expect(await background.evaluate(async () => (await chrome.storage.sync.get("popup")).popup)).toMatchObject({
+      updates: true,
+      merged: true,
+    });
+    expect(await accessibilityViolations(page, "#popup")).toEqual([]);
+
+    const popup = await openExtensionPage("popup.html");
+    await expect(popup.getByRole("tab")).toHaveText([/Review queue/u, /My PRs/u, /Updates\s*1/u, /Merged\s*2/u]);
+    // All four fit side by side, names and counts whole, even counts of two digits.
+    const fit = await popup.getByRole("tablist").evaluate((list) => {
+      for (const count of list.querySelectorAll(".option-count")) count.textContent = "88";
+      return [...list.querySelectorAll("[role=tab]")].every(
+        (tab) =>
+          tab.scrollWidth <= tab.clientWidth && tab.getBoundingClientRect().right <= list.getBoundingClientRect().right,
+      );
+    });
+    expect(fit).toBe(true);
+    await popup.getByRole("tab", { name: /Updates/u }).click();
+    await expect(popup.getByRole("link", { name: /^Talk about the reader/u })).toHaveAttribute(
+      "href",
+      "https://github.com/octo/web/pull/50",
+    );
+    await popup.getByRole("tab", { name: /Merged/u }).click();
+    const merged = popup.getByRole("tabpanel", { name: /Merged/u });
+    await expect(merged.getByRole("link", { name: /^Merged without me/u })).toHaveAttribute(
+      "href",
+      "https://github.com/octo/web/pull/60/changes",
+    );
+    // Once the list has come in: while it slides in, a menu opened on it is drawn within it.
+    await merged.evaluate((panel) => Promise.all(panel.getAnimations().map((animation) => animation.finished)));
+    await merged.getByRole("button", { name: "More for “Also merged”" }).click();
+    await popup.getByRole("menuitem", { name: "Mark as seen" }).click();
+    await expect(popup.getByRole("tab", { name: /Merged\s*1/u })).toBeVisible();
+    await expect(merged.getByText("Seen", { exact: true })).toBeVisible();
+    expect(await accessibilityViolations(popup)).toEqual([]);
   });
 
   test("leaves out the reviews asked of the reader’s teams, if asked", async ({

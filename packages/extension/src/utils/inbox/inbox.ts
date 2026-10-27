@@ -240,6 +240,9 @@ export interface InboxSnapshot {
   me: string;
   reviews: PullRequest[];
   mine: PullRequest[];
+  /** The lists the reader can add to the popup, there only while they have. */
+  updates?: PullRequest[];
+  merged?: PullRequest[];
   checkedAt: number;
   problem: InboxProblem | null;
 }
@@ -333,14 +336,32 @@ export interface PopupSettings {
   excludeRepos: string[];
   /** Whether the review queue lists the reviews asked of the reader's teams, and not only of them by name. */
   teams: boolean;
+  /** Whether the popup adds the open pull requests the reader took part in, as Updates. */
+  updates: boolean;
+  /** Whether it adds the ones merged lately that still asked for their review, as Merged. */
+  merged: boolean;
 }
 
-export const DEFAULT_POPUP: PopupSettings = { repos: [], excludeRepos: [], teams: true };
+export const DEFAULT_POPUP: PopupSettings = { repos: [], excludeRepos: [], teams: true, updates: false, merged: false };
 
 export const normalizePopup = (value: unknown): PopupSettings => {
   const raw = asRecord(value);
-  return { repos: repoList(raw.repos), excludeRepos: repoList(raw.excludeRepos), teams: raw.teams !== false };
+  return {
+    repos: repoList(raw.repos),
+    excludeRepos: repoList(raw.excludeRepos),
+    teams: raw.teams !== false,
+    updates: raw.updates === true,
+    merged: raw.merged === true,
+  };
 };
+
+/** The popup's lists: the two it always has, then the ones the reader can add. */
+export type PopupList = "reviews" | "mine" | "updates" | "merged";
+export const POPUP_LISTS: PopupList[] = ["reviews", "mine", "updates", "merged"];
+
+/** The lists the popup shows, as the reader set it up. */
+export const popupLists = (settings: PopupSettings): PopupList[] =>
+  POPUP_LISTS.filter((list) => (list === "updates" || list === "merged" ? settings[list] : true));
 
 /** Whether the popup lists a pull request: from the repositories picked, and not only a team's to review if left out. */
 export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, "repo" | "team">): boolean => {
@@ -390,3 +411,32 @@ export const pruneDone = (done: DoneMarks, pulls: PullRequest[]): DoneMarks => {
   const kept = new Set(pulls.filter((pull) => isDone(done, pull)).map((pull) => pull.url));
   return Object.fromEntries(Object.entries(done).filter(([url]) => kept.has(url)));
 };
+
+/**
+ * Pull requests the reader ignored, by list: unlike a done mark, nothing new brings one back, only the reader. Kept
+ * while it's on that list, so what's synced doesn't grow with every one ever ignored.
+ */
+export type IgnoredMarks = Partial<Record<PopupList, string[]>>;
+
+export const isIgnored = (ignored: IgnoredMarks, list: PopupList, pull: Pick<PullRequest, "url">): boolean =>
+  ignored[list]?.includes(pull.url) ?? false;
+
+export const ignore = (ignored: IgnoredMarks, list: PopupList, pull: Pick<PullRequest, "url">): IgnoredMarks => ({
+  ...ignored,
+  [list]: [...new Set([...(ignored[list] ?? []), pull.url])],
+});
+
+export const unignore = (ignored: IgnoredMarks, list: PopupList, pull: Pick<PullRequest, "url">): IgnoredMarks => ({
+  ...ignored,
+  [list]: (ignored[list] ?? []).filter((url) => url !== pull.url),
+});
+
+/** Only the marks of pull requests still on their list; a list the popup no longer reads lets all of its marks go. */
+export const pruneIgnored = (ignored: IgnoredMarks, lists: Partial<Record<PopupList, PullRequest[]>>): IgnoredMarks =>
+  Object.fromEntries(
+    POPUP_LISTS.flatMap((list) => {
+      const urls = new Set(lists[list]?.map((pull) => pull.url));
+      const kept = (ignored[list] ?? []).filter((url) => urls.has(url));
+      return kept.length > 0 ? [[list, kept]] : [];
+    }),
+  );

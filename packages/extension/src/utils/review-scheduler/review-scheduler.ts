@@ -5,7 +5,7 @@ import { i18n } from "#i18n";
 import { isSilent, play } from "@/utils/background-sound/background-sound";
 import { fetchFiles, type InboxProblem, type PullRequest } from "@/utils/github-inbox/github-inbox";
 import { pool } from "@/utils/inbox-check/inbox-check";
-import { isDone, type HeldEvent, type InboxEvent, type When } from "@/utils/inbox/inbox";
+import { isDone, isIgnored, type HeldEvent, type InboxEvent, type When } from "@/utils/inbox/inbox";
 import {
   candidates,
   estimate,
@@ -28,6 +28,7 @@ import { PACES } from "@/utils/review-time/review-time";
 import {
   doneItem,
   heldItem,
+  ignoredItem,
   inboxItem,
   learnedItem,
   loadConfig,
@@ -192,7 +193,7 @@ export const readQueueFiles = async (reviews: PullRequest[]): Promise<void> => {
 };
 
 /**
- * What a session would pick now, from the review queue as it stands, leaving out what the reader marked done, and the
+ * What a session would pick now, from the review queue as it stands, leaving out what the reader marked done or ignored, and the
  * reviews asked of their teams when the queue leaves those out. A pull request whose files couldn't be read still
  * counts, at a rough guess, so a change on GitHub's side doesn't silence review time.
  */
@@ -201,9 +202,10 @@ const planFor = async (
   settings: ReviewTimeSettings,
 ): Promise<{ result: Plan; problem: InboxProblem | null }> => {
   await hooks.refreshLists();
-  const [snapshot, done, config, learned, popup] = await Promise.all([
+  const [snapshot, done, ignored, config, learned, popup] = await Promise.all([
     inboxItem.getValue(),
     doneItem.getValue(),
+    ignoredItem.getValue(),
     loadConfig(),
     learnedItem.getValue(),
     loadPopup(),
@@ -211,7 +213,9 @@ const planFor = async (
   const reviews = snapshot?.reviews ?? [];
   const waiting = candidates(
     session,
-    reviews.filter((pull) => !isDone(done, pull) && (popup.teams || !pull.team)),
+    reviews.filter(
+      (pull) => !isDone(done, pull) && !isIgnored(ignored, "reviews", pull) && (popup.teams || !pull.team),
+    ),
   );
   const files = await filesOf(waiting, reviews, settings.unviewedOnly);
   const estimator = createEstimator(PACES[settings.pace], settings.learn ? normalizeLearned(learned) : null);

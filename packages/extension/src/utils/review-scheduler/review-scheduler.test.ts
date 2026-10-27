@@ -18,6 +18,7 @@ import {
   configItem,
   doneItem,
   heldItem,
+  ignoredItem,
   inboxItem,
   popupItem,
   pullFilesItem,
@@ -338,11 +339,18 @@ describe("offers", () => {
     expect(play).toHaveBeenCalledWith(DEFAULT_REVIEW_TIME.sound);
   });
 
-  it("leaves out what the reader marked done, their teams' when the queue does, and the ones not for the session", async () => {
+  it("leaves out what the reader marked done or ignored, their teams' when the queue does, and the ones not for the session", async () => {
     await inboxItem.setValue(
-      snapshot([samplePull(1), samplePull(2, { team: true }), samplePull(3), samplePull(4, { draft: true })]),
+      snapshot([
+        samplePull(1),
+        samplePull(2, { team: true }),
+        samplePull(3),
+        samplePull(4, { draft: true }),
+        samplePull(5),
+      ]),
     );
     await doneItem.setValue({ [samplePull(3).url]: "2026-10-09T00:00:00Z" });
+    await ignoredItem.setValue({ reviews: [samplePull(5).url] });
     await popupItem.setValue({ ...(await popupItem.getValue()), teams: false });
     await onReviewAlarm(offerAlarm);
     expect((await reviewRunItem.getValue())?.pulls.map((pull) => pull.number)).toEqual([1]);

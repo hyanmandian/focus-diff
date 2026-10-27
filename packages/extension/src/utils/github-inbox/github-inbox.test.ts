@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchBranches,
   fetchDetail,
   fetchFiles,
   fetchNotifications,
@@ -9,9 +10,11 @@ import {
   pageCount,
   parseDetail,
   parseFiles,
+  parseHovercard,
   parseLogin,
   parseNotifications,
   parsePulls,
+  searchFor,
 } from "./github-inbox";
 
 const dashboard = (results: unknown[]) => ({
@@ -85,6 +88,69 @@ describe("parsePulls", () => {
   it("says so when the data no longer reads as a list", () => {
     expect(() => parsePulls({ payload: {} })).toThrow("unreadable");
     expect(() => parsePulls(null)).toThrow("unreadable");
+  });
+
+  it("reads where a pull request stands in a stack GitHub keeps, and nothing from a place that doesn't add up", () => {
+    const stacks = parsePulls(
+      dashboard([
+        { ...pull, stackPosition: 2, stackSize: 3 },
+        { ...pull, number: 13, permalink: "https://github.com/octo/web/pull/13", stackPosition: null, stackSize: null },
+        { ...pull, number: 14, permalink: "https://github.com/octo/web/pull/14", stackPosition: 4, stackSize: 3 },
+        { ...pull, number: 15, permalink: "https://github.com/octo/web/pull/15", stackPosition: 1.5, stackSize: 3 },
+        { ...pull, number: 16, permalink: "https://github.com/octo/web/pull/16", stackPosition: "1", stackSize: 3 },
+      ]),
+    ).map((each) => each.stack);
+    expect(stacks).toEqual([{ position: 2, size: 3 }, undefined, undefined, undefined, undefined]);
+  });
+});
+
+describe("searchFor", () => {
+  it("searches the open pull requests the reader took part in, not theirs", () => {
+    expect(searchFor("updates", 0)).toBe("is:open is:pr involves:@me -author:@me archived:false sort:updated-desc");
+  });
+
+  it("searches the ones merged in the last week that still asked for the reader's review", () => {
+    expect(searchFor("merged", Date.parse("2026-10-27T10:00:00Z"))).toBe(
+      "is:merged is:pr merged:>=2026-10-20 review-requested:@me -author:@me archived:false sort:updated-desc",
+    );
+  });
+});
+
+/** A hovercard as GitHub draws it, trimmed to its branches. */
+const hovercard = (head: string) => `
+  <div class="Popover-message">
+    <a class="Link--primary" href="/octo/web/pull/12">Cache the book covers</a>
+    <span class="commit-ref css-truncate user-select-contain expandable base-ref" title="octo/web:main">
+      <a href="/octo/web/tree/main"><span class="css-truncate-target">main</span></a>
+    </span>
+    <span class="commit-ref css-truncate user-select-contain expandable head-ref" title="the head">
+      ${head}
+    </span>
+  </div>`;
+
+describe("parseHovercard", () => {
+  it("reads a pull request's base and head branches", () => {
+    expect(parseHovercard(hovercard('<span class="css-truncate-target">add-covers</span>'))).toEqual({
+      head: "add-covers",
+      base: "main",
+      fork: false,
+    });
+  });
+
+  it("reads a head on a fork, written with its owner", () => {
+    expect(
+      parseHovercard(
+        hovercard('<span class="user">ana</span>:<span class="css-truncate-target">fix&#47;covers</span>'),
+      ),
+    ).toEqual({ head: "fix/covers", base: "main", fork: true });
+  });
+
+  it("reads nothing from a card without both branches", () => {
+    expect(parseHovercard("")).toBeNull();
+    expect(parseHovercard('<span class="commit-ref base-ref">main</span>')).toBeNull();
+    expect(parseHovercard('<span class="commit-ref head-ref">add-covers</span>')).toBeNull();
+    // Cut off before its branch closes.
+    expect(parseHovercard('<span class="commit-ref base-ref">main</span><span class="commit-ref">add')).toBeNull();
   });
 });
 
@@ -345,6 +411,15 @@ describe("fetching from GitHub", () => {
     expect(await fetchPulls("authored")).toHaveLength(2);
   });
 
+  it("reads the lists the popup can add as GitHub searches", async () => {
+    const fetchMock = stubFetch(() => respond(listPage(1, 1)));
+    await fetchPulls("updates");
+    await fetchPulls("merged");
+    const queries = fetchMock.mock.calls.map(([url]) => new URL(url).searchParams.get("q"));
+    expect(queries[0]).toContain("involves:@me");
+    expect(queries[1]).toContain("is:merged");
+  });
+
   it("says when a list doesn't read as JSON", async () => {
     stubFetch(() => respond("<html>"));
     await expect(fetchPulls("reviews")).rejects.toMatchObject({ problem: "unreadable" });
@@ -391,5 +466,17 @@ describe("fetching from GitHub", () => {
 
     stubFetch(() => respond("not json"));
     await expect(fetchFiles("octo/web", 7)).rejects.toMatchObject({ problem: "unreadable" });
+  });
+
+  it("reads a pull request's branches from its hovercard, as GitHub sends it to its own pages", async () => {
+    const fetchMock = stubFetch(() => respond(hovercard("add-covers")));
+    expect(await fetchBranches("octo/web", 7)).toEqual({ head: "add-covers", base: "main", fork: false });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://github.com/octo/web/pull/7/hovercard");
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual({
+      credentials: "include",
+      headers: { Accept: "text/html", "X-Requested-With": "XMLHttpRequest" },
+    });
+    stubFetch(() => respond("<p>Something else</p>"));
+    expect(await fetchBranches("octo/web", 7)).toBeNull();
   });
 });

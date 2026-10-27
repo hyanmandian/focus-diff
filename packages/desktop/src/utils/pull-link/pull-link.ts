@@ -1,26 +1,10 @@
-// A pull request's link on github.com, to open its review straight from it (pasted in the panel,
-// typed in Open Pull Request…, or from a focusdiff:// link or the command line). Read strictly, as
-// GitHub writes them: anything else isn't taken for one.
+// Opens a pull request's review from its link (pasted in the panel, typed in Open Pull Request…,
+// or from a focusdiff:// link or the command line). The link itself is read by
+// @focus-diff/core/pull-link, which the browser extension reads links with too.
+
+import type { PullLink } from "@focus-diff/core/pull-link";
 
 import { bridge, graphql } from "@/utils/bridge/bridge";
-
-export type PullLink = { owner: string; repo: string; number: number };
-
-// An owner as GitHub allows: letters, digits and single hyphens between them, 39 at most. A
-// repository: letters, digits, `.`, `_` and `-`. Then the number, and whatever GitHub adds after it
-// (`/files`, `/changes`, `/commits/…`, a query, an anchor). The scheme may be left off.
-const LINK =
-  /^(?:https:\/\/)?(?:www\.)?github\.com\/([A-Za-z\d](?:[A-Za-z\d]|-(?=[A-Za-z\d])){0,38})\/([\w.-]{1,100})\/pull\/([1-9]\d{0,9})(?:\/[\w.\-/]*)?(?:\?[^\s#]*)?(?:#\S*)?$/u;
-
-/** The pull request a link is to, or null when it isn't a pull request's link on github.com. */
-export function parsePullLink(text: string): PullLink | null {
-  const [, owner, repo, number] = LINK.exec(text.trim()) ?? [];
-  if (!owner || !repo || !number || repo === "." || repo === "..") return null;
-  return { owner, repo, number: Number(number) };
-}
-
-/** The link as GitHub writes it. */
-export const pullLinkUrl = ({ owner, repo, number }: PullLink) => `https://github.com/${owner}/${repo}/pull/${number}`;
 
 type Found = {
   repository: {

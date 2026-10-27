@@ -35,6 +35,8 @@ export interface PullRequest {
    * read one more list.
    */
   team?: boolean;
+  /** Its place in a stack GitHub itself keeps, from the bottom and from 1, when it's in one. */
+  stack?: { position: number; size: number };
 }
 
 /** What the latest event on a notification thread was. */
@@ -95,6 +97,15 @@ const textOf = (html: string) =>
 
 const PULL_URL = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/u;
 
+const count = (value: unknown) => (typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0);
+
+/** Where GitHub puts a pull request in a stack of its own, or nothing when it's in none, or says it oddly. */
+const stackOf = (item: Record<string, unknown>) => {
+  const position = count(item.stackPosition);
+  const size = count(item.stackSize);
+  return position && position <= size ? { stack: { position, size } } : {};
+};
+
 /** A dashboard list as GitHub sends it with `Accept: application/json`: its results, whatever route holds them. */
 export const parsePulls = (data: unknown): PullRequest[] => {
   const routes = Object.values(asRecord(asRecord(data).payload));
@@ -118,6 +129,7 @@ export const parsePulls = (data: unknown): PullRequest[] => {
         updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : "",
         unread: item.isReadByCurrentUser === false,
         headSha: typeof item.headSha === "string" ? item.headSha : "",
+        ...stackOf(item),
       },
     ];
   });
@@ -205,10 +217,10 @@ export const parseDetail = (html: string, anchor: string, me: string): Detail =>
 /** The signed-in reader's login, from any of GitHub's pages. */
 export const parseLogin = (html: string): string => html.match(/<meta name="user-login" content="([^"]*)"/u)?.[1] ?? "";
 
-const get = async (path: string, accept: "text/html" | "application/json") => {
+const get = async (path: string, accept: "text/html" | "application/json", headers: Record<string, string> = {}) => {
   let response: Response;
   try {
-    response = await fetch(`${ORIGIN}${path}`, { credentials: "include", headers: { Accept: accept } });
+    response = await fetch(`${ORIGIN}${path}`, { credentials: "include", headers: { Accept: accept, ...headers } });
   } catch {
     throw new InboxError("offline");
   }
@@ -231,19 +243,40 @@ export const pageCount = (data: unknown): number => {
   return typeof total === "number" && total > 1 ? Math.floor(total) : 1;
 };
 
-export type PullList = "reviews" | "authored" | "direct";
+export type PullList = "reviews" | "authored" | "direct" | "updates" | "merged";
 
-const LISTS: Record<PullList, string> = {
-  reviews: "/pulls/reviews",
-  authored: "/pulls/authored",
-  // The review requests made of the reader by name, leaving out the ones made of their teams.
-  direct: `/pulls/search?q=${encodeURIComponent("is:open is:pr user-review-requested:@me archived:false")}`,
+/** How far back the merged list goes, in days, as the desktop app's Merged queue does by default. */
+const MERGED_DAYS = 7;
+
+/**
+ * The searches behind the lists the popup can add, as the desktop app's queues of the same names make them. Updates: the
+ * open pull requests the reader took part in, by writing, commenting or being mentioned, that aren't theirs. Merged:
+ * the ones merged lately that still asked for their review, so it was merged without them.
+ */
+export const searchFor = (list: "updates" | "merged", now: number): string => {
+  if (list === "updates") return "is:open is:pr involves:@me -author:@me archived:false sort:updated-desc";
+  const since = new Date(now - MERGED_DAYS * 86_400_000).toISOString().slice(0, 10);
+  return `is:merged is:pr merged:>=${since} review-requested:@me -author:@me archived:false sort:updated-desc`;
 };
 
-/** The pull requests waiting for the reader's review, the ones asked of them by name, or the open ones they wrote. */
+const search = (query: string) => `/pulls/search?q=${encodeURIComponent(query)}`;
+
+const pathOf = (list: PullList): string => {
+  if (list === "reviews") return "/pulls/reviews";
+  if (list === "authored") return "/pulls/authored";
+  // The review requests made of the reader by name, leaving out the ones made of their teams.
+  if (list === "direct") return search("is:open is:pr user-review-requested:@me archived:false");
+  return search(searchFor(list, Date.now()));
+};
+
+/**
+ * The pull requests waiting for the reader's review, the ones asked of them by name, the open ones they wrote, or one of
+ * the lists the popup can add.
+ */
 export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
+  const base = pathOf(list);
   const read = async (page: number): Promise<unknown> => {
-    const path = page === 1 ? LISTS[list] : `${LISTS[list]}${LISTS[list].includes("?") ? "&" : "?"}page=${page}`;
+    const path = page === 1 ? base : `${base}${base.includes("?") ? "&" : "?"}page=${page}`;
     return (await get(path, "application/json")).json().catch(() => null);
   };
   const first = await read(1);
@@ -293,4 +326,48 @@ export const parseFiles = (data: unknown): PullFile[] => {
 export const fetchFiles = async (repo: string, number: number): Promise<PullFile[]> => {
   const response = await get(`/${repo}/pull/${number}/changes`, "application/json");
   return parseFiles(await response.json().catch(() => null));
+};
+
+/** A pull request's two branches, and whether its head is on a fork. */
+export interface PullBranches {
+  head: string;
+  base: string;
+  fork: boolean;
+}
+
+/** The inside of the `<span>` whose opening tag ends at `from`, up to the `</span>` that closes it, spans within it and all. */
+const spanFrom = (html: string, from: number) => {
+  const tags = /<(\/?)span\b[^>]*>/gu;
+  tags.lastIndex = from;
+  let depth = 1;
+  for (let tag = tags.exec(html); tag; tag = tags.exec(html)) {
+    depth += tag[1] ? -1 : 1;
+    if (depth === 0) return html.slice(from, tag.index);
+  }
+  return "";
+};
+
+/**
+ * A pull request's branches from its hovercard, the small card GitHub shows over a link to it: two `commit-ref` spans,
+ * the base's marked `base-ref`, then the head's, written `owner:branch` when it's on a fork. A branch name has no spaces,
+ * so whatever spacing the markup puts around its parts goes. `null` when the card doesn't read that way.
+ */
+export const parseHovercard = (html: string): PullBranches | null => {
+  const refs = [...html.matchAll(/<span\b[^>]*\bclass="([^"]*\bcommit-ref\b[^"]*)"[^>]*>/gu)].map((match) => ({
+    base: /\bbase-ref\b/u.test(String(match[1])),
+    name: decode(spanFrom(html, match.index + match[0].length).replaceAll(/<[^>]*>/gu, "")).replaceAll(/\s+/gu, ""),
+  }));
+  const base = refs.find((ref) => ref.base)?.name;
+  const head = refs.find((ref) => !ref.base)?.name;
+  if (!base || !head) return null;
+  const colon = head.indexOf(":");
+  return colon === -1 ? { head, base, fork: false } : { head: head.slice(colon + 1), base, fork: true };
+};
+
+/** The branches of a pull request, from its hovercard: a few kilobytes, where its page is a megabyte or more. */
+export const fetchBranches = async (repo: string, number: number): Promise<PullBranches | null> => {
+  const response = await get(`/${repo}/pull/${number}/hovercard`, "text/html", {
+    "X-Requested-With": "XMLHttpRequest",
+  });
+  return parseHovercard(await response.text());
 };

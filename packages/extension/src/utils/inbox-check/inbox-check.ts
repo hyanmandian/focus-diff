@@ -81,21 +81,34 @@ const markTeams = (reviews: PullRequest[], direct: PullRequest[]): PullRequest[]
  * asked to be told about. Reading the lists is all the popup needs, so without notifications nothing else is read.
  * When the reader's queue leaves out the reviews asked of their teams (`skipTeams`), or when a new review request is to be
  * told about, one more list tells those from the ones asked of the reader by name. Left out of the queue, a team's are
- * left out of what the reader is told about it too.
+ * left out of what the reader is told about it too. The lists the reader added to the popup, `updates` and `merged`, are
+ * read along with the two; one that fails is left out of the snapshot rather than failing the look.
  */
 export const checkInbox = async (
   source: InboxSource,
   settings: NotifySettings,
   memory: InboxMemory | null,
-  { skipTeams = false }: { skipTeams?: boolean } = {},
+  {
+    skipTeams = false,
+    updates = false,
+    merged = false,
+  }: { skipTeams?: boolean; updates?: boolean; merged?: boolean } = {},
 ): Promise<CheckResult> => {
   const checkedAt = Date.now();
+  const extra = (list: "updates" | "merged", wanted: boolean) =>
+    wanted
+      ? source.pulls(list).then(
+          (pulls) => ({ [list]: pulls }),
+          () => ({}),
+        )
+      : Promise.resolve({});
   try {
     const watching = isWatching(settings);
-    const [listed, mine, inbox] = await Promise.all([
+    const [listed, mine, inbox, added] = await Promise.all([
       source.pulls("reviews"),
       source.pulls("authored"),
       watching ? source.notifications() : null,
+      Promise.all([extra("updates", updates), extra("merged", merged)]),
     ]);
     const requests = watching && inbox ? reviewListEvents(memory?.reviews ?? null, listed) : [];
     // Without the list of the ones asked of the reader by name, none is known to be a team's.
@@ -107,7 +120,7 @@ export const checkInbox = async (
           )
         : listed;
     const me = inbox?.me ?? "";
-    const snapshot: InboxSnapshot = { me, reviews, mine, checkedAt, problem: null };
+    const snapshot: InboxSnapshot = { me, reviews, mine, ...added[0], ...added[1], checkedAt, problem: null };
     if (!watching || !inbox) return { snapshot, memory: null, events: [] };
 
     let budget = DETAIL_LIMIT;

@@ -67,12 +67,20 @@ describe("settings", () => {
   });
 
   it("normalizes what it reads and syncs what it writes", async () => {
-    await fakeBrowser.storage.sync.set({ popup: { repos: ["octo/web", "octo/web"], teams: false, junk: 1 } });
-    expect(await loadPopup()).toEqual({ repos: ["octo/web"], excludeRepos: [], teams: false });
+    await fakeBrowser.storage.sync.set({
+      popup: { repos: ["octo/web", "octo/web"], teams: false, updates: true, merged: "yes", junk: 1 },
+    });
+    expect(await loadPopup()).toEqual({
+      repos: ["octo/web"],
+      excludeRepos: [],
+      teams: false,
+      updates: true,
+      merged: false,
+    });
 
-    await savePopup({ repos: [], excludeRepos: ["octo/api"], teams: true });
+    await savePopup({ repos: [], excludeRepos: ["octo/api"], teams: true, updates: false, merged: false });
     expect(await fakeBrowser.storage.sync.get("popup")).toEqual({
-      popup: { repos: [], excludeRepos: ["octo/api"], teams: true },
+      popup: { repos: [], excludeRepos: ["octo/api"], teams: true, updates: false, merged: false },
     });
 
     await saveNotify({ ...DEFAULT_NOTIFY, enabled: true });

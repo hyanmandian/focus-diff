@@ -627,7 +627,7 @@ describe("startOptions", () => {
       await vi.waitFor(() => {
         expect($("#theme-name").value).toBe("Night");
       });
-      await popupItem.setValue({ repos: [], excludeRepos: [], teams: false });
+      await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: false, merged: false });
       await vi.waitFor(() => {
         expect($("#popup-teams").checked).toBe(false);
       });
@@ -648,7 +648,7 @@ describe("startOptions", () => {
       for (const change of [
         () => configItem.setValue({ global: [], repos: [] }),
         () => appearanceItem.setValue({ theme: "provider", themes: [] }),
-        () => popupItem.setValue({ repos: [], excludeRepos: [], teams: false }),
+        () => popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: false, merged: false }),
         () => reviewTimeItem.setValue(normalizeReviewTime({ enabled: true })),
         () => notifyItem.setValue(normalizeNotify({ enabled: true })),
       ]) {

@@ -63,6 +63,9 @@ export const nextFileIcon = () =>
     ["path", { d: "M9.25 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h3.25M9.25 1.75l3.25 3.25v2.75M9.25 1.75V5h3.25" }],
     ["path", { d: "M9.5 11.75h5M12.5 9.75l2 2-2 2" }],
   ]);
+/** Three dots: more to do with something, in a menu. */
+export const moreIcon = () =>
+  icon(["3.5", "8", "12.5"].map((cx) => ["circle", { cx, cy: "8", r: "1", fill: "currentColor", stroke: "none" }]));
 export const closeIcon = () => icon("M4.5 4.5l7 7M11.5 4.5l-7 7", 14);
 export const chevronIcon = (direction: "left" | "right") =>
   icon(direction === "left" ? "M10 4.5 6.5 8 10 11.5" : "M6 4.5 9.5 8 6 11.5");

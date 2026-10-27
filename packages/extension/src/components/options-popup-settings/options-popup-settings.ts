@@ -4,22 +4,25 @@ import { $ } from "@/utils/extension-page/extension-page";
 import { normalizePopup, type PopupSettings } from "@/utils/inbox/inbox";
 
 /**
- * Settings' Popup section: the repositories whose pull requests the popup lists, the ones it never does, and whether it
- * lists the reviews asked of the reader's teams.
+ * Settings' Popup section: the repositories whose pull requests the popup lists, the ones it never does, whether it
+ * lists the reviews asked of the reader's teams, and the lists it can add, Updates and Merged.
  */
 export const createPopupSettings = ({ onChange }: { onChange: () => void }) => {
   let settings: PopupSettings = normalizePopup({});
   const pickers = repoPickers(onChange);
-  const teams = $<HTMLInputElement>("#popup-teams");
-  teams.addEventListener("change", () => {
-    settings.teams = teams.checked;
-    onChange();
+  const switches = (["teams", "updates", "merged"] as const).map((key) => {
+    const input = $<HTMLInputElement>(`#popup-${key}`);
+    input.addEventListener("change", () => {
+      settings[key] = input.checked;
+      onChange();
+    });
+    return { key, input };
   });
 
   return {
     render: (next: PopupSettings) => {
       settings = structuredClone(next);
-      teams.checked = settings.teams;
+      for (const { key, input } of switches) input.checked = settings[key];
       pickers.clear();
       $("#popup-repos").replaceChildren(
         pickers.picker("popup-repos-only", i18n.t("popupReposOnly"), settings.repos, (repos) => {

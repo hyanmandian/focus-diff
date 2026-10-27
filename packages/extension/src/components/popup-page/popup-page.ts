@@ -1,4 +1,6 @@
 import { createEstimator, normalizeLearned, type Learned } from "@focus-diff/core/estimate";
+import { parsePullLink, pullLinkUrl } from "@focus-diff/core/pull-link";
+import type { StackPlace } from "@focus-diff/core/stacks";
 import { browser } from "wxt/browser";
 
 import { i18n } from "#i18n";
@@ -12,25 +14,35 @@ import {
   undoIcon,
 } from "@/components/icons/icons";
 import { renderReviewPanel } from "@/components/popup-review-time/popup-review-time";
+import { rowMenu } from "@/components/row-menu/row-menu";
 import { FADE, scrollRow } from "@/components/scroll-row/scroll-row";
 import { customThemeCss, normalizeAppearance, type Appearance } from "@/utils/appearance/appearance";
 import { h } from "@/utils/dom/dom";
 import { $, reveal, translateDocument } from "@/utils/extension-page/extension-page";
 import { formatDuration } from "@/utils/format/format";
-import type { PullRequest } from "@/utils/github-inbox/github-inbox";
+import { searchFor, type PullRequest } from "@/utils/github-inbox/github-inbox";
 import { uiLanguage } from "@/utils/i18n/i18n";
 import {
+  ignore,
   inPopup,
   isDone,
+  isIgnored,
   markDone,
   normalizePopup,
+  popupLists,
+  POPUP_LISTS,
+  unignore,
   unmarkDone,
   type DoneMarks,
+  type IgnoredMarks,
   type InboxSnapshot,
+  type PopupList,
   type PopupSettings,
   type HeldEvent,
 } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
+import { stackPosition, stackPulls, type BranchesRecord, type Stacked } from "@/utils/pull-branches/pull-branches";
+import { recordOf } from "@/utils/record/record";
 import {
   normalizeReviewTime,
   pullMinutes,
@@ -43,6 +55,7 @@ import {
   appearanceItem,
   doneItem,
   heldItem,
+  ignoredItem,
   inboxItem,
   learnedItem,
   loadAppearance,
@@ -51,6 +64,7 @@ import {
   loadReviewTime,
   notifyItem,
   popupItem,
+  pullBranchesItem,
   pullFilesItem,
   reviewRunItem,
   reviewSkipItem,
@@ -157,6 +171,27 @@ const unfold = (section: HTMLDetailsElement, body: HTMLElement, open: boolean) =
   );
 };
 
+/** "3/5" and what it means, when the pull request is in a stack. */
+const stackLabel = (stacked: Stacked) => {
+  const at = stackPosition(stacked);
+  if (!at) return null;
+  const said = i18n.t("popupStack", [at.position, at.size]);
+  return h(
+    "span",
+    { className: "pull-stack", title: said },
+    h("span", { "aria-hidden": "true", textContent: `${at.position}/${at.size}` }),
+    h("span", { className: "visually-hidden", textContent: said }),
+  );
+};
+
+/** A row's place in a stack on the list draws a line through the pictures, to the row below it and to the one above. */
+const stackClasses = (place: StackPlace | null) =>
+  place ? [place.index > 0 ? "stack-up" : "", place.index < place.size - 1 ? "stack-down" : ""] : [];
+
+/** A list the reader added, as GitHub's own page searches it. */
+const seeAll = (list: "updates" | "merged") =>
+  `https://github.com/pulls?q=${encodeURIComponent(searchFor(list, Date.now()))}`;
+
 const openOptions = async (section?: string) => {
   const message: Message = { type: "open-options", section };
   await browser.runtime.sendMessage(message);
@@ -174,8 +209,8 @@ const renderNotify = (enabled: boolean) => {
 
 /** The toolbar popup: the reader's pull requests, their review time and the bar's switch. */
 export const startPopup = (): void => {
-  type List = "reviews" | "mine";
-  const LISTS: List[] = ["reviews", "mine"];
+  type List = PopupList;
+  const LISTS = POPUP_LISTS;
   const TAB_KEY = "focus-diff:popup-tab";
 
   /** The bar's theme, with the reader's own colours over it, on the whole popup instead of the bar's shadow root. */
@@ -293,25 +328,70 @@ export const startPopup = (): void => {
 
   /** The pull requests marked done, the ones picked to be, and the ones just marked, which Undo takes back. */
   let done: DoneMarks = {};
-  const picked: Record<List, Set<string>> = { reviews: new Set(), mine: new Set() };
+  const picked = recordOf(LISTS, () => new Set<string>());
   let justMarked: PullRequest[] = [];
-  type Folded = "drafts" | "done";
-  /** Whether each list's folded sections, Drafts and Done, are open, kept across redraws. */
-  const foldedOpen: Record<Folded, Record<List, boolean>> = {
-    drafts: { reviews: false, mine: false },
-    done: { reviews: false, mine: false },
-  };
+  /** The pull requests ignored on each list, and the one just ignored, which Undo takes back too. */
+  let ignored: IgnoredMarks = {};
+  let justIgnored: { list: List; pull: PullRequest } | null = null;
+  /** Each pull request's branches as last read, to put stacks together. */
+  let branches: Record<string, BranchesRecord> = {};
+  type Folded = "drafts" | "done" | "ignored";
+  /** Whether each list's folded sections, Drafts, Done and Ignored, are open, kept across redraws. */
+  const foldedOpen = recordOf(["drafts", "done", "ignored"] satisfies Folded[], () => recordOf(LISTS, () => false));
+
+  /** On Merged there's nothing to ignore any more, only to have seen. */
+  const ignoreLabel = (list: List) => i18n.t(list === "merged" ? "popupMarkSeen" : "popupIgnore");
+
+  /** The row's menu: the pull request on GitHub, its link, and leaving it off the list. */
+  const menuFor = (pull: PullRequest, list: List) =>
+    rowMenu(
+      i18n.t("popupMore", [pull.title]),
+      [
+        {
+          label: i18n.t("popupOpenOnGitHub"),
+          run: () => void browser.tabs.create({ url: pull.url, active: false }),
+        },
+        {
+          label: i18n.t("popupCopyLink"),
+          run: () =>
+            void navigator.clipboard.writeText(pull.url).then(
+              () => {
+                flash(i18n.t("popupCopied"));
+              },
+              () => {},
+            ),
+        },
+        {
+          label: ignoreLabel(list),
+          run: () => {
+            justMarked = [];
+            justIgnored = { list, pull };
+            saveIgnored(ignore(ignored, list, pull));
+            // The row is gone; the list takes the focus, and Undo stays a few seconds.
+            $(`#panel-${list}`).focus();
+            forgetLater();
+          },
+        },
+      ],
+      // What was held back while it was open is drawn now.
+      () => {
+        render();
+      },
+    );
 
   /**
    * A row: the pull request's link, and over its picture, a checkbox that shows on hover to pick it to mark done, or on a
-   * row already done, a button to take it back. The checkbox stays out of the tab order; `x` on a row ticks it.
+   * row already done or ignored, a button to take it back. The checkbox stays out of the tab order; `x` on a row ticks
+   * it. Its menu, at the right, has the rest.
    */
-  const item = (pull: PullRequest, list: List, finished = false) => {
-    const showAuthor = list === "reviews" && pull.author;
+  const item = (stacked: Stacked, list: List, finished: "done" | "ignored" | null = null) => {
+    const { pull, place } = stacked;
+    const showAuthor = list !== "mine" && pull.author;
     const meta = h(
       "span",
       { className: "pull-meta" },
       h("span", { className: "repo-number", textContent: `#${pull.number}` }),
+      stackLabel(stacked),
       showAuthor ? h("span", { className: "pull-author", textContent: pull.author }) : null,
       list === "reviews" ? estimateOf(pull) : null,
     );
@@ -322,10 +402,10 @@ export const startPopup = (): void => {
       pull.updatedAt ? h("span", { className: "pull-time", textContent: ago(Date.parse(pull.updatedAt)) }) : null,
       pull.comments ? comments(pull.comments) : null,
     );
-    // A review opens on the files, where the bar is.
-    const href = list === "reviews" ? `${pull.url}/changes` : pull.url;
+    // A review opens on the files, where the bar is, and so does a merged one, to see what went in.
+    const href = list === "reviews" || list === "merged" ? `${pull.url}/changes` : pull.url;
     const classes = ["pull", pull.unread ? "unread" : "", pull.draft ? "draft" : ""].filter(Boolean).join(" ");
-    const control = finished ? restoreButton(pull) : pickBox(pull, list);
+    const control = finished ? restoreButton(pull, list, finished) : pickBox(pull, list);
     const link = h(
       "a",
       { className: classes, href, target: "_blank", rel: "noopener" },
@@ -351,10 +431,15 @@ export const startPopup = (): void => {
       side,
     );
     if (!finished) link.setAttribute("aria-keyshortcuts", "x");
-    const classNames = ["row", finished ? "finished" : "", picked[list].has(pull.url) ? "picked" : ""]
+    const classNames = [
+      "row",
+      finished ? "finished" : "",
+      picked[list].has(pull.url) ? "picked" : "",
+      ...stackClasses(place),
+    ]
       .filter(Boolean)
       .join(" ");
-    return h("li", { className: classNames }, control, link);
+    return h("li", { className: classNames }, control, link, finished ? null : menuFor(pull, list));
   };
 
   const pickBox = (pull: PullRequest, list: List) => {
@@ -365,29 +450,32 @@ export const startPopup = (): void => {
       else picked[list].delete(pull.url);
       box.closest(".row")?.classList.toggle("picked", box.checked);
       justMarked = [];
+      justIgnored = null;
       syncSelection();
     });
     return box;
   };
 
-  const restoreButton = (pull: PullRequest) => {
-    const button = h(
-      "button",
-      { type: "button", className: "restore", title: i18n.t("popupNotDone", [pull.title]) },
-      undoIcon(),
-    );
-    button.setAttribute("aria-label", i18n.t("popupNotDone", [pull.title]));
+  const restoreButton = (pull: PullRequest, list: List, finished: "done" | "ignored") => {
+    const label = i18n.t(finished === "done" ? "popupNotDone" : "popupNotIgnored", [pull.title]);
+    const button = h("button", { type: "button", className: "restore", title: label }, undoIcon());
+    button.setAttribute("aria-label", label);
     button.addEventListener("click", () => {
-      saveDone(unmarkDone(done, [pull]));
+      if (finished === "done") saveDone(unmarkDone(done, [pull]));
+      else saveIgnored(unignore(ignored, list, pull));
     });
     return button;
   };
 
+  /** The rows of a list, its stacks together. */
+  const rowsOf = (pulls: PullRequest[], list: List, finished: "done" | "ignored" | null = null) =>
+    stackPulls(pulls, branches).map((stacked) => item(stacked, list, finished));
+
   /** The repository each list is narrowed to, if any. */
-  const narrowed: Record<List, string> = { reviews: "", mine: "" };
+  const narrowed = recordOf(LISTS, () => "");
 
   /** Where each list's chip highlight last was, so a new row of chips slides it on from there. */
-  const highlightAt: Record<List, { clip: string; width: string } | null> = { reviews: null, mine: null };
+  const highlightAt = recordOf(LISTS, (): { clip: string; width: string } | null => null);
 
   /**
    * Chips like the bar's filters, to narrow a list to one repository. Only with more than one to pick from. A highlight
@@ -467,23 +555,37 @@ export const startPopup = (): void => {
     return row;
   };
 
+  /** What each folded section is called, and what it says of its pull requests; on Merged, the ignored are the seen. */
+  const FOLDS: Record<Folded, (list: List) => { title: string; hint: string }> = {
+    drafts: () => ({ title: i18n.t("popupDrafts"), hint: i18n.t("popupDraftsHint") }),
+    done: () => ({ title: i18n.t("popupDone"), hint: i18n.t("popupDoneHint") }),
+    ignored: (list) => ({
+      title: i18n.t(list === "merged" ? "popupSeen" : "popupIgnored"),
+      hint: i18n.t("popupIgnoredHint"),
+    }),
+  };
+
   /**
-   * Pull requests folded away at the end: drafts on the review queue, not ready for review yet, and the ones marked done,
-   * each with a way back.
+   * Pull requests folded away at the end: drafts on the review queue, not ready for review yet, and the ones marked done
+   * or ignored, each with a way back.
    */
   const foldedSection = (kind: Folded, pulls: PullRequest[], list: List) => {
-    const doneKind = kind === "done";
+    const { title, hint } = FOLDS[kind](list);
     const summary = h(
       "summary",
       {},
-      h("span", { textContent: i18n.t(doneKind ? "popupDone" : "popupDrafts") }),
+      h("span", { textContent: title }),
       h("span", { className: "group-count", textContent: String(pulls.length) }),
     );
     const body = h(
       "div",
       { className: "fold-body" },
-      h("p", { className: "done-hint", textContent: i18n.t(doneKind ? "popupDoneHint" : "popupDraftsHint") }),
-      h("ul", { className: "pulls", role: "list" }, ...pulls.toSorted(order).map((pull) => item(pull, list, doneKind))),
+      h("p", { className: "done-hint", textContent: hint }),
+      h(
+        "ul",
+        { className: "pulls", role: "list" },
+        ...rowsOf(pulls.toSorted(order), list, kind === "drafts" ? null : kind),
+      ),
     );
     const section = h("details", { className: "done-section", open: foldedOpen[kind][list] }, summary, body);
     section.addEventListener("toggle", () => {
@@ -500,14 +602,14 @@ export const startPopup = (): void => {
   const ready = (pulls: PullRequest[], list: List) =>
     list === "reviews" ? pulls.filter((pull) => !pull.draft) : pulls;
 
-  const renderList = (all: PullRequest[], finished: PullRequest[], list: List) => {
+  const renderList = (all: PullRequest[], finished: PullRequest[], away: PullRequest[], list: List) => {
     const pulls = ready(all, list);
     const drafts = all.filter((pull) => !pulls.includes(pull));
     const groups = byRepo(pulls);
     if (!groups.some((group) => group.repo === narrowed[list])) narrowed[list] = "";
     const shown = narrowed[list] ? groups.filter((group) => group.repo === narrowed[list]) : groups;
     const sections = shown.map((group) => {
-      const rows = h("ul", { className: "pulls", role: "list" }, ...group.pulls.map((pull) => item(pull, list)));
+      const rows = h("ul", { className: "pulls", role: "list" }, ...rowsOf(group.pulls, list));
       // With one repository on screen, its name says nothing new; the chip picked says it already.
       if (shown.length === 1) return h("div", { className: "group untitled" }, rows);
       const slash = group.repo.lastIndexOf("/") + 1;
@@ -535,6 +637,7 @@ export const startPopup = (): void => {
       narrowed[list] ? each.filter((pull) => pull.repo === narrowed[list]) : each;
     if (inRepo(drafts).length > 0) sections.push(foldedSection("drafts", inRepo(drafts), list));
     if (inRepo(finished).length > 0) sections.push(foldedSection("done", inRepo(finished), list));
+    if (inRepo(away).length > 0) sections.push(foldedSection("ignored", inRepo(away), list));
     return { filter: groups.length > 1 ? repoFilter(groups, list, pulls.length) : null, sections };
   };
 
@@ -601,10 +704,13 @@ export const startPopup = (): void => {
       select(LISTS[index]!);
     });
     tab.addEventListener("keydown", (event) => {
-      const target = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: LISTS.length - 1 }[event.key];
+      // Only between the lists the reader has.
+      const shown = popupLists(popup);
+      const at = shown.indexOf(LISTS[index]!);
+      const target = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: shown.length - 1 }[event.key];
       if (target === undefined) return;
       event.preventDefault();
-      select(LISTS[(target + LISTS.length) % LISTS.length]!, true);
+      select(shown[(target + shown.length) % shown.length]!, true);
     });
   });
 
@@ -645,49 +751,58 @@ export const startPopup = (): void => {
 
   const PROBLEMS = { "signed-out": "popupSignedOut", unreadable: "popupUnreadable", offline: "popupOffline" } as const;
 
-  const currentList = (): List => (tabs[1]?.getAttribute("aria-selected") === "true" ? "mine" : "reviews");
-  /** The pull requests on each list that aren't done, as last drawn. */
-  let active: Record<List, PullRequest[]> = { reviews: [], mine: [] };
+  const currentList = (): List => LISTS[tabs.findIndex((tab) => tab.getAttribute("aria-selected") === "true")]!;
+  /** The pull requests on each list that aren't done or ignored, as last drawn. */
+  let active = recordOf(LISTS, (): PullRequest[] => []);
 
   let drawn = "";
   const render = () => {
     const problem = snapshot?.problem ?? null;
+    const shownLists = popupLists(popup);
     // Only the repositories the reader wants here.
     const shown = (pulls: PullRequest[] = []) => pulls.filter((pull) => inPopup(popup, pull));
-    const all: Record<List, PullRequest[]> = { reviews: shown(snapshot?.reviews), mine: shown(snapshot?.mine) };
-    const lists: Record<List, PullRequest[]> = {
-      reviews: all.reviews.filter((pull) => !isDone(done, pull)),
-      mine: all.mine.filter((pull) => !isDone(done, pull)),
-    };
-    const finished = (list: List) => all[list].filter((pull) => isDone(done, pull));
+    const all = recordOf(LISTS, (list) => shown(snapshot?.[list]));
+    const lists = recordOf(LISTS, (list) =>
+      all[list].filter((pull) => !isDone(done, pull) && !isIgnored(ignored, list, pull)),
+    );
+    const finished = (list: List) => all[list].filter((pull) => isDone(done, pull) && !isIgnored(ignored, list, pull));
+    const away = (list: List) => all[list].filter((pull) => isIgnored(ignored, list, pull));
     active = lists;
     // What's picked and has since gone, done elsewhere or off the list, isn't picked any more.
     for (const list of LISTS)
       for (const url of picked[list]) if (!lists[list].some((pull) => pull.url === url)) picked[list].delete(url);
     const hasLists = all.reviews.length + all.mine.length > 0;
-    const loading = updating && !snapshot;
+    // Before the first look, and on a list just added before its first, rows stand in for the pull requests to come.
+    const loading = recordOf(LISTS, (list) => updating && !snapshot?.[list] && shownLists.includes(list));
     // Signed out, or with nothing read yet, the problem takes the lists' place; with earlier lists, those stay up under a note.
     const blocking = Boolean(problem) && (problem === "signed-out" || !hasLists);
-    // A look that found the same pull requests leaves the rows alone, so nothing flickers or loads again.
+    // A look that found the same pull requests leaves the rows alone, so nothing flickers or loads again; nor are they
+    // drawn again while a row's menu is open, which would take it away from under the reader.
     reestimate();
-    const key = JSON.stringify([loading, all, narrowed, done, [...estimates], popup]);
-    const redraw = key !== drawn;
-    drawn = key;
+    const key = JSON.stringify([loading, all, narrowed, done, ignored, branches, [...estimates], popup]);
+    const redraw = key !== drawn && !document.querySelector(".menu:not([hidden])");
+    if (redraw) drawn = key;
     panels.forEach((panel, index) => {
       const list = LISTS[index]!;
-      panel.setAttribute("aria-busy", String(loading));
+      tabs[index]!.hidden = !shownLists.includes(list);
+      panel.setAttribute("aria-busy", String(loading[list]));
       if (redraw) {
-        const drawnList = loading
+        const drawnList = loading[list]
           ? { filter: null, sections: [skeleton()] }
-          : renderList(lists[list], finished(list), list);
+          : renderList(lists[list], finished(list), away(list), list);
         $(".filter-slot", panel).replaceChildren(...(drawnList.filter ? [drawnList.filter] : []));
         $(".groups", panel).replaceChildren(...drawnList.sections);
       }
-      $(".empty", panel).hidden = loading || blocking || lists[list].length > 0;
-      $(".see-all", panel).hidden = loading || blocking;
+      $(".empty", panel).hidden = loading[list] || blocking || lists[list].length > 0;
+      $(".see-all", panel).hidden = loading[list] || blocking;
+      if (list === "updates" || list === "merged") $<HTMLAnchorElement>(".see-all", panel).href = seeAll(list);
       panel.classList.toggle("blocked", blocking);
       $(`#count-${list}`).textContent = snapshot && !blocking ? String(ready(lists[list], list).length) : "";
     });
+    // More lists make for narrower tabs; the one selected may have just been taken away in settings.
+    $(".tabs").dataset.count = String(shownLists.length);
+    if (shownLists.includes(currentList())) moveIndicator();
+    else select("reviews");
     $("#problem").hidden = !blocking;
     $("#notice").hidden = !problem || blocking;
     if (problem) {
@@ -706,25 +821,45 @@ export const startPopup = (): void => {
         : i18n.t(problem ? "popupListsFrom" : "popupUpdated", [ago(snapshot.checkedAt)]);
   };
 
-  /** The footer while something is picked, or just after marking: how many, and what to do with them. */
+  /** What was just ignored, as the footer says it. */
+  const ignoredText = (list: List) => i18n.t(list === "merged" ? "popupJustSeen" : "popupJustIgnored");
+
+  /**
+   * The footer while something is picked, or just after marking or ignoring: how many, and what to do with them. Past
+   * that, a word on something just done, like a link copied, stands in for when the lists were updated a moment.
+   */
   function syncSelection() {
     const list = currentList();
     LISTS.forEach((each, index) => {
       panels[index]?.classList.toggle("selecting", picked[each].size > 0);
     });
     const count = picked[list].size;
-    const showing = count > 0 || justMarked.length > 0;
+    const showing = count > 0 || justMarked.length > 0 || justIgnored !== null;
     $("#selection").hidden = !showing;
-    $("#updated").hidden = showing;
+    $("#flash").hidden = showing;
+    $("#updated").hidden = showing || Boolean($("#flash").textContent);
     $("#notify-setup").hidden = showing;
     $("#selection-text").textContent = count
       ? i18n.t("popupSelected", count, [count])
       : justMarked.length > 0
         ? i18n.t("popupMarked", justMarked.length, [justMarked.length])
-        : "";
+        : justIgnored
+          ? ignoredText(justIgnored.list)
+          : "";
     $("#selection-clear").hidden = !count;
     $("#mark-done").hidden = !count;
-    $("#undo-done").hidden = Boolean(count) || justMarked.length === 0;
+    $("#undo-done").hidden = Boolean(count) || (justMarked.length === 0 && !justIgnored);
+  }
+
+  let flashTimer = 0;
+  function flash(text: string) {
+    $("#flash").textContent = text;
+    syncSelection();
+    clearTimeout(flashTimer);
+    flashTimer = window.setTimeout(() => {
+      $("#flash").textContent = "";
+      syncSelection();
+    }, 2400);
   }
 
   const saveDone = (next: DoneMarks) => {
@@ -734,6 +869,24 @@ export const startPopup = (): void => {
     syncSelection();
   };
 
+  function saveIgnored(next: IgnoredMarks) {
+    ignored = next;
+    void ignoredItem.setValue(ignored);
+    render();
+    syncSelection();
+  }
+
+  /** Undo stays a few seconds after marking or ignoring. */
+  let undoTimer = 0;
+  function forgetLater() {
+    clearTimeout(undoTimer);
+    undoTimer = window.setTimeout(() => {
+      justMarked = [];
+      justIgnored = null;
+      syncSelection();
+    }, 6000);
+  }
+
   function clearPicked() {
     picked[currentList()].clear();
     drawn = "";
@@ -741,24 +894,23 @@ export const startPopup = (): void => {
     syncSelection();
   }
 
-  let undoTimer = 0;
   $("#mark-done").addEventListener("click", () => {
     const list = currentList();
     justMarked = active[list].filter((pull) => picked[list].has(pull.url));
+    justIgnored = null;
     picked[list].clear();
     saveDone(markDone(done, justMarked));
     // The rows are gone; the list takes the focus, and Undo stays a few seconds.
     $(`#panel-${list}`).focus();
-    clearTimeout(undoTimer);
-    undoTimer = window.setTimeout(() => {
-      justMarked = [];
-      syncSelection();
-    }, 6000);
+    forgetLater();
   });
   $("#undo-done").addEventListener("click", () => {
     const back = justMarked;
+    const unIgnore = justIgnored;
     justMarked = [];
-    saveDone(unmarkDone(done, back));
+    justIgnored = null;
+    if (unIgnore) saveIgnored(unignore(ignored, unIgnore.list, unIgnore.pull));
+    else saveDone(unmarkDone(done, back));
   });
   $("#selection-clear").addEventListener("click", clearPicked);
 
@@ -776,6 +928,16 @@ export const startPopup = (): void => {
     void browser.tabs.create({ url: link.href, active: false });
     // GitHub counts it as seen once it opens.
     link.classList.remove("unread");
+  });
+
+  // A pull request's link pasted anywhere but a field opens its changes, in a tab behind the popup like the rest.
+  document.addEventListener("paste", (event) => {
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]")) return;
+    const link = parsePullLink(event.clipboardData?.getData("text/plain") ?? "");
+    if (!link) return;
+    event.preventDefault();
+    void browser.tabs.create({ url: `${pullLinkUrl(link)}/changes`, active: false });
+    flash(i18n.t("popupOpened", [`${link.owner}/${link.repo}#${link.number}`]));
   });
 
   const refresh = () => {
@@ -806,7 +968,9 @@ export const startPopup = (): void => {
   translateDocument(i18n.t("popupTitle"));
   let initial: List = "reviews";
   try {
-    initial = localStorage.getItem(TAB_KEY) === "mine" ? "mine" : "reviews";
+    // A list the reader has since taken away is let go once the settings are in.
+    const saved = localStorage.getItem(TAB_KEY);
+    initial = LISTS.find((list) => list === saved) ?? "reviews";
   } catch {
     // As above.
   }
@@ -840,7 +1004,11 @@ export const startPopup = (): void => {
     reviewNow.focus();
   });
   function renderReview() {
-    const waiting = new Set((snapshot?.reviews ?? []).filter((pull) => !isDone(done, pull)).map((pull) => pull.url));
+    const waiting = new Set(
+      (snapshot?.reviews ?? [])
+        .filter((pull) => !isDone(done, pull) && !isIgnored(ignored, "reviews", pull))
+        .map((pull) => pull.url),
+    );
     // Once one starts, the card shows it; asking to review now again starts from the form.
     if (run) reviewingNow = false;
     reviewCard.hidden = !run && !reviewingNow;
@@ -919,6 +1087,15 @@ export const startPopup = (): void => {
     render();
     syncSelection();
   });
+  ignoredItem.watch((value) => {
+    ignored = value;
+    render();
+    syncSelection();
+  });
+  pullBranchesItem.watch((value) => {
+    branches = value;
+    render();
+  });
   void Promise.all([
     inboxItem.getValue(),
     loadNotify(),
@@ -930,9 +1107,13 @@ export const startPopup = (): void => {
     pullFilesItem.getValue(),
     learnedItem.getValue(),
     loadPopup(),
+    ignoredItem.getValue(),
+    pullBranchesItem.getValue(),
     loadAppearance().then(restyle),
-  ]).then(([value, notify, marks, savedReviewTime, current, kept, skipping, files, pace, repos]) => {
+  ]).then(([value, notify, marks, savedReviewTime, current, kept, skipping, files, pace, repos, away, known]) => {
     popup = repos;
+    ignored = away;
+    branches = known;
     skipUntil = skipping;
     pullFiles = files;
     learned = pace;

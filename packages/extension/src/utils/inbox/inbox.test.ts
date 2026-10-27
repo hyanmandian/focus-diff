@@ -7,9 +7,11 @@ import {
   activityKind,
   DEFAULT_NOTIFY,
   freshActivity,
+  ignore,
   inPopup,
   invalidRepos,
   isDone,
+  isIgnored,
   isQuiet,
   isWatching,
   markAgain,
@@ -17,10 +19,13 @@ import {
   needsDetail,
   normalizeNotify,
   normalizePopup,
+  popupLists,
   pruneDone,
+  pruneIgnored,
   rememberThreads,
   reviewListEvents,
   splitRepos,
+  unignore,
   unmarkDone,
   wants,
   type InboxEvent,
@@ -169,6 +174,40 @@ describe("inPopup", () => {
     expect(inPopup({ ...settings, teams: false }, pull(1, { team: true }))).toBe(false);
     expect(inPopup({ ...settings, teams: false }, pull(1))).toBe(true);
     expect(inPopup(settings, { repo: "acme/api" })).toBe(false);
+  });
+});
+
+describe("popupLists", () => {
+  it("has the review queue and the reader's own always, and the lists they added", () => {
+    expect(popupLists(normalizePopup({}))).toEqual(["reviews", "mine"]);
+    expect(popupLists(normalizePopup({ merged: true }))).toEqual(["reviews", "mine", "merged"]);
+    expect(popupLists(normalizePopup({ updates: true, merged: true }))).toEqual([
+      "reviews",
+      "mine",
+      "updates",
+      "merged",
+    ]);
+  });
+});
+
+describe("ignored", () => {
+  it("hides a pull request from one list, whatever happens on it, until the reader brings it back", () => {
+    const first = pull(1);
+    const marks = ignore(ignore({}, "updates", first), "updates", first);
+    expect(marks).toEqual({ updates: [first.url] });
+    const updated: PullRequest = { ...first, updatedAt: "2030-01-01T00:00:00Z" };
+    expect(isIgnored(marks, "updates", updated)).toBe(true);
+    expect(isIgnored(marks, "reviews", first)).toBe(false);
+    expect(isIgnored(unignore(marks, "updates", first), "updates", first)).toBe(false);
+    expect(unignore({}, "merged", first)).toEqual({ merged: [] });
+  });
+
+  it("forgets marks off their list, and every mark of a list that isn't read", () => {
+    const [first, second] = [pull(1), pull(2)];
+    const marks = { reviews: [first.url, second.url], mine: [first.url], merged: [second.url] };
+    expect(pruneIgnored(marks, { reviews: [second], mine: [], merged: undefined })).toEqual({
+      reviews: [second.url],
+    });
   });
 });
 

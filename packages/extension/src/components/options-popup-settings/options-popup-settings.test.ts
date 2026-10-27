@@ -21,21 +21,33 @@ describe("createPopupSettings", () => {
     document.body.innerHTML = pageBody(page);
   });
 
-  it("shows the saved repositories and team setting, and gives back what the reader changed", () => {
+  it("shows the saved repositories, switches and lists, and gives back what the reader changed", () => {
     const onChange = vi.fn<() => void>();
     const popup = createPopupSettings({ onChange });
-    popup.render(normalizePopup({ repos: ["acme/web"], excludeRepos: [], teams: false }));
-    const teams = document.querySelector<HTMLInputElement>("#popup-teams")!;
-    expect(teams.checked).toBe(false);
+    popup.render(normalizePopup({ repos: ["acme/web"], excludeRepos: [], teams: false, merged: true }));
+    const toggle = (id: string) => document.querySelector<HTMLInputElement>(`#popup-${id}`)!;
+    expect([toggle("teams").checked, toggle("updates").checked, toggle("merged").checked]).toEqual([
+      false,
+      false,
+      true,
+    ]);
     expect(document.querySelector("#popup-repos")?.textContent).toContain("acme/web");
 
-    teams.checked = true;
-    teams.dispatchEvent(new Event("change"));
+    for (const id of ["teams", "updates", "merged"]) {
+      toggle(id).checked = !toggle(id).checked;
+      toggle(id).dispatchEvent(new Event("change"));
+    }
     type(document.querySelector<HTMLInputElement>("#popup-repos-only")!, "acme/api");
     type(document.querySelector<HTMLInputElement>("#popup-repos-never-list")!, "acme/old");
 
-    expect(onChange).toHaveBeenCalledTimes(3);
-    expect(popup.value()).toEqual({ repos: ["acme/web", "acme/api"], excludeRepos: ["acme/old"], teams: true });
+    expect(onChange).toHaveBeenCalledTimes(5);
+    expect(popup.value()).toEqual({
+      repos: ["acme/web", "acme/api"],
+      excludeRepos: ["acme/old"],
+      teams: true,
+      updates: true,
+      merged: false,
+    });
     expect(popup.check()).toBe(true);
   });
 

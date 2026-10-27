@@ -10,12 +10,14 @@ import {
   normalizePopup,
   type DoneMarks,
   type HeldEvent,
+  type IgnoredMarks,
   type InboxMemory,
   type InboxSnapshot,
   type NotifySettings,
   type PopupSettings,
   type QueueHistory,
 } from "@/utils/inbox/inbox";
+import type { BranchesRecord } from "@/utils/pull-branches/pull-branches";
 import {
   DEFAULT_REVIEW_TIME,
   normalizeReviewTime,
@@ -78,6 +80,9 @@ export const inboxItem = storage.defineItem<InboxSnapshot | null>("local:inbox",
 /** The pull requests the reader marked done in the popup, synced so they stay done on their other browsers. */
 export const doneItem = storage.defineItem<DoneMarks>("sync:inboxDone", { fallback: {} });
 
+/** The pull requests the reader ignored on each of the popup's lists, synced like the done marks. */
+export const ignoredItem = storage.defineItem<IgnoredMarks>("sync:inboxIgnored", { fallback: {} });
+
 /** What the background last saw, to tell what's new; cleared when notifications go off, so turning them on starts afresh. */
 export const inboxMemoryItem = storage.defineItem<InboxMemory | null>("local:inboxMemory", { fallback: null });
 
@@ -102,6 +107,11 @@ export const reviewRunItem = storage.defineItem<ReviewRun | null>("local:reviewR
 
 /** Each pull request's files as last read for an estimate, by url, so they're read again only after a push. */
 export const pullFilesItem = storage.defineItem<Record<string, FilesRecord>>("local:pullFiles", { fallback: {} });
+
+/** Each pull request's branches as last read, by url, for the popup to put stacks together; read again after a push. */
+export const pullBranchesItem = storage.defineItem<Record<string, BranchesRecord>>("local:pullBranches", {
+  fallback: {},
+});
 
 /** The reader's pace as learned from the files they review, on this device. */
 export const learnedItem = storage.defineItem<Learned | null>("local:learnedPace", { fallback: null });

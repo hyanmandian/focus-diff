@@ -7,6 +7,7 @@ import { samplePull } from "@/utils/github-sample-pull/github-sample-pull";
 import type { checkInbox, CheckResult } from "@/utils/inbox-check/inbox-check";
 import { DEFAULT_NOTIFY, type InboxEvent, type InboxSnapshot, type NotifySettings } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
+import type { readBranches } from "@/utils/pull-branches/pull-branches";
 import type {
   endRun,
   hold,
@@ -25,6 +26,7 @@ import type {
 } from "@/utils/review-scheduler/review-scheduler";
 import {
   doneItem,
+  ignoredItem,
   inboxItem,
   inboxMemoryItem,
   notificationLinksItem,
@@ -41,6 +43,7 @@ type Hooks = Parameters<typeof initReviewTime>[0];
 const mocks = vi.hoisted(() => ({
   checkInbox: vi.fn<typeof checkInbox>(),
   play: vi.fn<typeof play>(),
+  readBranches: vi.fn<typeof readBranches>(),
   scheduler: {
     endRun: vi.fn<typeof endRun>(),
     hold: vi.fn<typeof hold>(),
@@ -68,6 +71,10 @@ vi.mock(import("@/utils/background-sound/background-sound"), async (original) =>
   play: mocks.play,
 }));
 vi.mock(import("@/utils/review-scheduler/review-scheduler"), () => mocks.scheduler);
+vi.mock(import("@/utils/pull-branches/pull-branches"), async (original) => ({
+  ...(await original()),
+  readBranches: mocks.readBranches,
+}));
 
 const { scheduler } = mocks;
 /** Friday 9 October 2026, 10:00 local time. */
@@ -304,17 +311,43 @@ describe("a look", () => {
       [samplePull(4).url]: "2026-10-09T00:00:00Z",
       [samplePull(9).url]: "2026-10-09T00:00:00Z",
     });
-    await popupItem.setValue({ repos: [], excludeRepos: ["octo/old"], teams: true });
+    await popupItem.setValue({ repos: [], excludeRepos: ["octo/old"], teams: true, updates: false, merged: false });
     await settle();
     await look();
     expect(mocks.checkInbox.mock.calls[0]?.[1].enabled).toBe(true);
-    expect(mocks.checkInbox.mock.calls[0]?.[3]).toEqual({ skipTeams: false });
+    expect(mocks.checkInbox.mock.calls[0]?.[3]).toEqual({ skipTeams: false, updates: false, merged: false });
     expect((await inboxItem.getValue())?.reviews).toHaveLength(4);
     expect(await inboxMemoryItem.getValue()).toEqual({ threads: {}, reviews: [] });
     expect(await badge()).toEqual({ text: "1", color: "#1f6feb" });
     // A mark is let go once its pull request is off the lists.
     expect(Object.keys(await doneItem.getValue())).toEqual([samplePull(4).url]);
     expect(scheduler.readQueueFiles).toHaveBeenCalledWith((await inboxItem.getValue())?.reviews);
+  });
+
+  it("reads the lists the reader added, keeps one that failed as it was, and lets go of marks off the lists", async () => {
+    const [one, two, three] = [samplePull(1), samplePull(2), samplePull(3)];
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: true, updates: true, merged: true });
+    await settle();
+    await inboxItem.setValue(snapshot({ updates: [one], merged: [two] }));
+    await ignoredItem.setValue({ updates: [one.url, three.url], merged: [two.url], reviews: [one.url] });
+    mocks.checkInbox.mockClear();
+    mocks.checkInbox.mockResolvedValue(result({ snapshot: snapshot({ updates: [one, three] }) }));
+    await look();
+    expect(mocks.checkInbox.mock.calls[0]?.[3]).toEqual({ skipTeams: false, updates: true, merged: true });
+    expect(await inboxItem.getValue()).toMatchObject({ updates: [one, three], merged: [two] });
+    expect(await ignoredItem.getValue()).toEqual({
+      reviews: [one.url],
+      updates: [one.url, three.url],
+      merged: [two.url],
+    });
+    expect(mocks.readBranches).toHaveBeenCalledWith([snapshot().reviews, snapshot().mine, [one, three], [two]]);
+
+    // Taken away, a list isn't kept, nor are its marks.
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: true, updates: false, merged: false });
+    mocks.checkInbox.mockResolvedValue(result());
+    await look();
+    expect((await inboxItem.getValue())?.updates).toBeUndefined();
+    expect(await ignoredItem.getValue()).toEqual({ reviews: [one.url] });
   });
 
   it("keeps the done marks when none are let go", async () => {
@@ -410,11 +443,11 @@ describe("a look", () => {
   });
 
   it("reads only the lists for the popup, leaving out their teams' when the queue does", async () => {
-    await popupItem.setValue({ repos: [], excludeRepos: [], teams: false });
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: false, merged: false });
     await settle();
     await message({ type: "inbox-refresh" });
     expect(mocks.checkInbox.mock.calls.at(-1)?.[1].enabled).toBe(false);
-    expect(mocks.checkInbox.mock.calls.at(-1)?.[3]).toEqual({ skipTeams: true });
+    expect(mocks.checkInbox.mock.calls.at(-1)?.[3]).toEqual({ skipTeams: true, updates: false, merged: false });
   });
 });
 
@@ -602,13 +635,28 @@ describe("the icon", () => {
     await settle();
     mocks.checkInbox.mockClear();
     await inboxItem.setValue(snapshot());
-    await popupItem.setValue({ repos: ["octo/other"], excludeRepos: [], teams: true });
+    await popupItem.setValue({ repos: ["octo/other"], excludeRepos: [], teams: true, updates: false, merged: false });
     await settle();
     expect((await badge()).text).toBe("");
     expect(mocks.checkInbox).not.toHaveBeenCalled();
-    await popupItem.setValue({ repos: [], excludeRepos: [], teams: false });
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: false, merged: false });
     await settle();
     expect(mocks.checkInbox).toHaveBeenCalledTimes(1);
+    // A list added is read at once, to have it there.
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: true, merged: false });
+    await settle();
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: true, merged: true });
+    await settle();
+    expect(mocks.checkInbox).toHaveBeenCalledTimes(3);
+  });
+
+  it("counts again when the reader ignores one", async () => {
+    await notifyItem.setValue(enabled());
+    await settle();
+    await inboxItem.setValue(snapshot());
+    await ignoredItem.setValue({ reviews: [samplePull(1).url] });
+    await settle();
+    expect((await badge()).text).toBe("1");
   });
 });
 

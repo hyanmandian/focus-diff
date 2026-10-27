@@ -14,6 +14,7 @@ import {
   externalIcon,
   fileIcon,
   infoIcon,
+  moreIcon,
   nextFileIcon,
   playIcon,
   pullRequestIcon,
@@ -43,6 +44,7 @@ describe("icons", () => {
       targetIcon(),
       nextFileIcon(),
       closeIcon(),
+      moreIcon(),
       ...Object.values(threadStateIcons).map((draw) => draw()),
     ];
     for (const svg of drawn) {

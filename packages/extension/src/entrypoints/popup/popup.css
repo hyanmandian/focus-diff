@@ -33,6 +33,10 @@ body {
   color: var(--fd-fg);
   font: 14px/1.5 var(--fd-font);
 }
+/* With both lists the reader can add, four tabs need a little more room than the window has. */
+body:has(.tabs[data-count="4"]) {
+  width: 440px;
+}
 
 .head-row {
   display: flex;
@@ -71,11 +75,12 @@ body {
   color: var(--fd-fg);
 }
 
-/* The two lists, drawn like the bar's filters: the selected one on a pill that slides over to the other. */
+/* The lists, drawn like the bar's filters: the selected one on a pill that slides over to another. */
 .tabs {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   gap: 2px;
   margin: 0 12px;
   padding: 4px;
@@ -124,6 +129,18 @@ body {
 }
 .tab:hover {
   background: var(--fd-hover);
+}
+.tab[hidden] {
+  display: none;
+}
+/* With the lists the reader added, each tab takes the room its name needs, a little closer. */
+.tabs:not([data-count="2"]) {
+  grid-auto-columns: auto;
+}
+.tabs:not([data-count="2"]) .tab {
+  gap: 4px;
+  padding: 0 6px 0 8px;
+  font-size: 12px;
 }
 .tab[aria-selected="true"],
 .tab[aria-selected="true"]:hover {
@@ -363,6 +380,11 @@ a.pull:focus-visible {
   flex: none;
   font-variant-numeric: tabular-nums;
 }
+/* Its place in a stack, from the bottom. */
+.pull-stack {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
 .pull-author {
   min-width: 0;
   overflow: hidden;
@@ -449,6 +471,94 @@ a.pull:focus-visible {
 }
 .row.picked .pull {
   background: color-mix(in srgb, var(--fd-selected-bg) 16%, transparent);
+}
+
+/* A stack's rows joined by a line through their pictures, from the one below up. */
+.row.stack-up::before,
+.row.stack-down::after {
+  content: "";
+  position: absolute;
+  left: 25px;
+  width: 2px;
+  background: var(--fd-border);
+  pointer-events: none;
+}
+.row.stack-up::before {
+  top: 0;
+  height: 8px;
+}
+.row.stack-down::after {
+  top: 32px;
+  bottom: 0;
+}
+
+/* A row's menu: its button shows on hover and on the focused row, where the comments were, and its actions under it. */
+.row-menu {
+  position: absolute;
+  z-index: 1;
+  right: 8px;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--fd-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.row:hover .row-menu,
+.row:focus-within .row-menu,
+.row-menu[aria-expanded="true"] {
+  opacity: 1;
+}
+.row-menu:hover,
+.row-menu[aria-expanded="true"] {
+  background: var(--fd-hover);
+  color: var(--fd-fg);
+}
+.row-menu:focus-visible {
+  outline-offset: -2px;
+}
+.row:has(.row-menu-slot):hover .pull-comments,
+.row:has(.row-menu-slot):focus-within .pull-comments {
+  visibility: hidden;
+}
+.menu {
+  position: fixed;
+  z-index: 3;
+  display: grid;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--fd-border);
+  border-radius: 10px;
+  background: var(--fd-bg);
+  box-shadow: var(--raised-shadow);
+}
+.menu[hidden] {
+  display: none;
+}
+.menu-item {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--fd-fg);
+  font: 500 12px/20px var(--fd-font);
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--fd-hover);
+}
+.menu-item:focus-visible {
+  outline-offset: -2px;
 }
 .restore {
   position: absolute;
@@ -658,6 +768,12 @@ a.pull:focus-visible {
   white-space: nowrap;
   color: var(--fd-muted);
   font-size: 12px;
+}
+.foot #flash {
+  color: var(--fd-fg);
+}
+.foot #flash:empty {
+  display: none;
 }
 .text-button {
   display: inline-flex;
@@ -962,6 +1078,11 @@ a.pull:focus-visible {
   }
   .unread::before {
     background: CanvasText;
+  }
+  .row.stack-up::before,
+  .row.stack-down::after {
+    forced-color-adjust: none;
+    background: GrayText;
   }
   .chip[aria-pressed="true"] {
     forced-color-adjust: none;

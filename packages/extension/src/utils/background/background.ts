@@ -7,9 +7,11 @@ import { checkInbox } from "@/utils/inbox-check/inbox-check";
 import {
   inPopup,
   isDone,
+  isIgnored,
   isQuiet,
   markAgain,
   pruneDone,
+  pruneIgnored,
   type Delivery,
   type HeldEvent,
   type InboxEvent,
@@ -17,6 +19,7 @@ import {
   type NotifySettings,
 } from "@/utils/inbox/inbox";
 import { COMMANDS, type Message } from "@/utils/messages/messages";
+import { readBranches } from "@/utils/pull-branches/pull-branches";
 import {
   endRun,
   hold,
@@ -35,6 +38,7 @@ import {
 } from "@/utils/review-scheduler/review-scheduler";
 import {
   doneItem,
+  ignoredItem,
   inboxItem,
   inboxMemoryItem,
   loadNotify,
@@ -74,8 +78,8 @@ const NOTIFICATION_LIMIT = 4;
 const source = { pulls: fetchPulls, notifications: fetchNotifications, detail: fetchDetail };
 
 /**
- * The icon counts the pull requests waiting for the reader's review, leaving out drafts and the ones they marked done,
- * or warns when they're signed out of GitHub. During review time, it counts down the minutes left instead.
+ * The icon counts the pull requests waiting for the reader's review, leaving out drafts and the ones they marked done or
+ * ignored, or warns when they're signed out of GitHub. During review time, it counts down the minutes left instead.
  */
 const updateBadge = async (settings: NotifySettings, snapshot: InboxSnapshot | null) => {
   const reviewing = await runBadge();
@@ -84,15 +88,21 @@ const updateBadge = async (settings: NotifySettings, snapshot: InboxSnapshot | n
     await browser.action.setBadgeText({ text: reviewing.text });
     return;
   }
-  const [done, popup] = await Promise.all([doneItem.getValue(), loadPopup()]);
-  // What the popup lists: the repositories the reader picked, without drafts or what they marked done.
+  const [done, ignored, popup] = await Promise.all([doneItem.getValue(), ignoredItem.getValue(), loadPopup()]);
+  // What the popup lists: the repositories the reader picked, without drafts or what they marked done or ignored.
   const waiting =
-    snapshot?.reviews.filter((pull) => !pull.draft && !isDone(done, pull) && inPopup(popup, pull)).length ?? 0;
+    snapshot?.reviews.filter(
+      (pull) => !pull.draft && !isDone(done, pull) && !isIgnored(ignored, "reviews", pull) && inPopup(popup, pull),
+    ).length ?? 0;
   const signedOut = snapshot?.problem === "signed-out";
   const text = settings.enabled ? (signedOut ? "!" : waiting ? String(waiting) : "") : "";
   await browser.action.setBadgeBackgroundColor({ color: signedOut ? "#d29922" : "#1f6feb" });
   await browser.action.setBadgeText({ text });
 };
+
+/** The badge again, as the reader's marks change what it counts. */
+const recount = () =>
+  void Promise.all([loadNotify(), inboxItem.getValue()]).then(([notify, inbox]) => updateBadge(notify, inbox));
 
 const TITLES: Record<InboxEvent["kind"], (actor: string, event: InboxEvent) => string> = {
   "review-requested": (actor, event) =>
@@ -197,9 +207,11 @@ const look = (full: boolean): Promise<void> =>
       inboxItem.getValue(),
     ]);
     // The queue, and what the reader is told about it, can leave out the reviews asked of their teams.
-    const { teams } = await loadPopup();
+    const { teams, updates, merged } = await loadPopup();
     const result = await checkInbox(source, full ? settings : { ...settings, enabled: false }, memory, {
       skipTeams: !teams,
+      updates,
+      merged,
     });
     // A failed look keeps the lists from the last one, and when they're from, except when signed out, when they're no
     // longer the reader's.
@@ -209,16 +221,28 @@ const look = (full: boolean): Promise<void> =>
       // Signed out, the last list read was empty, which tells nothing about what left it.
       const before = previous && previous.problem !== "signed-out" ? previous.reviews : null;
       const marked = markAgain(before, snapshot.reviews, await queueHistoryItem.getValue(), Date.now());
-      snapshot = { ...snapshot, reviews: marked.reviews };
+      // A list the reader added that couldn't be read this time stays as it was.
+      snapshot = {
+        ...snapshot,
+        reviews: marked.reviews,
+        updates: snapshot.updates ?? (updates ? previous?.updates : undefined),
+        merged: snapshot.merged ?? (merged ? previous?.merged : undefined),
+      };
       await queueHistoryItem.setValue(marked.history);
     }
     await inboxItem.setValue(snapshot);
     if (result.memory) await inboxMemoryItem.setValue(result.memory);
     if (!failed) {
       // A mark is let go once its pull request is off the lists, or back on them with something new.
+      const lists = [snapshot.reviews, snapshot.mine, snapshot.updates ?? [], snapshot.merged ?? []];
       const done = await doneItem.getValue();
-      const kept = pruneDone(done, [...snapshot.reviews, ...snapshot.mine]);
+      const kept = pruneDone(done, lists.flat());
       if (Object.keys(kept).length !== Object.keys(done).length) await doneItem.setValue(kept);
+      const ignored = await ignoredItem.getValue();
+      const stillIgnored = pruneIgnored(ignored, snapshot);
+      if (JSON.stringify(stillIgnored) !== JSON.stringify(ignored)) await ignoredItem.setValue(stillIgnored);
+      // Not waited on, like the files below: the stacks come together in the popup once their branches are read.
+      void readBranches(lists);
     }
     await updateBadge(settings, snapshot);
     // What the reader keeps for review time, or everything while they review if they asked, waits; the rest shows now.
@@ -342,12 +366,13 @@ export const startBackground = (): void => {
   notifyItem.watch(() => void schedule());
   reviewTimeItem.watch(() => void scheduleReviewTime());
   reviewSkipItem.watch(() => void scheduleReviewTime());
-  doneItem.watch(
-    () => void Promise.all([loadNotify(), inboxItem.getValue()]).then(([notify, inbox]) => updateBadge(notify, inbox)),
-  );
-  // Leaving out the reviews asked of the reader's teams takes reading the lists again, to tell which those are.
+  doneItem.watch(recount);
+  ignoredItem.watch(recount);
+  // Leaving out the reviews asked of the reader's teams takes reading the lists again, to tell which those are, and so
+  // does a list just added to the popup, to have it there.
   popupItem.watch((next, previous) => {
-    if (!next?.teams && previous?.teams) void look(false);
+    const added = (list: "updates" | "merged") => next?.[list] && !previous?.[list];
+    if ((!next?.teams && previous?.teams) || added("updates") || added("merged")) void look(false);
     else void loadNotify().then(async (settings) => updateBadge(settings, await inboxItem.getValue()));
   });
   browser.alarms.onAlarm.addListener((alarm) => void onAlarm(alarm));

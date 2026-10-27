@@ -160,6 +160,11 @@ const renderedItem = (file: ReviewFile, key: number, collapsed: boolean): CodeVi
 });
 /** Only rendered pages are file items: their blank line goes. */
 const RENDERED_CSS = "pre[data-file] [data-line], pre[data-file] [data-column-number] { display: none; }";
+/** The "+" just past a line's number, over the code's margin, not on the number; and not on picked
+ *  lines, whose comment box is already open. Picked numbers in the selection's blue. */
+const GUTTER_CSS = `[data-gutter-utility-slot] { right: auto; left: calc(100% - 4px); justify-content: flex-start; align-items: center; z-index: 2; }
+[data-selected-line] [data-gutter-utility-slot] { display: none; }
+[data-column-number][data-selected-line], [data-gutter-buffer][data-selected-line] { color: var(--diffs-selection-number-fg-override); }`;
 
 /** The text fields where right-click is the system's (cut, copy, paste), not the code's menu. */
 const typing = (el: EventTarget | null) =>
@@ -415,7 +420,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       stickyHeaders: true,
       enableGutterUtility: commentable,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
-      unsafeCSS: RENDERED_CSS,
+      unsafeCSS: `${RENDERED_CSS}\n${GUTTER_CSS}`,
       // The library's expand controls, named and reachable from the keyboard.
       onPostRender: (node: HTMLElement) => {
         labelExpandButtons(node, t);
@@ -532,6 +537,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     // Selected lines in a pale blue (dark: deep blue) every syntax color stays readable on;
     // the default amber took some below 4.5:1.
     "--diffs-bg-selection-override": dark ? "#1b2c47" : "#dcebff",
+    // Their numbers in a stronger one of the same, so the two read as one selection.
+    "--diffs-bg-selection-number-override": dark ? "#1f6feb" : "#9ec5fe",
+    "--diffs-selection-number-fg-override": dark ? "#cae0ff" : "#0a3069",
   };
 
   return (

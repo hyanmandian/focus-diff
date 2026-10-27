@@ -435,6 +435,26 @@ describe("General pane", () => {
     });
   });
 
+  it("installs the command line, says where, and why not when it can't", async () => {
+    const rust = await general();
+    const row = () => within(panel()).getByRole("button", { name: /^Install/u });
+    expect(row().textContent).toBe("Install");
+    mockCommands((cmd) => {
+      if (cmd === "install_cli") return "/opt/homebrew/bin/focus-diff";
+      return null;
+    });
+    await userEvent.click(row());
+    expect(await within(panel()).findByText("Installed at /opt/homebrew/bin/focus-diff")).toBeTruthy();
+    expect(row().textContent).toBe("Install Again");
+    mockCommands((cmd) => {
+      if (cmd === "install_cli") throw new Error("no folder");
+      return null;
+    });
+    await userEvent.click(row());
+    expect((await within(panel()).findByRole("alert")).textContent).toContain("no folder");
+    expect(rust.called("cli_installed")).toHaveLength(1);
+  });
+
   it("sends a test notification, with the sound as set", async () => {
     const rust = await general();
     await userEvent.click(within(panel()).getByRole("button", { name: "Send a Test Notification" }));

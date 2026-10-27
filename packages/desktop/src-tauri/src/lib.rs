@@ -20,6 +20,7 @@ mod floating;
 mod github;
 mod i18n;
 mod kept;
+pub mod link;
 mod logs;
 mod media;
 #[cfg(target_os = "macos")]
@@ -544,13 +545,36 @@ fn open_setup(app: AppHandle) -> Result<(), String> {
 
 /// The panel under the tray icon, as a click on it would show it (from setup's last step).
 #[tauri::command]
-fn open_panel(app: AppHandle, tray: State<'_, Tray<tauri::Wry>>) -> Result<(), String> {
-    let rect = tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
-    let Some(rect) = rect else { return Ok(()) };
+fn open_panel(app: AppHandle) {
+    show_panel(&app);
+}
+
+/// Shows the panel under the tray icon, if it isn't showing.
+pub(crate) fn show_panel(app: &AppHandle) {
+    let rect = app.state::<Tray<tauri::Wry>>().0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
+    let Some(rect) = rect else { return };
     if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
-        return Ok(());
+        return;
     }
-    toggle_panel(&app, &rect).map_err(|e| e.to_string())
+    let _ = toggle_panel(app, &rect);
+}
+
+/// Settings' Install: `focus-diff` on the command line (link.rs); where it went.
+#[tauri::command]
+fn install_cli() -> Result<String, String> {
+    link::install()
+}
+
+/// Where `focus-diff` is installed, if it is.
+#[tauri::command]
+fn cli_installed() -> Option<String> {
+    link::installed()
+}
+
+/// A pull request link sent from outside (link.rs) before the panel was there to take it.
+#[tauri::command]
+fn take_link(waiting: State<'_, link::Waiting>) -> Option<String> {
+    waiting.0.lock().unwrap().take()
 }
 
 /// Review windows: which pull request each shows, and the one made ahead of time, loaded and
@@ -1204,6 +1228,7 @@ pub fn run() {
         .manage(logs::Logs::default())
         .manage(web::WebSession::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
+        .manage(link::Waiting::default())
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
             queue_viewed,
@@ -1252,6 +1277,9 @@ pub fn run() {
             open_settings,
             open_setup,
             open_panel,
+            take_link,
+            install_cli,
+            cli_installed,
             check_update,
             update_offered,
             install_update,
@@ -1347,12 +1375,21 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running Focus Diff")
-        .run(|_, event| {
+        .run(|app, event| {
             // A tray app lives on with no window open (the panel's web view is closed when it's
             // not in use): only Quit, which exits with a code, ends it.
-            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event {
                 api.prevent_exit();
             }
+            // focusdiff:// links, handed over by macOS.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &event {
+                for url in urls {
+                    link::open(app, url.as_str());
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
         });
 }
 

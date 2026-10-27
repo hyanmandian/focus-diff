@@ -493,6 +493,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
             }}
           />
         </Row>
+        <CommandLine />
         {/* To see that notifications get through: the system may have them off for the app. */}
         <Row label={t("settings.notifications")} description={t("settings.testNotificationHint")}>
           <Button variant="outline" onClick={() => void bridge.testNotification(config.sound)}>
@@ -501,6 +502,45 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
         </Row>
       </Group>
     </Pane>
+  );
+}
+
+/** `focus-diff open <link>` on the command line: installed from here, and where it is. */
+function CommandLine() {
+  const t = useT();
+  const [path, setPath] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    void bridge.cliInstalled().then(setPath);
+  }, []);
+  const install = async () => {
+    try {
+      setPath(await bridge.installCli());
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+  return (
+    <Row
+      label={t("settings.commandLine")}
+      description={
+        <>
+          {t("settings.commandLineHint")}{" "}
+          <code className="font-mono text-foreground">focus-diff open &lt;link&gt;</code>
+          {path ? <span className="block">{t("settings.cliInstalledAt", { path })}</span> : null}
+          {error ? (
+            <span role="alert" className="block text-destructive">
+              {error}
+            </span>
+          ) : null}
+        </>
+      }
+    >
+      <Button variant="outline" onClick={() => void install()}>
+        {path ? t("settings.reinstallCli") : t("settings.installCli")}
+      </Button>
+    </Row>
   );
 }
 

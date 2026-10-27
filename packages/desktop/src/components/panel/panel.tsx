@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu/dropdown-menu";
 import { Mark } from "@/components/mark/mark";
+import { OpenLink, openLink } from "@/components/open-link/open-link";
 import { ReviewTime } from "@/components/panel-review-time/panel-review-time";
 import { PullRow } from "@/components/pull-row/pull-row";
 import { Skeleton } from "@/components/skeleton/skeleton";
@@ -32,6 +33,7 @@ import { tabKeys } from "@/utils/keys/keys";
 import { shortcut } from "@/utils/os/os";
 import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
+import { parsePullLink } from "@/utils/pull-link/pull-link";
 import {
   clearArrival,
   dismiss,
@@ -120,6 +122,42 @@ export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen, review } = useStore();
   const shown = useShown();
   const t = useT();
+  // Open Pull Request…: open, and what it shows on opening (a link that couldn't be opened, and why).
+  const [linkSheet, setLinkSheet] = useState<{ at: number; initial: { text: string; error: string } | null } | null>(
+    null,
+  );
+  // A link pasted in the panel or sent from a focusdiff:// link: opened, or the sheet says why not.
+  const tRef = useRef(t);
+  useLayoutEffect(() => {
+    tRef.current = t;
+  });
+  useEffect(() => {
+    const tryLink = async (text: string) => {
+      const error = await openLink(text, tRef.current);
+      if (!error) return;
+      void bridge.openPanel();
+      setLinkSheet({ at: Date.now(), initial: { text: text.trim(), error } });
+    };
+    // Pasted anywhere but a text field: a pull request's link, or what looks like a link to one.
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA)$/u.test(target.tagName)))
+        return;
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!parsePullLink(text) && !/^\s*https?:\/\//u.test(text)) return;
+      e.preventDefault();
+      void tryLink(text);
+    };
+    document.addEventListener("paste", onPaste);
+    const off = bridge.on<string>("open-link", (text) => void tryLink(text));
+    void bridge.takeLink().then(async (text) => {
+      if (text) await tryLink(text);
+    });
+    return () => {
+      document.removeEventListener("paste", onPaste);
+      void unlisten(off);
+    };
+  }, []);
   // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
   // right away and VoiceOver reads where you are.
   const listRef = useRef<HTMLDivElement>(null);
@@ -210,6 +248,9 @@ export function Panel() {
       if (e.metaKey && !e.altKey && !e.ctrlKey && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
+      } else if (e.metaKey && !e.altKey && !e.ctrlKey && e.key === "o") {
+        e.preventDefault();
+        setLinkSheet({ at: Date.now(), initial: null });
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
         // Lets go of what's picked first, then closes.
         if (pickedRef.current.size > 0) setPicked(new Set());
@@ -467,7 +508,7 @@ export function Panel() {
               </Tooltip>
             )
           ) : null}
-          {/* Settings and Quit, nothing else. */}
+          {/* Open Pull Request…, Settings and Quit. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.menu")} />}
@@ -475,6 +516,13 @@ export function Panel() {
               <Settings />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setLinkSheet({ at: Date.now(), initial: null });
+                }}
+              >
+                {t("panel.openPullMenu")} <DropdownMenuShortcut>{shortcut("O", ["cmd"])}</DropdownMenuShortcut>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>
                 {t("panel.settings")} <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
@@ -487,6 +535,15 @@ export function Panel() {
       </header>
 
       {ready && signedIn && review ? <ReviewTime review={review} items={items} /> : null}
+      {linkSheet ? (
+        <OpenLink
+          key={linkSheet.at}
+          initial={linkSheet.initial}
+          onClose={() => {
+            setLinkSheet(null);
+          }}
+        />
+      ) : null}
 
       {ready ? (
         signedIn ? (

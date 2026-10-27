@@ -607,7 +607,7 @@ export function Panel() {
                   ref={listRef}
                   tabIndex={-1}
                   aria-label={t("panel.pullRequestsOf", { queue: queue.name })}
-                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
+                  className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
                 >
                   {groups.length > 0 || drafts.length > 0 ? (
                     <>

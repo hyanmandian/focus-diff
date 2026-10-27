@@ -725,7 +725,7 @@ function Sidebar({
           activateOnFocus
           loopFocus={false}
           aria-label={t("settings.sections")}
-          className="group/list flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3"
+          className="group/list flex min-h-0 flex-1 [scrollbar-gutter:stable] flex-col gap-0.5 overflow-y-auto px-2 pb-3"
         >
           {accountMatch ? (
             <TabsPrimitive.Tab value="account" className={cn(sidebarItem, "mb-3 h-12")}>

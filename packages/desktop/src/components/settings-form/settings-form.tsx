@@ -104,8 +104,10 @@ export function Pane({
           {tools ? <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">{tools}</div> : null}
         </div>
       </header>
+      {/* Room kept for a scroll bar on both sides (one shows with "Show scroll bars: Always" or a
+          mouse), so a pane that scrolls doesn't move the centred content over. */}
       <div
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto"
         onScroll={(e) => {
           setScrolled(e.currentTarget.scrollTop);
         }}

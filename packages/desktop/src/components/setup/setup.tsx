@@ -179,7 +179,7 @@ export function Setup() {
         </ol>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 pt-4 pb-6">
+      <main className="flex min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] flex-col overflow-y-auto px-8 pt-4 pb-6">
         {at === "github" ? (
           <section className="flex flex-col gap-6" aria-labelledby="step-title">
             <div className="flex flex-col gap-1.5">

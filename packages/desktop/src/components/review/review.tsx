@@ -1599,7 +1599,7 @@ export function Review({ target }: { target: Target }) {
             id="panel-overview"
             aria-labelledby="tab-overview"
             hidden={tab !== "overview"}
-            className="min-h-0 flex-1 overflow-y-auto bg-muted/30"
+            className="min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto bg-muted/30"
           >
             {details ? (
               <Overview

@@ -42,6 +42,7 @@ export const panel = {
   via: "via {team}",
   more: "More for {title}",
   openOnGitHub: "Open on GitHub",
+  copyLink: "Copy Link",
   markSeen: "Mark as Seen",
   ignore: "Ignore",
   select: "Select {title}",

@@ -57,7 +57,7 @@ import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
-import { ConversationProvider, useConversation } from "@/hooks/use-conversation/use-conversation";
+import { ConversationProvider, copyText, useConversation } from "@/hooks/use-conversation/use-conversation";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { published, usePending } from "@/hooks/use-pending/use-pending";
@@ -1094,21 +1094,21 @@ export function Review({ target }: { target: Target }) {
               </button>
             ))}
           </div>
-          {/* Which changes show: all, since your last review, a commit or a run of them. Drawn always,
-              opened only in the Diff, so switching tabs moves nothing else. */}
-          <div
-            aria-hidden={tab !== "diff"}
-            inert={tab !== "diff"}
-            className={cn(
-              "grid shrink-0 transition-[grid-template-columns,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-              tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
-            )}
-          >
-            <div className="flex min-w-0 overflow-hidden py-1">
-              <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-                <RangePicker pull={pull} className={TOOL} open={rangeMenu} onOpenChange={setRangeMenu} />
-              </div>
-            </div>
+          {/* Which changes show: all, since your last review, a commit or a run of them. On both tabs,
+              so nothing after it moves when switching; picking one from the overview shows the diff. */}
+          <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+            <RangePicker
+              pull={{
+                ...pull,
+                setRange: (picked) => {
+                  pull.setRange(picked);
+                  setTab("diff");
+                },
+              }}
+              className={TOOL}
+              open={rangeMenu}
+              onOpenChange={setRangeMenu}
+            />
           </div>
           {/* The stack it's in, on the left with what's being looked at. */}
           {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
@@ -1395,6 +1395,15 @@ export function Review({ target }: { target: Target }) {
                   }}
                 >
                   {t("review.openOnGitHub")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (!details) return;
+                    await copyText(details.url);
+                    say(i18n()("review.linkCopied"));
+                  }}
+                >
+                  {t("review.copyLink")}
                 </DropdownMenuItem>
                 <PullMenuItems pull={pull} details={details} />
                 <DropdownMenuItem

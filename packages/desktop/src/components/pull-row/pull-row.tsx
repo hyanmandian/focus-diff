@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu/dropdown-menu";
+import { copyText } from "@/hooks/use-conversation/use-conversation";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
@@ -347,6 +348,7 @@ export const PullRow = memo(function PullRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => void bridge.openUrl(pr.url)}>{t("panel.openOnGitHub")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void copyText(pr.url)}>{t("panel.copyLink")}</DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
               onDismiss(item);

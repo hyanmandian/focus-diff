@@ -43,6 +43,7 @@ export const panel: Dictionary["panel"] = {
   via: "via {team}",
   more: "Mais para {title}",
   openOnGitHub: "Abrir no GitHub",
+  copyLink: "Copiar link",
   markSeen: "Marcar como visto",
   ignore: "Ignorar",
   select: "Selecionar {title}",

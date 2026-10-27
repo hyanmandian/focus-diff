@@ -199,16 +199,34 @@ vi.mock("@/components/shortcuts/shortcuts", () => ({
     ) : null,
 }));
 vi.mock("@/components/commits/commits", () => ({
-  RangePicker: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => (
-    <button
-      type="button"
-      aria-expanded={open}
-      onClick={() => {
-        onOpenChange(!open);
-      }}
-    >
-      Changes
-    </button>
+  RangePicker: ({
+    open,
+    onOpenChange,
+    pull,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    pull: { setRange: (range: Range) => void };
+  }) => (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => {
+          onOpenChange(!open);
+        }}
+      >
+        Changes
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          pull.setRange({ from: "c", to: "d" });
+        }}
+      >
+        Pick c..d
+      </button>
+    </>
   ),
   RangeBanner: (props: Banner) => {
     h.see.banner(props);
@@ -239,6 +257,7 @@ vi.mock("@/hooks/use-pull/use-pull", () => ({
 }));
 vi.mock("@/hooks/use-conversation/use-conversation", () => ({
   ConversationProvider: ({ children }: { children: ReactNode }) => children,
+  copyText: (text: string) => navigator.clipboard.writeText(text),
   useConversation: (options: Options) => {
     h.see.talk(options);
     return { conversation: null, reload: h.reload, api: null };
@@ -1350,6 +1369,15 @@ describe("Review", () => {
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Open on GitHub" }));
       expect(sent("open_url")).toEqual([{ url: "https://github.com/acme/shop/pull/7" }]);
+      const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+      await userEvent.click(button("More"));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
+      expect(writeText).toHaveBeenCalledWith("https://github.com/acme/shop/pull/7");
+      await waitFor(() => {
+        expect(screen.getByRole("status").textContent).toBe("Link copied");
+      });
+      vi.unstubAllGlobals();
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Keyboard Shortcuts" }));
       expect(screen.getByRole("dialog")).toBeTruthy();
@@ -1709,6 +1737,9 @@ describe("Review", () => {
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Open on GitHub" }));
       expect(sent("open_url")).toEqual([]);
+      await userEvent.click(button("More"));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
+      expect(screen.queryByText("Link copied")).toBeNull();
     });
 
     it("doesn't mind when the menu bar can't be told", async () => {
@@ -1779,6 +1810,14 @@ describe("Review", () => {
       expect(diffs().onAddDraft).toBe(h.pending.add);
       expect(diffs().onEditDraft).toBe(h.pending.edit);
       expect(diffs().onRemoveDraft).toBe(h.pending.remove);
+    });
+
+    it("shows the changes picker on the Overview too, and a pick there opens the Diff", async () => {
+      await openReview();
+      expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
+      await userEvent.click(button("Pick c..d"));
+      expect(h.pull.setRange).toHaveBeenCalledWith({ from: "c", to: "d" });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
     });
 
     it("opens a range of commits from the Overview in the Diff", async () => {

@@ -1117,8 +1117,8 @@ export function Review({ target }: { target: Target }) {
             <RangePicker
               pull={{
                 ...pull,
-                setRange: (picked) => {
-                  pull.setRange(picked);
+                setRange: (commits) => {
+                  pull.setRange(commits);
                   setTab("diff");
                 },
               }}
@@ -1414,10 +1414,11 @@ export function Review({ target }: { target: Target }) {
                   {t("review.openOnGitHub")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={async () => {
-                    if (!details) return;
-                    await copyText(details.url);
-                    say(i18n()("review.linkCopied"));
+                  onClick={() => {
+                    if (details)
+                      void copyText(details.url).then(() => {
+                        say(i18n()("review.linkCopied"));
+                      });
                   }}
                 >
                   {t("review.copyLink")}

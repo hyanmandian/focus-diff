@@ -1388,15 +1388,14 @@ describe("Review", () => {
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Open on GitHub" }));
       expect(sent("open_url")).toEqual([{ url: "https://github.com/acme/shop/pull/7" }]);
-      const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
-      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+      const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
       expect(writeText).toHaveBeenCalledWith("https://github.com/acme/shop/pull/7");
       await waitFor(() => {
         expect(screen.getByRole("status").textContent).toBe("Link copied");
       });
-      vi.unstubAllGlobals();
+      writeText.mockRestore();
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Keyboard Shortcuts" }));
       expect(screen.getByRole("dialog")).toBeTruthy();

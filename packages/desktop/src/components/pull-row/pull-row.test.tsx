@@ -347,12 +347,11 @@ describe("PullRow", () => {
     await user.click(screen.getByRole("button", { name: `More for ${one.pr.title}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Open on GitHub" }));
     expect(calls).toContainEqual({ cmd: "open_url", args: { url: one.pr.url } });
-    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     await user.click(screen.getByRole("button", { name: `More for ${one.pr.title}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Copy Link" }));
     expect(writeText).toHaveBeenCalledWith(one.pr.url);
-    vi.unstubAllGlobals();
+    writeText.mockRestore();
   });
 
   it("ignores a pull request from its menu, or marks a merged one seen", async () => {

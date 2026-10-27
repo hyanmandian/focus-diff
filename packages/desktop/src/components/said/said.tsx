@@ -87,7 +87,7 @@ export function ReactionPicker({
                 setOpen(false);
               }}
               className={cn(
-                "grid size-8 cursor-default place-items-center rounded-(--radius-control) text-title3 focus-ring outline-none active:bg-(--fill-control-pressed)",
+                "grid size-8 cursor-default place-items-center rounded-(--radius-control) text-title3 focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-fill active:bg-(--fill-control-pressed)",
                 mine && "bg-primary/15",
               )}
             >
@@ -133,7 +133,7 @@ export function ReactionList({
                       onToggle(r.content);
                     }}
                     className={cn(
-                      "flex h-(--control-h-sm) cursor-default items-center gap-1 rounded-full border px-2 text-subheadline tabular-nums focus-ring outline-none disabled:opacity-100",
+                      "flex h-(--control-h-sm) cursor-default items-center gap-1 rounded-full border px-2 text-subheadline tabular-nums focus-ring transition-colors duration-(--duration-fast) outline-none enabled:hover:bg-fill disabled:opacity-100",
                       r.mine
                         ? "border-primary/50 bg-primary/10 text-primary"
                         : "border-border bg-transparent text-muted-foreground active:bg-fill",

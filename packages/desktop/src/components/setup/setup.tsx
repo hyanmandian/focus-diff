@@ -63,7 +63,9 @@ function Choice({
         className={cn(
           "mt-px grid size-4 shrink-0 place-items-center border group-focus-visible/choice:outline-(length:--focus-ring-width) group-focus-visible/choice:outline-(--focus-ring) group-focus-visible/choice:outline-solid group-active/choice:brightness-95",
           kind === "radio" ? "rounded-full" : "rounded-(--radius-checkbox)",
-          checked ? "border-transparent bg-primary text-primary-foreground" : "border-input bg-(--field-bg)",
+          checked
+            ? "border-transparent bg-primary text-primary-foreground"
+            : "border-input bg-(--field-bg) group-hover/choice:border-(--field-border-hover)",
         )}
         aria-hidden
       >

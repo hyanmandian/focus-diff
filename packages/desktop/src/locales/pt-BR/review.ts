@@ -305,5 +305,8 @@ export const review: Dictionary["review"] = {
   markDone: "Marcar como feito",
   markDoneTip: "Tira de {queue} e abre o próximo",
   doneQueueDone: "Feito. Nada mais esperando em {queue}",
+  stopConversation: "Conversa aberta",
+  stopPending: "Teu comentário pendente",
+  stopAi: "Comentário da IA",
   theQueue: "esta fila",
 };

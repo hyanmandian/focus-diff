@@ -300,5 +300,8 @@ export const review = {
   markDone: "Mark Done",
   markDoneTip: "Takes it off {queue} and opens the next",
   doneQueueDone: "Done. Nothing else waiting in {queue}",
+  stopConversation: "Open conversation",
+  stopPending: "Your pending comment",
+  stopAi: "AI comment",
   theQueue: "this queue",
 } as const;

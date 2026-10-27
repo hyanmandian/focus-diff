@@ -172,9 +172,10 @@ vi.mock("@/components/file-tree/file-tree", () => ({
   },
 }));
 vi.mock("@/components/filter-bar/filter-bar", () => ({
+  // Its children (the comments' button) as they are.
   FilterBar: (props: BarProps) => {
     h.see.bar(props);
-    return null;
+    return props.children;
   },
 }));
 vi.mock("@/components/shortcuts/shortcuts", () => ({
@@ -848,9 +849,9 @@ describe("Review", () => {
       someComments();
       await openReview();
       await userEvent.click(tab("Diff"));
-      expect(screen.getAllByText("4 comments")).toHaveLength(1);
-      await userEvent.click(button("Next comment"));
-      expect(screen.getByText("Comment 1 of 4")).toBeTruthy();
+      // In the floating bar: opening its card goes to the first.
+      await userEvent.click(button("Comments, 4 comments"));
+      expect(screen.getByLabelText("Comment 1 of 4")).toBeTruthy();
       await frames();
       // The AI's on cart.ts line 3 comes first, then your pending line 9.
       expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("src/cart.ts", 3, "additions");
@@ -868,9 +869,9 @@ describe("Review", () => {
       press("p");
       press("p");
       press("p");
-      expect(screen.getByText("Comment 4 of 4")).toBeTruthy();
+      expect(screen.getByLabelText("Comment 4 of 4")).toBeTruthy();
       await userEvent.click(button("Previous comment"));
-      expect(screen.getByText("Comment 3 of 4")).toBeTruthy();
+      expect(screen.getByLabelText("Comment 3 of 4")).toBeTruthy();
     });
 
     it("brings a comment into view past the search, the filters and its file's folding", async () => {
@@ -898,8 +899,7 @@ describe("Review", () => {
     it("has nothing to step through without open comments", async () => {
       await openReview();
       await userEvent.click(tab("Diff"));
-      expect(screen.getAllByText("No open comments")).toHaveLength(1);
-      expect(button("Next comment").hasAttribute("disabled")).toBe(true);
+      expect(button("Comments, No open comments").getAttribute("aria-disabled")).toBe("true");
       await menu("next-comment");
       // Not a key of the Diff's.
       press("x");

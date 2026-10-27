@@ -69,6 +69,12 @@ const chips = () =>
     .map((b) => b.textContent);
 
 describe("chord", () => {
+  it("ends with what it's given (the comments' button), after a divider", () => {
+    bar({ children: <button type="button">Comments</button> });
+    const group = screen.getByRole("group", { name: "Review one part" });
+    expect(group.lastElementChild?.textContent).toBe("Comments");
+  });
+
   it("writes a filter's shortcut as the platform does", () => {
     expect(chord("J")).toMatch(/J$/u);
   });

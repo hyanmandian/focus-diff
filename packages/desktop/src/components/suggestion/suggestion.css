@@ -14,7 +14,7 @@
   margin: 0 !important;
   padding: 4px 8px;
   border-bottom: 1px solid var(--separator);
-  color: var(--label-secondary);
+  color: var(--muted-foreground);
   font-size: var(--type-callout);
 }
 

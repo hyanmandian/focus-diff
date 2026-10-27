@@ -93,6 +93,15 @@ function tileOf(path: string): Tile | LucideIcon {
   return (dot > 0 ? BY_EXTENSION[name.slice(dot + 1)] : undefined) ?? File;
 }
 
+/** Whether a tile's colour takes dark text: when white on it would be under WCAG's 4.5:1. */
+function takesDarkText(hex: string) {
+  const channel = (at: number) => {
+    const c = Number.parseInt(hex.slice(at, at + 2), 16) / 255;
+    return c <= 0.040_45 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > 0.183;
+}
+
 export function FileIcon({ path, className }: { path: string; className?: string }) {
   const tile = tileOf(path);
   if (!Array.isArray(tile)) {
@@ -108,7 +117,7 @@ export function FileIcon({ path, className }: { path: string; className?: string
       style={{ backgroundColor: color }}
       className={cn(
         "grid h-3.5 w-[18px] shrink-0 place-items-center rounded-[3px] font-sans text-[7.5px] leading-none font-bold tracking-[-0.02em]",
-        light ? "text-black/80" : "text-white",
+        light || takesDarkText(color) ? "text-black/85" : "text-white",
         className,
       )}
     >

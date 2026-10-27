@@ -36,6 +36,7 @@ type Options = {
   onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => void;
   onLineEnter: (line: { lineNumber: number; annotationSide?: "additions" | "deletions" }, context?: object) => void;
   onLineLeave: () => void;
+  onPostRender: (node: HTMLElement) => void;
   loadDiffFiles?: (diff: { name: string; type: string }) => Promise<{
     oldFile: { name: string; contents: string } | null;
     newFile: { name: string; contents: string; cacheKey: string };
@@ -834,6 +835,14 @@ describe("Diffs", () => {
       await waitFor(() => {
         expect(clipboard.at(-1)).toBe("https://github.com/acme/app/blob/head1/src/cart.ts#L4");
       });
+    });
+
+    it("names the library's expand controls once a file is drawn", () => {
+      draw();
+      const node = document.createElement("div");
+      node.innerHTML = '<div role="button" data-expand-button data-expand-up></div>';
+      options().onPostRender(node);
+      expect(node.querySelector("[data-expand-button]")?.getAttribute("aria-label")).toBe("Show lines above");
     });
 
     it("has nothing once the pointer has left the line", async () => {

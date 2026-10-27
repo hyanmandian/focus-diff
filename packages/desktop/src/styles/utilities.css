@@ -549,6 +549,25 @@
     outline-offset: 0;
   }
 }
+/* A text field (input, textarea, a field made of several parts): a hairline edge that firms up under
+   the pointer, and while typing in it the accent edge with the focus ring around it. */
+@utility field {
+  border: 1px solid var(--field-border);
+  background-color: var(--field-bg);
+  box-shadow: var(--field-shadow);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+  &:hover {
+    border-color: var(--field-border-hover);
+  }
+  &:focus-visible,
+  &:focus-within {
+    border-color: var(--accent);
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: 0;
+  }
+}
 @utility focus-ring-inset {
   &:focus-visible {
     outline: var(--focus-ring-width) solid var(--focus-ring);

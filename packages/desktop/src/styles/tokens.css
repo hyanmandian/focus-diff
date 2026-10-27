@@ -102,27 +102,28 @@
   --type-code: 12px;
   --type-code-leading: 18px;
 
-  /* Control sizes (NSControl.ControlSize: mini, small, regular, large). */
-  --control-h-mini: 16px;
-  --control-h-sm: 20px;
-  --control-h: 24px;
-  --control-h-lg: 28px;
-  --field-h-sm: 22px;
-  --field-h: 24px;
+  /* Control sizes (NSControl.ControlSize's names), a step roomier than AppKit's: nothing that takes a
+     click is under WCAG 2.2's 24px target (2.5.8), and the regular size is a comfortable 28. */
+  --control-h-mini: 20px;
+  --control-h-sm: 24px;
+  --control-h: 28px;
+  --control-h-lg: 32px;
+  --field-h-sm: 24px;
+  --field-h: 28px;
   --toolbar-h: 52px;
   --toolbar-item-h: 28px;
   --traffic-lights-inset: 91px;
-  --menu-item-h: 24px;
+  --menu-item-h: 28px;
   --menu-pad: 5px;
   --row-h-sm: 24px;
   --row-h: 32px;
 
   /* Radii (fitted to AppKit's renders; capsules from the large size up). */
   --radius-control-mini: 5px;
-  --radius-control-sm: 5.5px;
-  --radius-control: 6.5px;
+  --radius-control-sm: 6px;
+  --radius-control: 7px;
   --radius-capsule: 9999px;
-  --radius-field: 5px;
+  --radius-field: 7px;
   --radius-checkbox: 4px;
   --radius-menu: 12px;
   --radius-menu-item: 6px;
@@ -145,9 +146,12 @@
   --content-bg: #fff;
   --group-bg: #fff;
   --field-bg: #fff;
-  --field-border: rgb(0 0 0 / 0.12);
+  --field-border: rgb(0 0 0 / 0.1);
+  --field-border-hover: rgb(0 0 0 / 0.2);
+  --field-shadow: 0 1px 1px rgb(0 0 0 / 0.04);
   --fill-control: rgb(0 0 0 / 0.06); /* a push or pop-up button's flat fill */
-  --fill-control-pressed: rgb(0 0 0 / 0.12);
+  --fill-control-hover: rgb(0 0 0 / 0.09); /* under the pointer: every control lights up a little */
+  --fill-control-pressed: rgb(0 0 0 / 0.13);
   --fill-tertiary: rgb(0 0 0 / 0.047); /* a grouped form's sections, on the window */
   --fill-quaternary: rgb(0 0 0 / 0.027);
   --selection-bg: #0064e1; /* selectedContentBackground: a focused list's row */
@@ -158,7 +162,11 @@
   --text-selection-bg-inactive: #dcdcdc;
   --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent); /* keyboardFocusIndicator */
   --focus-ring-width: 3px;
-  --segment-selected-bg: var(--accent); /* Tahoe draws the chosen segment in the accent */
+  --segment-selected-bg: color-mix(
+    in oklab,
+    var(--accent),
+    black 14%
+  ); /* Tahoe draws the chosen segment in the accent (deepened for AA, as --primary) */
   --segment-selected-fg: #fff;
   --toolbar-segment-bg: #fff; /* a neutral knob in the toolbar's view switch */
   --switch-off: rgb(0 0 0 / 0.09);
@@ -198,10 +206,14 @@
   --under-page-bg: #282828;
   --content-bg: #1e1e1e;
   --group-bg: #282828;
-  --field-bg: #161616;
-  --field-border: rgb(255 255 255 / 0.12);
+  /* A field a shade lighter than what it's on, as Raycast's: never a black hole in a grey card. */
+  --field-bg: rgb(255 255 255 / 0.055);
+  --field-border: rgb(255 255 255 / 0.08);
+  --field-border-hover: rgb(255 255 255 / 0.16);
+  --field-shadow: none;
   --fill-control: rgb(255 255 255 / 0.1);
-  --fill-control-pressed: rgb(255 255 255 / 0.18);
+  --fill-control-hover: rgb(255 255 255 / 0.14);
+  --fill-control-pressed: rgb(255 255 255 / 0.2);
   --fill-tertiary: rgb(255 255 255 / 0.047);
   --fill-quaternary: rgb(255 255 255 / 0.027);
   --selection-bg: #0059d1;
@@ -294,19 +306,23 @@
   --card-foreground: var(--label);
   --popover: #f6f6f6;
   --popover-foreground: var(--label);
-  --primary: var(--accent);
+  /* The accent as a fill under white text, a touch deeper so the text keeps 4.5:1 (WCAG AA) whatever
+     accent the Mac has; as text on the window, the accent as is (light) or lifted (dark). */
+  --primary: color-mix(in oklab, var(--accent), black 14%);
   --primary-foreground: var(--accent-foreground);
   --unread: var(--accent);
   --selected: var(--segment-selected-bg);
   --selected-foreground: var(--segment-selected-fg);
-  --success: var(--green-ic);
+  --success: color-mix(in oklab, var(--green-ic), black 12%);
   --warning: var(--orange-ic);
   --violet: var(--purple-ic);
-  --destructive: var(--red-ic);
+  --destructive: color-mix(in oklab, var(--red-ic), black 10%);
   --secondary: var(--fill-control);
   --secondary-foreground: var(--label);
   --muted: var(--fill-control);
-  --muted-foreground: var(--label-secondary);
+  /* Secondary text, from the label so it follows the system's, at 4.5:1 or better on the window, a
+     group's fill and a control's (the system's own secondary label is about 3.9:1). */
+  --muted-foreground: color-mix(in srgb, var(--label) 74%, transparent);
   --border: var(--separator);
   --input: var(--field-border);
   --ring: var(--accent);
@@ -314,4 +330,7 @@
 }
 .dark {
   --popover: #373737;
+  --unread: color-mix(in oklab, var(--accent), white 28%);
+  --success: var(--green-ic);
+  --destructive: color-mix(in oklab, var(--red-ic), white 18%);
 }

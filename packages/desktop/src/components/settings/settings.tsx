@@ -648,9 +648,12 @@ function Sidebar({
                   setQuery("");
                   searchRef.current?.focus();
                 }}
-                className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background focus-ring outline-none"
+                className="group/clear absolute top-1/2 right-0.5 grid size-6 -translate-y-1/2 cursor-default place-items-center rounded-full focus-ring outline-none"
               >
-                <X className="size-2.5" strokeWidth={3} aria-hidden />
+                {/* The clear button's 14px circle, in a 24px target. */}
+                <span className="grid size-3.5 place-items-center rounded-full bg-muted-foreground/60 text-background transition-colors duration-(--duration-fast) group-hover/clear:bg-muted-foreground">
+                  <X className="size-2.5" strokeWidth={3} aria-hidden />
+                </span>
               </button>
             ) : null}
           </div>

@@ -155,7 +155,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   {/* A radio button as AppKit draws one: the field's well and edge, the accent once picked. */}
                   <span
                     className={cn(
-                      "grid size-4 shrink-0 place-items-center rounded-full border border-input bg-(--field-bg)",
+                      "grid size-4 shrink-0 place-items-center rounded-full border border-input bg-(--field-bg) transition-colors duration-(--duration-fast) group-hover:border-(--field-border-hover)",
                       active && "border-transparent bg-primary",
                     )}
                     aria-hidden

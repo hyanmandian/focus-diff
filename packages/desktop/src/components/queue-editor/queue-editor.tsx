@@ -116,9 +116,9 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 onClick={() => {
                   set("tone", tone);
                 }}
-                // The picked colour ringed, as the accent colours in System Settings are; no change under the pointer.
+                // The picked colour ringed, as the accent colours in System Settings are; a touch brighter under the pointer.
                 className={cn(
-                  "size-4 cursor-default rounded-full focus-ring outline-offset-2",
+                  "size-5 cursor-default rounded-full focus-ring outline-offset-2 transition-[filter] duration-(--duration-fast) hover:brightness-110",
                   TONE_FILL[tone],
                   queue.tone === tone && "outline-2 outline-(--label-secondary)",
                 )}

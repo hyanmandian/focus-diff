@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Columns2,
   GitCommitHorizontal,
   GitMerge,
@@ -31,6 +30,7 @@ import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/acti
 import { Badge } from "@/components/badge/badge";
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
+import { CommentNav } from "@/components/comment-nav/comment-nav";
 import { RangeBanner, RangePicker } from "@/components/commits/commits";
 import { Diffs, type DiffsHandle, type LinkTarget } from "@/components/diffs/diffs";
 import {
@@ -1065,7 +1065,7 @@ export function Review({ target }: { target: Target }) {
                 onClick={() => {
                   setTab(value);
                 }}
-                className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring outline-none"
+                className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:not-aria-selected:bg-(--fill-control-hover)"
               >
                 {label}
                 {/* Its room kept while loading, so the switch doesn't grow when the count arrives. */}
@@ -1145,68 +1145,6 @@ export function Review({ target }: { target: Target }) {
             )}
           >
             <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
-              {/* Stepping through the comments (n and p from the keyboard), one capsule. */}
-              <div
-                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)
-                role="group"
-                aria-label={t("review.comments")}
-                className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill"
-              >
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={TOOL_ICON}
-                        aria-label={t("review.previousComment")}
-                        disabled={stops.length === 0}
-                        onClick={() => {
-                          step(-1);
-                        }}
-                      />
-                    }
-                  >
-                    <ChevronUp />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {t("review.previousCommentTip")} <Kbd>p</Kbd>
-                  </TooltipContent>
-                </Tooltip>
-                <span className="px-0.5 text-center text-callout text-muted-foreground tabular-nums" aria-live="polite">
-                  <span className="inline-block min-w-[6.5rem] @max-[1360px]:sr-only">
-                    {stops.length > 0
-                      ? stop >= 0
-                        ? t("review.commentOf", { index: stop + 1, total: stops.length })
-                        : t("common.comments", { count: stops.length })
-                      : t("review.noOpenComments")}
-                  </span>
-                  <span aria-hidden className="hidden min-w-5 @max-[1360px]:inline-block">
-                    {stops.length > 0 ? (stop >= 0 ? `${stop + 1}/${stops.length}` : stops.length) : "0"}
-                  </span>
-                </span>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={TOOL_ICON}
-                        aria-label={t("review.nextComment")}
-                        disabled={stops.length === 0}
-                        onClick={() => {
-                          step(1);
-                        }}
-                      />
-                    }
-                  >
-                    <ChevronDown />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {t("review.nextCommentTip")} <Kbd>n</Kbd>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
               {/* Layout and wrapping, one capsule of glyphs. */}
               <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
                 <ToggleGroup
@@ -1694,9 +1632,12 @@ export function Review({ target }: { target: Target }) {
                       onClick={() => {
                         setFilter("");
                       }}
-                      className="absolute top-1/2 right-1.5 grid size-3.5 -translate-y-1/2 cursor-default place-items-center rounded-full bg-muted-foreground/60 text-background focus-ring outline-none"
+                      className="group/clear absolute top-1/2 right-0.5 grid size-6 -translate-y-1/2 cursor-default place-items-center rounded-full focus-ring outline-none"
                     >
-                      <X className="size-2.5" strokeWidth={3} aria-hidden />
+                      {/* The clear button's 14px circle, in a 24px target. */}
+                      <span className="grid size-3.5 place-items-center rounded-full bg-muted-foreground/60 text-background transition-colors duration-(--duration-fast) group-hover/clear:bg-muted-foreground">
+                        <X className="size-2.5" strokeWidth={3} aria-hidden />
+                      </span>
                     </button>
                   ) : null}
                 </div>
@@ -1830,7 +1771,9 @@ export function Review({ target }: { target: Target }) {
                     choose(toggled(chosenIds, id));
                   }}
                   onNextFile={goToNextFile}
-                />
+                >
+                  <CommentNav stops={stops} stop={stop} onStep={step} />
+                </FilterBar>
               ) : null}
             </div>
           </div>

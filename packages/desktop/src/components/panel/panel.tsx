@@ -623,7 +623,7 @@ export function Panel() {
                       <button
                         type="button"
                         disabled={updating}
-                        className="flex cursor-default items-center gap-1.5 rounded-sm font-semibold text-success focus-ring outline-none"
+                        className="flex h-7 cursor-default items-center gap-1.5 rounded-[8px] px-2 font-semibold text-success focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-foreground/6"
                         onClick={() => {
                           setUpdating(true);
                           void bridge.installUpdate().catch(() => {

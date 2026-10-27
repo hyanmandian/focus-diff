@@ -21,7 +21,9 @@ describe("FileIcon", () => {
   });
 
   it("writes dark on light colors", () => {
-    expect(tile("index.js")?.dark).toContain("text-black/80");
+    expect(tile("index.js")?.dark).toContain("text-black/85");
+    // Also where white would be under 4.5:1, though the language's colour isn't marked light.
+    expect(tile("main.go")?.dark).toContain("text-black/85");
   });
 
   it("knows some files by name, and any .env", () => {

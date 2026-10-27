@@ -1,13 +1,608 @@
 <!doctype html>
-<html lang="en" class="settings">
+<html lang="en" class="pending">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Filters Focus Diff shows on pull request diffs, globally and per repository, and how its bar looks."
+    />
+    <title data-i18n="optionsTitle">Focus Diff settings</title>
     <meta name="manifest.open_in_tab" content="true" />
-    <title>Focus Diff</title>
+    <link rel="icon" href="/icon/32.png" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="./main.tsx"></script>
+    <a class="skip" href="#global-h" data-i18n="skipToFilters">Skip to filters</a>
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="/welcome.html">
+          <img src="/logo-96.webp" width="36" height="36" alt="" />
+          <span>Focus Diff</span>
+        </a>
+        <nav class="sections" aria-label="Settings sections" data-i18n-label="sectionsLabel">
+          <ul>
+            <li><a href="#filters" data-i18n="globalHeading"></a></li>
+            <li><a href="#repositories" data-i18n="reposHeading"></a></li>
+            <li><a href="#try" data-i18n="tryHeading"></a></li>
+            <li><a href="#appearance" data-i18n="lookHeading"></a></li>
+            <li><a href="#popup" data-i18n="popupHeading"></a></li>
+            <li><a href="#review-time" data-i18n="reviewHeading"></a></li>
+            <li><a href="#notifications" data-i18n="notifyHeading"></a></li>
+            <li><a href="#share" data-i18n="shareHeading"></a></li>
+          </ul>
+        </nav>
+        <a class="sidebar-link" href="/welcome.html" data-i18n="welcomeLink"></a>
+      </aside>
+
+      <main>
+        <header class="page-head">
+          <h1 data-i18n="settingsHeading"></h1>
+          <p id="tagline"></p>
+        </header>
+
+        <section class="section" id="filters" aria-labelledby="global-h">
+          <div class="section-head">
+            <h2 id="global-h" tabindex="-1" data-i18n="globalHeading"></h2>
+            <p class="hint" data-i18n="globalHint"></p>
+          </div>
+          <div class="surface" id="global"></div>
+          <details class="help">
+            <summary data-i18n="helpSummary"></summary>
+            <div class="help-body">
+              <p data-i18n-html="helpBody"></p>
+              <dl>
+                <div>
+                  <dt><code>\.(ts|tsx)$</code></dt>
+                  <dd data-i18n="helpTypeScript"></dd>
+                </div>
+                <div>
+                  <dt><code>\.(test|spec|stories)\.</code></dt>
+                  <dd data-i18n="helpTests"></dd>
+                </div>
+                <div>
+                  <dt><code>^packages/api/</code></dt>
+                  <dd data-i18n="helpFolder"></dd>
+                </div>
+                <div>
+                  <dt><code>(^|/)tests?/</code></dt>
+                  <dd data-i18n-html="helpTestFolders"></dd>
+                </div>
+              </dl>
+              <p data-i18n-html="helpAll"></p>
+            </div>
+          </details>
+        </section>
+
+        <section class="section" id="repositories" aria-labelledby="repos-h">
+          <div class="section-head">
+            <h2 id="repos-h" data-i18n="reposHeading"></h2>
+            <p class="hint" data-i18n="reposHint"></p>
+          </div>
+          <div id="repos"></div>
+          <div class="empty-state" id="repos-empty">
+            <p class="hint" data-i18n="reposEmpty"></p>
+          </div>
+          <button id="add-repo" type="button" class="btn" data-i18n="addRepo"></button>
+        </section>
+
+        <section class="section" id="try" aria-labelledby="try-h">
+          <div class="section-head">
+            <h2 id="try-h" data-i18n="tryHeading"></h2>
+            <p class="hint" data-i18n="tryHint"></p>
+          </div>
+          <div class="surface surface-body">
+            <div class="try">
+              <div class="field">
+                <label for="try-repo"
+                  ><span data-i18n="repositoryLabel"></span> <span class="optional" data-i18n="optional"></span
+                ></label>
+                <input id="try-repo" type="text" placeholder="owner/name" spellcheck="false" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label for="try-path" data-i18n="filePathLabel"></label>
+                <input
+                  id="try-path"
+                  type="text"
+                  class="mono"
+                  placeholder="src/components/Button.test.tsx"
+                  spellcheck="false"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+            <p id="try-result" class="try-result" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="section" id="appearance" aria-labelledby="look-h">
+          <div class="section-head">
+            <h2 id="look-h" data-i18n="lookHeading"></h2>
+            <p class="hint" data-i18n="lookHint"></p>
+          </div>
+          <div class="look">
+            <div class="surface surface-body look-edit">
+              <div class="look-pick">
+                <div class="field">
+                  <label for="theme" data-i18n="themeLabel"></label>
+                  <select id="theme"></select>
+                </div>
+                <button id="theme-new" type="button" class="btn" data-i18n="themeNew"></button>
+              </div>
+              <div id="theme-editor" class="theme-editor" hidden>
+                <div class="field">
+                  <label for="theme-name" data-i18n="themeNameLabel"></label>
+                  <input id="theme-name" type="text" autocomplete="off" aria-describedby="theme-name-error" />
+                  <p class="error" id="theme-name-error" aria-live="polite"></p>
+                </div>
+                <fieldset class="colors">
+                  <legend data-i18n="colorsLegend"></legend>
+                  <p class="hint" data-i18n="colorsHint"></p>
+                  <ul id="colors" role="list"></ul>
+                </fieldset>
+                <div class="actions">
+                  <button id="theme-copy" type="button" class="btn" data-i18n="themeCopy"></button>
+                  <button id="theme-delete" type="button" class="btn danger" data-i18n="themeDelete"></button>
+                </div>
+                <div class="field" id="theme-export-fallback" hidden>
+                  <label for="theme-export" data-i18n="themeExportLabel"></label>
+                  <p class="hint" id="theme-export-hint" data-i18n="copyFallbackHint"></p>
+                  <textarea
+                    id="theme-export"
+                    class="mono"
+                    rows="6"
+                    readonly
+                    aria-describedby="theme-export-hint"
+                  ></textarea>
+                </div>
+              </div>
+              <details class="import">
+                <summary data-i18n="themeImportLabel"></summary>
+                <div class="import-body">
+                  <div class="field">
+                    <label class="visually-hidden" for="theme-json" data-i18n="themeImportLabel"></label>
+                    <p class="hint" id="theme-json-hint" data-i18n="themeImportHint"></p>
+                    <textarea
+                      id="theme-json"
+                      class="mono"
+                      spellcheck="false"
+                      rows="4"
+                      aria-describedby="theme-json-hint theme-json-error"
+                    ></textarea>
+                    <p class="error" id="theme-json-error" aria-live="polite"></p>
+                  </div>
+                  <button id="theme-import" type="button" class="btn" disabled data-i18n="themeImportButton"></button>
+                </div>
+              </details>
+            </div>
+            <div class="look-preview">
+              <h3 id="preview-h" data-i18n="previewHeading"></h3>
+              <div id="preview" role="group" aria-labelledby="preview-h"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="popup" aria-labelledby="popup-h">
+          <div class="section-head">
+            <h2 id="popup-h" data-i18n="popupHeading"></h2>
+            <p class="hint" data-i18n="popupSettingsHint"></p>
+          </div>
+          <div class="surface notify">
+            <fieldset class="notify-block notify-repos">
+              <legend data-i18n="notifyRepos"></legend>
+              <div class="repo-rows">
+                <div class="repo-row">
+                  <span class="repo-row-label" data-i18n="popupReposOnly"></span>
+                  <div class="repo-slot" id="popup-repos"></div>
+                </div>
+                <div class="repo-row">
+                  <span class="repo-row-label" data-i18n="popupReposNever"></span>
+                  <div class="repo-slot" id="popup-repos-never"></div>
+                </div>
+              </div>
+              <p class="hint" data-i18n="popupReposHint"></p>
+              <div class="toggle-row">
+                <input
+                  id="popup-teams"
+                  class="switch"
+                  type="checkbox"
+                  role="switch"
+                  aria-describedby="popup-teams-hint"
+                />
+                <label for="popup-teams" data-i18n="popupTeams"></label>
+              </div>
+              <p class="hint indent" id="popup-teams-hint" data-i18n="popupTeamsHint"></p>
+              <div class="toggle-row">
+                <input
+                  id="review-queue-estimates"
+                  class="switch"
+                  type="checkbox"
+                  role="switch"
+                  aria-describedby="review-queue-hint"
+                />
+                <label for="review-queue-estimates" data-i18n="reviewQueueEstimates"></label>
+              </div>
+              <p class="hint indent" id="review-queue-hint" data-i18n="reviewQueueEstimatesHint"></p>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="section" id="review-time" aria-labelledby="review-h">
+          <div class="section-head">
+            <h2 id="review-h" data-i18n="reviewHeading"></h2>
+            <p class="hint" data-i18n="reviewHint"></p>
+          </div>
+          <div class="surface notify">
+            <div class="notify-master">
+              <input id="review-on" class="switch" type="checkbox" role="switch" aria-describedby="review-on-hint" />
+              <div class="setting-text">
+                <label for="review-on" data-i18n="reviewOn"></label>
+                <p class="hint" id="review-on-hint"></p>
+              </div>
+            </div>
+            <div class="notify-permission" id="review-permission" hidden>
+              <p data-i18n="notifyBlocked"></p>
+              <button id="review-allow" type="button" class="btn" data-i18n="notifyAllow"></button>
+            </div>
+            <div class="notify-body" id="review-body" hidden>
+              <div class="notify-block">
+                <h3 class="block-title" data-i18n="reviewSessions"></h3>
+                <ul class="sessions" id="sessions" role="list"></ul>
+                <!-- jscpd:ignore-start: the same plus icon as the add-filter button's, written out in each -->
+                <button id="add-session" type="button" class="btn quiet add-session">
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+                    <path
+                      d="M8 3v10M3 8h10"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      fill="none"
+                    />
+                  </svg>
+                  <span data-i18n="reviewAddSession"></span>
+                </button>
+                <!-- jscpd:ignore-end -->
+              </div>
+              <div class="notify-columns">
+                <fieldset class="notify-block">
+                  <legend data-i18n="reviewWhenItsTime"></legend>
+                  <div class="inline-field">
+                    <label for="review-opens" data-i18n="reviewOpens"></label>
+                    <select id="review-opens"></select>
+                  </div>
+                  <div class="toggle-row">
+                    <input id="review-filters" class="switch" type="checkbox" role="switch" />
+                    <label for="review-filters" data-i18n="reviewApplyFilters"></label>
+                  </div>
+                  <div class="inline-field">
+                    <label for="review-snooze" data-i18n="reviewSnooze"></label>
+                    <select id="review-snooze"></select>
+                  </div>
+                  <div class="toggle-row">
+                    <input id="review-remind-end" class="switch" type="checkbox" role="switch" />
+                    <label for="review-remind-end" data-i18n="reviewRemindEnd"></label>
+                  </div>
+                  <div id="review-sound"></div>
+                </fieldset>
+                <fieldset class="notify-block">
+                  <legend data-i18n="reviewPicking"></legend>
+                  <div class="inline-field">
+                    <label for="review-per-pull" data-i18n="reviewPerPull"></label>
+                    <select id="review-per-pull"></select>
+                  </div>
+                  <div class="toggle-row">
+                    <input id="review-unviewed" class="switch" type="checkbox" role="switch" />
+                    <label for="review-unviewed" data-i18n="reviewUnviewed"></label>
+                  </div>
+                  <div class="toggle-row">
+                    <input
+                      id="review-again-first"
+                      class="switch"
+                      type="checkbox"
+                      role="switch"
+                      aria-describedby="review-again-hint"
+                    />
+                    <label for="review-again-first" data-i18n="reviewAgainFirst"></label>
+                  </div>
+                  <p class="hint indent" id="review-again-hint" data-i18n="reviewAgainFirstHint"></p>
+                  <div class="toggle-row">
+                    <input id="review-skip-empty" class="switch" type="checkbox" role="switch" />
+                    <label for="review-skip-empty" data-i18n="reviewSkipEmpty"></label>
+                  </div>
+                  <div class="toggle-row">
+                    <input
+                      id="review-hold"
+                      class="switch"
+                      type="checkbox"
+                      role="switch"
+                      aria-describedby="review-hold-hint"
+                    />
+                    <label for="review-hold" data-i18n="reviewHold"></label>
+                  </div>
+                  <p class="hint indent" id="review-hold-hint">
+                    <span data-i18n="reviewHoldHint"></span>
+                    <a href="#notifications" data-i18n="reviewWhichWait"></a>
+                  </p>
+                </fieldset>
+              </div>
+            </div>
+            <fieldset class="notify-block estimates">
+              <legend data-i18n="reviewEstimates"></legend>
+              <p class="hint" data-i18n="reviewEstimatesHint"></p>
+              <div class="pace" role="radiogroup" aria-labelledby="pace-label" id="pace">
+                <span class="field-label" id="pace-label" data-i18n="reviewPace"></span>
+              </div>
+              <div class="toggle-row">
+                <input
+                  id="review-learn"
+                  class="switch"
+                  type="checkbox"
+                  role="switch"
+                  aria-describedby="review-learn-hint"
+                />
+                <label for="review-learn" data-i18n="reviewLearn"></label>
+              </div>
+              <p class="hint indent" id="review-learn-hint" data-i18n="reviewLearnHint"></p>
+              <div class="learned indent" id="learned"></div>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="section" id="notifications" aria-labelledby="notify-h">
+          <div class="section-head">
+            <h2 id="notify-h" data-i18n="notifyHeading"></h2>
+            <p class="hint" data-i18n="notifyHint"></p>
+          </div>
+          <div class="surface notify">
+            <div class="notify-master">
+              <input id="notify-on" class="switch" type="checkbox" role="switch" aria-describedby="notify-on-hint" />
+              <div class="setting-text">
+                <label for="notify-on" data-i18n="notifyOn"></label>
+                <p class="hint" id="notify-on-hint"></p>
+              </div>
+            </div>
+            <div class="notify-permission" id="notify-permission" hidden>
+              <p data-i18n="notifyBlocked"></p>
+              <button id="notify-allow" type="button" class="btn" data-i18n="notifyAllow"></button>
+            </div>
+            <div class="notify-body" id="notify-body" hidden>
+              <fieldset class="notify-block notify-repos">
+                <legend data-i18n="notifyRepos"></legend>
+                <div class="repo-rows">
+                  <div class="repo-row">
+                    <span class="repo-row-label" id="repos-only-label" data-i18n="notifyReposOnly"></span>
+                    <div class="repo-slot" id="repos-only"></div>
+                  </div>
+                  <div class="repo-row">
+                    <span class="repo-row-label" id="repos-never-label" data-i18n="notifyReposNever"></span>
+                    <div class="repo-slot" id="repos-never"></div>
+                  </div>
+                </div>
+                <p class="hint" data-i18n="notifyReposOnlyHint"></p>
+              </fieldset>
+              <p class="notify-when-hint hint" id="notify-when-hint" hidden data-i18n="notifyWhenHint"></p>
+              <div class="notify-columns">
+                <fieldset class="event-group">
+                  <legend data-i18n="notifyGroupReviewing"></legend>
+                  <ul class="events" id="events-reviewing" role="list"></ul>
+                </fieldset>
+                <fieldset class="event-group">
+                  <legend data-i18n="notifyGroupMine"></legend>
+                  <ul class="events" id="events-mine" role="list"></ul>
+                </fieldset>
+              </div>
+              <fieldset class="event-group event-group-wide">
+                <legend data-i18n="notifyGroupOther"></legend>
+                <ul class="events" id="events-other" role="list"></ul>
+              </fieldset>
+              <div class="notify-columns">
+                <fieldset class="notify-block">
+                  <legend data-i18n="notifyTiming"></legend>
+                  <div class="inline-field">
+                    <label for="notify-interval" data-i18n="notifyInterval"></label>
+                    <select id="notify-interval"></select>
+                  </div>
+                  <div class="toggle-row">
+                    <input id="quiet-on" class="switch" type="checkbox" role="switch" aria-describedby="quiet-hint" />
+                    <label for="quiet-on" data-i18n="notifyQuiet"></label>
+                  </div>
+                  <div class="quiet-fields" id="quiet-fields">
+                    <label for="quiet-from" data-i18n="notifyQuietFrom"></label>
+                    <input id="quiet-from" type="time" />
+                    <label for="quiet-to" data-i18n="notifyQuietTo"></label>
+                    <input id="quiet-to" type="time" />
+                    <div class="check">
+                      <input id="quiet-weekends" type="checkbox" />
+                      <label for="quiet-weekends" data-i18n="notifyQuietWeekends"></label>
+                    </div>
+                  </div>
+                  <p class="hint" id="quiet-hint" data-i18n="notifyQuietHint"></p>
+                </fieldset>
+                <fieldset class="notify-block">
+                  <legend data-i18n="notifyDelivery"></legend>
+                  <div class="toggle-row">
+                    <input id="delivery-grouped" class="switch" type="checkbox" role="switch" />
+                    <label for="delivery-grouped" data-i18n="notifyGroupedOption"></label>
+                  </div>
+                  <div class="toggle-row chrome-only">
+                    <input id="delivery-sticky" class="switch" type="checkbox" role="switch" />
+                    <label for="delivery-sticky" data-i18n="notifySticky"></label>
+                  </div>
+                  <div id="notify-sound"></div>
+                </fieldset>
+              </div>
+              <datalist id="repo-suggestions"></datalist>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="share" aria-labelledby="share-h">
+          <div class="section-head">
+            <h2 id="share-h" data-i18n="shareHeading"></h2>
+            <p class="hint" data-i18n="shareHint"></p>
+          </div>
+          <div class="surface">
+            <div class="share-row">
+              <div>
+                <h3 data-i18n="yourFilters"></h3>
+                <p class="hint" data-i18n="copyHint"></p>
+              </div>
+              <button id="export" type="button" class="btn" data-i18n="copyButton"></button>
+            </div>
+            <div class="field share-fallback" id="export-fallback" hidden>
+              <label for="export-json" data-i18n="yourFilters"></label>
+              <p class="hint" id="export-json-hint" data-i18n="copyFallbackHint"></p>
+              <textarea id="export-json" class="mono" rows="6" readonly aria-describedby="export-json-hint"></textarea>
+            </div>
+            <details class="import">
+              <summary data-i18n="importLabel"></summary>
+              <div class="import-body">
+                <div class="field">
+                  <label class="visually-hidden" for="json" data-i18n="importLabel"></label>
+                  <p class="hint" id="json-hint" data-i18n="importHint"></p>
+                  <textarea
+                    id="json"
+                    class="mono"
+                    spellcheck="false"
+                    rows="5"
+                    aria-describedby="json-hint json-error"
+                  ></textarea>
+                  <p class="error" id="json-error" aria-live="polite"></p>
+                </div>
+                <button id="import" type="button" class="btn" disabled data-i18n="importButton"></button>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <footer class="project">
+          <p id="version"></p>
+          <nav aria-label="Focus Diff project" data-i18n-label="projectLinks">
+            <ul>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkSource"
+                ></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/releases"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkReleases"
+                ></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/issues/new?template=bug_report.yml"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkBug"
+                ></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/issues/new?template=feature_request.yml"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkIdea"
+                ></a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="linkPrivacy"
+                ></a>
+              </li>
+            </ul>
+          </nav>
+        </footer>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="savebar" id="savebar" inert>
+      <span id="status" class="status" role="status"></span>
+      <button
+        id="save"
+        type="button"
+        class="btn primary"
+        aria-keyshortcuts="Meta+S Control+S"
+        data-i18n="saveButton"
+      ></button>
+    </div>
+    <template id="filters-template">
+      <div class="filters">
+        <div class="filter-head" aria-hidden="true">
+          <span data-i18n="columnName"></span><span data-i18n="columnInclude"></span
+          ><span data-i18n="columnExclude"></span><span></span>
+        </div>
+        <ul class="filter-list" role="list"></ul>
+        <p class="empty hint">
+          <span data-i18n="filtersEmptyWithExamples"></span>
+          <a href="/welcome.html#recipes-h" data-i18n="browseExamples"></a>
+        </p>
+        <button type="button" class="btn quiet add-filter">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" />
+          </svg>
+          <span data-i18n="addFilter"></span>
+        </button>
+      </div>
+    </template>
+    <template id="filter-template">
+      <li class="filter">
+        <div class="filter-fields" role="group">
+          <input class="f-name" type="text" placeholder="Frontend" autocomplete="off" />
+          <input class="f-include mono" type="text" placeholder="\.(ts|tsx)$" spellcheck="false" autocomplete="off" />
+          <input class="f-exclude mono" type="text" placeholder="\.test\." spellcheck="false" autocomplete="off" />
+          <button type="button" class="icon-btn remove-filter">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                fill="none"
+              />
+            </svg>
+          </button>
+        </div>
+        <p class="error"></p>
+      </li>
+    </template>
+    <template id="color-template">
+      <li class="color">
+        <label class="color-label"></label>
+        <input class="color-pick" type="color" />
+        <input class="color-hex mono" type="text" spellcheck="false" autocomplete="off" />
+        <button type="button" class="btn color-reset" data-i18n="colorReset"></button>
+        <p class="error color-error" aria-live="polite"></p>
+      </li>
+    </template>
+    <template id="repo-template">
+      <article class="surface repo">
+        <div class="repo-head">
+          <div class="field">
+            <label class="repo-label" data-i18n="repositoryLabel"></label>
+            <input
+              class="repo-name mono"
+              type="text"
+              data-i18n-placeholder="repoPlaceholder"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <p class="error repo-error" aria-live="polite"></p>
+          </div>
+          <button type="button" class="btn quiet danger remove-repo" data-i18n="removeRepo"></button>
+        </div>
+        <div class="repo-body"></div>
+      </article>
+    </template>
+    <script type="module" src="./options.ts"></script>
   </body>
 </html>

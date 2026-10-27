@@ -1,3 +1,4 @@
+import { conversations } from "@/utils/github-conversations/github-conversations";
 import {
   closeUp,
   containsDiff,
@@ -40,4 +41,5 @@ export const github: Provider = {
   hashOf: (anchor) => `#diff-${anchor}`,
   reveal: reveal,
   coveredTop: coveredTop,
+  conversations,
 };

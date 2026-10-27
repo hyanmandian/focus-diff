@@ -3,31 +3,38 @@
  *
  *   npm run screenshots -- https://github.com/<owner>/<repo>/pull/<number>/files
  *
- * It loads .output/chrome-mv3, sets up the Frontend, Backend and Docs filters, picks Frontend, and writes
+ * It loads .output/chrome-mv3, sets up the Frontend, Backend and Docs examples, picks Frontend, and writes
  * store/screenshots/: store-1280x800-{light,dark}.png (the store's exact size), pull-request.png, and readme.png, which
  * frames pull-request.png with the bar zoomed in. Signed out, so no account shows. Optimise the PNGs afterwards.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { PATH_FILTERS } from "@focus-diff/core/recipes";
 import { chromium, type BrowserContext, type Page } from "@playwright/test";
+
+import en from "../src/locales/en.json" with { type: "json" };
+import { RECIPES } from "../src/utils/recipes/recipes.ts";
 
 const url = process.argv[2];
 if (!url) throw new Error("Pass the pull request files URL, like https://github.com/owner/repo/pull/1/files");
 const extension = path.resolve(".output/chrome-mv3");
 const out = path.resolve("store/screenshots");
+const messages: Record<string, unknown> = en;
 
-/** The setup's filters, as Settings' recipes make them (the app's config.json, utils/app-files). */
-const CONFIG = {
-  version: 1,
-  language: "en",
-  filters: [
-    { id: "frontend", name: "Frontend", ...PATH_FILTERS.frontend, repos: [] },
-    { id: "backend", name: "Backend", ...PATH_FILTERS.backend, repos: [] },
-    { id: "docs", name: "Docs", ...PATH_FILTERS.docs, repos: [] },
-  ],
-};
+/** The examples the welcome page offers, named as in English. */
+const EXAMPLES = [
+  ["stack", "recipeStackFrontend"],
+  ["stack", "recipeStackBackend"],
+  ["docs", "recipeDocsName"],
+].map(([recipe, name], index) => {
+  const filter = RECIPES.find((each) => each.id === recipe)?.filters.find((each) => each.name === name);
+  return {
+    id: `example-${index}`,
+    name: String(messages[name ?? ""]),
+    include: filter?.include ?? "",
+    exclude: filter?.exclude ?? "",
+  };
+});
 
 const open = async (colorScheme: "light" | "dark", width: number, height: number, deviceScaleFactor = 1) => {
   const context = await chromium.launchPersistentContext("", {
@@ -39,12 +46,12 @@ const open = async (colorScheme: "light" | "dark", width: number, height: number
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, "--lang=en-US"],
   });
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
-  await worker.evaluate((config) => chrome.storage.local.set({ "file.config": config }), JSON.stringify(CONFIG));
-  // Setup opens on install; only the pull request is wanted.
+  await worker.evaluate((global) => chrome.storage.sync.set({ config: { global, repos: [] } }), EXAMPLES);
+  // The welcome page opens on install; only the pull request is wanted.
   for (const page of context.pages()) await page.close();
   const page = await context.newPage();
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  const bar = page.locator("focus-diff-bar [role=group]").first();
+  const bar = page.locator("focus-diff-panel .panel");
   await bar.waitFor();
   await bar.getByRole("button", { name: /^Frontend/u }).click();
   // GitHub keeps loading files after the first paint: wait until the bar has read the same totals

@@ -41,7 +41,7 @@ export const repository = (): string | null => {
 /** The path without invisible marks, and of a renamed file, only the new path after the arrow. */
 const cleanPath = (value: string) =>
   value
-    .replace(INVISIBLE, "")
+    .replaceAll(INVISIBLE, "")
     .trim()
     .replace(/^[\s\S]*\s→\s+/u, "");
 

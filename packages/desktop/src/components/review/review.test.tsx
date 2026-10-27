@@ -900,6 +900,25 @@ describe("Review", () => {
       expect(screen.getByLabelText("Comment 3 of 4")).toBeTruthy();
     });
 
+    it("follows settings changed in their window, and another account signed in, without reopening", async () => {
+      await openReview();
+      expect(h.overview?.config?.ai.provider).toBeNull();
+      expect(h.overview?.me).toBe("me");
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      answer({ auth_status: () => ({ login: "other" }) });
+      await act(() => emit("file-changed", "pace"));
+      expect(h.overview?.config?.ai.provider).toBeNull();
+      await act(() => emit("file-changed", "config"));
+      await waitFor(() => {
+        expect(h.overview?.config?.ai.provider).toBe("claude");
+      });
+      expect(h.overview?.me).toBe("me");
+      await act(() => emit("file-changed", "auth"));
+      await waitFor(() => {
+        expect(h.overview?.me).toBe("other");
+      });
+    });
+
     it("brings a comment into view past the search, the filters and its file's folding", async () => {
       someComments();
       vi.mocked(loadConfig).mockResolvedValue(config({ filters: [DOCS] }));

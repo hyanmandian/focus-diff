@@ -572,6 +572,23 @@ export function Review({ target }: { target: Target }) {
     // oxlint-disable-next-line react/set-state-in-effect -- it fetches: what it sets comes after GitHub answers, not during the effect
     void load();
   }, [load]);
+  // Settings changed in their window (an AI set up, a filter edited) or another account signed in:
+  // this window follows at once, as the panel does, rather than at its next opening.
+  useEffect(() => {
+    const off = bridge.on<string>("file-changed", (name) => {
+      if (name === "config") void loadConfig().then(setConfig);
+      if (name === "auth")
+        void bridge
+          .authStatus()
+          .then((a) => a.login)
+          .then(setMe);
+    });
+    return () => {
+      void (async () => {
+        (await off)();
+      })();
+    };
+  }, []);
 
   const ai = config?.ai.provider ? config : null;
   const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;

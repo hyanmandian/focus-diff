@@ -413,6 +413,28 @@ describe("General pane", () => {
     });
   });
 
+  it("follows settings changed elsewhere, but not over a change of its own still being saved", async () => {
+    const answers: Answers = { config: config({ sound: false }) };
+    const rust = await general(answers);
+    const sound = () =>
+      within(panel()).getByRole<HTMLButtonElement>("switch", { name: "Play a sound with notifications" });
+    expect(sound().getAttribute("aria-checked")).toBe("false");
+    answers.config = config({ sound: true });
+    await act(() => emit("file-changed", "pace"));
+    expect(sound().getAttribute("aria-checked")).toBe("false");
+    await act(() => emit("file-changed", "config"));
+    await waitFor(() => {
+      expect(sound().getAttribute("aria-checked")).toBe("true");
+    });
+    // Turned off here; setup's older copy, coming in before that's written, doesn't turn it back on.
+    await userEvent.click(sound());
+    await act(() => emit("file-changed", "config"));
+    expect(sound().getAttribute("aria-checked")).toBe("false");
+    await waitFor(() => {
+      expect(rust.saved()?.sound).toBe(false);
+    });
+  });
+
   it("sends a test notification, with the sound as set", async () => {
     const rust = await general();
     await userEvent.click(within(panel()).getByRole("button", { name: "Send a Test Notification" }));

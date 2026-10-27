@@ -49,14 +49,30 @@ import { useTheme } from "@/utils/theme/theme";
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // A change of its own still to be written: what's on disk is older than what shows.
+  const pending = useRef(false);
   useEffect(() => {
     void loadConfig().then(setConfig);
+    // Changed elsewhere (setup, say): shown here too, so the next change here doesn't write over it.
+    const off = bridge.on<string>("file-changed", (name) => {
+      if (name === "config" && !pending.current) void loadConfig().then(setConfig);
+    });
+    return () => {
+      void (async () => {
+        (await off)();
+      })();
+    };
   }, []);
   // Saved shortly after the last change, so typing a name doesn't write on every key.
   const update = useCallback((next: Config) => {
     setConfig(next);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => void saveConfig(next), 350);
+    pending.current = true;
+    timer.current = setTimeout(() => {
+      void saveConfig(next).finally(() => {
+        pending.current = false;
+      });
+    }, 350);
   }, []);
   return [config, update] as const;
 }

@@ -13,11 +13,13 @@ import { CommitsSection } from "@/components/commits/commits";
 import { MergeBox } from "@/components/merge-box/merge-box";
 import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { StackCard } from "@/components/stack-card/stack-card";
 import { Composer, ThreadView } from "@/components/thread/thread";
 import { TimelineRow } from "@/components/timeline/timeline";
 import { openViewer } from "@/components/viewer/viewer";
 import { copyText, useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Pull } from "@/hooks/use-pull/use-pull";
+import type { Stack } from "@/hooks/use-stack/use-stack";
 import { PROVIDERS, type AiReview } from "@/utils/ai/ai";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
@@ -32,6 +34,7 @@ import type { Actor } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread } from "@/utils/review/review";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
+import type { StackPull } from "@/utils/stack/stack";
 import { byTime } from "@/utils/timeline/timeline";
 import { quote } from "@/utils/writing/writing";
 
@@ -208,6 +211,9 @@ type Props = {
   /** Whether the diff has a file, to offer a way to it. */
   hasFile: (path: string) => boolean;
   say: (message: string) => void;
+  /** The stack it's in, if any, and going to another of it. */
+  stack?: Stack | null;
+  onPickStack?: (pull: StackPull) => void;
 };
 
 /** Where a conversation on a line is, with a way to it in the diff. */
@@ -559,6 +565,8 @@ export function Overview({
   onOpenRange,
   hasFile,
   say,
+  stack,
+  onPickStack,
 }: Props) {
   const t = useT();
   const [shown, setShown] = useState(PAGE);
@@ -614,6 +622,7 @@ export function Overview({
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-8">
         <Heading details={details} />
+        {stack && onPickStack ? <StackCard stack={stack} onPick={onPickStack} /> : null}
         <Description details={details} conversation={conversation} />
         <MergeBox details={details} pull={pull} />
         <Checks pr={details} pull={pull} hasFile={hasFile} onJump={onJump} say={say} />

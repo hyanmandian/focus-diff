@@ -59,7 +59,7 @@ export function StackMenu({
         </TooltipTrigger>
         <TooltipContent>{position}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-96">
+      <DropdownMenuContent align="start" className="w-96">
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t("review.stack")}</DropdownMenuLabel>
           <DropdownMenuRadioGroup

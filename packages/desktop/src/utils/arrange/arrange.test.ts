@@ -35,6 +35,26 @@ const read = () => false;
 const ids = (items: Item[]) => items.map((i) => i.pr.id);
 
 describe("arrange", () => {
+  it("keeps a stack together, bottom first, where its first one stood, and says where each stands", () => {
+    const branches = (head: string, base: string, isCrossRepository = false) => ({
+      headRefName: head,
+      baseRefName: base,
+      isCrossRepository,
+    });
+    const top = { ...item("top", "o/one", "2026-01-05") };
+    top.pr = { ...top.pr, ...branches("b", "a") };
+    const mid = item("mid", "o/one", "2026-01-04");
+    const bottom = item("bottom", "o/one", "2026-01-01");
+    bottom.pr = { ...bottom.pr, ...branches("a", "main") };
+    const fork = item("fork", "o/one", "2026-01-03");
+    fork.pr = { ...fork.pr, ...branches("c", "b", true) };
+    const { groups, stacks } = arrange([mid, bottom, top, fork], read);
+    expect(ids(groups[0]!.items)).toEqual(["bottom", "top", "mid", "fork"]);
+    expect(stacks.get("top")).toEqual({ stack: "o/one:a", index: 1, size: 2 });
+    expect(stacks.has("fork")).toBe(false);
+    expect(nextAfter([mid, bottom, top], "bottom", read)?.pr.id).toBe("top");
+  });
+
   it("puts the repository with the most news first, and news first within one", () => {
     const list = [
       item("a", "o/one", "2026-01-03"),

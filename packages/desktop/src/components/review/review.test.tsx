@@ -1533,6 +1533,11 @@ describe("Review", () => {
       expect(screen.getByRole("menuitemradio", { name: /#9 Top.*Draft/u })).toBeTruthy();
       await userEvent.click(screen.getByRole("menuitemradio", { name: /#5 Bottom/u }));
       expect(h.queue.goTo.mock.calls.at(-1)?.[0].pr.id).toBe("PR_5");
+      // And from the stack under the overview's heading.
+      act(() => {
+        h.overview?.onPickStack?.(h.stack!.pulls[2]!);
+      });
+      expect(h.queue.goTo.mock.calls.at(-1)?.[0].pr.id).toBe("PR_9");
     });
 
     it("goes on with the queue from the top of a stack", async () => {

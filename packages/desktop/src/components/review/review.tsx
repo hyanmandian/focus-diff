@@ -1109,6 +1109,8 @@ export function Review({ target }: { target: Target }) {
               </div>
             </div>
           </div>
+          {/* The stack it's in, on the left with what's being looked at. */}
+          {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
         </div>
 
         <div
@@ -1426,7 +1428,6 @@ export function Review({ target }: { target: Target }) {
                 }}
               />
             ) : null}
-            {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
             {/* Done with it: off the queue it was opened from, as the panel's Mark Done, and on to the
                 next there. */}
             {target.queue ? (
@@ -1601,6 +1602,8 @@ export function Review({ target }: { target: Target }) {
                   setTab("diff");
                   requestAnimationFrame(() => diffs.current?.scrollToTop());
                 }}
+                stack={stack}
+                onPickStack={(other) => void goTo(visitOf(other))}
                 hasFile={(path) => Boolean(files?.some((f) => f.path === path))}
                 say={say}
               />

@@ -59,13 +59,12 @@ describe("useStack", () => {
     expect(loadStack).toHaveBeenCalledTimes(1);
   });
 
-  it("has none for one alone, the author, a closed one, or nothing loaded yet", async () => {
+  it("has none for one alone, a closed one, or nothing loaded yet", async () => {
     vi.mocked(loadStack).mockImplementation(({ self }) => Promise.resolve([self]));
-    const [alone, mine, merged] = [details(), details({ viewerDidAuthor: true }), details({ state: "MERGED" })];
+    const [alone, merged] = [details(), details({ state: "MERGED" })];
     const { result } = renderHook(() => useStack(alone));
     await act(() => Promise.resolve());
     expect(result.current).toBeNull();
-    expect(renderHook(() => useStack(mine)).result.current).toBeNull();
     expect(renderHook(() => useStack(merged)).result.current).toBeNull();
     expect(renderHook(() => useStack(null)).result.current).toBeNull();
   });

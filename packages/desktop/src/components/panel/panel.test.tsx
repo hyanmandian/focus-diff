@@ -254,6 +254,26 @@ describe("Panel", () => {
     expect(screen.getByText("Web one")).toBeTruthy();
   });
 
+  it("keeps a stack together, bottom first, in a group of its own, drafts too", async () => {
+    const top = item("review", "Top", "acme/web", {}, { headRefName: "b", baseRefName: "a" });
+    const lone = item("review", "Lone");
+    const bottom = item("review", "Bottom", "acme/web", {}, { headRefName: "a", baseRefName: "main" });
+    const drafts = [
+      item("review", "Draft up", "acme/web", {}, { isDraft: true, headRefName: "d2", baseRefName: "d1" }),
+      item("review", "Draft down", "acme/web", {}, { isDraft: true, headRefName: "d1", baseRefName: "main" }),
+    ];
+    const { user } = await setup(live({ items: { review: [top, lone, bottom, ...drafts] } }));
+    const stack = screen.getByRole("list", { name: "Stack of 2" });
+    expect(
+      within(stack)
+        .getAllByText(/^(Top|Bottom)$/u)
+        .map((title) => title.textContent),
+    ).toEqual(["Bottom", "Top"]);
+    expect(within(stack).getByText("1 of 2 in a stack, from the bottom")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Drafts/u }));
+    expect(screen.getAllByRole("list", { name: "Stack of 2" })).toHaveLength(2);
+  });
+
   it("names repositories in full when two owners have one by the same name", async () => {
     await setup(live({ items: { review: [item("review", "A", "acme/web"), item("review", "B", "ours/web")] } }));
     const chips = within(screen.getByRole("group", { name: "Repositories" })).getAllByRole("button");

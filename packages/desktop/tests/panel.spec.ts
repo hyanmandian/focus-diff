@@ -1,5 +1,6 @@
-// The panel under the tray icon, on the sample data: three pull requests wait on your review (two in
-// acme/web, one in acme/api), three are in Updates, two are yours and one was merged.
+// The panel under the tray icon, on the sample data: four pull requests wait on your review (three in
+// acme/web, two of them a stack, and one in acme/api), three are in Updates, two are yours and one
+// was merged.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -8,6 +9,7 @@ import { callsOf, recordCalls } from "./ipc";
 const PROMO = "Checkout: keep the promo code when the cart changes";
 const FLAKY = "Fix flaky date picker test in Safari";
 const INVOICES = "Move invoice exports to the background queue so large accounts don't time out";
+const REASONS = "Show why a promo code stopped applying";
 
 /** A pull request's row: the button that opens it. */
 const row = (page: Page, title: string) =>
@@ -30,7 +32,7 @@ test.beforeEach(async ({ page }) => {
 
 test("shows each queue's pull requests in its tab", async ({ page }) => {
   const queues = page.getByRole("tablist", { name: "Queues" });
-  await expect(queues.getByRole("tab", { name: "Review 3" })).toHaveAttribute("aria-selected", "true");
+  await expect(queues.getByRole("tab", { name: "Review 4" })).toHaveAttribute("aria-selected", "true");
   await expect(row(page, PROMO)).toBeVisible();
 
   await queues.getByRole("tab", { name: "Updates 3" }).click();
@@ -52,19 +54,20 @@ test("remembers the queue last chosen", async ({ page }) => {
 
 test("narrows the list to one repository with its chip", async ({ page }) => {
   const repos = page.getByRole("group", { name: "Repositories" });
-  await expect(repos.getByRole("button", { name: "All 3" })).toHaveAttribute("aria-pressed", "true");
+  await expect(repos.getByRole("button", { name: "All 4" })).toHaveAttribute("aria-pressed", "true");
 
   await repos.getByRole("button", { name: "api 1" }).click();
   await expect(repos.getByRole("button", { name: "api 1" })).toHaveAttribute("aria-pressed", "true");
   await expect(row(page, INVOICES)).toBeVisible();
   await expect(row(page, PROMO)).toBeHidden();
 
-  await repos.getByRole("button", { name: "web 2" }).click();
+  await repos.getByRole("button", { name: "web 3" }).click();
   await expect(row(page, PROMO)).toBeVisible();
   await expect(row(page, FLAKY)).toBeVisible();
+  await expect(row(page, REASONS)).toBeVisible();
   await expect(row(page, INVOICES)).toBeHidden();
 
-  await repos.getByRole("button", { name: "All 3" }).click();
+  await repos.getByRole("button", { name: "All 4" }).click();
   await expect(row(page, INVOICES)).toBeVisible();
   await expect(row(page, PROMO)).toBeVisible();
 });
@@ -74,15 +77,15 @@ test("picks rows with their box, and a run of them with Shift", async ({ page })
   await expect(page.getByRole("checkbox", { name: `Select ${FLAKY}` })).toBeChecked();
   await expect(page.getByRole("status")).toHaveText("1 selected");
 
-  // From the one picked to the last row: all three.
+  // From the one picked to the last row: all four.
   await pick(page, INVOICES, ["Shift"]);
-  await expect(page.getByRole("status")).toHaveText("3 selected");
-  await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(3);
+  await expect(page.getByRole("status")).toHaveText("4 selected");
+  await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(4);
 
   // Clicking a picked one's box lets it go.
   await pick(page, PROMO);
   await expect(page.getByRole("checkbox", { name: `Select ${PROMO}` })).not.toBeChecked();
-  await expect(page.getByRole("status")).toHaveText("2 selected");
+  await expect(page.getByRole("status")).toHaveText("3 selected");
 
   await page.getByRole("button", { name: "Clear" }).click();
   await expect(page.getByRole("checkbox", { name: `Select ${FLAKY}` })).not.toBeChecked();
@@ -108,13 +111,22 @@ test("marks picked rows done, and Undo puts them back", async ({ page }) => {
   await expect(row(page, FLAKY)).toBeHidden();
   await expect(row(page, INVOICES)).toBeHidden();
   await expect(row(page, PROMO)).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Review 1" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Review 2" })).toBeVisible();
 
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(row(page, FLAKY)).toBeVisible();
   await expect(row(page, INVOICES)).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Review 3" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Review 4" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo" })).toBeHidden();
+});
+
+test("keeps a stack together, bottom first, in a group of its own", async ({ page }) => {
+  const stack = page.getByRole("list", { name: "Stack of 2" });
+  await expect(stack.getByRole("button", { name: /^(Unread: )?(Checkout|Show why)/u })).toHaveText([
+    new RegExp(PROMO, "u"),
+    new RegExp(REASONS, "u"),
+  ]);
+  await expect(stack.getByText("2 of 2 in a stack, from the bottom")).toBeAttached();
 });
 
 test("asks for the review window when a row is clicked", async ({ page }) => {

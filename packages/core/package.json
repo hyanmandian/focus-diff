@@ -12,7 +12,8 @@
     "./estimate": "./src/estimate/estimate.ts",
     "./filters": "./src/filters/filters.ts",
     "./recipes": "./src/recipes/recipes.ts",
-    "./repos": "./src/repos/repos.ts"
+    "./repos": "./src/repos/repos.ts",
+    "./stacks": "./src/stacks/stacks.ts"
   },
   "scripts": {
     "check": "tsc --noEmit && oxlint && oxfmt --check && vitest run --coverage",

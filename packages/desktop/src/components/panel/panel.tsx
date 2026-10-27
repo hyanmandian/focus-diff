@@ -4,7 +4,7 @@
 // reviewing happens.
 
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
@@ -280,7 +280,7 @@ export function Panel() {
         list.filter((i) => i.pr.repository.nameWithOwner === a).length || a.localeCompare(b),
   );
   const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
-  const { groups, drafts } = arrange(narrowed, unread);
+  const { groups, drafts, stacks } = arrange(narrowed, unread);
   const inOrder = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
   // For shift-click: picking happens after the render that showed the rows.
   useLayoutEffect(() => {
@@ -348,9 +348,31 @@ export function Panel() {
         selecting={pickedHere.length > 0}
         onPick={pick}
         onHover={setHovered}
+        stack={stacks.get(item.pr.id)}
       />
     </li>
   );
+  /** A list's rows, each stack's (together, from arrange) in a group of its own. */
+  const rows = (these: Item[], of: Queue) => {
+    const out: ReactNode[] = [];
+    for (let i = 0; i < these.length;) {
+      const place = stacks.get(these[i]!.pr.id);
+      if (place) {
+        out.push(
+          <li key={place.stack}>
+            <ul aria-label={t("panel.stack", { count: place.size })}>
+              {these.slice(i, i + place.size).map((each) => row(each, of))}
+            </ul>
+          </li>,
+        );
+        i += place.size;
+      } else {
+        out.push(row(these[i]!, of));
+        i += 1;
+      }
+    }
+    return out;
+  };
 
   return (
     <div className="flex h-full animate-in flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] duration-(--duration) ease-out fade-in-0 motion-reduce:animate-none">
@@ -555,7 +577,7 @@ export function Panel() {
                               </span>
                             </h2>
                           ) : null}
-                          <ul data-join="column">{g.items.map((item) => row(item, queue))}</ul>
+                          <ul data-join="column">{rows(g.items, queue)}</ul>
                         </section>
                       ))}
                       {drafts.length > 0 ? (
@@ -576,7 +598,7 @@ export function Panel() {
                             <span className="text-callout font-normal tabular-nums">{drafts.length}</span>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <ul data-join="column">{drafts.map((item) => row(item, queue))}</ul>
+                            <ul data-join="column">{rows(drafts, queue)}</ul>
                           </CollapsibleContent>
                         </Collapsible>
                       ) : null}

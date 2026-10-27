@@ -164,7 +164,7 @@ jobs:
 
       # Up for 20 seconds on a virtual screen, with a session bus for the tray and the keyring, then
       # ended: a crash at start (a panic, a missing library) ends it sooner and fails the step, with
-      # what it wrote shown.
+      # what it wrote shown. In a session of its own, so a signal to its group can't end the step.
       - name: Start the app and check it stays up (Linux)
         if: runner.os == 'Linux'
         working-directory: packages/desktop/src-tauri/target/release
@@ -172,13 +172,13 @@ jobs:
           Xvfb :99 -screen 0 1440x900x24 > /dev/null 2>&1 &
           export DISPLAY=:99
           eval "$(dbus-launch --sh-syntax)"
-          ./focus-diff > launch.log 2>&1 &
+          trap 'cat launch.log' EXIT
+          setsid ./focus-diff > launch.log 2>&1 < /dev/null &
           pid=$!
           sleep 20
           alive=0
           if kill -0 "$pid" 2> /dev/null; then alive=1; fi
           kill -9 "$pid" 2> /dev/null || true
-          cat launch.log
           if [ "$alive" -ne 1 ]; then echo "The app quit at start"; exit 1; fi
 
       - name: Start the app and check it stays up (Windows)

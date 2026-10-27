@@ -23,6 +23,8 @@
     "oxc/no-map-spread": "off",
     // `void p.then(() => {...})` ends a chain on purpose.
     "promise/always-return": ["error", { "ignoreLastCallback": true }],
+    // New in oxlint 1.90; off so the extension's code stays as released (it would only rename replace to replaceAll).
+    "unicorn/prefer-string-replace-all": "off",
     "jsdoc/require-param": "off",
     "jsdoc/require-returns": "off",
     "eslint/max-lines-per-function": "off",

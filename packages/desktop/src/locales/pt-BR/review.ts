@@ -302,5 +302,8 @@ export const review: Dictionary["review"] = {
   pullNavigation: "Pull requests",
   pickEmoji: "Emoji",
   queueDone: "Nada mais esperando em {queue}",
+  markDone: "Marcar como feito",
+  markDoneTip: "Tira de {queue} e abre o próximo",
+  doneQueueDone: "Feito. Nada mais esperando em {queue}",
   theQueue: "esta fila",
 };

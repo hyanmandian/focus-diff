@@ -61,7 +61,7 @@ type PendingStub = {
 type QueueStub = {
   next: Visit | null;
   previous: Visit | null;
-  go: Mock<() => Promise<boolean>>;
+  go: Mock<(done?: boolean) => Promise<boolean>>;
   back: Mock<() => Promise<void>>;
 };
 
@@ -91,7 +91,7 @@ const h = vi.hoisted(() => {
     queue: (over: Partial<QueueStub> = {}): QueueStub => ({
       next: null,
       previous: null,
-      go: vi.fn<() => Promise<boolean>>(() => Promise.resolve(true)),
+      go: vi.fn<(done?: boolean) => Promise<boolean>>(() => Promise.resolve(true)),
       back: vi.fn<() => Promise<void>>(() => Promise.resolve()),
       ...over,
     }),
@@ -1489,7 +1489,7 @@ describe("Review", () => {
       h.queue = {
         ...h.queue,
         previous: visit(6, "Earlier one"),
-        go: vi.fn<() => Promise<boolean>>(() => Promise.resolve(false)),
+        go: vi.fn<(done?: boolean) => Promise<boolean>>(() => Promise.resolve(false)),
       };
       await openReview();
       await userEvent.click(button("Next"));
@@ -1500,7 +1500,7 @@ describe("Review", () => {
       h.queue = {
         ...h.queue,
         next: visit(8, "Next one"),
-        go: vi.fn<() => Promise<boolean>>(() => Promise.resolve(false)),
+        go: vi.fn<(done?: boolean) => Promise<boolean>>(() => Promise.resolve(false)),
       };
       vi.mocked(loadDetails).mockResolvedValue(details({ author: null }));
       await openReview({ ...TARGET, queue: undefined });
@@ -1509,6 +1509,40 @@ describe("Review", () => {
       press("]", { metaKey: true });
       await waitFor(() => {
         expect(screen.getByRole("status").textContent).toBe("Nothing else waiting in this queue");
+      });
+    });
+
+    it("marks it done and goes on, from the toolbar and with e, saying so when it was the last", async () => {
+      h.queue = {
+        ...h.queue,
+        next: visit(8, "Next one"),
+        go: vi.fn<(done?: boolean) => Promise<boolean>>(() => Promise.resolve(true)),
+      };
+      await openReview();
+      await userEvent.click(button("Mark Done"));
+      expect(h.queue.go).toHaveBeenLastCalledWith(true);
+      h.queue.go.mockResolvedValue(false);
+      press("e");
+      expect(h.queue.go).toHaveBeenCalledTimes(2);
+      await waitFor(() => {
+        expect(screen.getByRole("status").textContent).toBe("Done. Nothing else waiting in Waiting on me");
+      });
+      // Not as ⌥E (a typed character) or once typing.
+      press("e", { altKey: true });
+      expect(h.queue.go).toHaveBeenCalledTimes(2);
+    });
+
+    it("has no Mark Done when not opened from a queue, and calls an unknown queue this queue", async () => {
+      h.queue = { ...h.queue, go: vi.fn<(done?: boolean) => Promise<boolean>>(() => Promise.resolve(false)) };
+      const { unmount } = await openReview({ ...TARGET, queue: undefined });
+      expect(screen.queryByRole("button", { name: "Mark Done" })).toBeNull();
+      press("e");
+      expect(h.queue.go).not.toHaveBeenCalled();
+      unmount();
+      await openReview({ ...TARGET, queue: "gone" });
+      press("e");
+      await waitFor(() => {
+        expect(screen.getByRole("status").textContent).toBe("Done. Nothing else waiting in this queue");
       });
     });
   });

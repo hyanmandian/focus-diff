@@ -65,21 +65,26 @@ export function useNextInQueue(queue: string | null | undefined, current: string
   }, [queue, current]);
 
   /** On to it, in this window, counting as having looked at it as a click in the panel does. Asked
-   *  again first: the queue may have moved on since the window came forward. */
-  const go = useCallback(async (): Promise<boolean> => {
-    if (!queue) return false;
-    const item = (await find(queue, current).catch(() => null)) ?? next;
-    // The queue's done: false, for the window to say so.
-    if (!item) {
-      setNext(null);
-      return false;
-    }
-    void bridge.markSeen(item.queueId, item.pr.id);
-    if (here) keepVisits([...visits(), here]);
-    sessionStorage.setItem(DIRECTION, "forward");
-    await bridge.switchReview(item.pr, item.viaTeams ?? [], item.queueId);
-    return true;
-  }, [queue, current, next, here]);
+   *  again first: the queue may have moved on since the window came forward. `done`: this one off
+   *  the queue first, as the panel's Mark Done, once the one after it is known. */
+  const go = useCallback(
+    async (done = false): Promise<boolean> => {
+      if (!queue) return false;
+      const item = (await find(queue, current).catch(() => null)) ?? next;
+      if (done) await bridge.dismiss(queue, current);
+      // The queue's done: false, for the window to say so.
+      if (!item) {
+        setNext(null);
+        return false;
+      }
+      void bridge.markSeen(item.queueId, item.pr.id);
+      if (here) keepVisits([...visits(), here]);
+      sessionStorage.setItem(DIRECTION, "forward");
+      await bridge.switchReview(item.pr, item.viaTeams ?? [], item.queueId);
+      return true;
+    },
+    [queue, current, next, here],
+  );
 
   /** Back to the one shown before this, in this window. */
   const back = useCallback(async () => {

@@ -297,5 +297,8 @@ export const review = {
   pullNavigation: "Pull requests",
   pickEmoji: "Emoji",
   queueDone: "Nothing else waiting in {queue}",
+  markDone: "Mark Done",
+  markDoneTip: "Takes it off {queue} and opens the next",
+  doneQueueDone: "Done. Nothing else waiting in {queue}",
   theQueue: "this queue",
 } as const;

@@ -177,6 +177,31 @@ describe("useNextInQueue", () => {
     expect(kept()).toBeNull();
   });
 
+  it("marks this one done once the next is known, then goes on to it", async () => {
+    const calls = rust(() => ({ review: [item("PR_A", 1, "2026-01-03"), item("PR_B", 2, "2026-01-02")] }));
+    const { result } = renderHook(() => useNextInQueue("review", "PR_A", HERE));
+    await expect(result.current.go(true)).resolves.toBe(true);
+    expect(calls.map(([cmd]) => cmd).filter((cmd) => cmd !== "snapshot")).toEqual([
+      "dismiss",
+      "mark_seen",
+      "switch_review",
+    ]);
+    expect(asked(calls, "dismiss")).toEqual([{ queueId: "review", prId: "PR_A" }]);
+    expect(asked(calls, "switch_review")).toEqual([expect.objectContaining({ id: "PR_B" })]);
+  });
+
+  it("marks the last one done, saying the queue's done", async () => {
+    const calls = rust(() => ({ review: [item("PR_A", 1, "2026-01-03")] }));
+    const { result } = renderHook(() => useNextInQueue("review", "PR_A", HERE));
+    let went = true;
+    await act(async () => {
+      went = await result.current.go(true);
+    });
+    expect(went).toBe(false);
+    expect(asked(calls, "dismiss")).toEqual([{ queueId: "review", prId: "PR_A" }]);
+    expect(asked(calls, "switch_review")).toEqual([]);
+  });
+
   it("goes back to the one shown before, as a browser's history does", async () => {
     const before: Visit = { pr: pull("PR_Z", 26), teams: ["acme/web"], queue: null };
     sessionStorage.setItem("review-back", JSON.stringify([HERE, before]));

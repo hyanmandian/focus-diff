@@ -6,6 +6,7 @@
 import { createEstimator, LINES_PER_HOUR, reviewMinutes } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -398,6 +399,7 @@ export function Review({ target }: { target: Target }) {
     queue: target.queue ?? null,
   });
   const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
+  const queueLabel = queueName || t("review.theQueue");
   const say = (message: string) => {
     setNotice(message);
     window.setTimeout(() => {
@@ -409,11 +411,17 @@ export function Review({ target }: { target: Target }) {
     if (upStack) return goTo(visitOf(upStack));
     if (!(await goNext())) say(t("review.queueDone", { queue: queueName || t("review.theQueue") }));
   };
+  // Off the queue, as the panel's Mark Done, and on to the next; saying so when it was the last.
+  const markDone = async () => {
+    if (!(await goNext(true))) say(t("review.doneQueueDone", { queue: queueLabel }));
+  };
   const goNextRef = useRef(nextInQueue);
   const goBackRef = useRef(goBack);
+  const markDoneRef = useRef(markDone);
   useLayoutEffect(() => {
     goNextRef.current = nextInQueue;
     goBackRef.current = goBack;
+    markDoneRef.current = markDone;
   });
   const minutesOf = useMemo(() => createEstimator(LINES_PER_HOUR, learned), [learned]);
   // The AI review of this pull request's current head, kept until it changes.
@@ -845,6 +853,12 @@ export function Review({ target }: { target: Target }) {
         action();
         return;
       }
+      // e marks it done, as on GitHub's notifications: only for one opened from a queue.
+      if (e.key === "e" && !e.altKey && target.queue) {
+        e.preventDefault();
+        void markDoneRef.current();
+        return;
+      }
       // ? shows every shortcut, from either tab, as on GitHub.
       if (e.key === "?") {
         e.preventDefault();
@@ -866,7 +880,7 @@ export function Review({ target }: { target: Target }) {
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [tab, files, setTab]);
+  }, [tab, files, setTab, target.queue]);
 
   const actionResult = (message: string, ok: boolean) => {
     say(message);
@@ -1474,10 +1488,36 @@ export function Review({ target }: { target: Target }) {
                 }}
               />
             ) : null}
+            {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
+            {/* Done with it: off the queue it was opened from, as the panel's Mark Done, and on to the
+                next there. */}
+            {target.queue ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className={cn(TOOL, "gap-1 bg-fill @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
+                      aria-label={t("review.markDone")}
+                      aria-keyshortcuts="E"
+                      onClick={() => void markDone()}
+                    />
+                  }
+                >
+                  <Check />
+                  <span className="@max-[1360px]:sr-only">{t("review.markDone")}</span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-80">
+                  <span className="block font-semibold">
+                    {t("review.markDone")} <Kbd>E</Kbd>
+                  </span>
+                  <span className="block">{t("review.markDoneTip", { queue: queueLabel })}</span>
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {/* Back to the pull request shown before and on to the next of the queue it was opened
               from, in this window, as back and forward in Safari: the last item, where the eye goes
               once the review is sent. */}
-            {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
             {nextPull || previous || upStack ? (
               <div
                 // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)

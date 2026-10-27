@@ -10,24 +10,24 @@ This repository holds everything Focus Diff is, as npm workspaces:
 
 ```text
 packages/
-  extension/      the browser extension: WXT, running the app's screens in a browser
-  desktop/        the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+
-  app/            the screens both apps run and their logic, on a pluggable platform (see its README)
+  extension/      the browser extension: WXT, running the Mac app's screens in a browser
+  desktop/        the Mac app: Tauri 2 (Rust) with a React front end, built with Vite+; its screens, on a pluggable
+                  platform, are the ones the extension runs too (see its README)
   site/           focus-diff.com, a static page
   core/           logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
   design-system/  what makes them one product: the Mac look's tokens, styles and React components (see its README)
 ```
 
 The apps import a shared package's files directly, as its `exports` name them (`@focus-diff/core/filters`), and bundle
-them; `npm run check` in `packages/core`, `packages/design-system` and `packages/app` is Oxfmt, Oxlint (as strict as the apps'), types
-and Vitest at 100%.
+them, as the extension does with the desktop's screens (`@focus-diff/desktop/components/panel`); `npm run check` in
+`packages/core` and `packages/design-system` is Oxfmt, Oxlint (as strict as the apps'), types and Vitest at 100%.
 
 `npm install` at the root installs everything. Run an app's commands from its folder (or with `--workspace`), and
 `npm run check`, `npm test`, `npm run build` or `npm run e2e` at the root to run them in every app.
 
 ### The extension (`packages/extension`)
 
-Built with [WXT](https://wxt.dev), it runs the Mac app's screens (`packages/app`) on the design system, as the desktop
+Built with [WXT](https://wxt.dev), it runs the Mac app's screens (`packages/desktop`) on the design system, as the desktop
 does: React with the React Compiler, Tailwind v4. Its runtime dependencies are the workspace packages, React and
 `@pierre/diffs` (the review's syntax colouring); `npm run check` allows exactly those.
 
@@ -63,7 +63,7 @@ src/
   utils/            the background's work, the pages' platform, and the bar's page reading (github-page/,
                     github-provider/) and filtering
   assets/           pages.css: Tailwind, the design system and the screens' styles for the extension's pages
-  locales/          the manifest's English and Brazilian Portuguese messages (the screens' are packages/app's)
+  locales/          the manifest's English and Brazilian Portuguese messages (the screens' are packages/desktop's)
 tests/              Playwright end-to-end tests: the popup, Settings, setup, a review on sample data, the bar on saved
                     pull request pages, and moving an earlier version's settings over
 ```
@@ -79,9 +79,11 @@ npm run e2e         # Playwright on the pages, in Chromium and WebKit
 npm run tauri build # a signed .app in src-tauri/target/release/bundle (needs the updater key, see Releasing)
 ```
 
-Its screens live in `packages/app`; the desktop keeps what makes it a Tauri app: `src/entries/` (a page each, which
-plugs in the Tauri platform and draws a screen), `src/utils/tauri-platform/`, `src-tauri/` (the Rust side) and
-`tests/` (end-to-end tests of the pages, on the sample data). Both follow one layout: `src/components/<name>/<name>.tsx`,
+Its screens (`src/components/`, `src/hooks/`, `src/utils/`) never talk to Tauri: they reach the app through a small
+platform (`src/utils/platform/`), so the extension runs the same ones. What makes it a Tauri app is `src/entries/` (a
+page each, which plugs in the Tauri platform and draws a screen), `src/utils/tauri-platform/`, `src-tauri/` (the Rust
+side) and `tests/` (end-to-end tests of the pages, on the sample data). Inside the screens, imports are relative, as
+the extension builds those files with its own `@/`; the desktop's own files use `@/`. Both follow one layout: `src/components/<name>/<name>.tsx`,
 `src/hooks/<name>/<name>.ts` and `src/utils/<name>/<name>.ts`, each with its `<name>.test.tsx` beside it, kebab-case,
 imported directly (no index files).
 
@@ -115,6 +117,6 @@ The Mac app has its own release pull request (tagged `desktop-v…`). Merging it
 
 - Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
-- Put new text in both languages: the screens' in `packages/app/src/locales`, the manifest's in `packages/extension/src/locales`.
+- Put new text in both languages: the screens' in `packages/desktop/src/locales`, the manifest's in `packages/extension/src/locales`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.
 - Check the screens and the bar in light and dark, and with the keyboard.

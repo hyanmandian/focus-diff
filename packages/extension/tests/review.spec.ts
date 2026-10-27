@@ -1,4 +1,4 @@
-// A pull request's review in a tab: the Mac app's review window, on its sample pull request #1807 (packages/app's
+// A pull request's review in a tab: the Mac app's review window, on its sample pull request #1807 (packages/desktop's
 // utils/mock), which the stand-in GitHub answers (tests/github.ts): ten changed files, one viewed.
 import type { Page } from "@playwright/test";
 

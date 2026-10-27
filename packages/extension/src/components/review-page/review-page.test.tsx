@@ -1,5 +1,5 @@
-import type { Target } from "@focus-diff/app/components/review";
-import { DIRECTION } from "@focus-diff/app/hooks/use-next-in-queue";
+import type { Target } from "@focus-diff/desktop/components/review";
+import { DIRECTION } from "@focus-diff/desktop/hooks/use-next-in-queue";
 import { screen } from "@testing-library/react";
 import { act } from "react";
 import type { Root } from "react-dom/client";
@@ -11,14 +11,14 @@ import { startPage } from "@/utils/start-page/start-page";
 
 import { searchOf, startReview, targetOf } from "./review-page";
 
-vi.mock("@focus-diff/app/components/review", () => ({
+vi.mock("@focus-diff/desktop/components/review", () => ({
   Review: ({ target }: { target: Target }) => (
     <h1>
       {target.repo}#{target.number} {target.teams.join(" ")} {target.queue ?? "no queue"}
     </h1>
   ),
 }));
-vi.mock("@focus-diff/app/components/viewer", () => ({ Viewer: () => null }));
+vi.mock("@focus-diff/desktop/components/viewer", () => ({ Viewer: () => null }));
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- no workers in a test: the review is a stand-in
 const pool = null as never;

@@ -1,12 +1,12 @@
 // A stand-in for GitHub's API, which the extension's background calls (src/utils/github-api): who's signed in, the
 // queues' searches and pull requests, and everything a review reads, from the app's own sample data
-// (packages/app's utils/mock, the pages' development stand-in). Each request is kept, so a test can say what was sent.
+// (packages/desktop's utils/mock, the pages' development stand-in). Each request is kept, so a test can say what was sent.
 import type { BrowserContext, Request } from "@playwright/test";
 import { Window } from "happy-dom";
 
 // The sample's conversations are read through the DOM's parser, which Node doesn't have.
 Object.assign(globalThis, { DOMParser: new Window().DOMParser });
-const { mockPlatform } = await import("@focus-diff/app/utils/mock");
+const { mockPlatform } = await import("@focus-diff/desktop/utils/mock");
 
 export const ME = "you";
 

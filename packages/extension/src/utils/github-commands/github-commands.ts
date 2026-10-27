@@ -2,7 +2,7 @@
 // names): calls to GitHub with the token, files at a commit, a job's log, signing in, the viewed marks and pending
 // review comments on their way, and each review's last copy.
 
-import type { DraftPut, UploadError } from "@focus-diff/app/utils/bridge";
+import type { DraftPut, UploadError } from "@focus-diff/desktop/utils/bridge";
 
 import { createBlobs } from "@/utils/blobs/blobs";
 import type { Commands } from "@/utils/command-server/command-server";

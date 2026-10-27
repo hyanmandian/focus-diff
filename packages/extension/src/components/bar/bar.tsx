@@ -1,10 +1,10 @@
-// The bar on github.com: the app's own filter bar (packages/app's FilterBar), floating at the bottom of the screen
+// The bar on github.com: the app's own filter bar (packages/desktop's FilterBar), floating at the bottom of the screen
 // over GitHub's page, in its shadow root (components/mount-bar). Its tooltips and its breakdown are drawn in that
 // container too, where its styles are.
 
-import { FilterBar } from "@focus-diff/app/components/filter-bar";
 import { TooltipProvider } from "@focus-diff/design-system/components/tooltip";
 import { PortalContainer } from "@focus-diff/design-system/utils/portal-container";
+import { FilterBar } from "@focus-diff/desktop/components/filter-bar";
 import { createRoot } from "react-dom/client";
 
 import type { BarProps, BarView } from "@/utils/review-controller/review-controller";

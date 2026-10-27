@@ -1,8 +1,8 @@
 @import "tailwindcss";
 /* The design system: tokens, utilities, base styles and its components' classes (packages/design-system). */
 @import "@focus-diff/design-system/styles.css";
-/* The screens' styles (packages/app). */
-@import "@focus-diff/app/styles.css";
+/* The screens' styles. */
+@import "./styles/styles.css";
 
 /* MARK: Desktop */
 

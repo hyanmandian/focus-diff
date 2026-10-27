@@ -1,8 +1,8 @@
-// The browser extension as the screens' platform (@focus-diff/app's utils/platform): each page talks to the background
+// The browser extension as the screens' platform (@focus-diff/desktop's utils/platform): each page talks to the background
 // over a port named for its window, which answers the app's commands as the desktop's Rust does (utils/commands) and
 // sends its events back. A few commands are the page's own: closing itself, asking to confirm.
 
-import type { Args, Platform, Unlisten } from "@focus-diff/app/utils/platform";
+import type { Args, Platform, Unlisten } from "@focus-diff/desktop/utils/platform";
 import { browser, type Browser } from "wxt/browser";
 
 import {

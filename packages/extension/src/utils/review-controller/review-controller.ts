@@ -1,8 +1,3 @@
-import type { Next } from "@focus-diff/app/components/filter-bar";
-import type { Config, DiffFilter } from "@focus-diff/app/utils/config";
-import { filtersFor, nextFilterWithWork, stepFilter, toggled, totals } from "@focus-diff/app/utils/filters";
-import { i18n } from "@focus-diff/app/utils/i18n";
-import type { ReviewFile } from "@focus-diff/app/utils/review";
 import type { OnScreen } from "@focus-diff/core/active-time";
 import {
   createEstimator,
@@ -12,6 +7,11 @@ import {
   type Learned,
 } from "@focus-diff/core/estimate";
 import { inFilter, type Matcher } from "@focus-diff/core/filters";
+import type { Next } from "@focus-diff/desktop/components/filter-bar";
+import type { Config, DiffFilter } from "@focus-diff/desktop/utils/config";
+import { filtersFor, nextFilterWithWork, stepFilter, toggled, totals } from "@focus-diff/desktop/utils/filters";
+import { i18n } from "@focus-diff/desktop/utils/i18n";
+import type { ReviewFile } from "@focus-diff/desktop/utils/review";
 import { browser } from "wxt/browser";
 
 import type { ContentScriptContext } from "#imports";
@@ -35,7 +35,7 @@ import { goToFile } from "@/utils/review-navigation/review-navigation";
 import { scrollToTop, waitFor } from "@/utils/scroll/scroll";
 import { canTransition, removeTransitionStyle, withTransition } from "@/utils/transition/transition";
 
-/** What the bar draws: the app's FilterBar's props (packages/app/src/components/filter-bar). */
+/** What the bar draws: the app's FilterBar's props (packages/desktop/src/components/filter-bar). */
 export interface BarProps {
   files: ReviewFile[];
   filters: DiffFilter[];

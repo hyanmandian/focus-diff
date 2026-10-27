@@ -2,8 +2,8 @@
 // (utils/app-files): the filters, the theme and the language from the setup (config.json's text), the review pace
 // learned from the files marked viewed (pace.json's), and which filters are chosen in each repository.
 
-import { normalize, type Config } from "@focus-diff/app/utils/config";
 import { learnFile, normalizeLearned, type Learned } from "@focus-diff/core/estimate";
+import { normalize, type Config } from "@focus-diff/desktop/utils/config";
 
 import { storage } from "#imports";
 

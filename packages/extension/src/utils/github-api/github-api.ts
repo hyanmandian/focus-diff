@@ -5,7 +5,7 @@
 // Signing in uses GitHub's device flow (no server of ours, no redirect): the page shows a code, the person enters it
 // on github.com, and the background picks up the token. A pasted token works too.
 
-import type { AuthStatus, DeviceCode } from "@focus-diff/app/utils/bridge";
+import type { AuthStatus, DeviceCode } from "@focus-diff/desktop/utils/bridge";
 
 import { storage } from "#imports";
 import { isRecord } from "@/utils/record/record";

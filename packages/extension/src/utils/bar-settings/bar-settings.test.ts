@@ -1,6 +1,6 @@
-// @vitest-environment happy-dom
-import type { Config } from "@focus-diff/app/utils/config";
 import type { Learned } from "@focus-diff/core/estimate";
+// @vitest-environment happy-dom
+import type { Config } from "@focus-diff/desktop/utils/config";
 import { describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 

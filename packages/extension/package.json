@@ -31,9 +31,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@focus-diff/app": "*",
     "@focus-diff/core": "*",
     "@focus-diff/design-system": "*",
+    "@focus-diff/desktop": "*",
     "@pierre/diffs": "^1.6.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

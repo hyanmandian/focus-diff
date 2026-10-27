@@ -43,11 +43,39 @@ Signing in with GitHub (device flow) needs an OAuth app's client id at build tim
 
 ## Releasing
 
-Push a `v*` tag: `.github/workflows/release.yml` builds macOS (one app for Apple Silicon and Intel), Windows and Linux into a draft release with the updater's `latest.json`; publishing the draft ships it. The workflow lists the secrets it needs: the updater's signing key (made with `tauri signer generate`, kept outside the repository), the OAuth client id, and Apple's signing and notarization. The updater reads `https://github.com/hyanmandian/focus-diff/releases/latest/download/latest.json`, where releases will live.
+Merging the desktop's release pull request (tagged `desktop-v…`, see the root `CONTRIBUTING.md`) builds one universal Mac app for Apple Silicon and Intel, attaches `Focus-Diff.dmg` and the updater's archive, and puts `latest.json` on the `desktop-latest` release, where the updater looks (`https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/latest.json`). The app isn't signed with an Apple Developer ID: the release is downloaded and installed by hand. The updater's key, made with `tauri signer generate` and kept outside the repository, goes in the secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ## Layout
 
 - `src-tauri/src/` — Rust: windows and commands (`lib.rs`), the queue engine and its cache (`engine.rs`, with tests), the refresh loop, notifications and seen state (`watch.rs`), the tray icon (`tray.rs`), GitHub access (`github.rs`), the AI adapters (`ai.rs`) and the project checkouts they read (`checkout.rs`), custom actions' commands (`actions.rs`), updates (`update.rs`).
 - `src/entries/` — the four pages (panel, settings, setup, review): each plugs in the Tauri platform (`src/utils/tauri-platform/`) and draws a screen.
-- `../app/` (`@focus-diff/app`) — the screens and their logic: config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer, and the sample data (`src/utils/mock/`) for working on the pages in a browser, never part of a build.
+- `src/components/`, `src/hooks/`, `src/utils/` — the screens and their logic: config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer, and the sample data (`src/utils/mock/`) for working on the pages in a browser, never part of a build. `src/locales/` holds their English and Brazilian Portuguese messages, `src/styles/` their styles.
 - `tests/` — end-to-end tests of the pages in Chromium and WebKit, on the sample data.
+
+## The screens, in other apps
+
+The screens never talk to Tauri: they reach the app they run in through a small `Platform` (`src/utils/platform/`),
+which each app plugs in before drawing one. The browser extension runs the same screens this way, importing them by
+the paths `package.json`'s `exports` names (`@focus-diff/desktop/components/panel`, `@focus-diff/desktop/utils/platform`)
+and building the source itself.
+
+```ts
+interface Platform {
+  invoke<T>(command: string, args?: Args, options?: InvokeOptions): Promise<T>; // one of the app's commands
+  listen<T>(event: string, handler: (payload: T) => void): Promise<Unlisten>; // an event from the app or any window
+  listenToWindow<T>(event: string, handler: (payload: T) => void): Promise<Unlisten>; // this window's own
+  emitTo(window: string, event: string, payload?: unknown): Promise<void>; // an event to another window
+  version(): Promise<string>;
+  closeWindow(): Promise<void>;
+  mediaUrl?(kind: "avatar" | "media", url: string): string; // where GitHub's pictures load from, if the app keeps them
+}
+```
+
+The commands and events are this app's, by name and payload (`src/utils/bridge` lists them, `src-tauri/src/lib.rs`
+answers them); another app answers the same ones its own way. Inside the screens, imports are relative, as another
+app builds these files with its own `@/`; the desktop's own files (entries, the Tauri platform) use `@/`. The screens'
+styles are `@focus-diff/desktop/styles.css`, after the design system's; Settings adds
+`@focus-diff/desktop/components/settings.css`.
+
+A unit test answers commands with `mockCommands((command, args) => ...)` and sends events with `emit(event, payload)`
+(`src/utils/fake-platform`).

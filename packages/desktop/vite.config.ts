@@ -11,7 +11,7 @@ const page = (name: string) => fileURLToPath(new URL(`./${name}.html`, import.me
 
 // Vite+ runs it all from here (vp dev, vp build, vp check, vp test): four pages (the panel under
 // the tray icon, settings, first-run setup and a pull request's review), Oxfmt, Oxlint, Vitest. The
-// screens themselves are @focus-diff/app's (packages/app), built here with the pages.
+// screens are in src/components, src/hooks and src/utils, which the browser extension builds too.
 export default defineConfig({
   // React Compiler memoizes components and hooks at build time, so renders stay cheap without
   // hand-written useMemo/useCallback.
@@ -140,12 +140,22 @@ export default defineConfig({
 
   test: {
     environment: "happy-dom",
+    setupFiles: ["src/utils/test-setup/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      // The windows' entry points, development-only glue and type declarations aren't units.
-      exclude: ["src/entries/**", "src/utils/dev-log/**", "src/**/*.d.ts"],
+      // The windows' entry points, development-only glue, the sample data, the tests' own helpers, the
+      // messages and type declarations aren't units.
+      exclude: [
+        "src/entries/**",
+        "src/utils/dev-log/**",
+        "src/utils/mock*/**",
+        "src/utils/test-setup/**",
+        "src/utils/fake-platform/**",
+        "src/**/*.d.ts",
+        "src/locales/**",
+      ],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
       reporter: ["text-summary", "html"],
     },

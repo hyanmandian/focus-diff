@@ -413,6 +413,54 @@ describe("General pane", () => {
     });
   });
 
+  it("follows settings changed elsewhere, but not over a change of its own still being saved", async () => {
+    const answers: Answers = { config: config({ sound: false }) };
+    const rust = await general(answers);
+    const sound = () =>
+      within(panel()).getByRole<HTMLButtonElement>("switch", { name: "Play a sound with notifications" });
+    expect(sound().getAttribute("aria-checked")).toBe("false");
+    answers.config = config({ sound: true });
+    await act(() => emit("file-changed", "pace"));
+    expect(sound().getAttribute("aria-checked")).toBe("false");
+    await act(() => emit("file-changed", "config"));
+    await waitFor(() => {
+      expect(sound().getAttribute("aria-checked")).toBe("true");
+    });
+    // Turned off here; setup's older copy, coming in before that's written, doesn't turn it back on.
+    await userEvent.click(sound());
+    await act(() => emit("file-changed", "config"));
+    expect(sound().getAttribute("aria-checked")).toBe("false");
+    await waitFor(() => {
+      expect(rust.saved()?.sound).toBe(false);
+    });
+  });
+
+  it("installs the command line, says where, and why not when it can't", async () => {
+    const rust = await general();
+    const row = () => within(panel()).getByRole("button", { name: /^Install/u });
+    expect(row().textContent).toBe("Install");
+    mockCommands((cmd) => {
+      if (cmd === "install_cli") return "/opt/homebrew/bin/focus-diff";
+      return null;
+    });
+    await userEvent.click(row());
+    expect(await within(panel()).findByText("Installed at /opt/homebrew/bin/focus-diff")).toBeTruthy();
+    expect(row().textContent).toBe("Install Again");
+    mockCommands((cmd) => {
+      if (cmd === "install_cli") throw new Error("no folder");
+      return null;
+    });
+    await userEvent.click(row());
+    expect((await within(panel()).findByRole("alert")).textContent).toContain("no folder");
+    expect(rust.called("cli_installed")).toHaveLength(1);
+  });
+
+  it("sends a test notification, with the sound as set", async () => {
+    const rust = await general();
+    await userEvent.click(within(panel()).getByRole("button", { name: "Send a Test Notification" }));
+    expect(rust.called("test_notification").at(-1)?.args).toEqual({ sound: false });
+  });
+
   it("changes how often GitHub is checked, the appearance and the language", async () => {
     const rust = await general();
     await userEvent.click(within(panel()).getByRole("combobox", { name: "Refresh interval" }));

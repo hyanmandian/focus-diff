@@ -199,6 +199,11 @@ pub struct PullRequest {
     pub updated_at: String,
     pub merged_at: Option<String>,
     pub head_ref_oid: String,
+    /// The branches, to tell a stack: one pull request based on another's branch.
+    pub head_ref_name: String,
+    pub base_ref_name: String,
+    /// From a fork, whose branch names say nothing about this repository's.
+    pub is_cross_repository: bool,
     pub mergeable: String,
     pub additions: i64,
     pub deletions: i64,
@@ -241,6 +246,9 @@ struct PanelPr<'a> {
     updated_at: &'a str,
     merged_at: &'a Option<String>,
     head_ref_oid: &'a str,
+    head_ref_name: &'a str,
+    base_ref_name: &'a str,
+    is_cross_repository: bool,
     additions: i64,
     deletions: i64,
     changed_files: i64,
@@ -259,7 +267,7 @@ const ACTOR: &str = "__typename login avatarUrl(size: 64) ... on User { name }";
 fn fragment(files: bool, requests: bool) -> String {
     let comment = format!("author {{ {ACTOR} }} createdAt body url");
     let mut f = format!(
-        "id number title url isDraft state createdAt updatedAt mergedAt headRefOid mergeable additions deletions changedFiles
+        "id number title url isDraft state createdAt updatedAt mergedAt headRefOid headRefName baseRefName isCrossRepository mergeable additions deletions changedFiles
         repository {{ nameWithOwner }}
         author {{ {ACTOR} }}
         mergedBy {{ {ACTOR} }}
@@ -719,6 +727,9 @@ impl Serialize for Item {
                 updated_at: &pr.updated_at,
                 merged_at: &pr.merged_at,
                 head_ref_oid: &pr.head_ref_oid,
+                head_ref_name: &pr.head_ref_name,
+                base_ref_name: &pr.base_ref_name,
+                is_cross_repository: pr.is_cross_repository,
                 additions: pr.additions,
                 deletions: pr.deletions,
                 changed_files: pr.changed_files,

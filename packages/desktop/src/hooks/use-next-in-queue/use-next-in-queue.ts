@@ -86,6 +86,16 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     [queue, current, next, here],
   );
 
+  /** To another pull request (one of a stack, say), in this window: Back comes here again. */
+  const goTo = useCallback(
+    async (to: Visit) => {
+      if (here) keepVisits([...visits(), here]);
+      sessionStorage.setItem(DIRECTION, "forward");
+      await bridge.switchReview(to.pr, to.teams, to.queue);
+    },
+    [here],
+  );
+
   /** Back to the one shown before this, in this window. */
   const back = useCallback(async () => {
     const list = visits();
@@ -96,5 +106,5 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     await bridge.switchReview(last.pr, last.teams, last.queue);
   }, []);
 
-  return { next, go, previous, back };
+  return { next, go, goTo, previous, back };
 }

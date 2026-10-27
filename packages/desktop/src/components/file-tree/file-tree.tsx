@@ -163,7 +163,7 @@ export function FileTree({
       onScroll={(e) => {
         setTop(e.currentTarget.scrollTop);
       }}
-      className="group/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-1.5 focus-ring-inset outline-none"
+      className="group/list min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-2.5 py-1.5 focus-ring-inset outline-none"
     >
       <div className="relative" style={{ height: rows.length * ROW }}>
         {rows.slice(first, last).map((row, i) => {

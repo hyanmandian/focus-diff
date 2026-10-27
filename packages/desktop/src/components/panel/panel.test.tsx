@@ -103,12 +103,19 @@ function seenAll(...items: Item[]) {
 
 type Options = {
   config?: Config;
+  /** What GitHub's GraphQL answers, as its `data`. */
+  github?: unknown;
+  /** A link sent from outside before the panel opened. */
+  waiting?: string;
   update?: string | null;
   failInstall?: boolean;
   strict?: boolean;
 };
 
-async function setup(state: Live, { config = makeConfig(QUEUES), update = null, failInstall, strict }: Options = {}) {
+async function setup(
+  state: Live,
+  { config = makeConfig(QUEUES), update = null, failInstall, strict, github, waiting }: Options = {},
+) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   mockCommands((cmd, args) => {
     calls.push({ cmd, args });
@@ -124,6 +131,12 @@ async function setup(state: Live, { config = makeConfig(QUEUES), update = null, 
       }
       case "auth_status": {
         return { signed_in: false, source: null, login: null, device_flow: true, gh_available: true };
+      }
+      case "take_link": {
+        return waiting ?? null;
+      }
+      case "github": {
+        return { status: 200, body: JSON.stringify({ data: github ?? null }) };
       }
       case "install_update": {
         if (failInstall) throw new Error("offline");
@@ -252,6 +265,100 @@ describe("Panel", () => {
 
     await user.click(screen.getByRole("button", { name: /^All/u }));
     expect(screen.getByText("Web one")).toBeTruthy();
+  });
+
+  it("keeps a stack together, bottom first, in a group of its own, drafts too", async () => {
+    const top = item("review", "Top", "acme/web", {}, { headRefName: "b", baseRefName: "a" });
+    const lone = item("review", "Lone");
+    const bottom = item("review", "Bottom", "acme/web", {}, { headRefName: "a", baseRefName: "main" });
+    const drafts = [
+      item("review", "Draft up", "acme/web", {}, { isDraft: true, headRefName: "d2", baseRefName: "d1" }),
+      item("review", "Draft down", "acme/web", {}, { isDraft: true, headRefName: "d1", baseRefName: "main" }),
+    ];
+    const { user } = await setup(live({ items: { review: [top, lone, bottom, ...drafts] } }));
+    const stack = screen.getByRole("list", { name: "Stack of 2" });
+    expect(
+      within(stack)
+        .getAllByText(/^(Top|Bottom)$/u)
+        .map((title) => title.textContent),
+    ).toEqual(["Bottom", "Top"]);
+    expect(within(stack).getByText("1 of 2 in a stack, from the bottom")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Drafts/u }));
+    expect(screen.getAllByRole("list", { name: "Stack of 2" })).toHaveLength(2);
+  });
+
+  it("opens a pull request from its link: Open Pull Request… in the menu or ⌘O, pasted, or sent", async () => {
+    const found = { repository: { pullRequest: { id: "PR_9", number: 9, title: "Nine", author: null } } };
+    const { user, calls } = await setup(live(), { github: found });
+    const opened = () => calls.filter((c) => c.cmd === "open_review").map((c) => JSON.stringify(c.args));
+
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Open Pull Request/u }));
+    const field = await screen.findByRole("textbox", { name: "Pull request link" });
+    await user.type(field, "not a link{Enter}");
+    expect(screen.getByRole("alert").textContent).toBe("That isn't a pull request's link on GitHub.");
+    await user.clear(field);
+    await user.type(field, "https://github.com/acme/web/pull/9/files{Enter}");
+    await waitFor(() => {
+      expect(opened()).toEqual([expect.stringContaining('"id":"PR_9"')]);
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // ⌘O, and Cancel.
+    fireEvent.keyDown(window, { key: "o", metaKey: true });
+    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    // Pasted in the panel: opened; what isn't a link, or is typed in a field, is left alone.
+    const paste = (text: string, target: EventTarget = document.body) => {
+      const event = new Event("paste", { bubbles: true, cancelable: true });
+      Object.assign(event, { clipboardData: { getData: () => text } });
+      target.dispatchEvent(event);
+      return event;
+    };
+    await act(async () => {
+      expect(paste("https://github.com/acme/web/pull/9").defaultPrevented).toBe(true);
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(opened()).toHaveLength(2);
+    });
+    expect(paste("just words").defaultPrevented).toBe(false);
+    const empty = new Event("paste", { bubbles: true, cancelable: true });
+    document.body.dispatchEvent(empty);
+    expect(empty.defaultPrevented).toBe(false);
+    const input = document.createElement("input");
+    document.body.append(input);
+    expect(paste("https://github.com/acme/web/pull/9", input).defaultPrevented).toBe(false);
+    input.remove();
+    // A link that isn't a pull request's: the sheet says so, with it, and the panel shows.
+    await act(async () => {
+      paste("https://github.com/acme/web/issues/9");
+      await Promise.resolve();
+    });
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Pull request link" }).value).toBe(
+      "https://github.com/acme/web/issues/9",
+    );
+    expect(calls.some((c) => c.cmd === "open_panel")).toBe(true);
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    // Sent from a focusdiff:// link.
+    await act(() => emit("open-link", "https://github.com/acme/web/pull/9"));
+    await waitFor(() => {
+      expect(opened()).toHaveLength(3);
+    });
+  });
+
+  it("opens a link sent from outside before it was open", async () => {
+    const { calls } = await setup(live(), { waiting: "https://github.com/acme/web/issues/3" });
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(calls.some((c) => c.cmd === "open_review")).toBe(false);
   });
 
   it("names repositories in full when two owners have one by the same name", async () => {

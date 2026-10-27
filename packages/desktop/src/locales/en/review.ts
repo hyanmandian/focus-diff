@@ -304,4 +304,12 @@ export const review = {
   stopPending: "Your pending comment",
   stopAi: "AI comment",
   theQueue: "this queue",
+  stack: "Stack",
+  stackPosition: "{index} of {total} in the stack",
+  stackDraft: "Draft",
+  "stackStanding.APPROVED": "Approved",
+  "stackStanding.CHANGES_REQUESTED": "Changes requested",
+  "stackStanding.REVIEW_REQUIRED": "To review",
+  nextInStack: "Next in the stack",
+  nextInStackLabel: "Next in the stack: #{number} {title}",
 } as const;

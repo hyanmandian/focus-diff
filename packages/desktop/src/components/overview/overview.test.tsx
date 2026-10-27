@@ -304,6 +304,22 @@ describe("the heading", () => {
     expect(screen.getByLabelText("from")).toBeTruthy();
   });
 
+  it("shows the stack it's in under the heading, and goes to another of it", async () => {
+    const onPickStack = vi.fn<NonNullable<Props["onPickStack"]>>();
+    const pulls = [1807, 1812].map((number) => ({
+      id: `PR_${number}`,
+      number,
+      title: `Pull request ${number}`,
+      author: null,
+      decision: null,
+      isDraft: false,
+    }));
+    show({ stack: { pulls, at: 0 }, onPickStack });
+    expect(screen.getByRole("heading", { name: /Stack/u })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: /Pull request 1812/u }));
+    expect(onPickStack).toHaveBeenCalledWith(pulls[1]);
+  });
+
   it("names someone when the author is gone", () => {
     show({ details: { ...details, author: null } });
     expect(screen.getByText("Someone")).toBeTruthy();

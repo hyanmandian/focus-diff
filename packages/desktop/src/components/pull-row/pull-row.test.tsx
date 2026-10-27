@@ -87,6 +87,15 @@ describe("PullRow", () => {
     expect(document.querySelector("img")?.getAttribute("src")).toContain("/u/1");
   });
 
+  it("joins a stack's rows with a line through their pictures, and says where each stands", () => {
+    const { view } = setup({ item: item(), stack: { stack: "s", index: 0, size: 3 } });
+    expect(screen.getByText("1 of 3 in a stack, from the bottom")).toBeTruthy();
+    expect(screen.getByText("1/3")).toBeTruthy();
+    expect(view.container.querySelectorAll("[data-rail]")).toHaveLength(1);
+    const middle = setup({ item: item(), stack: { stack: "s", index: 1, size: 3 } });
+    expect(middle.view.container.querySelectorAll("[data-rail]")).toHaveLength(2);
+  });
+
   it("marks an unread row with a dot and a word for screen readers", () => {
     setup({ item: item(), unread: true });
     expect(document.querySelector("[data-dot]")).toBeTruthy();
@@ -341,6 +350,11 @@ describe("PullRow", () => {
     await user.click(screen.getByRole("button", { name: `More for ${one.pr.title}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Open on GitHub" }));
     expect(calls).toContainEqual({ cmd: "open_url", args: { url: one.pr.url } });
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    await user.click(screen.getByRole("button", { name: `More for ${one.pr.title}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Copy Link" }));
+    expect(writeText).toHaveBeenCalledWith(one.pr.url);
+    writeText.mockRestore();
   });
 
   it("ignores a pull request from its menu, or marks a merged one seen", async () => {

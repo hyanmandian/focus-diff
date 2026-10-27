@@ -162,6 +162,21 @@ describe("useNextInQueue", () => {
     expect(asked(calls, "switch_review")).toEqual([]);
   });
 
+  it("goes to any other, remembering this one to come back to", async () => {
+    const calls = rust(() => ({}));
+    const other: Visit = { pr: pull("PR_S", 40), teams: [], queue: "review" };
+    const { result } = renderHook(() => useNextInQueue("review", "PR_A", HERE));
+    await result.current.goTo(other);
+    expect(asked(calls, "switch_review")).toEqual([expect.objectContaining({ id: "PR_S", queue: "review" })]);
+    expect(sessionStorage.getItem(DIRECTION)).toBe("forward");
+    expect(kept()).toEqual([HERE]);
+    // Not yet known what this one is: nothing kept to come back to.
+    sessionStorage.clear();
+    const { result: early } = renderHook(() => useNextInQueue("review", "PR_A", null));
+    await early.current.goTo(other);
+    expect(kept()).toBeNull();
+  });
+
   it("marks this one done once the next is known, then goes on to it", async () => {
     const calls = rust(() => ({ review: [item("PR_A", 1, "2026-01-03"), item("PR_B", 2, "2026-01-02")] }));
     const { result } = renderHook(() => useNextInQueue("review", "PR_A", HERE));

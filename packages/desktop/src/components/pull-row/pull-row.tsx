@@ -2,7 +2,8 @@
 // secondary line (number, author, estimate, what's going on), with when and how much talk on the
 // right. A click opens it.
 
-import { Ellipsis, GitPullRequest, MessageSquare } from "lucide-react";
+import type { StackPlace } from "@focus-diff/core/stacks";
+import { Ellipsis, GitPullRequest, Layers, MessageSquare } from "lucide-react";
 import { memo, useEffect, useRef, type ReactNode } from "react";
 
 import {
@@ -11,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu/dropdown-menu";
+import { copyText } from "@/hooks/use-conversation/use-conversation";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
@@ -109,6 +111,8 @@ type Props = {
   /** Would be picked by a shift-click on the row under the pointer. */
   pending?: boolean;
   onHover?: (id: string | null) => void;
+  /** Where it stands in a stack in the list, which its rows show joined. */
+  stack?: StackPlace;
 };
 
 export const PullRow = memo(function PullRow({
@@ -124,6 +128,7 @@ export const PullRow = memo(function PullRow({
   onPick,
   pending = false,
   onHover,
+  stack,
 }: Props) {
   const { pr } = item;
   const t = useT();
@@ -222,6 +227,13 @@ export const PullRow = memo(function PullRow({
           "relative flex w-full cursor-default items-start gap-2.5 rounded-[8px] py-2 pr-2.5 pl-3.5 text-left transition-colors duration-100 outline-none group-hover:bg-foreground/6 group-data-pending:bg-primary/8! group-data-picked:bg-primary/15! focus-visible:bg-foreground/8 active:bg-foreground/9",
         )}
       >
+        {/* A stack's rows joined by a line through their pictures, from the one below up. */}
+        {stack && stack.index > 0 ? (
+          <span data-rail className="absolute top-0 left-[25px] h-2 w-0.5 bg-foreground/15" aria-hidden />
+        ) : null}
+        {stack && stack.index < stack.size - 1 ? (
+          <span data-rail className="absolute top-8 bottom-0 left-[25px] w-0.5 bg-foreground/15" aria-hidden />
+        ) : null}
         {/* What changed since you last looked: a dot at the row's edge, level with the title. */}
         {unread ? (
           <span data-dot className="absolute top-4 left-1 size-1.5 rounded-full bg-primary" aria-hidden />
@@ -257,6 +269,19 @@ export const PullRow = memo(function PullRow({
             title={teams.length > 0 ? t("panel.askedOf", { teams: t.list(teams) }) : undefined}
           >
             <span className="shrink-0 tabular-nums">#{pr.number}</span>
+            {stack ? (
+              <Part
+                tone="purple"
+                className="gap-1 tabular-nums"
+                title={t("panel.stackPlaceTip", { index: stack.index + 1, total: stack.size })}
+              >
+                <Layers className="size-3.5" aria-hidden />
+                <span className="sr-only">
+                  {t("panel.stackPlaceTip", { index: stack.index + 1, total: stack.size })}
+                </span>
+                <span aria-hidden>{t("panel.stackPlace", { index: stack.index + 1, total: stack.size })}</span>
+              </Part>
+            ) : null}
             {!mine && pr.author ? (
               <Part className="max-w-[16ch]">
                 <span className="truncate">{pr.author.login}</span>
@@ -323,6 +348,7 @@ export const PullRow = memo(function PullRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => void bridge.openUrl(pr.url)}>{t("panel.openOnGitHub")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void copyText(pr.url)}>{t("panel.copyLink")}</DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
               onDismiss(item);

@@ -309,4 +309,12 @@ export const review: Dictionary["review"] = {
   stopPending: "Teu comentário pendente",
   stopAi: "Comentário da IA",
   theQueue: "esta fila",
+  stack: "Stack",
+  stackPosition: "{index} de {total} na stack",
+  stackDraft: "Rascunho",
+  "stackStanding.APPROVED": "Aprovado",
+  "stackStanding.CHANGES_REQUESTED": "Mudanças pedidas",
+  "stackStanding.REVIEW_REQUIRED": "A revisar",
+  nextInStack: "Próximo na stack",
+  nextInStackLabel: "Próximo na stack: #{number} {title}",
 };

@@ -18,7 +18,7 @@ export const settings = {
   "keywords.actions": "Buttons|Steps|Post a comment|Request review|Labels|Open a link|Run a command|Ask me to confirm",
   "keywords.ai": "Coding agent|Model|Effort|Read the whole project|AI review|Review guidelines|Prompts",
   "keywords.general":
-    "Software update|Check for updates|Version|Check GitHub every|Refresh interval|Appearance|Theme|Dark|Light|Language|English|Português|Play a sound with notifications",
+    "Software update|Check for updates|Version|Check GitHub every|Refresh interval|Appearance|Theme|Dark|Light|Language|English|Português|Play a sound with notifications|Notifications|Test notification|Command line|Terminal|CLI",
   "keywords.account":
     "Account|GitHub|Sign in|Disconnect|Sign out|Token|Login|Attachments|Upload|Pictures|Videos|github.com",
   search: "Search settings",
@@ -178,6 +178,14 @@ export const settings = {
   language: "Language",
   "language.system": "Like the system",
   sound: "Play a sound with notifications",
+  notifications: "Notifications",
+  commandLine: "Command line",
+  commandLineHint: "Opens a pull request from a terminal, Raycast or a script:",
+  installCli: "Install",
+  reinstallCli: "Install Again",
+  cliInstalledAt: "Installed at {path}",
+  testNotification: "Send a Test Notification",
+  testNotificationHint: "None showing? Allow Focus Diff in System Settings › Notifications.",
   versionOut: "Version {version} is out.",
   latest: "You have the latest version.",
   checkFailed: "Couldn't check: {message}",

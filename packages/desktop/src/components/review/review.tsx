@@ -51,16 +51,18 @@ import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menu
 import { Shortcuts } from "@/components/shortcuts/shortcuts";
 import { Skeleton } from "@/components/skeleton/skeleton";
 import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
+import { StackMenu } from "@/components/stack-menu/stack-menu";
 import { SuggestionBatch } from "@/components/suggestion/suggestion";
 import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
-import { ConversationProvider, useConversation } from "@/hooks/use-conversation/use-conversation";
+import { ConversationProvider, copyText, useConversation } from "@/hooks/use-conversation/use-conversation";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { published, usePending } from "@/hooks/use-pending/use-pending";
 import { usePull } from "@/hooks/use-pull/use-pull";
+import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import { bridge } from "@/utils/bridge/bridge";
@@ -99,6 +101,7 @@ import {
   type Thread,
   type ViewedState,
 } from "@/utils/review/review";
+import type { StackPull } from "@/utils/stack/stack";
 import { useTheme } from "@/utils/theme/theme";
 import { inTreeOrder } from "@/utils/tree/tree";
 
@@ -380,7 +383,21 @@ export function Review({ target }: { target: Target }) {
         : null,
     [details, prId, number, repo, teams, target.queue],
   );
-  const { next: nextPull, go: goNext, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
+  const { next: nextPull, go: goNext, goTo, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
+  // Reviewing a stack, Next goes up it, in order, before going on with the queue.
+  const stack = useStack(details);
+  const upStack = stack && stack.at < stack.pulls.length - 1 ? stack.pulls[stack.at + 1] : null;
+  const visitOf = (pull: StackPull): Visit => ({
+    pr: {
+      id: pull.id,
+      number: pull.number,
+      title: pull.title,
+      repository: { nameWithOwner: repo },
+      author: pull.author,
+    },
+    teams: [],
+    queue: target.queue ?? null,
+  });
   const queueName = config?.queues.find((q) => q.id === target.queue)?.name ?? "";
   const queueLabel = queueName || t("review.theQueue");
   const say = (message: string) => {
@@ -391,6 +408,7 @@ export function Review({ target }: { target: Target }) {
   };
   // On to the next, or saying the queue's done when there's none.
   const nextInQueue = async () => {
+    if (upStack) return goTo(visitOf(upStack));
     if (!(await goNext())) say(t("review.queueDone", { queue: queueName || t("review.theQueue") }));
   };
   // Off the queue, as the panel's Mark Done, and on to the next; saying so when it was the last.
@@ -554,6 +572,23 @@ export function Review({ target }: { target: Target }) {
     // oxlint-disable-next-line react/set-state-in-effect -- it fetches: what it sets comes after GitHub answers, not during the effect
     void load();
   }, [load]);
+  // Settings changed in their window (an AI set up, a filter edited) or another account signed in:
+  // this window follows at once, as the panel does, rather than at its next opening.
+  useEffect(() => {
+    const off = bridge.on<string>("file-changed", (name) => {
+      if (name === "config") void loadConfig().then(setConfig);
+      if (name === "auth")
+        void bridge
+          .authStatus()
+          .then((a) => a.login)
+          .then(setMe);
+    });
+    return () => {
+      void (async () => {
+        (await off)();
+      })();
+    };
+  }, []);
 
   const ai = config?.ai.provider ? config : null;
   const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;
@@ -898,6 +933,7 @@ export function Review({ target }: { target: Target }) {
       return;
     try {
       await leaveReview(details, me, teams);
+      void bridge.reviewed(details.id);
       say(i18n()("review.left"));
       void bridge.refresh(true);
     } catch (e) {
@@ -1088,22 +1124,24 @@ export function Review({ target }: { target: Target }) {
               </button>
             ))}
           </div>
-          {/* Which changes show: all, since your last review, a commit or a run of them. Drawn always,
-              opened only in the Diff, so switching tabs moves nothing else. */}
-          <div
-            aria-hidden={tab !== "diff"}
-            inert={tab !== "diff"}
-            className={cn(
-              "grid shrink-0 transition-[grid-template-columns,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-              tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
-            )}
-          >
-            <div className="flex min-w-0 overflow-hidden py-1">
-              <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
-                <RangePicker pull={pull} className={TOOL} open={rangeMenu} onOpenChange={setRangeMenu} />
-              </div>
-            </div>
+          {/* Which changes show: all, since your last review, a commit or a run of them. On both tabs,
+              so nothing after it moves when switching; picking one from the overview shows the diff. */}
+          <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
+            <RangePicker
+              pull={{
+                ...pull,
+                setRange: (commits) => {
+                  pull.setRange(commits);
+                  setTab("diff");
+                },
+              }}
+              className={TOOL}
+              open={rangeMenu}
+              onOpenChange={setRangeMenu}
+            />
           </div>
+          {/* The stack it's in, on the left with what's being looked at. */}
+          {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
         </div>
 
         <div
@@ -1145,7 +1183,13 @@ export function Review({ target }: { target: Target }) {
           )}
         </div>
 
-        <div ref={trailingRef} data-tauri-drag-region className="flex shrink-0 items-center justify-end gap-1">
+        {/* In a phone-wide browser tab the buttons can outgrow the bar: there they scroll inside it,
+            rather than the whole page scrolling sideways (relative, so labels hidden for the eye stay inside). */}
+        <div
+          ref={trailingRef}
+          data-tauri-drag-region
+          className="flex shrink-0 items-center justify-end gap-1 @max-[520px]:relative @max-[520px]:min-w-0 @max-[520px]:shrink @max-[520px]:justify-start @max-[520px]:overflow-x-auto"
+        >
           {/* The Diff's controls: drawn always, opened only in the Diff, so switching tabs moves no
             button; the title's room shrinks smoothly instead (at once with reduced motion). */}
           <div
@@ -1382,6 +1426,16 @@ export function Review({ target }: { target: Target }) {
                 >
                   {t("review.openOnGitHub")}
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (details)
+                      void copyText(details.url).then(() => {
+                        say(i18n()("review.linkCopied"));
+                      });
+                  }}
+                >
+                  {t("review.copyLink")}
+                </DropdownMenuItem>
                 <PullMenuItems pull={pull} details={details} />
                 <DropdownMenuItem
                   onClick={() => {
@@ -1410,14 +1464,13 @@ export function Review({ target }: { target: Target }) {
                   say(i18n()("review.reviewDiscarded"));
                 }}
                 onSubmitted={() => {
+                  // Sending any review takes the request off you: off the review queues now.
+                  void bridge.reviewed(details.id);
                   say(i18n()("review.reviewSent"));
                   void changed();
                 }}
               />
             ) : null}
-            {/* Back to the pull request shown before and on to the next of the queue it was opened
-              from, in this window, as back and forward in Safari: the last item, where the eye goes
-              once the review is sent. */}
             {/* Done with it: off the queue it was opened from, as the panel's Mark Done, and on to the
                 next there. */}
             {target.queue ? (
@@ -1444,7 +1497,10 @@ export function Review({ target }: { target: Target }) {
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            {nextPull || previous ? (
+            {/* Back to the pull request shown before and on to the next of the queue it was opened
+              from, in this window, as back and forward in Safari: the last item, where the eye goes
+              once the review is sent. */}
+            {nextPull || previous || upStack ? (
               <div
                 // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)
                 role="group"
@@ -1488,15 +1544,17 @@ export function Review({ target }: { target: Target }) {
                       <Button
                         variant="ghost"
                         className={cn(TOOL, "gap-1 pr-2 @max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                        aria-disabled={!nextPull}
+                        aria-disabled={!nextPull && !upStack}
                         aria-label={
-                          nextPull
-                            ? t("review.nextPullLabel", {
-                                queue: queueName,
-                                number: String(nextPull.pr.number),
-                                title: nextPull.pr.title,
-                              })
-                            : t("review.nextPull")
+                          upStack
+                            ? t("review.nextInStackLabel", { number: String(upStack.number), title: upStack.title })
+                            : nextPull
+                              ? t("review.nextPullLabel", {
+                                  queue: queueName,
+                                  number: String(nextPull.pr.number),
+                                  title: nextPull.pr.title,
+                                })
+                              : t("review.nextPull")
                         }
                         aria-keyshortcuts="Meta+]"
                         onClick={() => void nextInQueue()}
@@ -1508,13 +1566,19 @@ export function Review({ target }: { target: Target }) {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-80">
                     <span className="block font-semibold">
-                      {queueName ? t("review.nextPullIn", { queue: queueName }) : t("review.nextPull")}{" "}
+                      {upStack
+                        ? t("review.nextInStack")
+                        : queueName
+                          ? t("review.nextPullIn", { queue: queueName })
+                          : t("review.nextPull")}{" "}
                       <Kbd>{shortcut("]", ["cmd"])}</Kbd>
                     </span>
                     <span className="block truncate">
-                      {nextPull
-                        ? `#${nextPull.pr.number} · ${nextPull.pr.title}`
-                        : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
+                      {upStack
+                        ? `#${upStack.number} · ${upStack.title}`
+                        : nextPull
+                          ? `#${nextPull.pr.number} · ${nextPull.pr.title}`
+                          : t("review.queueDone", { queue: queueName || t("review.theQueue") })}
                     </span>
                   </TooltipContent>
                 </Tooltip>
@@ -1548,7 +1612,7 @@ export function Review({ target }: { target: Target }) {
             id="panel-overview"
             aria-labelledby="tab-overview"
             hidden={tab !== "overview"}
-            className="min-h-0 flex-1 overflow-y-auto bg-muted/30"
+            className="min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto bg-muted/30"
           >
             {details ? (
               <Overview
@@ -1581,6 +1645,8 @@ export function Review({ target }: { target: Target }) {
                   setTab("diff");
                   requestAnimationFrame(() => diffs.current?.scrollToTop());
                 }}
+                stack={stack}
+                onPickStack={(other) => void goTo(visitOf(other))}
                 hasFile={(path) => Boolean(files?.some((f) => f.path === path))}
                 say={say}
               />

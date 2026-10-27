@@ -3,6 +3,8 @@
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { callsOf, recordCalls } from "./ipc";
+
 const URL = "/review.html?id=PR_1807&repo=acme/web&number=1807&queue=review";
 
 /** A file's diff. The diff is drawn by @pierre/diffs in a shadow root, without roles for its parts. */
@@ -250,4 +252,20 @@ test("submits the review from its popover", async ({ page }) => {
   await finish.getByRole("button", { name: "Approve", exact: true }).last().click();
 
   await expect(finish).toBeHidden();
+});
+
+test("goes through a stack in order, from Next and from the stack's menu", async ({ page }) => {
+  await recordCalls(page);
+  // #1807 is the bottom of a stack of two in the sample data.
+  const stack = page.getByRole("button", { name: "1 of 2 in the stack" });
+  await expect(stack).toBeVisible();
+  await stack.click();
+  await expect(page.getByRole("menuitemradio", { name: /#1807/u })).toHaveAttribute("aria-checked", "true");
+  await expect(
+    page.getByRole("menuitemradio", { name: /#1812 Show why a promo code stopped applying/u }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Next in the stack: #1812 Show why a promo code stopped applying" }).click();
+  await expect.poll(async () => (await callsOf(page, "switch_review")).map((c) => c.args.number)).toEqual([1812]);
 });

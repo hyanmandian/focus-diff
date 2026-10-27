@@ -168,6 +168,10 @@ export const bridge = {
   markSeen: (queueId: string, prId: string) => invoke<void>("mark_seen", { queueId, prId }),
   markQueueSeen: (queueId: string) => invoke<void>("mark_queue_seen", { queueId }),
   dismiss: (queueId: string, prId: string) => invoke<void>("dismiss", { queueId, prId }),
+  /** Your review sent, or you off its reviewers: off the review queues at once. */
+  reviewed: (prId: string) => invoke<void>("reviewed", { prId }),
+  /** A notification now, to see they get through. */
+  testNotification: (sound: boolean) => invoke<void>("test_notification", { sound }),
   restore: (queueId: string, prId: string) => invoke<void>("restore", { queueId, prId }),
   clearArrival: (prId: string) => invoke<void>("clear_arrival", { prId }),
   /** Ends the review time under way before its time is up. */
@@ -178,6 +182,12 @@ export const bridge = {
   openSetup: () => invoke<void>("open_setup"),
   /** Shows the panel under the tray icon, as a click on it would. */
   openPanel: () => invoke<void>("open_panel"),
+  /** A pull request link sent from outside (a focusdiff:// link) before the panel was open. */
+  takeLink: () => invoke<string | null>("take_link"),
+  /** `focus-diff` on the command line: where it was put. */
+  installCli: () => invoke<string>("install_cli"),
+  /** Where `focus-diff` is installed, if it is. */
+  cliInstalled: () => invoke<string | null>("cli_installed"),
   /** A pull request's review window: its overview, conversation and diff. `teams`: the ones its
    *  review was asked of on your behalf, for leaving the review. */
   /** `from`: the card clicked, so the window grows out of it. `queue`: the queue it was opened

@@ -4,7 +4,7 @@
 // reviewing happens.
 
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu/dropdown-menu";
 import { Mark } from "@/components/mark/mark";
+import { OpenLink, openLink } from "@/components/open-link/open-link";
 import { ReviewTime } from "@/components/panel-review-time/panel-review-time";
 import { PullRow } from "@/components/pull-row/pull-row";
 import { Skeleton } from "@/components/skeleton/skeleton";
@@ -32,6 +33,7 @@ import { tabKeys } from "@/utils/keys/keys";
 import { isMac, primary, shortcut } from "@/utils/os/os";
 import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
+import { parsePullLink } from "@/utils/pull-link/pull-link";
 import {
   clearArrival,
   dismiss,
@@ -120,6 +122,42 @@ export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen, review } = useStore();
   const shown = useShown();
   const t = useT();
+  // Open Pull Request…: open, and what it shows on opening (a link that couldn't be opened, and why).
+  const [linkSheet, setLinkSheet] = useState<{ at: number; initial: { text: string; error: string } | null } | null>(
+    null,
+  );
+  // A link pasted in the panel or sent from a focusdiff:// link: opened, or the sheet says why not.
+  const tRef = useRef(t);
+  useLayoutEffect(() => {
+    tRef.current = t;
+  });
+  useEffect(() => {
+    const tryLink = async (text: string) => {
+      const error = await openLink(text, tRef.current);
+      if (!error) return;
+      void bridge.openPanel();
+      setLinkSheet({ at: Date.now(), initial: { text: text.trim(), error } });
+    };
+    // Pasted anywhere but a text field: a pull request's link, or what looks like a link to one.
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA)$/u.test(target.tagName)))
+        return;
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!parsePullLink(text) && !/^\s*https?:\/\//u.test(text)) return;
+      e.preventDefault();
+      void tryLink(text);
+    };
+    document.addEventListener("paste", onPaste);
+    const off = bridge.on<string>("open-link", (text) => void tryLink(text));
+    void bridge.takeLink().then(async (text) => {
+      if (text) await tryLink(text);
+    });
+    return () => {
+      document.removeEventListener("paste", onPaste);
+      void unlisten(off);
+    };
+  }, []);
   // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
   // right away and VoiceOver reads where you are.
   const listRef = useRef<HTMLDivElement>(null);
@@ -210,6 +248,9 @@ export function Panel() {
       if (primary(e) && !e.altKey && !(isMac && e.ctrlKey) && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
+      } else if (e.metaKey && !e.altKey && !e.ctrlKey && e.key === "o") {
+        e.preventDefault();
+        setLinkSheet({ at: Date.now(), initial: null });
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
         // Lets go of what's picked first, then closes.
         if (pickedRef.current.size > 0) setPicked(new Set());
@@ -280,7 +321,7 @@ export function Panel() {
         list.filter((i) => i.pr.repository.nameWithOwner === a).length || a.localeCompare(b),
   );
   const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
-  const { groups, drafts } = arrange(narrowed, unread);
+  const { groups, drafts, stacks } = arrange(narrowed, unread);
   const inOrder = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
   // For shift-click: picking happens after the render that showed the rows.
   useLayoutEffect(() => {
@@ -348,9 +389,31 @@ export function Panel() {
         selecting={pickedHere.length > 0}
         onPick={pick}
         onHover={setHovered}
+        stack={stacks.get(item.pr.id)}
       />
     </li>
   );
+  /** A list's rows, each stack's (together, from arrange) in a group of its own. */
+  const rows = (these: Item[], of: Queue) => {
+    const out: ReactNode[] = [];
+    for (let i = 0; i < these.length;) {
+      const place = stacks.get(these[i]!.pr.id);
+      if (place) {
+        out.push(
+          <li key={place.stack}>
+            <ul aria-label={t("panel.stack", { count: place.size })}>
+              {these.slice(i, i + place.size).map((each) => row(each, of))}
+            </ul>
+          </li>,
+        );
+        i += place.size;
+      } else {
+        out.push(row(these[i]!, of));
+        i += 1;
+      }
+    }
+    return out;
+  };
 
   return (
     <div className="flex h-full animate-in flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] duration-(--duration) ease-out fade-in-0 motion-reduce:animate-none">
@@ -445,7 +508,7 @@ export function Panel() {
               </Tooltip>
             )
           ) : null}
-          {/* Settings and Quit, nothing else. */}
+          {/* Open Pull Request…, Settings and Quit. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.menu")} />}
@@ -453,6 +516,13 @@ export function Panel() {
               <Settings />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setLinkSheet({ at: Date.now(), initial: null });
+                }}
+              >
+                {t("panel.openPullMenu")} <DropdownMenuShortcut>{shortcut("O", ["cmd"])}</DropdownMenuShortcut>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>
                 {t("panel.settings")} <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
@@ -465,6 +535,15 @@ export function Panel() {
       </header>
 
       {ready && signedIn && review ? <ReviewTime review={review} items={items} /> : null}
+      {linkSheet ? (
+        <OpenLink
+          key={linkSheet.at}
+          initial={linkSheet.initial}
+          onClose={() => {
+            setLinkSheet(null);
+          }}
+        />
+      ) : null}
 
       {ready ? (
         signedIn ? (
@@ -528,7 +607,7 @@ export function Panel() {
                   ref={listRef}
                   tabIndex={-1}
                   aria-label={t("panel.pullRequestsOf", { queue: queue.name })}
-                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
+                  className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
                 >
                   {groups.length > 0 || drafts.length > 0 ? (
                     <>
@@ -555,7 +634,7 @@ export function Panel() {
                               </span>
                             </h2>
                           ) : null}
-                          <ul data-join="column">{g.items.map((item) => row(item, queue))}</ul>
+                          <ul data-join="column">{rows(g.items, queue)}</ul>
                         </section>
                       ))}
                       {drafts.length > 0 ? (
@@ -576,7 +655,7 @@ export function Panel() {
                             <span className="text-callout font-normal tabular-nums">{drafts.length}</span>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <ul data-join="column">{drafts.map((item) => row(item, queue))}</ul>
+                            <ul data-join="column">{rows(drafts, queue)}</ul>
                           </CollapsibleContent>
                         </Collapsible>
                       ) : null}

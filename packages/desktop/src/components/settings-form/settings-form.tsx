@@ -105,8 +105,10 @@ export function Pane({
           {tools ? <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">{tools}</div> : null}
         </div>
       </header>
+      {/* Room kept for a scroll bar on both sides (one shows with "Show scroll bars: Always" or a
+          mouse), so a pane that scrolls doesn't move the centred content over. */}
       <div
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto"
         onScroll={(e) => {
           setScrolled(e.currentTarget.scrollTop);
         }}
@@ -115,7 +117,7 @@ export function Pane({
           {meta && Icon ? (
             <div className="flex flex-col items-center gap-1.5 pt-1 pb-3 text-center">
               <span
-                className="settings-tile settings-tile-large mb-2 grid size-16 place-items-center rounded-[18px] text-white"
+                className="settings-tile mb-2 grid size-16 place-items-center rounded-[18px] text-white"
                 data-tile={meta.tile}
                 aria-hidden
               >

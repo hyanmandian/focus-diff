@@ -10,6 +10,7 @@ import type { Overview } from "@/components/overview/overview";
 import { Review, type Target } from "@/components/review/review";
 import type { NewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import type { Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
+import type { Stack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import type { Range } from "@/utils/commits/commits";
@@ -33,6 +34,7 @@ import {
   type Thread,
   type ViewedState,
 } from "@/utils/review/review";
+import type { StackPull } from "@/utils/stack/stack";
 
 type OverviewProps = ComponentProps<typeof Overview>;
 type DiffsProps = Omit<ComponentProps<typeof Diffs>, "ref">;
@@ -62,6 +64,7 @@ type QueueStub = {
   next: Visit | null;
   previous: Visit | null;
   go: Mock<(done?: boolean) => Promise<boolean>>;
+  goTo: Mock<(to: Visit) => Promise<void>>;
   back: Mock<() => Promise<void>>;
 };
 
@@ -92,6 +95,7 @@ const h = vi.hoisted(() => {
       next: null,
       previous: null,
       go: vi.fn<(done?: boolean) => Promise<boolean>>(() => Promise.resolve(true)),
+      goTo: vi.fn<(to: Visit) => Promise<void>>(() => Promise.resolve()),
       back: vi.fn<() => Promise<void>>(() => Promise.resolve()),
       ...over,
     }),
@@ -120,6 +124,7 @@ const h = vi.hoisted(() => {
     talk: null as Options | null,
     pullOptions: null as Options | null,
     newChanges: null as NewChanges | null,
+    stack: null as Stack | null,
     onActivity: null as (() => void) | null,
     take: vi.fn<(path: string) => number>(() => 0),
     onScreen: null as (() => unknown) | null,
@@ -196,16 +201,34 @@ vi.mock("@/components/shortcuts/shortcuts", () => ({
     ) : null,
 }));
 vi.mock("@/components/commits/commits", () => ({
-  RangePicker: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => (
-    <button
-      type="button"
-      aria-expanded={open}
-      onClick={() => {
-        onOpenChange(!open);
-      }}
-    >
-      Changes
-    </button>
+  RangePicker: ({
+    open,
+    onOpenChange,
+    pull,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    pull: { setRange: (range: Range) => void };
+  }) => (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => {
+          onOpenChange(!open);
+        }}
+      >
+        Changes
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          pull.setRange({ from: "c", to: "d" });
+        }}
+      >
+        Pick c..d
+      </button>
+    </>
   ),
   RangeBanner: (props: Banner) => {
     h.see.banner(props);
@@ -236,6 +259,7 @@ vi.mock("@/hooks/use-pull/use-pull", () => ({
 }));
 vi.mock("@/hooks/use-conversation/use-conversation", () => ({
   ConversationProvider: ({ children }: { children: ReactNode }) => children,
+  copyText: (text: string) => navigator.clipboard.writeText(text),
   useConversation: (options: Options) => {
     h.see.talk(options);
     return { conversation: null, reload: h.reload, api: null };
@@ -251,6 +275,7 @@ vi.mock("@/hooks/use-next-in-queue/use-next-in-queue", () => ({
     return h.queue;
   },
 }));
+vi.mock("@/hooks/use-stack/use-stack", () => ({ useStack: () => h.stack }));
 vi.mock("@/hooks/use-new-changes/use-new-changes", () => ({
   useNewChanges: (_repo: string, _number: number, _head: unknown, _updated: unknown, onActivity: () => void) => {
     h.see.activity(onActivity);
@@ -434,6 +459,7 @@ beforeEach(() => {
   h.banner = null;
   h.here = null;
   h.newChanges = null;
+  h.stack = null;
   h.aiProblem = null;
   h.onResult = null;
   h.ranged = { files: null, error: null };
@@ -899,6 +925,25 @@ describe("Review", () => {
       expect(screen.getByLabelText("Comment 4 of 4")).toBeTruthy();
       await userEvent.click(button("Previous comment"));
       expect(screen.getByLabelText("Comment 3 of 4")).toBeTruthy();
+    });
+
+    it("follows settings changed in their window, and another account signed in, without reopening", async () => {
+      await openReview();
+      expect(h.overview?.config?.ai.provider).toBeNull();
+      expect(h.overview?.me).toBe("me");
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      answer({ auth_status: () => ({ login: "other" }) });
+      await act(() => emit("file-changed", "pace"));
+      expect(h.overview?.config?.ai.provider).toBeNull();
+      await act(() => emit("file-changed", "config"));
+      await waitFor(() => {
+        expect(h.overview?.config?.ai.provider).toBe("claude");
+      });
+      expect(h.overview?.me).toBe("me");
+      await act(() => emit("file-changed", "auth"));
+      await waitFor(() => {
+        expect(h.overview?.me).toBe("other");
+      });
     });
 
     it("brings a comment into view past the search, the filters and its file's folding", async () => {
@@ -1370,6 +1415,14 @@ describe("Review", () => {
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Open on GitHub" }));
       expect(sent("open_url")).toEqual([{ url: "https://github.com/acme/shop/pull/7" }]);
+      const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+      await userEvent.click(button("More"));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
+      expect(writeText).toHaveBeenCalledWith("https://github.com/acme/shop/pull/7");
+      await waitFor(() => {
+        expect(screen.getByRole("status").textContent).toBe("Link copied");
+      });
+      writeText.mockRestore();
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Keyboard Shortcuts" }));
       expect(screen.getByRole("dialog")).toBeTruthy();
@@ -1388,6 +1441,8 @@ describe("Review", () => {
         expect(screen.getByRole("status").textContent).toBe("You left the review");
       });
       expect(leaveReview).toHaveBeenCalledWith(expect.objectContaining({ number: 7 }), "me", ["acme/web"]);
+      // Off the review queues at once, not at the next refresh.
+      expect(sent("reviewed")).toEqual([{ prId: "PR_7" }]);
       vi.mocked(leaveReview).mockRejectedValueOnce(new Error("Not requested"));
       await menu("leave");
       await waitFor(() => {
@@ -1438,6 +1493,7 @@ describe("Review", () => {
       await waitFor(() => {
         expect(screen.getByRole("status").textContent).toBe("Review sent");
       });
+      expect(sent("reviewed")).toEqual([{ prId: "PR_7" }]);
       expect(loadThreads).toHaveBeenCalled();
       expect(localStorage.getItem("review-body:PR_7")).toBe('""');
     });
@@ -1510,6 +1566,91 @@ describe("Review", () => {
       press("]", { metaKey: true });
       expect(h.queue.back).toHaveBeenCalledTimes(2);
       expect(h.queue.go).toHaveBeenCalledTimes(2);
+    });
+
+    it("goes up a stack first, in order, and to any of it from its menu", async () => {
+      const part = (number: number, title: string, over: Partial<StackPull> = {}): StackPull => ({
+        id: `PR_${number}`,
+        number,
+        title,
+        author: { login: "ana" },
+        isDraft: false,
+        decision: null,
+        ...over,
+      });
+      h.stack = {
+        pulls: [
+          part(5, "Bottom", { decision: "APPROVED" }),
+          part(7, "Keep the promo code"),
+          part(9, "Top", { isDraft: true }),
+        ],
+        at: 1,
+      };
+      h.queue = { ...h.queue, next: visit(8, "Next one") };
+      await openReview();
+      await userEvent.click(button("Next in the stack: #9 Top"));
+      expect(h.queue.goTo).toHaveBeenCalledWith({
+        pr: {
+          id: "PR_9",
+          number: 9,
+          title: "Top",
+          repository: { nameWithOwner: "acme/shop" },
+          author: { login: "ana" },
+        },
+        teams: [],
+        queue: "q1",
+      });
+      expect(h.queue.go).not.toHaveBeenCalled();
+      await userEvent.click(button("2 of 3 in the stack"));
+      expect(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }).getAttribute("aria-checked")).toBe(
+        "true",
+      );
+      expect(screen.getByRole("menuitemradio", { name: /#5 Bottom.*Approved/u })).toBeTruthy();
+      expect(screen.getByRole("menuitemradio", { name: /#9 Top.*Draft/u })).toBeTruthy();
+      await userEvent.click(screen.getByRole("menuitemradio", { name: /#5 Bottom/u }));
+      expect(h.queue.goTo.mock.calls.at(-1)?.[0].pr.id).toBe("PR_5");
+      // And from the stack under the overview's heading.
+      act(() => {
+        h.overview?.onPickStack?.(h.stack!.pulls[2]!);
+      });
+      expect(h.queue.goTo.mock.calls.at(-1)?.[0].pr.id).toBe("PR_9");
+    });
+
+    it("goes on with the queue from the top of a stack", async () => {
+      const top: StackPull = {
+        id: "PR_7",
+        number: 7,
+        title: "Keep the promo code",
+        author: null,
+        isDraft: false,
+        decision: null,
+      };
+      h.stack = { pulls: [{ ...top, id: "PR_3", number: 3, decision: "CHANGES_REQUESTED" }, top], at: 1 };
+      h.queue = { ...h.queue, next: visit(8, "Next one") };
+      await openReview();
+      await userEvent.click(button("Next in Waiting on me: #8 Next one"));
+      expect(h.queue.go).toHaveBeenCalledTimes(1);
+      expect(h.queue.goTo).not.toHaveBeenCalled();
+      await userEvent.click(button("2 of 2 in the stack"));
+      // The one already showing isn't gone to again.
+      await userEvent.click(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }));
+      expect(h.queue.goTo).not.toHaveBeenCalled();
+      expect(screen.getByRole("menuitemradio", { name: /#3.*Changes requested/u })).toBeTruthy();
+    });
+
+    it("goes up a stack opened from outside any queue", async () => {
+      const part = (number: number): StackPull => ({
+        id: `PR_${number}`,
+        number,
+        title: `Part ${number}`,
+        author: null,
+        isDraft: false,
+        decision: null,
+      });
+      h.stack = { pulls: [part(7), part(8)], at: 0 };
+      await openReview({ ...TARGET, queue: undefined });
+      await userEvent.click(button("Next in the stack: #8 Part 8"));
+      expect(h.queue.goTo.mock.calls[0]?.[0].queue).toBeNull();
     });
 
     it("says the queue's done when there's no next", async () => {
@@ -1641,6 +1782,9 @@ describe("Review", () => {
       await userEvent.click(button("More"));
       await userEvent.click(screen.getByRole("menuitem", { name: "Open on GitHub" }));
       expect(sent("open_url")).toEqual([]);
+      await userEvent.click(button("More"));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Copy Link" }));
+      expect(screen.queryByText("Link copied")).toBeNull();
     });
 
     it("doesn't mind when the menu bar can't be told", async () => {
@@ -1711,6 +1855,14 @@ describe("Review", () => {
       expect(diffs().onAddDraft).toBe(h.pending.add);
       expect(diffs().onEditDraft).toBe(h.pending.edit);
       expect(diffs().onRemoveDraft).toBe(h.pending.remove);
+    });
+
+    it("shows the changes picker on the Overview too, and a pick there opens the Diff", async () => {
+      await openReview();
+      expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
+      await userEvent.click(button("Pick c..d"));
+      expect(h.pull.setRange).toHaveBeenCalledWith({ from: "c", to: "d" });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
     });
 
     it("opens a range of commits from the Overview in the Diff", async () => {

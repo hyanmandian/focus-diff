@@ -20,8 +20,11 @@ mod floating;
 mod github;
 mod i18n;
 mod kept;
+pub mod link;
 mod logs;
 mod media;
+#[cfg(target_os = "macos")]
+mod notify;
 mod about;
 mod menu;
 mod outbox;
@@ -51,6 +54,7 @@ use tauri::utils::config::WindowEffectsConfig;
 #[cfg(any(target_os = "macos", windows))]
 use tauri::window::Effect;
 use tauri::window::EffectState;
+#[cfg(not(target_os = "macos"))]
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -139,6 +143,17 @@ fn mark_queue_seen(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: Str
 #[tauri::command]
 fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_id: String) {
     watch.dismiss(&app, &queue_id, &pr_id);
+}
+
+/// Settings' test: a notification now, to see they get through.
+#[tauri::command]
+fn test_notification(app: AppHandle, sound: bool) {
+    show_notification(&app, i18n::tr!("Notifications work", "As notificações funcionam"), i18n::tr!("Focus Diff will tell you here when something needs you.", "O Focus Diff vai te avisar aqui quando algo precisar de você."), sound);
+}
+
+#[tauri::command]
+fn reviewed(app: AppHandle, watch: State<'_, watch::Watch>, pr_id: String) {
+    watch.reviewed(&app, &pr_id);
 }
 
 #[tauri::command]
@@ -424,9 +439,17 @@ pub(crate) fn show_notification<R: Runtime>(app: &AppHandle<R>, title: String, b
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[notify] {title} | {} | sound {sound}", body.replace('\n', " / "));
     }
-    let builder = app.notification().builder().title(title).body(body);
-    let builder = if sound { builder.sound("default") } else { builder };
-    let _ = builder.show();
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app;
+        notify::show(&title, &body, sound);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let builder = app.notification().builder().title(title).body(body);
+        let builder = if sound { builder.sound("default") } else { builder };
+        let _ = builder.show();
+    }
 }
 
 pub(crate) fn update_tray<R: Runtime>(app: &AppHandle<R>, count: u32, animate: bool) {
@@ -535,11 +558,34 @@ pub(crate) fn tray_rect<R: Runtime>(app: &AppHandle<R>) -> Rect {
 
 /// The panel under the tray icon, as a click on it would show it (from setup's last step).
 #[tauri::command]
-fn open_panel(app: AppHandle) -> Result<(), String> {
+fn open_panel(app: AppHandle) {
+    show_panel(&app);
+}
+
+/// Shows the panel under the tray icon, if it isn't showing.
+pub(crate) fn show_panel(app: &AppHandle) {
     if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
-        return Ok(());
+        return;
     }
-    toggle_panel(&app, &tray_rect(&app)).map_err(|e| e.to_string())
+    let _ = toggle_panel(app, &tray_rect(app));
+}
+
+/// Settings' Install: `focus-diff` on the command line (link.rs); where it went.
+#[tauri::command]
+fn install_cli() -> Result<String, String> {
+    link::install()
+}
+
+/// Where `focus-diff` is installed, if it is.
+#[tauri::command]
+fn cli_installed() -> Option<String> {
+    link::installed()
+}
+
+/// A pull request link sent from outside (link.rs) before the panel was there to take it.
+#[tauri::command]
+fn take_link(waiting: State<'_, link::Waiting>) -> Option<String> {
+    waiting.0.lock().unwrap().take()
 }
 
 /// Review windows: which pull request each shows, and the one made ahead of time, loaded and
@@ -1224,6 +1270,7 @@ pub fn run() {
         .manage(logs::Logs::default())
         .manage(web::WebSession::default())
         .manage(Tray::<tauri::Wry>(Mutex::new(None)))
+        .manage(link::Waiting::default())
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
             queue_viewed,
@@ -1241,6 +1288,8 @@ pub fn run() {
             mark_seen,
             mark_queue_seen,
             dismiss,
+            reviewed,
+            test_notification,
             restore,
             end_review,
             clear_arrival,
@@ -1270,6 +1319,9 @@ pub fn run() {
             open_settings,
             open_setup,
             open_panel,
+            take_link,
+            install_cli,
+            cli_installed,
             check_update,
             update_offered,
             install_update,
@@ -1285,6 +1337,9 @@ pub fn run() {
             // A tray app: no Dock icon, no app switcher entry.
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            // The system asks the first time whether Focus Diff may notify.
+            #[cfg(target_os = "macos")]
+            notify::ask();
 
             let handle = app.handle().clone();
             move_old_files(&handle);
@@ -1362,12 +1417,21 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while running Focus Diff")
-        .run(|_, event| {
+        .run(|app, event| {
             // A tray app lives on with no window open (the panel's web view is closed when it's
             // not in use): only Quit, which exits with a code, ends it.
-            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event {
                 api.prevent_exit();
             }
+            // focusdiff:// links, handed over by macOS.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &event {
+                for url in urls {
+                    link::open(app, url.as_str());
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = app;
         });
 }
 

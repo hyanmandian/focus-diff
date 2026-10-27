@@ -26,7 +26,8 @@ const people = {
 
 let n = 1800;
 function pr(overrides: Record<string, unknown>) {
-  n += 7;
+  // One with its own number leaves the others' as they were.
+  if (!("number" in overrides)) n += 7;
   return {
     id: `PR_${n}`,
     number: n,
@@ -66,6 +67,8 @@ const review = [
     author: people.ana,
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
     createdAt: iso(25),
+    headRefName: "ana/keep-promo-code",
+    baseRefName: "main",
   }),
   pr({
     title: "Move invoice exports to the background queue so large accounts don't time out",
@@ -81,6 +84,19 @@ const review = [
     author: people.dev,
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
     createdAt: iso(60 * 50),
+  }),
+  // Built on the first one's branch: a stack of two.
+  pr({
+    id: "PR_1812",
+    number: 1812,
+    url: "https://github.com/acme/web/pull/1812",
+    title: "Show why a promo code stopped applying",
+    author: people.ana,
+    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
+    createdAt: iso(20),
+    updatedAt: iso(60),
+    headRefName: "ana/promo-reasons",
+    baseRefName: "ana/keep-promo-code",
   }),
 ];
 
@@ -527,7 +543,7 @@ const item = (
   ],
   ...extra,
 });
-const [promo, invoices, flaky] = [review[0]!, review[1]!, review[2]!];
+const [promo, invoices, flaky, reasons] = [review[0]!, review[1]!, review[2]!, review[3]!];
 const [billing, search, upgrade] = [involved[0]!, involved[1]!, involved[2]!];
 const [history, onboarding] = [authored[0]!, authored[1]!];
 const items = {
@@ -538,6 +554,7 @@ const items = {
       waitingSince: now - 26 * 3_600_000,
     }),
     item("review", flaky, [["rerequest", 90, null]], { viaTeams: [], waitingSince: now - 50 * 3_600_000 }),
+    item("review", reasons, [], { viaTeams: [], waitingSince: now - 20 * 60_000 }),
   ],
   updates: [
     item(
@@ -556,7 +573,7 @@ const items = {
   merged: merged.map((p) => item("merged", p)),
 };
 const seen = Object.fromEntries(
-  [...items.review.slice(2), ...items.updates.slice(2), ...items.merged].flatMap((i) =>
+  [...items.review.slice(2, 3), ...items.updates.slice(2), ...items.merged].flatMap((i) =>
     i.events.map((e) => [e.key, true]),
   ),
 );
@@ -673,6 +690,31 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
       const query = str(json(args, "body"), "query");
       if (query.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (query.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
+      // #1807 is the bottom of a stack of two: #1812 is built on its branch.
+      if (query.includes("above: pullRequests")) {
+        const sent = json(args, "body").variables;
+        const head = isRecord(sent) ? str(sent, "head") : "";
+        const above =
+          head === "ana/keep-promo-code"
+            ? [
+                {
+                  id: "PR_1812",
+                  number: 1812,
+                  title: "Show why a promo code stopped applying",
+                  isDraft: false,
+                  isCrossRepository: false,
+                  headRefName: "ana/promo-reasons",
+                  baseRefName: "ana/keep-promo-code",
+                  reviewDecision: "REVIEW_REQUIRED",
+                  author: { login: "octocat", name: "Ana Lima" },
+                },
+              ]
+            : [];
+        return {
+          status: 200,
+          body: JSON.stringify({ data: { repository: { above: { nodes: above }, below: { nodes: [] } } } }),
+        };
+      }
       if (query.includes("squashMergeAllowed"))
         return { status: 200, body: JSON.stringify({ data: { repository: details } }) };
       return { status: 404, body: JSON.stringify({ message: "Not in the sample data" }) };

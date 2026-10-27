@@ -18,6 +18,10 @@ export type PullRequest = {
   updatedAt: string;
   mergedAt: string | null;
   headRefOid: string;
+  /** The branches, to tell a stack (not in what was kept before they were read). */
+  headRefName?: string;
+  baseRefName?: string;
+  isCrossRepository?: boolean;
   additions: number;
   deletions: number;
   changedFiles: number;

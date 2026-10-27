@@ -67,7 +67,8 @@ html.settings.dark {
    as the system's do. */
 .settings-tile {
   --tile: var(--gray);
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--tile) 88%, white), var(--tile));
+  /* The colour alone, with a hairline: no sheen or coloured shadow round it. */
+  background: var(--tile);
   box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.12);
 }
 .settings-tile[data-tile="blue"] {
@@ -88,15 +89,6 @@ html.settings.dark {
 .settings-tile[data-tile="gray"] {
   --tile: var(--gray);
 }
-/* Large, at the top of a pane: a softer light and a little depth, as an app icon has. */
-.settings-tile-large {
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--tile) 75%, white), var(--tile) 70%);
-  box-shadow:
-    inset 0 0 0 0.5px rgb(0 0 0 / 0.14),
-    inset 0 1px 0 rgb(255 255 255 / 0.3),
-    0 4px 12px color-mix(in srgb, var(--tile) 30%, transparent);
-}
-
 /* Hairlines between a group's rows, inset from its edges like the system's; rows can sit in a
    display: contents wrapper (a list, a radio group) and still get them. */
 .settings-group > * + *,

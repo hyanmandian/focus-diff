@@ -114,7 +114,7 @@ export function Pane({
           {meta && Icon ? (
             <div className="flex flex-col items-center gap-1.5 pt-1 pb-3 text-center">
               <span
-                className="settings-tile settings-tile-large mb-2 grid size-16 place-items-center rounded-[18px] text-white"
+                className="settings-tile mb-2 grid size-16 place-items-center rounded-[18px] text-white"
                 data-tile={meta.tile}
                 aria-hidden
               >

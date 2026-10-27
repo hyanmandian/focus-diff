@@ -3,6 +3,7 @@
 // repository, drafts folded at the end. A click opens the pull request's review window, where the
 // reviewing happens.
 
+import { parsePullLink } from "@focus-diff/core/pull-link";
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -33,7 +34,6 @@ import { tabKeys } from "@/utils/keys/keys";
 import { shortcut } from "@/utils/os/os";
 import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
-import { parsePullLink } from "@/utils/pull-link/pull-link";
 import {
   clearArrival,
   dismiss,

@@ -6,7 +6,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { github } from "../../utils/bridge/bridge";
+import { github } from "@/utils/bridge/bridge";
 
 type Rest = { head: { sha: string }; updated_at: string; user: { login: string } | null };
 

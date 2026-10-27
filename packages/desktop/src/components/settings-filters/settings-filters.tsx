@@ -3,25 +3,25 @@
 // starting points, and shared with it (and teammates) as the same text.
 
 import { isValidPattern } from "@focus-diff/core/filters";
-import { Button } from "@focus-diff/design-system/components/button";
+import { ArrowDown, ArrowUp, Check, Copy, Plus, Trash2 } from "lucide-react";
+import { useId, useState } from "react";
+
+import { Button } from "@/components/button/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { Input } from "@focus-diff/design-system/components/input";
-import { Textarea } from "@focus-diff/design-system/components/textarea";
-import { ArrowDown, ArrowUp, Check, Copy, Plus, Trash2 } from "lucide-react";
-import { useId, useState } from "react";
-
-import { filterRecipes, isRepoPattern, newId, type Config, type DiffFilter } from "../../utils/config/config";
-import { confirmRemove } from "../../utils/confirm/confirm";
-import { addImported, exportFilters, importFilters } from "../../utils/filters/filters";
-import { i18n, useT } from "../../utils/i18n/i18n";
-import { Group, Intro, Pane, Row, TWO_LINE_ITEM } from "../settings-form/settings-form";
-import { TagInput } from "../tag-input/tag-input";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { Input } from "@/components/input/input";
+import { Group, Intro, Pane, Row, TWO_LINE_ITEM } from "@/components/settings-form/settings-form";
+import { TagInput } from "@/components/tag-input/tag-input";
+import { Textarea } from "@/components/textarea/textarea";
+import { filterRecipes, isRepoPattern, newId, type Config, type DiffFilter } from "@/utils/config/config";
+import { confirmRemove } from "@/utils/confirm/confirm";
+import { addImported, exportFilters, importFilters } from "@/utils/filters/filters";
+import { i18n, useT } from "@/utils/i18n/i18n";
 
 // Called as a repository is added, so it reads the words then.
 const repoError = (v: string) => (isRepoPattern(v) ? null : i18n()("settings.repoError"));

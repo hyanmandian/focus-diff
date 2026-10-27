@@ -15,8 +15,8 @@ import {
 } from "@focus-diff/core/estimate";
 import { useSyncExternalStore } from "react";
 
-import { bridge } from "../bridge/bridge";
-import type { T } from "../i18n/i18n";
+import { bridge } from "@/utils/bridge/bridge";
+import type { T } from "@/utils/i18n/i18n";
 
 /** A whole pull request from its totals alone, as the panel knows it: no paths, so the overall pace. */
 export function pullMinutes(pr: LineCounts & { changedFiles: number }, learned: Learned | null): number {

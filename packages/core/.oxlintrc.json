@@ -55,8 +55,6 @@
     "eslint/no-console": ["error", { "allow": ["error"] }],
     "eslint/eqeqeq": "error",
     "eslint/no-var": "error",
-    // GitHub's GraphQL type names.
-    "eslint/no-underscore-dangle": ["error", { "allow": ["__typename"] }],
     "eslint/prefer-const": "error"
   },
   "overrides": [

@@ -1,6 +1,8 @@
+import type { FileInfo } from "@/utils/review-files/review-files";
+
 /**
  * What Focus Diff needs from a code review site. The bar, its numbers and its moves are the same on every site; a
- * provider says where that site keeps a review's changed files, counters and file tree. To support a
+ * provider says where that site keeps a review's changed files, counters, file tree and conversations. To support a
  * site, implement this in `utils/<site>-provider/`, give it a content script in `entrypoints/`, and list it with its
  * theme in `utils/providers/providers.ts`.
  */
@@ -53,6 +55,9 @@ export interface Provider {
   reveal: (anchor: string) => void;
   /** How much of the top of the screen the site covers: its sticky bar, and inside a diff, the file's own header. */
   coveredTop: (inside?: Element) => number;
+
+  /** The conversations in the files given, in page order; `complete` says the files came from the site's data. */
+  conversations: (files: FileInfo[], complete: boolean) => ConversationTarget[];
 }
 
 export interface FileStats {
@@ -112,4 +117,21 @@ export interface PageCounters {
   files: HTMLElement | null;
   additions: HTMLElement | null;
   deletions: HTMLElement | null;
+}
+
+/** What opening a conversation can lean on, and how it knows a newer jump has taken over. */
+interface OpenHelpers {
+  goToFile: (file: FileInfo) => Promise<HTMLElement | null>;
+  stale: () => boolean;
+}
+
+/** A conversation the bar can step to. */
+export interface ConversationTarget {
+  file: FileInfo;
+  line: number | null;
+  state: ThreadState;
+  /** The conversation on the page, when it's drawn, to find the one nearest the middle of the screen. */
+  element: HTMLElement | null;
+  /** Brings the conversation into the page, opened, and returns what to centre and light up. */
+  open: (helpers: OpenHelpers) => Promise<HTMLElement | null>;
 }

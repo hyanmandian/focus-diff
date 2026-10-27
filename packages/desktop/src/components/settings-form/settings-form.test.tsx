@@ -2,7 +2,16 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { Group, Intro, LinkRow, Pane, Row, SwitchRow, radioKeys, useDetail } from "./settings-form";
+import {
+  Group,
+  Intro,
+  LinkRow,
+  Pane,
+  Row,
+  SwitchRow,
+  radioKeys,
+  useDetail,
+} from "@/components/settings-form/settings-form";
 
 const noop = () => {};
 

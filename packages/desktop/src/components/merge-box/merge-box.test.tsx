@@ -2,14 +2,14 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import type { Details } from "../../utils/details/details";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Manage } from "../../utils/manage/manage";
-import type { MergeView } from "../../utils/merging/merging";
-import { fakeCommit, fakeDetails, fakeManage, fakePull, fakeView } from "../../utils/mock-pull/mock-pull";
-import type { Args } from "../../utils/platform/platform";
-import { MergeBox } from "./merge-box";
+import { MergeBox } from "@/components/merge-box/merge-box";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Manage } from "@/utils/manage/manage";
+import type { MergeView } from "@/utils/merging/merging";
+import { fakeCommit, fakeDetails, fakeManage, fakePull, fakeView } from "@/utils/mock-pull/mock-pull";
+import type { Args } from "@/utils/platform/platform";
 
 type Setup = { details?: Partial<Details>; view?: Partial<MergeView>; manage?: Partial<Manage>; pull?: Partial<Pull> };
 

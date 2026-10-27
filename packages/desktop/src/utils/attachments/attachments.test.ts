@@ -1,8 +1,16 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { emit, mockCommands } from "../fake-platform/fake-platform";
-import { attachable, displayWidth, markdownFor, pngDensity, swap, uploadMark, useWebSession } from "./attachments";
+import {
+  attachable,
+  displayWidth,
+  markdownFor,
+  pngDensity,
+  swap,
+  uploadMark,
+  useWebSession,
+} from "@/utils/attachments/attachments";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 /** A PNG chunk: its length, type, data and a (blank) checksum. */
 const chunk = (type: string, data: number[]) => [

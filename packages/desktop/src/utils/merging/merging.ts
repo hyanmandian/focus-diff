@@ -3,12 +3,12 @@
 // branch, merge when ready, the merge queue, bypassing as an admin), and the merge itself, with
 // its commit message and a guard against a head that moved since it was looked at.
 
-import { github, graphql } from "../bridge/bridge";
-import { fresh } from "../checks/checks";
-import type { Commit } from "../commits/commits";
-import type { Details } from "../details/details";
-import { canWrite, type Manage } from "../manage/manage";
-import type { PullRef } from "../review/review";
+import { github, graphql } from "@/utils/bridge/bridge";
+import { fresh } from "@/utils/checks/checks";
+import type { Commit } from "@/utils/commits/commits";
+import type { Details } from "@/utils/details/details";
+import { canWrite, type Manage } from "@/utils/manage/manage";
+import type { PullRef } from "@/utils/review/review";
 
 export type Method = Details["mergeMethods"][number];
 

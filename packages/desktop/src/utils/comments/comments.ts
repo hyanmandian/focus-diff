@@ -1,9 +1,9 @@
 // What can be done to what's been said on a pull request, beyond saying more: reactions, editing and
 // deleting your own comments (and the description), and the fields every comment is read with.
 
-import { github, GitHubError, graphql } from "../bridge/bridge";
-import type { Actor } from "../engine/engine";
-import { i18n } from "../i18n/i18n";
+import { github, GitHubError, graphql } from "@/utils/bridge/bridge";
+import type { Actor } from "@/utils/engine/engine";
+import { i18n } from "@/utils/i18n/i18n";
 
 /** GitHub's eight reactions, in its order. */
 export const REACTIONS = [

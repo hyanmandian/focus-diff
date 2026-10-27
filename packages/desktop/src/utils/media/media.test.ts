@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { fakePlatform } from "../fake-platform/fake-platform";
-import { setPlatform } from "../platform/platform";
-import { isVideo, media } from "./media";
+import { fakePlatform } from "@/utils/fake-platform/fake-platform";
+import { isVideo, media } from "@/utils/media/media";
+import { setPlatform } from "@/utils/platform/platform";
 
 const url = "https://github.com/user-attachments/assets/a b.png";
 

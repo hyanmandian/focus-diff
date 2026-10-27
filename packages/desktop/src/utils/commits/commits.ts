@@ -5,9 +5,9 @@
 
 import { useEffect, useState } from "react";
 
-import { github, graphql } from "../bridge/bridge";
-import { header, type PullRef, type ReviewFile } from "../review/review";
-import { shelve, shelved } from "../shelf/shelf";
+import { github, graphql } from "@/utils/bridge/bridge";
+import { header, type PullRef, type ReviewFile } from "@/utils/review/review";
+import { shelve, shelved } from "@/utils/shelf/shelf";
 
 export type Ci = "success" | "failure" | "pending" | null;
 export type Commit = {

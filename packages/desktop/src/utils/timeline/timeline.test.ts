@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import { byTime, loadTimeline, mapTimeline, type TimelineEvent, type TimelineNode } from "./timeline";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { byTime, loadTimeline, mapTimeline, type TimelineEvent, type TimelineNode } from "@/utils/timeline/timeline";
 
 const at = "2026-01-01T10:00:00Z";
 const base = { createdAt: at, actor: { login: "ana" } };

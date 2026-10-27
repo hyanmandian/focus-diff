@@ -1,0 +1,54 @@
+/* Focus Diff's base styles: what every window starts from (borders, the page's colours and type, chrome
+   that can't be selected, the text selection). */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Text drawn as AppKit draws it: no `-webkit-font-smoothing: antialiased`, which turns off the
+   stem darkening macOS gives native text and leaves the web view's text thinner and greyer than
+   the apps beside it (most of all on a non-Retina display). The body style is 13pt. */
+body {
+  font-size: var(--type-body);
+  line-height: var(--type-body-leading);
+}
+/* Chrome can't be selected, as in a native window, and keeps the arrow pointer (a pointing hand
+   is only for links in text). What's there to read and copy (descriptions, comments, AI answers,
+   code) is marked .selectable; fields always are. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
+}
+.selectable a[href] {
+  cursor: pointer;
+}
+::selection {
+  background: var(--text-selection-bg);
+}
+:root[data-window-inactive] ::selection {
+  background: var(--text-selection-bg-inactive);
+}
+
+/* Scroll bars are the system's overlay ones: they follow "Show scroll bars", the appearance and
+   grow under the pointer. Only the horizontal strips of chips hide theirs. */

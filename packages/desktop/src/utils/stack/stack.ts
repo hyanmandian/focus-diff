@@ -3,7 +3,7 @@
 // it works whatever made the stack: down through the pull requests whose branch is this one's base,
 // up through those based on this one's branch. Open ones only, in the same repository.
 
-import { graphql } from "../bridge/bridge";
+import { graphql } from "@/utils/bridge/bridge";
 
 /** A pull request of a stack, as its menu lists it. */
 export type StackPull = {

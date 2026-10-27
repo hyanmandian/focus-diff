@@ -1,9 +1,9 @@
-import { TooltipProvider } from "@focus-diff/design-system/components/tooltip";
 // The first-run setup window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { Setup } from "@/components/setup/setup";
+import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { followLanguage } from "@/utils/language/language";
 import { setPlatform } from "@/utils/platform/platform";
 import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";

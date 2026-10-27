@@ -1,7 +1,9 @@
 // The stack this pull request is in, in the toolbar: where it is ("2/5"), and a menu of the whole
 // stack from the bottom up, each with how its review stands, to go to any of them in this window.
 
-import { Button } from "@focus-diff/design-system/components/button";
+import { Layers } from "lucide-react";
+
+import { Button } from "@/components/button/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,14 +12,12 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
-import { cn } from "@focus-diff/design-system/utils/cn";
-import { Layers } from "lucide-react";
-
-import type { Stack } from "../../hooks/use-stack/use-stack";
-import { useT } from "../../utils/i18n/i18n";
-import type { StackPull } from "../../utils/stack/stack";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import type { Stack } from "@/hooks/use-stack/use-stack";
+import { cn } from "@/utils/cn/cn";
+import { useT } from "@/utils/i18n/i18n";
+import type { StackPull } from "@/utils/stack/stack";
 
 /** How each one's review stands, as a coloured word after its title. */
 const STANDING = {

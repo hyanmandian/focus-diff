@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vite-plus/test";
 
-import { AiAnswer } from "./ai-answer";
+import { AiAnswer } from "@/components/ai-answer/ai-answer";
 
 describe("AiAnswer", () => {
   it("draws paragraphs and points, joining a paragraph's lines", () => {

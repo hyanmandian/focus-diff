@@ -5,10 +5,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { nextAfter } from "../../utils/arrange/arrange";
-import { bridge, type ReviewPull } from "../../utils/bridge/bridge";
-import type { Item } from "../../utils/engine/engine";
-import { isUnread } from "../../utils/store/store";
+import { nextAfter } from "@/utils/arrange/arrange";
+import { bridge, type ReviewPull } from "@/utils/bridge/bridge";
+import type { Item } from "@/utils/engine/engine";
+import { isUnread } from "@/utils/store/store";
 
 type Live = { items: Record<string, Item[]>; seen: Record<string, true> };
 

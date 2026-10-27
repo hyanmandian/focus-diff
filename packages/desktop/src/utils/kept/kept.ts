@@ -6,10 +6,10 @@
 // each part is written only when it changed: most loads find the same patches, and writing
 // megabytes of them each time was most of the work.
 
-import type { Details } from "../details/details";
-import { hash, patchHash } from "../hashes/hashes";
-import { invoke } from "../platform/platform";
-import type { ReviewFile, Thread } from "../review/review";
+import type { Details } from "@/utils/details/details";
+import { hash, patchHash } from "@/utils/hashes/hashes";
+import { invoke } from "@/utils/platform/platform";
+import type { ReviewFile, Thread } from "@/utils/review/review";
 
 export type Kept = { details: Details; files: ReviewFile[]; threads: Thread[] };
 

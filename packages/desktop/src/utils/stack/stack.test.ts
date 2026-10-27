@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import { loadStack, type StackPull } from "./stack";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
+import { loadStack, type StackPull } from "@/utils/stack/stack";
 
 type Pull = StackPull & {
   headRefName: string;

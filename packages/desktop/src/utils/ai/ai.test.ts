@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { defaultConfig, type Config } from "../config/config";
-import type { Details } from "../details/details";
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { ReviewFile } from "../review/review";
-import { ask, askAboutLines, commentable, linesFromPatch, newRun, review } from "./ai";
+import { ask, askAboutLines, commentable, linesFromPatch, newRun, review } from "@/utils/ai/ai";
+import { defaultConfig, type Config } from "@/utils/config/config";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { ReviewFile } from "@/utils/review/review";
 
 const details: Details = {
   id: "PR_1",

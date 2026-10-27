@@ -4,8 +4,8 @@
 // and everything else is dropped or unwrapped. The page's Content-Security-Policy blocks scripts on
 // top of that.
 
-import { i18n } from "../i18n/i18n";
-import { isVideo, media } from "../media/media";
+import { i18n } from "@/utils/i18n/i18n";
+import { isVideo, media } from "@/utils/media/media";
 
 const TAGS = new Set([
   "a",

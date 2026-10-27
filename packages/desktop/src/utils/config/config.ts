@@ -5,8 +5,8 @@
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
 
-import { bridge } from "../bridge/bridge";
-import { i18n, LANGUAGES, type Language, type T } from "../i18n/i18n";
+import { bridge } from "@/utils/bridge/bridge";
+import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
 
 /** What makes a pull request belong to a queue. */
 export type QueueKind =

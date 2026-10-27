@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import { comment, leaveReview, loadDetails, markReady, merge, review, type Details } from "./details";
+import { comment, leaveReview, loadDetails, markReady, merge, review, type Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const ana = { __typename: "User", login: "ana", avatarUrl: "a.png", name: "Ana" };
 const bruno = { __typename: "User", login: "bruno", avatarUrl: "b.png", name: null };

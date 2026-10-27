@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Details } from "../../utils/details/details";
-import { fakeDetails } from "../../utils/mock-pull/mock-pull";
-import { loadStack, type StackPull } from "../../utils/stack/stack";
-import { useStack } from "./use-stack";
+import { useStack } from "@/hooks/use-stack/use-stack";
+import type { Details } from "@/utils/details/details";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
+import { loadStack, type StackPull } from "@/utils/stack/stack";
 
-vi.mock("../../utils/stack/stack", () => ({ loadStack: vi.fn<typeof loadStack>() }));
+vi.mock("@/utils/stack/stack", () => ({ loadStack: vi.fn<typeof loadStack>() }));
 
 let made = 0;
 /** A pull request's details, a new head each time unless one is given. */

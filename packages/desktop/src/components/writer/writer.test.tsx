@@ -3,14 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { ConversationProvider, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import { emit, fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setPlatform } from "../../utils/platform/platform";
-import { emoji, mentionable, preview, referable, savedReplies } from "../../utils/writer/writer";
-import { MarkdownField } from "./writer";
+import { MarkdownField } from "@/components/writer/writer";
+import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { emoji, mentionable, preview, referable, savedReplies } from "@/utils/writer/writer";
 
 // What the box asks GitHub for (utils/writer/writer.ts, tested on its own) is answered here.
-vi.mock("../../utils/writer/writer", () => ({
+vi.mock("@/utils/writer/writer", () => ({
   emoji: vi.fn<typeof emoji>(),
   mentionable: vi.fn<typeof mentionable>(),
   preview: vi.fn<typeof preview>(),
@@ -20,7 +19,7 @@ vi.mock("../../utils/writer/writer", () => ({
 
 // The Mac's ⌘ or everyone else's Ctrl, switched per test (the page itself reads it once).
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("../../utils/os/os", async (original) => ({
+vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
   get isMac() {
     return platform.mac;
@@ -576,21 +575,6 @@ describe("MarkdownField", () => {
       expect([field().selectionStart, field().selectionEnd]).toEqual([0, field().value.length]);
       expect(screen.queryByRole("alert")).toBeNull();
       await user.click(field());
-    });
-
-    it("leaves files alone where the app can't attach them (the browser extension)", async () => {
-      setPlatform({ ...fakePlatform, features: { uploads: false } });
-      const user = userEvent.setup();
-      const sent = rust();
-      const { container } = render(<Field initial="ab" />);
-      await act(async () => {});
-      expect(screen.queryByRole("button", { name: "Attach pictures or videos" })).toBeNull();
-      expect(fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } })).toBe(true);
-      expect(drop([picture()])).toBe(true);
-      await user.upload(container.querySelector<HTMLInputElement>('input[type="file"]')!, picture());
-      await nextFrame();
-      expect(valueNow()).toBe("ab");
-      expect(sent).not.toContain("upload_attachment");
     });
 
     it("picks files from the attach button, and drops them where they're let go", async () => {

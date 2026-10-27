@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import { keepConversation, loadConversation, readKeptConversation, type Conversation } from "./conversation";
+import {
+  keepConversation,
+  loadConversation,
+  readKeptConversation,
+  type Conversation,
+} from "@/utils/conversation/conversation";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const ref = { owner: "acme", repo: "shop", number: 7 };
 const ana = { __typename: "User", login: "ana", avatarUrl: "a.png", name: "Ana" };

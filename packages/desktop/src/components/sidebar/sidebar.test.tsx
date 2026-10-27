@@ -2,13 +2,13 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import type { Details } from "../../utils/details/details";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { LinkedIssue, Manage, Reviewer } from "../../utils/manage/manage";
-import { fakeDetails, fakeManage, fakePull } from "../../utils/mock-pull/mock-pull";
-import type { Args } from "../../utils/platform/platform";
-import { Face, LabelChip, Sidebar } from "./sidebar";
+import { Face, LabelChip, Sidebar } from "@/components/sidebar/sidebar";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { LinkedIssue, Manage, Reviewer } from "@/utils/manage/manage";
+import { fakeDetails, fakeManage, fakePull } from "@/utils/mock-pull/mock-pull";
+import type { Args } from "@/utils/platform/platform";
 
 /** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);

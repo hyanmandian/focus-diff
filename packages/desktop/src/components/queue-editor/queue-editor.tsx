@@ -3,19 +3,15 @@
 
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS } from "@focus-diff/core/recipes";
-import { Button } from "@focus-diff/design-system/components/button";
-import { Input } from "@focus-diff/design-system/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@focus-diff/design-system/components/select";
-import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { useId, type ReactNode } from "react";
 
+import { Button } from "@/components/button/button";
+import { Input } from "@/components/input/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
+import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "@/components/settings-form/settings-form";
+import { TagInput } from "@/components/tag-input/tag-input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
+import { cn } from "@/utils/cn/cn";
 import {
   canBe,
   LEAVE_OUT,
@@ -29,10 +25,8 @@ import {
   type Queue,
   type QueueKind,
   type QueuePart,
-} from "../../utils/config/config";
-import { i18n, useT, type T } from "../../utils/i18n/i18n";
-import { Group, PRESSED_CHIP, radioKeys, Row, SwitchRow, TONE_FILL } from "../settings-form/settings-form";
-import { TagInput } from "../tag-input/tag-input";
+} from "@/utils/config/config";
+import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
 /** Path filters to start from, the same as Focus Diff's recipes; `name` keys their words (settings.preset.*). */
 export const PATH_PRESETS = (["frontend", "backend", "code", "infra", "database", "docs"] as const).map((name) => ({

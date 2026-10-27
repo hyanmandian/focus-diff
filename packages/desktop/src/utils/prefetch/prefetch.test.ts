@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { loadCommits } from "../commits/commits";
-import type { Details, loadDetails } from "../details/details";
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { loadManage } from "../manage/manage";
-import type { loadFiles, loadThreads } from "../review/review";
-import { shelved } from "../shelf/shelf";
+import type { loadCommits } from "@/utils/commits/commits";
+import type { Details, loadDetails } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { loadManage } from "@/utils/manage/manage";
+import type { loadFiles, loadThreads } from "@/utils/review/review";
+import { shelved } from "@/utils/shelf/shelf";
 
 // What GitHub would answer, one level up: prefetch only arranges the loads and keeps what comes.
 const load = vi.hoisted(() => ({
@@ -15,10 +15,10 @@ const load = vi.hoisted(() => ({
   manage: vi.fn<typeof loadManage>(),
   commits: vi.fn<typeof loadCommits>(),
 }));
-vi.mock("../details/details", () => ({ loadDetails: load.details }));
-vi.mock("../review/review", () => ({ loadFiles: load.files, loadThreads: load.threads }));
-vi.mock("../manage/manage", () => ({ loadManage: load.manage }));
-vi.mock("../commits/commits", () => ({ loadCommits: load.commits }));
+vi.mock("@/utils/details/details", () => ({ loadDetails: load.details }));
+vi.mock("@/utils/review/review", () => ({ loadFiles: load.files, loadThreads: load.threads }));
+vi.mock("@/utils/manage/manage", () => ({ loadManage: load.manage }));
+vi.mock("@/utils/commits/commits", () => ({ loadCommits: load.commits }));
 
 const details: Details = {
   id: "PR_1",
@@ -65,7 +65,7 @@ function disk() {
 /** prefetch afresh, remembering nothing it fetched before. */
 function fresh() {
   vi.resetModules();
-  return import("./prefetch");
+  return import("@/utils/prefetch/prefetch");
 }
 
 beforeEach(() => {

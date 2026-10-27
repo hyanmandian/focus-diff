@@ -2,12 +2,12 @@
 // buttons, drag to move around, Esc or a click outside to close. Opened with openViewer from
 // anywhere on the page; <Viewer /> is mounted once per page.
 
-import { Button } from "@focus-diff/design-system/components/button";
 import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
-import { useT } from "../../utils/i18n/i18n";
+import { Button } from "@/components/button/button";
+import { useT } from "@/utils/i18n/i18n";
 
 type Picture = { src: string; alt: string };
 

@@ -2,10 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { AuthStatus, DeviceCode } from "../../utils/bridge/bridge";
-import { fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setPlatform } from "../../utils/platform/platform";
-import { Connect } from "./connect";
+import { Connect } from "@/components/connect/connect";
+import type { AuthStatus, DeviceCode } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const auth = (over: Partial<AuthStatus> = {}): AuthStatus => ({
   signed_in: false,
@@ -50,13 +49,6 @@ function deferred<T = void>() {
 }
 
 describe("Connect", () => {
-  it("says the token stays in the browser, in the browser extension", () => {
-    setPlatform({ ...fakePlatform, features: { tray: false } });
-    rust({});
-    render(<Connect auth={null} onConnected={NOTHING} />);
-    expect(screen.getByText(/kept in this browser and only ever sent to GitHub/u)).toBeTruthy();
-  });
-
   it("asks for a token when there's no other way, and connects with it", async () => {
     const calls = rust({ auth_use_token: null });
     const onConnected = vi.fn<() => void>();

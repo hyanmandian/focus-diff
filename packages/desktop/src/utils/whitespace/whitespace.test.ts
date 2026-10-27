@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { ignoreWhitespace } from "./whitespace";
+import { ignoreWhitespace } from "@/utils/whitespace/whitespace";
 
 const head = "diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n";
 

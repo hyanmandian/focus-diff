@@ -2,23 +2,19 @@
 // Opens on its own when there's no setup yet, and again from the panel's menu. Everything here
 // can be changed later in Settings; the choices here are saved when you finish.
 
-import { Button } from "@focus-diff/design-system/components/button";
-import { Label } from "@focus-diff/design-system/components/label";
-import { Mark } from "@focus-diff/design-system/components/mark";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@focus-diff/design-system/components/select";
-import { Switch } from "@focus-diff/design-system/components/switch";
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { PROVIDERS } from "../../utils/ai/ai";
-import { bridge, type AiStatus, type AuthStatus } from "../../utils/bridge/bridge";
+import { Button } from "@/components/button/button";
+import { Connect } from "@/components/connect/connect";
+import { Label } from "@/components/label/label";
+import { Mark } from "@/components/mark/mark";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
+import { Switch } from "@/components/switch/switch";
+import { TagInput } from "@/components/tag-input/tag-input";
+import { PROVIDERS } from "@/utils/ai/ai";
+import { bridge, type AiStatus, type AuthStatus } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
   loadConfig,
@@ -28,14 +24,12 @@ import {
   type Config,
   type Queue,
   type QueueKind,
-} from "../../utils/config/config";
-import { interval } from "../../utils/copy/copy";
-import { i18n, useT } from "../../utils/i18n/i18n";
-import { isMac } from "../../utils/os/os";
-import { platform, supports } from "../../utils/platform/platform";
-import { useTheme } from "../../utils/theme/theme";
-import { Connect } from "../connect/connect";
-import { TagInput } from "../tag-input/tag-input";
+} from "@/utils/config/config";
+import { interval } from "@/utils/copy/copy";
+import { i18n, useT } from "@/utils/i18n/i18n";
+import { isMac } from "@/utils/os/os";
+import { platform } from "@/utils/platform/platform";
+import { useTheme } from "@/utils/theme/theme";
 
 const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
@@ -144,9 +138,7 @@ export function Setup() {
     await platform().closeWindow();
   };
 
-  // Without the AI tools (the browser extension), there's no AI to pick.
-  const steps = supports("ai") ? STEPS : STEPS.filter((s) => s !== "ai");
-  const at = steps[step];
+  const at = STEPS[step];
   const canContinue = at === "github" ? Boolean(auth?.signed_in) : at === "queues" ? kinds.size > 0 : true;
   // Return is the default button's (Continue, or Open Focus Diff at the end), unless a field or
   // another button has it.
@@ -158,7 +150,7 @@ export function Setup() {
     )
       return;
     e.preventDefault();
-    if (step === steps.length - 1) void finish();
+    if (step === STEPS.length - 1) void finish();
     else if (canContinue) setStep(step + 1);
   };
 
@@ -169,7 +161,7 @@ export function Setup() {
         <Mark className="size-4 text-primary" />
         <span className="text-body font-semibold">Focus Diff</span>
         <ol className="ml-auto flex items-center gap-1.5" aria-label={t("setup.steps")}>
-          {steps.map((name, i) => (
+          {STEPS.map((name, i) => (
             <li
               key={name}
               aria-current={i === step ? "step" : undefined}
@@ -192,9 +184,7 @@ export function Setup() {
               <h1 id="step-title" className="text-title1 font-bold text-balance">
                 {t("setup.githubTitle")}
               </h1>
-              <p className="text-body text-muted-foreground">
-                {t(supports("tray") ? "setup.githubBody" : "setup.githubBodyBrowser")}
-              </p>
+              <p className="text-body text-muted-foreground">{t("setup.githubBody")}</p>
             </div>
             {auth?.signed_in ? (
               <div className="flex items-center gap-2">
@@ -219,9 +209,7 @@ export function Setup() {
             ) : (
               <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={t("setup.checkingGitHub")} />
             )}
-            <p className="text-callout text-muted-foreground">
-              {t(supports("tray") ? "setup.tokenNote" : "setup.tokenNoteBrowser")}
-            </p>
+            <p className="text-callout text-muted-foreground">{t("setup.tokenNote")}</p>
           </section>
         ) : at === "queues" ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">
@@ -263,9 +251,7 @@ export function Setup() {
               <h1 id="step-title" className="text-title1 font-bold">
                 {t("setup.notifyTitle")}
               </h1>
-              <p className="text-body text-muted-foreground">
-                {t(supports("tray") ? "setup.notifyBody" : "setup.notifyBodyBrowser")}
-              </p>
+              <p className="text-body text-muted-foreground">{t("setup.notifyBody")}</p>
             </div>
             {/* A grouped form, as System Settings draws one: rows on one rounded group, hairlines
                 between them, a mini switch. */}
@@ -399,11 +385,7 @@ export function Setup() {
               {t("setup.doneTitle")}
             </h1>
             <p className="text-body text-muted-foreground">
-              {supports("tray")
-                ? isMac
-                  ? t("setup.doneBodyMac")
-                  : t("setup.doneBodyTray")
-                : t("setup.doneBodyBrowser")}
+              {isMac ? t("setup.doneBodyMac") : t("setup.doneBodyTray")}
             </p>
           </section>
         )}
@@ -427,7 +409,7 @@ export function Setup() {
               {t("setup.back")}
             </Button>
           ) : null}
-          {step < steps.length - 1 ? (
+          {step < STEPS.length - 1 ? (
             <Button
               className="min-w-20"
               onClick={() => {

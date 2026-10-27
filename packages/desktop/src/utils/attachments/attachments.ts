@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 
-import { bridge } from "../bridge/bridge";
+import { bridge } from "@/utils/bridge/bridge";
 
 /** What GitHub takes; Rust checks the bytes too (src-tauri/src/uploads.rs). */
 export const ACCEPT = "image/png,image/jpeg,image/gif,image/webp,image/svg+xml,video/mp4,video/quicktime,video/webm";

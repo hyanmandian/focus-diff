@@ -2,8 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { ReviewFile } from "../../utils/review/review";
-import { FileTree } from "./file-tree";
+import { FileTree } from "@/components/file-tree/file-tree";
+import type { ReviewFile } from "@/utils/review/review";
 
 const file = (path: string, extra: Partial<ReviewFile> = {}): ReviewFile => ({
   path,

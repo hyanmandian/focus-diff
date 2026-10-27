@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import type { Draft, Thread } from "../review/review";
-import { discardPending, loadPending, mergeDrafts, submitPending, toPut, unsent, type PendingReview } from "./pending";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import {
+  discardPending,
+  loadPending,
+  mergeDrafts,
+  submitPending,
+  toPut,
+  unsent,
+  type PendingReview,
+} from "@/utils/pending/pending";
+import type { Args } from "@/utils/platform/platform";
+import type { Draft, Thread } from "@/utils/review/review";
 
 const pull = { id: "PR_1", owner: "acme", repo: "web", number: 7 };
 

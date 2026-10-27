@@ -5,8 +5,8 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
-import { clearMocks, fakePlatform } from "../fake-platform/fake-platform";
-import { setPlatform } from "../platform/platform";
+import { clearMocks, fakePlatform } from "@/utils/fake-platform/fake-platform";
+import { setPlatform } from "@/utils/platform/platform";
 
 setPlatform(fakePlatform);
 
@@ -17,8 +17,6 @@ afterEach(async () => {
     setTimeout(resolve, 0);
   });
   clearMocks();
-  // A test that plugs in an app without some features (Platform.features) gets the full one back.
-  setPlatform(fakePlatform);
   localStorage.clear();
   sessionStorage.clear();
   vi.restoreAllMocks();

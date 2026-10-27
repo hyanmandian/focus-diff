@@ -1,44 +1,53 @@
 import type { Locator, Page } from "@playwright/test";
 
-/** The fixture pull request page with Focus Diff's bar (the app's filter bar) floating over it. */
+/** The fixture pull request page with the Focus Diff panel on top of it. */
 export class PullRequestPage {
-  readonly bar: Locator;
-  readonly group: Locator;
-  readonly chips: Locator;
+  readonly panel: Locator;
+  readonly options: Locator;
   readonly pressed: Locator;
-  readonly next: Locator;
+  readonly stats: Locator;
+  readonly status: Locator;
+  readonly settings: Locator;
   readonly breakdownToggle: Locator;
-  readonly breakdown: Locator;
+  readonly breakdownRows: Locator;
 
   constructor(readonly page: Page) {
-    this.bar = page.locator("focus-diff-bar");
-    this.group = this.bar.getByRole("group", { name: "Review one part" });
-    this.chips = this.group.locator("button[aria-pressed]");
-    this.pressed = this.group.locator('button[aria-pressed="true"]');
-    this.next = this.group.locator('button[aria-keyshortcuts="Alt+Shift+J"]');
-    this.breakdownToggle = this.group.getByRole("button", { name: "Breakdown by filter" });
-    this.breakdown = this.bar.getByRole("dialog");
+    this.panel = page.locator("focus-diff-panel");
+    this.options = this.panel.locator(".option .option-name");
+    this.pressed = this.panel.locator('.option[aria-pressed="true"] .option-name');
+    this.stats = this.panel.locator(".stats");
+    this.status = this.panel.locator('[role="status"]');
+    this.settings = this.panel.locator(".settings");
+    this.breakdownToggle = this.panel.locator(".breakdown-toggle");
+    this.breakdownRows = this.panel.locator(".row");
   }
 
-  /** A filter's chip, by its name. */
-  chip(name: string) {
-    return this.chips.filter({ hasText: new RegExp(`^${name}\\d+$`, "u") });
+  option(name: string) {
+    return this.panel.locator(`.option:has(.option-name:text-is("${name}"))`);
   }
 
-  /** The chips' names, or the pressed ones', without their counts. */
-  names(chips: Locator = this.chips) {
-    return chips.evaluateAll((all) => all.map((chip) => chip.firstChild?.textContent ?? ""));
-  }
-
-  /** Shows only `name`, or adds it to the chosen filters with `combine`. */
+  /** Shows only `name`, or adds it to the current filters with `combine`. */
   async pick(name: string, { combine = false } = {}) {
-    if (!combine && name !== "All") await this.chip("All").click();
-    await this.chip(name).click();
+    if (!combine && name !== "All") await this.option("All").click();
+    await this.option(name).click();
   }
 
-  /** What the bar says is left: files, lines and time, as read out. */
-  stats() {
-    return this.group.locator("[aria-label]:not(button)").evaluateAll((all) => all.map((each) => each.ariaLabel ?? ""));
+  statsText() {
+    return this.stats.evaluate((element) => {
+      // What's read out: parts hidden by the current state, like the Done badge, and the scoreboards, which are only
+      // for the eye, are left out.
+      const hidden = [...element.querySelectorAll("*")].map((child) => {
+        const style = getComputedStyle(child);
+        return (
+          style.display === "none" || style.visibility === "hidden" || child.getAttribute("aria-hidden") === "true"
+        );
+      });
+      const copy = element.cloneNode(true) as HTMLElement;
+      [...copy.querySelectorAll("*")].forEach((child, index) => {
+        if (hidden[index]) child.remove();
+      });
+      return (copy.textContent ?? "").replaceAll(/\s+/gu, " ").trim();
+    });
   }
 
   visiblePaths() {
@@ -70,16 +79,5 @@ export class PullRequestPage {
   lineCounters() {
     const shown = this.page.locator(".summary span").locator("visible=true");
     return { additions: shown.first(), deletions: shown.last() };
-  }
-
-  viewedToggle(path: string) {
-    return this.page.locator("[data-diff-header-wrapper]", { hasText: path }).getByRole("button", { name: "Viewed" });
-  }
-
-  /** Where a file's header is on screen. */
-  top(path: string) {
-    return this.page
-      .locator("[data-diff-header-wrapper]", { hasText: path })
-      .evaluate((header) => Math.round(header.getBoundingClientRect().top));
   }
 }

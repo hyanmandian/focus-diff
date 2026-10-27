@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { tabKeys } from "./keys";
+import { tabKeys } from "@/utils/keys/keys";
 
 function tabs(onClick = vi.fn<(name: string) => void>()) {
   render(

@@ -1,9 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import { shelve, shelved } from "../shelf/shelf";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import {
   addAssignees,
   addLabels,
@@ -26,7 +24,9 @@ import {
   useManage,
   type Manage,
   type Permission,
-} from "./manage";
+} from "@/utils/manage/manage";
+import type { Args } from "@/utils/platform/platform";
+import { shelve, shelved } from "@/utils/shelf/shelf";
 
 type Request = { method: string; path: string; body: string };
 

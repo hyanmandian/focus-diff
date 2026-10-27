@@ -8,7 +8,7 @@ import {
   SuggestionError,
   suggestionsIn,
   toBase64,
-} from "./suggestion";
+} from "@/utils/suggestion/suggestion";
 
 describe("suggestionBlock", () => {
   it("starts as the lines themselves", () => {

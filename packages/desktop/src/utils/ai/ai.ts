@@ -2,11 +2,11 @@
 // (src-tauri/src/ai.rs), which can also read the pull request's project (checkout.rs). Nothing is
 // sent unless they turned it on and asked.
 
-import { bridge, type AiAnswer } from "../bridge/bridge";
-import type { AiProvider, Config, Effort } from "../config/config";
-import type { Details } from "../details/details";
-import { i18n } from "../i18n/i18n";
-import { loadFiles, type ReviewFile } from "../review/review";
+import { bridge, type AiAnswer } from "@/utils/bridge/bridge";
+import type { AiProvider, Config, Effort } from "@/utils/config/config";
+import type { Details } from "@/utils/details/details";
+import { i18n } from "@/utils/i18n/i18n";
+import { loadFiles, type ReviewFile } from "@/utils/review/review";
 
 export const PROVIDERS: Record<AiProvider, { name: string; install: string; efforts: Array<Effort | ""> }> = {
   claude: {

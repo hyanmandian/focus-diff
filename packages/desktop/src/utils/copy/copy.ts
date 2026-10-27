@@ -2,9 +2,9 @@
 // (the notifications say it in Rust, watch.rs). Their text is in src/locales (events.*); here is
 // what isn't words: each one's colour.
 
-import type { EventKind } from "../config/config";
-import type { Actor, Item } from "../engine/engine";
-import type { T } from "../i18n/i18n";
+import type { EventKind } from "@/utils/config/config";
+import type { Actor, Item } from "@/utils/engine/engine";
+import type { T } from "@/utils/i18n/i18n";
 
 /** Someone by their first name, as people say it; their login without one. */
 export const firstName = (actor: Actor, t: T) =>

@@ -4,8 +4,12 @@
 // text are the interface. Pictures and videos pasted, dropped or picked are uploaded as github.com
 // does, once you've signed in there (utils/attachments/attachments.ts).
 
-import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
-import { Button } from "@focus-diff/design-system/components/button";
+import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Button } from "@/components/button/button";
+import { CommentHtml } from "@/components/comment-html/comment-html";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,15 +17,11 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { SlidingPill } from "@focus-diff/design-system/components/sliding-pill";
-import { Textarea } from "@focus-diff/design-system/components/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
-import { cn } from "@focus-diff/design-system/utils/cn";
-import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-
-import { useConversationApi } from "../../hooks/use-conversation/use-conversation";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
+import { Textarea } from "@/components/textarea/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import {
   ACCEPT,
   attachable,
@@ -30,14 +30,14 @@ import {
   swap,
   uploadMark,
   useWebSession,
-} from "../../utils/attachments/attachments";
-import { avatar } from "../../utils/avatar/avatar";
-import { bridge, type UploadError } from "../../utils/bridge/bridge";
-import { useT } from "../../utils/i18n/i18n";
-import { tabKeys } from "../../utils/keys/keys";
-import { isMac } from "../../utils/os/os";
-import { supports } from "../../utils/platform/platform";
-import { suggestionBlock } from "../../utils/suggestion/suggestion";
+} from "@/utils/attachments/attachments";
+import { avatar } from "@/utils/avatar/avatar";
+import { bridge, type UploadError } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { useT } from "@/utils/i18n/i18n";
+import { tabKeys } from "@/utils/keys/keys";
+import { isMac } from "@/utils/os/os";
+import { suggestionBlock } from "@/utils/suggestion/suggestion";
 import {
   emoji,
   mentionable,
@@ -46,7 +46,7 @@ import {
   savedReplies,
   type Reference,
   type SavedReply,
-} from "../../utils/writer/writer";
+} from "@/utils/writer/writer";
 import {
   complete,
   link,
@@ -58,8 +58,7 @@ import {
   type Emoji,
   type Person,
   type Token,
-} from "../../utils/writing/writing";
-import { CommentHtml } from "../comment-html/comment-html";
+} from "@/utils/writing/writing";
 
 type Option =
   | { kind: "person"; person: Person }
@@ -208,8 +207,6 @@ export function MarkdownField({
   const [message, setMessage] = useState<{ kind: "sign-in" | "ended" } | { kind: "error"; text: string } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const session = useWebSession();
-  // Attaching as github.com does, where the app can (the browser extension can't).
-  const uploads = supports("uploads");
   // The text as it is now, for uploads that finish after it changed.
   const latest = useRef(value);
   useLayoutEffect(() => {
@@ -341,7 +338,7 @@ export function MarkdownField({
   /** Pictures and videos into the comment: a placeholder for each at the caret, then each as
    *  github.com writes it once it's uploaded. */
   const attach = (files: File[]) => {
-    if (!api || !number || !uploads || files.length === 0) return;
+    if (!api || !number || files.length === 0) return;
     const list = files.filter((file) => attachable(file));
     if (list.length < files.length) setMessage({ kind: "error", text: t("review.uploadUnsupported") });
     if (list.length === 0) return;
@@ -461,7 +458,7 @@ export function MarkdownField({
             <TooltipContent>{t("review.suggestChangeTip")}</TooltipContent>
           </Tooltip>
         ) : null}
-        {api && number && uploads ? (
+        {api && number ? (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -593,7 +590,7 @@ export function MarkdownField({
               }}
               onPaste={(e) => {
                 const files = [...e.clipboardData.files];
-                if (files.length > 0 && uploads) {
+                if (files.length > 0) {
                   e.preventDefault();
                   attach(files);
                   return;
@@ -614,7 +611,7 @@ export function MarkdownField({
                 if (e.dataTransfer.types.includes("Files")) e.preventDefault();
               }}
               onDrop={(e) => {
-                if (e.dataTransfer.files.length === 0 || !uploads) return;
+                if (e.dataTransfer.files.length === 0) return;
                 e.preventDefault();
                 // Where it's dropped is where it goes.
                 const el = e.currentTarget;

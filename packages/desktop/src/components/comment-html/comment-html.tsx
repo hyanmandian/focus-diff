@@ -1,15 +1,15 @@
 // GitHub's HTML for a comment, cleaned (utils/sanitize/sanitize.ts): links open in the browser, pictures in the
 // viewer, diagrams drawn, suggested changes as a small diff (suggestion.css).
 
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { useRef, type MouseEvent } from "react";
 
-import { bridge } from "../../utils/bridge/bridge";
-import { useDiagrams } from "../../utils/diagrams/diagrams";
-import { leadsElsewhere, sanitize } from "../../utils/sanitize/sanitize";
-import { openViewer } from "../viewer/viewer";
+import { openViewer } from "@/components/viewer/viewer";
+import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { useDiagrams } from "@/utils/diagrams/diagrams";
+import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
 
-import "../suggestion/suggestion.css";
+import "@/components/suggestion/suggestion.css";
 
 /** A click in GitHub's HTML: a picture opens in the viewer (even one GitHub wrapped in a link to
  *  itself), a link in the browser. */

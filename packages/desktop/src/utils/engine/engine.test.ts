@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { isBot, requests, type PullRequest } from "./engine";
+import { isBot, requests, type PullRequest } from "@/utils/engine/engine";
 
 const withRequests = (nodes: PullRequest["reviewRequests"]["nodes"]) => ({ reviewRequests: { nodes } });
 

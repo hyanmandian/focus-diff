@@ -22,9 +22,6 @@
     "fx-runner": {
       "shell-quote": "1.11.0"
     },
-    "@focus-diff/design-system": {
-      "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
-    },
     "@focus-diff/desktop": {
       "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
     }

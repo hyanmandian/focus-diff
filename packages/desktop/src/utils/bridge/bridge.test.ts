@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { emit, mockCommands } from "../fake-platform/fake-platform";
-import { bridge, github, GitHubError, graphql, type DeviceCode, type ReviewPull } from "./bridge";
+import { bridge, github, GitHubError, graphql, type DeviceCode, type ReviewPull } from "@/utils/bridge/bridge";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 type Call = { cmd: string; args: unknown };
 

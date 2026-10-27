@@ -1,21 +1,17 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { ActionContext } from "../../utils/bridge/bridge";
-import type { Action } from "../../utils/config/config";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { ActionButtons, ActionMenuItems } from "./action-buttons";
+import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/dropdown-menu/dropdown-menu";
+import type { ActionContext } from "@/utils/bridge/bridge";
+import type { Action } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 // The real runner, which a test can make throw something other than an Error.
 type Run = (action: Action, pr: ActionContext) => Promise<string>;
 const runner = vi.hoisted(() => ({ run: vi.fn<Run>() }));
-vi.mock("../../utils/actions/actions", async (original) => {
+vi.mock("@/utils/actions/actions", async (original) => {
   const actual = await original<{ runAction: Run }>();
   runner.run.mockImplementation(actual.runAction);
   return { ...actual, runAction: runner.run };

@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from "react";
 
-import type { Details } from "../../utils/details/details";
-import { loadStack, type StackPull } from "../../utils/stack/stack";
+import type { Details } from "@/utils/details/details";
+import { loadStack, type StackPull } from "@/utils/stack/stack";
 
 export type Stack = { pulls: StackPull[]; at: number };
 

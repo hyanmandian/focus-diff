@@ -4,9 +4,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { github, graphql } from "../bridge/bridge";
-import { invoke } from "../platform/platform";
-import type { PullRef } from "../review/review";
+import { github, graphql } from "@/utils/bridge/bridge";
+import { invoke } from "@/utils/platform/platform";
+import type { PullRef } from "@/utils/review/review";
 
 export type CheckState = "failure" | "pending" | "neutral" | "success";
 export type CheckItem = {

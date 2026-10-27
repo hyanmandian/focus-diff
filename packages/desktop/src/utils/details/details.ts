@@ -1,7 +1,7 @@
 // Everything about one pull request for its detail view, and what can be done to it from there.
 
-import { github, graphql } from "../bridge/bridge";
-import type { Actor } from "../engine/engine";
+import { github, graphql } from "@/utils/bridge/bridge";
+import type { Actor } from "@/utils/engine/engine";
 
 export type Check = { name: string; state: "success" | "failure" | "pending" | "neutral"; url: string | null };
 export type FileChange = { path: string; additions: number; deletions: number; changeType: string };

@@ -4,9 +4,9 @@
 
 import { useSyncExternalStore } from "react";
 
-import { bridge, type AuthStatus } from "../bridge/bridge";
-import { loadConfig, type Config } from "../config/config";
-import type { Item } from "../engine/engine";
+import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
+import { loadConfig, type Config } from "@/utils/config/config";
+import type { Item } from "@/utils/engine/engine";
 
 export type Status = { phase: "idle" | "loading" | "error"; error?: string; updatedAt: number };
 

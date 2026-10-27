@@ -3,8 +3,8 @@
 // to, and your saved replies. Each kept, so the box answers as you type: the people and the replies
 // for a day, previews and searches for the window's life.
 
-import { github, graphql } from "../bridge/bridge";
-import { emojiList, type Emoji, type Person } from "../writing/writing";
+import { github, graphql } from "@/utils/bridge/bridge";
+import { emojiList, type Emoji, type Person } from "@/utils/writing/writing";
 
 /** In memory, the oldest out first past a few hundred. */
 function cache<T>(most = 300) {

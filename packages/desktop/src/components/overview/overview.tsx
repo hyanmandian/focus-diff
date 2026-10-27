@@ -1,39 +1,39 @@
 // The review window's Overview tab: the pull request's description and conversation, with the AI,
 // reviewers and checks beside them.
 
-import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
-import { Button } from "@focus-diff/design-system/components/button";
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { copyText, useConversationApi } from "../../hooks/use-conversation/use-conversation";
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import { PROVIDERS, type AiReview } from "../../utils/ai/ai";
-import { avatar } from "../../utils/avatar/avatar";
-import { bridge } from "../../utils/bridge/bridge";
-import type { Range } from "../../utils/commits/commits";
-import type { Config } from "../../utils/config/config";
-import type { Conversation, ConversationEntry } from "../../utils/conversation/conversation";
-import { firstName } from "../../utils/copy/copy";
-import type { Details, Entry } from "../../utils/details/details";
-import { useDiagrams } from "../../utils/diagrams/diagrams";
-import type { Actor } from "../../utils/engine/engine";
-import { useT } from "../../utils/i18n/i18n";
-import type { Thread } from "../../utils/review/review";
-import { leadsElsewhere, sanitize } from "../../utils/sanitize/sanitize";
-import { byTime } from "../../utils/timeline/timeline";
-import { quote } from "../../utils/writing/writing";
-import { AiAnswer } from "../ai-answer/ai-answer";
-import { AskAi } from "../ask-ai/ask-ai";
-import { Checks } from "../checks/checks";
-import { CommitsSection } from "../commits/commits";
-import { MergeBox } from "../merge-box/merge-box";
-import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "../said/said";
-import { Sidebar } from "../sidebar/sidebar";
-import { Composer, ThreadView } from "../thread/thread";
-import { TimelineRow } from "../timeline/timeline";
-import { openViewer } from "../viewer/viewer";
+import { AiAnswer } from "@/components/ai-answer/ai-answer";
+import { AskAi } from "@/components/ask-ai/ask-ai";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Button } from "@/components/button/button";
+import { Checks } from "@/components/checks/checks";
+import { CommitsSection } from "@/components/commits/commits";
+import { MergeBox } from "@/components/merge-box/merge-box";
+import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
+import { Sidebar } from "@/components/sidebar/sidebar";
+import { Composer, ThreadView } from "@/components/thread/thread";
+import { TimelineRow } from "@/components/timeline/timeline";
+import { openViewer } from "@/components/viewer/viewer";
+import { copyText, useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import { PROVIDERS, type AiReview } from "@/utils/ai/ai";
+import { avatar } from "@/utils/avatar/avatar";
+import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import type { Range } from "@/utils/commits/commits";
+import type { Config } from "@/utils/config/config";
+import type { Conversation, ConversationEntry } from "@/utils/conversation/conversation";
+import { firstName } from "@/utils/copy/copy";
+import type { Details, Entry } from "@/utils/details/details";
+import { useDiagrams } from "@/utils/diagrams/diagrams";
+import type { Actor } from "@/utils/engine/engine";
+import { useT } from "@/utils/i18n/i18n";
+import type { Thread } from "@/utils/review/review";
+import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
+import { byTime } from "@/utils/timeline/timeline";
+import { quote } from "@/utils/writing/writing";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
   return (

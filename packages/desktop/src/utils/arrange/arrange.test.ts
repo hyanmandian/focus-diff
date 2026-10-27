@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Event, Item } from "../engine/engine";
-import { arrange, nextAfter } from "./arrange";
+import { arrange, nextAfter } from "@/utils/arrange/arrange";
+import type { Event, Item } from "@/utils/engine/engine";
 
 const item = (id: string, repo: string, updatedAt: string, isDraft = false, events: Event[] = []): Item => ({
   queueId: "q",

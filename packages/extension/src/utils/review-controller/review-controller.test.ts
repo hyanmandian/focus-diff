@@ -3,10 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
 import { ContentScriptContext } from "#imports";
-import { readLearned, selectionsItem } from "@/utils/bar-settings/bar-settings";
-import type { Diff, FileSummary, Provider } from "@/utils/provider/provider";
+import type { Panel } from "@/components/panel/panel";
+import type { ConversationTarget, Diff, FileSummary, Provider } from "@/utils/provider/provider";
+import {
+  appearanceItem,
+  configItem,
+  learnedItem,
+  reviewTimeItem,
+  selectionsItem,
+  updateItem,
+} from "@/utils/storage/storage";
 
-import { startController, type BarProps, type BarView, type Controller } from "./review-controller";
+import { startController, type Controller } from "./review-controller";
 
 const REPO = "octo/web";
 
@@ -17,6 +25,7 @@ const site = {
   virtualized: false,
   reported: 0,
   attributes: [] as string[],
+  conversations: [] as ConversationTarget[],
 };
 
 const byPath = (path: string) => document.querySelector<HTMLElement>(`.diff[data-path="${path}"]`)!;
@@ -74,26 +83,21 @@ const provider: Provider = {
   hashOf: (anchor) => `#diff-${anchor}`,
   reveal,
   coveredTop: covered,
+  conversations: () => site.conversations,
 };
 
 /** Draws a file: its row with the diff, and its link in the tree. */
 const draw = (
   path: string,
-  {
-    anchor = path,
-    added = 1,
-    viewed = false,
-  }: { anchor?: string; added?: number | null; viewed?: boolean | null } = {},
+  { anchor = path, added = 1, viewed = false }: { anchor?: string; added?: number; viewed?: boolean | null } = {},
 ) => {
   const row = document.createElement("div");
   if (anchor) row.dataset.anchor = anchor;
   const diff = document.createElement("div");
   diff.className = "diff";
   diff.dataset.path = path;
-  if (added !== null) {
-    diff.dataset.added = String(added);
-    diff.dataset.deleted = "1";
-  }
+  diff.dataset.added = String(added);
+  diff.dataset.deleted = "1";
   if (viewed !== null) {
     const toggle = document.createElement("input");
     toggle.type = "checkbox";
@@ -118,33 +122,30 @@ const summaryOf = (path: string, viewed = false, anchor = path): FileSummary => 
   threads: [],
 });
 
-const createView = () => ({
-  render: vi.fn<BarView["render"]>(),
-  setDark: vi.fn<BarView["setDark"]>(),
-  setLocale: vi.fn<BarView["setLocale"]>(),
-});
+const createPanel = () =>
+  ({
+    renderOptions: vi.fn<Panel["renderOptions"]>(),
+    renderStats: vi.fn<Panel["renderStats"]>(),
+    renderConversations: vi.fn<Panel["renderConversations"]>(),
+    renderNextFile: vi.fn<Panel["renderNextFile"]>(),
+    renderBreakdown: vi.fn<Panel["renderBreakdown"]>(),
+    announce: vi.fn<Panel["announce"]>(),
+    announceText: vi.fn<Panel["announceText"]>(),
+    setVisible: vi.fn<Panel["setVisible"]>(),
+    setCompact: vi.fn<Panel["setCompact"]>(),
+    celebrate: vi.fn<Panel["celebrate"]>(),
+    showUpdate: vi.fn<Panel["showUpdate"]>(),
+    setTheme: vi.fn<Panel["setTheme"]>(),
+    accent: () => "teal",
+  }) satisfies Panel;
 
-/** The setup the app keeps, as the background stores config.json. */
-const setConfig = (config: unknown) => fakeBrowser.storage.local.set({ "file.config": JSON.stringify(config) });
-const learned = async () => {
-  const { "file.pace": text } = await fakeBrowser.storage.local.get("file.pace");
-  return typeof text === "string" ? readLearned(text) : null;
-};
-
-const FILTERS = [
-  { id: "code", name: "Code", include: "\\.ts$", exclude: "", repos: [] },
-  { id: "docs", name: "Docs", include: "\\.md$", exclude: "", repos: [] },
-  { id: "python", name: "Python", include: "\\.py$", exclude: "", repos: [] },
-  { id: "elsewhere", name: "Elsewhere", include: "", exclude: "", repos: ["acme/*"] },
-];
-
-let view: ReturnType<typeof createView>;
+let panel: ReturnType<typeof createPanel>;
 let ctx: ContentScriptContext;
 let controller: Controller;
 
 const start = async () => {
   ctx = new ContentScriptContext("review-controller");
-  controller = await startController(ctx, view, provider);
+  controller = await startController(ctx, panel, provider);
 };
 
 /** Sends the content script a message, as the background would. */
@@ -170,9 +171,7 @@ const box = (path: string, top: number, height = 200) => {
 };
 
 const hidden = (path: string) => rowOf(path).style.display === "none";
-const props = (): BarProps => view.render.mock.lastCall![0]!;
-const lastChosen = () => props().chosen;
-const renders = () => view.render.mock.calls.length;
+const lastOptions = () => panel.renderOptions.mock.lastCall?.[1];
 
 beforeEach(async () => {
   vi.useFakeTimers();
@@ -186,13 +185,23 @@ beforeEach(async () => {
     virtualized: false,
     reported: 0,
     attributes: [],
+    conversations: [],
   });
   document.body.innerHTML = `
     <header><span id="files">3</span><span id="added">+9</span><span id="deleted">−3</span></header>
     <nav><div class="folder" data-path="src">src</div><div class="folder" data-path="docs">docs</div></nav>
     <main></main>`;
-  view = createView();
-  await setConfig({ filters: FILTERS });
+  panel = createPanel();
+  await configItem.setValue({
+    global: [
+      { id: "code", name: "Code", include: "\\.ts$", exclude: "" },
+      { id: "docs", name: "Docs", include: "\\.md$", exclude: "" },
+      { id: "python", name: "Python", include: "\\.py$", exclude: "" },
+      { id: "nameless", name: "", include: "", exclude: "" },
+      { id: "broken", name: "Broken", include: "(", exclude: "" },
+    ],
+    repos: [],
+  });
 });
 
 afterEach(() => {
@@ -202,52 +211,53 @@ afterEach(() => {
 });
 
 describe("startController", () => {
-  it("wears the theme and speaks the language picked in Settings, following changes", async () => {
-    vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
-    await setConfig({ filters: FILTERS, theme: "light", language: "en" });
+  it("styles the bar and shows a waiting update notice", async () => {
+    await updateItem.setValue("2.0.0");
     await start();
-    expect(view.setDark).toHaveBeenLastCalledWith(false);
-    expect(view.setLocale).toHaveBeenLastCalledWith("en");
-    await setConfig({ filters: FILTERS, theme: "system", language: "pt-BR" });
+    expect(panel.setTheme).toHaveBeenCalledWith(expect.stringContaining("--fd-"));
+    expect(panel.showUpdate).toHaveBeenCalledWith("2.0.0");
+    await updateItem.setValue("2.1.0");
     await settle();
-    expect(view.setDark).toHaveBeenLastCalledWith(true);
-    expect(view.setLocale).toHaveBeenLastCalledWith("pt-BR");
-    await setConfig({ filters: FILTERS, language: "en" });
+    expect(panel.showUpdate).toHaveBeenLastCalledWith("2.1.0");
+    controller.dismissUpdate();
     await settle();
+    expect(await updateItem.getValue()).toBeNull();
+    await appearanceItem.setValue({ theme: "provider", themes: [] });
+    await settle();
+    expect(panel.setTheme).toHaveBeenCalledTimes(2);
   });
 
   it("stays hidden away from a review, and does nothing once its context is gone", async () => {
     site.repo = null;
     await start();
-    expect(view.render).toHaveBeenCalledWith(null);
-    expect(view.render).toHaveBeenCalledOnce();
+    expect(panel.setVisible).toHaveBeenCalledWith(false);
+    expect(panel.renderOptions).not.toHaveBeenCalled();
 
     const gone = new ContentScriptContext("gone");
     gone.abort();
-    await startController(gone, view, provider);
-    expect(view.render).toHaveBeenCalledOnce();
+    await startController(gone, panel, provider);
+    expect(panel.setVisible).toHaveBeenCalledOnce();
   });
 
-  it("offers the repository's filters, and filters the page as the reader picks them", async () => {
+  it("shows the filters with files in this pull request, and filters the page as the reader picks them", async () => {
     draw("src/a.ts", { added: 4 });
     draw("src/b.ts", { viewed: true });
     draw("docs/c.md");
     await start();
-    expect(props().filters.map((filter) => filter.id)).toEqual(["code", "docs", "python"]);
-    expect(props().files.map((file) => [file.path, file.additions])).toEqual([
-      ["src/a.ts", 4],
-      ["src/b.ts", 1],
-      ["docs/c.md", 1],
+    expect(panel.setVisible).toHaveBeenLastCalledWith(true);
+    expect(panel.renderOptions.mock.lastCall?.[0].map(({ id, count }) => [id, count])).toEqual([
+      ["all", 3],
+      ["code", 2],
+      ["docs", 1],
+      ["python", 0],
     ]);
-    expect(lastChosen()).toEqual([]);
-    expect(props().shown).toEqual(expect.objectContaining({ files: 3, viewed: 1 }));
-    expect(props().isViewed(props().files[1]!)).toBe(true);
+    expect(lastOptions()).toEqual(["all"]);
 
-    props().onToggle("code");
+    controller.toggle("code");
     await settle();
-    expect(lastChosen()).toEqual(["code"]);
+    expect(lastOptions()).toEqual(["code"]);
     expect(await selectionsItem.getValue()).toEqual({ [REPO]: ["code"] });
-    expect(props().shown).toEqual(expect.objectContaining({ files: 2, viewed: 1, additions: 5 }));
+    expect(panel.announce).toHaveBeenCalledWith(expect.objectContaining({ name: "Code", visible: 2 }));
     expect([hidden("src/a.ts"), hidden("src/b.ts"), hidden("docs/c.md")]).toEqual([false, false, true]);
     // The tree shows only the filter's files, and the folders they're in.
     const tree = [...document.querySelectorAll<HTMLElement>("nav > *")].map((each) => each.style.display);
@@ -255,37 +265,19 @@ describe("startController", () => {
     // The site's counters show the filter's numbers, through copies beside them.
     expect(counter("files")!.style.display).toBe("none");
     expect(document.querySelector("header")!.textContent).toBe("32/3+9+5−3−2");
+    expect(panel.renderConversations).toHaveBeenLastCalledWith({ current: 0, list: [] }, 0);
 
     controller.toggle("docs");
     await settle();
-    expect(lastChosen()).toEqual(["code", "docs"]);
+    expect(lastOptions()).toEqual(["code", "docs"]);
     expect(document.querySelector("header")!.textContent).toBe("33/3+9+6−3−3");
 
-    props().onToggle("");
+    controller.toggle("all");
     await settle();
-    expect(lastChosen()).toEqual([]);
+    expect(lastOptions()).toEqual(["all"]);
     expect(hidden("docs/c.md")).toBe(false);
     expect(document.querySelector("header")!.textContent).toBe("3+9−3");
     expect(counter("files")!.style.display).toBe("");
-  });
-
-  it("says what's next: the files left, or once they're viewed, the next filter with any", async () => {
-    await selectionsItem.setValue({ [REPO]: ["code"] });
-    draw("src/a.ts", { viewed: true });
-    draw("docs/c.md");
-    await start();
-    expect(props().next).toEqual({ left: 0, nextFilter: { id: "docs", name: "Docs", left: 1 } });
-    await selectionsItem.setValue({ [REPO]: [] });
-    await settle();
-    expect(props().next).toEqual({ left: 1, nextFilter: undefined });
-  });
-
-  it("counts no lines for a file the site hasn't shown them for, and keeps its counters", async () => {
-    await selectionsItem.setValue({ [REPO]: ["code"] });
-    draw("src/a.ts", { added: null });
-    await start();
-    expect(props().files[0]).toEqual(expect.objectContaining({ additions: 0, deletions: 0 }));
-    expect(document.querySelector("header")!.textContent).toBe("31/1+9−3");
   });
 
   it("starts from the reader's saved filters, less those with nothing in this pull request", async () => {
@@ -293,10 +285,10 @@ describe("startController", () => {
     draw("docs/c.md");
     draw("src/a.ts");
     await start();
-    expect(lastChosen()).toEqual(["docs"]);
+    expect(lastOptions()).toEqual(["docs"]);
     await selectionsItem.setValue({ [REPO]: ["code"] });
     await settle();
-    expect(lastChosen()).toEqual(["code"]);
+    expect(lastOptions()).toEqual(["code"]);
   });
 
   it("keeps every filter while the site may still load files they match", async () => {
@@ -306,7 +298,7 @@ describe("startController", () => {
     // A count the site doesn't show is left alone.
     counter("deleted")!.remove();
     await start();
-    expect(lastChosen()).toEqual(["python"]);
+    expect(lastOptions()).toEqual(["python"]);
     // Files not loaded yet are pending, so the counts beside the site's stay its own.
     expect(document.querySelector("header")!.textContent).toBe("30/5+9");
   });
@@ -322,7 +314,7 @@ describe("startController", () => {
     await vi.advanceTimersByTimeAsync(1500);
     expect(hidden("src/a.ts")).toBe(false);
     expect(closeUp).toHaveBeenLastCalledWith([], 0);
-    expect(view.render).toHaveBeenLastCalledWith(null);
+    expect(panel.setVisible).toHaveBeenLastCalledWith(false);
     expect(document.querySelectorAll("[data-focus-diff-counter]")).toHaveLength(0);
     // Again, with nothing to put back.
     closeUp.mockClear();
@@ -359,17 +351,17 @@ describe("startController", () => {
     const command = async (name: string) => {
       await message({ type: "command", command: name });
       await settle();
-      return lastChosen();
+      return lastOptions();
     };
     expect(await command("next-filter")).toEqual(["code"]);
     expect(await command("next-filter")).toEqual(["docs"]);
-    expect(await command("next-filter")).toEqual([]);
+    expect(await command("next-filter")).toEqual(["all"]);
     expect(await command("previous-filter")).toEqual(["docs"]);
-    expect(await command("show-all")).toEqual([]);
-    await message({ type: "other" });
+    expect(await command("show-all")).toEqual(["all"]);
+    await message({ type: "open-welcome" });
     await message(null);
     await settle();
-    expect(lastChosen()).toEqual([]);
+    expect(lastOptions()).toEqual(["all"]);
   });
 
   it("does nothing with the filters away from a review", async () => {
@@ -382,6 +374,39 @@ describe("startController", () => {
     await settle();
     expect(await selectionsItem.getValue()).toEqual({});
   });
+
+  it("opens the repository's settings, or the welcome page where it has no filters", async () => {
+    const send = vi.spyOn(fakeBrowser.runtime, "sendMessage");
+    await start();
+    controller.openSettings();
+    expect(send).toHaveBeenLastCalledWith({ type: "open-options", repo: REPO });
+    await configItem.setValue({ global: [], repos: [] });
+    await settle();
+    controller.openSettings();
+    expect(send).toHaveBeenLastCalledWith({ type: "open-welcome" });
+    site.repo = null;
+    controller.openSettings();
+    expect(send).toHaveBeenLastCalledWith({ type: "open-welcome" });
+  });
+
+  it("steps through conversations, and counts them all while filtering", async () => {
+    draw("src/a.ts");
+    const open = vi.fn<ConversationTarget["open"]>(() => Promise.resolve(null));
+    site.conversations = [
+      { file: { ...summaryOf("src/a.ts"), stats: null, diff: null }, line: 1, state: "waiting", element: null, open },
+    ];
+    await start();
+    // Without a filter, there's no count of all of them beside it.
+    const [conversations, most] = panel.renderConversations.mock.lastCall!;
+    expect(conversations).toEqual({ current: 0, list: [{ path: "src/a.ts", line: 1, state: "waiting" }] });
+    expect(most).toBeUndefined();
+    await message({ type: "command", command: "next-comment" });
+    await message({ type: "command", command: "previous-comment" });
+    controller.comment(1);
+    await settle();
+    expect(open).toHaveBeenCalledTimes(3);
+    expect(panel.announceText).toHaveBeenLastCalledWith("Conversation 1 of 1, in src/a.ts.");
+  });
 });
 
 describe("picking filters", () => {
@@ -391,7 +416,7 @@ describe("picking filters", () => {
       return { ready: Promise.resolve(), finished: Promise.resolve() };
     });
     Object.assign(document, { startViewTransition: transition });
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }));
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
     const scroll = spyOnScroll();
     draw("src/a.ts", { viewed: true });
     draw("src/b.ts");
@@ -423,7 +448,7 @@ describe("picking filters", () => {
         return { ready: Promise.reject(new Error("skipped")), finished: Promise.resolve() };
       },
     });
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }));
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
     draw("src/a.ts");
     draw("docs/c.md");
     await start();
@@ -433,7 +458,7 @@ describe("picking filters", () => {
     Reflect.deleteProperty(document, "startViewTransition");
     later();
     await settle();
-    expect(lastChosen()).toEqual(["code", "docs"]);
+    expect(lastOptions()).toEqual(["code", "docs"]);
     vi.unstubAllGlobals();
   });
 });
@@ -454,15 +479,15 @@ describe("next unviewed", () => {
     box("src/c.ts", 100);
     await start();
     await next();
+    expect(panel.announceText).toHaveBeenLastCalledWith("src/c.ts. 2 files left to review.");
     expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 100 }));
 
     // The file at the top already brought up: on to the next one, around to the first.
     box("src/c.ts", 0);
     box("src/b.ts", -200);
     box("src/a.ts", -400);
-    props().onNextFile();
-    await settle();
-    expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 0 }));
+    await next();
+    expect(panel.announceText).toHaveBeenLastCalledWith("src/a.ts. 2 files left to review.");
   });
 
   it("takes the next filter with files left once the shown ones are reviewed", async () => {
@@ -471,22 +496,21 @@ describe("next unviewed", () => {
     draw("docs/c.md");
     await start();
     await next();
-    expect(lastChosen()).toEqual(["docs"]);
+    expect(lastOptions()).toEqual(["docs"]);
     // Nothing left anywhere: nothing to do.
     rowOf("docs/c.md").querySelector("input")!.checked = true;
     document.dispatchEvent(new Event("change"));
     await settle();
     await next();
-    expect(lastChosen()).toEqual(["docs"]);
+    expect(lastOptions()).toEqual(["docs"]);
   });
 
   it("does nothing when every file is reviewed and no filter is on", async () => {
-    const scroll = spyOnScroll();
     draw("src/a.ts", { viewed: true });
     await start();
     await next();
-    expect(scroll).not.toHaveBeenCalled();
-    expect(lastChosen()).toEqual([]);
+    expect(panel.announceText).not.toHaveBeenCalled();
+    expect(lastOptions()).toEqual(["all"]);
   });
 
   it("opens the next file left to review when the site hasn't drawn it", async () => {
@@ -523,25 +547,26 @@ describe("learning the reader's pace", () => {
     draw("src/c.ts", { viewed: true });
     draw("src/d.ts", { viewed: null });
     await start();
-    expect(props().learned?.all.files).toBe(0);
     await read("src/a.ts", 30);
     await markViewed("src/a.ts");
-    const kept = await learned();
-    expect(kept?.all.files).toBe(1);
-    expect(props().learned?.all.files).toBe(1);
+    const learned = await learnedItem.getValue();
+    expect(learned?.all.files).toBe(1);
     await markViewed("src/b.ts");
-    expect(await learned()).toEqual(kept);
+    expect(await learnedItem.getValue()).toEqual(learned);
   });
 
-  it("follows the pace learned elsewhere", async () => {
+  it("learns nothing when the reader turned learning off, and keeps up with their pace", async () => {
+    await reviewTimeItem.setValue({ ...(await reviewTimeItem.getValue()), learn: false });
     draw("src/a.ts", { added: 200 });
     await start();
-    const before = props().minutesOf("src/a.ts", { additions: 200, deletions: 0 });
-    await fakeBrowser.storage.local.set({
-      "file.pace": JSON.stringify({ all: { actual: 90, expected: 30, files: 9 }, kinds: {} }),
-    });
+    await read("src/a.ts", 30);
+    await markViewed("src/a.ts");
+    expect(await learnedItem.getValue()).toBeNull();
+    const stats = panel.renderStats.mock.calls.length;
+    await reviewTimeItem.setValue({ ...(await reviewTimeItem.getValue()), pace: "quick" });
+    await learnedItem.setValue({ all: { actual: 9, expected: 3, files: 1 }, kinds: {} });
     await settle();
-    expect(props().minutesOf("src/a.ts", { additions: 200, deletions: 0 })).toBeGreaterThan(before);
+    expect(panel.renderStats.mock.calls.length).toBeGreaterThan(stats);
   });
 });
 
@@ -553,50 +578,40 @@ describe("watching the page", () => {
     draw("docs/c.md");
     await vi.advanceTimersByTimeAsync(20);
     expect(hidden("docs/c.md")).toBe(true);
-    const drawn = renders();
+    const renders = panel.renderStats.mock.calls.length;
     document.querySelector("main")!.append(document.createElement("p"));
     await settle();
-    expect(renders()).toBe(drawn + 1);
+    expect(panel.renderStats.mock.calls.length).toBe(renders + 1);
     // Text changes, like ticking timestamps, don't count.
     document.querySelector("p")!.textContent = "now";
     await settle();
-    expect(renders()).toBe(drawn + 1);
+    expect(panel.renderStats.mock.calls.length).toBe(renders + 1);
   });
 
   it("watches the attributes the site's Viewed toggles change", async () => {
     site.attributes = ["data-viewed"];
     draw("src/a.ts");
     await start();
-    const drawn = renders();
+    const renders = panel.renderStats.mock.calls.length;
     byPath("src/a.ts").setAttribute("data-viewed", "");
     await vi.advanceTimersByTimeAsync(20);
-    expect(renders()).toBe(drawn + 1);
-  });
-
-  it("follows GitHub's appearance", async () => {
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }));
-    await start();
-    expect(view.setDark).toHaveBeenLastCalledWith(false);
-    document.documentElement.dataset.colorMode = "dark";
-    await settle();
-    expect(view.setDark).toHaveBeenLastCalledWith(true);
-    delete document.documentElement.dataset.colorMode;
+    expect(panel.renderStats.mock.calls.length).toBe(renders + 1);
   });
 
   it("lets a reader's change overtake one the site waits on, and waits for idle time in a background tab", async () => {
     draw("src/a.ts");
     await start();
-    const drawn = renders();
+    const renders = panel.renderStats.mock.calls.length;
     document.querySelector("main")!.append(document.createElement("p"));
     await Promise.resolve();
     document.dispatchEvent(new Event("change"));
     await settle();
-    expect(renders()).toBe(drawn + 1);
+    expect(panel.renderStats.mock.calls.length).toBe(renders + 1);
 
     Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
     document.dispatchEvent(new Event("change"));
     await settle();
-    expect(renders()).toBe(drawn + 2);
+    expect(panel.renderStats.mock.calls.length).toBe(renders + 2);
 
     // Where the browser has idle callbacks, those (happy-dom, like Safari, has none).
     vi.stubGlobal("requestIdleCallback", (callback: () => void) => setTimeout(callback, 50));
@@ -605,7 +620,7 @@ describe("watching the page", () => {
     });
     document.dispatchEvent(new Event("change"));
     await settle();
-    expect(renders()).toBe(drawn + 3);
+    expect(panel.renderStats.mock.calls.length).toBe(renders + 3);
     Reflect.deleteProperty(document, "hidden");
   });
 });
@@ -693,18 +708,10 @@ describe("when the extension goes away", () => {
     ctx.abort();
     expect(hidden("docs/c.md")).toBe(false);
     expect(document.documentElement.hasAttribute("data-focus-diff-filtering")).toBe(false);
-    const drawn = renders();
-    await setConfig({ filters: [] });
+    const renders = panel.renderStats.mock.calls.length;
+    await configItem.setValue({ global: [], repos: [] });
     await settle();
-    expect(renders()).toBe(drawn);
-  });
-
-  it("keeps no picks made after it's gone", async () => {
-    draw("src/a.ts");
-    await start();
-    ctx.abort();
-    controller.toggle("code");
-    expect(await selectionsItem.getValue()).toEqual({});
+    expect(panel.renderStats.mock.calls.length).toBe(renders);
   });
 
   it("still puts the page back once the extension itself is gone", async () => {

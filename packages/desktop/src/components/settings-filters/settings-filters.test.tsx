@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { defaultConfig, type Config, type DiffFilter } from "../../utils/config/config";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { exportFilters } from "../../utils/filters/filters";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { Filters } from "./settings-filters";
+import { Filters } from "@/components/settings-filters/settings-filters";
+import { defaultConfig, type Config, type DiffFilter } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { exportFilters } from "@/utils/filters/filters";
+import { setLanguage } from "@/utils/i18n/i18n";
 
 const filter = (id: string, name: string, more: Partial<DiffFilter> = {}): DiffFilter => ({
   id,

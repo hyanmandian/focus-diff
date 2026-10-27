@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Details } from "../details/details";
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import type { ReviewFile, Thread } from "../review/review";
-import { keep, keptCurrent, readKept, type Kept } from "./kept";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { keep, keptCurrent, readKept, type Kept } from "@/utils/kept/kept";
+import type { Args } from "@/utils/platform/platform";
+import type { ReviewFile, Thread } from "@/utils/review/review";
 
 const details: Details = {
   id: "PR_1",

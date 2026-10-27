@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { i18n } from "../i18n/i18n";
-import { firstName, interval } from "./copy";
+import { firstName, interval } from "@/utils/copy/copy";
+import { i18n } from "@/utils/i18n/i18n";
 
 describe("first names", () => {
   it("calls someone by the first word of their name", () => {

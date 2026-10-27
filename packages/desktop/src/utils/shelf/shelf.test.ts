@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { cachedList, shelve, shelved } from "./shelf";
+import { cachedList, shelve, shelved } from "@/utils/shelf/shelf";
 
 /** The shelf's index: when each key was kept. */
 const index = () => localStorage.getItem("shelf-index");

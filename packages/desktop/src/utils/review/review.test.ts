@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { RawComment } from "../comments/comments";
-import type { Details } from "../details/details";
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
+import type { RawComment } from "@/utils/comments/comments";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 import {
   commentNow,
   header,
@@ -14,7 +14,7 @@ import {
   setResolved,
   type Draft,
   type Thread,
-} from "./review";
+} from "@/utils/review/review";
 
 type Request = { method: string; path: string; body: string };
 

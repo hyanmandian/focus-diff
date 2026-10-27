@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 function load(agent: string) {
   vi.resetModules();
   vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agent);
-  return import("./os");
+  return import("@/utils/os/os");
 }
 
 const MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15";

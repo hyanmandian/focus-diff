@@ -6,7 +6,7 @@ import type { Estimator } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import { repoMatches } from "@focus-diff/core/repos";
 
-import { isRepoPattern, newId, normalize, type DiffFilter } from "../config/config";
+import { isRepoPattern, newId, normalize, type DiffFilter } from "@/utils/config/config";
 
 /** The filters a repository gets: those for everywhere, and its own. */
 export const filtersFor = (filters: DiffFilter[], repo: string) =>

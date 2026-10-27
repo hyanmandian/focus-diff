@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import { confirmRemove } from "./confirm";
+import { confirmRemove } from "@/utils/confirm/confirm";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 describe("asking before removing", () => {
   it("asks natively, with Remove as the button, and answers what was chosen", async () => {

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { openViewer, Viewer } from "./viewer";
+import { openViewer, Viewer } from "@/components/viewer/viewer";
 
 const SRC = "https://github.com/user-attachments/assets/screenshot.png";
 

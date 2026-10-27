@@ -2,16 +2,15 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { AiStatus, AuthStatus } from "../../utils/bridge/bridge";
-import { defaultConfig, normalize, TEMPLATES, type Config } from "../../utils/config/config";
-import { CLOSE_WINDOW, fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { setPlatform } from "../../utils/platform/platform";
-import { Setup } from "./setup";
+import { Setup } from "@/components/setup/setup";
+import type { AiStatus, AuthStatus } from "@/utils/bridge/bridge";
+import { defaultConfig, normalize, TEMPLATES, type Config } from "@/utils/config/config";
+import { CLOSE_WINDOW, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
 
 // The window's last words differ between the Mac and the others; the test picks.
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("../../utils/os/os", async (importOriginal) => {
+vi.mock("@/utils/os/os", async (importOriginal) => {
   const real = await importOriginal<Record<string, unknown>>();
   return {
     ...real,
@@ -302,25 +301,6 @@ describe("Setup", () => {
     await waitFor(() => {
       expect(sent(CLOSE_WINDOW)).toHaveLength(1);
     });
-  });
-
-  it("skips the AI and says where the toolbar button is in an app without them (the browser extension)", async () => {
-    setPlatform({ ...fakePlatform, features: { ai: false, tray: false } });
-    answer();
-    render(<Setup />);
-    await screen.findByText("@octocat");
-    expect(screen.getAllByRole("listitem")).toHaveLength(4);
-    expect(screen.getByText(/sits in your browser's toolbar/u)).toBeTruthy();
-    expect(screen.getByText(/Your token stays in this browser/u)).toBeTruthy();
-    enter(screen.getByRole("heading", { level: 1 }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What should it watch?");
-    enter(screen.getByRole("heading", { level: 1 }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("How should it tell you?");
-    expect(screen.getByText(/a count on its toolbar button/u)).toBeTruthy();
-    enter(screen.getByRole("heading", { level: 1 }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("You're set");
-    expect(screen.getByText(/lives in your browser's toolbar/u)).toBeTruthy();
-    expect(screen.queryByText("You can turn it on later.")).toBeNull();
   });
 
   it("shows it's saving until it's done", async () => {

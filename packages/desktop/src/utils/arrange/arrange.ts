@@ -1,7 +1,7 @@
 // A queue's pull requests in the order the panel shows them, so "next" in a review window is the
 // row below in the panel.
 
-import type { Item } from "../engine/engine";
+import type { Item } from "@/utils/engine/engine";
 
 export type Group = { repo: string; items: Item[] };
 

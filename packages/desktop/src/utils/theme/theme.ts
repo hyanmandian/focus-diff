@@ -7,8 +7,8 @@ import { useEffect } from "react";
 
 // Every page sets its theme through here, so the platform (<html data-platform>) is set with it.
 // oxlint-disable-next-line import/no-unassigned-import -- loaded for that, nothing to name
-import "../os/os";
-import type { Config } from "../config/config";
+import "@/utils/os/os";
+import type { Config } from "@/utils/config/config";
 
 const KEY = "theme";
 const media = window.matchMedia("(prefers-color-scheme: dark)");

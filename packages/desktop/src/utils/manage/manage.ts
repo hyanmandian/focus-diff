@@ -5,11 +5,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { github, graphql } from "../bridge/bridge";
-import { fresh } from "../checks/checks";
-import type { Actor } from "../engine/engine";
-import type { PullRef } from "../review/review";
-import { cachedList, shelve, shelved } from "../shelf/shelf";
+import { github, graphql } from "@/utils/bridge/bridge";
+import { fresh } from "@/utils/checks/checks";
+import type { Actor } from "@/utils/engine/engine";
+import type { PullRef } from "@/utils/review/review";
+import { cachedList, shelve, shelved } from "@/utils/shelf/shelf";
 
 export type Permission = "ADMIN" | "MAINTAIN" | "WRITE" | "TRIAGE" | "READ";
 export type Label = { id: string; name: string; color: string; description: string | null };

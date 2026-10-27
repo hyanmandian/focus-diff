@@ -1,7 +1,7 @@
 import { getSingularPatch, parseDiffFromFile } from "@pierre/diffs";
 import { describe, expect, it } from "vite-plus/test";
 
-import { findingSide, hunkTail, lineText, placeThread } from "./placement";
+import { findingSide, hunkTail, lineText, placeThread } from "@/utils/placement/placement";
 
 // Lines 10–14 of the old version, 10–15 of the new: line 11 changed, line 13 added.
 const diff = getSingularPatch(

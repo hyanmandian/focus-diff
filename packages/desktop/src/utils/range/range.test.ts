@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { lineRange } from "./range";
+import { lineRange } from "@/utils/range/range";
 
 describe("lines picked for a comment", () => {
   it("is one line, with its side", () => {

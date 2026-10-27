@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildTree, flatten, foldersOf, inTreeOrder, outlineKey } from "./tree";
+import { buildTree, flatten, foldersOf, inTreeOrder, outlineKey } from "@/utils/tree/tree";
 
 const files = [
   "src/checkout/cart.ts",

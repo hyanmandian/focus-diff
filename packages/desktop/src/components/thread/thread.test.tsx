@@ -3,15 +3,15 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { ConversationProvider, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import type { Exchange } from "../../utils/ai/ai";
-import type { AiAnswer } from "../../utils/bridge/bridge";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Draft, Thread, ThreadComment } from "../../utils/review/review";
-import { Composer, DraftView, FindingView, NewComment, ThreadView } from "./thread";
+import { Composer, DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
+import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import type { Exchange } from "@/utils/ai/ai";
+import type { AiAnswer } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Draft, Thread, ThreadComment } from "@/utils/review/review";
 
 // The comment box's lookups (utils/writer/writer.ts) aren't what's tested here.
-vi.mock("../../utils/writer/writer", () => ({
+vi.mock("@/utils/writer/writer", () => ({
   emoji: vi.fn<() => Promise<never[]>>(() => Promise.resolve([])),
   mentionable: vi.fn<() => Promise<never[]>>(() => Promise.resolve([])),
   preview: vi.fn<() => Promise<string>>(() => Promise.resolve("")),
@@ -21,7 +21,7 @@ vi.mock("../../utils/writer/writer", () => ({
 
 // The Mac's ⌘ or everyone else's Ctrl, switched per test.
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("../../utils/os/os", async (original) => ({
+vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
   get isMac() {
     return platform.mac;

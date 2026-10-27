@@ -4,12 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { createRef, useImperativeHandle, useLayoutEffect, type ReactNode, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Exchange, Finding } from "../../utils/ai/ai";
-import type { AiAnswer } from "../../utils/bridge/bridge";
-import { BinaryFile, bothVersions, type Source } from "../../utils/contents/contents";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Draft, ReviewFile, Thread } from "../../utils/review/review";
-import { Diffs, type DiffsHandle } from "./diffs";
+import { Diffs, type DiffsHandle } from "@/components/diffs/diffs";
+import type { Exchange, Finding } from "@/utils/ai/ai";
+import type { AiAnswer } from "@/utils/bridge/bridge";
+import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Draft, ReviewFile, Thread } from "@/utils/review/review";
 
 // MARK: @pierre/diffs' CodeView, at its boundary
 // It draws in a worker pool, which happy-dom hasn't: in its place a list that draws what Diffs
@@ -96,7 +96,7 @@ vi.mock("@pierre/diffs/react", () => ({
 // MARK: What's drawn between the lines (thread.tsx, tested on its own), as stand-ins that show
 // what they were given and call back.
 
-vi.mock("../thread/thread", () => ({
+vi.mock("@/components/thread/thread", () => ({
   ThreadView: ({
     thread,
     moved,
@@ -206,12 +206,12 @@ vi.mock("../thread/thread", () => ({
   ),
 }));
 
-vi.mock("../rendered/rendered", async (original) => ({
+vi.mock("@/components/rendered/rendered", async (original) => ({
   ...(await original<object>()),
   Rendered: ({ file }: { file: ReviewFile }) => <p>Rendered {file.path}</p>,
 }));
 
-vi.mock("../rich-diff/rich-diff", () => ({
+vi.mock("@/components/rich-diff/rich-diff", () => ({
   NoPatchFile: ({
     file,
     viewed,
@@ -249,7 +249,7 @@ vi.mock("../rich-diff/rich-diff", () => ({
   ),
 }));
 
-vi.mock("../../utils/contents/contents", async (original) => ({
+vi.mock("@/utils/contents/contents", async (original) => ({
   ...(await original<object>()),
   bothVersions: vi.fn<typeof bothVersions>(),
 }));

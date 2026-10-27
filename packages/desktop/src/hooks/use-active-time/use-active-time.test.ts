@@ -2,7 +2,7 @@ import type { OnScreen } from "@focus-diff/core/active-time";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { useActiveTime } from "./use-active-time";
+import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
 
 const T0 = new Date("2026-10-26T12:00:00Z").getTime();
 

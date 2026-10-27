@@ -1,67 +1,41 @@
 import type { OnScreen } from "@focus-diff/core/active-time";
-import {
-  createEstimator,
-  LINES_PER_HOUR,
-  reviewMinutes,
-  type Estimator,
-  type Learned,
-} from "@focus-diff/core/estimate";
-import { inFilter, type Matcher } from "@focus-diff/core/filters";
-import type { Next } from "@focus-diff/desktop/components/filter-bar";
-import type { Config, DiffFilter } from "@focus-diff/desktop/utils/config";
-import { filtersFor, nextFilterWithWork, stepFilter, toggled, totals } from "@focus-diff/desktop/utils/filters";
-import { i18n } from "@focus-diff/desktop/utils/i18n";
-import type { ReviewFile } from "@focus-diff/desktop/utils/review";
+import { createEstimator, learnFile, normalizeLearned, reviewMinutes, type Estimator } from "@focus-diff/core/estimate";
+import { toMatcher, type Matcher } from "@focus-diff/core/filters";
 import { browser } from "wxt/browser";
 
+import { i18n } from "#i18n";
 import type { ContentScriptContext } from "#imports";
+import type { Panel } from "@/components/panel/panel";
+import type { Totals } from "@/components/stats/stats";
 import { createActiveTime } from "@/utils/active-time/active-time";
-import { applyLanguage } from "@/utils/bar-language/bar-language";
-import {
-  learn,
-  loadConfig,
-  loadLearned,
-  selectionsItem,
-  watchConfig,
-  watchLearned,
-  type Selections,
-} from "@/utils/bar-settings/bar-settings";
-import { isDark, watchAppearance } from "@/utils/bar-theme/bar-theme";
+import { createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
 import { cloneOf } from "@/utils/dom/dom";
+import { ALL, filtersFor, normalize, type Config } from "@/utils/filters/filters";
+import { formatNumber as format } from "@/utils/format/format";
 import type { Message } from "@/utils/messages/messages";
 import type { PageCounters, Provider } from "@/utils/provider/provider";
 import { collectFiles, type FileInfo, type Files } from "@/utils/review-files/review-files";
-import { goToFile } from "@/utils/review-navigation/review-navigation";
+import { createNavigation, goToFile } from "@/utils/review-navigation/review-navigation";
+import { normalizeReviewTime, type ReviewTimeSettings } from "@/utils/review-sessions/review-sessions";
+import { PACES } from "@/utils/review-time/review-time";
+import { createReviewView, nextFilterWithWork, review, toggled, type Option } from "@/utils/review/review";
 import { scrollToTop, waitFor } from "@/utils/scroll/scroll";
+import {
+  appearanceItem,
+  configItem,
+  loadAppearance,
+  loadConfig,
+  learnedItem,
+  loadReviewTime,
+  reviewTimeItem,
+  selectionsItem,
+  updateItem,
+  type Selections,
+} from "@/utils/storage/storage";
 import { canTransition, removeTransitionStyle, withTransition } from "@/utils/transition/transition";
-
-/** What the bar draws: the app's FilterBar's props (packages/desktop/src/components/filter-bar). */
-export interface BarProps {
-  files: ReviewFile[];
-  filters: DiffFilter[];
-  chosen: string[];
-  shown: ReturnType<typeof totals>;
-  next: Next;
-  isViewed: (file: ReviewFile) => boolean;
-  minutesOf: Estimator;
-  learned: Learned | null;
-  onToggle: (id: string) => void;
-  onNextFile: () => void;
-}
-
-/** Where the bar is drawn (components/mount-bar). */
-export interface BarView {
-  /** Draws the bar, or takes it away with `null`. */
-  render: (props: BarProps | null) => void;
-  setDark: (dark: boolean) => void;
-  /** The language it's read out in, as <html lang> says it. */
-  setLocale: (locale: string) => void;
-}
 
 /** A site keeps drawing while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
-/** A file marked viewed after less than this wasn't reviewed, only ticked off. */
-const MIN_REVIEW_SECONDS = 2;
 
 const show = (element: HTMLElement, visible: boolean) => {
   const display = visible ? "" : "none";
@@ -131,20 +105,19 @@ const filterTree = (
 /** Every counter the site shows, found or not. */
 const counterList = ({ files, additions, deletions }: PageCounters) => [files, additions, deletions];
 
-/** The site's counters, while a filter is on: the files shown of all of them, and their lines once all are known. */
-const updatePageCounters = (provider: Provider, files: Files, shown: FileInfo[], filtering: boolean) => {
+const updatePageCounters = (provider: Provider, totals: Totals, filtering: boolean) => {
   const counters = provider.counters();
+  const number = provider.formatCount;
   if (!filtering) {
-    for (const counter of counterList(counters)) mirror(counter, null);
+    counterList(counters).forEach((counter) => {
+      mirror(counter, null);
+    });
     return;
   }
-  const number = provider.formatCount;
-  const total = files.complete ? files.list.length : Math.max(files.list.length, provider.reportedFileCount());
-  mirror(counters.files, `${number(shown.length)}/${number(total)}`);
-  const complete = total === files.list.length && shown.every((file) => file.stats);
-  const sum = (key: "additions" | "deletions") => shown.reduce((all, file) => all + file.stats![key], 0);
-  mirror(counters.additions, complete ? `+${number(sum("additions"))}` : null);
-  mirror(counters.deletions, complete ? `−${number(sum("deletions"))}` : null);
+  mirror(counters.files, `${number(totals.visible)}/${number(totals.total)}`);
+  const complete = totals.pending === 0;
+  mirror(counters.additions, complete ? `+${number(totals.additions)}` : null);
+  mirror(counters.deletions, complete ? `−${number(totals.deletions)}` : null);
 };
 
 /** Puts the page back the way the site drew it. */
@@ -153,10 +126,12 @@ const restorePage = (provider: Provider) => {
   provider.closeUp?.([], 0);
   for (const item of provider.tree.files()) show(item.element, true);
   for (const folder of provider.tree.folders()) show(folder.element, true);
-  for (const counter of counterList(provider.counters())) mirror(counter, null);
+  counterList(provider.counters()).forEach((counter) => {
+    mirror(counter, null);
+  });
 };
 
-/** A filter's matcher, kept with the answer for each path. */
+/** Compiled filters, kept until the configuration changes. Each matcher remembers its answer per path. */
 const memoize = (matches: Matcher): Matcher => {
   const answers = new Map<string, boolean>();
   return (path) => {
@@ -169,109 +144,126 @@ const memoize = (matches: Matcher): Matcher => {
   };
 };
 
-/** A file as the app's bar counts it. */
-const asReviewFile = (file: FileInfo): ReviewFile => ({
-  path: file.path,
-  previousPath: null,
-  status: "modified",
-  additions: file.stats?.additions ?? 0,
-  deletions: file.stats?.deletions ?? 0,
-  patch: "",
-});
+export interface Controller {
+  toggle: (id: string) => void;
+  openSettings: () => void;
+  comment: (step: 1 | -1) => void;
+  nextUnviewed: () => void;
+  dismissUpdate: () => void;
+}
 
 const changesElements = (record: MutationRecord) =>
   record.type === "attributes" ||
   [...record.addedNodes, ...record.removedNodes].some((node) => node instanceof Element);
 
-export interface Controller {
-  toggle: (id: string) => void;
-  nextUnviewed: () => void;
-}
+const dismissUpdate = () => void updateItem.setValue(null);
 
 /** Runs the bar on one review site: reads its page through `provider`, and filters it as the reader picks filters. */
 export const startController = async (
   ctx: ContentScriptContext,
-  view: BarView,
+  panel: Panel,
   provider: Provider,
 ): Promise<Controller> => {
+  const restyle = createStyler(panel.setTheme, provider.id);
+  await restyle(await loadAppearance());
   let config: Config = await loadConfig();
   let selections: Selections = await selectionsItem.getValue();
-  let learned: Learned | null = await loadLearned();
-  let estimator: Estimator = createEstimator(LINES_PER_HOUR, learned);
+  // The reader's pace, from Review time and what it has learned, so the bar's estimates and review time's agree.
+  let reviewTime: ReviewTimeSettings = await loadReviewTime();
+  let learned = normalizeLearned(await learnedItem.getValue());
+  let estimator: Estimator = reviewMinutes;
+  const reestimate = () => (estimator = createEstimator(PACES[reviewTime.pace], reviewTime.learn ? learned : null));
+  reestimate();
   let pending: "frame" | "idle" | null = null;
+  let announceNext = false;
 
-  const appearance = () => {
-    view.setDark(isDark(config.theme));
-  };
-  const speak = () => {
-    applyLanguage(config.language);
-    view.setLocale(i18n().locale);
-  };
-  appearance();
-  speak();
-
-  let compiled: { config: Config; repo: string; filters: Array<DiffFilter & { matches: Matcher }> } | null = null;
-  /** The filters this repository gets, each with its matcher (lenient, as the bar counts them). */
-  const filters = (repo: string) => {
+  let compiled: { config: Config; repo: string; filters: Option[] } | null = null;
+  const filters = (repo: string): Option[] => {
     if (compiled?.config === config && compiled.repo === repo) return compiled.filters;
-    const list = filtersFor(config.filters, repo).map((filter) => ({
-      ...filter,
-      matches: memoize((path) => inFilter(filter, path)),
-    }));
+    const list = filtersFor(config, repo).flatMap((filter) => {
+      const matcher = toMatcher(filter);
+      return filter.name && matcher ? [{ id: filter.id, name: filter.name, matches: memoize(matcher) }] : [];
+    });
     compiled = { config, repo, filters: list };
     return list;
   };
 
+  const optionsFor = (repo: string): Option[] => [{ id: ALL, name: i18n.t("filterAll") }, ...filters(repo)];
+
   let files: Files = { list: [], complete: false };
+
+  /**
+   * The reader's saved filters for a repository, less those with no files in this pull request; with none left, All.
+   * The saved choice stays as it is, so another pull request in the repository still gets the full set.
+   */
+  const selectedIds = (repo: string) => {
+    const matchers = new Map(filters(repo).map((filter) => [filter.id, filter.matches]));
+    return (selections[repo] ?? []).filter((id) => {
+      const matches = matchers.get(id);
+      return Boolean(matches) && hasFiles(matches);
+    });
+  };
 
   /** Files the site hasn't loaded yet could still match any filter, so a filter's count is only final once they're in. */
   const loading = () => !files.complete && provider.reportedFileCount() > files.list.length;
   /** Whether a filter has, or may yet have, files in this pull request. */
-  const hasFiles = (matches: Matcher) => loading() || files.list.some((file) => matches(file.path));
+  const hasFiles = (matches?: Matcher) => !matches || loading() || files.list.some((file) => matches(file.path));
 
-  /**
-   * The reader's chosen filters for a repository, less those with no files in this pull request; with none left, All.
-   * The saved choice stays as it is, so another pull request in the repository still gets the full set.
-   */
-  const chosenIds = (repo: string) => {
-    const matchers = new Map(filters(repo).map((filter) => [filter.id, filter.matches]));
-    return (selections[repo] ?? []).filter((id) => {
-      const matches = matchers.get(id);
-      return matches !== undefined && hasFiles(matches);
-    });
-  };
-
-  /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
-  let chosen = false;
   const choose = (ids: string[]) => {
     const repo = provider.repository();
     if (!repo || ctx.isInvalid) return;
     selections = { ...selections, [repo]: ids };
     void selectionsItem.setValue(selections);
+    announceNext = true;
     chosen = true;
     schedule();
   };
 
-  const toggle = (id: string) => {
-    const repo = provider.repository();
-    if (repo) choose(toggled(chosenIds(repo), id));
+  const select = (id: string) => {
+    choose(id === ALL ? [] : [id]);
   };
 
-  /** The next or previous filter (All among them), skipping those with nothing in this pull request. */
-  const step = (by: 1 | -1) => {
+  const toggle = (id: string) => {
+    const repo = provider.repository();
+    if (!repo) {
+      select(ALL);
+      return;
+    }
+    choose(toggled(selectedIds(repo), id));
+  };
+
+  const step = (offset: number) => {
     const repo = provider.repository();
     if (!repo) return;
-    const options = filters(repo).flatMap((filter) => (hasFiles(filter.matches) ? [filter.id] : []));
-    choose(stepFilter(options, chosenIds(repo), by));
+    // Filters with nothing in this pull request are skipped.
+    const ids = optionsFor(repo)
+      .filter((option) => hasFiles(option.matches))
+      .map((option) => option.id);
+    const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
+    // All is always among them, so there's always a next one.
+    select(ids[(index + offset + ids.length) % ids.length]!);
+  };
+
+  const openSettings = () => {
+    const repo = provider.repository();
+    const message: Message =
+      repo && filters(repo).length > 0 ? { type: "open-options", repo } : { type: "open-welcome" };
+    void browser.runtime.sendMessage(message);
   };
 
   const covered = () => provider.coveredTop();
   let pageChanged = false;
+  let selectionKey = "";
   let shown: FileInfo[] = [];
+  const navigation = createNavigation(provider, panel, () => {
+    schedule();
+  });
+  const showReview = createReviewView(panel);
+  const comment = (direction: 1 | -1) => void navigation.comment(shown, files.complete, direction);
 
   /**
    * The next shown file left to review, after the one at the top of the screen, wrapping around. With none left in the
-   * chosen filters, the next filter with files to review is picked, which takes the reader to its first one.
+   * shown filters, the next filter with files to review is picked, which takes the reader to its first one.
    */
   const nextUnviewed = () => {
     const repo = provider.repository();
@@ -279,12 +271,8 @@ export const startController = async (
     const left = shown.filter((file) => !file.viewed);
     const [first] = left;
     if (!first) {
-      const ids = chosenIds(repo);
-      const viewed = new Map(files.list.map((file) => [file.path, file.viewed]));
-      const then =
-        ids.length > 0
-          ? nextFilterWithWork(files.list.map(asReviewFile), filters(repo), ids, (file) => viewed.get(file.path)!)
-          : undefined;
+      const ids = selectedIds(repo);
+      const then = ids.length > 0 ? nextFilterWithWork(files.list, filters(repo), ids) : undefined;
       if (then) choose([then.id]);
       return;
     }
@@ -296,6 +284,7 @@ export const startController = async (
       current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
     const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? first);
     void goToFile(provider, target);
+    panel.announceText(i18n.t("panelJumpedToFile", left.length, [target.path, format(left.length)]));
   };
 
   /**
@@ -309,6 +298,8 @@ export const startController = async (
       return height > 0 ? [[diff.path, height]] : [];
     }),
   );
+  /** A file marked viewed after less than this wasn't reviewed, only ticked off. */
+  const MIN_REVIEW_SECONDS = 2;
   /**
    * Files seen not viewed on this page: only those can be learned from once marked. GitHub loads the list a bit at a
    * time, so a file already viewed can turn up later, and that's not the reader marking it.
@@ -319,44 +310,26 @@ export const startController = async (
     const marked = list.filter((file) => file.viewed && unviewed.paths.has(file.path));
     for (const file of list) if (!file.viewed) unviewed.paths.add(file.path);
     for (const file of marked) unviewed.paths.delete(file.path);
+    if (!reviewTime.learn) return;
     // Without its line counts, there's nothing to tell the time spent on a file against.
     const samples = marked.flatMap((file) => {
       const seconds = activeTime.take(file.path);
       return file.stats && seconds >= MIN_REVIEW_SECONDS
-        ? [{ path: file.path, expected: reviewMinutes(file.path, file.stats), actual: seconds / 60 }]
+        ? [
+            {
+              path: file.path,
+              expected: reviewMinutes(file.path, file.stats, PACES[reviewTime.pace]),
+              actual: seconds / 60,
+            },
+          ]
         : [];
     });
-    if (samples.length > 0) relearn(await learn(samples));
-  };
-
-  const relearn = (next: Learned) => {
-    learned = next;
-    estimator = createEstimator(LINES_PER_HOUR, learned);
-  };
-
-  const draw = (repo: string, ids: string[]) => {
-    const list = files.list.map(asReviewFile);
-    const viewed = new Map(files.list.map((file) => [file.path, file.viewed]));
-    const isViewed = (file: ReviewFile) => viewed.get(file.path)!;
-    const shownPaths = new Set(shown.map((file) => file.path));
-    const inView = list.filter((file) => shownPaths.has(file.path));
-    const left = inView.filter((file) => !isViewed(file)).length;
-    const repoFilters = filtersFor(config.filters, repo);
-    view.render({
-      files: list,
-      filters: repoFilters,
-      chosen: ids,
-      shown: totals(inView, isViewed, estimator),
-      next: {
-        left,
-        nextFilter: ids.length > 0 && !left ? nextFilterWithWork(list, repoFilters, ids, isViewed) : undefined,
-      },
-      isViewed,
-      minutesOf: estimator,
-      learned,
-      onToggle: toggle,
-      onNextFile: nextUnviewed,
-    });
+    if (samples.length === 0) return;
+    // Read again first: another tab may have learned something since.
+    let latest = normalizeLearned(await learnedItem.getValue());
+    for (const sample of samples) latest = learnFile(latest, sample.path, sample.expected, sample.actual);
+    learned = latest;
+    await learnedItem.setValue(latest);
   };
 
   const apply = () => {
@@ -364,8 +337,8 @@ export const startController = async (
     if (ctx.isInvalid) return;
     const repo = provider.repository();
     observe(Boolean(repo));
+    panel.setVisible(Boolean(repo));
     if (!repo) {
-      view.render(null);
       if (pageChanged) restorePage(provider);
       pageChanged = false;
       return;
@@ -373,12 +346,15 @@ export const startController = async (
 
     files = collectFiles(provider);
     void learnFromViewed(files.list);
-    const ids = chosenIds(repo);
-    const picked = filters(repo).filter((filter) => ids.includes(filter.id));
-    const filtering = picked.length > 0;
-    const matches: Matcher = filtering ? (path) => picked.some((filter) => filter.matches(path)) : () => true;
+    const reported = provider.reportedFileCount();
+    const current = review(files, optionsFor(repo), selectedIds(repo), {
+      reported,
+      loading: loading(),
+      minutes: estimator,
+    });
+    const { filtering, matches, selection, totals } = current;
     const virtualized = provider.isVirtualized();
-    shown = files.list.filter((file) => matches(file.path));
+    shown = current.shown;
     for (const file of files.list) if (file.diff) present(file.diff, matches(file.path), virtualized);
     // Places in the list are only known from the site's data, which lists every file in order.
     provider.closeUp?.(
@@ -396,9 +372,20 @@ export const startController = async (
       shown.map((file) => file.path),
       new Map(files.list.filter((file) => file.anchor).map((file) => [file.anchor, file.path])),
     );
-    updatePageCounters(provider, files, shown, filtering);
+    // A new pull request or a new selection starts the conversation count over.
+    const key = `${location.pathname} ${selection.join()}`;
+    if (selectionKey !== key) {
+      selectionKey = key;
+      navigation.reset();
+    }
+    panel.renderConversations(
+      navigation.position(shown, files.complete),
+      filtering ? navigation.count(files.list, files.complete) : undefined,
+    );
+    updatePageCounters(provider, totals, filtering);
     pageChanged = filtering;
-    draw(repo, ids);
+    showReview(current, key, { announce: announceNext });
+    announceNext = false;
   };
 
   /**
@@ -406,6 +393,8 @@ export const startController = async (
    * overtakes a pending idle one, which then does nothing.
    */
   let ticket = 0;
+  /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
+  let chosen = false;
   const pieces = () =>
     files.list.flatMap((file) =>
       file.diff?.container.isConnected ? [{ key: file.path, element: file.diff.container }] : [],
@@ -422,7 +411,7 @@ export const startController = async (
         apply();
         return;
       }
-      // A new choice: the files on screen move into place at the first file left to review, in one motion.
+      // A new selection: the files on screen move into place at the first file left to review, in one motion.
       chosen = false;
       let undrawn: FileInfo | undefined;
       // Inside a transition the move is the animation, so the scroll itself is instant.
@@ -474,26 +463,36 @@ export const startController = async (
     if (message?.type !== "command") return;
     if (message.command === "next-filter") step(1);
     if (message.command === "previous-filter") step(-1);
-    if (message.command === "show-all") choose([]);
+    if (message.command === "show-all") select(ALL);
     if (message.command === "next-unviewed") nextUnviewed();
+    if (message.command === "next-comment") comment(1);
+    if (message.command === "previous-comment") comment(-1);
   };
   browser.runtime.onMessage.addListener(onMessage);
 
-  const unwatchConfig = watchConfig((value) => {
-    config = value;
-    appearance();
-    speak();
+  const unwatchConfig = configItem.watch((value) => {
+    config = normalize(value);
     schedule();
   });
-  const unwatchLearned = watchLearned((value) => {
-    relearn(value);
+  const unwatchReviewTime = reviewTimeItem.watch((value) => {
+    reviewTime = normalizeReviewTime(value);
+    reestimate();
+    schedule();
+  });
+  const unwatchLearned = learnedItem.watch((value) => {
+    learned = normalizeLearned(value);
+    reestimate();
     schedule();
   });
   const unwatchSelections = selectionsItem.watch((value) => {
     selections = value;
     schedule();
   });
-  const unwatchAppearance = watchAppearance(appearance);
+  panel.showUpdate(await updateItem.getValue());
+  const unwatchUpdate = updateItem.watch((version) => {
+    panel.showUpdate(version);
+  });
+  const unwatchAppearance = appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
 
   ctx.addEventListener(window, "wxt:locationchange", () => {
     schedule();
@@ -539,17 +538,19 @@ export const startController = async (
   ctx.onInvalidated(() => {
     pageObserver.disconnect();
     removeTransitionStyle();
-    unwatchAppearance();
     if (pageChanged) restorePage(provider);
     if (!browser.runtime?.id) return;
     browser.runtime.onMessage.removeListener(onMessage);
     unwatchConfig();
     unwatchSelections();
+    unwatchReviewTime();
     unwatchLearned();
+    unwatchUpdate();
+    unwatchAppearance();
   });
 
   // The first pass runs straight away, not on the next frame, so a pull request opened in a background tab is already
   // filtered when the reader gets to it.
   apply();
-  return { toggle, nextUnviewed };
+  return { toggle, openSettings, comment, nextUnviewed, dismissUpdate };
 };

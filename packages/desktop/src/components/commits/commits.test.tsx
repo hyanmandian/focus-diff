@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import { sinceReview, type Commits, type Range } from "../../utils/commits/commits";
-import { i18n } from "../../utils/i18n/i18n";
-import { fakeCommit, fakePull } from "../../utils/mock-pull/mock-pull";
-import { CommitsSection, RangeBanner, RangePicker, rangeLabel } from "./commits";
+import { CommitsSection, RangeBanner, RangePicker, rangeLabel } from "@/components/commits/commits";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import { sinceReview, type Commits, type Range } from "@/utils/commits/commits";
+import { i18n } from "@/utils/i18n/i18n";
+import { fakeCommit, fakePull } from "@/utils/mock-pull/mock-pull";
 
 const commit = (n: number, extra: Parameters<typeof fakeCommit>[0] = {}) =>
   fakeCommit({

@@ -2,12 +2,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { AuthStatus } from "../../utils/bridge/bridge";
-import { defaultConfig, normalize, type Config, type Queue } from "../../utils/config/config";
-import { VERSION, emit, fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { setPlatform } from "../../utils/platform/platform";
-import { Settings } from "./settings";
+import { Settings } from "@/components/settings/settings";
+import type { AuthStatus } from "@/utils/bridge/bridge";
+import { defaultConfig, normalize, type Config, type Queue } from "@/utils/config/config";
+import { VERSION, emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
 
 const signedIn: AuthStatus = {
   signed_in: true,
@@ -346,43 +345,6 @@ describe("Account pane", () => {
     await open({ hold: ["github_web_session"] });
     expect(await screen.findByText("Attachments")).toBeTruthy();
     expect(within(panel()).getAllByLabelText("Loading")).toHaveLength(1);
-  });
-});
-
-describe("in an app without some features (the browser extension)", () => {
-  const browser = () => {
-    setPlatform({ ...fakePlatform, features: { updates: false, ai: false, uploads: false, tray: false } });
-  };
-
-  it("has no AI pane, and opens on the queues when the AI was the last one", async () => {
-    browser();
-    localStorage.setItem("settings-pane", "ai");
-    await open();
-    expect(within(sidebar()).queryByRole("tab", { name: /AI/u })).toBeNull();
-    expect(tab(/Queues/u).getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("has no attachments on the account", async () => {
-    browser();
-    localStorage.setItem("settings-pane", "account");
-    await open({ web: null });
-    expect(await within(panel()).findByText("@octocat")).toBeTruthy();
-    expect(within(panel()).queryByText("Attachments")).toBeNull();
-    expect(within(panel()).getByText(/Your token stays in this browser/u)).toBeTruthy();
-  });
-
-  it("names the version, which the store keeps up to date", async () => {
-    browser();
-    await general();
-    expect(await within(panel()).findByText("Focus Diff 1.2.3")).toBeTruthy();
-    expect(within(panel()).getByText("Your browser keeps it up to date from its extension store.")).toBeTruthy();
-    expect(within(panel()).queryByRole("button", { name: /Check for Updates/u })).toBeNull();
-  });
-
-  it("names the app alone until the version is known", async () => {
-    browser();
-    await general({ hold: [VERSION] });
-    expect(await screen.findByText("Focus Diff")).toBeTruthy();
   });
 });
 

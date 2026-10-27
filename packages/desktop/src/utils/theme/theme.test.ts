@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Config } from "../config/config";
+import type { Config } from "@/utils/config/config";
 
 /** The system's appearance, which can change while the page is open. */
 class SystemScheme extends EventTarget implements MediaQueryList {
@@ -22,7 +22,7 @@ async function load(dark: boolean) {
   vi.resetModules();
   const system = new SystemScheme(dark);
   vi.spyOn(window, "matchMedia").mockReturnValue(system);
-  const { useTheme } = await import("./theme");
+  const { useTheme } = await import("@/utils/theme/theme");
   return { system, useTheme };
 }
 

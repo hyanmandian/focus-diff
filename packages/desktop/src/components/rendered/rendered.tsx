@@ -5,13 +5,13 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { github } from "../../utils/bridge/bridge";
-import type { Source } from "../../utils/contents/contents";
-import { useDiagrams } from "../../utils/diagrams/diagrams";
-import { useT } from "../../utils/i18n/i18n";
-import type { ReviewFile } from "../../utils/review/review";
-import { sanitize } from "../../utils/sanitize/sanitize";
-import { openClicked } from "../comment-html/comment-html";
+import { openClicked } from "@/components/comment-html/comment-html";
+import { github } from "@/utils/bridge/bridge";
+import type { Source } from "@/utils/contents/contents";
+import { useDiagrams } from "@/utils/diagrams/diagrams";
+import { useT } from "@/utils/i18n/i18n";
+import type { ReviewFile } from "@/utils/review/review";
+import { sanitize } from "@/utils/sanitize/sanitize";
 
 const rendered = new Map<string, Promise<string>>();
 

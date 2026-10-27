@@ -2,24 +2,24 @@
 // secondary line (number, author, estimate, what's going on), with when and how much talk on the
 // right. A click opens it.
 
+import { Ellipsis, GitPullRequest, MessageSquare } from "lucide-react";
+import { memo, useEffect, useRef, type ReactNode } from "react";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { cn } from "@focus-diff/design-system/utils/cn";
-import { Ellipsis, GitPullRequest, MessageSquare } from "lucide-react";
-import { memo, useEffect, useRef, type ReactNode } from "react";
-
-import { avatar } from "../../utils/avatar/avatar";
-import { bridge } from "../../utils/bridge/bridge";
-import type { Queue } from "../../utils/config/config";
-import { EVENT_TONES, firstName, STATUS_TONES } from "../../utils/copy/copy";
-import type { Actor, Item } from "../../utils/engine/engine";
-import { pullMinutes, useLearned } from "../../utils/estimate/estimate";
-import { useT } from "../../utils/i18n/i18n";
-import { prefetch } from "../../utils/prefetch/prefetch";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { avatar } from "@/utils/avatar/avatar";
+import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import type { Queue } from "@/utils/config/config";
+import { EVENT_TONES, firstName, STATUS_TONES } from "@/utils/copy/copy";
+import type { Actor, Item } from "@/utils/engine/engine";
+import { pullMinutes, useLearned } from "@/utils/estimate/estimate";
+import { useT } from "@/utils/i18n/i18n";
+import { prefetch } from "@/utils/prefetch/prefetch";
 
 // What each note is, said in color on plain text (no outline): a list row's secondary line, not a pill.
 const TONE: Record<string, string> = {

@@ -1,7 +1,7 @@
 // The queues' data as the panel gets it. The rules that make it (searches, events, what's new)
 // are in src-tauri/src/engine.rs; these are the shapes, and the helpers the cards use.
 
-import type { EventKind } from "../config/config";
+import type { EventKind } from "@/utils/config/config";
 
 export type Actor = { __typename?: string; login: string; avatarUrl?: string; name?: string | null } | null;
 export type Comment = { author: Actor; createdAt: string; body?: string; url: string };

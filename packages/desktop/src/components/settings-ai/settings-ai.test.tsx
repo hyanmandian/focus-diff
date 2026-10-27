@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { AiStatus } from "../../utils/bridge/bridge";
-import { defaultConfig, REVIEW_PROMPT, type AiProvider, type Config } from "../../utils/config/config";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { Ai } from "./settings-ai";
+import { Ai } from "@/components/settings-ai/settings-ai";
+import type { AiStatus } from "@/utils/bridge/bridge";
+import { defaultConfig, REVIEW_PROMPT, type AiProvider, type Config } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
 
 afterEach(() => {
   setLanguage("en");

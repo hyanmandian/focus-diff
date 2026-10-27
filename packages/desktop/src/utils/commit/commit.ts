@@ -3,9 +3,9 @@
 // on the branch only if its head is still that one (GitHub checks), crediting the suggestions'
 // authors. Signed by GitHub, like a commit made on the site.
 
-import { github, GitHubError } from "../bridge/bridge";
-import { mutate } from "../comments/comments";
-import { applyEdits, coAuthors, toBase64, type Author, type Edit } from "../suggestion/suggestion";
+import { github, GitHubError } from "@/utils/bridge/bridge";
+import { mutate } from "@/utils/comments/comments";
+import { applyEdits, coAuthors, toBase64, type Author, type Edit } from "@/utils/suggestion/suggestion";
 
 /** A suggestion to commit: which conversation it's in, the lines it replaces and with what. */
 export type Applied = Edit & { thread: string; comment: string; path: string; author: Author };

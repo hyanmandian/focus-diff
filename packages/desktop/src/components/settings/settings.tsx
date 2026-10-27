@@ -3,46 +3,48 @@
 // Changes save as you make them; the panel follows along.
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@focus-diff/design-system/components/avatar";
-import { Button } from "@focus-diff/design-system/components/button";
+import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Button } from "@/components/button/button";
+import { Connect } from "@/components/connect/connect";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { Input } from "@focus-diff/design-system/components/input";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { Input } from "@/components/input/input";
+import { QueueEditor, queueSummary } from "@/components/queue-editor/queue-editor";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
+import { Actions } from "@/components/settings-actions/settings-actions";
+import { Ai } from "@/components/settings-ai/settings-ai";
+import { Filters } from "@/components/settings-filters/settings-filters";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@focus-diff/design-system/components/select";
-import { Switch } from "@focus-diff/design-system/components/switch";
-import { cn } from "@focus-diff/design-system/utils/cn";
-import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-
-import { PROVIDERS } from "../../utils/ai/ai";
-import { useWebSession } from "../../utils/attachments/attachments";
-import { avatar } from "../../utils/avatar/avatar";
-import { bridge, type AuthStatus } from "../../utils/bridge/bridge";
-import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "../../utils/config/config";
-import { confirmRemove } from "../../utils/confirm/confirm";
-import { interval } from "../../utils/copy/copy";
-import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "../../utils/i18n/i18n";
-import { platform, supports } from "../../utils/platform/platform";
-import { PANE_META, type PaneId } from "../../utils/settings-panes/settings-panes";
-import { useTheme } from "../../utils/theme/theme";
-import { Connect } from "../connect/connect";
-import { QueueEditor, queueSummary } from "../queue-editor/queue-editor";
-import { Actions } from "../settings-actions/settings-actions";
-import { Ai } from "../settings-ai/settings-ai";
-import { Filters } from "../settings-filters/settings-filters";
-import { Group, LinkRow, Pane, Row, TONE_FILL, TWO_LINE_ITEM, useDetail } from "../settings-form/settings-form";
-import { ReviewTimePane } from "../settings-review-time/settings-review-time";
+  Group,
+  LinkRow,
+  Pane,
+  Row,
+  TONE_FILL,
+  TWO_LINE_ITEM,
+  useDetail,
+} from "@/components/settings-form/settings-form";
+import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
+import { Switch } from "@/components/switch/switch";
+import { PROVIDERS } from "@/utils/ai/ai";
+import { useWebSession } from "@/utils/attachments/attachments";
+import { avatar } from "@/utils/avatar/avatar";
+import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "@/utils/config/config";
+import { confirmRemove } from "@/utils/confirm/confirm";
+import { interval } from "@/utils/copy/copy";
+import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
+import { platform, supports } from "@/utils/platform/platform";
+import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
+import { useTheme } from "@/utils/theme/theme";
 
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);

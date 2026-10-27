@@ -3,14 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { ConversationProvider, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import { emit, fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setPlatform } from "../../utils/platform/platform";
-import { emoji, mentionable, preview, referable, savedReplies } from "../../utils/writer/writer";
-import { MarkdownField } from "./writer";
+import { MarkdownField } from "@/components/writer/writer";
+import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { emit, fakePlatform, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setPlatform } from "@/utils/platform/platform";
+import { emoji, mentionable, preview, referable, savedReplies } from "@/utils/writer/writer";
 
 // What the box asks GitHub for (utils/writer/writer.ts, tested on its own) is answered here.
-vi.mock("../../utils/writer/writer", () => ({
+vi.mock("@/utils/writer/writer", () => ({
   emoji: vi.fn<typeof emoji>(),
   mentionable: vi.fn<typeof mentionable>(),
   preview: vi.fn<typeof preview>(),
@@ -20,7 +20,7 @@ vi.mock("../../utils/writer/writer", () => ({
 
 // The Mac's ⌘ or everyone else's Ctrl, switched per test (the page itself reads it once).
 const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("../../utils/os/os", async (original) => ({
+vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
   get isMac() {
     return platform.mac;

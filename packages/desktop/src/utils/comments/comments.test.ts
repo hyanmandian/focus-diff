@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { GitHubError } from "../bridge/bridge";
-import { mockCommands } from "../fake-platform/fake-platform";
+import { GitHubError } from "@/utils/bridge/bridge";
 import {
   edit,
   moreComments,
@@ -13,7 +12,8 @@ import {
   type RawComment,
   type Reaction,
   type ReactionContent,
-} from "./comments";
+} from "@/utils/comments/comments";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 type Sent = { query: string; variables: Record<string, unknown> };
 

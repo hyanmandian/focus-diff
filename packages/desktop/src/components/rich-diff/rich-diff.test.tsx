@@ -2,12 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Source } from "../../utils/contents/contents";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { later } from "../../utils/mock-render/mock-render";
-import type { Args } from "../../utils/platform/platform";
-import type { ReviewFile } from "../../utils/review/review";
-import { ImageDiff, isImage, NoPatchFile, renamed } from "./rich-diff";
+import { ImageDiff, isImage, NoPatchFile, renamed } from "@/components/rich-diff/rich-diff";
+import type { Source } from "@/utils/contents/contents";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { later } from "@/utils/mock-render/mock-render";
+import type { Args } from "@/utils/platform/platform";
+import type { ReviewFile } from "@/utils/review/review";
 
 /** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);

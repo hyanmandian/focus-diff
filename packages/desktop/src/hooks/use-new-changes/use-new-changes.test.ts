@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { useNewChanges, type NewChanges } from "./use-new-changes";
+import { useNewChanges, type NewChanges } from "@/hooks/use-new-changes/use-new-changes";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const T0 = new Date("2026-10-26T12:00:00Z").getTime();
 const UPDATED = "2026-10-26T11:00:00Z";

@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Manage } from "../manage/manage";
-import type { Args } from "../platform/platform";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Manage } from "@/utils/manage/manage";
 import {
   defaultMessage,
   deleteBranch,
@@ -14,7 +13,8 @@ import {
   mergePull,
   mergeView,
   updateBranch,
-} from "./merging";
+} from "@/utils/merging/merging";
+import type { Args } from "@/utils/platform/platform";
 
 type Call = { cmd: string; fields: Record<string, unknown> };
 const fields = (args: Args | undefined): Record<string, unknown> =>

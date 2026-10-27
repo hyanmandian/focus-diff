@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vite-plus/test";
 
-import { leadsElsewhere, sanitize } from "./sanitize";
+import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
 
 /** A picture with a dark version, a second `media` one, and a fallback. */
 const picture = (media: string) =>

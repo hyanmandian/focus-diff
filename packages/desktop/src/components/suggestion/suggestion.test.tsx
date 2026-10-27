@@ -3,12 +3,12 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { ConversationProvider, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import type { Applied } from "../../utils/commit/commit";
-import { fakeConversation } from "../../utils/mock-pull/mock-pull";
-import { later } from "../../utils/mock-render/mock-render";
-import type { Thread, ThreadComment } from "../../utils/review/review";
-import { SuggestionActions, SuggestionBatch } from "./suggestion";
+import { SuggestionActions, SuggestionBatch } from "@/components/suggestion/suggestion";
+import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import type { Applied } from "@/utils/commit/commit";
+import { fakeConversation } from "@/utils/mock-pull/mock-pull";
+import { later } from "@/utils/mock-render/mock-render";
+import type { Thread, ThreadComment } from "@/utils/review/review";
 
 const SUGGESTION = "Try this:\n```suggestion\nconst total = 2;\n```";
 

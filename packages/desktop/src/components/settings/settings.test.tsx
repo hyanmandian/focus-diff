@@ -2,12 +2,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { AuthStatus } from "../../utils/bridge/bridge";
-import { defaultConfig, normalize, type Config, type Queue } from "../../utils/config/config";
-import { VERSION, emit, fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { setPlatform } from "../../utils/platform/platform";
-import { Settings } from "./settings";
+import { Settings } from "@/components/settings/settings";
+import type { AuthStatus } from "@/utils/bridge/bridge";
+import { defaultConfig, normalize, type Config, type Queue } from "@/utils/config/config";
+import { VERSION, emit, fakePlatform, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
+import { setPlatform } from "@/utils/platform/platform";
 
 const signedIn: AuthStatus = {
   signed_in: true,

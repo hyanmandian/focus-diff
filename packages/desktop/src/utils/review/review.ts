@@ -2,12 +2,12 @@
 // conversations on its lines, and the actions of reviewing (comments, replies, resolving, the
 // review itself).
 
-import { github, graphql } from "../bridge/bridge";
-import { COMMENT_FIELDS, moreComments, toReactions, type RawComment, type Reaction } from "../comments/comments";
-import type { Details } from "../details/details";
-import type { Actor } from "../engine/engine";
-import { i18n } from "../i18n/i18n";
-import { hunkTail } from "../placement/placement";
+import { github, graphql } from "@/utils/bridge/bridge";
+import { COMMENT_FIELDS, moreComments, toReactions, type RawComment, type Reaction } from "@/utils/comments/comments";
+import type { Details } from "@/utils/details/details";
+import type { Actor } from "@/utils/engine/engine";
+import { i18n } from "@/utils/i18n/i18n";
+import { hunkTail } from "@/utils/placement/placement";
 
 export type ReviewFile = {
   path: string;

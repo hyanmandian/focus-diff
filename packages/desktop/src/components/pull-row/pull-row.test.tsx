@@ -2,10 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { TEMPLATES, type Queue, type QueueKind } from "../../utils/config/config";
-import type { Event, Item, PullRequest } from "../../utils/engine/engine";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { PullRow } from "./pull-row";
+import { PullRow } from "@/components/pull-row/pull-row";
+import { TEMPLATES, type Queue, type QueueKind } from "@/utils/config/config";
+import type { Event, Item, PullRequest } from "@/utils/engine/engine";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const HOUR = 3_600_000;
 let serial = 0;

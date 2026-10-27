@@ -2,23 +2,18 @@
 // with what's installed and signed in on this machine; then how it's asked: model, effort, the
 // person's own review guidelines and the prompts offered on each pull request.
 
-import { Button } from "@focus-diff/design-system/components/button";
-import { Input } from "@focus-diff/design-system/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@focus-diff/design-system/components/select";
-import { Switch } from "@focus-diff/design-system/components/switch";
-import { Textarea } from "@focus-diff/design-system/components/textarea";
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { ArrowDown, ArrowUp, Check, Copy, ExternalLink, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 
-import { PROVIDERS } from "../../utils/ai/ai";
-import { bridge, type AiStatus } from "../../utils/bridge/bridge";
+import { Button } from "@/components/button/button";
+import { Input } from "@/components/input/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
+import { Group, Intro, Pane, radioKeys, Row } from "@/components/settings-form/settings-form";
+import { Switch } from "@/components/switch/switch";
+import { Textarea } from "@/components/textarea/textarea";
+import { PROVIDERS } from "@/utils/ai/ai";
+import { bridge, type AiStatus } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
   defaultPrompts,
@@ -28,10 +23,9 @@ import {
   type Config,
   type Effort,
   type Prompt,
-} from "../../utils/config/config";
-import { confirmRemove } from "../../utils/confirm/confirm";
-import { useT } from "../../utils/i18n/i18n";
-import { Group, Intro, Pane, radioKeys, Row } from "../settings-form/settings-form";
+} from "@/utils/config/config";
+import { confirmRemove } from "@/utils/confirm/confirm";
+import { useT } from "@/utils/i18n/i18n";
 
 function CopyCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);

@@ -3,36 +3,36 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vite-plus/test";
 
-import { ConversationProvider, copyText, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import type { AiReview, Finding } from "../../utils/ai/ai";
-import { defaultConfig, type Config } from "../../utils/config/config";
-import type { Conversation, ConversationEntry, Said } from "../../utils/conversation/conversation";
-import type { Details, Entry } from "../../utils/details/details";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Thread } from "../../utils/review/review";
-import type { TimelineEvent } from "../../utils/timeline/timeline";
-import { openViewer } from "../viewer/viewer";
-import { Overview } from "./overview";
+import { Overview } from "@/components/overview/overview";
+import { openViewer } from "@/components/viewer/viewer";
+import { ConversationProvider, copyText, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import type { AiReview, Finding } from "@/utils/ai/ai";
+import { defaultConfig, type Config } from "@/utils/config/config";
+import type { Conversation, ConversationEntry, Said } from "@/utils/conversation/conversation";
+import type { Details, Entry } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Thread } from "@/utils/review/review";
+import type { TimelineEvent } from "@/utils/timeline/timeline";
 
 // What's beside the conversation has tests of its own: here they only show they're there, and the
 // boxes to write in hand back what was "written".
-vi.mock("../merge-box/merge-box", () => ({ MergeBox: () => <p>Merge box</p> }));
-vi.mock("../checks/checks", () => ({ Checks: () => <p>Checks</p> }));
-vi.mock("../commits/commits", () => ({ CommitsSection: () => <p>Commits</p> }));
-vi.mock("../sidebar/sidebar", () => ({ Sidebar: () => <p>Sidebar</p> }));
-vi.mock("../ask-ai/ask-ai", () => ({ AskAi: () => <p>Ask AI</p> }));
-vi.mock("../ai-answer/ai-answer", () => ({ AiAnswer: ({ text }: { text: string }) => <p>{text}</p> }));
-vi.mock("../timeline/timeline", () => ({
+vi.mock("@/components/merge-box/merge-box", () => ({ MergeBox: () => <p>Merge box</p> }));
+vi.mock("@/components/checks/checks", () => ({ Checks: () => <p>Checks</p> }));
+vi.mock("@/components/commits/commits", () => ({ CommitsSection: () => <p>Commits</p> }));
+vi.mock("@/components/sidebar/sidebar", () => ({ Sidebar: () => <p>Sidebar</p> }));
+vi.mock("@/components/ask-ai/ask-ai", () => ({ AskAi: () => <p>Ask AI</p> }));
+vi.mock("@/components/ai-answer/ai-answer", () => ({ AiAnswer: ({ text }: { text: string }) => <p>{text}</p> }));
+vi.mock("@/components/timeline/timeline", () => ({
   TimelineRow: ({ event }: { event: TimelineEvent }) => <p>Event {event.id}</p>,
 }));
-vi.mock("../viewer/viewer", () => ({ openViewer: vi.fn<(picture: { src: string; alt: string }) => void>() }));
-vi.mock("../../utils/diagrams/diagrams", () => ({ useDiagrams: () => {} }));
-vi.mock("../../hooks/use-conversation/use-conversation", async (original) => ({
+vi.mock("@/components/viewer/viewer", () => ({ openViewer: vi.fn<(picture: { src: string; alt: string }) => void>() }));
+vi.mock("@/utils/diagrams/diagrams", () => ({ useDiagrams: () => {} }));
+vi.mock("@/hooks/use-conversation/use-conversation", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   copyText: vi.fn<(text: string) => Promise<void>>(() => Promise.resolve()),
 }));
-vi.mock("../said/said", () => ({
+vi.mock("@/components/said/said", () => ({
   ACTIONS: "",
   useReactions: (_subject: string, given: unknown[]) => [given, () => {}],
   ReactionPicker: () => <button type="button">React</button>,
@@ -67,7 +67,7 @@ vi.mock("../said/said", () => ({
     </>
   ),
 }));
-vi.mock("../thread/thread", () => ({
+vi.mock("@/components/thread/thread", () => ({
   Composer: ({
     placeholder,
     initial,

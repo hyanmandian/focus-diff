@@ -1,9 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import { shelve, shelved } from "../shelf/shelf";
 import {
   commitRange,
   inRange,
@@ -16,7 +13,10 @@ import {
   type Commit,
   type Commits,
   type Range,
-} from "./commits";
+} from "@/utils/commits/commits";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
+import { shelve, shelved } from "@/utils/shelf/shelf";
 
 const ref = { owner: "acme", repo: "web", number: 7 };
 

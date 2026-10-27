@@ -3,10 +3,10 @@
 // can be worked on and screenshotted without GitHub: a page's entry sets mockPlatform as its platform.
 // Never part of a build (see the desktop's entries/panel.tsx).
 
-import { conversationMock, setEmitter } from "../mock-conversation/mock-conversation";
-import { type Args, fail, isRecord, json, str, wait } from "../mock-ipc/mock-ipc";
-import { manageRoute } from "../mock-manage/mock-manage";
-import type { Args as PlatformArgs, InvokeOptions, Platform, Unlisten } from "../platform/platform";
+import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
+import { type Args, fail, isRecord, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
+import { manageRoute } from "@/utils/mock-manage/mock-manage";
+import type { Args as PlatformArgs, InvokeOptions, Platform, Unlisten } from "@/utils/platform/platform";
 
 const now = Date.now();
 const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();

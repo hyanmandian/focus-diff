@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { ReviewPull } from "../../utils/bridge/bridge";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { DIRECTION, useNextInQueue, type Visit } from "./use-next-in-queue";
+import { DIRECTION, useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
+import type { ReviewPull } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const pull = (id: string, number: number): ReviewPull => ({
   id,

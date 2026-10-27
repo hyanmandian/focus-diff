@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import { i18n } from "../i18n/i18n";
-import type { Args } from "../platform/platform";
 import {
   canBe,
   choiceAction,
@@ -17,7 +14,10 @@ import {
   sourceOf,
   TEMPLATES,
   withSource,
-} from "./config";
+} from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { i18n } from "@/utils/i18n/i18n";
+import type { Args } from "@/utils/platform/platform";
 
 describe("normalize", () => {
   it("falls back to the defaults for anything broken", () => {

@@ -1,4 +1,4 @@
-import type { Dictionary } from "../../utils/i18n/i18n";
+import type { Dictionary } from "@/utils/i18n/i18n";
 
 export const setup: Dictionary["setup"] = {
   "step.github": "GitHub",

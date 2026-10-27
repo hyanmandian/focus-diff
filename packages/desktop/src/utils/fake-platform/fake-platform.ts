@@ -3,7 +3,7 @@
 // with emit. Besides the app's own commands, the handler hears the platform's other requests by
 // these names, so a test can answer or count them like any command.
 
-import type { Args, InvokeOptions, Platform, Unlisten } from "../platform/platform";
+import type { Args, InvokeOptions, Platform, Unlisten } from "@/utils/platform/platform";
 
 /** Platform.version, as a command. */
 export const VERSION = "platform:version";

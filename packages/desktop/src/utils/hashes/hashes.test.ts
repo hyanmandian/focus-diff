@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { hash, patchHash } from "./hashes";
+import { hash, patchHash } from "@/utils/hashes/hashes";
 
 describe("a patch's hash", () => {
   it("is the hash of the patch, kept per file", () => {

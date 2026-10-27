@@ -3,10 +3,10 @@ import userEvent from "@testing-library/user-event";
 import type { MouseEvent } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Args } from "../../utils/platform/platform";
-import { Viewer } from "../viewer/viewer";
-import { CommentHtml, openClicked } from "./comment-html";
+import { CommentHtml, openClicked } from "@/components/comment-html/comment-html";
+import { Viewer } from "@/components/viewer/viewer";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const PICTURE = "https://user-images.githubusercontent.com/1/shot.png";
 

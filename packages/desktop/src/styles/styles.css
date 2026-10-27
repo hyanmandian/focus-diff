@@ -1,12 +1,4 @@
-/* The screens' own styles, for an app that already has Tailwind v4 and the design system: put it after
-   `@import "@focus-diff/design-system/styles.css";` (or use tailwind.css, which does all three). */
-
-/* Tailwind doesn't scan packages for class names: these are the screens', for any app's build. */
-@source "../components";
-@source "../hooks";
-@source "../utils";
-@source not "../**/*.test.ts";
-@source not "../**/*.test.tsx";
+/* The screens' own styles, on the tokens, utilities and base styles beside them (index.css imports them all). */
 
 /* The panel's surfaces, as a menu bar extra's window: one light tint over the system material (so it
    shows, as in a popover), no card inside it; inset hairline separators split chrome from the list,

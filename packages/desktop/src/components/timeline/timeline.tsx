@@ -1,7 +1,6 @@
 // One event of the timeline in the conversation, compact: a small glyph, who did what, and when,
 // in one line (a run of commits opens to list them).
 
-import { cn } from "@focus-diff/design-system/utils/cn";
 import {
   Bookmark,
   CircleDot,
@@ -26,10 +25,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { bridge } from "../../utils/bridge/bridge";
-import { useT, type T } from "../../utils/i18n/i18n";
-import type { TimelineEvent } from "../../utils/timeline/timeline";
-import { LabelChip } from "../sidebar/sidebar";
+import { LabelChip } from "@/components/sidebar/sidebar";
+import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { useT, type T } from "@/utils/i18n/i18n";
+import type { TimelineEvent } from "@/utils/timeline/timeline";
 
 const ICON: Record<TimelineEvent["kind"], LucideIcon> = {
   commits: GitCommitHorizontal,

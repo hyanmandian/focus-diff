@@ -4,11 +4,11 @@
 // apply suggestions, the branch to commit them to). Kept on disk like the rest of a review (kept.ts),
 // so it shows at once next time.
 
-import { graphql } from "../bridge/bridge";
-import { AUTHOR, REACTION_FIELDS, toReactions, type Reaction } from "../comments/comments";
-import type { Entry } from "../details/details";
-import { invoke } from "../platform/platform";
-import type { PullRef } from "../review/review";
+import { graphql } from "@/utils/bridge/bridge";
+import { AUTHOR, REACTION_FIELDS, toReactions, type Reaction } from "@/utils/comments/comments";
+import type { Entry } from "@/utils/details/details";
+import { invoke } from "@/utils/platform/platform";
+import type { PullRef } from "@/utils/review/review";
 
 /** What a comment or review says beyond its HTML, and what you may do with it. */
 export type Said = {

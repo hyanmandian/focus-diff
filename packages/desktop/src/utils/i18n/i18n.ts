@@ -10,8 +10,8 @@
 import { durationParts } from "@focus-diff/core/duration";
 import { useSyncExternalStore } from "react";
 
-import { en } from "../../locales/en/index";
-import { ptBR } from "../../locales/pt-BR/index";
+import { en } from "@/locales/en/index";
+import { ptBR } from "@/locales/pt-BR/index";
 
 export const LOCALES = ["en", "pt-BR"] as const;
 export type Locale = (typeof LOCALES)[number];

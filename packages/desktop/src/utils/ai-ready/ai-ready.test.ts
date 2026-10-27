@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { AiStatus } from "../bridge/bridge";
-import { defaultConfig, type AiProvider, type Config } from "../config/config";
-import { EMIT_TO, mockCommands } from "../fake-platform/fake-platform";
+import type { AiStatus } from "@/utils/bridge/bridge";
+import { defaultConfig, type AiProvider, type Config } from "@/utils/config/config";
+import { EMIT_TO, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const claude: AiStatus = {
   provider: "claude",
@@ -26,7 +26,7 @@ const chosen: Props = { config: using("claude") };
 /** The module afresh, nothing asked of the CLIs yet. */
 function fresh() {
   vi.resetModules();
-  return import("./ai-ready");
+  return import("@/utils/ai-ready/ai-ready");
 }
 
 /** Rust answering what the CLIs say with `statuses` (counting the looks), and the alert with

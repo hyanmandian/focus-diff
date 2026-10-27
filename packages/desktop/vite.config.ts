@@ -11,7 +11,7 @@ const page = (name: string) => fileURLToPath(new URL(`./${name}.html`, import.me
 
 // Vite+ runs it all from here (vp dev, vp build, vp check, vp test): four pages (the panel under
 // the tray icon, settings, first-run setup and a pull request's review), Oxfmt, Oxlint, Vitest. The
-// screens are in src/components, src/hooks and src/utils, which the browser extension builds too.
+// screens are in src/components, src/hooks and src/utils, the UI kit beside them.
 export default defineConfig({
   // React Compiler memoizes components and hooks at build time, so renders stay cheap without
   // hand-written useMemo/useCallback.

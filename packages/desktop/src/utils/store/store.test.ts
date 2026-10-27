@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { AuthStatus } from "../bridge/bridge";
-import { defaultConfig } from "../config/config";
-import type { Item } from "../engine/engine";
-import { emit, mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
+import type { AuthStatus } from "@/utils/bridge/bridge";
+import { defaultConfig } from "@/utils/config/config";
+import type { Item } from "@/utils/engine/engine";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const item = (queueId: string, id: string, keys: string[] = []): Item => ({
   queueId,
@@ -67,7 +67,7 @@ function rust(snapshot: Record<string, unknown> = live(), auth: AuthStatus = sig
 /** The store afresh, as a new panel has it. */
 function load() {
   vi.resetModules();
-  return import("./store");
+  return import("@/utils/store/store");
 }
 
 describe("the panel's store", () => {

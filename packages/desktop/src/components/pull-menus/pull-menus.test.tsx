@@ -1,12 +1,12 @@
-import { DropdownMenu, DropdownMenuContent } from "@focus-diff/design-system/components/dropdown-menu";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import { fakeDetails, fakePull, fakeView } from "../../utils/mock-pull/mock-pull";
-import { MergeMenuItems, PullMenuItems } from "./pull-menus";
+import { DropdownMenu, DropdownMenuContent } from "@/components/dropdown-menu/dropdown-menu";
+import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import { fakeDetails, fakePull, fakeView } from "@/utils/mock-pull/mock-pull";
 
 /** The items, in an open menu as the toolbar shows them. */
 function Menu({ children }: { children: ReactNode }) {

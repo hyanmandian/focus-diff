@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { stepFile } from "./navigate";
+import { stepFile } from "@/utils/navigate/navigate";
 
 const paths = ["a.ts", "b.ts", "c.ts"];
 

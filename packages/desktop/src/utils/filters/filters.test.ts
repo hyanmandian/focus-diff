@@ -1,7 +1,7 @@
 import { reviewMinutes } from "@focus-diff/core/estimate";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { DiffFilter } from "../config/config";
+import type { DiffFilter } from "@/utils/config/config";
 import {
   addImported,
   exportFilters,
@@ -14,7 +14,7 @@ import {
   stepFilter,
   toggled,
   totals,
-} from "./filters";
+} from "@/utils/filters/filters";
 
 const filter = (id: string, include: string, repos: string[] = [], exclude = ""): DiffFilter => ({
   id,

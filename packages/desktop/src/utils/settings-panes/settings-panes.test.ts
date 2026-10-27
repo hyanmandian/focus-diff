@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { PANE_META } from "./settings-panes";
+import { PANE_META } from "@/utils/settings-panes/settings-panes";
 
 describe("settings panes", () => {
   it("give every pane an icon on a coloured tile", () => {

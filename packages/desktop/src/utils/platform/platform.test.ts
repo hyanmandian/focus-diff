@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { fakePlatform } from "../fake-platform/fake-platform";
-import { invoke, platform, setPlatform, supports, type Args, type InvokeOptions } from "./platform";
+import { fakePlatform } from "@/utils/fake-platform/fake-platform";
+import { invoke, platform, setPlatform, supports, type Args, type InvokeOptions } from "@/utils/platform/platform";
 
 describe("the platform", () => {
   it("is the one the entry set, and runs commands through it", async () => {

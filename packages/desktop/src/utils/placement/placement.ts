@@ -6,7 +6,7 @@
 
 import type { FileDiffMetadata } from "@pierre/diffs";
 
-import type { Thread } from "../review/review";
+import type { Thread } from "@/utils/review/review";
 
 type Side = Thread["side"];
 

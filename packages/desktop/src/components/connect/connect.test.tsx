@@ -2,10 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { AuthStatus, DeviceCode } from "../../utils/bridge/bridge";
-import { fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setPlatform } from "../../utils/platform/platform";
-import { Connect } from "./connect";
+import { Connect } from "@/components/connect/connect";
+import type { AuthStatus, DeviceCode } from "@/utils/bridge/bridge";
+import { fakePlatform, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setPlatform } from "@/utils/platform/platform";
 
 const auth = (over: Partial<AuthStatus> = {}): AuthStatus => ({
   signed_in: false,

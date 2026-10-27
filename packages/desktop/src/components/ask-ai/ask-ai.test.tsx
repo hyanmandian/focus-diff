@@ -2,11 +2,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { AiAnswer } from "../../utils/bridge/bridge";
-import { defaultConfig, type Config } from "../../utils/config/config";
-import type { Details } from "../../utils/details/details";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { AskAi } from "./ask-ai";
+import { AskAi } from "@/components/ask-ai/ask-ai";
+import type { AiAnswer } from "@/utils/bridge/bridge";
+import { defaultConfig, type Config } from "@/utils/config/config";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 // Whether the AI is ready, and what it answers, are utils of their own (ai-ready.ts, ai.ts).
 const ai = vi.hoisted(() => ({
@@ -15,12 +15,12 @@ const ai = vi.hoisted(() => ({
   openSettings: vi.fn<() => Promise<void>>(),
   ask: vi.fn<(config: unknown, details: unknown, prompt: string, run: string) => Promise<AiAnswer>>(),
 }));
-vi.mock("../../utils/ai-ready/ai-ready", () => ({
+vi.mock("@/utils/ai-ready/ai-ready", () => ({
   ensureAi: ai.ready,
   useAiProblem: ai.problem,
   openAiSettings: ai.openSettings,
 }));
-vi.mock("../../utils/ai/ai", async (original) => ({ ...(await original<object>()), ask: ai.ask }));
+vi.mock("@/utils/ai/ai", async (original) => ({ ...(await original<object>()), ask: ai.ask }));
 
 const DETAILS: Details = {
   id: "PR_1",

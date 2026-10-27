@@ -3,20 +3,25 @@
 // down in the menu bar. Rust runs them (src-tauri/src/review.rs); this edits them.
 
 import { LINES_PER_HOUR } from "@focus-diff/core/estimate";
-import { Button } from "@focus-diff/design-system/components/button";
-import { Input } from "@focus-diff/design-system/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@focus-diff/design-system/components/select";
-import { Switch } from "@focus-diff/design-system/components/switch";
-import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
 import { Plus, Timer, Trash2 } from "lucide-react";
 import { useId } from "react";
 
+import { Button } from "@/components/button/button";
+import { Input } from "@/components/input/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
+import {
+  Group,
+  Intro,
+  LinkRow,
+  Pane,
+  PRESSED_CHIP,
+  Row,
+  SwitchRow,
+  useDetail,
+} from "@/components/settings-form/settings-form";
+import { Switch } from "@/components/switch/switch";
+import { TagInput } from "@/components/tag-input/tag-input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import {
   newSession,
   nextReviewTime,
@@ -28,12 +33,10 @@ import {
   type ReviewOrder,
   type ReviewSession,
   type ReviewTime,
-} from "../../utils/config/config";
-import { confirmRemove } from "../../utils/confirm/confirm";
-import { i18n, useT, type T } from "../../utils/i18n/i18n";
-import { supports } from "../../utils/platform/platform";
-import { Group, Intro, LinkRow, Pane, PRESSED_CHIP, Row, SwitchRow, useDetail } from "../settings-form/settings-form";
-import { TagInput } from "../tag-input/tag-input";
+} from "@/utils/config/config";
+import { confirmRemove } from "@/utils/confirm/confirm";
+import { i18n, useT, type T } from "@/utils/i18n/i18n";
+import { supports } from "@/utils/platform/platform";
 
 /** The week from Monday, as most of the world starts it; 0 is Sunday. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0];

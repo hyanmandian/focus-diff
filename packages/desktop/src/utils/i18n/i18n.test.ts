@@ -1,9 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { en } from "../../locales/en/index";
-import { ptBR } from "../../locales/pt-BR/index";
-import { resolveLocale, translator, type Dictionary, type Plural } from "./i18n";
+import { en } from "@/locales/en/index";
+import { ptBR } from "@/locales/pt-BR/index";
+import { resolveLocale, translator, type Dictionary, type Plural } from "@/utils/i18n/i18n";
 
 /** Every message of a dictionary, by its whole key. */
 const messages = (dictionary: Dictionary) =>
@@ -25,7 +25,7 @@ const shape = (dictionary: Dictionary) =>
 /** The module afresh, as a new window loads it. */
 function fresh() {
   vi.resetModules();
-  return import("./i18n");
+  return import("@/utils/i18n/i18n");
 }
 
 /** Storage that throws, as WebKit's can; restore it before the test ends (the setup clears it). */

@@ -4,8 +4,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { bridge, type DraftsState } from "../../utils/bridge/bridge";
-import type { Details } from "../../utils/details/details";
+import { bridge, type DraftsState } from "@/utils/bridge/bridge";
+import type { Details } from "@/utils/details/details";
 import {
   discardPending,
   loadPending,
@@ -14,8 +14,8 @@ import {
   toPut,
   unsent,
   type PendingReview,
-} from "../../utils/pending/pending";
-import type { Draft, PullRef, Thread } from "../../utils/review/review";
+} from "@/utils/pending/pending";
+import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const keptKey = (prId: string) => `drafts:${prId}`;
 

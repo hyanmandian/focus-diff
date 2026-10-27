@@ -1,20 +1,30 @@
 // The person's own buttons on pull requests: each runs its steps in order, from the panel and the
 // review window. Commands ask for permission the first time they run (in Rust, not here).
 
-import { Button } from "@focus-diff/design-system/components/button";
+import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
+import { useId } from "react";
+
+import { Button } from "@/components/button/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { Input } from "@focus-diff/design-system/components/input";
-import { Label } from "@focus-diff/design-system/components/label";
-import { Textarea } from "@focus-diff/design-system/components/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@focus-diff/design-system/components/toggle-group";
-import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
-import { useId } from "react";
-
+} from "@/components/dropdown-menu/dropdown-menu";
+import { Input } from "@/components/input/input";
+import { Label } from "@/components/label/label";
+import {
+  Group,
+  LinkRow,
+  Pane,
+  Row,
+  SwitchRow,
+  TWO_LINE_ITEM,
+  useDetail,
+} from "@/components/settings-form/settings-form";
+import { TagInput } from "@/components/tag-input/tag-input";
+import { Textarea } from "@/components/textarea/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import {
   newAction,
   newId,
@@ -23,12 +33,10 @@ import {
   type ActionChoice,
   type ActionStep,
   type Config,
-} from "../../utils/config/config";
-import { confirmRemove } from "../../utils/confirm/confirm";
-import { i18n, useT, type T } from "../../utils/i18n/i18n";
-import { supports } from "../../utils/platform/platform";
-import { Group, LinkRow, Pane, Row, SwitchRow, TWO_LINE_ITEM, useDetail } from "../settings-form/settings-form";
-import { TagInput } from "../tag-input/tag-input";
+} from "@/utils/config/config";
+import { confirmRemove } from "@/utils/confirm/confirm";
+import { i18n, useT, type T } from "@/utils/i18n/i18n";
+import { supports } from "@/utils/platform/platform";
 
 /** Each kind of step as it starts, fresh each time. */
 const NEW_STEP: { [K in ActionStep["kind"]]: () => Extract<ActionStep, { kind: K }> } = {

@@ -1,23 +1,23 @@
 // What every comment has around its words, in a conversation or in the Overview: reactions (seen,
 // and given, at once), and a menu to copy a link to it, quote it, or edit and delete your own.
 
-import { Button } from "@focus-diff/design-system/components/button";
+import { Copy, MoreHorizontal, Pencil, Quote, SmilePlus, Trash2 } from "lucide-react";
+import { useState } from "react";
+
+import { Button } from "@/components/button/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@focus-diff/design-system/components/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
-import { cn } from "@focus-diff/design-system/utils/cn";
-import { Copy, MoreHorizontal, Pencil, Quote, SmilePlus, Trash2 } from "lucide-react";
-import { useState } from "react";
-
-import { useConversationApi } from "../../hooks/use-conversation/use-conversation";
-import { EMOJI, REACTIONS, toggled, type Reaction, type ReactionContent } from "../../utils/comments/comments";
-import { useT } from "../../utils/i18n/i18n";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { cn } from "@/utils/cn/cn";
+import { EMOJI, REACTIONS, toggled, type Reaction, type ReactionContent } from "@/utils/comments/comments";
+import { useT } from "@/utils/i18n/i18n";
 
 /** Reactions shown as given at once; if GitHub refuses, they go back. */
 export function useReactions(subject: string, given: Reaction[]) {

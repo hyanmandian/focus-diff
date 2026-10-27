@@ -3,14 +3,14 @@
 // footnote, and rows inside them with the label on the left and the control on the right, or, for
 // wide controls, below it.
 
-import { Switch } from "@focus-diff/design-system/components/switch";
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
-import type { Queue } from "../../utils/config/config";
-import { useT } from "../../utils/i18n/i18n";
-import { PANE_META, type PaneId } from "../../utils/settings-panes/settings-panes";
+import { Switch } from "@/components/switch/switch";
+import { cn } from "@/utils/cn/cn";
+import type { Queue } from "@/utils/config/config";
+import { useT } from "@/utils/i18n/i18n";
+import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 
 /** A queue's colour, as a fill: the system colours (the -ic ones are for text). */
 export const TONE_FILL: Record<Queue["tone"], string> = {

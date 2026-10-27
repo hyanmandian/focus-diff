@@ -2,18 +2,18 @@
 // in a batch and committed together. Only offered when you can push to the pull request's branch,
 // and only for suggestions that still apply (not outdated, resolved, or on removed lines).
 
-import { Button } from "@focus-diff/design-system/components/button";
-import { Input } from "@focus-diff/design-system/components/input";
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@focus-diff/design-system/components/popover";
-import { Textarea } from "@focus-diff/design-system/components/textarea";
 import { GitCommitHorizontal, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
-import { useConversationApi, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import { defaultHeadline, type Applied } from "../../utils/commit/commit";
-import { useT } from "../../utils/i18n/i18n";
-import type { Thread, ThreadComment } from "../../utils/review/review";
-import { suggestionsIn } from "../../utils/suggestion/suggestion";
+import { Button } from "@/components/button/button";
+import { Input } from "@/components/input/input";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
+import { Textarea } from "@/components/textarea/textarea";
+import { useConversationApi, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { defaultHeadline, type Applied } from "@/utils/commit/commit";
+import { useT } from "@/utils/i18n/i18n";
+import type { Thread, ThreadComment } from "@/utils/review/review";
+import { suggestionsIn } from "@/utils/suggestion/suggestion";
 
 /** Why a comment's suggestion can't be committed, if it can't. Their words: t(`review.cantApply.${why}`). */
 function whyNot(thread: Thread, comment: ThreadComment, count: number) {

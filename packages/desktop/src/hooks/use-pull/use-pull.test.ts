@@ -2,16 +2,16 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { GitHubError } from "../../utils/bridge/bridge";
-import type { CheckItem } from "../../utils/checks/checks";
-import type { Commit, Commits } from "../../utils/commits/commits";
-import type { Details } from "../../utils/details/details";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Manage } from "../../utils/manage/manage";
-import type { MergeView } from "../../utils/merging/merging";
-import type { PullRef, Thread } from "../../utils/review/review";
-import type { TimelinePage } from "../../utils/timeline/timeline";
-import { usePull } from "./use-pull";
+import { usePull } from "@/hooks/use-pull/use-pull";
+import { GitHubError } from "@/utils/bridge/bridge";
+import type { CheckItem } from "@/utils/checks/checks";
+import type { Commit, Commits } from "@/utils/commits/commits";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Manage } from "@/utils/manage/manage";
+import type { MergeView } from "@/utils/merging/merging";
+import type { PullRef, Thread } from "@/utils/review/review";
+import type { TimelinePage } from "@/utils/timeline/timeline";
 
 // The hook brings together the pull request's state, commits, checks, timeline and actions, each
 // a util of its own (manage.ts, commits.ts, checks.ts, timeline.ts, merging.ts): here, what they
@@ -38,18 +38,18 @@ const u = vi.hoisted(() => ({
   loadTimeline: vi.fn<(ref: unknown, before?: string | null) => Promise<unknown>>(),
   call: vi.fn<(name: string, ...args: unknown[]) => Promise<void>>(),
 }));
-vi.mock("../../utils/manage/manage", async (original) => ({
+vi.mock("@/utils/manage/manage", async (original) => ({
   ...(await original<object>()),
   useManage: () => ({ manage: u.manage, reload: u.reloadManage, patch: u.patch }),
   closePull: (id: string) => u.call("closePull", id),
   convertToDraft: (id: string) => u.call("convertToDraft", id),
   reopenPull: (id: string) => u.call("reopenPull", id),
 }));
-vi.mock("../../utils/commits/commits", async (original) => ({
+vi.mock("@/utils/commits/commits", async (original) => ({
   ...(await original<object>()),
   useCommits: () => u.commits,
 }));
-vi.mock("../../utils/checks/checks", async (original) => ({
+vi.mock("@/utils/checks/checks", async (original) => ({
   ...(await original<object>()),
   useChecks: () => u.checks,
   awaitingApproval: u.awaitingApproval,
@@ -57,11 +57,11 @@ vi.mock("../../utils/checks/checks", async (original) => ({
   rerunAll: u.rerunAll,
   rerunFailed: u.rerunFailed,
 }));
-vi.mock("../../utils/details/details", async (original) => ({
+vi.mock("@/utils/details/details", async (original) => ({
   ...(await original<object>()),
   markReady: (d: { id: string }) => u.call("markReady", d.id),
 }));
-vi.mock("../../utils/merging/merging", () => ({
+vi.mock("@/utils/merging/merging", () => ({
   loadMergeState: u.loadMergeState,
   mergeView: u.mergeView,
   mergePull: (d: { id: string }, method: string, text?: unknown) => u.call("mergePull", d.id, method, text),
@@ -72,7 +72,7 @@ vi.mock("../../utils/merging/merging", () => ({
   updateBranch: (d: { id: string }, how: string) => u.call("updateBranch", d.id, how),
   deleteBranch: (_m: unknown, branch: string) => u.call("deleteBranch", branch),
 }));
-vi.mock("../../utils/timeline/timeline", () => ({
+vi.mock("@/utils/timeline/timeline", () => ({
   loadTimeline: u.loadTimeline,
   // Each node as an event of its own, to see their order.
   mapTimeline: (nodes: Array<{ id: string }>) => nodes.map((n) => n.id),

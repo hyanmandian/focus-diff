@@ -3,13 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { defaultConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "../../utils/config/config";
-import type { Event, Item, PullRequest } from "../../utils/engine/engine";
-import { emit, fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { setPlatform } from "../../utils/platform/platform";
-import { start, type ReviewRun, type Status } from "../../utils/store/store";
-import { Panel } from "./panel";
+import { Panel } from "@/components/panel/panel";
+import { defaultConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/utils/config/config";
+import type { Event, Item, PullRequest } from "@/utils/engine/engine";
+import { emit, fakePlatform, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
+import { setPlatform } from "@/utils/platform/platform";
+import { start, type ReviewRun, type Status } from "@/utils/store/store";
 
 const HOUR = 3_600_000;
 let serial = 0;

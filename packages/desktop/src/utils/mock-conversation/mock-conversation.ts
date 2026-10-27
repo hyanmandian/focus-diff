@@ -4,7 +4,7 @@
 // delete and react to, a long conversation, a long timeline, @mentions, #references, saved replies,
 // previews. Writes change what's answered next, for the page's life.
 
-import { type Args, fail, isRecord, json, maybeStr, str, texts, wait } from "../mock-ipc/mock-ipc";
+import { type Args, fail, isRecord, json, maybeStr, str, texts, wait } from "@/utils/mock-ipc/mock-ipc";
 
 type Actor = { __typename: string; login: string; name: string; avatarUrl: string; databaseId?: number };
 type Reply = { status: number; body: string };

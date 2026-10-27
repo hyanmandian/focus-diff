@@ -5,8 +5,8 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
-import { clearMocks, fakePlatform } from "../fake-platform/fake-platform";
-import { setPlatform } from "../platform/platform";
+import { clearMocks, fakePlatform } from "@/utils/fake-platform/fake-platform";
+import { setPlatform } from "@/utils/platform/platform";
 
 setPlatform(fakePlatform);
 

@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { defaultConfig, type Action, type ActionStep, type Config } from "../../utils/config/config";
-import { fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { setPlatform } from "../../utils/platform/platform";
-import { Actions } from "./settings-actions";
+import { Actions } from "@/components/settings-actions/settings-actions";
+import { defaultConfig, type Action, type ActionStep, type Config } from "@/utils/config/config";
+import { fakePlatform, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
+import { setPlatform } from "@/utils/platform/platform";
 
 afterEach(() => {
   setLanguage("en");

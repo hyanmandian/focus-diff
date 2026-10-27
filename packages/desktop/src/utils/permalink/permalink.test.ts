@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { diffLines, diffLink, linesAnchor, permalink, sha256 } from "./permalink";
+import { diffLines, diffLink, linesAnchor, permalink, sha256 } from "@/utils/permalink/permalink";
 
 const repo = { owner: "acme", repo: "web" };
 

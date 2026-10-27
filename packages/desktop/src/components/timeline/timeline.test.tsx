@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { i18n } from "../../utils/i18n/i18n";
-import type { Args } from "../../utils/platform/platform";
-import type { TimelineEvent } from "../../utils/timeline/timeline";
-import { describe as words, TimelineRow } from "./timeline";
+import { describe as words, TimelineRow } from "@/components/timeline/timeline";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { i18n } from "@/utils/i18n/i18n";
+import type { Args } from "@/utils/platform/platform";
+import type { TimelineEvent } from "@/utils/timeline/timeline";
 
 const at = "2026-10-20T10:00:00Z";
 const base = { id: "E1", at, actor: "ana" };

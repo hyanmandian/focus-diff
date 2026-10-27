@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { GitHubError } from "../bridge/bridge";
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import type { Author } from "../suggestion/suggestion";
-import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "./commit";
+import { GitHubError } from "@/utils/bridge/bridge";
+import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "@/utils/commit/commit";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
+import type { Author } from "@/utils/suggestion/suggestion";
 
 const ana = { login: "ana", name: "Ana Lima", databaseId: 11 };
 const item = (path: string, start: number, lines: string[], author: Author = ana): Applied => ({

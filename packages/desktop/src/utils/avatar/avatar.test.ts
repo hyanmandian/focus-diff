@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { fakePlatform } from "../fake-platform/fake-platform";
-import { setPlatform } from "../platform/platform";
-import { avatar } from "./avatar";
+import { avatar } from "@/utils/avatar/avatar";
+import { fakePlatform } from "@/utils/fake-platform/fake-platform";
+import { setPlatform } from "@/utils/platform/platform";
 
 const github = "https://avatars.githubusercontent.com/u/11?v=4&size=420";
 

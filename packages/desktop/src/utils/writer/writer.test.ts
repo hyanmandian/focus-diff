@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 type Request = { method: string; path: string; body: string; accept: unknown };
 
@@ -35,7 +35,7 @@ const person = (login: string, name: string | null = null) => ({ login, name, av
 /** The module afresh, its memory empty, as a new window has it. */
 function load() {
   vi.resetModules();
-  return import("./writer");
+  return import("@/utils/writer/writer");
 }
 
 describe("emoji", () => {

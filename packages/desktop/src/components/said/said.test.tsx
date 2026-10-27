@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { ConversationProvider, type ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import type { Reaction, ReactionContent } from "../../utils/comments/comments";
-import { fakeConversation } from "../../utils/mock-pull/mock-pull";
-import { later } from "../../utils/mock-render/mock-render";
-import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "./said";
+import { CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
+import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import type { Reaction, ReactionContent } from "@/utils/comments/comments";
+import { fakeConversation } from "@/utils/mock-pull/mock-pull";
+import { later } from "@/utils/mock-render/mock-render";
 
 type React = ConversationApi["react"];
 

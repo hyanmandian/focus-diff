@@ -49,33 +49,6 @@ Merging the desktop's release pull request (tagged `desktop-v…`, see the root 
 
 - `src-tauri/src/` — Rust: windows and commands (`lib.rs`), the queue engine and its cache (`engine.rs`, with tests), the refresh loop, notifications and seen state (`watch.rs`), the tray icon (`tray.rs`), GitHub access (`github.rs`), the AI adapters (`ai.rs`) and the project checkouts they read (`checkout.rs`), custom actions' commands (`actions.rs`), updates (`update.rs`).
 - `src/entries/` — the four pages (panel, settings, setup, review): each plugs in the Tauri platform (`src/utils/tauri-platform/`) and draws a screen.
-- `src/components/`, `src/hooks/`, `src/utils/` — the screens and their logic: config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer, and the sample data (`src/utils/mock/`) for working on the pages in a browser, never part of a build. `src/locales/` holds their English and Brazilian Portuguese messages, `src/styles/` their styles.
+- `src/components/`, `src/hooks/`, `src/utils/` — the screens and their logic: config, the panel's store (follows Rust's snapshots), GitHub details and review data, AI prompts, actions, the sanitizer, and the sample data (`src/utils/mock/`) for working on the pages in a browser, never part of a build. The screens reach Rust only through a small platform (`src/utils/platform/`): the Tauri one in the app, the sample data's in a browser, and a fake one in unit tests (`src/utils/fake-platform/`: `mockCommands((command, args) => ...)` answers commands, `emit(event, payload)` sends events). `src/locales/` holds their English and Brazilian Portuguese messages.
+- The UI kit, in the same tree: shadcn's components on Base UI (button, tooltip, dialog, sliding-pill, file-icon, mark…) in `src/components/`, `cn` (`src/utils/cn/`), and in `src/styles/` the Mac look's tokens (`tokens.css`), shadcn's variants and the materials (`utilities.css`), a window's base styles (`base.css`) and the screens' styles (`styles.css`). `src/index.css` brings them together; `components.json` is shadcn's config.
 - `tests/` — end-to-end tests of the pages in Chromium and WebKit, on the sample data.
-
-## The screens, in other apps
-
-The screens never talk to Tauri: they reach the app they run in through a small `Platform` (`src/utils/platform/`),
-which each app plugs in before drawing one. The browser extension runs the same screens this way, importing them by
-the paths `package.json`'s `exports` names (`@focus-diff/desktop/components/panel`, `@focus-diff/desktop/utils/platform`)
-and building the source itself.
-
-```ts
-interface Platform {
-  invoke<T>(command: string, args?: Args, options?: InvokeOptions): Promise<T>; // one of the app's commands
-  listen<T>(event: string, handler: (payload: T) => void): Promise<Unlisten>; // an event from the app or any window
-  listenToWindow<T>(event: string, handler: (payload: T) => void): Promise<Unlisten>; // this window's own
-  emitTo(window: string, event: string, payload?: unknown): Promise<void>; // an event to another window
-  version(): Promise<string>;
-  closeWindow(): Promise<void>;
-  mediaUrl?(kind: "avatar" | "media", url: string): string; // where GitHub's pictures load from, if the app keeps them
-}
-```
-
-The commands and events are this app's, by name and payload (`src/utils/bridge` lists them, `src-tauri/src/lib.rs`
-answers them); another app answers the same ones its own way. Inside the screens, imports are relative, as another
-app builds these files with its own `@/`; the desktop's own files (entries, the Tauri platform) use `@/`. The screens'
-styles are `@focus-diff/desktop/styles.css`, after the design system's; Settings adds
-`@focus-diff/desktop/components/settings.css`.
-
-A unit test answers commands with `mockCommands((command, args) => ...)` and sends events with `emit(event, payload)`
-(`src/utils/fake-platform`).

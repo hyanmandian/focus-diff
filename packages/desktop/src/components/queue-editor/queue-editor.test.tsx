@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { TEMPLATES, type Queue, type QueueKind } from "../../utils/config/config";
-import { i18n, setLanguage } from "../../utils/i18n/i18n";
-import { PATH_PRESETS, QueueEditor, queueSummary } from "./queue-editor";
+import { PATH_PRESETS, QueueEditor, queueSummary } from "@/components/queue-editor/queue-editor";
+import { TEMPLATES, type Queue, type QueueKind } from "@/utils/config/config";
+import { i18n, setLanguage } from "@/utils/i18n/i18n";
 
 const make = (kind: QueueKind, patch: Partial<Queue> = {}): Queue => ({ ...TEMPLATES[kind].make(), ...patch });
 

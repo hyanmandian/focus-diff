@@ -1,4 +1,0 @@
-/* A new app's stylesheet in one import: Tailwind, the design system, and the screens' styles. */
-@import "tailwindcss";
-@import "@focus-diff/design-system/styles.css";
-@import "./styles.css";

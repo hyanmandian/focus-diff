@@ -1,8 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
 import {
   allRuns,
   approveRun,
@@ -20,7 +18,9 @@ import {
   toCheck,
   useChecks,
   type CheckItem,
-} from "./checks";
+} from "@/utils/checks/checks";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const ref = { owner: "acme", repo: "web", number: 7 };
 

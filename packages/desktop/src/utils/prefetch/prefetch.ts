@@ -2,12 +2,12 @@
 // on the queue it's in. The review window makes the same requests, which the app answers from what
 // it kept (github.rs), and the copy goes to disk (kept.ts), so the window opens with it there.
 
-import { loadCommits } from "../commits/commits";
-import { loadDetails } from "../details/details";
-import { keep, keptCurrent } from "../kept/kept";
-import { loadManage } from "../manage/manage";
-import { loadFiles, loadThreads } from "../review/review";
-import { shelve } from "../shelf/shelf";
+import { loadCommits } from "@/utils/commits/commits";
+import { loadDetails } from "@/utils/details/details";
+import { keep, keptCurrent } from "@/utils/kept/kept";
+import { loadManage } from "@/utils/manage/manage";
+import { loadFiles, loadThreads } from "@/utils/review/review";
+import { shelve } from "@/utils/shelf/shelf";
 
 const fetched = new Map<string, number>();
 

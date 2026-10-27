@@ -1,15 +1,20 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { Reaction } from "../../utils/comments/comments";
-import { StaleHead, type Applied } from "../../utils/commit/commit";
-import type { Conversation } from "../../utils/conversation/conversation";
-import type { Details } from "../../utils/details/details";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Draft, PullRef, ReviewFile, Thread, ThreadComment } from "../../utils/review/review";
-import { SuggestionError } from "../../utils/suggestion/suggestion";
-import type { Pending } from "../use-pending/use-pending";
-import { copyText, ConversationProvider, useConversation, useConversationApi } from "./use-conversation";
+import {
+  copyText,
+  ConversationProvider,
+  useConversation,
+  useConversationApi,
+} from "@/hooks/use-conversation/use-conversation";
+import type { Pending } from "@/hooks/use-pending/use-pending";
+import type { Reaction } from "@/utils/comments/comments";
+import { StaleHead, type Applied } from "@/utils/commit/commit";
+import type { Conversation } from "@/utils/conversation/conversation";
+import type { Details } from "@/utils/details/details";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Draft, PullRef, ReviewFile, Thread, ThreadComment } from "@/utils/review/review";
+import { SuggestionError } from "@/utils/suggestion/suggestion";
 
 // GitHub's side of comments, the conversation and commits are utils of their own (comments.ts,
 // conversation.ts, commit.ts, review.ts): here, what they answer.
@@ -21,21 +26,21 @@ const gh = vi.hoisted(() => ({
   commit: vi.fn<(c: unknown) => Promise<void>>(),
   resolve: vi.fn<(thread: { id: string }, resolved: boolean) => Promise<void>>(),
 }));
-vi.mock("../../utils/conversation/conversation", async (original) => ({
+vi.mock("@/utils/conversation/conversation", async (original) => ({
   ...(await original<object>()),
   loadConversation: gh.load,
 }));
-vi.mock("../../utils/comments/comments", async (original) => ({
+vi.mock("@/utils/comments/comments", async (original) => ({
   ...(await original<object>()),
   edit: gh.edit,
   remove: gh.remove,
   react: gh.react,
 }));
-vi.mock("../../utils/commit/commit", async (original) => ({
+vi.mock("@/utils/commit/commit", async (original) => ({
   ...(await original<object>()),
   commitSuggestions: gh.commit,
 }));
-vi.mock("../../utils/review/review", async (original) => ({ ...(await original<object>()), setResolved: gh.resolve }));
+vi.mock("@/utils/review/review", async (original) => ({ ...(await original<object>()), setResolved: gh.resolve }));
 
 const REF: PullRef = { owner: "acme", repo: "api", number: 42 };
 const PR = "PR_1";

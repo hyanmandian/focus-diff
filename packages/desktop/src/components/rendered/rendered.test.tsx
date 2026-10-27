@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Source } from "../../utils/contents/contents";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Args } from "../../utils/platform/platform";
-import type { ReviewFile } from "../../utils/review/review";
-import { isMarkdown, Rendered } from "./rendered";
+import { isMarkdown, Rendered } from "@/components/rendered/rendered";
+import type { Source } from "@/utils/contents/contents";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
+import type { ReviewFile } from "@/utils/review/review";
 
 type Reply = { status: number; body: string };
 

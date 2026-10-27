@@ -3,8 +3,8 @@
 // elsewhere, deployments. GitHub's timeline, a page at a time from the newest, each event made
 // compact (runs of commits by one person, and of label changes, read as one line).
 
-import { graphql } from "../bridge/bridge";
-import type { PullRef } from "../review/review";
+import { graphql } from "@/utils/bridge/bridge";
+import type { PullRef } from "@/utils/review/review";
 
 type Who = string | null;
 type Commit = { oid: string; short: string; headline: string; url: string };

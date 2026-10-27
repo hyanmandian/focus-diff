@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { useDiagrams } from "./diagrams";
+import { useDiagrams } from "@/utils/diagrams/diagrams";
 
 const mermaid = vi.hoisted(() => ({
   initialize: vi.fn<(config: { theme: string }) => void>(),

@@ -1,11 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { DraftsState } from "../../utils/bridge/bridge";
-import type { Details } from "../../utils/details/details";
-import { emit, mockCommands } from "../../utils/fake-platform/fake-platform";
-import type { Draft, PullRef, Thread } from "../../utils/review/review";
-import { published, usePending } from "./use-pending";
+import { published, usePending } from "@/hooks/use-pending/use-pending";
+import type { DraftsState } from "@/utils/bridge/bridge";
+import type { Details } from "@/utils/details/details";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const REF: PullRef = { owner: "acme", repo: "api", number: 42 };
 const PR = "PR_1";

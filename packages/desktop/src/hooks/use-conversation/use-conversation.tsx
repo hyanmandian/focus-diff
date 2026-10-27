@@ -5,25 +5,26 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { bridge } from "../../utils/bridge/bridge";
+import { published, type Pending } from "@/hooks/use-pending/use-pending";
+import { bridge } from "@/utils/bridge/bridge";
 import {
   edit as editOnGitHub,
   react as reactOnGitHub,
   remove as removeOnGitHub,
   type Reaction,
   type ReactionContent,
-} from "../../utils/comments/comments";
-import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "../../utils/commit/commit";
+} from "@/utils/comments/comments";
+import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "@/utils/commit/commit";
 import {
   keepConversation,
   loadConversation,
   readKeptConversation,
   type Conversation,
   type ConversationEntry,
-} from "../../utils/conversation/conversation";
-import type { Details } from "../../utils/details/details";
-import type { Actor } from "../../utils/engine/engine";
-import { i18n } from "../../utils/i18n/i18n";
+} from "@/utils/conversation/conversation";
+import type { Details } from "@/utils/details/details";
+import type { Actor } from "@/utils/engine/engine";
+import { i18n } from "@/utils/i18n/i18n";
 import {
   setResolved,
   type Draft,
@@ -31,10 +32,9 @@ import {
   type ReviewFile,
   type Thread,
   type ThreadComment,
-} from "../../utils/review/review";
-import { SuggestionError } from "../../utils/suggestion/suggestion";
-import type { Person } from "../../utils/writing/writing";
-import { published, type Pending } from "../use-pending/use-pending";
+} from "@/utils/review/review";
+import { SuggestionError } from "@/utils/suggestion/suggestion";
+import type { Person } from "@/utils/writing/writing";
 
 export type ConversationApi = {
   /** "owner/name", for previews and completions. */

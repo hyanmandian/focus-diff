@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { complete, emojiList, link, quote, rankEmoji, rankPeople, tokenAt, wrap } from "./writing";
+import { complete, emojiList, link, quote, rankEmoji, rankPeople, tokenAt, wrap } from "@/utils/writing/writing";
 
 describe("tokenAt", () => {
   it("finds the mention or reference being typed", () => {

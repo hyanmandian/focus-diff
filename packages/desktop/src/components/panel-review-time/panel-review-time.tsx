@@ -5,10 +5,10 @@
 import { Timer } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { bridge } from "../../utils/bridge/bridge";
-import type { Item } from "../../utils/engine/engine";
-import { useT } from "../../utils/i18n/i18n";
-import { markSeen, type ReviewRun, type RunPull } from "../../utils/store/store";
+import { bridge } from "@/utils/bridge/bridge";
+import type { Item } from "@/utils/engine/engine";
+import { useT } from "@/utils/i18n/i18n";
+import { markSeen, type ReviewRun, type RunPull } from "@/utils/store/store";
 
 /** Whole minutes left, rounded up, as the menu bar shows them. */
 const minutesLeft = (endsAt: number, now: number) => Math.max(0, Math.ceil((endsAt - now) / 60_000));

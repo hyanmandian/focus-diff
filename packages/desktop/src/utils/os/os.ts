@@ -1,5 +1,5 @@
-// Which operating system the page runs on, for what differs between them: the design system's tokens
-// (@focus-diff/design-system/styles/tokens.css) follow <html data-platform>, and the few behaviours
+// Which operating system the page runs on, for what differs between them: the tokens
+// (styles/tokens.css) follow <html data-platform>, and the few behaviours
 // tokens can't say (shortcut glyphs) come from here.
 // Set as soon as this loads (utils/theme/theme.ts brings it into every page), before anything is drawn.
 
@@ -26,7 +26,7 @@ const root = document.documentElement;
 root.dataset.platform = os;
 
 // A window that isn't the key one draws its selection and accent controls in gray, as AppKit's do
-// (the design system's tokens, [data-window-inactive]). The web view's own focus follows the window's.
+// (styles/tokens.css, [data-window-inactive]). The web view's own focus follows the window's.
 const follow = () => {
   root.toggleAttribute("data-window-inactive", !document.hasFocus());
 };

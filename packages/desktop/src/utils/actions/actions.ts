@@ -2,9 +2,9 @@
 // fails. GitHub steps go through the app's GitHub proxy; commands through Rust, which reads them
 // from the saved config itself and asks before running one for the first time.
 
-import { bridge, github, type ActionContext } from "../bridge/bridge";
-import type { Action, ActionStep } from "../config/config";
-import { i18n } from "../i18n/i18n";
+import { bridge, github, type ActionContext } from "@/utils/bridge/bridge";
+import type { Action, ActionStep } from "@/utils/config/config";
+import { i18n } from "@/utils/i18n/i18n";
 
 /** {number} {title} {url} {repo} {author} {me} in text. In links (`encode`), values are encoded,
  *  except one that starts the link, like a bare {url}. */

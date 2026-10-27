@@ -4,11 +4,11 @@
 
 import { useEffect, useState } from "react";
 
-import { PROVIDERS } from "../ai/ai";
-import { bridge, type AiStatus } from "../bridge/bridge";
-import type { AiProvider, Config } from "../config/config";
-import { i18n } from "../i18n/i18n";
-import { platform } from "../platform/platform";
+import { PROVIDERS } from "@/utils/ai/ai";
+import { bridge, type AiStatus } from "@/utils/bridge/bridge";
+import type { AiProvider, Config } from "@/utils/config/config";
+import { i18n } from "@/utils/i18n/i18n";
+import { platform } from "@/utils/platform/platform";
 
 let asked: { at: number; statuses: Promise<AiStatus[]> } | null = null;
 

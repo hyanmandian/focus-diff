@@ -2,7 +2,10 @@
 // buttons while there's room, as items of a pull-down menu once there isn't. One that asks first
 // asks with a native alert, as the Mac does before something that can't be taken back.
 
-import { Button } from "@focus-diff/design-system/components/button";
+import { ChevronDown, Loader2, Zap } from "lucide-react";
+import { useState } from "react";
+
+import { Button } from "@/components/button/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,15 +14,12 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { cn } from "@focus-diff/design-system/utils/cn";
-import { ChevronDown, Loader2, Zap } from "lucide-react";
-import { useState } from "react";
-
-import { runAction } from "../../utils/actions/actions";
-import { bridge, type ActionContext } from "../../utils/bridge/bridge";
-import { choiceAction, type Action } from "../../utils/config/config";
-import { useT } from "../../utils/i18n/i18n";
+} from "@/components/dropdown-menu/dropdown-menu";
+import { runAction } from "@/utils/actions/actions";
+import { bridge, type ActionContext } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { choiceAction, type Action } from "@/utils/config/config";
+import { useT } from "@/utils/i18n/i18n";
 
 type Result = (message: string, ok: boolean) => void;
 

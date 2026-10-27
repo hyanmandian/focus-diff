@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 
-import { bridge, GitHubError } from "../../utils/bridge/bridge";
+import { bridge, GitHubError } from "@/utils/bridge/bridge";
 import {
   allRuns,
   approveRun,
@@ -16,12 +16,12 @@ import {
   rerunFailed,
   useChecks,
   type CheckItem,
-} from "../../utils/checks/checks";
-import { sinceReview, useCommits, type Range } from "../../utils/commits/commits";
-import type { Details } from "../../utils/details/details";
-import { markReady } from "../../utils/details/details";
-import { i18n } from "../../utils/i18n/i18n";
-import { canWrite, closePull, convertToDraft, reopenPull, useManage } from "../../utils/manage/manage";
+} from "@/utils/checks/checks";
+import { sinceReview, useCommits, type Range } from "@/utils/commits/commits";
+import type { Details } from "@/utils/details/details";
+import { markReady } from "@/utils/details/details";
+import { i18n } from "@/utils/i18n/i18n";
+import { canWrite, closePull, convertToDraft, reopenPull, useManage } from "@/utils/manage/manage";
 import {
   deleteBranch,
   dequeue,
@@ -33,9 +33,9 @@ import {
   mergeView,
   updateBranch,
   type Method,
-} from "../../utils/merging/merging";
-import type { PullRef, Thread } from "../../utils/review/review";
-import { loadTimeline, mapTimeline, type TimelinePage } from "../../utils/timeline/timeline";
+} from "@/utils/merging/merging";
+import type { PullRef, Thread } from "@/utils/review/review";
+import { loadTimeline, mapTimeline, type TimelinePage } from "@/utils/timeline/timeline";
 
 type Options = {
   prId: string;

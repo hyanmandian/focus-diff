@@ -4,13 +4,13 @@
 
 import { vi } from "vite-plus/test";
 
-import type { ConversationApi } from "../../hooks/use-conversation/use-conversation";
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import type { CheckItem } from "../checks/checks";
-import type { Commit } from "../commits/commits";
-import type { Details } from "../details/details";
-import type { Manage } from "../manage/manage";
-import type { MergeView } from "../merging/merging";
+import type { ConversationApi } from "@/hooks/use-conversation/use-conversation";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import type { CheckItem } from "@/utils/checks/checks";
+import type { Commit } from "@/utils/commits/commits";
+import type { Details } from "@/utils/details/details";
+import type { Manage } from "@/utils/manage/manage";
+import type { MergeView } from "@/utils/merging/merging";
 
 export const octocat = { __typename: "User", login: "octocat", name: "Ana Lima", avatarUrl: "https://a/octocat" };
 

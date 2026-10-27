@@ -2,11 +2,11 @@
 // github.com shows them too, and a review started on the site carries on here), while the window
 // shows them at once from what's on their way (src-tauri/src/drafts.rs) and what was last seen.
 
-import { bridge, graphql, type DraftChange, type DraftsState } from "../bridge/bridge";
-import { mutate } from "../comments/comments";
-import type { Details } from "../details/details";
-import { i18n } from "../i18n/i18n";
-import type { Draft, PullRef, Thread } from "../review/review";
+import { bridge, graphql, type DraftChange, type DraftsState } from "@/utils/bridge/bridge";
+import { mutate } from "@/utils/comments/comments";
+import type { Details } from "@/utils/details/details";
+import { i18n } from "@/utils/i18n/i18n";
+import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 /** One of your pending review's comments, as GitHub has it. */
 export type PendingComment = {

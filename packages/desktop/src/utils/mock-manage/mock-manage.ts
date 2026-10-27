@@ -2,7 +2,7 @@
 // checks with their logs, commits and ranges, reviewers, labels and the timeline can be worked on
 // and screenshotted in a plain browser. Writes succeed and change what's asked next.
 
-import { type Args, isRecord, json, str, strings, wait } from "../mock-ipc/mock-ipc";
+import { type Args, isRecord, json, str, strings, wait } from "@/utils/mock-ipc/mock-ipc";
 
 type Reply = { status: number; body: string };
 

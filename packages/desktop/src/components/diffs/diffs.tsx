@@ -6,17 +6,6 @@
 // them after the rest (rich-diff.tsx).
 
 import type { OnScreen } from "@focus-diff/core/active-time";
-import { Button } from "@focus-diff/design-system/components/button";
-import { Checkbox } from "@focus-diff/design-system/components/checkbox";
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@focus-diff/design-system/components/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@focus-diff/design-system/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@focus-diff/design-system/components/tooltip";
 import {
   getSingularPatch,
   parseDiffFromFile,
@@ -31,19 +20,30 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { BookOpen, Code, MessageSquarePlus, MoreHorizontal, Plus } from "lucide-react";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 
-import type { Exchange, Finding } from "../../utils/ai/ai";
-import type { AiAnswer } from "../../utils/bridge/bridge";
-import { bridge } from "../../utils/bridge/bridge";
-import { BinaryFile, bothVersions, type Source } from "../../utils/contents/contents";
-import { i18n, useT, type T } from "../../utils/i18n/i18n";
-import { diffLink, permalink } from "../../utils/permalink/permalink";
-import { findingSide, placeThread, shows, type Placement } from "../../utils/placement/placement";
-import { lineRange } from "../../utils/range/range";
-import type { Draft, ReviewFile, Thread } from "../../utils/review/review";
-import { ignoreWhitespace } from "../../utils/whitespace/whitespace";
-import { isMarkdown, Rendered } from "../rendered/rendered";
-import { NoPatchFile } from "../rich-diff/rich-diff";
-import { DraftView, FindingView, NewComment, ThreadView } from "../thread/thread";
+import { Button } from "@/components/button/button";
+import { Checkbox } from "@/components/checkbox/checkbox";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/context-menu/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/dropdown-menu/dropdown-menu";
+import { isMarkdown, Rendered } from "@/components/rendered/rendered";
+import { NoPatchFile } from "@/components/rich-diff/rich-diff";
+import { DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import type { Exchange, Finding } from "@/utils/ai/ai";
+import type { AiAnswer } from "@/utils/bridge/bridge";
+import { bridge } from "@/utils/bridge/bridge";
+import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
+import { i18n, useT, type T } from "@/utils/i18n/i18n";
+import { diffLink, permalink } from "@/utils/permalink/permalink";
+import { findingSide, placeThread, shows, type Placement } from "@/utils/placement/placement";
+import { lineRange } from "@/utils/range/range";
+import type { Draft, ReviewFile, Thread } from "@/utils/review/review";
+import { ignoreWhitespace } from "@/utils/whitespace/whitespace";
 
 type Annotation =
   | { kind: "thread"; thread: Thread; moved: boolean }

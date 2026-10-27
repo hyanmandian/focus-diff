@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
 import {
   defaultConfig,
   TEMPLATES,
@@ -10,11 +11,10 @@ import {
   type Queue,
   type ReviewSession,
   type ReviewTime,
-} from "../../utils/config/config";
-import { fakePlatform, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { setLanguage } from "../../utils/i18n/i18n";
-import { setPlatform } from "../../utils/platform/platform";
-import { ReviewTimePane } from "./settings-review-time";
+} from "@/utils/config/config";
+import { fakePlatform, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { setLanguage } from "@/utils/i18n/i18n";
+import { setPlatform } from "@/utils/platform/platform";
 
 beforeEach(() => {
   // A Wednesday morning.

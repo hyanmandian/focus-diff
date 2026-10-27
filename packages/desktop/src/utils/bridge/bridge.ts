@@ -1,7 +1,7 @@
 // Calls into the app's native side (the desktop's Rust, src-tauri/src/lib.rs), through its platform (utils/platform). The web views never hold the GitHub token:
 // they ask for API calls by path and Rust makes them.
-import { i18n } from "../i18n/i18n";
-import { invoke, platform, type Unlisten } from "../platform/platform";
+import { i18n } from "@/utils/i18n/i18n";
+import { invoke, platform, type Unlisten } from "@/utils/platform/platform";
 
 export type AuthSource = "keychain" | "gh";
 

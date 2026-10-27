@@ -2,14 +2,14 @@ import { learnFile, normalizeLearned } from "@focus-diff/core/estimate";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { emit, mockCommands } from "../fake-platform/fake-platform";
-import { i18n } from "../i18n/i18n";
-import { estimateHint, pullMinutes } from "./estimate";
+import { estimateHint, pullMinutes } from "@/utils/estimate/estimate";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { i18n } from "@/utils/i18n/i18n";
 
 /** The module afresh, with nothing read yet. */
 function fresh() {
   vi.resetModules();
-  return import("./estimate");
+  return import("@/utils/estimate/estimate");
 }
 
 /** What Rust gets asked to read and write of pace.json, answering reads with `kept`. */

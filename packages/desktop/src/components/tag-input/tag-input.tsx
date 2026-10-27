@@ -1,11 +1,11 @@
 // A list of short values (repositories, teams, labels, people) typed one by one: Enter or comma
 // adds, Backspace on an empty field removes the last, each has a remove button.
 
-import { cn } from "@focus-diff/design-system/utils/cn";
 import { X } from "lucide-react";
 import { useId, useState } from "react";
 
-import { useT } from "../../utils/i18n/i18n";
+import { cn } from "@/utils/cn/cn";
+import { useT } from "@/utils/i18n/i18n";
 
 type Props = {
   value: string[];

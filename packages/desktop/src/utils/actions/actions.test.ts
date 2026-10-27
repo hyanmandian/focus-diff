@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Action, ActionStep } from "../config/config";
-import { mockCommands } from "../fake-platform/fake-platform";
-import type { Args } from "../platform/platform";
-import { fill, runAction } from "./actions";
+import { fill, runAction } from "@/utils/actions/actions";
+import type { Action, ActionStep } from "@/utils/config/config";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import type { Args } from "@/utils/platform/platform";
 
 const pr = {
   number: 7,

@@ -2,13 +2,13 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Pull } from "../../hooks/use-pull/use-pull";
-import type { CheckItem } from "../../utils/checks/checks";
-import { mockCommands } from "../../utils/fake-platform/fake-platform";
-import { fakeCheck, fakeChecks, fakeManage, fakePull } from "../../utils/mock-pull/mock-pull";
-import { later } from "../../utils/mock-render/mock-render";
-import type { Args } from "../../utils/platform/platform";
-import { Checks } from "./checks";
+import { Checks } from "@/components/checks/checks";
+import type { Pull } from "@/hooks/use-pull/use-pull";
+import type { CheckItem } from "@/utils/checks/checks";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeCheck, fakeChecks, fakeManage, fakePull } from "@/utils/mock-pull/mock-pull";
+import { later } from "@/utils/mock-render/mock-render";
+import type { Args } from "@/utils/platform/platform";
 
 const pr = { owner: "acme", repo: "shop", number: 42, state: "OPEN" };
 

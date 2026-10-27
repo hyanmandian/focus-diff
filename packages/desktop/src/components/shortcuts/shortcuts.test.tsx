@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { Shortcuts } from "./shortcuts";
+import { Shortcuts } from "@/components/shortcuts/shortcuts";
 
 describe("Shortcuts", () => {
   it("lists the keys by group, as macOS writes them", () => {

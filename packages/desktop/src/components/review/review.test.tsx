@@ -3,19 +3,24 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite-plus/test";
 
-import type { NewChanges } from "../../hooks/use-new-changes/use-new-changes";
-import type { Visit } from "../../hooks/use-next-in-queue/use-next-in-queue";
-import { aiProblem, ensureAi } from "../../utils/ai-ready/ai-ready";
-import { askAboutLines, review as aiReview, type AiReview, type Finding } from "../../utils/ai/ai";
-import type { Range } from "../../utils/commits/commits";
-import { defaultConfig, loadConfig, type Config, type DiffFilter } from "../../utils/config/config";
-import { mergeBase } from "../../utils/contents/contents";
-import { comment, leaveReview, loadDetails, type Details } from "../../utils/details/details";
-import { learnFiles } from "../../utils/estimate/estimate";
-import { emit, mockCommands } from "../../utils/fake-platform/fake-platform";
-import { patchHash } from "../../utils/hashes/hashes";
-import { keep, readKept, type Kept } from "../../utils/kept/kept";
-import type { Args } from "../../utils/platform/platform";
+import type { Diffs, DiffsHandle } from "@/components/diffs/diffs";
+import type { FileTree } from "@/components/file-tree/file-tree";
+import type { FilterBar } from "@/components/filter-bar/filter-bar";
+import type { Overview } from "@/components/overview/overview";
+import { Review, type Target } from "@/components/review/review";
+import type { NewChanges } from "@/hooks/use-new-changes/use-new-changes";
+import type { Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
+import { aiProblem, ensureAi } from "@/utils/ai-ready/ai-ready";
+import { askAboutLines, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
+import type { Range } from "@/utils/commits/commits";
+import { defaultConfig, loadConfig, type Config, type DiffFilter } from "@/utils/config/config";
+import { mergeBase } from "@/utils/contents/contents";
+import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
+import { learnFiles } from "@/utils/estimate/estimate";
+import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { patchHash } from "@/utils/hashes/hashes";
+import { keep, readKept, type Kept } from "@/utils/kept/kept";
+import type { Args } from "@/utils/platform/platform";
 import {
   commentNow,
   loadFiles,
@@ -27,12 +32,7 @@ import {
   type ReviewFile,
   type Thread,
   type ViewedState,
-} from "../../utils/review/review";
-import type { Diffs, DiffsHandle } from "../diffs/diffs";
-import type { FileTree } from "../file-tree/file-tree";
-import type { FilterBar } from "../filter-bar/filter-bar";
-import type { Overview } from "../overview/overview";
-import { Review, type Target } from "./review";
+} from "@/utils/review/review";
 
 type OverviewProps = ComponentProps<typeof Overview>;
 type DiffsProps = Omit<ComponentProps<typeof Diffs>, "ref">;
@@ -144,18 +144,18 @@ const h = vi.hoisted(() => {
   return Object.assign(state, { see, make });
 });
 
-vi.mock("../../utils/os/os", () => ({
+vi.mock("@/utils/os/os", () => ({
   get isMac() {
     return h.mac;
   },
 }));
-vi.mock("../overview/overview", () => ({
+vi.mock("@/components/overview/overview", () => ({
   Overview: (props: OverviewProps) => {
     h.see.overview(props);
     return <p>Overview of #{props.details.number}</p>;
   },
 }));
-vi.mock("../diffs/diffs", async () => {
+vi.mock("@/components/diffs/diffs", async () => {
   const { forwardRef, useImperativeHandle } = await import("react");
   return {
     Diffs: forwardRef<DiffsHandle, DiffsProps>(function Diffs(props, ref) {
@@ -165,19 +165,19 @@ vi.mock("../diffs/diffs", async () => {
     }),
   };
 });
-vi.mock("../file-tree/file-tree", () => ({
+vi.mock("@/components/file-tree/file-tree", () => ({
   FileTree: (props: TreeProps) => {
     h.see.tree(props);
     return null;
   },
 }));
-vi.mock("../filter-bar/filter-bar", () => ({
+vi.mock("@/components/filter-bar/filter-bar", () => ({
   FilterBar: (props: BarProps) => {
     h.see.bar(props);
     return null;
   },
 }));
-vi.mock("../shortcuts/shortcuts", () => ({
+vi.mock("@/components/shortcuts/shortcuts", () => ({
   Shortcuts: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) =>
     open ? (
       <dialog open aria-label="Keyboard Shortcuts">
@@ -192,7 +192,7 @@ vi.mock("../shortcuts/shortcuts", () => ({
       </dialog>
     ) : null,
 }));
-vi.mock("../commits/commits", () => ({
+vi.mock("@/components/commits/commits", () => ({
   RangePicker: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => (
     <button
       type="button"
@@ -209,7 +209,7 @@ vi.mock("../commits/commits", () => ({
     return null;
   },
 }));
-vi.mock("../pull-menus/pull-menus", () => ({
+vi.mock("@/components/pull-menus/pull-menus", () => ({
   MergeMenuItems: ({ onDetails }: { onDetails: () => void }) => (
     <button type="button" onClick={onDetails}>
       Merge details
@@ -217,77 +217,77 @@ vi.mock("../pull-menus/pull-menus", () => ({
   ),
   PullMenuItems: () => null,
 }));
-vi.mock("../action-buttons/action-buttons", () => ({
+vi.mock("@/components/action-buttons/action-buttons", () => ({
   ActionButtons: ({ onResult }: { onResult: (message: string, ok: boolean) => void }) => {
     h.see.result(onResult);
     return <span>Your actions</span>;
   },
   ActionMenuItems: () => null,
 }));
-vi.mock("../suggestion/suggestion", () => ({ SuggestionBatch: () => null }));
-vi.mock("../../hooks/use-pull/use-pull", () => ({
+vi.mock("@/components/suggestion/suggestion", () => ({ SuggestionBatch: () => null }));
+vi.mock("@/hooks/use-pull/use-pull", () => ({
   usePull: (options: Options) => {
     h.see.pull(options);
     return h.pull;
   },
 }));
-vi.mock("../../hooks/use-conversation/use-conversation", () => ({
+vi.mock("@/hooks/use-conversation/use-conversation", () => ({
   ConversationProvider: ({ children }: { children: ReactNode }) => children,
   useConversation: (options: Options) => {
     h.see.talk(options);
     return { conversation: null, reload: h.reload, api: null };
   },
 }));
-vi.mock("../../hooks/use-pending/use-pending", async (original) => ({
+vi.mock("@/hooks/use-pending/use-pending", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   usePending: () => h.pending,
 }));
-vi.mock("../../hooks/use-next-in-queue/use-next-in-queue", () => ({
+vi.mock("@/hooks/use-next-in-queue/use-next-in-queue", () => ({
   useNextInQueue: (_queue: unknown, _current: string, here: Visit | null) => {
     h.see.here(here);
     return h.queue;
   },
 }));
-vi.mock("../../hooks/use-new-changes/use-new-changes", () => ({
+vi.mock("@/hooks/use-new-changes/use-new-changes", () => ({
   useNewChanges: (_repo: string, _number: number, _head: unknown, _updated: unknown, onActivity: () => void) => {
     h.see.activity(onActivity);
     return h.newChanges;
   },
 }));
-vi.mock("../../hooks/use-active-time/use-active-time", () => ({
+vi.mock("@/hooks/use-active-time/use-active-time", () => ({
   useActiveTime: (onScreen: () => unknown) => {
     h.see.screen(onScreen);
     return h.take;
   },
 }));
-vi.mock("../../utils/ai-ready/ai-ready", () => ({
+vi.mock("@/utils/ai-ready/ai-ready", () => ({
   aiProblem: vi.fn<typeof aiProblem>(),
   ensureAi: vi.fn<typeof ensureAi>(),
   useAiProblem: () => h.aiProblem,
 }));
-vi.mock("../../utils/ai/ai", async (original) => ({
+vi.mock("@/utils/ai/ai", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   review: vi.fn<typeof aiReview>(),
   askAboutLines: vi.fn<typeof askAboutLines>(),
 }));
-vi.mock("../../utils/commits/commits", () => ({ useRangeFiles: () => h.ranged }));
-vi.mock("../../utils/config/config", async (original) => ({
+vi.mock("@/utils/commits/commits", () => ({ useRangeFiles: () => h.ranged }));
+vi.mock("@/utils/config/config", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   loadConfig: vi.fn<typeof loadConfig>(),
 }));
-vi.mock("../../utils/contents/contents", () => ({ mergeBase: vi.fn<typeof mergeBase>() }));
-vi.mock("../../utils/details/details", () => ({
+vi.mock("@/utils/contents/contents", () => ({ mergeBase: vi.fn<typeof mergeBase>() }));
+vi.mock("@/utils/details/details", () => ({
   comment: vi.fn<typeof comment>(),
   leaveReview: vi.fn<typeof leaveReview>(),
   loadDetails: vi.fn<typeof loadDetails>(),
 }));
-vi.mock("../../utils/estimate/estimate", async (original) => ({
+vi.mock("@/utils/estimate/estimate", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   useLearned: () => null,
   learnFiles: vi.fn<typeof learnFiles>(),
 }));
-vi.mock("../../utils/kept/kept", () => ({ keep: vi.fn<typeof keep>(), readKept: vi.fn<typeof readKept>() }));
-vi.mock("../../utils/review/review", () => ({
+vi.mock("@/utils/kept/kept", () => ({ keep: vi.fn<typeof keep>(), readKept: vi.fn<typeof readKept>() }));
+vi.mock("@/utils/review/review", () => ({
   commentNow: vi.fn<typeof commentNow>(),
   loadFiles: vi.fn<typeof loadFiles>(),
   loadThreads: vi.fn<typeof loadThreads>(),
@@ -295,7 +295,7 @@ vi.mock("../../utils/review/review", () => ({
   reply: vi.fn<typeof reply>(),
   setResolved: vi.fn<typeof setResolved>(),
 }));
-vi.mock("../../utils/theme/theme", () => ({ useTheme: () => {} }));
+vi.mock("@/utils/theme/theme", () => ({ useTheme: () => {} }));
 
 // MARK: Sample data
 

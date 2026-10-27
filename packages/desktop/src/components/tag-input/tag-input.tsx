@@ -39,23 +39,22 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
     <div className="flex flex-col gap-1">
       <div
         data-slot="tag-input"
-        // A text field (components/ui/input) that holds its values as tokens, as AppKit's token
-        // field does: the field's well and edge, 24pt tall until it wraps, the focus ring around it.
+        // A text field (components/input) that holds its values as tokens, as AppKit's token field
+        // does: the field look (utilities.css), 28px tall until it wraps.
         className={cn(
-          "flex min-h-(--field-h) flex-wrap items-center gap-[3px] rounded-(--radius-field) border border-input bg-(--field-bg) px-[3px] py-[2px]",
-          "focus-within:outline-3 focus-within:outline-(--focus-ring)",
+          "flex min-h-(--field-h) flex-wrap items-center gap-1 rounded-(--radius-field) field px-1 py-0.5",
           error && "border-destructive",
         )}
       >
         {value.map((v) => (
           <span
             key={v}
-            className="inline-flex h-[18px] items-center gap-0.5 rounded-[4px] bg-fill pr-px pl-1.5 font-mono text-subheadline"
+            className="inline-flex h-[22px] items-center gap-0.5 rounded-[5px] bg-fill pr-0.5 pl-1.5 font-mono text-subheadline"
           >
             {v}
             <button
               type="button"
-              className="grid size-4 cursor-default place-items-center rounded-[3px] text-muted-foreground focus-ring outline-none active:bg-(--fill-control-pressed)"
+              className="grid size-[18px] cursor-default place-items-center rounded-[4px] text-muted-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-(--fill-control-hover) hover:text-foreground active:bg-(--fill-control-pressed)"
               aria-label={t("settings.removeNamed", { name: v })}
               onClick={() => {
                 onChange(value.filter((x) => x !== v));
@@ -69,7 +68,7 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
           aria-label={label}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className="h-[18px] min-w-32 flex-1 bg-transparent px-1 text-body caret-primary outline-none placeholder:text-muted-foreground"
+          className="h-[22px] min-w-32 flex-1 bg-transparent px-1 text-body caret-primary outline-none placeholder:text-muted-foreground"
           placeholder={value.length > 0 ? "" : placeholder}
           value={draft}
           spellCheck={false}

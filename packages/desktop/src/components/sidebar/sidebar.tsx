@@ -403,7 +403,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
               {" "}
               <button
                 type="button"
-                className="cursor-default text-link focus-ring outline-none"
+                className="cursor-default text-link underline-offset-2 focus-ring outline-none hover:underline"
                 onClick={() => {
                   toggle(me, true);
                 }}
@@ -576,7 +576,7 @@ function Development({ pull }: { pull: Pull }) {
             <li key={issue.id}>
               <button
                 type="button"
-                className="flex w-full cursor-default items-start gap-2 rounded text-left text-body focus-ring outline-none"
+                className="-mx-1 flex w-[calc(100%+0.5rem)] cursor-default items-start gap-2 rounded-(--radius-row) px-1 py-0.5 text-left text-body focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-fill"
                 onClick={() => void bridge.openUrl(issue.url)}
               >
                 <s.icon

@@ -1,10 +1,11 @@
 // Focus Diff's bar, floating over the diff: the next file to review, the filters as chips (several
-// on at once; none is All), the lines in view with the time left to review them, and a breakdown of
-// what each filter holds.
+// on at once; none is All), the lines in view with the time left to review them, a breakdown of
+// what each filter holds and, last, the comments to step through (as the extension's bar).
 
 import type { Estimator, Learned } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import { ChartBarStacked, Check, ChevronsDown, CircleCheck, Clock, FileText, Info } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
 import { Kbd } from "@/components/kbd/kbd";
@@ -37,6 +38,8 @@ type Props = {
   learned: Learned | null;
   onToggle: (id: string) => void;
   onNextFile: () => void;
+  /** The comments' button (comment-nav.tsx), after a divider at the end. */
+  children?: ReactNode;
 };
 
 const nextLabel = ({ left, nextFilter }: Next, t: T) =>
@@ -116,7 +119,7 @@ function Breakdown({
               render={
                 <button
                   type="button"
-                  className="grid size-5 cursor-default place-items-center rounded-full text-muted-foreground focus-ring outline-none hover:text-foreground"
+                  className="grid size-6 cursor-default place-items-center rounded-full text-muted-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-fill hover:text-foreground"
                   aria-label={t("review.columnTime")}
                   // oxlint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 (WebKit reads it); the rule's list is older.
                   aria-description={timeHint(learned, t)}
@@ -192,6 +195,7 @@ export function FilterBar({
   learned,
   onToggle,
   onNextFile,
+  children,
 }: Props) {
   const t = useT();
   const done = shown.files > 0 && shown.minutesLeft === 0;
@@ -355,6 +359,12 @@ export function FilterBar({
             />
           </PopoverContent>
         </Popover>
+      ) : null}
+      {children ? (
+        <>
+          <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
+          {children}
+        </>
       ) : null}
     </div>
   );

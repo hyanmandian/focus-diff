@@ -3,9 +3,10 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/utils/cn/cn";
 
-// Buttons as AppKit draws them on macOS 27: a flat fill with no border or shadow, regular weight,
-// no hover (Mac buttons don't light up under the pointer), a darker fill while pressed and the
-// accent focus ring for the keyboard. Disabled keeps the shape and dims the label.
+// Buttons as AppKit draws them on macOS 27: a flat fill with no border or shadow, regular weight, a
+// darker fill while pressed and the accent focus ring for the keyboard. Unlike AppKit, every kind
+// lights up a little under the pointer (as Raycast's and Safari's toolbars do), so what can be
+// clicked says so. Disabled keeps the shape and dims the label. No size is under WCAG 2.2's 24px.
 //
 // One way everywhere, so the same kind of button looks the same wherever it is:
 // - Regular (the default size) for every button that does something: a form's, a card's or a
@@ -17,33 +18,35 @@ import { cn } from "@/utils/cn/cn";
 //   inside a sentence.
 // - Related actions side by side join in a ButtonGroup; the window toolbar has its own capsules.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 cursor-default items-center justify-center font-normal whitespace-nowrap focus-ring outline-none select-none disabled:pointer-events-none disabled:text-(--label-tertiary) aria-disabled:text-(--label-tertiary) aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 cursor-default items-center justify-center font-normal whitespace-nowrap focus-ring transition-[background-color,color,filter] duration-(--duration-fast) outline-none select-none disabled:pointer-events-none disabled:text-(--label-tertiary) aria-disabled:text-(--label-tertiary) aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         /** The prominent (default) button: the accent with white text. One per view at most. */
-        default: "bg-primary text-primary-foreground active:brightness-90 disabled:bg-fill",
+        default: "bg-primary text-primary-foreground hover:brightness-110 active:brightness-90 disabled:bg-fill",
         /** A push button. ("outline" and "secondary" are shadcn's names for it.) */
-        outline: "bg-fill text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
+        outline:
+          "bg-fill text-foreground hover:bg-(--fill-control-hover) active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
         secondary:
-          "bg-fill text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
-        /** Borderless: just the label or glyph, a fill only while pressed or its menu is open. */
-        ghost: "text-foreground active:bg-fill aria-expanded:bg-fill aria-pressed:bg-fill",
+          "bg-fill text-foreground hover:bg-(--fill-control-hover) active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed)",
+        /** Borderless: just the label or glyph, a fill under the pointer, while pressed or its menu is open. */
+        ghost:
+          "text-foreground hover:bg-fill active:bg-(--fill-control-pressed) aria-expanded:bg-fill aria-pressed:bg-fill",
         /** A push button that does something that can't be taken back: red label, never the default. */
-        destructive: "bg-fill text-destructive active:bg-(--fill-control-pressed)",
-        link: "text-link active:opacity-70",
+        destructive: "bg-fill text-destructive hover:bg-(--fill-control-hover) active:bg-(--fill-control-pressed)",
+        link: "text-link underline-offset-2 hover:underline active:opacity-70",
       },
       size: {
-        /** Regular: 24pt, 13pt label. */
+        /** Regular: 28px, 13pt label. */
         default: "h-(--control-h) gap-1.5 rounded-(--radius-control) px-2.5 text-body",
         /** The same as regular (shadcn's name kept so nothing drifts). */
         sm: "h-(--control-h) gap-1.5 rounded-(--radius-control) px-2.5 text-body",
-        /** Small: 20pt, 11pt label. */
+        /** Small: 24px, 11pt label. */
         xs: "h-(--control-h-sm) gap-1 rounded-(--radius-control-sm) px-2 text-subheadline [&_svg:not([class*='size-'])]:size-3.5",
-        /** Large: 28pt and a capsule, as AppKit draws large controls. */
+        /** Large: 32px and a capsule, as AppKit draws large controls. */
         lg: "h-(--control-h-lg) gap-1.5 rounded-(--radius-capsule) px-3.5 text-body",
-        /** A glyph alone: 28pt (a toolbar's), 24pt (regular), 20pt (small). */
-        icon: "size-(--control-h-lg) rounded-(--radius-control)",
+        /** A glyph alone: 28px (a toolbar's, and regular), 24px (small: in rows and headers), 32px (large). */
+        icon: "size-(--toolbar-item-h) rounded-(--radius-control)",
         "icon-sm": "size-(--control-h) rounded-(--radius-control)",
         "icon-xs": "size-(--control-h-sm) rounded-(--radius-control-sm) [&_svg:not([class*='size-'])]:size-3.5",
         "icon-lg": "size-(--control-h-lg) rounded-(--radius-capsule)",

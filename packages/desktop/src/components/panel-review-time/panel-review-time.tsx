@@ -57,7 +57,7 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
         </span>
         <button
           type="button"
-          className="ml-auto shrink-0 cursor-default rounded-sm font-medium text-(--panel-link) focus-ring outline-none"
+          className="ml-auto shrink-0 cursor-default rounded-sm font-medium text-(--panel-link) underline-offset-2 focus-ring outline-none hover:underline"
           onClick={() => void bridge.endReview()}
         >
           {t("panel.end")}

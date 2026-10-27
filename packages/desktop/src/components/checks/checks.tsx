@@ -284,7 +284,7 @@ function Row({ check, open, onToggle }: { check: CheckItem; open: boolean; onTog
       type="button"
       aria-expanded={open}
       onClick={onToggle}
-      className="flex w-full cursor-default items-center gap-2 rounded py-0.5 text-left text-body focus-ring outline-none"
+      className="-mx-1 flex min-h-6 w-[calc(100%+0.5rem)] cursor-default items-center gap-2 rounded-(--radius-row) px-1 text-left text-body focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-fill"
     >
       {open ? (
         <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden />

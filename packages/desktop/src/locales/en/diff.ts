@@ -60,5 +60,8 @@ export const diff = {
   keyHelp: "Keyboard shortcuts",
   keyPreviousPull: "Back to the pull request before",
   keyNextPull: "Next pull request in the queue",
+  expandUp: "Show lines above",
+  expandDown: "Show lines below",
+  expandBoth: "Show hidden lines",
   keyMarkDone: "Mark done and open the next",
 } as const;

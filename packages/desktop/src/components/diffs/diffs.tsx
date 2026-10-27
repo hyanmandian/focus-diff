@@ -38,6 +38,7 @@ import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
+import { labelExpandButtons } from "@/utils/expand-buttons/expand-buttons";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 import { diffLink, permalink } from "@/utils/permalink/permalink";
 import { findingSide, placeThread, shows, type Placement } from "@/utils/placement/placement";
@@ -415,6 +416,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       enableGutterUtility: commentable,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
       unsafeCSS: RENDERED_CSS,
+      // The library's expand controls, named and reachable from the keyboard.
+      onPostRender: (node: HTMLElement) => {
+        labelExpandButtons(node, t);
+      },
       // Selecting lines (dragging over their numbers) opens the same box: comment or ask.
       enableLineSelection: commentable,
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
@@ -444,7 +449,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           }
         : {}),
     }),
-    [diffStyle, wrap, dark, source, filesByPath, commentable],
+    [diffStyle, wrap, dark, source, filesByPath, commentable, t],
   );
 
   /** Loads a file GitHub sent no patch for, from both its versions. */
@@ -583,7 +588,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                     range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side },
                   });
                 }}
-                className="flex size-5 cursor-default items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] active:brightness-90"
+                className="flex size-5 cursor-default items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] hover:brightness-110 active:brightness-90"
               >
                 <Plus className="size-3.5" strokeWidth={2.5} aria-hidden />
               </button>

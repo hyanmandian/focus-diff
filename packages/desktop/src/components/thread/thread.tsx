@@ -252,7 +252,7 @@ export function ThreadView({
       <Box className={cn("py-2", className)}>
         <button
           type="button"
-          className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground focus-ring outline-none"
+          className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:text-foreground"
           onClick={() => {
             setOpen(true);
           }}
@@ -601,8 +601,8 @@ export function NewComment({
                 setMode(value);
               }}
               className={cn(
-                "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body focus-ring outline-none",
-                mode === value ? "text-selected-foreground" : "text-foreground",
+                "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body focus-ring transition-colors duration-(--duration-fast) outline-none",
+                mode === value ? "text-selected-foreground" : "text-foreground hover:bg-(--fill-control-hover)",
               )}
             >
               <Icon className="size-3.5" aria-hidden /> {label}

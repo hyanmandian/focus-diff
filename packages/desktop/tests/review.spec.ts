@@ -134,28 +134,29 @@ test("narrows the files to one part with the filter chips", async ({ page }) => 
   await expect(tree.getByRole("treeitem", { name: /^cart\.ts/u })).toBeVisible();
 });
 
-test("steps through the comments with the arrows and with n and p", async ({ page }) => {
+test("steps through the comments from the floating bar, with its arrows and with n and p", async ({ page }) => {
   await openDiff(page);
-  const comments = page.getByRole("group", { name: "Comments" });
-  await expect(comments).toContainText("5 comments");
-
-  await comments.getByRole("button", { name: "Next comment" }).click();
-  await expect(comments).toContainText("Comment 1 of 5");
-  await comments.getByRole("button", { name: "Next comment" }).click();
-  await expect(comments).toContainText("Comment 2 of 5");
-  await comments.getByRole("button", { name: "Previous comment" }).click();
-  await expect(comments).toContainText("Comment 1 of 5");
+  // As the extension's bar has it: a button with the count, its card over it.
+  const toggle = page.getByRole("button", { name: "Comments, 5 comments" });
+  await toggle.click();
+  const card = page.getByRole("dialog", { name: "Comments" });
+  // Opening lands on the first.
+  await expect(card).toContainText("1/5");
+  await card.getByRole("button", { name: "Next comment" }).click();
+  await expect(card).toContainText("2/5");
+  await card.getByRole("button", { name: "Previous comment" }).click();
+  await expect(card).toContainText("1/5");
 
   await page.keyboard.press("n");
-  await expect(comments).toContainText("Comment 2 of 5");
+  await expect(card).toContainText("2/5");
   await page.keyboard.press("n");
-  await expect(comments).toContainText("Comment 3 of 5");
+  await expect(card).toContainText("3/5");
   await page.keyboard.press("p");
-  await expect(comments).toContainText("Comment 2 of 5");
+  await expect(card).toContainText("2/5");
   // Before the first comes the last.
   await page.keyboard.press("p");
   await page.keyboard.press("p");
-  await expect(comments).toContainText("Comment 5 of 5");
+  await expect(card).toContainText("5/5");
 });
 
 test("shows the keyboard shortcuts with ?", async ({ page }) => {

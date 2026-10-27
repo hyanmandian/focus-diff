@@ -255,7 +255,7 @@ export const LinkRow = forwardRef<
   }
 >(function LinkRow({ leading, label, description, muted, control, onOpen, "aria-label": ariaLabel }, ref) {
   return (
-    <div className="group/link relative flex min-h-11 items-center gap-3 px-3 py-1.5 first:rounded-t-[12px] last:rounded-b-[12px] has-[>button:active]:bg-fill">
+    <div className="group/link relative flex min-h-11 items-center gap-3 px-3 py-1.5 transition-colors duration-(--duration-fast) first:rounded-t-[12px] last:rounded-b-[12px] has-[>button:active]:bg-fill has-[>button:hover]:bg-(--fill-quaternary)">
       {leading}
       <button
         ref={ref}

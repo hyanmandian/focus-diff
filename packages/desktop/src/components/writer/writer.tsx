@@ -432,7 +432,7 @@ export function MarkdownField({
               onClick={() => {
                 setTab(value_);
               }}
-              className="flex h-(--control-h-sm) cursor-default items-center rounded-(--radius-control-sm) px-2 text-subheadline text-foreground focus-ring outline-none disabled:text-(--label-tertiary)"
+              className="flex h-(--control-h-sm) cursor-default items-center rounded-(--radius-control-sm) px-2 text-subheadline text-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:not-aria-selected:bg-(--fill-control-hover) disabled:text-(--label-tertiary)"
             >
               {name}
             </button>
@@ -499,10 +499,7 @@ export function MarkdownField({
 
       <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`}>
         {tab === "preview" ? (
-          <div
-            className="min-h-16 rounded-(--radius-field) border border-input bg-(--field-bg) px-2 py-1.5"
-            aria-busy={rendered?.text !== value}
-          >
+          <div className="min-h-16 rounded-(--radius-field) field px-2.5 py-1.5" aria-busy={rendered?.text !== value}>
             {value.trim() ? (
               rendered?.text === value ? (
                 rendered.html === null ? (

@@ -288,17 +288,20 @@ describe("PullRow", () => {
       const one = item();
       const { calls } = setup({ item: one });
       const el = screen.getByText(one.pr.title).closest("button")!;
+      // Its own requests only: an earlier test's fetch may still be finishing on a slow machine.
+      const fetchedIt = () =>
+        calls.some((c) => c.cmd === "github" && JSON.stringify(c.args).includes(String(one.pr.number)));
       fireEvent.pointerEnter(el);
       fireEvent.pointerLeave(el);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(200);
       });
-      expect(calls.some((c) => c.cmd === "github")).toBe(false);
+      expect(fetchedIt()).toBe(false);
       fireEvent.pointerEnter(el);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(200);
       });
-      expect(calls.some((c) => c.cmd === "github")).toBe(true);
+      expect(fetchedIt()).toBe(true);
     } finally {
       vi.useRealTimers();
     }

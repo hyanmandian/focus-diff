@@ -162,18 +162,24 @@ jobs:
       - name: Build the installers
         run: npm run tauri build -- --no-sign
 
-      # Up for 20 seconds, with no screen but a virtual one, then closed: a crash at start (a panic,
-      # a missing library) ends it sooner and fails the step, with what it wrote shown.
+      # Up for 20 seconds on a virtual screen, with a session bus for the tray and the keyring, then
+      # ended: a crash at start (a panic, a missing library) ends it sooner and fails the step, with
+      # what it wrote shown.
       - name: Start the app and check it stays up (Linux)
         if: runner.os == 'Linux'
         working-directory: packages/desktop/src-tauri/target/release
-        # In its own session, so closing it (and xvfb-run with it) leaves this shell alone; timeout's
-        # 124 means it was still running when its 20 seconds were up.
         run: |
-          status=0
-          setsid timeout 20 xvfb-run -a dbus-run-session -- ./focus-diff > launch.log 2>&1 || status=$?
+          Xvfb :99 -screen 0 1440x900x24 > /dev/null 2>&1 &
+          export DISPLAY=:99
+          eval "$(dbus-launch --sh-syntax)"
+          ./focus-diff > launch.log 2>&1 &
+          pid=$!
+          sleep 20
+          alive=0
+          if kill -0 "$pid" 2> /dev/null; then alive=1; fi
+          kill -9 "$pid" 2> /dev/null || true
           cat launch.log
-          if [ "$status" -ne 124 ]; then echo "The app quit at start (exit $status)"; exit 1; fi
+          if [ "$alive" -ne 1 ]; then echo "The app quit at start"; exit 1; fi
 
       - name: Start the app and check it stays up (Windows)
         if: runner.os == 'Windows'

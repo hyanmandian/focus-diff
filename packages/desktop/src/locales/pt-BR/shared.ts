@@ -13,7 +13,6 @@ export const shared: Dictionary["shared"] = {
   connectTokenPlaceholder: "ghp_… ou github_pat_…",
   connectTokenNeedsBefore: "Precisa de",
   connectTokenNeedsAnd: "e",
-  connectTokenNeedsAfterBrowser: ". Ele fica guardado neste navegador e só é enviado ao GitHub.",
   connectTokenNeedsAfter: ". Fica nas chaves do sistema e só é enviado ao GitHub.",
   connectUseToken: "Usar este token",
   connectUseTokenInstead: "Usar um token de acesso pessoal",

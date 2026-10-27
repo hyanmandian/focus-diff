@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { fakePlatform } from "@/utils/fake-platform/fake-platform";
-import { invoke, platform, setPlatform, supports, type Args, type InvokeOptions } from "@/utils/platform/platform";
+import { invoke, platform, setPlatform, type Args, type InvokeOptions } from "@/utils/platform/platform";
 
 describe("the platform", () => {
   it("is the one the entry set, and runs commands through it", async () => {
@@ -28,18 +28,6 @@ describe("the platform", () => {
     delete window.focusDiffPlatform;
     try {
       expect(() => platform()).toThrow("No platform");
-    } finally {
-      setPlatform(fakePlatform);
-    }
-  });
-
-  it("can do everything unless it says it can't", () => {
-    expect(supports("quit")).toBe(true);
-    setPlatform({ ...fakePlatform, features: { quit: false, ai: true } });
-    try {
-      expect(supports("quit")).toBe(false);
-      expect(supports("ai")).toBe(true);
-      expect(supports("updates")).toBe(true);
     } finally {
       setPlatform(fakePlatform);
     }

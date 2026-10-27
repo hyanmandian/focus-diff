@@ -36,7 +36,6 @@ import {
 } from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
-import { supports } from "@/utils/platform/platform";
 
 /** The week from Monday, as most of the world starts it; 0 is Sunday. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -281,7 +280,7 @@ export function ReviewTimePane({ config, onChange }: { config: Config; onChange:
     .map((q) => q.name);
   return (
     <Pane title={t("settings.pane.review")} hero="review">
-      <Intro>{t(supports("tray") ? "settings.reviewIntro" : "settings.reviewIntroBrowser")}</Intro>
+      <Intro>{t("settings.reviewIntro")}</Intro>
       <Group
         footer={
           review.enabled

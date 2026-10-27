@@ -30,7 +30,7 @@ import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { shortcut } from "@/utils/os/os";
-import { supports, type Unlisten } from "@/utils/platform/platform";
+import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
 import {
   clearArrival,
@@ -207,7 +207,7 @@ export function Panel() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // The app's own shortcuts, which the menu bar would answer if a tray app had one showing.
-      if (e.metaKey && !e.altKey && !e.ctrlKey && (e.key === "," || (e.key === "q" && supports("quit")))) {
+      if (e.metaKey && !e.altKey && !e.ctrlKey && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
@@ -456,11 +456,9 @@ export function Panel() {
               <DropdownMenuItem onClick={() => void bridge.openSettings()}>
                 {t("panel.settings")} <DropdownMenuShortcut>{shortcut(",", ["cmd"])}</DropdownMenuShortcut>
               </DropdownMenuItem>
-              {supports("quit") ? (
-                <DropdownMenuItem onClick={() => void bridge.quit()}>
-                  {t("panel.quit")} <DropdownMenuShortcut>{shortcut("Q", ["cmd"])}</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              ) : null}
+              <DropdownMenuItem onClick={() => void bridge.quit()}>
+                {t("panel.quit")} <DropdownMenuShortcut>{shortcut("Q", ["cmd"])}</DropdownMenuShortcut>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

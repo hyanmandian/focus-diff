@@ -42,7 +42,7 @@ import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } f
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { interval } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
-import { platform, supports } from "@/utils/platform/platform";
+import { platform } from "@/utils/platform/platform";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 import { useTheme } from "@/utils/theme/theme";
 
@@ -253,7 +253,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   return (
     <Pane title={t("settings.pane.account")} hero="account">
       {auth ? (
-        <Group title="GitHub" footer={t(supports("tray") ? "settings.githubFooter" : "settings.githubFooterBrowser")}>
+        <Group title="GitHub" footer={t("settings.githubFooter")}>
           {auth.signed_in && auth.login ? (
             <div className="flex min-h-14 items-center gap-3 px-3 py-2.5">
               <Avatar className="size-9">
@@ -284,7 +284,7 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
       ) : (
         <Loader2 className="m-3 animate-spin text-muted-foreground" aria-label={t("settings.loading")} />
       )}
-      {auth?.signed_in && supports("uploads") ? <Attachments /> : null}
+      {auth?.signed_in ? <Attachments /> : null}
     </Pane>
   );
 }
@@ -331,16 +331,6 @@ const THEMES: Array<Config["theme"]> = ["system", "light", "dark"];
  *  is said in the language in use. */
 const languageName = (language: Language, t: T) =>
   language === "en" ? "English" : language === "pt-BR" ? "Português (Brasil)" : t("settings.language.system");
-
-/** The version alone, where the app doesn't update itself (the browser's store updates the extension). */
-function Version() {
-  const t = useT();
-  const [version, setVersion] = useState("");
-  useEffect(() => {
-    void platform().version().then(setVersion);
-  }, []);
-  return <Row label={version ? `Focus Diff ${version}` : "Focus Diff"} description={t("settings.updatedByStore")} />;
-}
 
 function Updates() {
   const [version, setVersion] = useState("");
@@ -411,7 +401,9 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
   const t = useT();
   return (
     <Pane title={t("settings.pane.general")} hero="general">
-      <Group title={t("settings.softwareUpdate")}>{supports("updates") ? <Updates /> : <Version />}</Group>
+      <Group title={t("settings.softwareUpdate")}>
+        <Updates />
+      </Group>
       <Group title={t("settings.behavior")}>
         <Row label={t("settings.checkEvery")} description={t("settings.checkEveryHint")}>
           <Select
@@ -545,15 +537,13 @@ function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T)
     ai: names(config.ai.prompts),
   };
   const accountMatch = match(query, auth?.login ?? t("settings.pane.account"), keywords("account", t));
-  const panes = PANES.filter(({ value }) => value !== "ai" || supports("ai"))
-    .map(({ value, icon, tile }) => ({
-      value,
-      icon,
-      tile,
-      label: t(`settings.pane.${value}`),
-      found: match(query, t(`settings.pane.${value}`), [...(own[value] ?? []), ...keywords(value, t)]),
-    }))
-    .filter((p) => p.found);
+  const panes = PANES.map(({ value, icon, tile }) => ({
+    value,
+    icon,
+    tile,
+    label: t(`settings.pane.${value}`),
+    found: match(query, t(`settings.pane.${value}`), [...(own[value] ?? []), ...keywords(value, t)]),
+  })).filter((p) => p.found);
   return { accountMatch, panes };
 }
 
@@ -562,7 +552,7 @@ const PANE_KEY = "settings-pane";
 function rememberedPane(): PaneId {
   try {
     const v = localStorage.getItem(PANE_KEY);
-    return v !== null && isPane(v) && (v !== "ai" || supports("ai")) ? v : "queues";
+    return v !== null && isPane(v) ? v : "queues";
   } catch {
     return "queues";
   }

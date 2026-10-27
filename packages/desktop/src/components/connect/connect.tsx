@@ -9,7 +9,6 @@ import { Input } from "@/components/input/input";
 import { Label } from "@/components/label/label";
 import { bridge, type AuthStatus, type DeviceCode } from "@/utils/bridge/bridge";
 import { i18n, useT } from "@/utils/i18n/i18n";
-import { supports } from "@/utils/platform/platform";
 
 type Props = { auth: AuthStatus | null; onConnected: () => void };
 
@@ -127,7 +126,7 @@ export function Connect({ auth, onConnected }: Props) {
           <p className="text-callout text-muted-foreground">
             {t("shared.connectTokenNeedsBefore")} <code>repo</code> {t("shared.connectTokenNeedsAnd")}{" "}
             <code>read:org</code>
-            {t(supports("tray") ? "shared.connectTokenNeedsAfter" : "shared.connectTokenNeedsAfterBrowser")}
+            {t("shared.connectTokenNeedsAfter")}
           </p>
           <Button type="submit" variant="outline" disabled={!token.trim() || busy !== null}>
             {busy === "token" ? <Loader2 className="animate-spin" /> : <KeyRound />}

@@ -36,8 +36,6 @@ export interface DemoOptions {
 export interface Demo {
   /** Restyles the demo, as the reader edits the bar's look. */
   setTheme: (css: string) => void;
-  /** Takes the demo down. */
-  destroy: () => void;
 }
 
 /**
@@ -242,9 +240,6 @@ export const createDemo = (
   };
   const resizeObserver = new ResizeObserver(fit);
   resizeObserver.observe(list);
-  controller.signal.addEventListener("abort", () => {
-    resizeObserver.disconnect();
-  });
 
   apply();
   panel.setTheme(theme);
@@ -255,10 +250,6 @@ export const createDemo = (
     setTheme: (css) => {
       themeSheet.replaceSync(css);
       panel.setTheme(css);
-    },
-    destroy: () => {
-      controller.abort();
-      root.replaceChildren();
     },
   };
 };

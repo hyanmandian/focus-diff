@@ -10,7 +10,7 @@ import theme from "@/components/github-theme/github-theme.css?inline";
 const mount = (pullRequest: DemoPullRequest = SAMPLE_PULL_REQUEST, target = document.createElement("div")) => {
   document.body.append(target);
   const onSettings = vi.fn<() => void>();
-  const { destroy, setTheme } = createDemo(target, structuredClone(pullRequest), { onSettings, theme });
+  const { setTheme } = createDemo(target, structuredClone(pullRequest), { onSettings, theme });
   const root = target.shadowRoot!;
   const bar = root.querySelector(".demo-bar")!.shadowRoot!;
   const shown = () => root.querySelectorAll(".demo-file:not([data-out])").length;
@@ -20,7 +20,7 @@ const mount = (pullRequest: DemoPullRequest = SAMPLE_PULL_REQUEST, target = docu
   const click = (selector: string) => {
     bar.querySelector<HTMLElement>(selector)!.click();
   };
-  return { target, root, bar, shown, option, onSettings, destroy, setTheme, status, at, click };
+  return { target, root, bar, shown, option, onSettings, setTheme, status, at, click };
 };
 
 /** Two files, one with a conversation; a docs filter; a filter that can't match (its pattern doesn't compile). */
@@ -61,12 +61,10 @@ describe("createDemo", () => {
     expect(left()).toBe("8");
   });
 
-  it("hands the settings button to the page, and takes itself down", () => {
-    const { root, bar, onSettings, destroy } = mount();
+  it("hands the settings button to the page", () => {
+    const { bar, onSettings } = mount();
     bar.querySelector<HTMLButtonElement>(".settings")!.click();
     expect(onSettings).toHaveBeenCalledOnce();
-    destroy();
-    expect(root.childElementCount).toBe(0);
   });
 
   it("goes from file to file left to review, then to the next filter with some", () => {

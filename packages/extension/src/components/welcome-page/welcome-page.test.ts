@@ -76,7 +76,7 @@ describe("startWelcome", () => {
     // The page without its script, which the test runs itself.
     document.body.innerHTML = /<body>(?<body>[\s\S]*)<script/u.exec(page)?.groups?.body ?? "";
     location.hash = "";
-    demo.createDemo.mockReturnValue({ setTheme: demo.setTheme, destroy: vi.fn<() => void>() });
+    demo.createDemo.mockReturnValue({ setTheme: demo.setTheme });
     manifest(["notifications"]);
     commands();
   });

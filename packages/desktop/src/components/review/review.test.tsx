@@ -927,6 +927,15 @@ describe("Review", () => {
       expect(screen.getByLabelText("Comment 3 of 4")).toBeTruthy();
     });
 
+    it("goes back from before the first to the last", async () => {
+      someComments();
+      await openReview();
+      await userEvent.click(tab("Diff"));
+      press("p");
+      await frames();
+      expect(h.handle.scrollToThread).toHaveBeenLastCalledWith(expect.objectContaining({ id: "T1" }));
+    });
+
     it("follows settings changed in their window, and another account signed in, without reopening", async () => {
       await openReview();
       expect(h.overview?.config?.ai.provider).toBeNull();

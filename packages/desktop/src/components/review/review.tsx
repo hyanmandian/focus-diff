@@ -827,7 +827,8 @@ export function Review({ target }: { target: Target }) {
   };
   const step = (by: 1 | -1) => {
     if (stops.length === 0) return;
-    const index = (stop + by + stops.length) % stops.length;
+    const from = stop >= stops.length || (stop < 0 && by < 0) ? 0 : stop;
+    const index = (from + by + stops.length) % stops.length;
     setStop(index);
     const at = stops[index]!;
     jump(at.path, at.line, at.side, at.thread);

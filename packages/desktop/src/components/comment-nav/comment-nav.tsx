@@ -33,7 +33,8 @@ export function CommentNav({ stops, stop, onStep }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const total = stops.length;
-  const at = stops[stop] ?? stops[0];
+  const index = stops[stop] ? stop : 0;
+  const at = stops[index];
   const kind = at ? KIND[at.kind] : null;
   const name = at ? at.path.slice(at.path.lastIndexOf("/") + 1) : "";
   const where = total ? t("common.comments", { count: total }) : t("review.noOpenComments");
@@ -89,9 +90,9 @@ export function CommentNav({ stops, stop, onStep }: Props) {
             <span
               className="text-center text-subheadline leading-4 font-semibold text-muted-foreground tabular-nums"
               aria-live="polite"
-              aria-label={t("review.commentOf", { index: Math.max(stop, 0) + 1, total })}
+              aria-label={t("review.commentOf", { index: index + 1, total })}
             >
-              {Math.max(stop, 0) + 1}/{total}
+              {index + 1}/{total}
             </span>
             <span className="truncate text-callout leading-[18px] text-muted-foreground">{t(kind.label)}</span>
             <span className="flex items-center">

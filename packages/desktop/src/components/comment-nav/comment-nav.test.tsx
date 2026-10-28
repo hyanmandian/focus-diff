@@ -68,6 +68,16 @@ describe("CommentNav", () => {
     });
   });
 
+  it("counts from the first again when the comments it was on are gone", async () => {
+    render(
+      <TooltipProvider>
+        <CommentNav stops={STOPS.slice(0, 1)} stop={2} onStep={() => {}} />
+      </TooltipProvider>,
+    );
+    await userEvent.click(button("Comments, 1 comment"));
+    expect((await screen.findByLabelText("Comment 1 of 1")).textContent).toBe("1/1");
+  });
+
   it("stays in place without comments, and doesn't open", async () => {
     show([]);
     const toggle = button("Comments, No open comments");

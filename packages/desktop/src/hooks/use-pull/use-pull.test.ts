@@ -27,6 +27,7 @@ const u = vi.hoisted(() => ({
   manage: null as unknown,
   commits: null as unknown,
   checks: null as unknown,
+  initialChecks: null as CheckItem[] | null,
   reloadManage: vi.fn<(again?: boolean) => Promise<void>>(),
   patch: vi.fn<(change: (m: Manage) => Manage) => void>(),
   loadMergeState: vi.fn<(ref: unknown) => Promise<object>>(),
@@ -51,7 +52,10 @@ vi.mock("@/utils/commits/commits", async (original) => ({
 }));
 vi.mock("@/utils/checks/checks", async (original) => ({
   ...(await original<object>()),
-  useChecks: () => u.checks,
+  useChecks: (_ref: unknown, _head: unknown, initial: CheckItem[] | null) => {
+    u.initialChecks = initial;
+    return u.checks;
+  },
   awaitingApproval: u.awaitingApproval,
   approveRun: u.approveRun,
   rerunAll: u.rerunAll,
@@ -331,6 +335,13 @@ describe("usePull", () => {
     // Known again: counting starts over.
     rerender({ details: { ...DETAILS, mergeStateStatus: "CLEAN" } });
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("tells apart checks the details name alike until the full list comes", () => {
+    const twice = { name: "build", state: "success" as const, url: null };
+    setup({ ...DETAILS, checks: [twice, twice] });
+    const ids = u.initialChecks?.map((c) => c.id) ?? [];
+    expect(new Set(ids).size).toBe(2);
   });
 
   it("asks again while GitHub still doesn't know, though nothing else changed", async () => {

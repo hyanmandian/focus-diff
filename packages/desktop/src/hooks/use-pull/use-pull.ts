@@ -54,8 +54,8 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** The checks the details came with, as the full list's items, until it arrives. */
 const fromDetails = (d: Details | null): CheckItem[] | null =>
   d
-    ? d.checks.map((c) => ({
-        id: c.name,
+    ? d.checks.map((c, i) => ({
+        id: `${i}:${c.name}`,
         kind: "run",
         name: c.name,
         workflow: null,

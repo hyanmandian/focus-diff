@@ -26,6 +26,9 @@ tauri-plugin-dialog = "2"
 tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls"] }
 tokio = { version = "1", default-features = false, features = ["time"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 tauri-plugin-notification = "2"

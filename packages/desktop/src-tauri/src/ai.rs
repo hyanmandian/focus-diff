@@ -128,6 +128,18 @@ pub(crate) struct Output {
     pub stderr: String,
 }
 
+fn stop_group(leader: u32) {
+    #[cfg(unix)]
+    if let Ok(group) = libc::pid_t::try_from(leader)
+        && group > 1
+    {
+        // SAFETY: kill takes no pointers; a negative pid above -1 names one process group only.
+        unsafe { libc::kill(-group, libc::SIGTERM) };
+    }
+    #[cfg(not(unix))]
+    let _ = leader;
+}
+
 pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: Duration) -> Result<Output, String> {
     run_until(command, input, limit, None)
 }
@@ -138,8 +150,7 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
     std::os::unix::process::CommandExt::process_group(command, 0);
     let mut child = command.spawn().map_err(|e| e.to_string())?;
     let stop = |child: &mut std::process::Child| {
-        #[cfg(unix)]
-        let _ = Command::new("/bin/kill").args(["-TERM", &format!("-{}", child.id())]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        stop_group(child.id());
         let _ = child.kill();
         let _ = child.wait();
     };
@@ -177,8 +188,7 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
         }
         std::thread::sleep(Duration::from_millis(50));
     };
-    #[cfg(unix)]
-    let _ = Command::new("/bin/kill").args(["-TERM", &format!("-{}", child.id())]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    stop_group(child.id());
     let grace = Duration::from_secs(2);
     Ok(Output { status_ok: status.success(), stdout: out.recv_timeout(grace).unwrap_or_default(), stderr: err.recv_timeout(grace).unwrap_or_default() })
 }
@@ -609,8 +619,7 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         self.stdin = None;
-        #[cfg(unix)]
-        let _ = Command::new("/bin/kill").args(["-TERM", &format!("-{}", self.child.id())]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        stop_group(self.child.id());
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
@@ -835,6 +844,22 @@ done
         assert_eq!(own.text, "answer 1");
         assert!(logged(&log).iter().any(|l| l.starts_with("start") && l.contains("--setting-sources user") && !l.contains("--safe-mode")));
         close("w-fails");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stops_only_the_group_it_started() {
+        let mut group = Command::new("/bin/sh");
+        group.args(["-c", "sleep 30 & wait"]);
+        std::os::unix::process::CommandExt::process_group(&mut group, 0);
+        let mut group = group.spawn().unwrap();
+        let mut outside = Command::new("/bin/sh").args(["-c", "sleep 30"]).spawn().unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        stop_group(group.id());
+        assert!(!group.wait().unwrap().success());
+        assert!(outside.try_wait().unwrap().is_none());
+        let _ = outside.kill();
+        let _ = outside.wait();
     }
 
     #[cfg(unix)]

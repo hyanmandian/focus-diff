@@ -228,10 +228,13 @@ describe("bridge", () => {
   it("hands a Rust event's payload to the handler", async () => {
     rust();
     const handler = vi.fn<(payload: string) => void>();
-    const off = await bridge.on<string>("snapshot", handler);
+    const off = bridge.on<string>("snapshot", handler);
     await emit("snapshot", "fresh");
     expect(handler).toHaveBeenCalledWith("fresh");
     off();
+    await Promise.resolve();
+    await emit("snapshot", "later");
+    expect(handler).toHaveBeenCalledOnce();
   });
 });
 

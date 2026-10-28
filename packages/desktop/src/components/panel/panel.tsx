@@ -32,7 +32,6 @@ import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac, primary, shortcut } from "@/utils/os/os";
-import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
 import {
   clearArrival,
@@ -61,11 +60,6 @@ function remember(key: string, value: string) {
   }
 }
 
-/** Stops listening once the listener is in place. */
-async function unlisten(off: Promise<Unlisten>) {
-  (await off)();
-}
-
 /** Whether a moment was within the last minute (as of now). */
 const lastMinute = (at: number) => Date.now() - at < 60_000;
 
@@ -82,7 +76,7 @@ function useShown() {
     });
     return () => {
       document.removeEventListener("visibilitychange", update);
-      void unlisten(off);
+      off();
     };
   }, []);
   return shown;
@@ -155,7 +149,7 @@ export function Panel() {
     });
     return () => {
       document.removeEventListener("paste", onPaste);
-      void unlisten(off);
+      off();
     };
   }, []);
   // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
@@ -224,10 +218,7 @@ export function Panel() {
 
   useEffect(() => {
     void bridge.updateOffered().then(setUpdate);
-    const off = bridge.on<string>("update-available", setUpdate);
-    return () => {
-      void unlisten(off);
-    };
+    return bridge.on<string>("update-available", setUpdate);
   }, []);
   const choose = (id: string) => {
     setTab(id);

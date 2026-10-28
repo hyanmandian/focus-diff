@@ -88,9 +88,7 @@ export function useWebSession(): string | null | undefined {
     const off = bridge.on<string | null>("web-session", update);
     return () => {
       current = false;
-      void (async () => {
-        (await off)();
-      })();
+      off();
     };
   }, []);
   return login;

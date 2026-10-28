@@ -17,7 +17,7 @@ async function read() {
 
 export function followLanguage() {
   void read();
-  void bridge.on<string>("file-changed", (name) => {
+  bridge.on<string>("file-changed", (name) => {
     if (name === "config") void read();
   });
 }

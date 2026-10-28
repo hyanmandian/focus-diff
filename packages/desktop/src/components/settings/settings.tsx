@@ -58,11 +58,7 @@ function useConfig() {
     const off = bridge.on<string>("file-changed", (name) => {
       if (name === "config" && !pending.current) void loadConfig().then(setConfig);
     });
-    return () => {
-      void (async () => {
-        (await off)();
-      })();
-    };
+    return off;
   }, []);
   // Saved shortly after the last change, so typing a name doesn't write on every key.
   const update = useCallback((next: Config) => {
@@ -796,12 +792,7 @@ export function Settings() {
     const off = bridge.on<string>("settings-pane", (p) => {
       if (isPane(p)) setPane(p);
     });
-    const stop = async () => {
-      (await off)();
-    };
-    return () => {
-      void stop();
-    };
+    return off;
   }, []);
   // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {

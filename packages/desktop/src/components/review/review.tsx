@@ -584,11 +584,7 @@ export function Review({ target }: { target: Target }) {
           .then((a) => a.login)
           .then(setMe);
     });
-    return () => {
-      void (async () => {
-        (await off)();
-      })();
-    };
+    return off;
   }, []);
 
   const ai = config?.ai.provider ? config : null;
@@ -1024,9 +1020,7 @@ export function Review({ target }: { target: Target }) {
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      void (async () => {
-        (await off)();
-      })();
+      off();
     };
   }, []);
   const isOpen = details?.state === "OPEN";

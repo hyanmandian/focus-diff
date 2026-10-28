@@ -143,11 +143,11 @@ async function reloadConfig() {
 
 export async function start() {
   let followed = false;
-  void bridge.on<Live>("snapshot", (live) => {
+  bridge.on<Live>("snapshot", (live) => {
     followed = true;
     void follow(live);
   });
-  void bridge.on<string>("file-changed", (name) => {
+  bridge.on<string>("file-changed", (name) => {
     if (name === "config") void reloadConfig();
   });
   void bridge.on("panel-shown", () => void refresh());

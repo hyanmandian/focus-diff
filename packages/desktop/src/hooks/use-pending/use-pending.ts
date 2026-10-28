@@ -96,12 +96,7 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
     const off = bridge.on<string>("drafts", (pull) => {
       if (pull === prId) void refresh();
     });
-    const stop = async () => {
-      (await off)();
-    };
-    return () => {
-      void stop();
-    };
+    return off;
   }, [prId, refresh, send]);
 
   const add = (draft: Omit<Draft, "key">) => {

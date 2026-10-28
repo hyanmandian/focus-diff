@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
@@ -57,7 +57,7 @@ impl Outbox {
         let queue = Arc::new((Mutex::new(Queue { woken: !marks.is_empty(), marks }), Condvar::new()));
         let outbox = Outbox { queue: queue.clone(), file: file.clone() };
         let app = app.clone();
-        std::thread::spawn(move || run(&app, &queue, file.as_ref()));
+        std::thread::spawn(move || run(&app, &queue, file.as_deref()));
         outbox
     }
 
@@ -68,7 +68,7 @@ impl Outbox {
         queue.marks.retain(|m| !(m.pull == pull && m.path == path));
         queue.marks.push(Mark { pull, path, viewed, refused: 0 });
         queue.woken = true;
-        save(self.file.as_ref(), &queue.marks);
+        crate::disk::save_json(self.file.as_deref(), &queue.marks);
         wake.notify_one();
     }
 
@@ -80,7 +80,7 @@ impl Outbox {
     }
 }
 
-fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar), file: Option<&PathBuf>) {
+fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
     let (lock, wake) = queue;
     let mut failures = 0u32;
     loop {
@@ -117,7 +117,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar), file: Op
             }
             Sent::Later => failures += 1,
         }
-        save(file, &q.marks);
+        crate::disk::save_json(file, &q.marks);
         if failures > 0 && !q.woken {
             let wait = Duration::from_secs(1 << (failures.min(6) - 1)).min(LONGEST_WAIT);
             drop(wake.wait_timeout_while(q, wait, |q| !q.woken).unwrap());
@@ -146,14 +146,3 @@ fn send(auth: &github::Auth, mark: &Mark) -> Sent {
     }
 }
 
-/// Written next to the file and moved into place, so a crash mid-write never leaves half a file.
-fn save(file: Option<&PathBuf>, marks: &[Mark]) {
-    let Some(file) = file else { return };
-    let temporary = file.with_extension("tmp");
-    if let Some(dir) = file.parent() {
-        let _ = fs::create_dir_all(dir);
-    }
-    if fs::write(&temporary, serde_json::to_string(marks).unwrap_or_default()).is_ok() {
-        let _ = fs::rename(&temporary, file);
-    }
-}

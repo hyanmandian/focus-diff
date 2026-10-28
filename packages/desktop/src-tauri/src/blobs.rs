@@ -4,11 +4,11 @@
 //! and asked of GitHub once. A file that isn't there at that commit (added or deleted) is noted
 //! too.
 
-use std::path::PathBuf;
 use std::time::Duration;
 
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 
+use crate::disk;
 use crate::github::{repo_ok, Auth};
 use crate::i18n::tr;
 
@@ -17,12 +17,6 @@ const SWEEP_AFTER: Duration = Duration::from_secs(14 * 24 * 3600);
 pub const LARGEST: usize = 20 * 1024 * 1024;
 /// What a page is told when the file isn't there at that commit.
 pub const ABSENT: &str = "absent";
-
-fn folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    let dir = app.path().app_cache_dir().ok()?.join("files");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
 
 /// A full commit id (SHA-1, or SHA-256 for repositories that use it): only those never change.
 fn valid_sha(sha: &str) -> bool {
@@ -47,20 +41,13 @@ fn encode(path: &str) -> String {
     out
 }
 
-/// A stable name for a file on disk (FNV-1a, twice over, for 128 bits): the key itself could be
-/// any length and hold any character.
-fn name(key: &str) -> String {
-    let fnv = |seed: u64| key.bytes().fold(seed, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3));
-    format!("{:016x}{:016x}", fnv(0xcbf2_9ce4_8422_2325), fnv(0x6c62_272e_07bb_0142))
-}
-
 /// The contents of `path` at commit `sha` of `repo`; None when it isn't there.
 pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &str, path: &str) -> Result<Option<Vec<u8>>, String> {
     if !repo_ok(repo) || !valid_sha(sha) || !valid_path(path) {
         return Err("Bad request".into());
     }
-    let dir = folder(app);
-    let stem = name(&format!("{repo}\n{sha}\n{path}"));
+    let dir = disk::cache_folder(app, "files");
+    let stem = disk::name(&format!("{repo}\n{sha}\n{path}"));
     let (kept, absent) = match &dir {
         Some(dir) => (Some(dir.join(&stem)), Some(dir.join(format!("{stem}.absent")))),
         None => (None, None),
@@ -69,7 +56,7 @@ pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &st
         && let Ok(bytes) = std::fs::read(kept)
     {
         // Used: kept from the sweep.
-        let _ = std::fs::File::options().append(true).open(kept).and_then(|f| f.set_modified(std::time::SystemTime::now()));
+        disk::touch(kept);
         return Ok(Some(bytes));
     }
     if absent.as_ref().is_some_and(|a| a.exists()) {
@@ -79,10 +66,7 @@ pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &st
     match status {
         200 => {
             if let Some(kept) = &kept {
-                let temporary = kept.with_extension("tmp");
-                if std::fs::write(&temporary, &bytes).is_ok() {
-                    let _ = std::fs::rename(&temporary, kept);
-                }
+                let _ = disk::write(kept, &bytes);
             }
             Ok(Some(bytes))
         }
@@ -98,13 +82,8 @@ pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &st
 
 /// Removes what nobody's opened for two weeks.
 pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
-    let Some(dir) = folder(app) else { return };
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
-    for entry in entries.flatten() {
-        let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a > SWEEP_AFTER);
-        if old {
-            let _ = std::fs::remove_file(entry.path());
-        }
+    if let Some(dir) = disk::cache_folder(app, "files") {
+        disk::sweep(&dir, SWEEP_AFTER);
     }
 }
 
@@ -130,12 +109,5 @@ mod tests {
     fn encodes_paths_for_the_api() {
         assert_eq!(encode("src/a b#?.ts"), "src/a%20b%23%3F.ts");
         assert_eq!(encode("é"), "%C3%A9");
-    }
-
-    #[test]
-    fn names_files_stably() {
-        assert_eq!(name("a"), name("a"));
-        assert_ne!(name("a"), name("b"));
-        assert_eq!(name("a").len(), 32);
     }
 }

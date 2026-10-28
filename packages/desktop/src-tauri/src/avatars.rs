@@ -3,43 +3,19 @@
 //! ever change. The pages ask for `avatar://localhost/<path on avatars.githubusercontent.com>` and
 //! get the kept copy, fetched once (without the token: avatars are public).
 
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use tauri::http::{Request, Response, StatusCode};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
+
+use crate::disk;
 
 const KEEP: Duration = Duration::from_secs(7 * 24 * 3600);
 const SWEEP_AFTER: Duration = Duration::from_secs(30 * 24 * 3600);
 const LARGEST: u64 = 2 * 1024 * 1024;
 
-fn folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    let dir = app.path().app_cache_dir().ok()?.join("avatars");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
-
-/// FNV-1a: a stable file name for an address.
-fn name(key: &str) -> String {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in key.bytes() {
-        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
-    }
-    format!("{hash:016x}")
-}
-
 fn kind(bytes: &[u8]) -> &'static str {
-    match bytes {
-        [0x89, b'P', b'N', b'G', ..] => "image/png",
-        [0xFF, 0xD8, ..] => "image/jpeg",
-        [b'G', b'I', b'F', ..] => "image/gif",
-        [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => "image/webp",
-        _ => "application/octet-stream",
-    }
-}
-
-fn fresh(path: &Path, age: Duration) -> bool {
-    path.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a < age)
+    crate::media::image_kind(bytes).unwrap_or("application/octet-stream")
 }
 
 fn fetch(address: &str) -> Option<Vec<u8>> {
@@ -69,17 +45,14 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
     if !key.starts_with('/') || key.starts_with("//") || key.contains("..") || key.contains('@') {
         return reply(StatusCode::BAD_REQUEST, vec![]);
     }
-    let Some(dir) = folder(app) else { return reply(StatusCode::INTERNAL_SERVER_ERROR, vec![]) };
-    let path = dir.join(name(key));
-    if fresh(&path, KEEP) && let Ok(bytes) = std::fs::read(&path) {
+    let Some(dir) = disk::cache_folder(app, "avatars") else { return reply(StatusCode::INTERNAL_SERVER_ERROR, vec![]) };
+    let path = dir.join(disk::name(key));
+    if disk::age(&path).is_some_and(|age| age < KEEP) && let Ok(bytes) = std::fs::read(&path) {
         return reply(StatusCode::OK, bytes);
     }
     match fetch(&format!("https://avatars.githubusercontent.com{key}")) {
         Some(bytes) => {
-            let temporary = path.with_extension("tmp");
-            if std::fs::write(&temporary, &bytes).is_ok() {
-                let _ = std::fs::rename(&temporary, &path);
-            }
+            let _ = disk::write(&path, &bytes);
             reply(StatusCode::OK, bytes)
         }
         // Offline: last week's picture beats none.
@@ -92,12 +65,8 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
 
 /// Removes pictures nobody's been shown for a month.
 pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
-    let Some(dir) = folder(app) else { return };
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
-    for entry in entries.flatten() {
-        if !fresh(&entry.path(), SWEEP_AFTER) {
-            let _ = std::fs::remove_file(entry.path());
-        }
+    if let Some(dir) = disk::cache_folder(app, "avatars") {
+        disk::sweep(&dir, SWEEP_AFTER);
     }
 }
 
@@ -106,9 +75,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn names_and_kinds() {
-        assert_eq!(name("/u/1?s=48"), name("/u/1?s=48"));
-        assert_ne!(name("/u/1?s=48"), name("/u/2?s=48"));
+    fn kinds() {
         assert_eq!(kind(&[0x89, b'P', b'N', b'G', 0]), "image/png");
         assert_eq!(kind(b"<html>"), "application/octet-stream");
     }

@@ -119,8 +119,7 @@ pub fn sweep(cache: &Path) {
     for owner in owners.flatten() {
         let Ok(repos) = std::fs::read_dir(owner.path()) else { continue };
         for repo in repos.flatten() {
-            let old = repo.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|age| age > KEEP);
-            if old {
+            if crate::disk::age(&repo.path()).is_some_and(|age| age > KEEP) {
                 let guard = lock(&format!("{}/{}", owner.file_name().to_string_lossy(), repo.file_name().to_string_lossy()));
                 let _held = guard.lock().unwrap();
                 let _ = std::fs::remove_dir_all(repo.path());

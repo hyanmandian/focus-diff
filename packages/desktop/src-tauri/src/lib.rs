@@ -13,6 +13,7 @@ mod checkout;
 mod config;
 #[cfg(any(debug_assertions, feature = "devctl"))]
 mod devctl;
+mod disk;
 mod drafts;
 mod engine;
 #[cfg(target_os = "macos")]
@@ -100,10 +101,7 @@ fn read_file(app: AppHandle, name: &str) -> Result<Option<String>, String> {
 /// a file behind.
 #[tauri::command]
 fn write_file(app: AppHandle, name: &str, contents: &str) -> Result<(), String> {
-    let path = file_path(&app, name)?;
-    let temporary = path.with_extension("json.tmp");
-    fs::write(&temporary, contents).map_err(|e| e.to_string())?;
-    fs::rename(&temporary, &path).map_err(|e| e.to_string())?;
+    disk::write(&file_path(&app, name)?, contents).map_err(|e| e.to_string())?;
     match name {
         "config" => {
             menu::apply_theme(&app, contents);

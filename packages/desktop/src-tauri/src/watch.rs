@@ -176,10 +176,8 @@ fn read<T: for<'de> Deserialize<'de>>(path: Option<PathBuf>) -> Option<T> {
 
 /// Written next to the file and moved into place, so a crash mid-write never leaves half a file.
 fn write(path: Option<PathBuf>, contents: &str) {
-    let Some(path) = path else { return };
-    let temporary = path.with_extension("tmp");
-    if fs::write(&temporary, contents).is_ok() {
-        let _ = fs::rename(&temporary, &path);
+    if let Some(path) = path {
+        let _ = crate::disk::write(&path, contents);
     }
 }
 

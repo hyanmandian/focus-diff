@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -217,7 +217,7 @@ impl Drafts {
         let queue = Arc::new((Mutex::new(queue), Condvar::new(), Condvar::new()));
         let drafts = Drafts { queue: queue.clone(), file: file.clone() };
         let app = app.clone();
-        std::thread::spawn(move || run(&app, &queue, file.as_ref()));
+        std::thread::spawn(move || run(&app, &queue, file.as_deref()));
         drafts
     }
 
@@ -226,7 +226,7 @@ impl Drafts {
         let mut queue = lock.lock().unwrap();
         f(&mut queue);
         queue.woken = true;
-        save(self.file.as_ref(), &queue.saved);
+        crate::disk::save_json(self.file.as_deref(), &queue.saved);
         wake.notify_one();
     }
 
@@ -280,7 +280,7 @@ impl Drafts {
     }
 }
 
-fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&PathBuf>) {
+fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&Path>) {
     let (lock, wake, done) = queue;
     let mut failures = 0u32;
     loop {
@@ -299,7 +299,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar, Condvar),
         let mut q = lock.lock().unwrap();
         failures = if matches!(sent, Sent::Later(_)) { failures + 1 } else { 0 };
         q.settle(&job, &sent);
-        save(file, &q.saved);
+        crate::disk::save_json(file, &q.saved);
         done.notify_all();
         // The window showing this pull request reads what changed.
         let _ = app.emit("drafts", job.change.pull());
@@ -416,17 +416,6 @@ fn graphql(auth: &github::Auth, query: &str, variables: Value) -> Result<Value, 
     }
 }
 
-/// Written next to the file and moved into place, so a crash mid-write never leaves half a file.
-fn save(file: Option<&PathBuf>, saved: &Saved) {
-    let Some(file) = file else { return };
-    let temporary = file.with_extension("tmp");
-    if let Some(dir) = file.parent() {
-        let _ = fs::create_dir_all(dir);
-    }
-    if fs::write(&temporary, serde_json::to_string(saved).unwrap_or_default()).is_ok() {
-        let _ = fs::rename(&temporary, file);
-    }
-}
 
 #[cfg(test)]
 mod tests {

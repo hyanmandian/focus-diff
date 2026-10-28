@@ -5,29 +5,16 @@
 //! Only GitHub's own hosts, https.
 
 use std::io::Read;
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde_json::Value;
 use tauri::http::{Request, Response, StatusCode};
 use tauri::{AppHandle, Manager, Runtime};
 
+use crate::disk;
+
 const KEEP: Duration = Duration::from_secs(7 * 24 * 3600);
 const LARGEST: u64 = 200 * 1024 * 1024;
-
-fn folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    let dir = app.path().app_cache_dir().ok()?.join("media");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
-
-fn name(key: &str) -> String {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in key.bytes() {
-        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
-    }
-    format!("{hash:016x}")
-}
 
 pub(crate) fn decode(s: &str) -> String {
     let bytes = s.as_bytes();
@@ -65,13 +52,22 @@ fn key(url: &str) -> String {
     if url.contains("private-user-images.githubusercontent.com") { url.split('?').next().unwrap_or(url).to_string() } else { url.to_string() }
 }
 
+pub(crate) fn image_kind(bytes: &[u8]) -> Option<&'static str> {
+    match bytes {
+        [0x89, b'P', b'N', b'G', ..] => Some("image/png"),
+        [0xFF, 0xD8, ..] => Some("image/jpeg"),
+        [b'G', b'I', b'F', ..] => Some("image/gif"),
+        [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => Some("image/webp"),
+        _ => None,
+    }
+}
+
 fn kind(bytes: &[u8], url: &str) -> &'static str {
+    if let Some(image) = image_kind(bytes) {
+        return image;
+    }
     let path = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
     match bytes {
-        [0x89, b'P', b'N', b'G', ..] => "image/png",
-        [0xFF, 0xD8, ..] => "image/jpeg",
-        [b'G', b'I', b'F', ..] => "image/gif",
-        [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => "image/webp",
         _ if path.ends_with(".mp4") || path.ends_with(".m4v") => "video/mp4",
         _ if path.ends_with(".mov") => "video/quicktime",
         _ if path.ends_with(".webm") => "video/webm",
@@ -134,10 +130,6 @@ fn fetch<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Vec<u8>> {
     read_all(crate::github::agent().get(url).call().ok()?)
 }
 
-fn fresh(path: &Path) -> bool {
-    path.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a < KEEP)
-}
-
 fn empty(status: StatusCode) -> Response<Vec<u8>> {
     Response::builder().status(status).body(vec![]).unwrap_or_default()
 }
@@ -170,16 +162,13 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
     if !allowed(&url) {
         return empty(StatusCode::FORBIDDEN);
     }
-    let Some(dir) = folder(app) else { return empty(StatusCode::INTERNAL_SERVER_ERROR) };
-    let path = dir.join(name(&key(&url)));
+    let Some(dir) = disk::cache_folder(app, "media") else { return empty(StatusCode::INTERNAL_SERVER_ERROR) };
+    let path = dir.join(disk::name(&key(&url)));
     let bytes = match std::fs::read(&path) {
-        Ok(bytes) if fresh(&path) => bytes,
+        Ok(bytes) if disk::age(&path).is_some_and(|age| age < KEEP) => bytes,
         cached => match fetch(app, &url) {
             Some(bytes) => {
-                let temporary = path.with_extension("tmp");
-                if std::fs::write(&temporary, &bytes).is_ok() {
-                    let _ = std::fs::rename(&temporary, &path);
-                }
+                let _ = disk::write(&path, &bytes);
                 bytes
             }
             // Offline, or gone: an older copy beats none.
@@ -199,13 +188,8 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
 
 /// Removes what nobody's looked at for a month.
 pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
-    let Some(dir) = folder(app) else { return };
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
-    for entry in entries.flatten() {
-        let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a > KEEP * 4);
-        if old {
-            let _ = std::fs::remove_file(entry.path());
-        }
+    if let Some(dir) = disk::cache_folder(app, "media") {
+        disk::sweep(&dir, KEEP * 4);
     }
 }
 

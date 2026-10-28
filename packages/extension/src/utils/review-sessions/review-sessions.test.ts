@@ -260,6 +260,12 @@ describe("plan", () => {
     expect(result.picked.map((item) => item.pull.number)).toEqual([1, 6]);
   });
 
+  it("fits the rest in what the ones asked for again leave, to the fraction of a minute", () => {
+    const odd = [planned(1, 10.4, { again: true }), planned(2, 19.5)];
+    expect(plan(odd, 30, "oldest", true).picked.map((item) => item.pull.number)).toEqual([1, 2]);
+    expect(plan(odd, 30, "fill", true).picked.map((item) => item.pull.number)).toEqual([1]);
+  });
+
   it("puts the ones asked for again first, when they fit, in the session’s order after that", () => {
     const again = [planned(1, 25), planned(2, 10, { again: true }), planned(3, 8), planned(4, 14, { again: true })];
     expect(plan(again, 30, "oldest", true).picked.map((item) => item.pull.number)).toEqual([2, 4]);

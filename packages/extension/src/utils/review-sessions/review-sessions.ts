@@ -370,7 +370,7 @@ export const plan = (items: Planned[], minutes: number, order: Order, againFirst
   const rest = sorted.filter((item) => !again(item));
   const ordered = [...first, ...rest];
   const fit = (list: Planned[], room: number): Planned[] => {
-    if (order === "fill") return bestFill(list, room).toSorted(byAge);
+    if (order === "fill") return bestFill(list, Math.floor(room)).toSorted(byAge);
     const fits: Planned[] = [];
     for (const item of list) {
       if (item.estimate.minutes > room) continue;
@@ -381,7 +381,7 @@ export const plan = (items: Planned[], minutes: number, order: Order, againFirst
   };
   const sum = (list: Planned[]) => list.reduce((total, item) => total + item.estimate.minutes, 0);
   const pickedFirst = fit(first, minutes);
-  let picked = [...pickedFirst, ...fit(rest, Math.floor(minutes - sum(pickedFirst)))];
+  let picked = [...pickedFirst, ...fit(rest, minutes - sum(pickedFirst))];
   if (picked.length === 0 && ordered[0]) picked = [ordered[0]];
   const total = sum(picked);
   const left = ordered.filter((item) => !picked.includes(item));

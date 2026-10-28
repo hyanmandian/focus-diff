@@ -48,7 +48,6 @@ import {
   type Reviewer,
   type Team,
 } from "@/utils/manage/manage";
-import type { PullRef } from "@/utils/review/review";
 
 export function Face({ actor, className }: { actor: Actor; className?: string }) {
   return (
@@ -112,7 +111,7 @@ const STATE_TONE = {
   PENDING: "text-muted-foreground",
 } as const;
 
-type Props = { pr: PullRef; details: Details; pull: Pull; me: string | null; onError: (message: string) => void };
+type Props = { details: Details; pull: Pull; me: string | null; onError: (message: string) => void };
 
 /** Runs a change: shown at once, GitHub asked, and back as it was (GitHub's) if it refuses. */
 function useChange(pull: Pull, onError: Props["onError"]) {
@@ -128,7 +127,7 @@ function useChange(pull: Pull, onError: Props["onError"]) {
   };
 }
 
-function Reviewers({ pr, details, pull, me, onError }: Props) {
+function Reviewers({ details, pull, me, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -150,11 +149,11 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
     setLoading(true);
     void (async () => {
       await Promise.allSettled([
-        loadPeople(pr, query, (people) => {
+        loadPeople(details, query, (people) => {
           setCandidates((c) => ({ ...c, people }));
         }),
         m?.orgOwned
-          ? loadTeams(pr, query, (teams) => {
+          ? loadTeams(details, query, (teams) => {
               setCandidates((c) => ({ ...c, teams }));
             })
           : Promise.resolve(),
@@ -226,7 +225,7 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
               ],
         };
       },
-      () => (on ? requestReviews(pr, users, teamSlugs) : removeReviewRequests(pr, users, teamSlugs)),
+      () => (on ? requestReviews(details, users, teamSlugs) : removeReviewRequests(details, users, teamSlugs)),
     );
   };
   return (
@@ -323,7 +322,7 @@ function TeamMark({ name }: { name: string }) {
   );
 }
 
-function Assignees({ pr, details, pull, me, onError }: Props) {
+function Assignees({ details, pull, me, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -333,7 +332,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
   const assigned = m?.assignees ?? [];
   const fetch = (query: string) => {
     setLoading(true);
-    void loadPeople(pr, query, setPeople).finally(() => {
+    void loadPeople(details, query, setPeople).finally(() => {
       setLoading(false);
     });
   };
@@ -358,7 +357,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
             : now.assignees
           : now.assignees.filter((a) => a.login !== login),
       }),
-      () => (on ? addAssignees(pr, [login]) : removeAssignees(pr, [login])),
+      () => (on ? addAssignees(details, [login]) : removeAssignees(details, [login])),
     );
   };
   return (
@@ -419,7 +418,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
   );
 }
 
-function Labels({ pr, pull, onError }: Props) {
+function Labels({ details, pull, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -442,7 +441,7 @@ function Labels({ pr, pull, onError }: Props) {
         ...now,
         labels: on ? [...now.labels, ...label] : now.labels.filter((l) => l.name !== name),
       }),
-      () => (on ? addLabels(pr, [name]) : removeLabel(pr, name)),
+      () => (on ? addLabels(details, [name]) : removeLabel(details, name)),
     );
   };
   return (
@@ -463,7 +462,7 @@ function Labels({ pr, pull, onError }: Props) {
             onOpenChange={(open) => {
               if (!open) return;
               setLoading(true);
-              void loadLabels(pr, setAll).finally(() => {
+              void loadLabels(details, setAll).finally(() => {
                 setLoading(false);
               });
             }}
@@ -489,7 +488,7 @@ function Labels({ pr, pull, onError }: Props) {
   );
 }
 
-function MilestoneSection({ pr, pull, onError }: Props) {
+function MilestoneSection({ details, pull, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -514,7 +513,7 @@ function MilestoneSection({ pr, pull, onError }: Props) {
     setOpen(false);
     void change(
       (now) => ({ ...now, milestone: next }),
-      () => setMilestone(pr, next?.number ?? null),
+      () => setMilestone(details, next?.number ?? null),
     );
   };
   return (
@@ -535,7 +534,7 @@ function MilestoneSection({ pr, pull, onError }: Props) {
               setOpen(next);
               if (!next) return;
               setLoading(true);
-              void loadMilestones(pr, setAll).finally(() => {
+              void loadMilestones(details, setAll).finally(() => {
                 setLoading(false);
               });
             }}
@@ -559,7 +558,7 @@ const ISSUE_ICON = {
   NOT_PLANNED: { icon: CircleSlash, className: "text-muted-foreground" },
 } as const;
 
-function Development({ pull, pr }: { pull: Pull; pr: PullRef }) {
+function Development({ pull, details }: { pull: Pull; details: Details }) {
   const t = useT();
   const issues = pull.manage?.issues ?? [];
   if (issues.length === 0) return null;
@@ -587,7 +586,7 @@ function Development({ pull, pr }: { pull: Pull; pr: PullRef }) {
                 <span className="min-w-0">
                   <span className="line-clamp-2">{issue.title}</span>
                   <span className="text-subheadline text-muted-foreground tabular-nums">
-                    {issue.repo === `${pr.owner}/${pr.repo}` ? "" : issue.repo}#{issue.number}
+                    {issue.repo === `${details.owner}/${details.repo}` ? "" : issue.repo}#{issue.number}
                   </span>
                 </span>
               </button>
@@ -664,7 +663,7 @@ export function Sidebar(props: Props) {
       <Assignees {...props} />
       <Labels {...props} />
       <MilestoneSection {...props} />
-      <Development pull={props.pull} pr={props.pr} />
+      <Development pull={props.pull} details={props.details} />
       <Deployments pull={props.pull} />
     </>
   );

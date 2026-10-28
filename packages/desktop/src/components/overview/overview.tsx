@@ -705,7 +705,7 @@ export function Overview({
           />
         ) : null}
         {config ? <AskAi config={config} details={details} /> : null}
-        <Sidebar pr={details} details={details} pull={pull} me={me} onError={say} />
+        <Sidebar details={details} pull={pull} me={me} onError={say} />
       </aside>
     </div>
   );

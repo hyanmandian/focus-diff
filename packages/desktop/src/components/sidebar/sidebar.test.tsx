@@ -74,15 +74,7 @@ function sidebar({ details: d = {}, manage = {}, me = "me", pull: p = {} }: Setu
   const details = fakeDetails(d);
   const pull = fakePull({ manage: manage === null ? null : fakeManage(manage), ...p });
   const onError = vi.fn<(message: string) => void>();
-  render(
-    <Sidebar
-      pr={{ owner: "acme", repo: "shop", number: 42 }}
-      details={details}
-      pull={pull}
-      me={me}
-      onError={onError}
-    />,
-  );
+  render(<Sidebar details={details} pull={pull} me={me} onError={onError} />);
   return { pull, onError };
 }
 

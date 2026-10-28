@@ -699,6 +699,15 @@ describe("endRun", () => {
     expect(created).toHaveLength(1);
     expect(await reviewRunItem.getValue()).toBeNull();
   });
+  it("ends once when its end and its minute's tick go off together", async () => {
+    await reviewRunItem.setValue(run({ startedAt: NOW - 30 * MINUTE }));
+    await Promise.all([
+      onReviewAlarm({ name: "review-time:end", scheduledTime: NOW }),
+      onReviewAlarm({ name: "review-time:tick", scheduledTime: NOW }),
+    ]);
+    expect(created.map(([id]) => id)).toEqual(["review-time:end"]);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("onReviewAlarm", () => {

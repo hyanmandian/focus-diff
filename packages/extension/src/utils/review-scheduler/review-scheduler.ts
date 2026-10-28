@@ -396,7 +396,11 @@ const clearRun = async () => {
  */
 export type Ending = "time" | "ended" | "skipped" | "lapsed";
 
-export const endRun = async (ending: Ending): Promise<void> => {
+const oneEnding = pool(1);
+
+export const endRun = (ending: Ending): Promise<void> => oneEnding(() => finishRun(ending));
+
+const finishRun = async (ending: Ending): Promise<void> => {
   const [run, settings] = await Promise.all([reviewRunItem.getValue(), loadReviewTime()]);
   await clearRun();
   const seen = (event: HeldEvent) => ending !== "lapsed" && run !== null && event.heldAt <= run.offeredAt;

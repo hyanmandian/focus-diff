@@ -632,6 +632,13 @@ describe("notifications", () => {
     expect(await hooks.release([event(1)])).toBe(true);
     expect(created()).toHaveLength(1);
   });
+
+  it("keeps the links of notifications shown at the same time from two places", async () => {
+    await notifyItem.setValue(enabled());
+    await settle();
+    await Promise.all([hooks.release([event(1)]), hooks.release([event(2)])]);
+    expect(Object.keys(await notificationLinksItem.getValue())).toHaveLength(2);
+  });
 });
 
 describe("the icon", () => {

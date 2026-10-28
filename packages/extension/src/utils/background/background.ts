@@ -3,7 +3,7 @@ import { browser, type Browser } from "wxt/browser";
 import { i18n } from "#i18n";
 import { isSilent, play } from "@/utils/background-sound/background-sound";
 import { fetchDetail, fetchNotifications, fetchPulls } from "@/utils/github-inbox/github-inbox";
-import { checkInbox } from "@/utils/inbox-check/inbox-check";
+import { checkInbox, pool } from "@/utils/inbox-check/inbox-check";
 import {
   inPopup,
   isDone,
@@ -133,7 +133,7 @@ const deliveryOptions = (delivery: Delivery) =>
 
 const titleOf = (event: InboxEvent) => TITLES[event.kind](event.actor || event.repo, event);
 
-const showNotifications = async (events: InboxEvent[], delivery: Delivery) => {
+const show = async (events: InboxEvent[], delivery: Delivery) => {
   if (events.length === 0 || !browser.notifications) return;
   if (!(await browser.permissions.contains({ permissions: ["notifications"] }))) return;
   const iconUrl = browser.runtime.getURL("/icon/128.png");
@@ -193,6 +193,9 @@ const showNotifications = async (events: InboxEvent[], delivery: Delivery) => {
   // One sound for the lot.
   await play(delivery.sound);
 };
+
+const oneShowing = pool(1);
+const showNotifications = (events: InboxEvent[], delivery: Delivery) => oneShowing(() => show(events, delivery));
 
 let running: Promise<void> | null = null;
 /**

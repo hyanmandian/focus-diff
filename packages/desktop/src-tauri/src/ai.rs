@@ -128,10 +128,15 @@ pub(crate) fn search_path() -> &'static str {
 }
 
 fn find(provider: Provider) -> Option<PathBuf> {
-    let separator = if cfg!(windows) { ';' } else { ':' };
-    for dir in search_path().split(separator).filter(|d| !d.is_empty()) {
-        for name in provider.binaries() {
-            for candidate in [Path::new(dir).join(name), Path::new(dir).join(format!("{name}.exe")), Path::new(dir).join(format!("{name}.cmd"))] {
+    find_in(search_path(), provider.binaries())
+}
+
+fn find_in(path: &str, names: &[&str]) -> Option<PathBuf> {
+    let extensions: &[&str] = if cfg!(windows) { &[".exe", ".cmd"] } else { &[""] };
+    for dir in std::env::split_paths(path).filter(|dir| !dir.as_os_str().is_empty()) {
+        for name in names {
+            for extension in extensions {
+                let candidate = dir.join(format!("{name}{extension}"));
                 if candidate.is_file() {
                     return Some(candidate);
                 }
@@ -414,6 +419,19 @@ mod tests {
     fn finds_json_in_prose() {
         assert_eq!(json_object("Sure:\n```json\n{\"findings\": []}\n```").as_deref(), Some("{\"findings\":[]}"));
         assert_eq!(json_object("no json here"), None);
+    }
+
+    #[test]
+    fn finds_what_the_system_can_run() {
+        let dir = std::env::temp_dir().join(format!("fd-find-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("claude"), "#!/bin/sh").unwrap();
+        std::fs::write(dir.join("claude.cmd"), "@echo off").unwrap();
+        let path = std::env::join_paths([dir.join("missing"), dir.clone()]).unwrap();
+        let found = find_in(path.to_str().unwrap(), &["agent", "claude"]);
+        assert_eq!(found, Some(dir.join(if cfg!(windows) { "claude.cmd" } else { "claude" })));
+        assert_eq!(find_in(path.to_str().unwrap(), &["agent"]), None);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// Talks to the CLIs installed on this machine, so it's opt-in: `cargo test -- --ignored ai`.

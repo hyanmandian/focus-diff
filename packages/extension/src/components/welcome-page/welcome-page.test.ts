@@ -339,6 +339,12 @@ describe("startWelcome", () => {
       expect(keys()).toEqual(["Alt+Shift+.", "Alt+Shift+,", "Alt+Shift+0", "Alt+Shift+J"]);
     });
 
+    it("names the defaults, and shows the page, when listing the shortcuts fails", async () => {
+      getAll().mockRejectedValue(new Error("unsupported"));
+      await start();
+      expect(keys()).toEqual(["Alt+Shift+.", "Alt+Shift+,", "Alt+Shift+0", "Alt+Shift+J"]);
+    });
+
     it("names the defaults where the browser has no shortcuts", async () => {
       const { commands: original } = fakeBrowser;
       Reflect.deleteProperty(fakeBrowser, "commands");

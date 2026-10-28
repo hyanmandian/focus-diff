@@ -229,7 +229,7 @@ export const startWelcome = (): void => {
   };
 
   const renderShortcuts = async () => {
-    const commands = (await browser.commands?.getAll?.()) ?? [];
+    const commands = (await browser.commands?.getAll?.()?.catch(() => [])) ?? [];
     const keys = Object.entries(DEFAULT_SHORTCUTS).map(
       ([name, fallback]) => commands.find((command) => command.name === name)?.shortcut || fallback,
     );

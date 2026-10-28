@@ -42,6 +42,6 @@ export default defineConfig({
   zip: {
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
     sourcesTemplate: "{{name}}-{{version}}-sources.zip",
-    excludeSources: ["store/**", "site/**"],
+    excludeSources: ["store/**", "site/**", "test-results/**", "playwright-report/**", "coverage/**"],
   },
 });

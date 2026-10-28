@@ -128,7 +128,9 @@ export function AskAi({ config, details }: { config: Config; details: Details })
             <p className="flex items-center gap-1.5 text-callout text-muted-foreground tabular-nums">
               <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
               {config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}
-              {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
+              {waited >= 3 ? (
+                <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
+              ) : null}
             </p>
           )}
         </div>

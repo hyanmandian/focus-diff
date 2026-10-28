@@ -170,6 +170,7 @@ describe("AskAi", () => {
       await vi.advanceTimersByTimeAsync(4000);
     });
     expect(reading.textContent).toContain(" · 4s");
+    expect(screen.getByText(/· 4s/u).closest("[aria-hidden]")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Stop" }));
     const run = ai.ask.mock.calls[0]?.[3];
     expect(cancelled).toEqual([{ run }]);

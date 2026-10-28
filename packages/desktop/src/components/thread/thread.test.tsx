@@ -705,6 +705,7 @@ describe("NewComment", () => {
         });
       });
       expect(screen.getByRole("status").textContent).toContain(" · 4s");
+      expect(screen.getByText(/· 4s/u).closest("[aria-hidden]")).toBeTruthy();
       await user.click(screen.getByRole("button", { name: "Stop" }));
       const cancelled = sent.find(([cmd]) => cmd === "ai_cancel");
       expect(cancelled?.[1]).toEqual({ run: ask.mock.calls[0]?.[2] });

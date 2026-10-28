@@ -673,7 +673,9 @@ export function NewComment({
                       {/* What it's doing and for how long, so a long answer doesn't look stuck. */}
                       <span className="text-subheadline text-muted-foreground tabular-nums">
                         {t("review.readingCode", { name: askName })}
-                        {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
+                        {waited >= 3 ? (
+                          <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
+                        ) : null}
                       </span>
                       <span
                         aria-hidden

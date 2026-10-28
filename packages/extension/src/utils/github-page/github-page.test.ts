@@ -389,6 +389,18 @@ describe("going to files", () => {
     reveal("");
     expect(location.hash).toBe("#diff-");
   });
+  it("takes GitHub to a file again when the address already points at it", () => {
+    html("");
+    location.hash = "diff-abc";
+    let changes = 0;
+    const count = () => {
+      changes += 1;
+    };
+    addEventListener("hashchange", count);
+    reveal("abc");
+    removeEventListener("hashchange", count);
+    expect(changes).toBe(1);
+  });
 });
 
 describe("coveredTop", () => {

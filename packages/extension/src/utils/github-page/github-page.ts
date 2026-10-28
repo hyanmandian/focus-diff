@@ -265,6 +265,7 @@ const treeLink = (anchor: string): HTMLAnchorElement | null =>
 export const reveal = (anchor: string): void => {
   const link = treeLink(anchor);
   if (link) link.click();
+  else if (location.hash === `#diff-${anchor}`) dispatchEvent(new HashChangeEvent("hashchange"));
   else location.hash = `diff-${anchor}`;
 };
 

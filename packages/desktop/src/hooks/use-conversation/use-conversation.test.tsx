@@ -344,6 +344,19 @@ describe("useConversation", () => {
     expect(say).toHaveBeenCalledWith("Comment deleted");
   });
 
+  it("says why a comment couldn't be deleted", async () => {
+    const { result, state, say } = setup();
+    await waitFor(() => {
+      expect(result.current.conversation).not.toBeNull();
+    });
+    gh.remove.mockRejectedValueOnce(new Error("Forbidden")).mockRejectedValueOnce(new Error("Forbidden"));
+    await act(() => result.current.api.deleteComment(comment("C3", "ada")));
+    await act(() => result.current.api.deleteEntry("IC_1"));
+    expect(say.mock.calls).toEqual([["Forbidden"], ["Forbidden"]]);
+    expect(state.threads.map((t) => t.id)).toEqual(["T1", "T2", "T3"]);
+    expect(result.current.conversation?.entries.map((e) => e.id)).toEqual(["IC_1", "PRR_1"]);
+  });
+
   it("edits and deletes the pull request's comments and reviews", async () => {
     const { result, say, answers } = setup();
     await waitFor(() => {

@@ -196,6 +196,18 @@ export function useConversation({
     );
   };
 
+  const remove = async (kind: "review-comment" | "issue-comment", id: string, removed: () => void) => {
+    if (!(await confirmDelete())) return;
+    try {
+      await removeOnGitHub(kind, id);
+    } catch (e) {
+      say(message(e));
+      return;
+    }
+    removed();
+    say(i18n()("review.commentDeleted"));
+  };
+
   const api: ConversationApi = {
     repo: `${ref.owner}/${ref.repo}`,
     url: details?.url ?? `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.number}`,
@@ -216,22 +228,18 @@ export function useConversation({
       const html = await editOnGitHub("review-comment", comment.id, body);
       patchComment(comment.id, { body, html, edited: true });
     },
-    deleteComment: async (comment) => {
-      if (!(await confirmDelete())) return;
-      await removeOnGitHub("review-comment", comment.id);
-      patchComment(comment.id, null);
-      say(i18n()("review.commentDeleted"));
-    },
+    deleteComment: (comment) =>
+      remove("review-comment", comment.id, () => {
+        patchComment(comment.id, null);
+      }),
     editEntry: async (kind, id, body) => {
       const html = await editOnGitHub(kind === "comment" ? "issue-comment" : "review", id, body);
       patchEntry(id, { body, html, edited: true });
     },
-    deleteEntry: async (id) => {
-      if (!(await confirmDelete())) return;
-      await removeOnGitHub("issue-comment", id);
-      patchEntry(id, null);
-      say(i18n()("review.commentDeleted"));
-    },
+    deleteEntry: (id) =>
+      remove("issue-comment", id, () => {
+        patchEntry(id, null);
+      }),
     editDescription: async (body) => {
       if (!details) return;
       const html = await editOnGitHub("pull", details.id, body);

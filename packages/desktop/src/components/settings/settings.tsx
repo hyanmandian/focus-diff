@@ -139,7 +139,15 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         !(await confirmRemove(t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") })))
       )
         return;
-      setQueues(config.queues.filter((q) => q.id !== selected.id));
+      const sessions = config.reviewTime.sessions.map((s) => ({
+        ...s,
+        queues: s.queues.filter((id) => id !== selected.id),
+      }));
+      onChange({
+        ...config,
+        queues: config.queues.filter((q) => q.id !== selected.id),
+        reviewTime: { ...config.reviewTime, sessions },
+      });
       detail.close();
     };
     return (

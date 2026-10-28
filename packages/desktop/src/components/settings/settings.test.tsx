@@ -267,6 +267,28 @@ describe("Queues pane", () => {
     expect(within(panel()).queryByRole("button", { name: "Back to Queues" })).toBeNull();
   });
 
+  it("takes a deleted queue out of the review times that picked it", async () => {
+    const session = {
+      id: "S",
+      name: "Afternoon",
+      on: true,
+      days: [1],
+      times: ["15:00"],
+      minutes: 30,
+      order: "oldest" as const,
+      queues: ["One", "Two"],
+      drafts: false,
+    };
+    const reviewTime = { ...defaultConfig().reviewTime, sessions: [session] };
+    const rust = await open({ config: config({ queues: [queue("One"), queue("Two")], reviewTime }) });
+    await userEvent.click(within(panel()).getByRole("button", { name: /One/u }));
+    await userEvent.click(within(panel()).getByRole("button", { name: "Delete One" }));
+    await waitFor(() => {
+      expect(rust.saved()?.queues.map((q) => q.name)).toEqual(["Two"]);
+    });
+    expect(rust.saved()?.reviewTime.sessions[0]?.queues).toEqual(["Two"]);
+  });
+
   it("adds a queue from a preset or from nothing, and opens it", async () => {
     const rust = await open({ config: config({ queues: [] }) });
     await userEvent.click(within(panel()).getByRole("button", { name: /Add Queue/u }));

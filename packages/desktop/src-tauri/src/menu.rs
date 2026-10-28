@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use tauri::menu::{Menu, MenuBuilder, MenuEvent, MenuItem, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
-use tauri::{AppHandle, Emitter, Manager, Runtime, Theme};
+use tauri::{AppHandle, Emitter, Manager, Theme};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use crate::i18n::tr;
@@ -20,31 +20,31 @@ const REVIEW: &[&str] = &[
 ];
 
 /// The review commands' items, and what each review window last said applies to it.
-pub struct ReviewItems<R: Runtime> {
+pub struct ReviewItems {
     /// Made again when the language changes, with the menu bar.
-    items: Mutex<Items<R>>,
+    items: Mutex<Items>,
     /// By window label: the commands it can do now.
     state: Mutex<HashMap<String, HashMap<String, bool>>>,
 }
 
 /// The menu bar in the language in use; `items`: its review commands, by id. Only the Mac has one.
 #[cfg(target_os = "macos")]
-pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewItems<R>)> {
+pub fn build(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, ReviewItems)> {
     let (menu, items) = make(app)?;
     Ok((menu, ReviewItems { items: Mutex::new(items), state: Mutex::new(HashMap::new()) }))
 }
 
 /// The language changed: the menu bar is made again in it, the review commands as the window in
 /// front last said.
-pub fn relocalize<R: Runtime>(app: &AppHandle<R>) {
+pub fn relocalize(app: &AppHandle) {
     // Where there's no menu bar, the tray icon's menu is the one to say again.
     #[cfg(not(target_os = "macos"))]
-    if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray<R>>(), crate::tray_menu(app))
+    if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray>(), crate::tray_menu(app))
         && let Some(icon) = tray.0.lock().unwrap().as_ref()
     {
         let _ = icon.set_menu(Some(menu));
     }
-    let Some(review) = app.try_state::<ReviewItems<R>>() else { return };
+    let Some(review) = app.try_state::<ReviewItems>() else { return };
     let Ok((menu, items)) = make(app) else { return };
     if app.set_menu(menu).is_err() {
         return;
@@ -58,12 +58,12 @@ pub fn relocalize<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// The review commands' items, by id.
-type Items<R> = HashMap<&'static str, MenuItem<R>>;
+type Items = HashMap<&'static str, MenuItem<tauri::Wry>>;
 
-fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
+fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
     let name = app.package_info().name.clone();
     let mut items = HashMap::new();
-    let mut item = |id: &'static str, text: &str, accelerator: Option<&str>| -> tauri::Result<MenuItem<R>> {
+    let mut item = |id: &'static str, text: &str, accelerator: Option<&str>| -> tauri::Result<MenuItem<tauri::Wry>> {
         let mut builder = MenuItemBuilder::with_id(id, text);
         if let Some(accelerator) = accelerator {
             builder = builder.accelerator(accelerator);
@@ -161,8 +161,8 @@ fn make<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, Items<R>)> {
 }
 
 /// A window came to the front: the review commands follow it.
-pub fn focused<R: Runtime>(app: &AppHandle<R>, label: &str) {
-    let Some(review) = app.try_state::<ReviewItems<R>>() else { return };
+pub fn focused(app: &AppHandle, label: &str) {
+    let Some(review) = app.try_state::<ReviewItems>() else { return };
     let state = review.state.lock().unwrap();
     let mine = label.starts_with("review-").then(|| state.get(label)).map(|s| s.cloned().unwrap_or_default());
     for (id, item) in review.items.lock().unwrap().iter() {
@@ -176,20 +176,20 @@ pub fn focused<R: Runtime>(app: &AppHandle<R>, label: &str) {
 pub fn menu_state(app: AppHandle, window: tauri::WebviewWindow, items: HashMap<String, bool>) {
     let label = window.label().to_string();
     // No menu bar (and so nothing to keep) where the app has none: Windows and Linux.
-    let Some(review) = app.try_state::<ReviewItems<tauri::Wry>>() else { return };
+    let Some(review) = app.try_state::<ReviewItems>() else { return };
     review.state.lock().unwrap().insert(label.clone(), items);
     if window.is_focused().unwrap_or(false) {
         focused(&app, &label);
     }
 }
 
-pub fn forget<R: Runtime>(app: &AppHandle<R>, label: &str) {
-    if let Some(review) = app.try_state::<ReviewItems<R>>() {
+pub fn forget(app: &AppHandle, label: &str) {
+    if let Some(review) = app.try_state::<ReviewItems>() {
         review.state.lock().unwrap().remove(label);
     }
 }
 
-pub fn on_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
+pub fn on_event(app: &AppHandle, event: MenuEvent) {
     let id = event.id().as_ref();
     match id {
         "quit" => app.exit(0),
@@ -208,7 +208,7 @@ pub fn on_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
 }
 
 /// Check for Updates…: says what it found, and installs a newer version if asked to.
-fn check_for_updates<R: Runtime>(app: &AppHandle<R>) {
+fn check_for_updates(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let name = app.package_info().name.clone();
@@ -248,7 +248,7 @@ pub async fn confirm(app: AppHandle, window: tauri::WebviewWindow, title: String
 /// The theme picked in Settings, for every window: the native parts (the panel's material, title
 /// bars, scroll bars, form controls and the web views' system colours) follow it, not only the
 /// page. "system" follows the Mac again.
-pub fn apply_theme<R: Runtime>(app: &AppHandle<R>, config: &str) {
+pub fn apply_theme(app: &AppHandle, config: &str) {
     let theme = serde_json::from_str::<serde_json::Value>(config).ok().and_then(|c| match c["theme"].as_str() {
         Some("light") => Some(Theme::Light),
         Some("dark") => Some(Theme::Dark),

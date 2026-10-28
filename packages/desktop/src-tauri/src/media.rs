@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde_json::Value;
 use tauri::http::{Request, Response, StatusCode};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager};
 
 use crate::disk;
 
@@ -113,7 +113,7 @@ fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
     read_all(response)
 }
 
-fn fetch<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Vec<u8>> {
+fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
     if url.starts_with("https://github.com/") && url.contains("/releases/download/") {
         let token = app.state::<crate::github::Auth>().token_for_git().ok()?;
         return release_asset(&token, url);
@@ -154,7 +154,7 @@ fn serve_bytes(request: &Request<Vec<u8>>, bytes: Vec<u8>, content_type: &str) -
 }
 
 /// Answers one `media://` request. Blocking: run it off the main thread.
-pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let query = request.uri().query().unwrap_or("");
     let Some(url) = query.split('&').find_map(|p| p.strip_prefix("u=")).map(decode) else { return empty(StatusCode::BAD_REQUEST) };
     if !allowed(&url) {
@@ -185,7 +185,7 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
 }
 
 /// Removes what nobody's looked at for a month.
-pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
+pub fn sweep(app: &AppHandle) {
     if let Some(dir) = disk::cache_folder(app, "media") {
         disk::sweep(&dir, KEEP * 4);
     }

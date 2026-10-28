@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager};
 
-pub fn cache_folder<R: Runtime>(app: &AppHandle<R>, name: &str) -> Option<PathBuf> {
+pub fn cache_folder(app: &AppHandle, name: &str) -> Option<PathBuf> {
     let dir = app.path().app_cache_dir().ok()?.join(name);
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir)

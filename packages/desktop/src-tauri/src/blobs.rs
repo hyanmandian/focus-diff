@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
 use crate::disk;
 use crate::github::{repo_ok, Auth};
@@ -42,7 +42,7 @@ fn encode(path: &str) -> String {
 }
 
 /// The contents of `path` at commit `sha` of `repo`; None when it isn't there.
-pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &str, path: &str) -> Result<Option<Vec<u8>>, String> {
+pub fn file_at(app: &AppHandle, auth: &Auth, repo: &str, sha: &str, path: &str) -> Result<Option<Vec<u8>>, String> {
     if !repo_ok(repo) || !valid_sha(sha) || !valid_path(path) {
         return Err("Bad request".into());
     }
@@ -81,7 +81,7 @@ pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &st
 }
 
 /// Removes what nobody's opened for two weeks.
-pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
+pub fn sweep(app: &AppHandle) {
     if let Some(dir) = disk::cache_folder(app, "files") {
         disk::sweep(&dir, SWEEP_AFTER);
     }

@@ -6,7 +6,7 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 use crate::i18n::tr;
 
@@ -19,7 +19,7 @@ pub struct Pending(Mutex<Option<Update>>);
 /// The version on offer, if a newer one was found. A release feed that isn't there (nothing published
 /// yet, or nothing for this computer) means there's nothing newer; an error, said for people, only
 /// when the feed couldn't be reached or read. The updater's own words go to the log.
-pub async fn check<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, String> {
+pub async fn check(app: &AppHandle) -> Result<Option<String>, String> {
     let checked = match app.updater() {
         Ok(updater) => updater.check().await,
         Err(e) => Err(e),
@@ -43,19 +43,19 @@ pub async fn check<R: Runtime>(app: &AppHandle<R>) -> Result<Option<String>, Str
     Ok(version)
 }
 
-pub fn offered<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+pub fn offered(app: &AppHandle) -> Option<String> {
     app.state::<Pending>().0.lock().unwrap().as_ref().map(|u| u.version.clone())
 }
 
 /// Downloads and installs the version on offer, then restarts into it.
-pub async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+pub async fn install(app: &AppHandle) -> Result<(), String> {
     let update = app.state::<Pending>().0.lock().unwrap().take().ok_or_else(|| tr!("No update to install", "Não há atualização para instalar"))?;
     update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
     app.restart();
 }
 
 /// Release builds look for updates on their own; development builds only when asked.
-pub fn watch<R: Runtime>(app: &AppHandle<R>) {
+pub fn watch(app: &AppHandle) {
     if cfg!(debug_assertions) {
         return;
     }

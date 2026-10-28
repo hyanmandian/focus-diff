@@ -9,7 +9,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager};
 
 use crate::github;
 
@@ -51,7 +51,7 @@ pub struct Outbox {
 
 impl Outbox {
     /// Reads what was left from last time and starts sending it.
-    pub fn start<R: Runtime>(app: &AppHandle<R>) -> Outbox {
+    pub fn start(app: &AppHandle) -> Outbox {
         let file = app.path().app_config_dir().ok().map(|d| d.join("outbox.json"));
         let marks: Vec<Mark> = file.as_ref().and_then(|f| fs::read_to_string(f).ok()).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         let queue = Arc::new((Mutex::new(Queue { woken: !marks.is_empty(), marks }), Condvar::new()));
@@ -80,7 +80,7 @@ impl Outbox {
     }
 }
 
-fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
+fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
     let (lock, wake) = queue;
     let mut failures = 0u32;
     loop {

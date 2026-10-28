@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Emitter, Manager, Runtime, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::i18n::tr;
@@ -111,7 +111,7 @@ impl WebSession {
 }
 
 /// Tells every window who's signed in on github.com now (or that nobody is).
-pub fn announce<R: Runtime>(app: &AppHandle<R>) {
+pub fn announce(app: &AppHandle) {
     let _ = app.emit("web-session", app.state::<WebSession>().login());
 }
 
@@ -129,7 +129,7 @@ fn may_load(url: &Url) -> bool {
         && (within("github.com") || within("octocaptcha.com") || within("arkoselabs.com") || host == "accounts.google.com" || host == "appleid.apple.com")
 }
 
-pub fn sign_in<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub fn sign_in(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(WINDOW) {
         window.show()?;
         return window.set_focus();
@@ -162,7 +162,7 @@ pub fn sign_in<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
 /// Looks at the window's cookies until github.com says the person is in, then keeps them and
 /// closes it. Off the main thread: reading cookies waits on it.
-fn wait_for_sign_in<R: Runtime>(app: &AppHandle<R>) {
+fn wait_for_sign_in(app: &AppHandle) {
     let started = Instant::now();
     let github: Url = format!("{HOST}/").parse().expect("a valid address");
     while started.elapsed() < PATIENCE {
@@ -181,7 +181,7 @@ fn wait_for_sign_in<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// Forgets the session here. (github.com still lists it under your sessions until it ends.)
-pub fn sign_out<R: Runtime>(app: &AppHandle<R>) {
+pub fn sign_out(app: &AppHandle) {
     app.state::<WebSession>().forget();
     if let Some(window) = app.get_webview_window(WINDOW) {
         let _ = window.close();
@@ -237,7 +237,7 @@ pub fn request(session: &mut Session, method: &str, path: &str, headers: &[(&str
 /// Where a github.com address of an attachment really is (a signed address on GitHub's content
 /// host), asked as the person signed in on github.com: private repositories' attachments are
 /// only theirs to see. None without a session, or when it isn't one.
-pub fn signed_address<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<String> {
+pub fn signed_address(app: &AppHandle, url: &str) -> Option<String> {
     let path = url.strip_prefix(HOST)?;
     if !path.starts_with("/user-attachments/") {
         return None;

@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use tauri::http::{Request, Response, StatusCode};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
 use crate::disk;
 
@@ -38,7 +38,7 @@ fn reply(status: StatusCode, bytes: Vec<u8>) -> Response<Vec<u8>> {
 }
 
 /// Answers one `avatar://` request. Blocking: run it off the main thread.
-pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = request.uri();
     let key = uri.path_and_query().map(|p| p.as_str()).unwrap_or("/");
     // Only GitHub's avatar host, whatever a page asks for.
@@ -64,7 +64,7 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
 }
 
 /// Removes pictures nobody's been shown for a month.
-pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
+pub fn sweep(app: &AppHandle) {
     if let Some(dir) = disk::cache_folder(app, "avatars") {
         disk::sweep(&dir, SWEEP_AFTER);
     }

@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::github;
 use crate::i18n::tr;
@@ -209,7 +209,7 @@ pub struct Drafts {
 impl Drafts {
     /// Reads what was left from last time and starts sending it; what GitHub refused before gets
     /// one more go.
-    pub fn start<R: Runtime>(app: &AppHandle<R>) -> Drafts {
+    pub fn start(app: &AppHandle) -> Drafts {
         let file = app.path().app_config_dir().ok().map(|d| d.join("drafts.json"));
         let saved: Saved = file.as_ref().and_then(|f| fs::read_to_string(f).ok()).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         let mut queue = Queue { woken: !saved.jobs.is_empty(), saved, ..Queue::default() };
@@ -280,7 +280,7 @@ impl Drafts {
     }
 }
 
-fn run<R: Runtime>(app: &AppHandle<R>, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&Path>) {
+fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&Path>) {
     let (lock, wake, done) = queue;
     let mut failures = 0u32;
     loop {

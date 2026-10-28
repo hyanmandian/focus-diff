@@ -2,9 +2,9 @@
 //! open-source software it's built on as its credits, in the system's own text colours (a plain
 //! string there draws black, unreadable in Dark Mode).
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
-pub fn show<R: Runtime>(app: &AppHandle<R>) {
+pub fn show(app: &AppHandle) {
     let version = app.package_info().version.to_string();
     let _ = app.run_on_main_thread(move || {
         #[cfg(target_os = "macos")]

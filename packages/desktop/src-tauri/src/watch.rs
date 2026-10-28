@@ -12,7 +12,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::config::{Config, Kind, Session};
 use crate::engine::{self, Cache, CiMemo, Failure, Gql, Item};
@@ -160,11 +160,11 @@ impl Gql for Github<'_> {
 
 // MARK: Files
 
-fn config_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+fn config_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_config_dir().ok()
 }
 
-fn cache_file<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+fn cache_file(app: &AppHandle) -> Option<PathBuf> {
     let dir = app.path().app_cache_dir().ok()?;
     fs::create_dir_all(&dir).ok()?;
     Some(dir.join("cache.json"))
@@ -181,7 +181,7 @@ fn write(path: Option<PathBuf>, contents: &str) {
     }
 }
 
-fn read_config<R: Runtime>(app: &AppHandle<R>) -> Option<Config> {
+fn read_config(app: &AppHandle) -> Option<Config> {
     Config::parse(&fs::read_to_string(config_dir(app)?.join("config.json")).ok()?)
 }
 
@@ -292,7 +292,7 @@ impl State {
 }
 
 impl Watch {
-    pub fn start<R: Runtime>(app: &AppHandle<R>) -> Watch {
+    pub fn start(app: &AppHandle) -> Watch {
         let (sender, receiver) = mpsc::channel();
         let state = Arc::new(Mutex::new(State {
             ready: false,
@@ -315,7 +315,7 @@ impl Watch {
         std::thread::spawn(move || {
             let worker = Worker { app, state };
             worker.boot();
-            let rhythm = |worker: &Worker<R>| Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(60, |c| c.poll_seconds));
+            let rhythm = |worker: &Worker| Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(60, |c| c.poll_seconds));
             let mut next = Instant::now() + rhythm(&worker);
             loop {
                 let first = match receiver.recv_timeout(next.saturating_duration_since(Instant::now())) {
@@ -371,7 +371,7 @@ impl Watch {
     }
 
     /// Runs `change` on the state, then saves, updates the tray and tells the panel.
-    fn change<R: Runtime>(&self, app: &AppHandle<R>, change: impl FnOnce(&mut State)) {
+    fn change(&self, app: &AppHandle, change: impl FnOnce(&mut State)) {
         let worker = Worker { app: app.clone(), state: self.state.clone() };
         {
             let mut state = self.state.lock().unwrap();
@@ -383,7 +383,7 @@ impl Watch {
     }
 
     /// Clicking a card counts as having looked at it.
-    pub fn mark_seen<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str, pr_id: &str) {
+    pub fn mark_seen(&self, app: &AppHandle, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
             let keys: Vec<String> = state.find(queue_id, pr_id).map(|i| i.events.iter().map(|e| e.key.clone()).collect()).unwrap_or_default();
             for key in keys {
@@ -393,7 +393,7 @@ impl Watch {
         });
     }
 
-    pub fn mark_queue_seen<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str) {
+    pub fn mark_queue_seen(&self, app: &AppHandle, queue_id: &str) {
         self.change(app, |state| {
             let keys: Vec<String> = state.items.iter().filter(|(id, _)| id == queue_id).flat_map(|(_, items)| items.iter().flat_map(|i| i.events.iter().map(|e| e.key.clone()))).collect();
             for key in keys {
@@ -404,7 +404,7 @@ impl Watch {
 
     /// Takes a pull request off a queue by hand (merged: seen; others: ignored), until it leaves
     /// the queue's search.
-    pub fn dismiss<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str, pr_id: &str) {
+    pub fn dismiss(&self, app: &AppHandle, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
             if let Some(item) = state.find(queue_id, pr_id).cloned() {
                 let fresh: Vec<String> = item.events.iter().map(|e| e.key.clone()).filter(|k| !state.persisted.seen.contains_key(k)).collect();
@@ -427,7 +427,7 @@ impl Watch {
 
     /// Your review sent, or you off its reviewers: off the queues waiting on your review at once,
     /// not at the next refresh, and kept off while GitHub's search, a while behind, still has it.
-    pub fn reviewed<R: Runtime>(&self, app: &AppHandle<R>, pr_id: &str) {
+    pub fn reviewed(&self, app: &AppHandle, pr_id: &str) {
         self.change(app, |state| {
             let queues: Vec<String> = state.config.iter().flat_map(|c| c.enabled()).filter(|q| q.kind == crate::config::Kind::Review).map(|q| q.id.clone()).collect();
             for queue_id in queues {
@@ -441,7 +441,7 @@ impl Watch {
     }
 
     /// Undo for `dismiss`: the pull request back on its queue, as unread as it was.
-    pub fn restore<R: Runtime>(&self, app: &AppHandle<R>, queue_id: &str, pr_id: &str) {
+    pub fn restore(&self, app: &AppHandle, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
             state.persisted.dismissed.remove(&format!("{queue_id}:{pr_id}"));
             let Some(at) = state.dismissed_now.iter().position(|(q, i, _)| q == queue_id && i.pr.id == pr_id) else { return };
@@ -483,7 +483,7 @@ impl Watch {
         self.send(Message::EndReview);
     }
 
-    pub fn clear_arrival<R: Runtime>(&self, app: &AppHandle<R>, pr_id: &str) {
+    pub fn clear_arrival(&self, app: &AppHandle, pr_id: &str) {
         let removed = self.state.lock().unwrap().arrivals.remove(pr_id);
         if removed {
             Worker { app: app.clone(), state: self.state.clone() }.publish();
@@ -499,12 +499,12 @@ fn take_held(state: &mut State, until: Until) -> Vec<Held> {
 }
 
 /// The refreshing thread's side.
-struct Worker<R: Runtime> {
-    app: AppHandle<R>,
+struct Worker {
+    app: AppHandle,
     state: Arc<Mutex<State>>,
 }
 
-impl<R: Runtime> Worker<R> {
+impl Worker {
     /// Last launch's state and pull requests first, so the panel has something to show at once;
     /// then who's signed in, then GitHub.
     fn boot(&self) {

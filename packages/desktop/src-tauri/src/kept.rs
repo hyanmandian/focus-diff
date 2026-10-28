@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
 use crate::disk;
 
@@ -13,14 +13,14 @@ const SWEEP_AFTER: Duration = Duration::from_secs(14 * 24 * 3600);
 const LARGEST: usize = 8 * 1024 * 1024;
 
 /// A pull request's GraphQL id names its file: letters, digits, `_` and `-` only.
-fn file<R: Runtime>(app: &AppHandle<R>, id: &str) -> Result<PathBuf, String> {
+fn file(app: &AppHandle, id: &str) -> Result<PathBuf, String> {
     if id.is_empty() || id.len() > 64 || !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
         return Err("Bad pull request".into());
     }
     disk::cache_folder(app, "reviews").map(|dir| dir.join(format!("{id}.json"))).ok_or_else(|| "No cache folder".into())
 }
 
-pub fn read<R: Runtime>(app: &AppHandle<R>, id: &str) -> Result<Option<String>, String> {
+pub fn read(app: &AppHandle, id: &str) -> Result<Option<String>, String> {
     let path = file(app, id)?;
     match std::fs::read_to_string(&path) {
         Ok(text) => {
@@ -32,7 +32,7 @@ pub fn read<R: Runtime>(app: &AppHandle<R>, id: &str) -> Result<Option<String>, 
     }
 }
 
-pub fn write<R: Runtime>(app: &AppHandle<R>, id: &str, contents: &str) -> Result<(), String> {
+pub fn write(app: &AppHandle, id: &str, contents: &str) -> Result<(), String> {
     let path = file(app, id)?;
     if contents.len() > LARGEST {
         // Too big to be worth it: whatever was kept is older than this, so it goes.
@@ -43,7 +43,7 @@ pub fn write<R: Runtime>(app: &AppHandle<R>, id: &str, contents: &str) -> Result
 }
 
 /// Removes what nobody's opened for two weeks.
-pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
+pub fn sweep(app: &AppHandle) {
     if let Some(dir) = disk::cache_folder(app, "reviews") {
         disk::sweep(&dir, SWEEP_AFTER);
     }

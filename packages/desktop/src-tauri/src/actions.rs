@@ -64,7 +64,7 @@ fn allowed(path: &Path) -> HashSet<String> {
     fs::read_to_string(path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
 }
 
-fn ask<R: tauri::Runtime>(app: &tauri::AppHandle<R>, name: &str, command: &str) -> bool {
+fn ask(app: &tauri::AppHandle, name: &str, command: &str) -> bool {
     let shown: String = command.chars().take(600).collect();
     app.dialog()
         .message(tr!(
@@ -94,7 +94,7 @@ fn shell(command: &str) -> Command {
 }
 
 /// Runs step `step` of action `action`. Blocking: call it off the main thread.
-pub fn run<R: tauri::Runtime>(app: &tauri::AppHandle<R>, config: PathBuf, trusted: PathBuf, action: &str, name: &str, step: usize, pr: Context) -> Result<String, String> {
+pub fn run(app: &tauri::AppHandle, config: PathBuf, trusted: PathBuf, action: &str, name: &str, step: usize, pr: Context) -> Result<String, String> {
     pr.check()?;
     let command = command_of(&config, action, step)?;
     let mut allowed = allowed(&trusted);

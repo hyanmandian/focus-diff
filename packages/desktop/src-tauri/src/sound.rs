@@ -2,7 +2,7 @@
 //! from a few fading tones (the way Focus Diff's extension makes its sounds), so there's no audio
 //! file to ship. AppKit plays it on macOS; elsewhere the notification's own sound stands in.
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
 /// Whether this system plays the sound here; if not, the notification brings the system's own.
 pub const OWN: bool = cfg!(target_os = "macos");
@@ -66,7 +66,7 @@ thread_local! {
 }
 
 /// Plays the bowl (macOS); elsewhere nothing, as the notification brings a sound of its own.
-pub fn play<R: Runtime>(app: &AppHandle<R>) {
+pub fn play(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.run_on_main_thread(|| {
         use objc2::AllocAnyThread;

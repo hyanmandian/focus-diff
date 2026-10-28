@@ -494,6 +494,11 @@ describe("Development and deployments", () => {
         .getAllByRole("listitem")
         .map((li) => li.textContent?.split(/\d/u)[0]),
     ).toEqual(["staging", "preview", "prod"]);
+    expect(
+      within(section("Deployments"))
+        .getAllByRole("listitem")
+        .map((li) => li.querySelector("svg")?.getAttribute("aria-label")),
+    ).toEqual(["Deployed", "Inactive", "Failed"]);
     expect(screen.queryByRole("button", { name: "Open prod" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Open staging" }));
     await userEvent.click(screen.getByRole("button", { name: "Open preview" }));

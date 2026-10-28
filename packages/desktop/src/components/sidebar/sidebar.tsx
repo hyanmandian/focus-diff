@@ -599,16 +599,22 @@ function Development({ pull, pr }: { pull: Pull; pr: PullRef }) {
   );
 }
 
-const DEPLOY_TONE: Record<string, string> = {
-  SUCCESS: "text-success",
-  ACTIVE: "text-success",
-  FAILURE: "text-destructive",
-  ERROR: "text-destructive",
-  IN_PROGRESS: "text-warning",
-  QUEUED: "text-warning",
-  PENDING: "text-warning",
-  WAITING: "text-warning",
+const DEPLOY_STATE: Record<string, "success" | "failure" | "pending"> = {
+  SUCCESS: "success",
+  ACTIVE: "success",
+  FAILURE: "failure",
+  ERROR: "failure",
+  IN_PROGRESS: "pending",
+  QUEUED: "pending",
+  PENDING: "pending",
+  WAITING: "pending",
 };
+const DEPLOY_TONE = {
+  success: "text-success",
+  failure: "text-destructive",
+  pending: "text-warning",
+  inactive: "text-muted-foreground",
+} as const;
 
 function Deployments({ pull }: { pull: Pull }) {
   const t = useT();
@@ -621,16 +627,15 @@ function Deployments({ pull }: { pull: Pull }) {
       <ul className="flex flex-col gap-1">
         {latest.map((d) => {
           const link = d.url ?? d.logUrl;
+          const state = DEPLOY_STATE[d.state] ?? "inactive";
           return (
             <li key={d.id} className="flex items-center gap-2 text-body">
               <Rocket
-                className={cn("size-3.5 shrink-0", DEPLOY_TONE[d.state] ?? "text-muted-foreground")}
-                aria-hidden
+                className={cn("size-3.5 shrink-0", DEPLOY_TONE[state])}
+                aria-label={t(`manage.deploy.${state}`)}
               />
               <span className="min-w-0 flex-1 truncate">{d.environment}</span>
-              <span className={cn("shrink-0 text-callout", DEPLOY_TONE[d.state] ?? "text-muted-foreground")}>
-                {t.since(Date.parse(d.at))}
-              </span>
+              <span className={cn("shrink-0 text-callout", DEPLOY_TONE[state])}>{t.since(Date.parse(d.at))}</span>
               {link?.startsWith("https://") ? (
                 <Button
                   variant="ghost"

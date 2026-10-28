@@ -168,6 +168,10 @@ export const manage: Dictionary["manage"] = {
   issueClosed: "Issue fechada",
   closesWhenMerged: "O merge fecha estas.",
   deployments: "Deploys",
+  "deploy.success": "Implantado",
+  "deploy.failure": "Falhou",
+  "deploy.pending": "Em andamento",
+  "deploy.inactive": "Inativo",
   openDeployment: "Abrir {environment}",
 
   olderEvents: "Mostrar atividade anterior",

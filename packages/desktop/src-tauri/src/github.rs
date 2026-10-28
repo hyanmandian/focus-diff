@@ -313,44 +313,28 @@ impl Auth {
 
     /// Calls the REST or GraphQL API. Returns the status and body for the web view to read.
     pub fn request(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
-        let token = self.token()?;
-        let (status, text) = self.call_tagged(&token, method, path, body, accept)?;
-        if status == 401 && *self.source.lock().unwrap() == Some(Source::Gh) {
-            // gh may have been signed in again since: read its token once more.
-            *self.token.lock().unwrap() = None;
-            return self.call_tagged(&self.token()?, method, path, body, accept);
-        }
-        Ok((status, text))
+        self.with_token(|token| self.call_tagged(token, method, path, body, accept))
     }
 
     /// A GET whose answer is bytes, not text (a file at a commit, blobs.rs), up to `largest`.
     pub fn get_bytes(&self, path: &str, accept: &str, largest: usize) -> Result<(u16, Vec<u8>), String> {
-        let token = self.token()?;
-        let (status, bytes) = call_bytes(&token, path, accept, largest)?;
+        self.with_token(|token| call_bytes(token, path, accept, largest))
+    }
+
+    fn with_token<T>(&self, call: impl Fn(&str) -> Result<(u16, T), String>) -> Result<(u16, T), String> {
+        let (status, answer) = call(&self.token()?)?;
         if status == 401 && *self.source.lock().unwrap() == Some(Source::Gh) {
             // gh may have been signed in again since: read its token once more.
             *self.token.lock().unwrap() = None;
-            return call_bytes(&self.token()?, path, accept, largest);
+            return call(&self.token()?);
         }
-        Ok((status, bytes))
+        Ok((status, answer))
     }
 
     /// Where a GET that GitHub answers with a redirect leads (a job's log, a download), without
     /// following it: the token goes to api.github.com only, never to where it points.
     pub fn redirect(&self, path: &str) -> Result<(u16, Option<String>), String> {
-        if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
-            return Err("Bad request".into());
-        }
-        let response = agent()
-            .get(format!("{API}{path}"))
-            .header("Authorization", &format!("Bearer {}", self.token()?))
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .config()
-            .max_redirects(0)
-            .build()
-            .call()
-            .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+        let response = api(agent().get(api_url(path)?), &self.token()?, "application/vnd.github+json").config().max_redirects(0).build().call().map_err(unreachable)?;
         let location = response.headers().get("location").and_then(|v| v.to_str().ok()).map(String::from);
         Ok((response.status().as_u16(), location))
     }
@@ -374,24 +358,36 @@ impl Auth {
     }
 }
 
+/// Only ever the API, whatever path a page sends: no other host, no scheme tricks.
+pub(crate) fn path_ok(path: &str) -> bool {
+    path.starts_with('/') && !path.starts_with("//") && !path.contains('\\')
+}
+
+fn api_url(path: &str) -> Result<String, String> {
+    if path_ok(path) { Ok(format!("{API}{path}")) } else { Err("Bad request".into()) }
+}
+
+fn api<B>(request: ureq::RequestBuilder<B>, token: &str, accept: &str) -> ureq::RequestBuilder<B> {
+    request.header("Authorization", &format!("Bearer {token}")).header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28")
+}
+
+fn unreachable(e: ureq::Error) -> String {
+    tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}")
+}
+
 fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>, if_none_match: Option<&str>) -> Result<(u16, String, Option<String>), String> {
-    // Only ever the API, whatever path a page sends: no other host, no scheme tricks.
-    if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
-        return Err("Bad request".into());
-    }
-    let url = format!("{API}{path}");
+    let url = api_url(path)?;
     let accept = accept.unwrap_or("application/vnd.github+json");
     let agent = agent();
-    let auth = format!("Bearer {token}");
     let response = match (method, body) {
         ("GET", _) => {
-            let request = agent.get(&url).header("Authorization", &auth).header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28");
+            let request = api(agent.get(&url), token, accept);
             match if_none_match {
                 Some(etag) => request.header("If-None-Match", etag).call(),
                 None => request.call(),
             }
         }
-        ("DELETE", None) => agent.delete(&url).header("Authorization", &auth).header("Accept", accept).header("X-GitHub-Api-Version", "2022-11-28").call(),
+        ("DELETE", None) => api(agent.delete(&url), token, accept).call(),
         (_, body) => {
             let request = match method {
                 "POST" => agent.post(&url),
@@ -400,15 +396,10 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
                 "DELETE" => agent.delete(&url).force_send_body(),
                 _ => return Err("Bad request".into()),
             };
-            request
-                .header("Authorization", &auth)
-                .header("Accept", accept)
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .header("Content-Type", "application/json")
-                .send(body.unwrap_or(""))
+            api(request, token, accept).header("Content-Type", "application/json").send(body.unwrap_or(""))
         }
     }
-    .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+    .map_err(unreachable)?;
     let status = response.status().as_u16();
     let etag = response.headers().get("etag").and_then(|v| v.to_str().ok()).map(String::from);
     let mut text = String::new();
@@ -422,17 +413,7 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
 }
 
 fn call_bytes(token: &str, path: &str, accept: &str, largest: usize) -> Result<(u16, Vec<u8>), String> {
-    // Only ever the API, as `call`.
-    if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
-        return Err("Bad request".into());
-    }
-    let response = agent()
-        .get(&format!("{API}{path}"))
-        .header("Authorization", &format!("Bearer {token}"))
-        .header("Accept", accept)
-        .header("X-GitHub-Api-Version", "2022-11-28")
-        .call()
-        .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+    let response = api(agent().get(api_url(path)?), token, accept).call().map_err(unreachable)?;
     let status = response.status().as_u16();
     let mut bytes = Vec::new();
     response.into_body().into_reader().take(largest as u64 + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
@@ -457,7 +438,7 @@ pub fn device_start() -> Result<DeviceCode, String> {
         .post("https://github.com/login/device/code")
         .header("Accept", "application/json")
         .send_form([("client_id", client_id), ("scope", SCOPES)])
-        .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+        .map_err(unreachable)?;
     let v: Value = response.into_body().read_json().map_err(|e| e.to_string())?;
     Ok(DeviceCode {
         device_code: v["device_code"].as_str().ok_or_else(|| tr!("GitHub didn't send a code", "O GitHub não mandou um código"))?.to_string(),
@@ -483,7 +464,7 @@ pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_
                 ("device_code", device_code),
                 ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             ])
-            .map_err(|e| tr!("Couldn't reach GitHub: {e}", "Não foi possível falar com o GitHub: {e}"))?;
+            .map_err(unreachable)?;
         let v: Value = response.into_body().read_json().map_err(|e| e.to_string())?;
         if let Some(token) = v["access_token"].as_str() {
             keychain()?.set_password(token).map_err(|e| e.to_string())?;

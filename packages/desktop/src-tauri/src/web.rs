@@ -202,7 +202,7 @@ pub struct Answer {
 /// redirect (one to the sign-in page is how an ended session shows). `body`: its content type
 /// and bytes. What github.com sets in its answer is kept in `session`.
 pub fn request(session: &mut Session, method: &str, path: &str, headers: &[(&str, &str)], body: Option<(&str, &[u8])>) -> Result<Answer, String> {
-    if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
+    if !crate::github::path_ok(path) {
         return Err("Bad request".into());
     }
     let url = format!("{HOST}{path}");

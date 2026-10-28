@@ -9,7 +9,7 @@ use crate::i18n::tr;
 use crate::sync::Locked;
 
 const REVIEW: &[&str] = &[
-    "find", "overview", "diff", "wrap", "whitespace", "file-next", "file-previous", "toggle-viewed", "next-file", "next-comment", "previous-comment", "commits", "all-changes", "since-review", "ai-review", "submit", "merge", "auto-merge",
+    "find", "find-next", "find-previous", "find-files", "overview", "diff", "wrap", "whitespace", "file-next", "file-previous", "toggle-viewed", "next-file", "next-comment", "previous-comment", "commits", "all-changes", "since-review", "ai-review", "submit", "merge", "auto-merge",
     "update-branch", "ready", "draft", "close", "reopen", "delete-branch", "rerun-failed", "open-github", "leave", "shortcuts",
 ];
 
@@ -85,7 +85,10 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
         .item(&PredefinedMenuItem::paste(app, Some(&tr!("Paste", "Colar")))?)
         .item(&PredefinedMenuItem::select_all(app, Some(&tr!("Select All", "Selecionar tudo")))?)
         .separator()
-        .item(&item("find", &tr!("Find Files…", "Buscar arquivos…"), Some("CmdOrCtrl+F"))?)
+        .item(&item("find", &tr!("Find…", "Buscar…"), Some("CmdOrCtrl+F"))?)
+        .item(&item("find-next", &tr!("Find Next", "Buscar próximo"), Some("CmdOrCtrl+G"))?)
+        .item(&item("find-previous", &tr!("Find Previous", "Buscar anterior"), Some("CmdOrCtrl+Shift+G"))?)
+        .item(&item("find-files", &tr!("Filter Files…", "Filtrar arquivos…"), Some("CmdOrCtrl+Shift+F"))?)
         .build()?;
     let view = SubmenuBuilder::new(app, tr!("View", "Visualizar"))
         .item(&item("overview", &tr!("Overview", "Visão geral"), Some("CmdOrCtrl+1"))?)

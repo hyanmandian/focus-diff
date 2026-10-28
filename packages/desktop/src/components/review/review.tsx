@@ -37,6 +37,7 @@ import {
 } from "@/components/dropdown-menu/dropdown-menu";
 import { FileTree } from "@/components/file-tree/file-tree";
 import { FilterBar, type Next } from "@/components/filter-bar/filter-bar";
+import { FindBar } from "@/components/find-bar/find-bar";
 import { Input } from "@/components/input/input";
 import { Kbd } from "@/components/kbd/kbd";
 import { Overview } from "@/components/overview/overview";
@@ -64,6 +65,7 @@ import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Findi
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { useRangeFiles } from "@/utils/commits/commits";
+import { confetti } from "@/utils/confetti/confetti";
 import { loadConfig, type Config } from "@/utils/config/config";
 import { mergeBase, type Source } from "@/utils/contents/contents";
 import { firstName } from "@/utils/copy/copy";
@@ -80,6 +82,7 @@ import {
   toggled,
   totals,
 } from "@/utils/filters/filters";
+import { findInPatches, type FindMatch } from "@/utils/find/find";
 import { patchHash } from "@/utils/hashes/hashes";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
@@ -292,6 +295,8 @@ export function Review({ target }: { target: Target }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [find, setFind] = useState<{ query: string; at: number } | null>(null);
+  const [findFocus, setFindFocus] = useState(0);
   const [hideViewed, setHideViewed] = useState(false);
   const [diffStyle, setDiffStyle] = usePersisted("diff-style", "split", isDiffStyle);
   const [wrap, setWrap] = usePersisted("diff-wrap", false, isBoolean);
@@ -599,8 +604,26 @@ export function Review({ target }: { target: Target }) {
       (f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || !isViewed(f) || opened.has(f.path)),
     );
   }, [inPart, filter, hideViewed, isViewed, opened]);
+  const findMatches = useMemo(
+    () =>
+      find
+        ? findInPatches(
+            visible.map((f) => ({ path: f.path, patch: f.patch })),
+            find.query,
+          )
+        : [],
+    [find, visible],
+  );
   const viewedCount = inPart.filter((f) => isViewed(f)).length;
   const shown = useMemo(() => totals(inPart, isViewed, minutesOf), [inPart, isViewed, minutesOf]);
+  const complete = shown.files > 0 && shown.viewed === shown.files;
+  const part = `${prId}:${chosenIds.join(",")}`;
+  const wasComplete = useRef<{ part: string; complete: boolean } | null>(null);
+  useEffect(() => {
+    const before = wasComplete.current;
+    wasComplete.current = { part, complete };
+    if (complete && before?.part === part && !before.complete) confetti({ x: innerWidth / 2, y: innerHeight - 64 });
+  }, [part, complete]);
   const next = useMemo<Next>(() => {
     const left = visible.filter((f) => !isViewed(f)).length;
     return {
@@ -629,7 +652,7 @@ export function Review({ target }: { target: Target }) {
   const goToNextFile = () => {
     setTab("diff");
     const upcoming = nextFile(
-      visible.filter((f) => f.patch),
+      [...visible.filter((f) => f.patch), ...visible.filter((f) => !f.patch)],
       isViewed,
       diffs.current?.atTop() ?? null,
     );
@@ -696,6 +719,26 @@ export function Review({ target }: { target: Target }) {
         else diffs.current?.scrollToFile(path);
       });
     });
+  };
+  const showFound = (query: string, matches: FindMatch[], at: number) => {
+    const match = matches[at];
+    setFind({ query, at });
+    diffs.current?.find(query, match ?? null);
+    if (match) jump(match.path, match.line, match.side);
+  };
+  const openFind = () => {
+    setTab("diff");
+    setFind((f) => f ?? { query: "", at: -1 });
+    setFindFocus((n) => n + 1);
+  };
+  const stepFind = (by: 1 | -1) => {
+    if (!find || findMatches.length === 0) return;
+    const total = findMatches.length;
+    showFound(find.query, findMatches, (find.at + by + total) % total);
+  };
+  const closeFind = () => {
+    setFind(null);
+    diffs.current?.find("", null);
   };
   const step = (by: 1 | -1) => {
     if (stops.length === 0) return;
@@ -807,7 +850,14 @@ export function Review({ target }: { target: Target }) {
   const menuActions = useRef<Record<string, () => void>>({});
   useLayoutEffect(() => {
     menuActions.current = {
-      find: () => {
+      find: openFind,
+      "find-next": () => {
+        stepFind(1);
+      },
+      "find-previous": () => {
+        stepFind(-1);
+      },
+      "find-files": () => {
         setTab("diff");
         requestAnimationFrame(() => filterField.current?.focus());
       },
@@ -868,10 +918,19 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
-    const keys: Record<string, string> = { "1": "overview", "2": "diff", f: "find", ",": "settings", q: "quit" };
+    const keys: Record<string, string> = {
+      "1": "overview",
+      "2": "diff",
+      f: "find",
+      "shift+f": "find-files",
+      g: "find-next",
+      "shift+g": "find-previous",
+      ",": "settings",
+      q: "quit",
+    };
     const onKey = (e: KeyboardEvent) => {
-      const id = keys[e.key.toLowerCase()];
-      if (isMac || !id || !e.ctrlKey || e.altKey || e.shiftKey) return;
+      const id = keys[`${e.shiftKey ? "shift+" : ""}${e.key.toLowerCase()}`];
+      if (isMac || !id || !e.ctrlKey || e.altKey) return;
       e.preventDefault();
       if (id === "settings") void bridge.openSettings();
       else if (id === "quit") void bridge.quit();
@@ -885,6 +944,8 @@ export function Review({ target }: { target: Target }) {
   }, []);
   const isOpen = details?.state === "OPEN";
   const allowed = {
+    "find-next": findMatches.length > 0,
+    "find-previous": findMatches.length > 0,
     "file-next": Boolean(files?.length),
     "file-previous": Boolean(files?.length),
     "toggle-viewed": tab === "diff" && Boolean(files?.length),
@@ -1575,6 +1636,23 @@ export function Review({ target }: { target: Target }) {
             </aside>
 
             <div className="relative min-w-0 flex-1 bg-muted/30">
+              {find ? (
+                <FindBar
+                  key={findFocus}
+                  query={find.query}
+                  total={findMatches.length}
+                  at={find.at}
+                  onQuery={(query) => {
+                    const matches = findInPatches(
+                      visible.map((f) => ({ path: f.path, patch: f.patch })),
+                      query,
+                    );
+                    showFound(query, matches, matches.length > 0 ? 0 : -1);
+                  }}
+                  onStep={stepFind}
+                  onClose={closeFind}
+                />
+              ) : null}
               <RangeBanner
                 pull={pull}
                 below={Boolean(newChanges)}

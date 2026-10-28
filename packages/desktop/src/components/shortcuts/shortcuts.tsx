@@ -15,6 +15,8 @@ const GROUPS: Array<[title: Words, shortcuts: Array<[keys: string, does: Words]>
       ["v", "diff.keyViewed"],
       ["⌥⇧J", "diff.keyNextToReview"],
       ["⌘F", "diff.keyFind"],
+      ["⌘G", "diff.keyFindNext"],
+      ["⇧⌘F", "diff.keyFindFiles"],
     ],
   ],
   [

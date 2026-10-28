@@ -33,6 +33,7 @@ import { bridge } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
 import { errorText } from "@/utils/error/error";
 import { labelExpandButtons } from "@/utils/expand-buttons/expand-buttons";
+import { rangesIn, type FindMatch } from "@/utils/find/find";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 import { typing } from "@/utils/keys/keys";
 import { diffLink, permalink } from "@/utils/permalink/permalink";
@@ -56,6 +57,7 @@ export type DiffsHandle = {
   scrollToThread: (thread: Thread) => void;
   scrollToTop: () => void;
   listed: () => string[];
+  find: (query: string, current: FindMatch | null) => void;
   onScreen: () => OnScreen;
   atTop: () => { path: string; reached: boolean } | null;
 };
@@ -138,6 +140,8 @@ const RENDERED_CSS = "pre[data-file] [data-line], pre[data-file] [data-column-nu
 const GUTTER_CSS = `[data-gutter-utility-slot] { right: auto; left: calc(100% - 4px); justify-content: flex-start; align-items: center; z-index: 2; }
 [data-selected-line] [data-gutter-utility-slot] { display: none; }
 [data-column-number][data-selected-line], [data-gutter-buffer][data-selected-line] { color: var(--diffs-selection-number-fg-override); }`;
+const FIND_CSS = `::highlight(find) { background-color: rgb(255 204 0 / 0.4); }
+::highlight(find-current) { background-color: rgb(255 149 0 / 0.9); color: black; }`;
 
 class Cache {
   private parsed = new Map<string, { patch: string; whitespace: boolean; diff: FileDiffMetadata }>();
@@ -171,6 +175,39 @@ type Loaded =
   | { state: "loading" }
   | { state: "error"; message: string; binary: boolean }
   | { state: "done"; diff: FileDiffMetadata };
+
+function paintFound(
+  view: { getRenderedItems: () => Array<{ id: string; element: HTMLElement }> } | undefined,
+  { query, current }: { query: string; current: FindMatch | null },
+) {
+  if (typeof CSS === "undefined" || !("highlights" in CSS)) return;
+  const all: Range[] = [];
+  const here: Range[] = [];
+  for (const { id, element } of view?.getRenderedItems() ?? []) {
+    const roots = [element, ...element.querySelectorAll("diffs-container")].flatMap((e) =>
+      e.shadowRoot ? [e.shadowRoot] : [],
+    );
+    for (const line of roots.flatMap((root) => [...root.querySelectorAll("[data-line]")])) {
+      const ranges = rangesIn(line, query);
+      all.push(...ranges);
+      const deletion = line.closest("code[data-deletions]")
+        ? true
+        : line.closest("code[data-additions]")
+          ? false
+          : line.getAttribute("data-line-type") === "change-deletion";
+      const range = ranges[current?.nth ?? 0];
+      if (
+        range &&
+        current?.path === id &&
+        Number(line.getAttribute("data-line")) === current.line &&
+        deletion === (current.side === "deletions")
+      )
+        here.push(range);
+    }
+  }
+  CSS.highlights.set("find", new Highlight(...all));
+  CSS.highlights.set("find-current", new Highlight(...here));
+}
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const t = useT();
@@ -209,11 +246,18 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     return item?.type === "diff" ? item.fileDiff : null;
   };
   const scrollToFile = (path: string) => {
-    if (cache.built(path)) viewer.current?.scrollTo({ type: "item", id: path, align: "start" });
-    else
-      container.current
-        ?.querySelector(`[id="file-${CSS.escape(path)}"]`)
-        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (cache.built(path)) {
+      viewer.current?.scrollTo({ type: "item", id: path, align: "start" });
+      return;
+    }
+    const below = () => container.current?.querySelector(`[id="file-${CSS.escape(path)}"]`);
+    const at = below();
+    if (at) {
+      at.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    viewer.current?.scrollTo({ type: "position", position: Number.MAX_SAFE_INTEGER });
+    requestAnimationFrame(() => below()?.scrollIntoView({ block: "start", behavior: "smooth" }));
   };
   const scrollToLine = (path: string, line: number, side: Side = "additions") => {
     const diff = diffOf(path);
@@ -231,6 +275,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     });
   };
 
+  const found = useRef<{ query: string; current: FindMatch | null }>({ query: "", current: null });
   useImperativeHandle(ref, () => ({
     scrollToFile,
     scrollToLine,
@@ -241,6 +286,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     },
     scrollToTop: () => viewer.current?.scrollTo({ type: "position", position: 0 }),
     listed: () => cache.listed(),
+    find: (query, current) => {
+      found.current = { query, current };
+      paintFound(viewer.current?.getInstance(), found.current);
+    },
     onScreen: () => {
       const view = viewer.current?.getInstance();
       const box = view?.getContainerElement()?.getBoundingClientRect();
@@ -373,9 +422,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       stickyHeaders: true,
       enableGutterUtility: commentable,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
-      unsafeCSS: `${RENDERED_CSS}\n${GUTTER_CSS}`,
+      unsafeCSS: `${RENDERED_CSS}\n${GUTTER_CSS}\n${FIND_CSS}`,
       onPostRender: (node: HTMLElement) => {
         labelExpandButtons(node, t);
+        if (found.current.query) paintFound(viewer.current?.getInstance(), found.current);
       },
       enableLineSelection: commentable,
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {

@@ -14,6 +14,7 @@ import type { Stack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import type { Range } from "@/utils/commits/commits";
+import { confetti } from "@/utils/confetti/confetti";
 import { defaultConfig, loadConfig, type Config, type DiffFilter } from "@/utils/config/config";
 import { mergeBase } from "@/utils/contents/contents";
 import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
@@ -111,6 +112,7 @@ const h = vi.hoisted(() => {
       scrollToThread: vi.fn<DiffsHandle["scrollToThread"]>(),
       scrollToTop: vi.fn<DiffsHandle["scrollToTop"]>(),
       listed: vi.fn<DiffsHandle["listed"]>(() => []),
+      find: vi.fn<DiffsHandle["find"]>(),
       onScreen: vi.fn<DiffsHandle["onScreen"]>(() => []),
       atTop: vi.fn<DiffsHandle["atTop"]>(() => null),
     },
@@ -146,6 +148,7 @@ const h = vi.hoisted(() => {
   return Object.assign(state, { see, make });
 });
 
+vi.mock("@/utils/confetti/confetti", () => ({ confetti: vi.fn<typeof confetti>() }));
 vi.mock("@/utils/os/os", () => ({
   get isMac() {
     return h.mac;
@@ -783,6 +786,66 @@ describe("Review", () => {
       expect(header.className).toContain("shadow-");
     });
 
+    it("finds text across the diff's files and steps through what it finds", async () => {
+      await openReview();
+      await menu("find-next");
+      expect(h.handle.find).not.toHaveBeenCalled();
+      await menu("find");
+      const field = screen.getByRole("searchbox", { name: "Find in diff" });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(field);
+      const status = () =>
+        screen.getByRole("searchbox", { name: "Find in diff" }).parentElement?.querySelector("output")?.textContent;
+      expect(status()).toBe("");
+      await menu("find-previous");
+      fireEvent.change(field, { target: { value: "NEW" } });
+      expect(status()).toBe("1 of 3");
+      expect(h.handle.find).toHaveBeenLastCalledWith("NEW", {
+        path: "docs/promo.md",
+        side: "additions",
+        line: 1,
+        nth: 0,
+      });
+      await frames();
+      expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("docs/promo.md", 1, "additions");
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(status()).toBe("2 of 3");
+      fireEvent.keyDown(field, { key: "Enter", shiftKey: true });
+      fireEvent.keyDown(field, { key: "Enter", shiftKey: true });
+      expect(status()).toBe("3 of 3");
+      await menu("find-next");
+      expect(status()).toBe("1 of 3");
+      await menu("find-previous");
+      expect(status()).toBe("3 of 3");
+      await userEvent.click(screen.getByRole("button", { name: "Next result" }));
+      await userEvent.click(screen.getByRole("button", { name: "Previous result" }));
+      expect(status()).toBe("3 of 3");
+      fireEvent.change(field, { target: { value: "old" } });
+      fireEvent.keyDown(field, { key: "Enter", shiftKey: true });
+      expect(status()).toBe("3 of 3");
+      expect(h.handle.find).toHaveBeenLastCalledWith("old", {
+        path: "src/promo.ts",
+        side: "deletions",
+        line: 1,
+        nth: 0,
+      });
+      fireEvent.change(field, { target: { value: "nowhere" } });
+      expect(status()).toBe("No results");
+      expect(h.handle.find).toHaveBeenLastCalledWith("nowhere", null);
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Next result" }).disabled).toBe(true);
+      fireEvent.keyDown(field, { key: "Enter" });
+      fireEvent.keyDown(field, { key: "a" });
+      expect(status()).toBe("No results");
+      await menu("find");
+      expect(screen.getByRole<HTMLInputElement>("searchbox", { name: "Find in diff" }).value).toBe("nowhere");
+      fireEvent.keyDown(screen.getByRole("searchbox", { name: "Find in diff" }), { key: "Escape" });
+      expect(screen.queryByRole("searchbox", { name: "Find in diff" })).toBeNull();
+      expect(h.handle.find).toHaveBeenLastCalledWith("", null);
+      await menu("find");
+      await userEvent.click(screen.getByRole("button", { name: "Close find" }));
+      expect(screen.queryByRole("searchbox", { name: "Find in diff" })).toBeNull();
+    });
+
     it("answers the menu bar's shortcuts with Ctrl where there's no menu bar", async () => {
       h.mac = false;
       await openReview();
@@ -792,6 +855,10 @@ describe("Review", () => {
       expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
       press("f", { ctrlKey: true });
       expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+      expect(screen.getByRole("searchbox", { name: "Find in diff" })).toBeTruthy();
+      press("f", { ctrlKey: true, shiftKey: true });
+      await frames();
+      expect(document.activeElement).toBe(screen.getByRole("searchbox", { name: "Filter files" }));
       press(",", { ctrlKey: true });
       press("q", { ctrlKey: true });
       expect(sent("open_settings")).toHaveLength(1);
@@ -1043,6 +1110,33 @@ describe("Review", () => {
       await frames();
       expect(h.handle.scrollToFile).toHaveBeenCalledWith("src/cart.ts");
       expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+    });
+
+    it("goes on to a file GitHub sent no patch for once the others are viewed, and celebrates the last", async () => {
+      await openReview();
+      act(() => {
+        [A, B, DOC].forEach((f) => {
+          diffs().onViewed(f, true);
+        });
+      });
+      expect(confetti).not.toHaveBeenCalled();
+      h.handle.atTop.mockReturnValue({ path: "src/promo.ts", reached: true });
+      act(() => {
+        h.bar!.onNextFile();
+      });
+      await frames();
+      expect(h.handle.scrollToFile).toHaveBeenLastCalledWith("img.png");
+      act(() => {
+        diffs().onViewed(BIN, true);
+      });
+      expect(confetti).toHaveBeenCalledTimes(1);
+      act(() => {
+        diffs().onViewed(BIN, false);
+      });
+      act(() => {
+        diffs().onViewed(BIN, true);
+      });
+      expect(confetti).toHaveBeenCalledTimes(2);
     });
 
     it("has nowhere to go when every file is viewed and no part has work", async () => {
@@ -1705,9 +1799,9 @@ describe("Review", () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
       vi.mocked(aiReview).mockResolvedValue(aiReviewOf([]));
       const view = await openReview();
-      await menu("find");
+      await menu("find-files");
       await frames();
-      expect(document.activeElement).toBe(screen.getByRole("searchbox"));
+      expect(document.activeElement).toBe(screen.getByRole("searchbox", { name: "Filter files" }));
       await menu("overview");
       expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
       await menu("diff");

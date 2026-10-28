@@ -831,6 +831,62 @@ describe("Diffs", () => {
       });
     });
 
+    it("marks what's found in the files on screen, the current one apart, and again as they're drawn", () => {
+      const { ref } = draw({ files: [CART, README] });
+      ref.current!.find("promo", null);
+      const host = document.createElement("diffs-container");
+      const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+      root.innerHTML = [
+        '<code data-deletions><div data-line="3" data-line-type="change-deletion">old promo</div></code>',
+        '<code data-additions><div data-line="3" data-line-type="change-addition">new promo, promo</div></code>',
+        '<code><div data-line="5" data-line-type="change-deletion">gone promo</div>',
+        '<div data-line="5" data-line-type="context">kept promo</div></code>',
+      ].join("");
+      const drawn = document.createElement("div");
+      drawn.append(host);
+      lib.instance = {
+        getContainerElement: () => {},
+        getRenderedItems: () => [
+          { id: CART.path, element: drawn },
+          { id: README.path, element: document.createElement("div") },
+        ],
+      };
+      const highlights = new Map<string, { ranges: Range[] }>();
+      vi.stubGlobal("CSS", { highlights });
+      vi.stubGlobal(
+        "Highlight",
+        class {
+          ranges: Range[];
+          constructor(...ranges: Range[]) {
+            this.ranges = ranges;
+          }
+        },
+      );
+      const texts = (name: string) => highlights.get(name)!.ranges.map((r) => r.startContainer.textContent);
+      const drawnNow = lib.instance;
+      lib.instance = undefined;
+      ref.current!.find("promo", null);
+      expect(highlights.get("find")!.ranges).toEqual([]);
+      lib.instance = drawnNow;
+      ref.current!.find("promo", { path: CART.path, side: "additions", line: 3, nth: 1 });
+      expect(highlights.get("find")!.ranges).toHaveLength(5);
+      expect(highlights.get("find-current")!.ranges.map((r) => r.startOffset)).toEqual([11]);
+      ref.current!.find("promo", { path: CART.path, side: "deletions", line: 5, nth: 0 });
+      expect(texts("find-current")).toEqual(["gone promo"]);
+      ref.current!.find("promo", { path: CART.path, side: "additions", line: 5, nth: 0 });
+      expect(texts("find-current")).toEqual(["kept promo"]);
+      ref.current!.find("promo", { path: CART.path, side: "additions", line: 3, nth: 4 });
+      expect(texts("find-current")).toEqual([]);
+      highlights.clear();
+      options().onPostRender(document.createElement("div"));
+      expect(texts("find")).toHaveLength(5);
+      ref.current!.find("", null);
+      highlights.clear();
+      options().onPostRender(document.createElement("div"));
+      expect(highlights.size).toBe(0);
+      vi.unstubAllGlobals();
+    });
+
     it("names the library's expand controls once a file is drawn", () => {
       draw();
       const node = document.createElement("div");

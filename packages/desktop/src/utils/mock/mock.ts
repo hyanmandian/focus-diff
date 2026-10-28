@@ -622,6 +622,18 @@ const emit = (event: string, payload: unknown) => {
   for (const heard of listeners.get(event) ?? []) heard(payload);
 };
 setEmitter(emit);
+const MENU_KEYS: Record<string, string> = {
+  f: "find",
+  "shift+f": "find-files",
+  g: "find-next",
+  "shift+g": "find-previous",
+};
+window.addEventListener("keydown", (e) => {
+  const id = MENU_KEYS[`${e.shiftKey ? "shift+" : ""}${e.key.toLowerCase()}`];
+  if (!e.metaKey || e.ctrlKey || e.altKey || !id) return;
+  e.preventDefault();
+  emit("menu", id);
+});
 let webLogin: string | null = null;
 
 async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise<unknown> {

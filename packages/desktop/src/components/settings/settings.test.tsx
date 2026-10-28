@@ -467,7 +467,7 @@ describe("General pane", () => {
 
   it("writes a change at once when the window goes away before its save", async () => {
     const rust = await general();
-    await userEvent.click(within(panel()).getByRole("switch", { name: "Play a sound with notifications" }));
+    fireEvent.click(within(panel()).getByRole("switch", { name: "Play a sound with notifications" }));
     expect(rust.saved()).toBeNull();
     window.dispatchEvent(new Event("pagehide"));
     await waitFor(() => {

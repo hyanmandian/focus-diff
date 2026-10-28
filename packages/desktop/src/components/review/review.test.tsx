@@ -1139,6 +1139,25 @@ describe("Review", () => {
       expect(confetti).toHaveBeenCalledTimes(2);
     });
 
+    it("celebrates only the click that views the last file, not a part that's already done", async () => {
+      vi.mocked(loadViewed).mockResolvedValue(
+        states([
+          ["src/cart.ts", "VIEWED"],
+          ["src/promo.ts", "VIEWED"],
+          ["docs/promo.md", "VIEWED"],
+          ["img.png", "VIEWED"],
+        ]),
+      );
+      await openReview();
+      await waitFor(() => {
+        expect(screen.getByText("4/4 viewed")).toBeTruthy();
+      });
+      act(() => {
+        diffs().onViewed(A, true);
+      });
+      expect(confetti).not.toHaveBeenCalled();
+    });
+
     it("has nowhere to go when every file is viewed and no part has work", async () => {
       await openReview();
       act(() => {

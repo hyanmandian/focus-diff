@@ -616,14 +616,6 @@ export function Review({ target }: { target: Target }) {
   );
   const viewedCount = inPart.filter((f) => isViewed(f)).length;
   const shown = useMemo(() => totals(inPart, isViewed, minutesOf), [inPart, isViewed, minutesOf]);
-  const complete = shown.files > 0 && shown.viewed === shown.files;
-  const part = `${prId}:${chosenIds.join(",")}`;
-  const wasComplete = useRef<{ part: string; complete: boolean } | null>(null);
-  useEffect(() => {
-    const before = wasComplete.current;
-    wasComplete.current = { part, complete };
-    if (complete && before?.part === part && !before.complete) confetti({ x: innerWidth / 2, y: innerHeight - 64 });
-  }, [part, complete]);
   const next = useMemo<Next>(() => {
     const left = visible.filter((f) => !isViewed(f)).length;
     return {
@@ -674,6 +666,8 @@ export function Review({ target }: { target: Target }) {
 
   const take = useActiveTime(() => diffs.current?.onScreen() ?? [], tab === "diff");
   const setFileViewed = (f: ReviewFile, v: boolean) => {
+    if (v && !isViewed(f) && inPart.includes(f) && inPart.every((x) => x === f || isViewed(x)))
+      confetti({ x: innerWidth / 2, y: innerHeight - 64 });
     setViewed((m) => ({ ...m, [f.path]: v ? patchHash(pullFileOf(f)) : "" }));
     if (v) {
       setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));

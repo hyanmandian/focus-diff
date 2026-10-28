@@ -370,6 +370,7 @@ describe("startController", () => {
     site.repo = null;
     controller.toggle("code");
     await message({ type: "command", command: "next-filter" });
+    await message({ type: "command", command: "show-all" });
     await message({ type: "command", command: "next-unviewed" });
     await settle();
     expect(await selectionsItem.getValue()).toEqual({});

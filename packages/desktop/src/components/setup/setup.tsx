@@ -26,7 +26,7 @@ import {
   type Queue,
   type QueueKind,
 } from "@/utils/config/config";
-import { interval } from "@/utils/copy/copy";
+import { interval, POLL_SECONDS } from "@/utils/copy/copy";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { isMac } from "@/utils/os/os";
 import { platform } from "@/utils/platform/platform";
@@ -291,7 +291,7 @@ export function Setup() {
                     <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {[30, 60, 90, 180, 300, 600].map((s) => (
+                    {POLL_SECONDS.map((s) => (
                       <SelectItem key={s} value={String(s)}>
                         {interval(s, t)}
                       </SelectItem>

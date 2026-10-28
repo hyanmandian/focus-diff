@@ -41,7 +41,7 @@ import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
-import { interval } from "@/utils/copy/copy";
+import { interval, POLL_SECONDS } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
 import { primary } from "@/utils/os/os";
 import { platform } from "@/utils/platform/platform";
@@ -434,7 +434,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
               <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {[30, 60, 90, 180, 300, 600].map((s) => (
+              {POLL_SECONDS.map((s) => (
                 <SelectItem key={s} value={String(s)}>
                   {interval(s, t)}
                 </SelectItem>

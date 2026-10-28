@@ -5,7 +5,7 @@
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
 
-import { bridge } from "@/utils/bridge/bridge";
+import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
 
 /** What makes a pull request belong to a queue. */
@@ -481,7 +481,6 @@ export const newAction = (t: T): Action => ({
 // MARK: Reading what's on disk
 
 const isString = (v: unknown): v is string => typeof v === "string";
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const strings = (v: unknown, max = 200): string[] =>
   Array.isArray(v)
     ? v

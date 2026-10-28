@@ -91,7 +91,8 @@ const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string | null) => (
   title: `#${pr.number} · ${pr.title} · ${byline(pr.author)}`,
 });
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
 export const bridge = {
   /** Marks a file viewed, or not, on github.com: Rust keeps it until GitHub takes it (outbox.rs).

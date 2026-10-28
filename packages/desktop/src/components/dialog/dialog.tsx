@@ -1,26 +1,16 @@
 "use client";
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { XIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 
-import { Button } from "@/components/button/button";
 import { cn } from "@/utils/cn/cn";
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
-}
-
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
-}
-
-function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
 function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
@@ -40,16 +30,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
 // behind it (no blur). Buttons go at the bottom right, the default one last (Return), Cancel answers
 // Esc; there's no close box unless asked for (named by closeLabel, in the app's language). For a
 // yes-or-no question use a native alert instead (the desktop's bridge.confirm).
-function DialogContent({
-  className,
-  children,
-  showCloseButton = false,
-  closeLabel = "Close",
-  ...props
-}: DialogPrimitive.Popup.Props & {
-  showCloseButton?: boolean;
-  closeLabel?: string;
-}) {
+function DialogContent({ className, children, ...props }: DialogPrimitive.Popup.Props) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -62,38 +43,13 @@ function DialogContent({
         {...props}
       >
         {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
-          >
-            <XIcon />
-            <span className="sr-only">{closeLabel}</span>
-          </DialogPrimitive.Close>
-        )}
       </DialogPrimitive.Popup>
     </DialogPortal>
   );
 }
 
-function DialogHeader({ className, ...props }: ComponentProps<"div">) {
-  return <div data-slot="dialog-header" className={cn("flex flex-col gap-2", className)} {...props} />;
-}
-
-function DialogFooter({
-  className,
-  showCloseButton = false,
-  children,
-  ...props
-}: ComponentProps<"div"> & {
-  showCloseButton?: boolean;
-}) {
-  return (
-    <div data-slot="dialog-footer" className={cn("flex flex-row justify-end gap-2 pt-1", className)} {...props}>
-      {children}
-      {showCloseButton && <DialogPrimitive.Close render={<Button variant="outline" />}>Close</DialogPrimitive.Close>}
-    </div>
-  );
+function DialogFooter({ className, ...props }: ComponentProps<"div">) {
+  return <div data-slot="dialog-footer" className={cn("flex flex-row justify-end gap-2 pt-1", className)} {...props} />;
 }
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
@@ -112,15 +68,4 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
   );
 }
 
-export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
-};
+export { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle };

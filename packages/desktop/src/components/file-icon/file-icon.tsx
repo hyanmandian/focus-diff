@@ -7,20 +7,20 @@ import { File, FileImage, Lock, type LucideIcon } from "lucide-react";
 import { cn } from "@/utils/cn/cn";
 
 /** Short name, color, and whether the color is light enough to need dark text. */
-type Tile = [label: string, color: string, light?: boolean];
+type Tile = [label: string, color: string];
 
 const BY_EXTENSION: Record<string, Tile> = {
   ts: ["TS", "#3178c6"],
   tsx: ["TSX", "#3178c6"],
   mts: ["TS", "#3178c6"],
   cts: ["TS", "#3178c6"],
-  js: ["JS", "#f1e05a", true],
-  jsx: ["JSX", "#f1e05a", true],
-  mjs: ["JS", "#f1e05a", true],
-  cjs: ["JS", "#f1e05a", true],
+  js: ["JS", "#f1e05a"],
+  jsx: ["JSX", "#f1e05a"],
+  mjs: ["JS", "#f1e05a"],
+  cjs: ["JS", "#f1e05a"],
   py: ["PY", "#3572a5"],
   pyi: ["PY", "#3572a5"],
-  rs: ["RS", "#dea584", true],
+  rs: ["RS", "#dea584"],
   go: ["GO", "#00add8"],
   rb: ["RB", "#a91e50"],
   erb: ["ERB", "#a91e50"],
@@ -49,25 +49,25 @@ const BY_EXTENSION: Record<string, Tile> = {
   vue: ["VUE", "#41b883"],
   svelte: ["SV", "#ff3e00"],
   astro: ["AST", "#ff5a03"],
-  json: ["{}", "#cbcb41", true],
-  jsonc: ["{}", "#cbcb41", true],
-  json5: ["{}", "#cbcb41", true],
+  json: ["{}", "#cbcb41"],
+  jsonc: ["{}", "#cbcb41"],
+  json5: ["{}", "#cbcb41"],
   yml: ["YML", "#cb171e"],
   yaml: ["YML", "#cb171e"],
   toml: ["TML", "#9c4221"],
   xml: ["XML", "#0060ac"],
   md: ["MD", "#083fa1"],
-  mdx: ["MDX", "#fcb32c", true],
+  mdx: ["MDX", "#fcb32c"],
   sql: ["SQL", "#e38c00"],
   graphql: ["GQL", "#e10098"],
   gql: ["GQL", "#e10098"],
   proto: ["PB", "#4c8bf5"],
-  sh: ["SH", "#89e051", true],
-  bash: ["SH", "#89e051", true],
-  zsh: ["SH", "#89e051", true],
+  sh: ["SH", "#89e051"],
+  bash: ["SH", "#89e051"],
+  zsh: ["SH", "#89e051"],
   tf: ["TF", "#7b42bc"],
   prisma: ["PRI", "#0c344b"],
-  svg: ["SVG", "#ffb13b", true],
+  svg: ["SVG", "#ffb13b"],
   csv: ["CSV", "#237346"],
   txt: ["TXT", "#8e8e93"],
 };
@@ -77,7 +77,7 @@ const BY_NAME: Record<string, Tile> = {
   makefile: ["MK", "#427819"],
   gemfile: ["RB", "#a91e50"],
   rakefile: ["RB", "#a91e50"],
-  ".env": ["ENV", "#ecd53f", true],
+  ".env": ["ENV", "#ecd53f"],
 };
 
 const PICTURE = /\.(png|jpe?g|gif|webp|avif|ico|bmp|heic)$/iu;
@@ -110,14 +110,14 @@ export function FileIcon({ path, className }: { path: string; className?: string
     // oxlint-disable-next-line react/static-components
     return <Icon aria-hidden className={cn("mx-0.5 size-3.5 shrink-0 text-muted-foreground", className)} />;
   }
-  const [label, color, light] = tile;
+  const [label, color] = tile;
   return (
     <span
       aria-hidden
       style={{ backgroundColor: color }}
       className={cn(
         "grid h-3.5 w-[18px] shrink-0 place-items-center rounded-[3px] font-sans text-[7.5px] leading-none font-bold tracking-[-0.02em]",
-        light || takesDarkText(color) ? "text-black/85" : "text-white",
+        takesDarkText(color) ? "text-black/85" : "text-white",
         className,
       )}
     >

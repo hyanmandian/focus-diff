@@ -34,6 +34,7 @@ import {
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type UploadError } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/os/os";
@@ -234,7 +235,7 @@ export function MarkdownField({
         const html = await preview(value, repo);
         if (current) setRendered({ text: value, html });
       } catch (e) {
-        if (current) setRendered({ text: value, html: null, error: e instanceof Error ? e.message : String(e) });
+        if (current) setRendered({ text: value, html: null, error: errorText(e) });
       }
     };
     if (tab === "preview" && api && value.trim()) void show(api.repo);

@@ -38,8 +38,10 @@ import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
+import { errorText } from "@/utils/error/error";
 import { labelExpandButtons } from "@/utils/expand-buttons/expand-buttons";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
+import { typing } from "@/utils/keys/keys";
 import { diffLink, permalink } from "@/utils/permalink/permalink";
 import { findingSide, placeThread, shows, type Placement } from "@/utils/placement/placement";
 import { lineRange } from "@/utils/range/range";
@@ -166,10 +168,6 @@ const GUTTER_CSS = `[data-gutter-utility-slot] { right: auto; left: calc(100% - 
 [data-selected-line] [data-gutter-utility-slot] { display: none; }
 [data-column-number][data-selected-line], [data-gutter-buffer][data-selected-line] { color: var(--diffs-selection-number-fg-override); }`;
 
-/** The text fields where right-click is the system's (cut, copy, paste), not the code's menu. */
-const typing = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/u.test(el.tagName));
-
 /** What building the list keeps from one render to the next, changed as it builds: each patch as
  *  parsed, each item as built, and where each conversation was put. */
 class Cache {
@@ -204,7 +202,10 @@ class Cache {
   }
 }
 
-type Loaded = { state: "loading" } | { state: "error"; message: string } | { state: "done"; diff: FileDiffMetadata };
+type Loaded =
+  | { state: "loading" }
+  | { state: "error"; message: string; binary: boolean }
+  | { state: "done"; diff: FileDiffMetadata };
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const t = useT();
@@ -469,11 +470,8 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       );
       setLoaded((m) => new Map(m).set(file.path, { state: "done", diff }));
     } catch (e) {
-      const message =
-        e instanceof BinaryFile
-          ? t("diff.binary")
-          : t("diff.loadFailed", { error: e instanceof Error ? e.message : String(e) });
-      setLoaded((m) => new Map(m).set(file.path, { state: "error", message }));
+      const message = e instanceof BinaryFile ? t("diff.binary") : t("diff.loadFailed", { error: errorText(e) });
+      setLoaded((m) => new Map(m).set(file.path, { state: "error", message, binary: e instanceof BinaryFile }));
     }
   };
 
@@ -497,10 +495,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     const file = filesByPath.get(path);
     try {
       const old = lines?.side === "deletions" || file?.status === "removed";
-      const sha = old ? await from.base() : to.head;
+      const sha = old ? await from.base() : from.head;
       await copy(permalink(to, sha, old ? (file?.previousPath ?? path) : path, lines), t("diff.linkCopied"));
     } catch (e) {
-      props.onSay(e instanceof Error ? e.message : String(e));
+      props.onSay(errorText(e));
     }
   };
   const copyDiffLink = async (
@@ -796,7 +794,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                         onViewed={(v) => {
                           props.onViewed(f, v);
                         }}
-                        onLoad={() => void loadFile(f)}
+                        onLoad={load?.state === "error" && load.binary ? undefined : () => void loadFile(f)}
                       />
                     );
                   })}
@@ -809,6 +807,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           {menuAt ? (
             <>
               <DropdownMenuItem
+                disabled={!commentable}
                 onClick={() => {
                   setComposing({
                     path: menuAt.path,

@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/input/input";
-import { Group, Intro, Pane, Row, TWO_LINE_ITEM } from "@/components/settings-form/settings-form";
+import { Group, Intro, moved, Pane, Row, TWO_LINE_ITEM } from "@/components/settings-form/settings-form";
 import { TagInput } from "@/components/tag-input/tag-input";
 import { Textarea } from "@/components/textarea/textarea";
 import { filterRecipes, isRepoPattern, newId, type Config, type DiffFilter } from "@/utils/config/config";
@@ -159,11 +159,7 @@ export function Filters({ config, onChange }: { config: Config; onChange: (c: Co
     set(filters.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   };
   const move = (index: number, by: number) => {
-    const next = [...filters];
-    // The buttons only move what's there: the first can't go up, the last can't go down.
-    const [f] = next.splice(index, 1);
-    next.splice(index + by, 0, f!);
-    set(next);
+    set(moved(filters, index, by));
   };
   const t = useT();
   const remove = async (f: DiffFilter) => {

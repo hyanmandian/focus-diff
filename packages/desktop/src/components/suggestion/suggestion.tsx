@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/compone
 import { Textarea } from "@/components/textarea/textarea";
 import { useConversationApi, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { defaultHeadline, type Applied } from "@/utils/commit/commit";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread, ThreadComment } from "@/utils/review/review";
 import { suggestionsIn } from "@/utils/suggestion/suggestion";
@@ -52,7 +53,7 @@ function CommitPopover({
       setHeadline("");
       setBody("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }

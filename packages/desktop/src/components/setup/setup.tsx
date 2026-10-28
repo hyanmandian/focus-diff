@@ -17,6 +17,7 @@ import { bridge, type AiStatus, type AuthStatus } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
+  isRepoPattern,
   loadConfig,
   saveConfig,
   TEMPLATES,
@@ -25,7 +26,7 @@ import {
   type Queue,
   type QueueKind,
 } from "@/utils/config/config";
-import { interval } from "@/utils/copy/copy";
+import { interval, POLL_SECONDS } from "@/utils/copy/copy";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { isMac } from "@/utils/os/os";
 import { platform } from "@/utils/platform/platform";
@@ -33,7 +34,7 @@ import { useTheme } from "@/utils/theme/theme";
 
 const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
-const repoError = (s: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(s) ? null : i18n()("setup.repoError"));
+const repoError = (s: string) => (isRepoPattern(s) ? null : i18n()("setup.repoError"));
 
 /** A checkbox or radio button as macOS lays them out: the box on the leading edge, a 13pt label and
  *  an 11pt description under it. No card and no highlight under the pointer; the focus ring is on
@@ -91,6 +92,7 @@ export function Setup() {
   const [config, setConfig] = useState<Config | null>(null);
   const [kinds, setKinds] = useState<Set<QueueKind>>(new Set());
   const [repos, setRepos] = useState<string[]>([]);
+  const [startRepos, setStartRepos] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
   const [saving, setSaving] = useState(false);
   const t = useT();
@@ -103,7 +105,10 @@ export function Setup() {
       setConfig(c);
       setKinds(new Set(c.queues.filter((q) => q.enabled).map((q) => q.kind)));
       const shared = c.queues[0]?.repos ?? [];
-      if (c.queues.every((q) => q.repos.join() === shared.join())) setRepos(shared);
+      if (c.queues.every((q) => q.repos.join() === shared.join())) {
+        setRepos(shared);
+        setStartRepos(shared);
+      }
     })();
     void bridge.aiStatuses().then(setStatuses);
   }, []);
@@ -128,12 +133,14 @@ export function Setup() {
       if (!kinds.has(kind)) continue;
       const had = config.queues.filter((q) => q.kind === kind);
       if (had.length === 0) queues.push({ ...TEMPLATES[kind].make(), repos });
-      for (const q of had) queues.push({ ...q, enabled: true, repos });
+      for (const q of had)
+        queues.push({ ...q, enabled: true, repos: repos.join() === startRepos.join() ? q.repos : repos });
     }
     return { ...config, queues: [...queues, ...config.queues.filter((q) => q.kind === "custom")] };
   };
 
   const finish = async () => {
+    if (saving) return;
     setSaving(true);
     await saveConfig(finalConfig());
     await bridge.openPanel();
@@ -284,7 +291,7 @@ export function Setup() {
                     <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {[30, 60, 90, 180, 300, 600].map((s) => (
+                    {POLL_SECONDS.map((s) => (
                       <SelectItem key={s} value={String(s)}>
                         {interval(s, t)}
                       </SelectItem>

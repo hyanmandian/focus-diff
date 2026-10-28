@@ -32,7 +32,6 @@ import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac, primary, shortcut } from "@/utils/os/os";
-import type { Unlisten } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
 import {
   clearArrival,
@@ -61,11 +60,6 @@ function remember(key: string, value: string) {
   }
 }
 
-/** Stops listening once the listener is in place. */
-async function unlisten(off: Promise<Unlisten>) {
-  (await off)();
-}
-
 /** Whether a moment was within the last minute (as of now). */
 const lastMinute = (at: number) => Date.now() - at < 60_000;
 
@@ -82,7 +76,7 @@ function useShown() {
     });
     return () => {
       document.removeEventListener("visibilitychange", update);
-      void unlisten(off);
+      off();
     };
   }, []);
   return shown;
@@ -155,7 +149,7 @@ export function Panel() {
     });
     return () => {
       document.removeEventListener("paste", onPaste);
-      void unlisten(off);
+      off();
     };
   }, []);
   // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
@@ -224,10 +218,7 @@ export function Panel() {
 
   useEffect(() => {
     void bridge.updateOffered().then(setUpdate);
-    const off = bridge.on<string>("update-available", setUpdate);
-    return () => {
-      void unlisten(off);
-    };
+    return bridge.on<string>("update-available", setUpdate);
   }, []);
   const choose = (id: string) => {
     setTab(id);
@@ -244,11 +235,12 @@ export function Panel() {
   // Esc closes the panel, like a menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const command = primary(e) && !e.altKey && !(isMac && e.ctrlKey);
       // The app's own shortcuts, which the menu bar would answer if a tray app had one showing.
-      if (primary(e) && !e.altKey && !(isMac && e.ctrlKey) && (e.key === "," || e.key === "q")) {
+      if (command && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
-      } else if (e.metaKey && !e.altKey && !e.ctrlKey && e.key === "o") {
+      } else if (command && e.key === "o") {
         e.preventDefault();
         setLinkSheet({ at: Date.now(), initial: null });
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
@@ -320,7 +312,8 @@ export function Panel() {
       list.filter((i) => i.pr.repository.nameWithOwner === b).length -
         list.filter((i) => i.pr.repository.nameWithOwner === a).length || a.localeCompare(b),
   );
-  const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
+  const shownRepo = repo && repos.includes(repo) ? repo : "";
+  const narrowed = shownRepo ? list.filter((i) => i.pr.repository.nameWithOwner === shownRepo) : list;
   const { groups, drafts, stacks } = arrange(narrowed, unread);
   const inOrder = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
   // For shift-click: picking happens after the render that showed the rows.
@@ -364,7 +357,7 @@ export function Panel() {
   });
   // Again for each list put on screen: another queue, another repository's chips.
   useEffect(() => {
-    if (!shown || !ready) return () => {};
+    if (!shown || !ready) return;
     const timer = setTimeout(() => {
       // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the queue and repository aren't read here: a new list on screen is what starts the wait again
       void prefetchSome(topRef.current);
@@ -561,10 +554,7 @@ export function Panel() {
                     aria-label={t("panel.repositories")}
                     className="relative isolate flex shrink-0 [scrollbar-width:none] gap-0.5 overflow-x-auto border-b border-(--panel-separator) p-1.5"
                   >
-                    <SlidingPill
-                      selected={(repo && repos.includes(repo) ? repo : "") || "all"}
-                      className="rounded-[8px] bg-primary"
-                    />
+                    <SlidingPill selected={shownRepo || "all"} className="rounded-[8px] bg-primary" />
                     {[
                       ["", t("panel.all"), list.length] as const,
                       ...repos.map(
@@ -576,7 +566,7 @@ export function Panel() {
                           ] as const,
                       ),
                     ].map(([value, label, n]) => {
-                      const pressed = (repo && repos.includes(repo) ? repo : "") === value;
+                      const pressed = shownRepo === value;
                       return (
                         <button
                           key={value || "all"}

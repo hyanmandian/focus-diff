@@ -2,7 +2,7 @@
 // (src-tauri/src/ai.rs), which can also read the pull request's project (checkout.rs). Nothing is
 // sent unless they turned it on and asked.
 
-import { bridge, type AiAnswer } from "@/utils/bridge/bridge";
+import { bridge, isRecord, type AiAnswer } from "@/utils/bridge/bridge";
 import type { AiProvider, Config, Effort } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
 import { i18n } from "@/utils/i18n/i18n";
@@ -110,8 +110,6 @@ const SCHEMA = {
   },
   required: ["summary", "findings"],
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 /** The lines of the new version a comment can go on: those the diff adds or shows. */
 export function commentable(patch: string): Set<number> {

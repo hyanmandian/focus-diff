@@ -19,7 +19,7 @@ export function useStack(details: Details | null): Stack | null {
   const key = wanted ? `${wanted.owner}/${wanted.repo}#${wanted.number}@${wanted.headRefOid}` : null;
 
   useEffect(() => {
-    if (!wanted || !key) return () => {};
+    if (!wanted || !key) return;
     let live = true;
     const self: StackPull = {
       id: wanted.id,

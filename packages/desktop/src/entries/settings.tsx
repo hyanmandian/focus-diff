@@ -4,25 +4,14 @@ import { createRoot } from "react-dom/client";
 
 import { Settings } from "@/components/settings/settings";
 import { TooltipProvider } from "@/components/tooltip/tooltip";
-import { followLanguage } from "@/utils/language/language";
-import { setPlatform } from "@/utils/platform/platform";
-import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";
+import { boot } from "@/entries/boot";
 
 import "@/index.css";
 import "@/components/settings/settings.css";
 
 document.documentElement.classList.add("settings");
 
-// The app the screens run in: Tauri, or in a plain browser during development, sample data
-// (src/utils/mock/mock.ts).
-if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window))
-  setPlatform((await import("@/utils/mock/mock")).mockPlatform);
-else {
-  setPlatform(tauriPlatform);
-  if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardErrors();
-}
-// The language picked in Settings, followed live.
-followLanguage();
+await boot();
 
 createRoot(document.querySelector("#root")!).render(
   <StrictMode>

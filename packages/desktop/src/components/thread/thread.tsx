@@ -35,6 +35,7 @@ import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/os/os";
@@ -74,6 +75,11 @@ export function Composer({
 }) {
   const t = useT();
   const [body, setBody] = useState(initial);
+  const [added, setAdded] = useState(initial);
+  if (initial !== added) {
+    setAdded(initial);
+    setBody(body.trim() ? `${body.trimEnd()}\n\n${initial}` : initial);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (action: (body: string) => Promise<void> | void) => {
@@ -86,7 +92,7 @@ export function Composer({
     try {
       await action(body.trim());
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -239,10 +245,14 @@ export function ThreadView({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
   const [whole, setWhole] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const toggle = async () => {
     setBusy(true);
+    setError(null);
     try {
       await onResolve(!thread.resolved);
+    } catch (e) {
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -300,6 +310,11 @@ export function ThreadView({
         )}
       </div>
       <div className="mt-3 border-t pt-3">
+        {error ? (
+          <p className="mb-2 text-callout text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
         {replying === null ? (
           <div className="flex items-center gap-2">
             <Button
@@ -518,7 +533,7 @@ export function NewComment({
   }, [turns]);
 
   const fail = (e: unknown) => {
-    setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+    setError(errorText(e));
   };
 
   const comment = async (now: boolean) => {
@@ -659,7 +674,9 @@ export function NewComment({
                       {/* What it's doing and for how long, so a long answer doesn't look stuck. */}
                       <span className="text-subheadline text-muted-foreground tabular-nums">
                         {t("review.readingCode", { name: askName })}
-                        {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
+                        {waited >= 3 ? (
+                          <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
+                        ) : null}
                       </span>
                       <span
                         aria-hidden

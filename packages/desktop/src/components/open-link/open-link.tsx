@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/button/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/dialog/dialog";
 import { Input } from "@/components/input/input";
+import { errorText } from "@/utils/error/error";
 import { useT, type T } from "@/utils/i18n/i18n";
 import { NoSuchPull, openPullLink } from "@/utils/pull-link/pull-link";
 
@@ -19,7 +20,7 @@ export async function openLink(text: string, t: T): Promise<string | null> {
     await openPullLink(link);
     return null;
   } catch (e) {
-    return e instanceof NoSuchPull ? t("panel.noSuchPull") : e instanceof Error ? e.message : String(e);
+    return e instanceof NoSuchPull ? t("panel.noSuchPull") : errorText(e);
   }
 }
 

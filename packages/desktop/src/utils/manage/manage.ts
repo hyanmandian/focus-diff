@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { github, graphql } from "@/utils/bridge/bridge";
 import { fresh } from "@/utils/checks/checks";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import type { PullRef } from "@/utils/review/review";
 import { cachedList, shelve, shelved } from "@/utils/shelf/shelf";
 
@@ -291,7 +292,7 @@ export function useManage(prId: string, ref: PullRef) {
         setError(null);
         shelve(`manage:${prId}`, m);
       } catch (e) {
-        if (mine === latest.current) setError(e instanceof Error ? e.message : String(e));
+        if (mine === latest.current) setError(errorText(e));
       }
     },
     [prId, ref],

@@ -5,7 +5,7 @@ import { groupStacks, type StackPlace } from "@focus-diff/core/stacks";
 
 import type { Item } from "@/utils/engine/engine";
 
-export type Group = { repo: string; items: Item[] };
+type Group = { repo: string; items: Item[] };
 
 const at = (i: Item) => Math.max(...i.events.map((e) => e.at), Date.parse(i.pr.updatedAt));
 

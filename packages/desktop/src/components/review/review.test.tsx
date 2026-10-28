@@ -904,7 +904,7 @@ describe("Review", () => {
       await userEvent.click(tab("Diff"));
       // In the floating bar: opening its card goes to the first.
       await userEvent.click(button("Comments, 4 comments"));
-      expect(screen.getByLabelText("Comment 1 of 4")).toBeTruthy();
+      expect(screen.getByText("Comment 1 of 4")).toBeTruthy();
       await frames();
       // The AI's on cart.ts line 3 comes first, then your pending line 9.
       expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("src/cart.ts", 3, "additions");
@@ -922,9 +922,18 @@ describe("Review", () => {
       press("p");
       press("p");
       press("p");
-      expect(screen.getByLabelText("Comment 4 of 4")).toBeTruthy();
+      expect(screen.getByText("Comment 4 of 4")).toBeTruthy();
       await userEvent.click(button("Previous comment"));
-      expect(screen.getByLabelText("Comment 3 of 4")).toBeTruthy();
+      expect(screen.getByText("Comment 3 of 4")).toBeTruthy();
+    });
+
+    it("goes back from before the first to the last", async () => {
+      someComments();
+      await openReview();
+      await userEvent.click(tab("Diff"));
+      press("p");
+      await frames();
+      expect(h.handle.scrollToThread).toHaveBeenLastCalledWith(expect.objectContaining({ id: "T1" }));
     });
 
     it("follows settings changed in their window, and another account signed in, without reopening", async () => {
@@ -1698,6 +1707,14 @@ describe("Review", () => {
       // Not as ⌥E (a typed character) or once typing.
       press("e", { altKey: true });
       expect(h.queue.go).toHaveBeenCalledTimes(2);
+      const modal = document.createElement("div");
+      document.body.append(modal);
+      modal.setAttribute("aria-modal", "true");
+      press("e");
+      press("?");
+      modal.remove();
+      expect(h.queue.go).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("dialog")).toBeNull();
     });
 
     it("has no Mark Done when not opened from a queue, and calls an unknown queue this queue", async () => {
@@ -1836,6 +1853,15 @@ describe("Review", () => {
       expect(loadThreads).toHaveBeenCalledTimes(3);
       expect(h.overview!.hasFile("src/cart.ts")).toBe(true);
       expect(h.overview!.hasFile("nope")).toBe(false);
+    });
+
+    it("counts a comment as posted though catching up after it fails", async () => {
+      await openReview();
+      vi.mocked(loadThreads).mockRejectedValue(new Error("offline"));
+      await expect(
+        act(() => diffs().onCommentNow({ path: "src/cart.ts", side: "additions", line: 2, body: "Now" })),
+      ).resolves.toBeUndefined();
+      await expect(act(() => diffs().onReply(thread("T1", "src/cart.ts", 1), "Done"))).resolves.toBeUndefined();
     });
 
     it("answers, resolves and comments from the Diff", async () => {

@@ -181,7 +181,7 @@ export function defaultMessage(
 
 /** The parts of the details that merging changes, asked again past Rust's memory: after an action,
  *  or while GitHub works out whether it can be merged (UNKNOWN), without reloading the rest. */
-export type MergeState = Pick<
+type MergeState = Pick<
   Details,
   "state" | "isDraft" | "mergeable" | "mergeStateStatus" | "reviewDecision" | "headRefOid" | "updatedAt"
 >;

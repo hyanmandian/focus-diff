@@ -101,8 +101,10 @@ describe("FilterBar", () => {
 
   it("shows what's in view: files left, lines and time", () => {
     bar();
-    expect(screen.getByLabelText("2 files").textContent).toBe("2");
-    expect(screen.getByLabelText("Lines in view: 60 added, 10 removed").textContent).toBe("+60−10");
+    expect(screen.getByText("2 files").parentElement?.textContent).toBe("22 files");
+    expect(screen.getByText("Lines in view: 60 added, 10 removed").parentElement?.textContent).toBe(
+      "+60−10Lines in view: 60 added, 10 removed",
+    );
     expect(screen.getByLabelText("About 30 min left to review").textContent).toBe("~30 min");
   });
 

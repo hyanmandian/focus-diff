@@ -142,14 +142,18 @@ async function reloadConfig() {
 }
 
 export async function start() {
-  void bridge.on<Live>("snapshot", (live) => void follow(live));
-  void bridge.on<string>("file-changed", (name) => {
+  let followed = false;
+  bridge.on<Live>("snapshot", (live) => {
+    followed = true;
+    void follow(live);
+  });
+  bridge.on<string>("file-changed", (name) => {
     if (name === "config") void reloadConfig();
   });
   void bridge.on("panel-shown", () => void refresh());
   const [config, live] = await Promise.all([loadConfig(), bridge.snapshot<Live>()]);
   set({ config });
-  await follow(live);
+  if (!followed) await follow(live);
   // When the panel had its queues to show, for measuring how fast it opens.
   performance.mark("ready");
 }

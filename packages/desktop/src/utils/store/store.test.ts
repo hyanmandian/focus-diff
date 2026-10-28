@@ -90,6 +90,29 @@ describe("the panel's store", () => {
     expect(mark).toHaveBeenCalledWith("ready");
   });
 
+  it("keeps a newer snapshot that comes while the first is on its way", async () => {
+    let release = () => {};
+    const configRead = new Promise<string>((resolve) => {
+      release = () => {
+        resolve(JSON.stringify(config));
+      };
+    });
+    mockCommands((cmd) => {
+      if (cmd === "snapshot") return live();
+      if (cmd === "read_file") return configRead;
+      return null;
+    });
+    const store = await load();
+    const { result } = renderHook(() => store.useStore());
+    const started = store.start();
+    await act(() => emit("snapshot", live({ items: { review: [item("review", "PR_3")] } })));
+    await act(async () => {
+      release();
+      await started;
+    });
+    expect(result.current.items.review?.map((i) => i.pr.id)).toEqual(["PR_3"]);
+  });
+
   it("asks what's possible for connecting GitHub when no one is signed in, and forgets it once someone is", async () => {
     const { sent } = rust(live({ signedIn: false }));
     const store = await load();

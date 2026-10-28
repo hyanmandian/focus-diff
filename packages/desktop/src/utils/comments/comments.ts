@@ -92,7 +92,7 @@ export const react = (subject: string, content: ReactionContent, on: boolean) =>
 
 /** What can be edited: a comment on lines, one on the pull request, a review's own text, or the
  *  pull request's description. */
-export type Editable = "review-comment" | "issue-comment" | "review" | "pull";
+type Editable = "review-comment" | "issue-comment" | "review" | "pull";
 
 const EDIT: Record<Editable, { mutation: string; input: string; field: string }> = {
   "review-comment": {

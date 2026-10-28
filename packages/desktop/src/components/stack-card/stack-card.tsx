@@ -4,17 +4,11 @@
 
 import { Layers } from "lucide-react";
 
+import { Standing } from "@/components/stack-menu/stack-menu";
 import type { Stack } from "@/hooks/use-stack/use-stack";
 import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import type { StackPull } from "@/utils/stack/stack";
-
-/** How each one's review stands, as a coloured word after its title. */
-const STANDING = {
-  APPROVED: "text-success",
-  CHANGES_REQUESTED: "text-destructive",
-  REVIEW_REQUIRED: "text-muted-foreground",
-} as const;
 
 export function StackCard({ stack, onPick }: { stack: Stack; onPick: (pull: StackPull) => void }) {
   const t = useT();
@@ -34,7 +28,6 @@ export function StackCard({ stack, onPick }: { stack: Stack; onPick: (pull: Stac
       <ol>
         {stack.pulls.map((pull, i) => {
           const here = i === stack.at;
-          const standing = pull.decision ?? "REVIEW_REQUIRED";
           const body = (
             <>
               {/* The line through the stack, and this one's dot on it. */}
@@ -52,14 +45,7 @@ export function StackCard({ stack, onPick }: { stack: Stack; onPick: (pull: Stac
                 <span className="text-muted-foreground tabular-nums">#{pull.number}</span>{" "}
                 <span className={cn(here && "font-semibold")}>{pull.title}</span>
               </span>
-              <span
-                className={cn(
-                  "shrink-0 py-1.5 text-subheadline",
-                  pull.isDraft ? "text-muted-foreground" : STANDING[standing],
-                )}
-              >
-                {pull.isDraft ? t("review.stackDraft") : t(`review.stackStanding.${standing}`)}
-              </span>
+              <Standing pull={pull} className="py-1.5" />
             </>
           );
           return (

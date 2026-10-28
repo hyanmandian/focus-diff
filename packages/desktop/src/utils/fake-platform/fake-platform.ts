@@ -13,7 +13,7 @@ export const CLOSE_WINDOW = "platform:closeWindow";
 export const EMIT_TO = "platform:emitTo";
 
 /** Answers a command, as it would come back from the app (a value, a promise, or a throw). */
-export type Handler = (command: string, args?: Args, options?: InvokeOptions) => unknown;
+type Handler = (command: string, args?: Args, options?: InvokeOptions) => unknown;
 
 let answering: Handler | null = null;
 const listeners = new Map<string, Set<(payload: unknown) => void>>();

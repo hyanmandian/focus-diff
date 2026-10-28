@@ -7,11 +7,6 @@
    Transparency or Increase Contrast everything goes opaque, and Increase Contrast firms the edges. */
 html.panel {
   --panel-tint: color-mix(in oklch, var(--background) 50%, transparent);
-  --panel-sticky: color-mix(
-    in oklch,
-    var(--background) 85%,
-    transparent
-  ); /* a heading floating over rows, over a blur */
   --panel-edge: oklch(0 0 0 / 0.09);
   --panel-separator: oklch(0 0 0 / 0.09);
   --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, chip knob, skeleton */
@@ -24,7 +19,6 @@ html.panel {
 }
 html.panel.dark {
   --panel-tint: color-mix(in oklch, var(--background) 40%, transparent);
-  --panel-sticky: color-mix(in oklch, var(--background) 82%, transparent);
   --panel-edge: oklch(1 0 0 / 0.12);
   --panel-separator: oklch(1 0 0 / 0.09);
   --panel-fill: oklch(1 0 0 / 0.07);
@@ -35,14 +29,12 @@ html.panel.dark {
   html.panel,
   html.panel.dark {
     --panel-tint: var(--background);
-    --panel-sticky: var(--background);
   }
 }
 @media (prefers-contrast: more) {
   html.panel,
   html.panel.dark {
     --panel-tint: var(--background);
-    --panel-sticky: var(--background);
     --panel-edge: color-mix(in oklch, var(--foreground) 45%, transparent);
     --panel-separator: color-mix(in oklch, var(--foreground) 35%, transparent);
     --panel-fill: color-mix(in oklch, var(--foreground) 12%, transparent);

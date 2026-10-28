@@ -4,6 +4,7 @@
 
 import { bridge, github, type ActionContext } from "@/utils/bridge/bridge";
 import type { Action, ActionStep } from "@/utils/config/config";
+import { errorText } from "@/utils/error/error";
 import { i18n } from "@/utils/i18n/i18n";
 
 /** {number} {title} {url} {repo} {author} {me} in text. In links (`encode`), values are encoded,
@@ -63,7 +64,7 @@ export async function runAction(action: Action, pr: ActionContext): Promise<stri
       // oxlint-disable-next-line eslint/no-await-in-loop -- one after another: a failed step stops the rest
       said = (await runStep(action, index, step, pr)) ?? said;
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = errorText(e);
       throw new Error(
         action.steps.length > 1
           ? i18n()("config.action.failed", { step: i18n()(`config.step.${step.kind}`), message })

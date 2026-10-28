@@ -31,6 +31,7 @@ import { firstName } from "@/utils/copy/copy";
 import type { Details, Entry } from "@/utils/details/details";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread } from "@/utils/review/review";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
@@ -149,7 +150,11 @@ function ReviewSummary({
                 ? t("review.onDiffElsewhere", { count: onLines, elsewhere: elsewhere.length })
                 : t("review.onDiff", { count: onLines })
               : t("review.nothingWorth")}
-            {review.note ? ` ${review.note}.` : review.project ? ` ${t("review.readProject")}` : ""}
+            {review.note
+              ? ` ${review.note}${review.note.endsWith(".") ? "" : "."}`
+              : review.project
+                ? ` ${t("review.readProject")}`
+                : ""}
           </p>
           {elsewhere.map((f) => (
             <div key={`${f.path}:${f.line}:${f.body}`} className="rounded-lg border bg-background p-2">
@@ -254,7 +259,6 @@ function AddComment({
   const [open, setOpen] = useState(false);
   return open || quoted !== null ? (
     <Composer
-      key={quoted ?? ""}
       placeholder={t("review.commentOnPull")}
       submitLabel={t("review.comment")}
       initial={quoted ?? ""}
@@ -669,7 +673,7 @@ export function Overview({
               className="self-start text-muted-foreground"
               onClick={() =>
                 void pull.loadOlder().catch((e: unknown) => {
-                  say(e instanceof Error ? e.message : String(e));
+                  say(errorText(e));
                 })
               }
             >
@@ -701,7 +705,7 @@ export function Overview({
           />
         ) : null}
         {config ? <AskAi config={config} details={details} /> : null}
-        <Sidebar pr={details} details={details} pull={pull} me={me} onError={say} />
+        <Sidebar details={details} pull={pull} me={me} onError={say} />
       </aside>
     </div>
   );

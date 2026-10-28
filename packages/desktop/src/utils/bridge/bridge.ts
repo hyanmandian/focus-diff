@@ -1,7 +1,7 @@
 // Calls into the app's native side (the desktop's Rust, src-tauri/src/lib.rs), through its platform (utils/platform). The web views never hold the GitHub token:
 // they ask for API calls by path and Rust makes them.
 import { i18n } from "@/utils/i18n/i18n";
-import { invoke, platform, type Unlisten } from "@/utils/platform/platform";
+import { invoke, platform } from "@/utils/platform/platform";
 
 export type AuthSource = "keychain" | "gh";
 
@@ -22,7 +22,7 @@ export type DeviceCode = {
 };
 
 /** "pace": what the review time estimate has learned of the reader (estimate.ts). */
-export type StoredFile = "config" | "pace";
+type StoredFile = "config" | "pace";
 
 export type AiStatus = {
   provider: "claude" | "cursor";
@@ -58,7 +58,7 @@ export type DraftChange = ({ op: "put" } & DraftPut) | { op: "remove"; key: stri
 export type DraftsState = { jobs: Array<{ change: DraftChange; error: string | null }>; ids: Record<string, string> };
 
 /** A picture or video on github.com, for a comment (src-tauri/src/uploads.rs). */
-export type Uploaded = { href: string; kind: "image" | "video" };
+type Uploaded = { href: string; kind: "image" | "video" };
 /** Why it wasn't uploaded: nobody signed in on github.com, the session ended, or GitHub's words. */
 export type UploadError = { kind: "not_signed_in" } | { kind: "session_expired" } | { kind: "failed"; message: string };
 
@@ -91,7 +91,8 @@ const reviewArgs = (pr: ReviewPull, teams: string[], queue?: string | null) => (
   title: `#${pr.number} · ${pr.title} · ${byline(pr.author)}`,
 });
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
 export const bridge = {
   /** Marks a file viewed, or not, on github.com: Rust keeps it until GitHub takes it (outbox.rs).
@@ -215,7 +216,14 @@ export const bridge = {
   quit: () => invoke<void>("quit"),
 
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the payload Rust sends
-  on: <T>(event: string, handler: (payload: T) => void): Promise<Unlisten> => platform().listen<T>(event, handler),
+  on: <T>(event: string, handler: (payload: T) => void) => {
+    const off = platform().listen<T>(event, handler);
+    return () => {
+      void off.then((stop) => {
+        stop();
+      });
+    };
+  },
 };
 
 /** A GitHub REST or GraphQL call. Throws GitHubError for HTTP errors, with GitHub's message. */

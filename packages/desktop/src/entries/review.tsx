@@ -11,23 +11,13 @@ import { createRoot } from "react-dom/client";
 import { Review, type Target } from "@/components/review/review";
 import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { Viewer } from "@/components/viewer/viewer";
+import { boot } from "@/entries/boot";
 import { DIRECTION } from "@/hooks/use-next-in-queue/use-next-in-queue";
-import { followLanguage } from "@/utils/language/language";
-import { platform, setPlatform } from "@/utils/platform/platform";
-import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";
+import { platform } from "@/utils/platform/platform";
 
 import "@/index.css";
 
-// The app the screens run in: Tauri, or in a plain browser during development, sample data
-// (src/utils/mock/mock.ts).
-if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window))
-  setPlatform((await import("@/utils/mock/mock")).mockPlatform);
-else {
-  setPlatform(tauriPlatform);
-  if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardErrors();
-}
-// The language picked in Settings, followed live.
-followLanguage();
+await boot();
 
 // Syntax colouring off the main thread, so scrolling never waits on it. Started with the page (a
 // spare window warms them up before it's needed); the themes are the ones diffs.tsx shows.

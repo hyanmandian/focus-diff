@@ -6,6 +6,7 @@ import type { Estimator } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import { repoMatches } from "@focus-diff/core/repos";
 
+import { isRecord } from "@/utils/bridge/bridge";
 import { isRepoPattern, newId, normalize, type DiffFilter } from "@/utils/config/config";
 
 /** The filters a repository gets: those for everywhere, and its own. */
@@ -28,7 +29,7 @@ export const toggled = (ids: string[], id: string): string[] =>
 export const inAny = (chosen: DiffFilter[], path: string) =>
   chosen.length === 0 || chosen.some((f) => inFilter(f, path));
 
-export type FileLike = { path: string; additions: number; deletions: number };
+type FileLike = { path: string; additions: number; deletions: number };
 
 /** What a set of files holds: how many, how many viewed, their lines, the minutes they take and
  *  the minutes left for those not viewed yet. */
@@ -126,7 +127,6 @@ export function exportFilters(filters: DiffFilter[]): string {
   return JSON.stringify(out, null, 2);
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 /** Focus Diff keeps only filters with a name. */
 const named = (v: unknown): v is Record<string, unknown> =>

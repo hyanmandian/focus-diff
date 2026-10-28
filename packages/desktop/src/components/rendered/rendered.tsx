@@ -9,6 +9,7 @@ import { openClicked } from "@/components/comment-html/comment-html";
 import { github } from "@/utils/bridge/bridge";
 import type { Source } from "@/utils/contents/contents";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
 import { sanitize } from "@/utils/sanitize/sanitize";
@@ -60,7 +61,7 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
         const text = await renderedAt(source.repo, sha, removed ? (file.previousPath ?? file.path) : file.path);
         if (live) setLoaded({ file, source, html: sanitize(text), error: "" });
       } catch (e) {
-        if (live) setLoaded({ file, source, html: null, error: e instanceof Error ? e.message : String(e) });
+        if (live) setLoaded({ file, source, html: null, error: errorText(e) });
       }
     })();
     return () => {

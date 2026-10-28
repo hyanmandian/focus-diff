@@ -4,7 +4,6 @@
 import type { EventKind } from "@/utils/config/config";
 
 export type Actor = { __typename?: string; login: string; avatarUrl?: string; name?: string | null } | null;
-export type Comment = { author: Actor; createdAt: string; body?: string; url: string };
 
 /** What the panel gets of a pull request (PanelPr in src-tauri/src/engine.rs). */
 export type PullRequest = {
@@ -62,21 +61,3 @@ export type Item = {
   /** review queues: since when it's been waiting on you (ms). */
   waitingSince?: number;
 };
-
-export const isBot = (a: Actor) => !a || a.__typename === "Bot" || a.login.endsWith("[bot]");
-
-export function requests(pr: Pick<PullRequest, "reviewRequests">, me: string) {
-  const reviewers = pr.reviewRequests.nodes.map((n) => n.requestedReviewer).filter((r) => r !== null);
-  const teams: string[] = [];
-  const users: Array<{ login: string; avatarUrl?: string }> = [];
-  let direct = false;
-  for (const r of reviewers) {
-    if (r.__typename === "User" && "login" in r) {
-      users.push(r);
-      if (r.login === me) direct = true;
-    } else if (r.__typename === "Team" && "slug" in r) {
-      teams.push(`${r.organization.login}/${r.slug}`);
-    }
-  }
-  return { direct, teams, users };
-}

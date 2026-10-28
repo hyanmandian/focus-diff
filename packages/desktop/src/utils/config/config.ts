@@ -5,7 +5,7 @@
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
 
-import { bridge } from "@/utils/bridge/bridge";
+import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
 
 /** What makes a pull request belong to a queue. */
@@ -306,7 +306,7 @@ export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
  *  what you have to do with them. Every kind of queue is one pair of them (merged ones only as
  *  asked of you or anyone's), so the presets are only these filled in. */
 export const STATES = ["open", "merged"] as const;
-export type QueueState = (typeof STATES)[number];
+type QueueState = (typeof STATES)[number];
 export const PARTS = ["review", "authored", "involved", "any"] as const;
 export type QueuePart = (typeof PARTS)[number];
 
@@ -319,11 +319,22 @@ export function sourceOf(queue: Queue): { state: QueueState; part: QueuePart } {
 /** Whether a pair can be: merged ones are asked of you, or anyone's. */
 export const canBe = (state: QueueState, part: QueuePart) => state === "open" || part === "review" || part === "any";
 
+/** The events that can happen to the pull requests of each kind of queue. */
+export const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
+  review: ["new", "rerequest", "ready", "comment", "mention"],
+  involved: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
+  authored: ["approved", "changes", "comment", "mention", "ci-failed", "ci-passed", "conflict"],
+  merged: ["new"],
+  custom: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
+};
+
 /** The queue showing another pair (one that can't be keeps its part as near as it can). */
 export function withSource(queue: Queue, state: QueueState, part: QueuePart): Queue {
   const p = canBe(state, part) ? part : "any";
-  if (state === "merged") return { ...queue, kind: "merged", requestedOnly: p === "review" };
-  return { ...queue, kind: p === "any" ? "custom" : p };
+  const kind: QueueKind = state === "merged" ? "merged" : p === "any" ? "custom" : p;
+  const notify = queue.notify.filter((e) => KIND_EVENTS[kind].includes(e));
+  if (kind === "merged") return { ...queue, kind, notify, requestedOnly: p === "review" };
+  return { ...queue, kind, notify };
 }
 
 /** The starting points the Add menu offers; any queue can still be made by hand from a custom one,
@@ -351,7 +362,7 @@ export const defaultConfig = (): Config => ({
   reviewTime: defaultReviewTime(),
 });
 
-export const defaultReviewTime = (): ReviewTime => ({
+const defaultReviewTime = (): ReviewTime => ({
   enabled: false,
   sessions: [],
   againFirst: true,
@@ -414,7 +425,7 @@ export const filterRecipes = (
 
 /** Fixed ids: until the person changes them, the defaults are made again each time the file is
  *  read, and the review window remembers a repository's filter by id. */
-export function defaultFilters(): DiffFilter[] {
+function defaultFilters(): DiffFilter[] {
   const t = i18n();
   return [...RECIPES.stack, ...RECIPES.generated].map((name) => ({
     id: filterId(name),
@@ -470,7 +481,6 @@ export const newAction = (t: T): Action => ({
 // MARK: Reading what's on disk
 
 const isString = (v: unknown): v is string => typeof v === "string";
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const strings = (v: unknown, max = 200): string[] =>
   Array.isArray(v)
     ? v

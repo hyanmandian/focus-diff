@@ -37,7 +37,7 @@ const listeners = new Set<() => void>();
 function load() {
   loading ??= (async () => {
     // Other windows learn too: follow what they write.
-    void bridge.on<string>("file-changed", (name) => {
+    bridge.on<string>("file-changed", (name) => {
       if (name === "pace") void read();
     });
     await read();

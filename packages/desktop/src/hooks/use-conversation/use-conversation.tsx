@@ -24,6 +24,7 @@ import {
 } from "@/utils/conversation/conversation";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { i18n } from "@/utils/i18n/i18n";
 import {
   setResolved,
@@ -95,8 +96,6 @@ export async function copyText(text: string) {
     field.remove();
   }
 }
-
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 const confirmDelete = () => {
   const t = i18n();
@@ -196,6 +195,18 @@ export function useConversation({
     );
   };
 
+  const remove = async (kind: "review-comment" | "issue-comment", id: string, removed: () => void) => {
+    if (!(await confirmDelete())) return;
+    try {
+      await removeOnGitHub(kind, id);
+    } catch (e) {
+      say(errorText(e));
+      return;
+    }
+    removed();
+    say(i18n()("review.commentDeleted"));
+  };
+
   const api: ConversationApi = {
     repo: `${ref.owner}/${ref.repo}`,
     url: details?.url ?? `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.number}`,
@@ -216,22 +227,18 @@ export function useConversation({
       const html = await editOnGitHub("review-comment", comment.id, body);
       patchComment(comment.id, { body, html, edited: true });
     },
-    deleteComment: async (comment) => {
-      if (!(await confirmDelete())) return;
-      await removeOnGitHub("review-comment", comment.id);
-      patchComment(comment.id, null);
-      say(i18n()("review.commentDeleted"));
-    },
+    deleteComment: (comment) =>
+      remove("review-comment", comment.id, () => {
+        patchComment(comment.id, null);
+      }),
     editEntry: async (kind, id, body) => {
       const html = await editOnGitHub(kind === "comment" ? "issue-comment" : "review", id, body);
       patchEntry(id, { body, html, edited: true });
     },
-    deleteEntry: async (id) => {
-      if (!(await confirmDelete())) return;
-      await removeOnGitHub("issue-comment", id);
-      patchEntry(id, null);
-      say(i18n()("review.commentDeleted"));
-    },
+    deleteEntry: (id) =>
+      remove("issue-comment", id, () => {
+        patchEntry(id, null);
+      }),
     editDescription: async (body) => {
       if (!details) return;
       const html = await editOnGitHub("pull", details.id, body);
@@ -241,7 +248,7 @@ export function useConversation({
       try {
         await reactOnGitHub(subject, content, on);
       } catch (e) {
-        say(message(e));
+        say(errorText(e));
         throw e;
       }
       // Kept, so the next drawing shows it too.
@@ -293,7 +300,7 @@ export function useConversation({
           throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"), {
             cause: e,
           });
-        throw new Error(message(e), { cause: e });
+        throw new Error(errorText(e), { cause: e });
       }
       setBatch((list) => list.filter((i) => !items.some((x) => x.comment === i.comment)));
       // Applied, so done with, as on GitHub: resolved here at once, there after.

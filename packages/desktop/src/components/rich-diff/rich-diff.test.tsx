@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -252,10 +252,14 @@ describe("NoPatchFile", () => {
     card({ loading: true, viewed: true });
     expect(screen.getByRole("button", { name: "Load Diff" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("checkbox").getAttribute("aria-checked")).toBe("true");
+    cleanup();
     card({ error: "Too big even so" });
     expect(screen.getByText("Too big even so")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Load Diff" })).toBeTruthy();
+    cleanup();
+    card({ error: "Binary", onLoad: undefined });
     card({ source: null });
-    expect(screen.getAllByRole("button", { name: "Load Diff" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Load Diff" })).toBeNull();
   });
 
   it("says a file was only renamed", () => {

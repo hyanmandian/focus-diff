@@ -1,6 +1,7 @@
 // Everything about one pull request for its detail view, and what can be done to it from there.
 
 import { github, graphql } from "@/utils/bridge/bridge";
+import { checkState } from "@/utils/checks/checks";
 import type { Actor } from "@/utils/engine/engine";
 
 export type Check = { name: string; state: "success" | "failure" | "pending" | "neutral"; url: string | null };
@@ -130,22 +131,6 @@ type Raw = {
     };
   };
 };
-
-function checkState(node: Record<string, string | null>): Check["state"] {
-  if (node.__typename === "StatusContext") {
-    return node.state === "SUCCESS"
-      ? "success"
-      : node.state === "PENDING" || node.state === "EXPECTED"
-        ? "pending"
-        : "failure";
-  }
-  if (node.status !== "COMPLETED") return "pending";
-  return node.conclusion === "SUCCESS"
-    ? "success"
-    : ["NEUTRAL", "SKIPPED"].includes(node.conclusion ?? "")
-      ? "neutral"
-      : "failure";
-}
 
 export async function loadDetails(nameWithOwner: string, number: number): Promise<Details> {
   const [owner = "", repo = ""] = nameWithOwner.split("/");

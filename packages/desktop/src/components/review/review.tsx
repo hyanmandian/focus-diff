@@ -61,17 +61,19 @@ import { ConversationProvider, copyText, useConversation } from "@/hooks/use-con
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { published, usePending } from "@/hooks/use-pending/use-pending";
+import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
-import { bridge } from "@/utils/bridge/bridge";
+import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { useRangeFiles } from "@/utils/commits/commits";
 import { loadConfig, type Config } from "@/utils/config/config";
 import { mergeBase, type Source } from "@/utils/contents/contents";
 import { firstName } from "@/utils/copy/copy";
 import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
+import { errorText } from "@/utils/error/error";
 import { learnFiles, useLearned } from "@/utils/estimate/estimate";
 import {
   filtersFor,
@@ -86,7 +88,7 @@ import {
 import { patchHash } from "@/utils/hashes/hashes";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
-import { tabKeys } from "@/utils/keys/keys";
+import { tabKeys, typing } from "@/utils/keys/keys";
 import { stepFile } from "@/utils/navigate/navigate";
 import { isMac, primary, shortcut } from "@/utils/os/os";
 import {
@@ -110,44 +112,6 @@ import { inTreeOrder } from "@/utils/tree/tree";
 /** `queue`: the one it was opened from, whose next pull request the toolbar offers. */
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
 
-const typing = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/u.test(el.tagName));
-
-// MARK: Kept on this machine
-
-/** What's kept under a key, when it's still of the kind expected. */
-function stored<T>(key: string, fallback: T, valid: (value: unknown) => value is T): T {
-  try {
-    const text = localStorage.getItem(key);
-    const value: unknown = text ? JSON.parse(text) : undefined;
-    return valid(value) ? value : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function store(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Still works for this window.
-  }
-}
-const isUpdate = <T,>(next: T | ((v: T) => T)): next is (v: T) => T => typeof next === "function";
-function usePersisted<T>(key: string, fallback: T, valid: (value: unknown) => value is T) {
-  const [value, setValue] = useState<T>(() => stored(key, fallback, valid));
-  const set = useCallback(
-    (next: T | ((v: T) => T)) => {
-      setValue((v) => {
-        const resolved = isUpdate(next) ? next(v) : next;
-        store(key, resolved);
-        return resolved;
-      });
-    },
-    [key],
-  );
-  return [value, set] as const;
-}
-
 /** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
 const MIN_REVIEW_SECONDS = 2;
 
@@ -168,10 +132,9 @@ const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 const isAnything = (v: unknown): v is unknown => v !== undefined;
 const isDiffStyle = (v: unknown): v is "split" | "unified" => v === "split" || v === "unified";
 const isTab = (v: unknown): v is "overview" | "diff" => v === "overview" || v === "diff";
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
-const isMarks = (v: unknown): v is Record<string, string> => isObject(v) && Object.values(v).every((x) => isString(x));
+const isMarks = (v: unknown): v is Record<string, string> => isRecord(v) && Object.values(v).every((x) => isString(x));
 const isReviewed = (v: unknown): v is { head: string; review: AiReview } | null =>
-  v === null || (isObject(v) && isString(v.head) && isObject(v.review));
+  v === null || (isRecord(v) && isString(v.head) && isRecord(v.review));
 
 const EVENTS = ["COMMENT", "APPROVE", "REQUEST_CHANGES"] as const;
 const STYLES = ["split", "unified"] as const;
@@ -223,7 +186,7 @@ function SubmitReview({
       setOpen(false);
       onSubmitted();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -244,7 +207,7 @@ function SubmitReview({
       await onDiscard();
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -559,7 +522,7 @@ export function Review({ target }: { target: Target }) {
       const [states, queued] = await Promise.all([onGitHub, bridge.queuedViewed(prId).catch(() => ({}))]);
       if (states) followGitHub(f, states, queued);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   }, [prId, repo, number, ref, followGitHub]);
 
@@ -583,11 +546,7 @@ export function Review({ target }: { target: Target }) {
           .then((a) => a.login)
           .then(setMe);
     });
-    return () => {
-      void (async () => {
-        (await off)();
-      })();
-    };
+    return off;
   }, []);
 
   const ai = config?.ai.provider ? config : null;
@@ -608,7 +567,7 @@ export function Review({ target }: { target: Target }) {
       try {
         setReviewed({ head: details.headRefOid, review: await aiReview(ai, details, files) });
       } catch (e) {
-        setReviewError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+        setReviewError(errorText(e));
       } finally {
         setReviewing(null);
       }
@@ -674,10 +633,12 @@ export function Review({ target }: { target: Target }) {
   const changed = useCallback(async () => {
     void bridge.refresh(true);
     void reloadConversation();
-    const [th, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
-    setThreads(th);
-    setDetails(d);
-    if (last.current) last.current = { ...last.current, details: d, threads: th };
+    try {
+      const [th, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
+      setThreads(th);
+      setDetails(d);
+      if (last.current) last.current = { ...last.current, details: d, threads: th };
+    } catch {}
   }, [ref, repo, number, reloadConversation]);
 
   // Pushed to while it's open: said, with a way to show it (the diff doesn't change under you).
@@ -827,7 +788,8 @@ export function Review({ target }: { target: Target }) {
   };
   const step = (by: 1 | -1) => {
     if (stops.length === 0) return;
-    const index = (stop + by + stops.length) % stops.length;
+    const from = stop >= stops.length || (stop < 0 && by < 0) ? 0 : stop;
+    const index = (from + by + stops.length) % stops.length;
     setStop(index);
     const at = stops[index]!;
     jump(at.path, at.line, at.side, at.thread);
@@ -841,7 +803,7 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || typing(e.target)) return;
+      if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
       // ⌘] on to the next pull request of the queue and ⌘[ back, as forward and back in Safari
       // (Ctrl elsewhere).
       if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
@@ -937,7 +899,7 @@ export function Review({ target }: { target: Target }) {
       say(i18n()("review.left"));
       void bridge.refresh(true);
     } catch (e) {
-      say(e instanceof Error ? e.message : String(e));
+      say(errorText(e));
     }
   };
 
@@ -1020,9 +982,7 @@ export function Review({ target }: { target: Target }) {
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      void (async () => {
-        (await off)();
-      })();
+      off();
     };
   }, []);
   const isOpen = details?.state === "OPEN";

@@ -2,25 +2,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/popover/popover";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 
 describe("Popover", () => {
-  it("opens from its trigger with a title and description", async () => {
+  it("opens from its trigger, named by its title", async () => {
     render(
       <Popover>
         <PopoverTrigger>Estimate</PopoverTrigger>
         <PopoverContent side="top">
-          <PopoverHeader>
-            <PopoverTitle>About 12 minutes</PopoverTitle>
-            <PopoverDescription>From your pace on files like these.</PopoverDescription>
-          </PopoverHeader>
+          <PopoverTitle>About 12 minutes</PopoverTitle>
+          <p>From your pace on files like these.</p>
         </PopoverContent>
       </Popover>,
     );

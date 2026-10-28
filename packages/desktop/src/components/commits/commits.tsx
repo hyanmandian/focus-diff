@@ -106,22 +106,24 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
     <section aria-labelledby="commits" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
-            {open ? (
-              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            ) : (
-              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            )}
-            <h2 id="commits" className="text-headline font-bold">
-              {t("manage.commits")}{" "}
-              <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
-            </h2>
-            {list.forcePushes.length > 0 ? (
-              <span className="truncate text-callout text-muted-foreground">
-                {t("manage.forcePushes", { count: list.forcePushes.length })}
+          <h2 className="flex min-w-0 flex-1">
+            <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
+              {open ? (
+                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              ) : (
+                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              )}
+              <span id="commits" className="text-headline font-bold">
+                {t("manage.commits")}{" "}
+                <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
               </span>
-            ) : null}
-          </CollapsibleTrigger>
+              {list.forcePushes.length > 0 ? (
+                <span className="truncate text-callout text-muted-foreground">
+                  {t("manage.forcePushes", { count: list.forcePushes.length })}
+                </span>
+              ) : null}
+            </CollapsibleTrigger>
+          </h2>
           {since ? (
             <Button
               variant="outline"

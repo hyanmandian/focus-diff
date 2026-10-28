@@ -172,6 +172,10 @@ export const manage = {
   issueClosed: "Closed issue",
   closesWhenMerged: "Merging closes these.",
   deployments: "Deployments",
+  "deploy.success": "Deployed",
+  "deploy.failure": "Failed",
+  "deploy.pending": "In progress",
+  "deploy.inactive": "Inactive",
   openDeployment: "Open {environment}",
 
   // The timeline

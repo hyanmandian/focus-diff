@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 
 import { github, graphql } from "@/utils/bridge/bridge";
+import { errorText } from "@/utils/error/error";
 import { header, type PullRef, type ReviewFile } from "@/utils/review/review";
 import { shelve, shelved } from "@/utils/shelf/shelf";
 
@@ -251,7 +252,7 @@ export function useRangeFiles(ref: PullRef, range: Range) {
         const f = await loadRangeFiles(ref, ends);
         if (live) setFiles({ key: `${ends.from}...${ends.to}`, files: f });
       } catch (e) {
-        if (live) setError(e instanceof Error ? e.message : String(e));
+        if (live) setError(errorText(e));
       }
     };
     if (from && to) void load({ from, to });

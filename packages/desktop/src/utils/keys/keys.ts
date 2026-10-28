@@ -22,3 +22,6 @@ export function tabKeys(e: KeyboardEvent<HTMLElement>) {
   tab?.focus();
   tab?.click();
 }
+
+export const typing = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/u.test(el.tagName));

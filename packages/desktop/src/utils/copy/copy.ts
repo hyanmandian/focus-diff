@@ -36,6 +36,8 @@ export const STATUS_TONES: Record<NonNullable<Item["status"]>, string> = {
   MENTIONED: "blue",
 };
 
+export const POLL_SECONDS = [30, 60, 90, 180, 300, 600];
+
 /** "30 seconds", "3 minutes": a refresh interval. */
 export const interval = (seconds: number, t: T) =>
   seconds < 120 ? t("common.seconds", { count: seconds }) : t("common.minutes", { count: seconds / 60 });

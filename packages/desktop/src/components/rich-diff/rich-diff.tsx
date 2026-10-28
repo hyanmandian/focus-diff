@@ -251,7 +251,7 @@ export function NoPatchFile({
   loading: boolean;
   error: string | null;
   onViewed: (viewed: boolean) => void;
-  onLoad: () => void;
+  onLoad?: () => void;
 }) {
   const t = useT();
   const old = renamed(file);
@@ -290,7 +290,7 @@ export function NoPatchFile({
             <p className="flex items-center gap-2 text-body text-muted-foreground">
               <FileWarning className="size-4" aria-hidden /> {error ?? t("diff.tooLarge")}
             </p>
-            {source && !error ? (
+            {source && onLoad ? (
               <Button variant="outline" onClick={onLoad} disabled={loading}>
                 {loading ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : null}
                 {t("diff.loadDiff")}

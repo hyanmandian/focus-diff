@@ -65,14 +65,12 @@ export function Pane({
   tools,
   hero,
   children,
-  className,
 }: {
   title: React.ReactNode;
   back?: { label: string; onBack: () => void; ref?: React.Ref<HTMLButtonElement> };
   tools?: React.ReactNode;
   hero?: PaneId;
   children: React.ReactNode;
-  className?: string;
 }) {
   const [scrolled, setScrolled] = useState(0);
   const t = useT();
@@ -113,7 +111,7 @@ export function Pane({
           setScrolled(e.currentTarget.scrollTop);
         }}
       >
-        <div className={cn("mx-auto flex max-w-[620px] flex-col gap-6 px-5 pt-1 pb-8", className)}>
+        <div className="mx-auto flex max-w-[620px] flex-col gap-6 px-5 pt-1 pb-8">
           {meta && Icon ? (
             <div className="flex flex-col items-center gap-1.5 pt-1 pb-3 text-center">
               <span
@@ -254,9 +252,8 @@ export const LinkRow = forwardRef<
     muted?: boolean;
     control?: React.ReactNode;
     onOpen: () => void;
-    "aria-label"?: string;
   }
->(function LinkRow({ leading, label, description, muted, control, onOpen, "aria-label": ariaLabel }, ref) {
+>(function LinkRow({ leading, label, description, muted, control, onOpen }, ref) {
   return (
     <div className="group/link relative flex min-h-11 items-center gap-3 px-3 py-1.5 transition-colors duration-(--duration-fast) first:rounded-t-[12px] last:rounded-b-[12px] has-[>button:active]:bg-fill has-[>button:hover]:bg-(--fill-quaternary)">
       {leading}
@@ -264,7 +261,6 @@ export const LinkRow = forwardRef<
         ref={ref}
         type="button"
         onClick={onOpen}
-        aria-label={ariaLabel}
         className="min-w-0 flex-1 cursor-default text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:outline-3 focus-visible:after:-outline-offset-3 focus-visible:after:outline-(--focus-ring)"
       >
         <span className={cn("block truncate text-body", muted && "text-muted-foreground")}>{label}</span>
@@ -332,4 +328,10 @@ export function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
   const next = radios[(i + by + radios.length) % radios.length];
   next?.focus();
   next?.click();
+}
+
+export function moved<T>(list: T[], index: number, by: number): T[] {
+  const next = [...list];
+  next.splice(index + by, 0, ...next.splice(index, 1));
+  return next;
 }

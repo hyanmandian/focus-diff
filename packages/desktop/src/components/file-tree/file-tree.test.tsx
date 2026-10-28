@@ -52,7 +52,13 @@ function tree({ files = FILES, flat = false, picked = null }: Options = {}) {
   };
 }
 
-const rows = () => screen.queryAllByRole("treeitem").map((r) => r.textContent);
+const shows = (el: Element) => {
+  const copy = el.cloneNode(true);
+  if (!(copy instanceof Element)) return null;
+  for (const hidden of copy.querySelectorAll(".sr-only")) hidden.remove();
+  return copy.textContent;
+};
+const rows = () => screen.queryAllByRole("treeitem").map((r) => shows(r));
 const row = (name: string | RegExp) => screen.getByRole("treeitem", { name });
 const outline = () => screen.getByRole("tree", { name: "Files" });
 const selected = () => screen.queryAllByRole("treeitem").find((r) => r.getAttribute("aria-selected") === "true");
@@ -114,15 +120,15 @@ describe("FileTree", () => {
       "TSapp.ts1+3 −1",
       "MDREADME.md+3 −1",
     ]);
-    expect(screen.getByLabelText("3 open conversations")).toBeTruthy();
-    expect(screen.getByLabelText("1 open conversation")).toBeTruthy();
+    expect(screen.getByText("3 open conversations")).toBeTruthy();
+    expect(screen.getByText("1 open conversation")).toBeTruthy();
     expect(row(/^docs/u).getAttribute("aria-expanded")).toBe("true");
     expect(row(/^docs/u).className).toContain("text-muted-foreground");
     expect(row(/^README/u).getAttribute("aria-level")).toBe("1");
     expect(row(/^intro/u).getAttribute("aria-level")).toBe("2");
     expect(row(/total\.ts/u).title).toBe("src/cart/sum.ts → src/cart/total.ts");
     expect(row(/^README/u).title).toBe("README.md");
-    expect(screen.getByLabelText("1 of 3 viewed")).toBeTruthy();
+    expect(screen.getByText("1 of 3 viewed")).toBeTruthy();
   });
 
   it("closes and opens a folder when clicked, and picks a file", async () => {

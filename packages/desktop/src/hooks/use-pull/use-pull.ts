@@ -20,6 +20,7 @@ import {
 import { sinceReview, useCommits, type Range } from "@/utils/commits/commits";
 import type { Details } from "@/utils/details/details";
 import { markReady } from "@/utils/details/details";
+import { errorText } from "@/utils/error/error";
 import { i18n } from "@/utils/i18n/i18n";
 import { canWrite, closePull, convertToDraft, reopenPull, useManage } from "@/utils/manage/manage";
 import {
@@ -49,13 +50,11 @@ type Options = {
   reloadAll: () => void;
 };
 
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
 /** The checks the details came with, as the full list's items, until it arrives. */
 const fromDetails = (d: Details | null): CheckItem[] | null =>
   d
-    ? d.checks.map((c) => ({
-        id: c.name,
+    ? d.checks.map((c, i) => ({
+        id: `${i}:${c.name}`,
         kind: "run",
         name: c.name,
         workflow: null,
@@ -104,7 +103,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     };
     // The details changing is the cue to ask once more, while GitHub still doesn't know.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [unknown, revalidate, details?.updatedAt]);
+  }, [unknown, revalidate, details]);
   // Checks finishing changes what stands in the way of merging.
   const wasRunning = useRef(checks.running);
   useEffect(() => {
@@ -199,14 +198,13 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       if (e instanceof GitHubError && e.status === 409) {
         say(i18n()("manage.headMoved"));
         reloadAll();
-      } else say(message(e));
+      } else say(errorText(e));
     } finally {
       setBusy(null);
       void revalidate();
     }
   };
 
-  const t = i18n;
   const actions = {
     /** Merging can't be undone: a native alert asks first, naming how. */
     merge: async (
@@ -216,9 +214,9 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     ) => {
       if (!details) return;
       const ok = await bridge.confirm(
-        t()(options.bypass ? "manage.bypassConfirm" : "review.mergeConfirm", { number: String(details.number) }),
-        t()(`review.mergeConfirm.${method}`, { title: details.title, base: details.baseRefName }),
-        t()(`review.mergeMethod.${method}`),
+        i18n()(options.bypass ? "manage.bypassConfirm" : "review.mergeConfirm", { number: String(details.number) }),
+        i18n()(`review.mergeConfirm.${method}`, { title: details.title, base: details.baseRefName }),
+        i18n()(`review.mergeMethod.${method}`),
       );
       if (!ok) return;
       await act(
@@ -229,7 +227,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
           if (options.deleteAfter && manage) await deleteBranch(manage, details.headRefName).catch(() => {});
         },
         undefined,
-        t()("review.merged"),
+        i18n()("review.merged"),
       );
     },
     autoMerge: (method: Method, text?: { title: string; body: string }) =>
@@ -243,7 +241,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
             autoMerge: { method: method === "squash" ? "SQUASH" : method === "rebase" ? "REBASE" : "MERGE", by: null },
           }));
         },
-        t()("manage.autoMergeOn"),
+        i18n()("manage.autoMergeOn"),
       ),
     disableAutoMerge: () =>
       details &&
@@ -253,7 +251,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           patch((m) => ({ ...m, autoMerge: null }));
         },
-        t()("manage.autoMergeOff"),
+        i18n()("manage.autoMergeOff"),
       ),
     enqueue: () =>
       details &&
@@ -263,7 +261,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           patch((m) => ({ ...m, isInMergeQueue: true }));
         },
-        t()("manage.queued"),
+        i18n()("manage.queued"),
       ),
     dequeue: () =>
       details &&
@@ -273,7 +271,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           patch((m) => ({ ...m, isInMergeQueue: false, queuePosition: null }));
         },
-        t()("manage.dequeued"),
+        i18n()("manage.dequeued"),
       ),
     updateBranch: (how: "MERGE" | "REBASE") =>
       details &&
@@ -283,7 +281,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           patch((m) => ({ ...m, viewerCanUpdateBranch: false }));
         },
-        t()("manage.branchUpdated"),
+        i18n()("manage.branchUpdated"),
       ),
     ready: () =>
       details &&
@@ -293,7 +291,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           setDetails((d) => (d ? { ...d, isDraft: false } : d));
         },
-        t()("review.readyNotice"),
+        i18n()("review.readyNotice"),
       ),
     draft: () =>
       details &&
@@ -303,7 +301,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           setDetails((d) => (d ? { ...d, isDraft: true } : d));
         },
-        t()("manage.draftNotice"),
+        i18n()("manage.draftNotice"),
       ),
     close: () =>
       details &&
@@ -313,7 +311,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           setDetails((d) => (d ? { ...d, state: "CLOSED" } : d));
         },
-        t()("manage.closedNotice"),
+        i18n()("manage.closedNotice"),
       ),
     reopen: () =>
       details &&
@@ -323,16 +321,16 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           setDetails((d) => (d ? { ...d, state: "OPEN" } : d));
         },
-        t()("manage.reopenedNotice"),
+        i18n()("manage.reopenedNotice"),
       ),
     /** GitHub can restore a deleted branch, but it's gone for anyone using it: asked first. */
     deleteBranch: async () => {
       if (!details || !manage) return;
       if (
         !(await bridge.confirm(
-          t()("manage.deleteBranchConfirm", { branch: details.headRefName }),
-          t()("manage.deleteBranchMessage"),
-          t()("manage.deleteBranch"),
+          i18n()("manage.deleteBranchConfirm", { branch: details.headRefName }),
+          i18n()("manage.deleteBranchMessage"),
+          i18n()("manage.deleteBranch"),
         ))
       )
         return;
@@ -342,7 +340,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           patch((m) => ({ ...m, headRefExists: false }));
         },
-        t()("manage.branchDeleted"),
+        i18n()("manage.branchDeleted"),
       );
     },
     rerun: (which: "failed" | "all") => {
@@ -362,7 +360,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
               ) ?? list,
           );
         },
-        t()("manage.rerunning"),
+        i18n()("manage.rerunning"),
       ).then(() => window.setTimeout(() => void checks.reload(true), 3000));
     },
     approve: () => {
@@ -373,7 +371,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         () => {
           setAwaiting([]);
         },
-        t()("manage.approved"),
+        i18n()("manage.approved"),
       ).then(() => window.setTimeout(() => void checks.reload(true), 3000));
     },
   };
@@ -438,7 +436,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     unresolved,
     allowed,
     menu,
-    revalidate,
   };
 }
 

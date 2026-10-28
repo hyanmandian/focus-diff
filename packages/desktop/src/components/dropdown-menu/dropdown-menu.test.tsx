@@ -5,12 +5,10 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuPortal,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -22,17 +20,13 @@ import {
 } from "@/components/dropdown-menu/dropdown-menu";
 
 function Menu({ onArchive }: { onArchive: () => void }) {
-  const [wrap, setWrap] = useState(false);
   const [sort, setSort] = useState("newest");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>View</DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuGroup>
-          <DropdownMenuLabel inset>Diff</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem checked={wrap} onCheckedChange={setWrap}>
-            Wrap Lines
-          </DropdownMenuCheckboxItem>
+          <DropdownMenuLabel>Diff</DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup value={sort} onValueChange={setSort}>
@@ -66,15 +60,12 @@ describe("DropdownMenu", () => {
     expect(onArchive).toHaveBeenCalledOnce();
   });
 
-  it("checks a checkbox item and picks one of a radio group", async () => {
+  it("picks one of a radio group", async () => {
     render(<Menu onArchive={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "View" }));
-    const wrap = await screen.findByRole("menuitemcheckbox", { name: "Wrap Lines" });
-    expect(wrap.getAttribute("aria-checked")).toBe("false");
-    // Checking an item leaves the menu open.
-    await userEvent.click(wrap);
-    expect(wrap.getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByRole("menuitemradio", { name: "Newest First" }).getAttribute("aria-checked")).toBe("true");
+    expect((await screen.findByRole("menuitemradio", { name: "Newest First" })).getAttribute("aria-checked")).toBe(
+      "true",
+    );
     const oldest = screen.getByRole("menuitemradio", { name: "Oldest First" });
     await userEvent.click(oldest);
     expect(oldest.getAttribute("aria-checked")).toBe("true");
@@ -85,16 +76,5 @@ describe("DropdownMenu", () => {
     await userEvent.click(screen.getByRole("button", { name: "View" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Copy" }));
     expect(await screen.findByRole("menuitem", { name: "Copy Link" })).toBeTruthy();
-  });
-
-  it("has a portal of its own for custom content", () => {
-    render(
-      <DropdownMenu open>
-        <DropdownMenuPortal>
-          <p>Elsewhere</p>
-        </DropdownMenuPortal>
-      </DropdownMenu>,
-    );
-    expect(screen.getByText("Elsewhere")).toBeTruthy();
   });
 });

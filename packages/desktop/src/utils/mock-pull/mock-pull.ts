@@ -12,7 +12,7 @@ import type { Details } from "@/utils/details/details";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
 
-export const octocat = { __typename: "User", login: "octocat", name: "Ana Lima", avatarUrl: "https://a/octocat" };
+const octocat = { __typename: "User", login: "octocat", name: "Ana Lima", avatarUrl: "https://a/octocat" };
 
 export function fakeDetails(extra: Partial<Details> = {}): Details {
   return {
@@ -134,7 +134,7 @@ export function fakeCommit(extra: Partial<Commit> = {}): Commit {
 
 const resolved = () => Promise.resolve();
 
-export function fakeActions(extra: Partial<Pull["actions"]> = {}): Pull["actions"] {
+function fakeActions(extra: Partial<Pull["actions"]> = {}): Pull["actions"] {
   return {
     merge: vi.fn<Pull["actions"]["merge"]>(resolved),
     autoMerge: vi.fn<Pull["actions"]["autoMerge"]>(resolved),
@@ -184,7 +184,6 @@ export function fakePull(extra: Partial<Pull> = {}): Pull {
     unresolved: 0,
     allowed: {},
     menu: {},
-    revalidate: vi.fn<Pull["revalidate"]>(resolved),
     ...extra,
   };
 }

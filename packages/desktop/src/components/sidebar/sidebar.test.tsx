@@ -74,15 +74,7 @@ function sidebar({ details: d = {}, manage = {}, me = "me", pull: p = {} }: Setu
   const details = fakeDetails(d);
   const pull = fakePull({ manage: manage === null ? null : fakeManage(manage), ...p });
   const onError = vi.fn<(message: string) => void>();
-  render(
-    <Sidebar
-      pr={{ owner: "acme", repo: "shop", number: 42 }}
-      details={details}
-      pull={pull}
-      me={me}
-      onError={onError}
-    />,
-  );
+  render(<Sidebar details={details} pull={pull} me={me} onError={onError} />);
   return { pull, onError };
 }
 
@@ -443,6 +435,26 @@ describe("Development and deployments", () => {
     expect(calls).toEqual(["open https://github.com/acme/shop/issues/1"]);
   });
 
+  it("leaves the pull request's own repository off its issues when it comes from a fork", () => {
+    sidebar({
+      manage: {
+        headOwner: "ana",
+        issues: [
+          {
+            id: "I1",
+            number: 1,
+            title: "Issue 1",
+            url: "https://github.com/acme/shop/issues/1",
+            repo: "acme/shop",
+            state: "OPEN",
+            stateReason: null,
+          },
+        ],
+      },
+    });
+    expect(items("Development")).toEqual(["Issue 1#1"]);
+  });
+
   it("shows the latest deployment per environment, with a link where there's one", async () => {
     const calls = github();
     const deployment = (
@@ -474,6 +486,11 @@ describe("Development and deployments", () => {
         .getAllByRole("listitem")
         .map((li) => li.textContent?.split(/\d/u)[0]),
     ).toEqual(["staging", "preview", "prod"]);
+    expect(
+      within(section("Deployments"))
+        .getAllByRole("listitem")
+        .map((li) => li.querySelector("svg")?.getAttribute("aria-label")),
+    ).toEqual(["Deployed", "Inactive", "Failed"]);
     expect(screen.queryByRole("button", { name: "Open prod" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Open staging" }));
     await userEvent.click(screen.getByRole("button", { name: "Open preview" }));

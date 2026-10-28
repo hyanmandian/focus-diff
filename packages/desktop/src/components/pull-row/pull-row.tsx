@@ -139,7 +139,7 @@ export const PullRow = memo(function PullRow({
 
   // Something new plays the arrival once, while the panel shows it.
   useEffect(() => {
-    if (!arriving) return () => {};
+    if (!arriving) return;
     // Set by now: effects run after the row is in the page.
     const el = ref.current!;
     el.classList.remove("arrive");

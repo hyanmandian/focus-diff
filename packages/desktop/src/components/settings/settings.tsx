@@ -30,6 +30,7 @@ import {
   TONE_FILL,
   TWO_LINE_ITEM,
   useDetail,
+  moved,
 } from "@/components/settings-form/settings-form";
 import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
 import { Switch } from "@/components/switch/switch";
@@ -40,7 +41,7 @@ import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
-import { interval } from "@/utils/copy/copy";
+import { interval, POLL_SECONDS } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
 import { primary } from "@/utils/os/os";
 import { platform } from "@/utils/platform/platform";
@@ -58,11 +59,7 @@ function useConfig() {
     const off = bridge.on<string>("file-changed", (name) => {
       if (name === "config" && !pending.current) void loadConfig().then(setConfig);
     });
-    return () => {
-      void (async () => {
-        (await off)();
-      })();
-    };
+    return off;
   }, []);
   // Saved shortly after the last change, so typing a name doesn't write on every key.
   const update = useCallback((next: Config) => {
@@ -125,11 +122,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
     setQueues(config.queues.map((q) => (q.id === queue.id ? queue : q)));
   };
   const move = (index: number, by: number) => {
-    const queues = [...config.queues];
-    // The buttons only move what's there: the first can't go up, the last can't go down.
-    const [queue] = queues.splice(index, 1);
-    queues.splice(index + by, 0, queue!);
-    setQueues(queues);
+    setQueues(moved(config.queues, index, by));
   };
 
   if (selected) {
@@ -139,7 +132,15 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
         !(await confirmRemove(t("settings.removeQueueConfirm", { name: selected.name || t("settings.untitledQueue") })))
       )
         return;
-      setQueues(config.queues.filter((q) => q.id !== selected.id));
+      const sessions = config.reviewTime.sessions.map((s) => ({
+        ...s,
+        queues: s.queues.filter((id) => id !== selected.id),
+      }));
+      onChange({
+        ...config,
+        queues: config.queues.filter((q) => q.id !== selected.id),
+        reviewTime: { ...config.reviewTime, sessions },
+      });
       detail.close();
     };
     return (
@@ -433,7 +434,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
               <SelectValue>{(v: string) => interval(Number(v), t)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {[30, 60, 90, 180, 300, 600].map((s) => (
+              {POLL_SECONDS.map((s) => (
                 <SelectItem key={s} value={String(s)}>
                   {interval(s, t)}
                 </SelectItem>
@@ -788,12 +789,7 @@ export function Settings() {
     const off = bridge.on<string>("settings-pane", (p) => {
       if (isPane(p)) setPane(p);
     });
-    const stop = async () => {
-      (await off)();
-    };
-    return () => {
-      void stop();
-    };
+    return off;
   }, []);
   // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {

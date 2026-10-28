@@ -305,7 +305,7 @@ describe("Setup", () => {
 
   it("shows it's saving until it's done", async () => {
     const saving = later<undefined>();
-    answer({ write: () => saving.promise });
+    const { sent } = answer({ write: () => saving.promise });
     const user = userEvent.setup();
     render(<Setup />);
     await screen.findByText("@octocat");
@@ -314,6 +314,8 @@ describe("Setup", () => {
     const open = screen.getByRole("button", { name: "Open Focus Diff" });
     await user.click(open);
     expect(open.hasAttribute("disabled")).toBe(true);
+    enter(screen.getByRole("heading", { level: 1 }));
+    expect(sent("write_file")).toHaveLength(1);
     await act(async () => {
       saving.settle(undefined);
       await Promise.resolve();
@@ -329,6 +331,22 @@ describe("Setup", () => {
     await screen.findByText("@octocat");
     await next(user);
     expect(screen.queryByText("acme/web")).toBeNull();
+  });
+
+  it("keeps each queue's own repositories when they differed and none were given", async () => {
+    const config = defaultConfig();
+    config.queues[0]!.repos = ["acme/web"];
+    const { saved, sent } = answer({ config });
+    const user = userEvent.setup();
+    render(<Setup />);
+    await screen.findByText("@octocat");
+    await toAi(user);
+    await next(user);
+    await user.click(screen.getByRole("button", { name: "Open Focus Diff" }));
+    await waitFor(() => {
+      expect(sent(CLOSE_WINDOW)).toHaveLength(1);
+    });
+    expect(saved().queues.map((q) => q.repos)).toEqual([["acme/web"], [], []]);
   });
 
   it("starts with the repositories every queue shares", async () => {

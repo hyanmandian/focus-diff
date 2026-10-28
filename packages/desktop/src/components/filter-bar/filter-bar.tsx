@@ -277,19 +277,21 @@ export function FilterBar({
       {/* The files left, the lines they change and the time they take, each after its icon. */}
       <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
       <span className="flex shrink-0 items-center gap-3.5 px-1 text-body font-medium whitespace-nowrap text-muted-foreground tabular-nums">
-        <span
-          className="flex items-center gap-1.5"
-          aria-label={t("common.files", { count: shown.files - shown.viewed })}
-        >
+        <span className="flex items-center gap-1.5">
           <FileText className="size-4" aria-hidden />
-          {shown.files - shown.viewed}
+          <span aria-hidden>{shown.files - shown.viewed}</span>
+          <span className="sr-only">{t("common.files", { count: shown.files - shown.viewed })}</span>
         </span>
-        <span
-          className="flex items-center gap-1.5"
-          aria-label={t("review.linesInView", { additions: shown.additions, deletions: shown.deletions })}
-        >
-          <span className="text-success">+{shown.additions}</span>
-          <span className="text-destructive">−{shown.deletions}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-success" aria-hidden>
+            +{shown.additions}
+          </span>
+          <span className="text-destructive" aria-hidden>
+            −{shown.deletions}
+          </span>
+          <span className="sr-only">
+            {t("review.linesInView", { additions: shown.additions, deletions: shown.deletions })}
+          </span>
         </span>
         <Tooltip>
           <TooltipTrigger

@@ -81,6 +81,7 @@ vi.mock("@/components/thread/thread", () => ({
   }) => (
     <fieldset aria-label={placeholder}>
       <pre>{initial}</pre>
+      <input aria-label="Draft" />
       <button type="button" onClick={() => void onSubmit("Written")}>
         Send
       </button>
@@ -554,6 +555,18 @@ describe("the conversation", () => {
     expect(screen.getByRole("button", { name: "Add Comment" })).toBeTruthy();
   });
 
+  it("keeps what's being written when a quote comes in", async () => {
+    const mine = comment("C1", 5, { canEdit: true, canReact: true });
+    show({ conversation: conversation([mine]) }, api());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Add Comment" }));
+    const box = () => screen.getByRole("group", { name: "Comment on this pull request" });
+    await user.type(within(box()).getByRole("textbox", { name: "Draft" }), "So far");
+    await user.click(within(screen.getByRole("article")).getByRole("button", { name: "Quote reply" }));
+    expect(box().querySelector("pre")?.textContent).toBe("> Said C1\n\n");
+    expect(within(box()).getByRole<HTMLInputElement>("textbox", { name: "Draft" }).value).toBe("So far");
+  });
+
   it("shows the newest first and older ones a page at a time", async () => {
     const entries = Array.from({ length: 31 }, (_, i) => comment(`C${i}`, i));
     show({ conversation: conversation(entries) });
@@ -717,6 +730,8 @@ describe("at a glance", () => {
       review: review({ findings: [finding("a", 1, true), finding("b", 2, true)] }),
     });
     expect(screen.getByText("2 comments on the diff.")).toBeTruthy();
+    again({ config: claude, review: review({ note: "Ask again in a moment." }) });
+    expect(screen.getByText("Nothing worth raising. Ask again in a moment.")).toBeTruthy();
     again({ config: claude, review: review({ project: true }) });
     expect(screen.getByText("Nothing worth raising. Read the whole project.")).toBeTruthy();
   });

@@ -13,6 +13,7 @@ import { ask, newRun, PROVIDERS } from "@/utils/ai/ai";
 import { bridge } from "@/utils/bridge/bridge";
 import type { Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 
 type State =
@@ -31,8 +32,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   if (!provider) return null;
   const busy = state.phase === "busy";
 
-  const run = async (asked: string, prompt: string) => {
-    if (!(await ensureAi(config))) return;
+  const askNow = async (asked: string, prompt: string) => {
     const id = newRun();
     // Asked from a click or the form, never while drawing.
     // oxlint-disable-next-line react/purity
@@ -41,14 +41,17 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       const answer = await ask(config, details, prompt, id);
       setState({ phase: "done", asked, text: answer.text, note: answer.note });
     } catch (e) {
-      setState({ phase: "error", asked, text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
+      setState({ phase: "error", asked, text: errorText(e) });
     }
+  };
+  const run = async (asked: string, prompt: string) => {
+    if (await ensureAi(config)) await askNow(asked, prompt);
   };
   const send = async (q: string) => {
     // Kept in the field when the AI can't take it, to send once it's set up.
     if (!(await ensureAi(config))) return;
     setQuestion("");
-    await run(q, q);
+    await askNow(q, q);
   };
   const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -128,7 +131,9 @@ export function AskAi({ config, details }: { config: Config; details: Details })
             <p className="flex items-center gap-1.5 text-callout text-muted-foreground tabular-nums">
               <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
               {config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}
-              {waited >= 3 ? ` · ${t("review.waitedSeconds", { seconds: String(waited) })}` : ""}
+              {waited >= 3 ? (
+                <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
+              ) : null}
             </p>
           )}
         </div>

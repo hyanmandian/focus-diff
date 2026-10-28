@@ -44,12 +44,13 @@ import {
   type LogLine,
 } from "@/utils/checks/checks";
 import { cn } from "@/utils/cn/cn";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import { canWrite } from "@/utils/manage/manage";
 import type { PullRef } from "@/utils/review/review";
 
 // Their words: t(`review.check.${state}`), t(`manage.group.${state}`).
-export const CHECK_ICON = {
+const CHECK_ICON = {
   success: { icon: CircleCheck, className: "text-success" },
   failure: { icon: CircleX, className: "text-destructive" },
   pending: { icon: CircleDot, className: "text-warning" },
@@ -177,7 +178,7 @@ function Opened({
       const got = await loadLog(pr, job, done);
       setLog({ lines: parseLog(got.text), truncated: got.truncated });
     } catch (e) {
-      setLogError(e instanceof Error ? e.message : String(e));
+      setLogError(errorText(e));
     } finally {
       setLogLoading(false);
     }
@@ -187,7 +188,7 @@ function Opened({
       await rerunJob(pr, job);
       say(t("manage.rerunning"));
     } catch (e) {
-      say(e instanceof Error ? e.message : String(e));
+      say(errorText(e));
     }
   };
   const failedSteps = detail?.steps.filter((s) => s.state === "failure") ?? [];
@@ -344,23 +345,25 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
     <section aria-labelledby="checks" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
-            {open ? (
-              <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            ) : (
-              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            )}
-            <h2 id="checks" className="text-headline font-bold">
-              {t("review.checks")}
-            </h2>
-            <span className="truncate text-callout text-muted-foreground">{t.list(summary)}</span>
-            {pull.checks.running ? (
-              <Loader2
-                className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
-                aria-label={t("review.check.pending")}
-              />
-            ) : null}
-          </CollapsibleTrigger>
+          <h2 className="flex min-w-0 flex-1">
+            <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
+              {open ? (
+                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              ) : (
+                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              )}
+              <span id="checks" className="text-headline font-bold">
+                {t("review.checks")}
+              </span>
+              <span className="truncate text-callout text-muted-foreground">{t.list(summary)}</span>
+              {pull.checks.running ? (
+                <Loader2
+                  className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+                  aria-label={t("review.check.pending")}
+                />
+              ) : null}
+            </CollapsibleTrigger>
+          </h2>
           {write && checks.some((c) => c.run) ? (
             <DropdownMenu>
               <DropdownMenuTrigger

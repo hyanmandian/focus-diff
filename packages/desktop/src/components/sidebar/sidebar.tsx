@@ -26,6 +26,7 @@ import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import {
   addAssignees,
@@ -47,7 +48,6 @@ import {
   type Reviewer,
   type Team,
 } from "@/utils/manage/manage";
-import type { PullRef } from "@/utils/review/review";
 
 export function Face({ actor, className }: { actor: Actor; className?: string }) {
   return (
@@ -111,7 +111,7 @@ const STATE_TONE = {
   PENDING: "text-muted-foreground",
 } as const;
 
-type Props = { pr: PullRef; details: Details; pull: Pull; me: string | null; onError: (message: string) => void };
+type Props = { details: Details; pull: Pull; me: string | null; onError: (message: string) => void };
 
 /** Runs a change: shown at once, GitHub asked, and back as it was (GitHub's) if it refuses. */
 function useChange(pull: Pull, onError: Props["onError"]) {
@@ -120,14 +120,14 @@ function useChange(pull: Pull, onError: Props["onError"]) {
     try {
       await call();
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      onError(errorText(e));
     } finally {
       void pull.reloadManage();
     }
   };
 }
 
-function Reviewers({ pr, details, pull, me, onError }: Props) {
+function Reviewers({ details, pull, me, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -149,11 +149,11 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
     setLoading(true);
     void (async () => {
       await Promise.allSettled([
-        loadPeople(pr, query, (people) => {
+        loadPeople(details, query, (people) => {
           setCandidates((c) => ({ ...c, people }));
         }),
         m?.orgOwned
-          ? loadTeams(pr, query, (teams) => {
+          ? loadTeams(details, query, (teams) => {
               setCandidates((c) => ({ ...c, teams }));
             })
           : Promise.resolve(),
@@ -225,7 +225,7 @@ function Reviewers({ pr, details, pull, me, onError }: Props) {
               ],
         };
       },
-      () => (on ? requestReviews(pr, users, teamSlugs) : removeReviewRequests(pr, users, teamSlugs)),
+      () => (on ? requestReviews(details, users, teamSlugs) : removeReviewRequests(details, users, teamSlugs)),
     );
   };
   return (
@@ -322,7 +322,7 @@ function TeamMark({ name }: { name: string }) {
   );
 }
 
-function Assignees({ pr, details, pull, me, onError }: Props) {
+function Assignees({ details, pull, me, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -332,7 +332,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
   const assigned = m?.assignees ?? [];
   const fetch = (query: string) => {
     setLoading(true);
-    void loadPeople(pr, query, setPeople).finally(() => {
+    void loadPeople(details, query, setPeople).finally(() => {
       setLoading(false);
     });
   };
@@ -357,7 +357,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
             : now.assignees
           : now.assignees.filter((a) => a.login !== login),
       }),
-      () => (on ? addAssignees(pr, [login]) : removeAssignees(pr, [login])),
+      () => (on ? addAssignees(details, [login]) : removeAssignees(details, [login])),
     );
   };
   return (
@@ -418,7 +418,7 @@ function Assignees({ pr, details, pull, me, onError }: Props) {
   );
 }
 
-function Labels({ pr, pull, onError }: Props) {
+function Labels({ details, pull, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -441,7 +441,7 @@ function Labels({ pr, pull, onError }: Props) {
         ...now,
         labels: on ? [...now.labels, ...label] : now.labels.filter((l) => l.name !== name),
       }),
-      () => (on ? addLabels(pr, [name]) : removeLabel(pr, name)),
+      () => (on ? addLabels(details, [name]) : removeLabel(details, name)),
     );
   };
   return (
@@ -462,7 +462,7 @@ function Labels({ pr, pull, onError }: Props) {
             onOpenChange={(open) => {
               if (!open) return;
               setLoading(true);
-              void loadLabels(pr, setAll).finally(() => {
+              void loadLabels(details, setAll).finally(() => {
                 setLoading(false);
               });
             }}
@@ -488,7 +488,7 @@ function Labels({ pr, pull, onError }: Props) {
   );
 }
 
-function MilestoneSection({ pr, pull, onError }: Props) {
+function MilestoneSection({ details, pull, onError }: Props) {
   const t = useT();
   const m = pull.manage;
   const change = useChange(pull, onError);
@@ -513,7 +513,7 @@ function MilestoneSection({ pr, pull, onError }: Props) {
     setOpen(false);
     void change(
       (now) => ({ ...now, milestone: next }),
-      () => setMilestone(pr, next?.number ?? null),
+      () => setMilestone(details, next?.number ?? null),
     );
   };
   return (
@@ -534,7 +534,7 @@ function MilestoneSection({ pr, pull, onError }: Props) {
               setOpen(next);
               if (!next) return;
               setLoading(true);
-              void loadMilestones(pr, setAll).finally(() => {
+              void loadMilestones(details, setAll).finally(() => {
                 setLoading(false);
               });
             }}
@@ -558,7 +558,7 @@ const ISSUE_ICON = {
   NOT_PLANNED: { icon: CircleSlash, className: "text-muted-foreground" },
 } as const;
 
-function Development({ pull }: { pull: Pull }) {
+function Development({ pull, details }: { pull: Pull; details: Details }) {
   const t = useT();
   const issues = pull.manage?.issues ?? [];
   if (issues.length === 0) return null;
@@ -586,8 +586,7 @@ function Development({ pull }: { pull: Pull }) {
                 <span className="min-w-0">
                   <span className="line-clamp-2">{issue.title}</span>
                   <span className="text-subheadline text-muted-foreground tabular-nums">
-                    {issue.repo === `${pull.manage?.headOwner}/${pull.manage?.headRepo}` ? "" : issue.repo}#
-                    {issue.number}
+                    {issue.repo === `${details.owner}/${details.repo}` ? "" : issue.repo}#{issue.number}
                   </span>
                 </span>
               </button>
@@ -600,16 +599,22 @@ function Development({ pull }: { pull: Pull }) {
   );
 }
 
-const DEPLOY_TONE: Record<string, string> = {
-  SUCCESS: "text-success",
-  ACTIVE: "text-success",
-  FAILURE: "text-destructive",
-  ERROR: "text-destructive",
-  IN_PROGRESS: "text-warning",
-  QUEUED: "text-warning",
-  PENDING: "text-warning",
-  WAITING: "text-warning",
+const DEPLOY_STATE: Record<string, "success" | "failure" | "pending"> = {
+  SUCCESS: "success",
+  ACTIVE: "success",
+  FAILURE: "failure",
+  ERROR: "failure",
+  IN_PROGRESS: "pending",
+  QUEUED: "pending",
+  PENDING: "pending",
+  WAITING: "pending",
 };
+const DEPLOY_TONE = {
+  success: "text-success",
+  failure: "text-destructive",
+  pending: "text-warning",
+  inactive: "text-muted-foreground",
+} as const;
 
 function Deployments({ pull }: { pull: Pull }) {
   const t = useT();
@@ -622,16 +627,15 @@ function Deployments({ pull }: { pull: Pull }) {
       <ul className="flex flex-col gap-1">
         {latest.map((d) => {
           const link = d.url ?? d.logUrl;
+          const state = DEPLOY_STATE[d.state] ?? "inactive";
           return (
             <li key={d.id} className="flex items-center gap-2 text-body">
               <Rocket
-                className={cn("size-3.5 shrink-0", DEPLOY_TONE[d.state] ?? "text-muted-foreground")}
-                aria-hidden
+                className={cn("size-3.5 shrink-0", DEPLOY_TONE[state])}
+                aria-label={t(`manage.deploy.${state}`)}
               />
               <span className="min-w-0 flex-1 truncate">{d.environment}</span>
-              <span className={cn("shrink-0 text-callout", DEPLOY_TONE[d.state] ?? "text-muted-foreground")}>
-                {t.since(Date.parse(d.at))}
-              </span>
+              <span className={cn("shrink-0 text-callout", DEPLOY_TONE[state])}>{t.since(Date.parse(d.at))}</span>
               {link?.startsWith("https://") ? (
                 <Button
                   variant="ghost"
@@ -659,7 +663,7 @@ export function Sidebar(props: Props) {
       <Assignees {...props} />
       <Labels {...props} />
       <MilestoneSection {...props} />
-      <Development pull={props.pull} />
+      <Development pull={props.pull} details={props.details} />
       <Deployments pull={props.pull} />
     </>
   );

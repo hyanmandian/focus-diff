@@ -96,7 +96,6 @@ export const review: Dictionary["review"] = {
   doneLabel: "Pronto: todos os arquivos aqui foram vistos",
   done: "Pronto",
   aboutLeft: "Cerca de {time} para terminar a revisão",
-  timeLeft: "{time} para terminar",
   breakdown: "Distribuição por filtro",
   breakdownTitle: "Distribuição por filtro",
   filters: "Filtros",
@@ -119,7 +118,6 @@ export const review: Dictionary["review"] = {
   reviewers: "Revisores",
   nobodyAsked: "Ninguém foi chamado ainda.",
   checks: "Verificações",
-  checksMore: "e mais {count}",
   "check.success": "Passou",
   "check.failure": "Falhou",
   "check.pending": "Rodando",
@@ -200,7 +198,6 @@ export const review: Dictionary["review"] = {
   commentOnLine: "Comentar nesta linha",
   viewed: "Visualizado",
   viewedFile: "Visualizado: {path}",
-  notShown: "{path} não aparece aqui (é binário ou grande demais para o diff do GitHub).",
 
   write: "Escrever",
   preview: "Pré-visualizar",

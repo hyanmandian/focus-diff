@@ -87,7 +87,7 @@ import {
 import { patchHash } from "@/utils/hashes/hashes";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
-import { tabKeys } from "@/utils/keys/keys";
+import { tabKeys, typing } from "@/utils/keys/keys";
 import { stepFile } from "@/utils/navigate/navigate";
 import { isMac, primary, shortcut } from "@/utils/os/os";
 import {
@@ -110,9 +110,6 @@ import { inTreeOrder } from "@/utils/tree/tree";
  *  ("org/slug"), for leaving the review. */
 /** `queue`: the one it was opened from, whose next pull request the toolbar offers. */
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
-
-const typing = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/u.test(el.tagName));
 
 // MARK: Kept on this machine
 

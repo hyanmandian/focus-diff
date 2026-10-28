@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { tabKeys } from "@/utils/keys/keys";
+import { tabKeys, typing } from "@/utils/keys/keys";
 
 function tabs(onClick = vi.fn<(name: string) => void>()) {
   render(
@@ -69,5 +69,14 @@ describe("moving between tabs with the keyboard", () => {
     list.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Before" }));
     expect(chosen).not.toHaveBeenCalled();
+  });
+});
+
+describe("typing", () => {
+  it("is true in a field, not elsewhere", () => {
+    expect(typing(document.createElement("textarea"))).toBe(true);
+    expect(typing(document.createElement("select"))).toBe(true);
+    expect(typing(document.createElement("button"))).toBe(false);
+    expect(typing(null)).toBe(false);
   });
 });

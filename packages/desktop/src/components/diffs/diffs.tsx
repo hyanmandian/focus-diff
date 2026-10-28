@@ -41,6 +41,7 @@ import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents
 import { errorText } from "@/utils/error/error";
 import { labelExpandButtons } from "@/utils/expand-buttons/expand-buttons";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
+import { typing } from "@/utils/keys/keys";
 import { diffLink, permalink } from "@/utils/permalink/permalink";
 import { findingSide, placeThread, shows, type Placement } from "@/utils/placement/placement";
 import { lineRange } from "@/utils/range/range";
@@ -166,10 +167,6 @@ const RENDERED_CSS = "pre[data-file] [data-line], pre[data-file] [data-column-nu
 const GUTTER_CSS = `[data-gutter-utility-slot] { right: auto; left: calc(100% - 4px); justify-content: flex-start; align-items: center; z-index: 2; }
 [data-selected-line] [data-gutter-utility-slot] { display: none; }
 [data-column-number][data-selected-line], [data-gutter-buffer][data-selected-line] { color: var(--diffs-selection-number-fg-override); }`;
-
-/** The text fields where right-click is the system's (cut, copy, paste), not the code's menu. */
-const typing = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/u.test(el.tagName));
 
 /** What building the list keeps from one render to the next, changed as it builds: each patch as
  *  parsed, each item as built, and where each conversation was put. */

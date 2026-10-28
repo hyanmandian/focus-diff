@@ -172,6 +172,20 @@ describe("mentions", () => {
     expect(asked).toHaveLength(2);
     expect(JSON.parse(asked[1]!.body)).toMatchObject({ variables: { q: "Souza" } });
   });
+
+  it("asks again after a search fails", async () => {
+    const writer = await load();
+    let offline = false;
+    github((request) => {
+      if (offline && request.body.includes("query: $q")) throw new Error("offline");
+      return searchOrHundred(request);
+    });
+    await writer.mentionable("acme/app", "");
+    offline = true;
+    await expect(writer.mentionable("acme/app", "Souza")).rejects.toThrow("offline");
+    offline = false;
+    expect(await writer.mentionable("acme/app", "Souza")).toContainEqual(person("souza-c"));
+  });
 });
 
 describe("references", () => {

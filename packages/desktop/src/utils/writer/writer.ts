@@ -105,6 +105,9 @@ export async function mentionable(repo: string, query: string): Promise<Person[]
       { owner, name, q: query },
     ).then((d) => d.repository.mentionableUsers.nodes);
     searches.set(asked, found);
+    found.catch(() => {
+      searches.delete(asked);
+    });
   }
   return [...local, ...(await found)];
 }

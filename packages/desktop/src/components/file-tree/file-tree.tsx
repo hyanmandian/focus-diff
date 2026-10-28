@@ -212,18 +212,18 @@ export function FileTree({
                   <Folder aria-hidden className="mx-0.5 size-3.5 shrink-0 text-(--blue)" />
                   <span className="min-w-0 flex-1 truncate">{folder.name}</span>
                   {talk ? (
-                    <span
-                      className="text-subheadline text-unread tabular-nums"
-                      aria-label={t("review.openConversations", { count: talk })}
-                    >
-                      {talk}
+                    <span className="text-subheadline text-unread tabular-nums">
+                      <span aria-hidden>{talk}</span>
+                      <span className="sr-only">{t("review.openConversations", { count: talk })}</span>
                     </span>
                   ) : null}
-                  <span
-                    className="shrink-0 text-subheadline text-muted-foreground tabular-nums"
-                    aria-label={t("diff.folderViewed", { viewed: viewedCount, total: folder.files.length })}
-                  >
-                    {viewedCount}/{folder.files.length}
+                  <span className="shrink-0 text-subheadline text-muted-foreground tabular-nums">
+                    <span aria-hidden>
+                      {viewedCount}/{folder.files.length}
+                    </span>
+                    <span className="sr-only">
+                      {t("diff.folderViewed", { viewed: viewedCount, total: folder.files.length })}
+                    </span>
                   </span>
                 </>
               ) : (
@@ -242,11 +242,9 @@ export function FileTree({
                     </span>
                   </span>
                   {talk ? (
-                    <span
-                      className="text-subheadline text-unread tabular-nums"
-                      aria-label={t("review.openConversations", { count: talk })}
-                    >
-                      {talk}
+                    <span className="text-subheadline text-unread tabular-nums">
+                      <span aria-hidden>{talk}</span>
+                      <span className="sr-only">{t("review.openConversations", { count: talk })}</span>
                     </span>
                   ) : null}
                   <span className="shrink-0 font-mono text-subheadline tabular-nums">

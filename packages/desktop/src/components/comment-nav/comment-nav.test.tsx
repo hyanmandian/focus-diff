@@ -40,7 +40,7 @@ describe("CommentNav", () => {
     const card = await screen.findByRole("dialog", { name: "Comments" });
     expect(card.textContent).toContain("cart.ts:3");
     expect(card.textContent).toContain("AI comment");
-    expect(screen.getByLabelText("Comment 1 of 3").textContent).toBe("1/3");
+    expect(screen.getByText("Comment 1 of 3").parentElement?.textContent).toBe("1/3Comment 1 of 3");
     await userEvent.click(button("Next comment"));
     expect(card.textContent).toContain("Your pending comment");
     await userEvent.click(button("Next comment"));
@@ -48,7 +48,7 @@ describe("CommentNav", () => {
     expect(screen.getByTitle("src/deep/promo.ts").textContent).toBe("promo.ts:12");
     expect(card.textContent).toContain("Open conversation");
     await userEvent.click(button("Previous comment"));
-    expect(screen.getByLabelText("Comment 2 of 3")).toBeTruthy();
+    expect(screen.getByText("Comment 2 of 3")).toBeTruthy();
   });
 
   it("opens where it already is, without stepping", async () => {
@@ -59,7 +59,7 @@ describe("CommentNav", () => {
       </TooltipProvider>,
     );
     await userEvent.click(button("Comments, 3 comments"));
-    expect(await screen.findByLabelText("Comment 2 of 3")).toBeTruthy();
+    expect(await screen.findByText("Comment 2 of 3")).toBeTruthy();
     expect(onStep).not.toHaveBeenCalled();
     // Its button closes it again.
     await userEvent.click(button("Comments, 3 comments"));
@@ -75,7 +75,7 @@ describe("CommentNav", () => {
       </TooltipProvider>,
     );
     await userEvent.click(button("Comments, 1 comment"));
-    expect((await screen.findByLabelText("Comment 1 of 1")).textContent).toBe("1/1");
+    expect((await screen.findByText("Comment 1 of 1")).parentElement?.textContent).toBe("1/1Comment 1 of 1");
   });
 
   it("stays in place without comments, and doesn't open", async () => {

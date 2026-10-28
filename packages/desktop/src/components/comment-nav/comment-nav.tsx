@@ -90,9 +90,11 @@ export function CommentNav({ stops, stop, onStep }: Props) {
             <span
               className="text-center text-subheadline leading-4 font-semibold text-muted-foreground tabular-nums"
               aria-live="polite"
-              aria-label={t("review.commentOf", { index: index + 1, total })}
             >
-              {index + 1}/{total}
+              <span aria-hidden>
+                {index + 1}/{total}
+              </span>
+              <span className="sr-only">{t("review.commentOf", { index: index + 1, total })}</span>
             </span>
             <span className="truncate text-callout leading-[18px] text-muted-foreground">{t(kind.label)}</span>
             <span className="flex items-center">

@@ -904,7 +904,7 @@ describe("Review", () => {
       await userEvent.click(tab("Diff"));
       // In the floating bar: opening its card goes to the first.
       await userEvent.click(button("Comments, 4 comments"));
-      expect(screen.getByLabelText("Comment 1 of 4")).toBeTruthy();
+      expect(screen.getByText("Comment 1 of 4")).toBeTruthy();
       await frames();
       // The AI's on cart.ts line 3 comes first, then your pending line 9.
       expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("src/cart.ts", 3, "additions");
@@ -922,9 +922,9 @@ describe("Review", () => {
       press("p");
       press("p");
       press("p");
-      expect(screen.getByLabelText("Comment 4 of 4")).toBeTruthy();
+      expect(screen.getByText("Comment 4 of 4")).toBeTruthy();
       await userEvent.click(button("Previous comment"));
-      expect(screen.getByLabelText("Comment 3 of 4")).toBeTruthy();
+      expect(screen.getByText("Comment 3 of 4")).toBeTruthy();
     });
 
     it("goes back from before the first to the last", async () => {

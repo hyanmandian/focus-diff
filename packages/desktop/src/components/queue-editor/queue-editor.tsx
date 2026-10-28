@@ -14,16 +14,15 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-g
 import { cn } from "@/utils/cn/cn";
 import {
   canBe,
+  KIND_EVENTS,
   LEAVE_OUT,
   PARTS,
   sourceOf,
   STATES,
   TONES,
   withSource,
-  type EventKind,
   type LeaveOut,
   type Queue,
-  type QueueKind,
   type QueuePart,
 } from "@/utils/config/config";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
@@ -33,15 +32,6 @@ export const PATH_PRESETS = (["frontend", "backend", "code", "infra", "database"
   name,
   ...PATH_FILTERS[name],
 }));
-
-/** The events that can happen to the pull requests of each kind of queue. */
-const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
-  review: ["new", "rerequest", "ready", "comment", "mention"],
-  involved: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
-  authored: ["approved", "changes", "comment", "mention", "ci-failed", "ci-passed", "conflict"],
-  merged: ["new"],
-  custom: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
-};
 
 /** What a queue's notifications can leave out that has a line under its name. */
 const LEAVE_OUT_HINTS: Partial<Record<LeaveOut, "settings.leaveOut.bots.hint">> = {

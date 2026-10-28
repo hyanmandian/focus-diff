@@ -14,6 +14,7 @@ import {
   sourceOf,
   TEMPLATES,
   withSource,
+  type EventKind,
 } from "@/utils/config/config";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
@@ -168,6 +169,13 @@ describe("a queue's source", () => {
     expect(withSource(queue, "merged", "authored")).toMatchObject({ kind: "merged", requestedOnly: false });
     expect(withSource(queue, "open", "any")).toMatchObject({ kind: "custom", id: queue.id });
     expect(withSource(queue, "open", "involved")).toMatchObject({ kind: "involved" });
+  });
+
+  it("keeps only the notifications the new kind of queue can have", () => {
+    const notify: EventKind[] = ["approved", "comment", "ci-failed"];
+    const authored = { ...TEMPLATES.authored.make(), notify };
+    expect(withSource(authored, "merged", "any").notify).toEqual([]);
+    expect(withSource(authored, "open", "review").notify).toEqual(["comment"]);
   });
 });
 

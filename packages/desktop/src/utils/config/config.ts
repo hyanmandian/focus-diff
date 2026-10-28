@@ -319,11 +319,22 @@ export function sourceOf(queue: Queue): { state: QueueState; part: QueuePart } {
 /** Whether a pair can be: merged ones are asked of you, or anyone's. */
 export const canBe = (state: QueueState, part: QueuePart) => state === "open" || part === "review" || part === "any";
 
+/** The events that can happen to the pull requests of each kind of queue. */
+export const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
+  review: ["new", "rerequest", "ready", "comment", "mention"],
+  involved: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
+  authored: ["approved", "changes", "comment", "mention", "ci-failed", "ci-passed", "conflict"],
+  merged: ["new"],
+  custom: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
+};
+
 /** The queue showing another pair (one that can't be keeps its part as near as it can). */
 export function withSource(queue: Queue, state: QueueState, part: QueuePart): Queue {
   const p = canBe(state, part) ? part : "any";
-  if (state === "merged") return { ...queue, kind: "merged", requestedOnly: p === "review" };
-  return { ...queue, kind: p === "any" ? "custom" : p };
+  const kind: QueueKind = state === "merged" ? "merged" : p === "any" ? "custom" : p;
+  const notify = queue.notify.filter((e) => KIND_EVENTS[kind].includes(e));
+  if (kind === "merged") return { ...queue, kind, notify, requestedOnly: p === "review" };
+  return { ...queue, kind, notify };
 }
 
 /** The starting points the Add menu offers; any queue can still be made by hand from a custom one,

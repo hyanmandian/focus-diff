@@ -422,6 +422,8 @@ export const runPulls = (picked: Planned[]): RunPull[] =>
 /** When a run's time is up: from its start, or for one only offered, when the offer lapses. */
 export const runEndsAt = (run: ReviewRun): number => (run.startedAt ?? run.offeredAt) + run.minutes * 60_000;
 
+export const minutesLeft = (run: ReviewRun): number => Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
+
 /** Review times to start from, offered on the welcome page: a session's settings and the names to show it by. */
 export interface ReviewPreset {
   id: string;

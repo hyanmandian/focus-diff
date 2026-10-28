@@ -13,6 +13,7 @@ import {
   newSession,
   nextOccurrence,
   plan,
+  minutesLeft,
   runEndsAt,
   runPulls,
   sessionFilterIds,
@@ -497,6 +498,6 @@ export const runBadge = async (): Promise<{ text: string; color: string } | null
   const run = await liveRun();
   if (!run) return null;
   if (!run.startedAt) return { text: "▶", color: "#1a7f37" };
-  const left = Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
+  const left = minutesLeft(run);
   return { text: `${left}m`, color: "#1a7f37" };
 };

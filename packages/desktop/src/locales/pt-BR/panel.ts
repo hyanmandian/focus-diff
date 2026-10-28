@@ -11,7 +11,6 @@ export const panel: Dictionary["panel"] = {
   refresh: "Atualizar",
   menu: "Menu",
   settings: "Ajustes…",
-  setupAgain: "Configurar de novo…",
   quit: "Sair do Focus Diff",
   loading: "Carregando",
   signedOutTitle: "Suas revisões, sem abrir o GitHub",

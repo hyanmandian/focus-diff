@@ -49,7 +49,7 @@ import { canWrite } from "@/utils/manage/manage";
 import type { PullRef } from "@/utils/review/review";
 
 // Their words: t(`review.check.${state}`), t(`manage.group.${state}`).
-export const CHECK_ICON = {
+const CHECK_ICON = {
   success: { icon: CircleCheck, className: "text-success" },
   failure: { icon: CircleX, className: "text-destructive" },
   pending: { icon: CircleDot, className: "text-warning" },

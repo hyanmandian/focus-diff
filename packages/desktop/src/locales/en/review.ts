@@ -91,7 +91,6 @@ export const review = {
   doneLabel: "Done: every file here is viewed",
   done: "Done",
   aboutLeft: "About {time} left to review",
-  timeLeft: "{time} left",
   breakdown: "Breakdown by filter",
   breakdownTitle: "Breakdown by Filter",
   filters: "Filters",
@@ -115,7 +114,6 @@ export const review = {
   reviewers: "Reviewers",
   nobodyAsked: "Nobody asked yet.",
   checks: "Checks",
-  checksMore: "and {count} more",
   "check.success": "Passed",
   "check.failure": "Failed",
   "check.pending": "Running",
@@ -194,7 +192,6 @@ export const review = {
   commentOnLine: "Comment on this line",
   viewed: "Viewed",
   viewedFile: "Viewed {path}",
-  notShown: "{path} isn't shown here (binary, or too large for GitHub's diff).",
 
   // Writing, editing and reacting to comments; suggested changes; the pending review
   write: "Write",

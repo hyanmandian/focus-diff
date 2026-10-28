@@ -16,7 +16,6 @@ export const shared = {
   connectUseToken: "Use this token",
   connectUseTokenInstead: "Use a personal access token instead",
   askTitle: "Ask {provider}",
-  askThinking: "Thinking",
   askPlaceholder: "Ask about this pull request…",
   askLabel: "Ask {provider} about this pull request",
   askSubmit: "Ask",

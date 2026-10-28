@@ -17,7 +17,6 @@ export const shared: Dictionary["shared"] = {
   connectUseToken: "Usar este token",
   connectUseTokenInstead: "Usar um token de acesso pessoal",
   askTitle: "Perguntar ao {provider}",
-  askThinking: "Pensando",
   askPlaceholder: "Pergunte sobre este pull request…",
   askLabel: "Perguntar ao {provider} sobre este pull request",
   askSubmit: "Perguntar",

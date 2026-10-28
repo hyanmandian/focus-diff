@@ -10,7 +10,6 @@ export const panel = {
   refresh: "Refresh",
   menu: "Menu",
   settings: "Settings…",
-  setupAgain: "Run Setup Again…",
   quit: "Quit Focus Diff",
   loading: "Loading",
   signedOutTitle: "Your reviews, without opening GitHub",

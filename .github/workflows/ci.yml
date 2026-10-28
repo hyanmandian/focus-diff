@@ -120,14 +120,6 @@ jobs:
         if: runner.os == 'Linux'
         uses: ./.github/actions/linux-deps
 
-      # The app's pages are built into the binary, so the front end has to be there first.
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Build the pages
-        working-directory: packages/desktop
-        run: npx vp build
-
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
 

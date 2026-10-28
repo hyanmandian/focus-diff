@@ -43,6 +43,8 @@ struct Held {
     title: String,
     body: String,
     until: Until,
+    #[serde(default)]
+    url: Option<String>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -634,7 +636,7 @@ impl Worker {
             } else {
                 None
             };
-            let note = Held { key: f.event.key.clone(), title, body, until: until.unwrap_or(Until::Review) };
+            let note = Held { key: f.event.key.clone(), title, body, until: until.unwrap_or(Until::Review), url: Some(f.item.pr.url.clone()) };
             match until {
                 Some(_) => {
                     state.persisted.held.retain(|h| h.key != note.key);
@@ -652,13 +654,13 @@ impl Worker {
     fn show(&self, notes: &[Held], sound: bool) {
         let mut sound = sound;
         for note in notes.iter().take(MAX_NOTIFICATIONS) {
-            crate::show_notification(&self.app, note.title.clone(), note.body.clone(), sound);
+            crate::show_notification(&self.app, note.title.clone(), note.body.clone(), sound, note.url.as_deref());
             sound = false;
         }
         if notes.len() > MAX_NOTIFICATIONS {
             let n = notes.len() - MAX_NOTIFICATIONS;
             let title = tr!("{n} more pull request updates", "Mais {n} atualizações nos seus pull requests");
-            crate::show_notification(&self.app, title, tr!("Open Focus Diff to see them", "Abra o Focus Diff para ver"), sound);
+            crate::show_notification(&self.app, title, tr!("Open Focus Diff to see them", "Abra o Focus Diff para ver"), sound, None);
         }
     }
 
@@ -668,13 +670,13 @@ impl Worker {
             1 => self.show(&notes, sound),
             _ => {
                 let (title, body) = summary(&notes, why);
-                crate::show_notification(&self.app, title, body, sound);
+                crate::show_notification(&self.app, title, body, sound, None);
             }
         }
     }
 
     fn chime(&self, config: &Config, title: String, body: String) {
-        crate::show_notification(&self.app, title, body, config.sound && !sound::OWN);
+        crate::show_notification(&self.app, title, body, config.sound && !sound::OWN, None);
         if config.sound {
             sound::play(&self.app);
         }
@@ -852,7 +854,7 @@ mod tests {
 
     #[test]
     fn several_kept_as_one() {
-        let note = |title: &str| Held { key: title.into(), title: title.into(), body: "Fix login\nacme/web#7".into(), until: Until::Review };
+        let note = |title: &str| Held { key: title.into(), title: title.into(), body: "Fix login\nacme/web#7".into(), until: Until::Review, url: None };
         let notes: Vec<Held> = ["A", "B", "C", "D", "E", "F", "G"].into_iter().map(note).collect();
         in_locale(Locale::En, || {
             let (title, body) = summary(&notes, Why::WaitedForReview);

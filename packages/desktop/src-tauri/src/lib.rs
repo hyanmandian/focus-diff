@@ -126,7 +126,7 @@ fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_
 
 #[tauri::command]
 fn test_notification(app: AppHandle, sound: bool) {
-    show_notification(&app, i18n::tr!("Notifications work", "As notificações funcionam"), i18n::tr!("Focus Diff will tell you here when something needs you.", "O Focus Diff vai te avisar aqui quando algo precisar de você."), sound);
+    show_notification(&app, i18n::tr!("Notifications work", "As notificações funcionam"), i18n::tr!("Focus Diff will tell you here when something needs you.", "O Focus Diff vai te avisar aqui quando algo precisar de você."), sound, None);
 }
 
 #[tauri::command]
@@ -394,14 +394,14 @@ async fn run_action(app: AppHandle, action: String, name: String, step: usize, p
         .map_err(|e| e.to_string())?
 }
 
-pub(crate) fn show_notification(app: &AppHandle, title: String, body: String, sound: bool) {
+pub(crate) fn show_notification(app: &AppHandle, title: String, body: String, sound: bool, url: Option<&str>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[notify] {title} | {} | sound {sound}", body.replace('\n', " / "));
     }
     #[cfg(target_os = "macos")]
     {
         let _ = app;
-        notify::show(&title, &body, sound);
+        notify::show(&title, &body, sound, url);
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -1218,7 +1218,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             #[cfg(target_os = "macos")]
-            notify::ask();
+            notify::start(app.handle());
 
             let handle = app.handle().clone();
             move_old_files(&handle);

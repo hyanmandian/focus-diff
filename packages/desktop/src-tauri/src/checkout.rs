@@ -126,6 +126,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn a_checkout_counts_as_used_from_its_mark() {
         let dir = std::env::temp_dir().join(format!("focus-diff-checkout-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

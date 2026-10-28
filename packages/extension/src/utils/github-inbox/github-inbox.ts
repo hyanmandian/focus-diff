@@ -286,10 +286,19 @@ const spanFrom = (html: string, from: number) => {
   return "";
 };
 
+const withoutTags = (html: string): string => {
+  let text = html;
+  for (let last = ""; last !== text;) {
+    last = text;
+    text = text.replaceAll(/<[^>]*>/gu, "");
+  }
+  return text;
+};
+
 export const parseHovercard = (html: string): PullBranches | null => {
   const refs = [...html.matchAll(/<span\b[^>]*\bclass="([^"]*\bcommit-ref\b[^"]*)"[^>]*>/gu)].map((match) => ({
     base: /\bbase-ref\b/u.test(String(match[1])),
-    name: decode(spanFrom(html, match.index + match[0].length).replaceAll(/<[^>]*>/gu, "")).replaceAll(/\s+/gu, ""),
+    name: decode(withoutTags(spanFrom(html, match.index + match[0].length))).replaceAll(/\s+/gu, ""),
   }));
   const base = refs.find((ref) => ref.base)?.name;
   const head = refs.find((ref) => !ref.base)?.name;

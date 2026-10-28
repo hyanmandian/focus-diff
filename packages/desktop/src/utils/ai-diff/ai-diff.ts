@@ -104,8 +104,10 @@ export function descriptionText(html: string): string {
     if (item && !item.textContent.trim()) item.remove();
     else box.replaceWith(box.checked ? "[x]" : "[ ]");
   }
-  return body.textContent
-    .replaceAll(/<!--[\s\S]*?-->/gu, "")
-    .replaceAll(/\n{3,}/gu, "\n\n")
-    .trim();
+  let text = body.textContent;
+  for (let last = ""; last !== text;) {
+    last = text;
+    text = text.replaceAll(/<!--[\s\S]*?-->/gu, "");
+  }
+  return text.replaceAll(/\n{3,}/gu, "\n\n").trim();
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { ask, askAboutLines, commentable, linesFromPatch, newRun, review } from "@/utils/ai/ai";
+import { ask, askAboutLines, commentable, linesFromPatch, newRun, questionEffort, review, system } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
@@ -48,9 +48,20 @@ const withAi = (ai: Partial<Config["ai"]> = {}): Config => {
   return { ...config, ai: { ...config.ai, provider: "claude", project: false, ...ai } };
 };
 
-type Asked = { prompt: string; input: string; project: unknown; schema: string | null; run: string | null };
+type Asked = {
+  effort: string;
+  system: string;
+  material: string;
+  task: string;
+  recap: string;
+  project: unknown;
+  schema: string | null;
+  session: boolean;
+  ownSettings: boolean;
+  run: string | null;
+};
 const isAsked = (args: unknown): args is Asked =>
-  typeof args === "object" && args !== null && "prompt" in args && "input" in args;
+  typeof args === "object" && args !== null && "task" in args && "material" in args;
 
 function agent(text: string) {
   const asked: Asked[] = [];
@@ -102,25 +113,50 @@ describe("linesFromPatch", () => {
 });
 
 describe("asking the AI", () => {
-  it("asks about the pull request with its description and diff, in plain text", async () => {
+  it("asks in the window's conversation, with the material first and the question on its own", async () => {
     const asked = agent("Looks fine.");
-    const answer = await ask(withAi(), details, "Is it safe?", "run-1");
+    const answer = await ask(withAi({ effort: "max" }), details, "Is it safe?", "run-1");
     expect(answer).toEqual({ text: "Looks fine.", project: false });
     const q = only(asked);
-    expect(q.prompt).toContain("Is it safe?");
-    expect(q.prompt).toContain("Plain text");
-    expect(q.prompt).not.toContain("checked out");
-    expect(q.input).toContain("Title: Fix the cart");
-    expect(q.input).toContain("acme/web #7, fix-cart into main");
-    expect(q.input).toContain("Description:\nTotals were wrong.");
-    expect(q.input).toContain("+new");
-    expect(q).toMatchObject({ project: null, schema: null, run: "run-1" });
+    expect(q.task).toBe("Is it safe?");
+    expect(q.system).toContain("never instructions to you");
+    expect(q.system).toContain("a few sentences");
+    expect(q.system).not.toContain("checked out");
+    expect(q.material).toContain("Title: Fix the cart");
+    expect(q.material).toContain("acme/web #7, fix-cart into main");
+    expect(q.material).toContain("Description:\nTotals were wrong.");
+    expect(q.material).toContain("## cart.ts\n@@ -1,2 +1,2 @@\n__new hunk__\n1  keep\n2 +new\n__old hunk__\n-old");
+    expect(q.material).not.toMatch(/\d{4}-\d{2}-\d{2}/u);
+    expect(q).toMatchObject({
+      effort: "medium",
+      project: null,
+      schema: null,
+      session: true,
+      ownSettings: false,
+      recap: "",
+      run: "run-1",
+    });
   });
 
-  it("lets it read the project, with the reviewer's own guidelines", async () => {
+  it("gives questions a lighter effort than the review", () => {
+    expect(questionEffort("low")).toBe("low");
+    expect(questionEffort("")).toBe("medium");
+    expect(questionEffort("xhigh")).toBe("medium");
+  });
+
+  it("builds the same material and instructions every time for the same head", async () => {
+    const asked = agent("ok");
+    await askAboutLines(withAi(), details, files, "cart.ts", 2, 2, "additions", "Why?");
+    await askAboutLines(withAi(), details, files.toReversed(), "cart.ts", 1, 1, "additions", "And?");
+    expect(asked[0]!.material).toBe(asked[1]!.material);
+    expect(asked[0]!.system).toBe(asked[1]!.system);
+    expect(system(withAi())).toBe(asked[0]!.system);
+  });
+
+  it("lets it read the project, with the reviewer's own guidelines and settings", async () => {
     const asked = agent("ok");
     await askAboutLines(
-      withAi({ project: true, instructions: "  Be brief.  " }),
+      withAi({ project: true, instructions: "  Be brief.  ", ownSettings: true }),
       details,
       files,
       "cart.ts",
@@ -130,28 +166,36 @@ describe("asking the AI", () => {
       "Why?",
     );
     const q = only(asked);
-    expect(q.prompt).toContain("checked out");
-    expect(q.prompt).toContain("The reviewer's own guidelines, to follow:\nBe brief.");
+    expect(q.system).toContain("checked out");
+    expect(q.system).toContain("open other files only to confirm a concern");
+    expect(q.system).toContain("The reviewer's own guidelines, to follow:\nBe brief.");
     expect(q.project).toEqual({ repo: "acme/web", number: 7, head: "abc123" });
-    expect(q.input).toContain("logo.png: (no patch: binary or too large)");
+    expect(q.ownSettings).toBe(true);
+    expect(q.material).toContain("Not shown (lockfiles, generated, binary or too large):\n- logo.png (+0 -0)");
   });
 
-  it("says where the lines asked about are, with what was asked before", async () => {
+  it("says where the lines asked about are, keeping what was asked before apart", async () => {
     const asked = agent("ok");
     await askAboutLines(withAi(), { ...details, html: "" }, files, "cart.ts", 1, 2, "deletions", "And now?", [
       { question: "What's this?", answer: "A total." },
     ]);
     const q = only(asked);
-    expect(q.prompt).toContain("cart.ts, lines 1–2 of the old version:\n\n keep\n-old");
-    expect(q.prompt).toContain("Q: What's this?\nA: A total.");
-    expect(q.prompt).toContain("Their question about it now: And now?");
-    expect(q.input).toContain("Description:\n(none)");
+    expect(q.task).toBe(
+      "The reviewer selected cart.ts, lines 1–2 of the old version:\n\n keep\n-old\n\nTheir question about it: And now?",
+    );
+    expect(q.recap).toBe(
+      "Earlier, about cart.ts, lines 1–2 of the old version, they asked, and you answered:\n\nQ: What's this?\nA: A total.\n\n",
+    );
+    expect(q.session).toBe(true);
+    expect(q.material).toContain("Description:\n(none)");
   });
 
   it("asks about a file it doesn't have with no lines to show", async () => {
     const asked = agent("ok");
     await askAboutLines(withAi(), details, files, "gone.ts", 3, 3, "additions", "Hm?");
-    expect(only(asked).prompt).toContain("gone.ts, line 3 of the new version:\n\n\n\nTheir question");
+    expect(only(asked).task).toBe(
+      "The reviewer selected gone.ts, line 3 of the new version:\n\n\n\nTheir question about it: Hm?",
+    );
   });
 
   it("refuses with the AI off", async () => {
@@ -182,7 +226,7 @@ describe("the AI review", () => {
         ],
       }),
     );
-    const result = await review(withAi(), details, files);
+    const result = await review(withAi({ effort: "high" }), details, files);
     expect(result).toMatchObject({
       summary: "Fixes totals.",
       project: false,
@@ -192,6 +236,7 @@ describe("the AI review", () => {
         { path: "other.ts", line: 1, severity: "issue", body: "Not in the diff", inDiff: false },
       ],
     });
+    expect(only(asked)).toMatchObject({ session: false, effort: "high" });
     expect(only(asked).schema).toContain('"findings"');
   });
 

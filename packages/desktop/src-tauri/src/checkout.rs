@@ -193,13 +193,17 @@ mod live {
             provider: crate::ai::Provider::Claude,
             model: Some("haiku"),
             effort: Some("low"),
-            prompt: "List up to three source files in your working directory that look most important.",
-            input: "(no diff)",
+            system: "You look around a repository.",
+            material: "(no diff)",
+            task: "List up to three source files in your working directory that look most important.",
+            recap: "",
             project: Some(&dir),
             schema: Some(schema),
+            session: None,
+            own_settings: false,
             cancel: None,
         });
         println!("AI: {answer:?}");
-        assert!(answer.unwrap().contains("files"));
+        assert!(answer.unwrap().text.contains("files"));
     }
 }

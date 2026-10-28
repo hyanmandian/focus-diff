@@ -315,6 +315,9 @@ export const settings = {
   project: "Read the whole project, not just the diff",
   projectHint:
     "So it can see where the changed code is used and what it could break, and follow the repository's own rules (CLAUDE.md, AGENTS.md, Cursor rules). The pull request's code is downloaded to this computer's cache, with your GitHub login; its hooks and MCP servers are never run. Slower, and uses more of your plan.",
+  ownSettings: "Use my Claude Code settings",
+  ownSettingsHint:
+    "Off: questions leave out your CLAUDE.md, skills and plugins, so each one uses less of your plan. On: your own rules come along. Hooks and MCP servers never run either way.",
   autoReview: "AI review when a pull request opens",
   autoReviewHint:
     "Its comments show on the diff's lines, for you to add to your review or dismiss. Off: an “AI review” button in the review window.",

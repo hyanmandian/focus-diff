@@ -194,6 +194,8 @@ describe("Ai", () => {
 
     await user.click(screen.getByRole("switch", { name: /Read the whole project/u }));
     expect(last().project).toBe(false);
+    await user.click(screen.getByRole("switch", { name: /Use my Claude Code settings/u }));
+    expect(last().ownSettings).toBe(true);
     await user.click(screen.getByRole("switch", { name: /AI review when a pull request opens/u }));
     expect(last().review.auto).toBe(true);
 
@@ -205,6 +207,7 @@ describe("Ai", () => {
     setup({ provider: "cursor" }, { statuses: [], models: { cursor: [] } });
     expect(screen.queryByRole("combobox", { name: "Effort" })).toBeNull();
     expect(screen.getByText(/Part of the model you pick/u)).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: /Use my Claude Code settings/u })).toBeNull();
   });
 
   it("edits what the AI review looks for, and restores the default", async () => {

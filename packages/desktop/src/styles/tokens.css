@@ -7,7 +7,6 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: var(--font-sans);
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Ubuntu, "Noto Sans", sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
@@ -15,8 +14,6 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--label);
-  --color-accent: var(--fill-control);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -63,8 +60,6 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* MARK: Platform tokens
@@ -104,11 +99,9 @@
 
   /* Control sizes (NSControl.ControlSize's names), a step roomier than AppKit's: nothing that takes a
      click is under WCAG 2.2's 24px target (2.5.8), and the regular size is a comfortable 28. */
-  --control-h-mini: 20px;
   --control-h-sm: 24px;
   --control-h: 28px;
   --control-h-lg: 32px;
-  --field-h-sm: 24px;
   --field-h: 28px;
   --toolbar-h: 52px;
   --toolbar-item-h: 28px;
@@ -119,7 +112,6 @@
   --row-h: 32px;
 
   /* Radii (fitted to AppKit's renders; capsules from the large size up). */
-  --radius-control-mini: 5px;
   --radius-control-sm: 6px;
   --radius-control: 7px;
   --radius-capsule: 9999px;

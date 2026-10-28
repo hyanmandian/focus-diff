@@ -53,17 +53,13 @@ const readNow = async (lists: PullRequest[][]) => {
 };
 
 /** One read at a time, since each writes the whole cache. */
-let branchesQueue: Promise<unknown> = Promise.resolve();
+const oneRead = pool(1);
 
 /**
  * The branches of the pull requests on the popup's lists that could be in a stack, each read once per commit from its
  * hovercard, for the popup to put stacks together. Not a request more for one that can't be.
  */
-export const readBranches = (lists: PullRequest[][]): Promise<void> => {
-  const next = branchesQueue.then(() => readNow(lists));
-  branchesQueue = next.catch(() => {});
-  return next;
-};
+export const readBranches = (lists: PullRequest[][]): Promise<void> => oneRead(() => readNow(lists));
 
 /** A pull request on a list, with where it stands in a stack there, if it's in one with others on the list. */
 export interface Stacked {

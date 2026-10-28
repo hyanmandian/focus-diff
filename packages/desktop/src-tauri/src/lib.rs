@@ -1248,6 +1248,13 @@ fn move_old_files(app: &AppHandle) {
     }
 }
 
+fn answer(scheme: &str, serve: impl FnOnce() -> tauri::http::Response<Vec<u8>>) -> tauri::http::Response<Vec<u8>> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(serve)).unwrap_or_else(|_| {
+        eprintln!("[{scheme}] the request failed");
+        tauri::http::Response::builder().status(tauri::http::StatusCode::INTERNAL_SERVER_ERROR).body(vec![]).unwrap_or_default()
+    })
+}
+
 pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(not(target_os = "macos"))]
@@ -1259,11 +1266,11 @@ pub fn run() {
         .on_menu_event(menu::on_event)
         .register_asynchronous_uri_scheme_protocol("avatar", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
-            thread::spawn(move || responder.respond(avatars::serve(&app, &request)));
+            thread::spawn(move || responder.respond(answer("avatar", || avatars::serve(&app, &request))));
         })
         .register_asynchronous_uri_scheme_protocol("media", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
-            thread::spawn(move || responder.respond(media::serve(&app, &request)));
+            thread::spawn(move || responder.respond(answer("media", || media::serve(&app, &request))));
         })
         .manage(update::Pending::default())
         .manage(github::Auth::default())
@@ -1432,7 +1439,14 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::app_link;
+    use super::{answer, app_link};
+
+    #[test]
+    fn a_failing_request_is_answered() {
+        let response = answer("media", || panic!("bad request"));
+        assert_eq!(response.status(), tauri::http::StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(answer("media", || tauri::http::Response::new(vec![1])).body(), &[1]);
+    }
 
     #[test]
     fn fix_in_cursor_opens_cursor() {

@@ -6,7 +6,7 @@
 //! https://github.com.
 
 use std::io::Read;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -83,7 +83,7 @@ fn keychain() -> Result<keyring::Entry, String> {
 
 impl WebSession {
     pub fn get(&self) -> Option<Session> {
-        let mut kept = self.0.lock().unwrap();
+        let mut kept = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         if kept.is_none() {
             let read = keychain().ok().and_then(|k| k.get_password().ok()).and_then(|text| serde_json::from_str(&text).ok());
             *kept = Some(read);
@@ -98,7 +98,7 @@ impl WebSession {
     pub fn save(&self, session: Session) -> Result<(), String> {
         let text = serde_json::to_string(&session).map_err(|e| e.to_string())?;
         keychain()?.set_password(&text).map_err(|e| e.to_string())?;
-        *self.0.lock().unwrap() = Some(Some(session));
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(Some(session));
         Ok(())
     }
 
@@ -106,7 +106,7 @@ impl WebSession {
         if let Ok(entry) = keychain() {
             let _ = entry.delete_credential();
         }
-        *self.0.lock().unwrap() = Some(None);
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(None);
     }
 }
 

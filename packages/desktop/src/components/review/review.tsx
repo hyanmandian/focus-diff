@@ -61,11 +61,12 @@ import { ConversationProvider, copyText, useConversation } from "@/hooks/use-con
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { published, usePending } from "@/hooks/use-pending/use-pending";
+import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
-import { bridge } from "@/utils/bridge/bridge";
+import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { useRangeFiles } from "@/utils/commits/commits";
 import { loadConfig, type Config } from "@/utils/config/config";
@@ -111,41 +112,6 @@ import { inTreeOrder } from "@/utils/tree/tree";
 /** `queue`: the one it was opened from, whose next pull request the toolbar offers. */
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
 
-// MARK: Kept on this machine
-
-/** What's kept under a key, when it's still of the kind expected. */
-function stored<T>(key: string, fallback: T, valid: (value: unknown) => value is T): T {
-  try {
-    const text = localStorage.getItem(key);
-    const value: unknown = text ? JSON.parse(text) : undefined;
-    return valid(value) ? value : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function store(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Still works for this window.
-  }
-}
-const isUpdate = <T,>(next: T | ((v: T) => T)): next is (v: T) => T => typeof next === "function";
-function usePersisted<T>(key: string, fallback: T, valid: (value: unknown) => value is T) {
-  const [value, setValue] = useState<T>(() => stored(key, fallback, valid));
-  const set = useCallback(
-    (next: T | ((v: T) => T)) => {
-      setValue((v) => {
-        const resolved = isUpdate(next) ? next(v) : next;
-        store(key, resolved);
-        return resolved;
-      });
-    },
-    [key],
-  );
-  return [value, set] as const;
-}
-
 /** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
 const MIN_REVIEW_SECONDS = 2;
 
@@ -166,10 +132,9 @@ const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 const isAnything = (v: unknown): v is unknown => v !== undefined;
 const isDiffStyle = (v: unknown): v is "split" | "unified" => v === "split" || v === "unified";
 const isTab = (v: unknown): v is "overview" | "diff" => v === "overview" || v === "diff";
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
-const isMarks = (v: unknown): v is Record<string, string> => isObject(v) && Object.values(v).every((x) => isString(x));
+const isMarks = (v: unknown): v is Record<string, string> => isRecord(v) && Object.values(v).every((x) => isString(x));
 const isReviewed = (v: unknown): v is { head: string; review: AiReview } | null =>
-  v === null || (isObject(v) && isString(v.head) && isObject(v.review));
+  v === null || (isRecord(v) && isString(v.head) && isRecord(v.review));
 
 const EVENTS = ["COMMENT", "APPROVE", "REQUEST_CHANGES"] as const;
 const STYLES = ["split", "unified"] as const;

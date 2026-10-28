@@ -144,9 +144,12 @@ export function Panel() {
     };
     document.addEventListener("paste", onPaste);
     const off = bridge.on<string>("open-link", (text) => void tryLink(text));
-    void bridge.takeLink().then(async (text) => {
-      if (text) await tryLink(text);
-    });
+    void bridge
+      .takeLink()
+      .then(async (text) => {
+        if (text) await tryLink(text);
+      })
+      .catch(() => {});
     return () => {
       document.removeEventListener("paste", onPaste);
       off();

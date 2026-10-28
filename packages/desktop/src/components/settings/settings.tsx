@@ -53,20 +53,34 @@ function useConfig() {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // A change of its own still to be written: what's on disk is older than what shows.
   const pending = useRef(false);
+  // What's waiting to be written, so closing the window in the meantime writes it at once.
+  const unsaved = useRef<Config | null>(null);
   useEffect(() => {
     void loadConfig().then(setConfig);
+    const flush = () => {
+      if (!unsaved.current) return;
+      clearTimeout(timer.current);
+      void saveConfig(unsaved.current);
+      unsaved.current = null;
+    };
+    window.addEventListener("pagehide", flush);
     // Changed elsewhere (setup, say): shown here too, so the next change here doesn't write over it.
     const off = bridge.on<string>("file-changed", (name) => {
       if (name === "config" && !pending.current) void loadConfig().then(setConfig);
     });
-    return off;
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      off();
+    };
   }, []);
   // Saved shortly after the last change, so typing a name doesn't write on every key.
   const update = useCallback((next: Config) => {
     setConfig(next);
     clearTimeout(timer.current);
     pending.current = true;
+    unsaved.current = next;
     timer.current = setTimeout(() => {
+      unsaved.current = null;
       void saveConfig(next).finally(() => {
         pending.current = false;
       });
@@ -512,8 +526,12 @@ function CommandLine() {
   const t = useT();
   const [path, setPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Only where the app can install it (macOS for now): elsewhere Rust says it can't.
+  const [offered, setOffered] = useState(true);
   useEffect(() => {
-    void bridge.cliInstalled().then(setPath);
+    void bridge.cliInstalled().then(setPath, () => {
+      setOffered(false);
+    });
   }, []);
   const install = async () => {
     try {
@@ -523,6 +541,7 @@ function CommandLine() {
       setError(String(e));
     }
   };
+  if (!offered) return null;
   return (
     <Row
       label={t("settings.commandLine")}

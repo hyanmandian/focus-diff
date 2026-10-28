@@ -576,10 +576,10 @@ fn install_cli() -> Result<String, String> {
     link::install()
 }
 
-/// Where `focus-diff` is installed, if it is.
+/// Where `focus-diff` is installed, if it is; refused where the app can't install it.
 #[tauri::command]
-fn cli_installed() -> Option<String> {
-    link::installed()
+fn cli_installed() -> Result<Option<String>, String> {
+    if cfg!(target_os = "macos") { Ok(link::installed()) } else { Err("The command line is installed on macOS only, for now".into()) }
 }
 
 /// A pull request link sent from outside (link.rs) before the panel was there to take it.

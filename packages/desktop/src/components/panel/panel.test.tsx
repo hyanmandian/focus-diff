@@ -145,6 +145,7 @@ async function setup(
         return { signed_in: false, source: null, login: null, device_flow: true, gh_available: true };
       }
       case "take_link": {
+        if (waiting === "refused") throw new Error("no such command");
         return waiting ?? null;
       }
       case "github": {
@@ -375,6 +376,12 @@ describe("Panel", () => {
     await waitFor(() => {
       expect(opened()).toHaveLength(3);
     });
+  });
+
+  it("starts as usual when asking for a waiting link fails", async () => {
+    const { calls } = await setup(live(), { waiting: "refused" });
+    expect(screen.getByRole("tablist", { name: "Queues" })).toBeTruthy();
+    expect(calls.some((c) => c.cmd === "open_review")).toBe(false);
   });
 
   it("opens a link sent from outside before it was open", async () => {

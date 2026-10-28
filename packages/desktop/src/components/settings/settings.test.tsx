@@ -457,6 +457,39 @@ describe("General pane", () => {
     });
   });
 
+  it("offers the command line only where the app can install it", async () => {
+    await general({ hold: [] });
+    expect(within(panel()).getByText("Command line")).toBeTruthy();
+    cleanup();
+    mockCommands((cmd) => {
+      if (cmd === "cli_installed") throw new Error("macOS only");
+      if (cmd === "read_file") return JSON.stringify(defaultConfig());
+      return null;
+    });
+    localStorage.setItem("settings-pane", "general");
+    render(<Settings />);
+    await screen.findByRole("tablist", { name: "Settings" });
+    await waitFor(() => {
+      expect(within(panel()).queryByText("Command line")).toBeNull();
+    });
+  });
+
+  it("writes a change at once when the window goes away before its save", async () => {
+    const rust = await general();
+    await userEvent.click(within(panel()).getByRole("switch", { name: "Play a sound with notifications" }));
+    expect(rust.saved()).toBeNull();
+    window.dispatchEvent(new Event("pagehide"));
+    await waitFor(() => {
+      expect(rust.saved()?.sound).toBe(true);
+    });
+    // Nothing left to write: a second goes by quietly, and the timer doesn't write it again.
+    window.dispatchEvent(new Event("pagehide"));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 400);
+    });
+    expect(rust.called("write_file")).toHaveLength(1);
+  });
+
   it("installs the command line, says where, and why not when it can't", async () => {
     const rust = await general();
     const row = () => within(panel()).getByRole("button", { name: /^Install/u });

@@ -245,8 +245,7 @@ pub fn signed_address<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Strin
     let mut session = app.state::<WebSession>().get()?;
     let answer = request(&mut session, "GET", path, &[], None).ok()?;
     let location = answer.location.filter(|_| (300..400).contains(&answer.status))?;
-    let host = location.strip_prefix("https://")?.split(['/', '?', '#']).next()?.to_ascii_lowercase();
-    (host.ends_with(".githubusercontent.com") && !host.contains('@')).then_some(location)
+    crate::github::https_host(&location).is_some_and(|host| host.ends_with(".githubusercontent.com")).then_some(location)
 }
 
 #[cfg(test)]

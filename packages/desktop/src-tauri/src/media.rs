@@ -41,9 +41,7 @@ pub(crate) fn decode(s: &str) -> String {
 
 /// GitHub's hosts only: github.com and its user content hosts.
 fn allowed(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://") else { return false };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("").to_ascii_lowercase();
-    !host.contains('@') && !host.contains(':') && (host == "github.com" || host.ends_with(".githubusercontent.com"))
+    crate::github::https_host(url).is_some_and(|host| host == "github.com" || host.ends_with(".githubusercontent.com"))
 }
 
 /// The cache key: private-user-images' addresses carry a token that changes each time; the path

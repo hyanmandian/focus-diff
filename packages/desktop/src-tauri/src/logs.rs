@@ -54,13 +54,7 @@ impl Logs {
 
 /// Only GitHub's storage for Actions logs, over https: whatever else a redirect says isn't followed.
 fn trusted(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://") else { return false };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
-    // No user info or port tricks: a plain host name.
-    if host.contains('@') || host.contains(':') {
-        return false;
-    }
-    [".blob.core.windows.net", ".actions.githubusercontent.com", ".githubusercontent.com"].iter().any(|s| host.ends_with(s))
+    github::https_host(url).is_some_and(|host| [".blob.core.windows.net", ".actions.githubusercontent.com", ".githubusercontent.com"].iter().any(|s| host.ends_with(s)))
 }
 
 /// The last `max` bytes of what `reader` gives, and whether there was more before them. When cut,

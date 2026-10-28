@@ -276,8 +276,8 @@ fn policy(session: &mut Session, page: &Page, name: &str, size: usize, kind: &st
 /// Only to an https address of its storage, and with no cookies.
 fn store(policy: &Value, name: &str, kind: &str, bytes: &[u8]) -> Result<(), Error> {
     let url = policy["upload_url"].as_str().unwrap_or_default();
-    let host = url.strip_prefix("https://").and_then(|r| r.split(['/', '?', '#']).next()).unwrap_or("").to_ascii_lowercase();
-    if host.contains('@') || !(host.ends_with(".amazonaws.com") || host.ends_with(".githubusercontent.com") || host == "github.com") {
+    let storage = crate::github::https_host(url).is_some_and(|host| host.ends_with(".amazonaws.com") || host.ends_with(".githubusercontent.com") || host == "github.com");
+    if !storage {
         return Err(failed(tr!("GitHub gave an unexpected upload address", "O GitHub deu um endereço de envio inesperado")));
     }
     let form: Vec<(String, String)> = policy["form"]

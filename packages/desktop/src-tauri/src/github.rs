@@ -363,6 +363,11 @@ pub(crate) fn path_ok(path: &str) -> bool {
     path.starts_with('/') && !path.starts_with("//") && !path.contains('\\')
 }
 
+pub(crate) fn https_host(url: &str) -> Option<String> {
+    let host = url.strip_prefix("https://")?.split(['/', '?', '#']).next()?.to_ascii_lowercase();
+    (!host.is_empty() && !host.contains(['@', ':', '\\'])).then_some(host)
+}
+
 fn api_url(path: &str) -> Result<String, String> {
     if path_ok(path) { Ok(format!("{API}{path}")) } else { Err("Bad request".into()) }
 }
@@ -486,6 +491,14 @@ pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hosts_of_https_addresses() {
+        assert_eq!(https_host("https://X.GitHubUserContent.com/a?b").as_deref(), Some("x.githubusercontent.com"));
+        for bad in ["http://github.com/", "https://", "https://user@github.com/", "https://github.com:8443/", "https://evil.com\\.github.com/"] {
+            assert_eq!(https_host(bad), None, "{bad}");
+        }
+    }
 
     #[test]
     fn repository_names() {

@@ -206,7 +206,7 @@ fn queue_viewed(outbox: State<'_, outbox::Outbox>, pull: String, path: String, v
 }
 
 #[tauri::command]
-fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> std::collections::HashMap<String, bool> {
+fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> HashMap<String, bool> {
     outbox.pending(&pull)
 }
 
@@ -361,7 +361,7 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
                 Err(None) => (None, Some(i18n::tr!("Read the diff only: the project's code is still downloading. Ask again in a moment to have it read too.", "Leu só o diff: o código do projeto ainda está baixando. Pergunte de novo daqui a pouco para ele ser lido também."))),
             },
         };
-        let stopped = cancel.as_ref().is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed));
+        let stopped = cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed));
         let text = if stopped {
             Err(i18n::tr!("Stopped", "Interrompido"))
         } else {
@@ -386,32 +386,32 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
 }
 
 /// How long a question waits for the project's code before answering from the diff.
-const PROJECT_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+const PROJECT_WAIT: Duration = Duration::from_secs(20);
 
 /// The pull request's code checked out, if that's done within PROJECT_WAIT: Err(Some) when it
 /// failed, Err(None) when it's still going (it carries on, for the next question).
-fn project_soon(app: &AppHandle, p: Project) -> Result<std::path::PathBuf, Option<String>> {
-    let token = app.state::<github::Auth>().token_for_git().map_err(Some)?;
-    let cache = app.path().app_cache_dir().map_err(|e| Some(e.to_string()))?;
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = tx.send(checkout::prepare(&cache, &token, &p.repo, p.number, &p.head));
-    });
-    match rx.recv_timeout(PROJECT_WAIT) {
+fn project_soon(app: &AppHandle, p: Project) -> Result<PathBuf, Option<String>> {
+    match check_out(app, p)?.recv_timeout(PROJECT_WAIT) {
         Ok(result) => result.map_err(Some),
         Err(_) => Err(None),
     }
+}
+
+fn check_out(app: &AppHandle, p: Project) -> Result<std::sync::mpsc::Receiver<Result<PathBuf, String>>, String> {
+    let token = app.state::<github::Auth>().token_for_git()?;
+    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    thread::spawn(move || {
+        let _ = tx.send(checkout::prepare(&cache, &token, &p.repo, p.number, &p.head));
+    });
+    Ok(rx)
 }
 
 /// Gets a pull request's code ready for questions about it, in the background (when its review
 /// opens, with the AI set to read the project).
 #[tauri::command]
 fn ai_prepare(app: AppHandle, project: Project) {
-    let Ok(token) = app.state::<github::Auth>().token_for_git() else { return };
-    let Ok(cache) = app.path().app_cache_dir() else { return };
-    std::thread::spawn(move || {
-        let _ = checkout::prepare(&cache, &token, &project.repo, project.number, &project.head);
-    });
+    let _ = check_out(&app, project);
 }
 
 /// Stops a question (the window's Stop button).
@@ -705,11 +705,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     let reviews = app.state::<Reviews>();
     let existing = reviews.open.lock().unwrap().get(&id).cloned();
     if let Some(window) = existing.and_then(|label| app.get_webview_window(&label)) {
-        let _ = window.unminimize();
-        window.show().map_err(|e| e.to_string())?;
-        update_presence(&app);
-        activate();
-        return window.set_focus().map_err(|e| e.to_string());
+        return bring_back(&app, &window);
     }
     let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone(), queue: queue.clone() };
     // Only a spare that's listening; one still loading stays for the next click.
@@ -747,6 +743,13 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     window.set_focus().map_err(|e| e.to_string())
 }
 
+fn bring_back(app: &AppHandle, window: &tauri::WebviewWindow) -> Result<(), String> {
+    let _ = window.unminimize();
+    window.show().map_err(|e| e.to_string())?;
+    update_presence(app);
+    activate();
+    window.set_focus().map_err(|e| e.to_string())
+}
 
 /// A review window moving on to the next pull request of its queue: the same window shows it, so
 /// going through a queue leaves one window, not one per pull request. One already open in a window
@@ -760,10 +763,7 @@ fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo:
     let reviews = app.state::<Reviews>();
     let elsewhere = reviews.open.lock().unwrap().get(&id).cloned().filter(|label| label != window.label());
     if let Some(other) = elsewhere.and_then(|label| app.get_webview_window(&label)) {
-        let _ = other.unminimize();
-        other.show().map_err(|e| e.to_string())?;
-        activate();
-        return other.set_focus().map_err(|e| e.to_string());
+        return bring_back(&app, &other);
     }
     {
         let mut open = reviews.open.lock().unwrap();
@@ -1401,15 +1401,10 @@ pub fn run() {
                 let app = window.app_handle();
                 let label = window.label().to_string();
                 menu::forget(app, &label);
-                app.state::<Reviews>().open.lock().unwrap().retain(|_, l| *l != label);
-                app.state::<Reviews>().ready.lock().unwrap().remove(&label);
-                {
-                    let reviews = app.state::<Reviews>();
-                    let mut spare = reviews.spare.lock().unwrap();
-                    if spare.as_deref() == Some(label.as_str()) {
-                        *spare = None;
-                    }
-                }
+                let reviews = app.state::<Reviews>();
+                reviews.open.lock().unwrap().retain(|_, l| *l != label);
+                reviews.ready.lock().unwrap().remove(&label);
+                reviews.spare.lock().unwrap().take_if(|spare| *spare == label);
                 update_presence(app);
             }
         })

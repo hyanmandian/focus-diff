@@ -227,11 +227,9 @@ pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, an
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let dot = count > 0;
     LAST_COUNT.store(count, Ordering::SeqCst);
-    let _ = tray.set_tooltip(Some(&tooltip(count)));
     // No number beside it: the dot says there's something, the panel says what (a count of every
     // unread pull request in every queue is noise in a menu bar). Only review time's countdown.
-    #[cfg(target_os = "macos")]
-    let _ = tray.set_title(title().as_deref());
+    relocalize(tray);
     let rest = frame(0.0, dot);
     if !animate {
         show(tray, rest);

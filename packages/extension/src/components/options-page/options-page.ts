@@ -109,6 +109,7 @@ export const startOptions = (): void => {
 
   let config: Config = normalize({});
   let dirty = false;
+  let edits = 0;
   let saving = false;
   let suggestedRepo = "";
 
@@ -134,6 +135,7 @@ export const startOptions = (): void => {
   };
   const setDirty = () => {
     dirty = true;
+    edits += 1;
     say(i18n.t("statusUnsaved"), "warn");
   };
 
@@ -338,6 +340,7 @@ export const startOptions = (): void => {
     }
     // Each is saved on its own, so a quota error says which one is too big.
     let saved: "filters" | "look" | "popup" | "reviewTime" | "notifications" = "filters";
+    const editsBefore = edits;
     try {
       saving = true;
       await saveConfig(config);
@@ -349,8 +352,10 @@ export const startOptions = (): void => {
       await saveReviewTime(reviewTime.value());
       saved = "notifications";
       await saveNotify(notifications.value());
-      dirty = false;
-      say(i18n.t("statusSaved"), "ok");
+      if (edits === editsBefore) {
+        dirty = false;
+        say(i18n.t("statusSaved"), "ok");
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const quota = {

@@ -269,6 +269,18 @@ describe("startOptions", () => {
       expect((await configItem.getValue()).global[0]?.name).toBe("Code");
     });
 
+    it("keeps what's typed while saving unsaved", async () => {
+      await open();
+      const set = vi.spyOn(fakeBrowser.storage.sync, "set");
+      click("#save");
+      type($(".f-name", filterRows()[0]), "Source");
+      await vi.waitFor(() => {
+        expect(set).toHaveBeenCalledTimes(5);
+      });
+      await Promise.resolve();
+      expect(status()).toBe(i18n.t("statusUnsaved"));
+    });
+
     it("won't save filters that need fixing, and goes to the first", async () => {
       await open();
       click("#global .add-filter");

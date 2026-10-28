@@ -151,6 +151,14 @@ pub(crate) fn agent() -> &'static ureq::Agent {
     })
 }
 
+pub fn name_ok(name: &str) -> bool {
+    !name.is_empty() && name.len() <= 100 && name != "." && name != ".." && name.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+}
+
+pub fn repo_ok(repo: &str) -> bool {
+    repo.split_once('/').is_some_and(|(owner, name)| name_ok(owner) && name_ok(name))
+}
+
 fn keychain() -> Result<keyring::Entry, String> {
     keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(|e| e.to_string())
 }
@@ -492,4 +500,17 @@ pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_
         }
     }
     Err(tr!("The code expired: start again", "O código expirou: comece de novo"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repository_names() {
+        assert!(repo_ok("acme/web.site") && repo_ok("acme/.github") && repo_ok("focus-diff/focus_diff"));
+        for bad in ["acme", "acme/", "/web", "acme/..", "../web", "acme/web/x", "acme/a b", "acme/a\\b"] {
+            assert!(!repo_ok(bad), "{bad}");
+        }
+    }
 }

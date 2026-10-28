@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Manager, Runtime};
 
-use crate::github::Auth;
+use crate::github::{repo_ok, Auth};
 use crate::i18n::tr;
 
 const SWEEP_AFTER: Duration = Duration::from_secs(14 * 24 * 3600);
@@ -22,13 +22,6 @@ fn folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     let dir = app.path().app_cache_dir().ok()?.join("files");
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir)
-}
-
-/// "owner/name": letters, digits, `.`, `_` and `-`.
-fn valid_repo(repo: &str) -> bool {
-    let mut parts = repo.split('/');
-    let ok = |p: Option<&str>| p.is_some_and(|p| !p.is_empty() && p.len() <= 100 && p.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')));
-    ok(parts.next()) && ok(parts.next()) && parts.next().is_none()
 }
 
 /// A full commit id (SHA-1, or SHA-256 for repositories that use it): only those never change.
@@ -63,7 +56,7 @@ fn name(key: &str) -> String {
 
 /// The contents of `path` at commit `sha` of `repo`; None when it isn't there.
 pub fn file_at<R: Runtime>(app: &AppHandle<R>, auth: &Auth, repo: &str, sha: &str, path: &str) -> Result<Option<Vec<u8>>, String> {
-    if !valid_repo(repo) || !valid_sha(sha) || !valid_path(path) {
+    if !repo_ok(repo) || !valid_sha(sha) || !valid_path(path) {
         return Err("Bad request".into());
     }
     let dir = folder(app);
@@ -121,9 +114,10 @@ mod tests {
 
     #[test]
     fn takes_only_safe_requests() {
-        assert!(valid_repo("acme/web.site"));
-        assert!(!valid_repo("acme/../x"));
-        assert!(!valid_repo("acme"));
+        assert!(repo_ok("acme/web.site"));
+        assert!(!repo_ok("acme/../x"));
+        assert!(!repo_ok("acme/.."));
+        assert!(!repo_ok("acme"));
         assert!(valid_sha(&"a".repeat(40)));
         assert!(!valid_sha("main"));
         assert!(valid_path("src/a b.ts"));

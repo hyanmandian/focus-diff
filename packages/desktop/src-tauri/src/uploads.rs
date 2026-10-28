@@ -330,8 +330,7 @@ fn finish(session: &mut Session, page: &Page, policy: &Value) -> Result<String, 
 
 /// Uploads one picture or video for a comment on `owner/repo#number`. Blocking.
 pub fn upload<R: Runtime>(app: &AppHandle<R>, owner: &str, repo: &str, number: u64, name: &str, bytes: &[u8]) -> Result<Uploaded, Error> {
-    let name_ok = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
-    if !name_ok(owner) || !name_ok(repo) || owner.starts_with('.') || repo.starts_with('.') {
+    if !crate::github::name_ok(owner) || !crate::github::name_ok(repo) {
         return Err(failed("Bad request".into()));
     }
     let name = name.trim().chars().filter(|c| !c.is_control() && !"/\\".contains(*c)).take(200).collect::<String>();

@@ -70,9 +70,8 @@ fn lock(key: &str) -> Arc<Mutex<()>> {
 
 /// The pull request's head commit checked out under `cache/repos/owner/name`. Blocking.
 pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -> Result<PathBuf, String> {
-    let name_ok = |s: &str| !s.is_empty() && s != "." && s != ".." && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
     let (owner, name) = repo.split_once('/').ok_or("Bad repository")?;
-    if !name_ok(owner) || !name_ok(name) || head.len() != 40 || !head.chars().all(|c| c.is_ascii_hexdigit()) {
+    if !crate::github::repo_ok(repo) || head.len() != 40 || !head.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err("Bad pull request".into());
     }
     let dir = cache.join("repos").join(owner).join(name);

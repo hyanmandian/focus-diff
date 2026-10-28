@@ -32,8 +32,7 @@ pub struct Context {
 impl Context {
     fn check(&self) -> Result<(), String> {
         let login = |s: &str| s.len() <= 60 && s.chars().all(|c| c.is_ascii_alphanumeric() || "-[]".contains(c));
-        let repo = self.repo.split_once('/').is_some_and(|(o, n)| [o, n].iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))));
-        if repo && login(&self.author) && login(&self.me) && self.url.starts_with("https://github.com/") && self.title.len() <= 1000 {
+        if crate::github::repo_ok(&self.repo) && login(&self.author) && login(&self.me) && self.url.starts_with("https://github.com/") && self.title.len() <= 1000 {
             Ok(())
         } else {
             Err(tr!("That isn't a pull request", "Isso não é um pull request"))

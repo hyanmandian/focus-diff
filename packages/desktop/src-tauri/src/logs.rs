@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-use crate::github::{self, Auth};
+use crate::github::{self, name_ok, Auth};
 use crate::i18n::tr;
 
 /// The most of a log kept: its last megabyte.
@@ -88,10 +88,6 @@ pub fn tail(reader: impl Read, max: usize) -> std::io::Result<(Vec<u8>, bool)> {
     Ok((bytes, cut))
 }
 
-fn name_ok(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c)) && s != "." && s != ".."
-}
-
 pub fn job_log(auth: &Auth, logs: &Logs, owner: &str, repo: &str, job: u64, done: bool) -> Result<Log, String> {
     if !name_ok(owner) || !name_ok(repo) {
         return Err("Bad request".into());
@@ -159,13 +155,5 @@ mod tests {
         assert!(!trusted("https://evil.com/.blob.core.windows.net"));
         assert!(!trusted("https://user@x.blob.core.windows.net/"));
         assert!(!trusted("https://blob.core.windows.net.evil.com/"));
-    }
-
-    #[test]
-    fn checks_names() {
-        assert!(name_ok("focus-diff.pro"));
-        assert!(!name_ok(".."));
-        assert!(!name_ok("a/b"));
-        assert!(!name_ok(""));
     }
 }

@@ -24,6 +24,8 @@ export const shared: Dictionary["shared"] = {
   askReadingDiff: "Lendo o diff… isso pode levar um minuto.",
   actionConfirm: "{action} no #{number}?",
   pictureLabel: "Imagem",
+  diagram: "Diagrama: {first}",
+  diagramSource: "Código",
   zoomOut: "Diminuir zoom",
   zoomIn: "Aumentar zoom",
   actualSize: "Tamanho real",

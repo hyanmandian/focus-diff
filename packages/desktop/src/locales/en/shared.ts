@@ -23,6 +23,8 @@ export const shared = {
   askReadingDiff: "Reading the diff… this can take a minute.",
   actionConfirm: "{action} #{number}?",
   pictureLabel: "Picture",
+  diagram: "Diagram: {first}",
+  diagramSource: "Source",
   zoomOut: "Zoom out",
   zoomIn: "Zoom in",
   actualSize: "Actual size",

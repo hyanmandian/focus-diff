@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { useDiagrams } from "@/utils/diagrams/diagrams";
+import { setLanguage } from "@/utils/i18n/i18n";
 
 const mermaid = vi.hoisted(() => ({
   initialize: vi.fn<(config: { theme: string }) => void>(),
@@ -36,6 +37,15 @@ describe("useDiagrams", () => {
     expect(mermaid.initialize).toHaveBeenCalledWith(
       expect.objectContaining({ securityLevel: "strict", theme: "default" }),
     );
+  });
+
+  it("names it in the app's language", async () => {
+    setLanguage("pt-BR");
+    mermaid.render.mockResolvedValue({ svg: "<svg></svg>" });
+    render(<Page html={flowchart} />);
+    expect(await screen.findByRole("img", { name: "Diagrama: flowchart LR" })).toBeTruthy();
+    expect(screen.getByText("Código")).toBeTruthy();
+    setLanguage("en");
   });
 
   it("draws in the dark theme when the page is dark", async () => {

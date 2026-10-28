@@ -5,6 +5,8 @@
 import type mermaidApi from "mermaid";
 import { useEffect, type RefObject } from "react";
 
+import { i18n } from "@/utils/i18n/i18n";
+
 type Mermaid = typeof mermaidApi;
 
 let mermaid: Promise<Mermaid> | null = null;
@@ -29,12 +31,12 @@ async function draw(blocks: HTMLPreElement[]) {
       figure.className = "diagram";
       const picture = document.createElement("div");
       picture.setAttribute("role", "img");
-      picture.setAttribute("aria-label", `Diagram: ${source.split("\n")[0]!.trim()}`);
+      picture.setAttribute("aria-label", i18n()("shared.diagram", { first: source.split("\n")[0]!.trim() }));
       // Mermaid's own output in strict mode (DOMPurify-cleaned); the page's CSP blocks scripts too.
       picture.innerHTML = svg;
       const details = document.createElement("details");
       const summary = document.createElement("summary");
-      summary.textContent = "Source";
+      summary.textContent = i18n()("shared.diagramSource");
       details.append(summary, pre.cloneNode(true));
       figure.append(picture, details);
       pre.replaceWith(figure);

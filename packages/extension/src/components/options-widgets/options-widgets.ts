@@ -268,3 +268,27 @@ export const copyOrShow = async (text: string, fallback: HTMLElement, box: HTMLT
     return false;
   }
 };
+
+/** Radio buttons drawn as one control, a pill per choice. */
+export const segmented = <T extends string>(
+  name: string,
+  label: string,
+  choices: [T, string][],
+  value: T,
+  onPick: (value: T) => void,
+) => {
+  const group = h(
+    "div",
+    { className: "segmented", role: "radiogroup" },
+    ...choices.map(([choice, text]) => {
+      const id = `${name}-${choice}`;
+      const radio = h("input", { type: "radio", name, id, value: choice, checked: value === choice });
+      radio.addEventListener("change", () => {
+        onPick(choice);
+      });
+      return h("span", { className: "segment" }, radio, h("label", { htmlFor: id, textContent: text }));
+    }),
+  );
+  group.setAttribute("aria-label", label);
+  return group;
+};

@@ -1,5 +1,12 @@
 import { i18n } from "#i18n";
-import { notifySwitch, repoPickers, soundPicker, switchInput } from "@/components/options-widgets/options-widgets";
+import {
+  notifySwitch,
+  repoPickers,
+  segmented,
+  soundPicker,
+  switchInput,
+  toggleChip,
+} from "@/components/options-widgets/options-widgets";
 import { h } from "@/utils/dom/dom";
 import { $ } from "@/utils/extension-page/extension-page";
 import {
@@ -9,7 +16,6 @@ import {
   type EventKind,
   type Exception,
   type NotifySettings,
-  type When,
 } from "@/utils/inbox/inbox";
 import { keysOf, oneOf } from "@/utils/record/record";
 import { inboxItem } from "@/utils/storage/storage";
@@ -96,17 +102,12 @@ export const createNotifications = ({
 
   const skipChips = (kind: EventKind) => {
     const setting = settings.events[kind];
-    const chips = EXCEPTIONS[kind].map((exception) => {
-      const chip = h("button", { type: "button", className: "skip-chip", textContent: EXCEPTION_NAMES[exception] });
-      chip.setAttribute("aria-pressed", String(setting.except.includes(exception)));
-      chip.addEventListener("click", () => {
-        const on = !setting.except.includes(exception);
+    const chips = EXCEPTIONS[kind].map((exception) =>
+      toggleChip(EXCEPTION_NAMES[exception], setting.except.includes(exception), (on) => {
         setting.except = on ? [...setting.except, exception] : setting.except.filter((each) => each !== exception);
-        chip.setAttribute("aria-pressed", String(on));
         onChange();
-      });
-      return chip;
-    });
+      }),
+    );
     const group = h(
       "div",
       { className: "event-skip", role: "group" },
@@ -150,30 +151,20 @@ export const createNotifications = ({
   /** Right away, or kept for the reader's next review time: only offered while they have review times. */
   const whenChoice = (kind: EventKind) => {
     const setting = settings.events[kind];
-    const choices: [When, string][] = [
-      ["now", i18n.t("notifyWhenNow")],
-      ["review", i18n.t("notifyWhenReview")],
-    ];
-    const group = h(
-      "div",
-      { className: "event-when segmented", role: "radiogroup" },
-      ...choices.map(([when, label]) => {
-        const id = `event-${kind}-when-${when}`;
-        const radio = h("input", {
-          type: "radio",
-          name: `event-${kind}-when`,
-          id,
-          value: when,
-          checked: setting.when === when,
-        });
-        radio.addEventListener("change", () => {
-          setting.when = when;
-          onChange();
-        });
-        return h("span", { className: "segment" }, radio, h("label", { htmlFor: id, textContent: label }));
-      }),
+    const group = segmented(
+      `event-${kind}-when`,
+      i18n.t("notifyWhenFor", [fullName(kind)]),
+      [
+        ["now", i18n.t("notifyWhenNow")],
+        ["review", i18n.t("notifyWhenReview")],
+      ],
+      setting.when,
+      (when) => {
+        setting.when = when;
+        onChange();
+      },
     );
-    group.setAttribute("aria-label", i18n.t("notifyWhenFor", [fullName(kind)]));
+    group.classList.add("event-when");
     group.hidden = !reviewTime;
     return group;
   };
@@ -204,6 +195,10 @@ export const createNotifications = ({
     );
   };
 
+  const syncIntervalHint = () => {
+    $("#notify-on-hint").textContent = i18n.t("notifyOnHint", [settings.interval]);
+  };
+
   const syncQuiet = () => {
     $("#quiet-fields").hidden = !settings.quiet.on;
   };
@@ -212,7 +207,7 @@ export const createNotifications = ({
     pickers.clear();
     toggle.checked = settings.enabled;
     body.hidden = !settings.enabled;
-    $("#notify-on-hint").textContent = i18n.t("notifyOnHint", [settings.interval]);
+    syncIntervalHint();
     $("#repos-only").replaceChildren(
       picker("notify-repos", i18n.t("notifyReposOnly"), settings.repos, (repos) => {
         settings.repos = repos;
@@ -252,7 +247,7 @@ export const createNotifications = ({
 
   interval.addEventListener("change", () => {
     settings.interval = oneOf(INTERVALS, Number(interval.value), settings.interval);
-    $("#notify-on-hint").textContent = i18n.t("notifyOnHint", [settings.interval]);
+    syncIntervalHint();
     onChange();
   });
   quietOn.addEventListener("change", () => {

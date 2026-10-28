@@ -149,7 +149,11 @@ function ReviewSummary({
                 ? t("review.onDiffElsewhere", { count: onLines, elsewhere: elsewhere.length })
                 : t("review.onDiff", { count: onLines })
               : t("review.nothingWorth")}
-            {review.note ? ` ${review.note}.` : review.project ? ` ${t("review.readProject")}` : ""}
+            {review.note
+              ? ` ${review.note}${review.note.endsWith(".") ? "" : "."}`
+              : review.project
+                ? ` ${t("review.readProject")}`
+                : ""}
           </p>
           {elsewhere.map((f) => (
             <div key={`${f.path}:${f.line}:${f.body}`} className="rounded-lg border bg-background p-2">

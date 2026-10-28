@@ -730,6 +730,8 @@ describe("at a glance", () => {
       review: review({ findings: [finding("a", 1, true), finding("b", 2, true)] }),
     });
     expect(screen.getByText("2 comments on the diff.")).toBeTruthy();
+    again({ config: claude, review: review({ note: "Ask again in a moment." }) });
+    expect(screen.getByText("Nothing worth raising. Ask again in a moment.")).toBeTruthy();
     again({ config: claude, review: review({ project: true }) });
     expect(screen.getByText("Nothing worth raising. Read the whole project.")).toBeTruthy();
   });

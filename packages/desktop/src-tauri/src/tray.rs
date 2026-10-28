@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use tauri::image::Image;
 use tauri::tray::TrayIcon;
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
 use crate::i18n::tr;
 
@@ -166,7 +166,7 @@ fn drawn(focus: f32, dot: bool) -> Image<'static> {
 
 /// Sets a frame. On macOS replacing the image drops its template flag, which leaves it black on a
 /// dark menu bar, so it's set again each time.
-fn show<R: Runtime>(tray: &TrayIcon<R>, image: Image<'static>) {
+fn show(tray: &TrayIcon, image: Image<'static>) {
     let _ = tray.set_icon(Some(image));
     #[cfg(target_os = "macos")]
     let _ = tray.set_icon_as_template(true);
@@ -197,7 +197,7 @@ fn tooltip(count: u32) -> String {
 }
 
 /// The countdown beside the icon, as text (only the Mac's menu bar shows text beside an icon).
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(target_os = "macos")]
 fn title() -> Option<String> {
     COUNTDOWN.lock().unwrap().map(left)
 }
@@ -206,13 +206,13 @@ static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::
 
 /// Shows (or, with None, takes away) review time's countdown beside the icon. Windows has no text
 /// beside a tray icon, so there it's in the tooltip only.
-pub fn countdown<R: Runtime>(tray: &TrayIcon<R>, minutes: Option<i64>) {
+pub fn countdown(tray: &TrayIcon, minutes: Option<i64>) {
     *COUNTDOWN.lock().unwrap() = minutes;
     relocalize(tray);
 }
 
 /// Says the tooltip and countdown again, in the language in use.
-pub fn relocalize<R: Runtime>(tray: &TrayIcon<R>) {
+pub fn relocalize(tray: &TrayIcon) {
     #[cfg(target_os = "macos")]
     let _ = tray.set_title(title().as_deref());
     let _ = tray.set_tooltip(Some(&tooltip(LAST_COUNT.load(Ordering::SeqCst))));
@@ -223,15 +223,13 @@ static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// Shows how many pull requests wait on you, and, when something new came in, plays the focus
 /// animation: the glass zooms in three times, then rest with the unread dot.
-pub fn update<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>, count: u32, animate: bool) {
+pub fn update(app: &AppHandle, tray: &TrayIcon, count: u32, animate: bool) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let dot = count > 0;
     LAST_COUNT.store(count, Ordering::SeqCst);
-    let _ = tray.set_tooltip(Some(&tooltip(count)));
     // No number beside it: the dot says there's something, the panel says what (a count of every
     // unread pull request in every queue is noise in a menu bar). Only review time's countdown.
-    #[cfg(target_os = "macos")]
-    let _ = tray.set_title(title().as_deref());
+    relocalize(tray);
     let rest = frame(0.0, dot);
     if !animate {
         show(tray, rest);

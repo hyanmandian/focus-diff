@@ -2,11 +2,9 @@
 //! open-source software it's built on as its credits, in the system's own text colours (a plain
 //! string there draws black, unreadable in Dark Mode).
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
-use crate::i18n::tr;
-
-pub fn show<R: Runtime>(app: &AppHandle<R>) {
+pub fn show(app: &AppHandle) {
     let version = app.package_info().version.to_string();
     let _ = app.run_on_main_thread(move || {
         #[cfg(target_os = "macos")]
@@ -15,21 +13,6 @@ pub fn show<R: Runtime>(app: &AppHandle<R>) {
         let _ = version;
     });
 }
-
-/// The credits, a paragraph to a line; the website's address is made a link.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-fn credits() -> String {
-    [
-        tr!("Code review without opening GitHub.", "Code review sem abrir o GitHub."),
-        WEBSITE.to_string(),
-        tr!("Built with open-source software:", "Feito com software de código aberto:"),
-        "Tauri (MIT or Apache-2.0) · React (MIT)\n@pierre/diffs (Apache-2.0) · Mermaid (MIT)\nBase UI and shadcn/ui (MIT) · Lucide (ISC)".to_string(),
-    ]
-    .join("\n\n")
-}
-
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-const WEBSITE: &str = "focus-diff.com";
 
 #[cfg(target_os = "macos")]
 mod mac {
@@ -42,7 +25,20 @@ mod mac {
     };
     use objc2_foundation::{NSDictionary, NSMutableAttributedString, NSRange, NSString, NSURL};
 
-    use super::{credits, WEBSITE};
+    use crate::i18n::tr;
+
+    /// The credits, a paragraph to a line; the website's address is made a link.
+    fn credits() -> String {
+        [
+            tr!("Code review without opening GitHub.", "Code review sem abrir o GitHub."),
+            WEBSITE.to_string(),
+            tr!("Built with open-source software:", "Feito com software de código aberto:"),
+            "Tauri (MIT or Apache-2.0) · React (MIT)\n@pierre/diffs (Apache-2.0) · Mermaid (MIT)\nBase UI and shadcn/ui (MIT) · Lucide (ISC)".to_string(),
+        ]
+        .join("\n\n")
+    }
+
+    const WEBSITE: &str = "focus-diff.com";
 
     pub fn show(version: &str) {
         let Some(main) = MainThreadMarker::new() else { return };

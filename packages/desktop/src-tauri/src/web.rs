@@ -6,13 +6,13 @@
 //! https://github.com.
 
 use std::io::Read;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Emitter, Manager, Runtime, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::i18n::tr;
@@ -83,7 +83,7 @@ fn keychain() -> Result<keyring::Entry, String> {
 
 impl WebSession {
     pub fn get(&self) -> Option<Session> {
-        let mut kept = self.0.lock().unwrap();
+        let mut kept = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         if kept.is_none() {
             let read = keychain().ok().and_then(|k| k.get_password().ok()).and_then(|text| serde_json::from_str(&text).ok());
             *kept = Some(read);
@@ -98,7 +98,7 @@ impl WebSession {
     pub fn save(&self, session: Session) -> Result<(), String> {
         let text = serde_json::to_string(&session).map_err(|e| e.to_string())?;
         keychain()?.set_password(&text).map_err(|e| e.to_string())?;
-        *self.0.lock().unwrap() = Some(Some(session));
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(Some(session));
         Ok(())
     }
 
@@ -106,12 +106,12 @@ impl WebSession {
         if let Ok(entry) = keychain() {
             let _ = entry.delete_credential();
         }
-        *self.0.lock().unwrap() = Some(None);
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(None);
     }
 }
 
 /// Tells every window who's signed in on github.com now (or that nobody is).
-pub fn announce<R: Runtime>(app: &AppHandle<R>) {
+pub fn announce(app: &AppHandle) {
     let _ = app.emit("web-session", app.state::<WebSession>().login());
 }
 
@@ -129,7 +129,7 @@ fn may_load(url: &Url) -> bool {
         && (within("github.com") || within("octocaptcha.com") || within("arkoselabs.com") || host == "accounts.google.com" || host == "appleid.apple.com")
 }
 
-pub fn sign_in<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub fn sign_in(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(WINDOW) {
         window.show()?;
         return window.set_focus();
@@ -162,7 +162,7 @@ pub fn sign_in<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
 /// Looks at the window's cookies until github.com says the person is in, then keeps them and
 /// closes it. Off the main thread: reading cookies waits on it.
-fn wait_for_sign_in<R: Runtime>(app: &AppHandle<R>) {
+fn wait_for_sign_in(app: &AppHandle) {
     let started = Instant::now();
     let github: Url = format!("{HOST}/").parse().expect("a valid address");
     while started.elapsed() < PATIENCE {
@@ -181,7 +181,7 @@ fn wait_for_sign_in<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// Forgets the session here. (github.com still lists it under your sessions until it ends.)
-pub fn sign_out<R: Runtime>(app: &AppHandle<R>) {
+pub fn sign_out(app: &AppHandle) {
     app.state::<WebSession>().forget();
     if let Some(window) = app.get_webview_window(WINDOW) {
         let _ = window.close();
@@ -202,7 +202,7 @@ pub struct Answer {
 /// redirect (one to the sign-in page is how an ended session shows). `body`: its content type
 /// and bytes. What github.com sets in its answer is kept in `session`.
 pub fn request(session: &mut Session, method: &str, path: &str, headers: &[(&str, &str)], body: Option<(&str, &[u8])>) -> Result<Answer, String> {
-    if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
+    if !crate::github::path_ok(path) {
         return Err("Bad request".into());
     }
     let url = format!("{HOST}{path}");
@@ -237,7 +237,7 @@ pub fn request(session: &mut Session, method: &str, path: &str, headers: &[(&str
 /// Where a github.com address of an attachment really is (a signed address on GitHub's content
 /// host), asked as the person signed in on github.com: private repositories' attachments are
 /// only theirs to see. None without a session, or when it isn't one.
-pub fn signed_address<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<String> {
+pub fn signed_address(app: &AppHandle, url: &str) -> Option<String> {
     let path = url.strip_prefix(HOST)?;
     if !path.starts_with("/user-attachments/") {
         return None;
@@ -245,8 +245,7 @@ pub fn signed_address<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Strin
     let mut session = app.state::<WebSession>().get()?;
     let answer = request(&mut session, "GET", path, &[], None).ok()?;
     let location = answer.location.filter(|_| (300..400).contains(&answer.status))?;
-    let host = location.strip_prefix("https://")?.split(['/', '?', '#']).next()?.to_ascii_lowercase();
-    (host.ends_with(".githubusercontent.com") && !host.contains('@')).then_some(location)
+    crate::github::https_host(&location).is_some_and(|host| host.ends_with(".githubusercontent.com")).then_some(location)
 }
 
 #[cfg(test)]

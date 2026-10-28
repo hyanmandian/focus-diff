@@ -5,29 +5,16 @@
 //! Only GitHub's own hosts, https.
 
 use std::io::Read;
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde_json::Value;
 use tauri::http::{Request, Response, StatusCode};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager};
+
+use crate::disk;
 
 const KEEP: Duration = Duration::from_secs(7 * 24 * 3600);
 const LARGEST: u64 = 200 * 1024 * 1024;
-
-fn folder<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    let dir = app.path().app_cache_dir().ok()?.join("media");
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir)
-}
-
-fn name(key: &str) -> String {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in key.bytes() {
-        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
-    }
-    format!("{hash:016x}")
-}
 
 pub(crate) fn decode(s: &str) -> String {
     let bytes = s.as_bytes();
@@ -36,8 +23,9 @@ pub(crate) fn decode(s: &str) -> String {
     while i < bytes.len() {
         match bytes[i] {
             b'%' if i + 2 < bytes.len() => {
-                if let Ok(b) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                    out.push(b);
+                let hex = |b: u8| char::from(b).to_digit(16);
+                if let (Some(high), Some(low)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                    out.push((high * 16 + low) as u8);
                     i += 3;
                     continue;
                 }
@@ -53,9 +41,7 @@ pub(crate) fn decode(s: &str) -> String {
 
 /// GitHub's hosts only: github.com and its user content hosts.
 fn allowed(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://") else { return false };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("").to_ascii_lowercase();
-    !host.contains('@') && !host.contains(':') && (host == "github.com" || host.ends_with(".githubusercontent.com"))
+    crate::github::https_host(url).is_some_and(|host| host == "github.com" || host.ends_with(".githubusercontent.com"))
 }
 
 /// The cache key: private-user-images' addresses carry a token that changes each time; the path
@@ -64,13 +50,22 @@ fn key(url: &str) -> String {
     if url.contains("private-user-images.githubusercontent.com") { url.split('?').next().unwrap_or(url).to_string() } else { url.to_string() }
 }
 
+pub(crate) fn image_kind(bytes: &[u8]) -> Option<&'static str> {
+    match bytes {
+        [0x89, b'P', b'N', b'G', ..] => Some("image/png"),
+        [0xFF, 0xD8, ..] => Some("image/jpeg"),
+        [b'G', b'I', b'F', ..] => Some("image/gif"),
+        [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => Some("image/webp"),
+        _ => None,
+    }
+}
+
 fn kind(bytes: &[u8], url: &str) -> &'static str {
+    if let Some(image) = image_kind(bytes) {
+        return image;
+    }
     let path = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
     match bytes {
-        [0x89, b'P', b'N', b'G', ..] => "image/png",
-        [0xFF, 0xD8, ..] => "image/jpeg",
-        [b'G', b'I', b'F', ..] => "image/gif",
-        [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => "image/webp",
         _ if path.ends_with(".mp4") || path.ends_with(".m4v") => "video/mp4",
         _ if path.ends_with(".mov") => "video/quicktime",
         _ if path.ends_with(".webm") => "video/webm",
@@ -118,7 +113,7 @@ fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
     read_all(response)
 }
 
-fn fetch<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Vec<u8>> {
+fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
     if url.starts_with("https://github.com/") && url.contains("/releases/download/") {
         let token = app.state::<crate::github::Auth>().token_for_git().ok()?;
         return release_asset(&token, url);
@@ -131,10 +126,6 @@ fn fetch<R: Runtime>(app: &AppHandle<R>, url: &str) -> Option<Vec<u8>> {
     }
     // Everything else on GitHub's content hosts is reachable at its (signed) address.
     read_all(crate::github::agent().get(url).call().ok()?)
-}
-
-fn fresh(path: &Path) -> bool {
-    path.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a < KEEP)
 }
 
 fn empty(status: StatusCode) -> Response<Vec<u8>> {
@@ -163,22 +154,19 @@ fn serve_bytes(request: &Request<Vec<u8>>, bytes: Vec<u8>, content_type: &str) -
 }
 
 /// Answers one `media://` request. Blocking: run it off the main thread.
-pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let query = request.uri().query().unwrap_or("");
     let Some(url) = query.split('&').find_map(|p| p.strip_prefix("u=")).map(decode) else { return empty(StatusCode::BAD_REQUEST) };
     if !allowed(&url) {
         return empty(StatusCode::FORBIDDEN);
     }
-    let Some(dir) = folder(app) else { return empty(StatusCode::INTERNAL_SERVER_ERROR) };
-    let path = dir.join(name(&key(&url)));
+    let Some(dir) = disk::cache_folder(app, "media") else { return empty(StatusCode::INTERNAL_SERVER_ERROR) };
+    let path = dir.join(disk::name(&key(&url)));
     let bytes = match std::fs::read(&path) {
-        Ok(bytes) if fresh(&path) => bytes,
+        Ok(bytes) if disk::age(&path).is_some_and(|age| age < KEEP) => bytes,
         cached => match fetch(app, &url) {
             Some(bytes) => {
-                let temporary = path.with_extension("tmp");
-                if std::fs::write(&temporary, &bytes).is_ok() {
-                    let _ = std::fs::rename(&temporary, &path);
-                }
+                let _ = disk::write(&path, &bytes);
                 bytes
             }
             // Offline, or gone: an older copy beats none.
@@ -197,14 +185,9 @@ pub fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Resp
 }
 
 /// Removes what nobody's looked at for a month.
-pub fn sweep<R: Runtime>(app: &AppHandle<R>) {
-    let Some(dir) = folder(app) else { return };
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
-    for entry in entries.flatten() {
-        let old = entry.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|a| a > KEEP * 4);
-        if old {
-            let _ = std::fs::remove_file(entry.path());
-        }
+pub fn sweep(app: &AppHandle) {
+    if let Some(dir) = disk::cache_folder(app, "media") {
+        disk::sweep(&dir, KEEP * 4);
     }
 }
 
@@ -228,6 +211,12 @@ mod tests {
         assert_eq!(kind(b"\0\0\0\x18ftypmp42", "https://x/v"), "video/mp4");
         assert_eq!(kind(b"x", "https://x/a.MOV"), "video/quicktime");
         assert_eq!(decode("https%3A%2F%2Fgithub.com%2Fa%20b"), "https://github.com/a b");
+    }
+
+    #[test]
+    fn decodes_any_text() {
+        assert_eq!(decode("a%2"), "a%2");
+        assert_eq!(decode("%aé/%é"), "%aé/%é");
     }
 
     #[test]

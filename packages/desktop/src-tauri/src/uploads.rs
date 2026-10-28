@@ -19,7 +19,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager};
 
 use crate::i18n::tr;
 use crate::web::{self, HOST, Session, WebSession};
@@ -151,7 +151,7 @@ fn read_page(session: &mut Session, owner: &str, path: &str) -> Result<Option<Pa
     }
 }
 
-fn find_page<R: Runtime>(app: &AppHandle<R>, session: &mut Session, owner: &str, repo: &str, number: u64) -> Result<Page, Error> {
+fn find_page(app: &AppHandle, session: &mut Session, owner: &str, repo: &str, number: u64) -> Result<Page, Error> {
     let Some(mut page) = read_page(session, owner, &format!("/{owner}/{repo}/pull/{number}"))? else {
         let login = &session.login;
         return Err(failed(tr!(
@@ -276,8 +276,8 @@ fn policy(session: &mut Session, page: &Page, name: &str, size: usize, kind: &st
 /// Only to an https address of its storage, and with no cookies.
 fn store(policy: &Value, name: &str, kind: &str, bytes: &[u8]) -> Result<(), Error> {
     let url = policy["upload_url"].as_str().unwrap_or_default();
-    let host = url.strip_prefix("https://").and_then(|r| r.split(['/', '?', '#']).next()).unwrap_or("").to_ascii_lowercase();
-    if host.contains('@') || !(host.ends_with(".amazonaws.com") || host.ends_with(".githubusercontent.com") || host == "github.com") {
+    let storage = crate::github::https_host(url).is_some_and(|host| host.ends_with(".amazonaws.com") || host.ends_with(".githubusercontent.com") || host == "github.com");
+    if !storage {
         return Err(failed(tr!("GitHub gave an unexpected upload address", "O GitHub deu um endereço de envio inesperado")));
     }
     let form: Vec<(String, String)> = policy["form"]
@@ -329,9 +329,8 @@ fn finish(session: &mut Session, page: &Page, policy: &Value) -> Result<String, 
 }
 
 /// Uploads one picture or video for a comment on `owner/repo#number`. Blocking.
-pub fn upload<R: Runtime>(app: &AppHandle<R>, owner: &str, repo: &str, number: u64, name: &str, bytes: &[u8]) -> Result<Uploaded, Error> {
-    let name_ok = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c));
-    if !name_ok(owner) || !name_ok(repo) || owner.starts_with('.') || repo.starts_with('.') {
+pub fn upload(app: &AppHandle, owner: &str, repo: &str, number: u64, name: &str, bytes: &[u8]) -> Result<Uploaded, Error> {
+    if !crate::github::name_ok(owner) || !crate::github::name_ok(repo) {
         return Err(failed("Bad request".into()));
     }
     let name = name.trim().chars().filter(|c| !c.is_control() && !"/\\".contains(*c)).take(200).collect::<String>();

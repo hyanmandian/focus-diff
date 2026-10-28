@@ -19,9 +19,6 @@
   },
   "packageManager": "npm@11.19.0",
   "overrides": {
-    "fx-runner": {
-      "shell-quote": "1.11.0"
-    },
     "@focus-diff/desktop": {
       "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
     }

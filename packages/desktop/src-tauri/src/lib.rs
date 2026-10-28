@@ -13,6 +13,7 @@ mod checkout;
 mod config;
 #[cfg(any(debug_assertions, feature = "devctl"))]
 mod devctl;
+mod disk;
 mod drafts;
 mod engine;
 #[cfg(target_os = "macos")]
@@ -47,7 +48,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Emitter, Manager, Rect, Runtime, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+    AppHandle, Emitter, Manager, Rect, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri::utils::config::WindowEffectsConfig;
 // The window materials: the Mac's and Windows' (Linux has none to ask for).
@@ -68,13 +69,13 @@ const PANEL_RADIUS: f64 = 18.0;
 /// and its memory given back, and the next click makes a new one.
 const PANEL_KEEP: Duration = Duration::from_secs(3 * 60);
 
-pub(crate) struct Tray<R: Runtime>(pub(crate) Mutex<Option<TrayIcon<R>>>);
+pub(crate) struct Tray(pub(crate) Mutex<Option<TrayIcon>>);
 
 // MARK: Files
 
 /// The files the pages may read and write, by name: the person's setup. (What's been seen is
 /// watch.rs's own.)
-fn file_path<R: Runtime>(app: &AppHandle<R>, name: &str) -> Result<PathBuf, String> {
+fn file_path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     let file = match name {
         "config" => "config.json",
         "auth" => "auth.json",
@@ -100,10 +101,7 @@ fn read_file(app: AppHandle, name: &str) -> Result<Option<String>, String> {
 /// a file behind.
 #[tauri::command]
 fn write_file(app: AppHandle, name: &str, contents: &str) -> Result<(), String> {
-    let path = file_path(&app, name)?;
-    let temporary = path.with_extension("json.tmp");
-    fs::write(&temporary, contents).map_err(|e| e.to_string())?;
-    fs::rename(&temporary, &path).map_err(|e| e.to_string())?;
+    disk::write(&file_path(&app, name)?, contents).map_err(|e| e.to_string())?;
     match name {
         "config" => {
             menu::apply_theme(&app, contents);
@@ -208,7 +206,7 @@ fn queue_viewed(outbox: State<'_, outbox::Outbox>, pull: String, path: String, v
 }
 
 #[tauri::command]
-fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> std::collections::HashMap<String, bool> {
+fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> HashMap<String, bool> {
     outbox.pending(&pull)
 }
 
@@ -363,7 +361,7 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
                 Err(None) => (None, Some(i18n::tr!("Read the diff only: the project's code is still downloading. Ask again in a moment to have it read too.", "Leu só o diff: o código do projeto ainda está baixando. Pergunte de novo daqui a pouco para ele ser lido também."))),
             },
         };
-        let stopped = cancel.as_ref().is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed));
+        let stopped = cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed));
         let text = if stopped {
             Err(i18n::tr!("Stopped", "Interrompido"))
         } else {
@@ -388,32 +386,32 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
 }
 
 /// How long a question waits for the project's code before answering from the diff.
-const PROJECT_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+const PROJECT_WAIT: Duration = Duration::from_secs(20);
 
 /// The pull request's code checked out, if that's done within PROJECT_WAIT: Err(Some) when it
 /// failed, Err(None) when it's still going (it carries on, for the next question).
-fn project_soon(app: &AppHandle, p: Project) -> Result<std::path::PathBuf, Option<String>> {
-    let token = app.state::<github::Auth>().token_for_git().map_err(Some)?;
-    let cache = app.path().app_cache_dir().map_err(|e| Some(e.to_string()))?;
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = tx.send(checkout::prepare(&cache, &token, &p.repo, p.number, &p.head));
-    });
-    match rx.recv_timeout(PROJECT_WAIT) {
+fn project_soon(app: &AppHandle, p: Project) -> Result<PathBuf, Option<String>> {
+    match check_out(app, p)?.recv_timeout(PROJECT_WAIT) {
         Ok(result) => result.map_err(Some),
         Err(_) => Err(None),
     }
+}
+
+fn check_out(app: &AppHandle, p: Project) -> Result<std::sync::mpsc::Receiver<Result<PathBuf, String>>, String> {
+    let token = app.state::<github::Auth>().token_for_git()?;
+    let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    thread::spawn(move || {
+        let _ = tx.send(checkout::prepare(&cache, &token, &p.repo, p.number, &p.head));
+    });
+    Ok(rx)
 }
 
 /// Gets a pull request's code ready for questions about it, in the background (when its review
 /// opens, with the AI set to read the project).
 #[tauri::command]
 fn ai_prepare(app: AppHandle, project: Project) {
-    let Ok(token) = app.state::<github::Auth>().token_for_git() else { return };
-    let Ok(cache) = app.path().app_cache_dir() else { return };
-    std::thread::spawn(move || {
-        let _ = checkout::prepare(&cache, &token, &project.repo, project.number, &project.head);
-    });
+    let _ = check_out(&app, project);
 }
 
 /// Stops a question (the window's Stop button).
@@ -435,7 +433,7 @@ async fn run_action(app: AppHandle, action: String, name: String, step: usize, p
 
 // MARK: System
 
-pub(crate) fn show_notification<R: Runtime>(app: &AppHandle<R>, title: String, body: String, sound: bool) {
+pub(crate) fn show_notification(app: &AppHandle, title: String, body: String, sound: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[notify] {title} | {} | sound {sound}", body.replace('\n', " / "));
     }
@@ -452,35 +450,35 @@ pub(crate) fn show_notification<R: Runtime>(app: &AppHandle<R>, title: String, b
     }
 }
 
-pub(crate) fn update_tray<R: Runtime>(app: &AppHandle<R>, count: u32, animate: bool) {
+pub(crate) fn update_tray(app: &AppHandle, count: u32, animate: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] {count} waiting, animate {animate}");
     }
-    if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
+    if let Some(icon) = app.state::<Tray>().0.lock().unwrap().as_ref() {
         tray::update(app, icon, count, animate);
     }
 }
 
 /// Review time's minutes left beside the tray icon, or none.
-pub(crate) fn update_countdown<R: Runtime>(app: &AppHandle<R>, minutes: Option<i64>) {
+pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] countdown {minutes:?}");
     }
-    if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
+    if let Some(icon) = app.state::<Tray>().0.lock().unwrap().as_ref() {
         tray::countdown(icon, minutes);
     }
 }
 
 /// The language picked in Settings (or the Mac's), for what Rust says: the menu bar, the tray and
 /// the windows' titles say it again when it changes; notifications use it from then on.
-fn apply_language<R: Runtime>(app: &AppHandle<R>, config: &str) {
+fn apply_language(app: &AppHandle, config: &str) {
     let before = i18n::current();
     i18n::apply_config(config);
     if i18n::current() == before {
         return;
     }
     menu::relocalize(app);
-    if let Some(icon) = app.state::<Tray<R>>().0.lock().unwrap().as_ref() {
+    if let Some(icon) = app.state::<Tray>().0.lock().unwrap().as_ref() {
         tray::relocalize(icon);
     }
     if let Some(window) = app.get_webview_window(SETTINGS) {
@@ -548,8 +546,8 @@ fn open_setup(app: AppHandle) -> Result<(), String> {
 
 /// Where the tray icon is, to show the panel by it. Linux doesn't say where its tray icon is, so
 /// there it's the top right corner of the main screen, where GNOME and KDE put theirs.
-pub(crate) fn tray_rect<R: Runtime>(app: &AppHandle<R>) -> Rect {
-    let rect = app.try_state::<Tray<R>>().and_then(|tray| tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten()));
+pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
+    let rect = app.try_state::<Tray>().and_then(|tray| tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten()));
     rect.unwrap_or_else(|| {
         let (x, y) = app.primary_monitor().ok().flatten().map_or((0, 0), |m| (m.position().x + m.size().width as i32, m.position().y));
         Rect { position: tauri::PhysicalPosition::new(x, y).into(), size: tauri::PhysicalSize::new(1, 1).into() }
@@ -618,7 +616,7 @@ fn spare_ready(app: AppHandle, window: tauri::WebviewWindow) {
 
 static REVIEW_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-fn review_builder<'a, R: Runtime>(app: &'a AppHandle<R>, label: &str, url: String, title: &str) -> WebviewWindowBuilder<'a, R, AppHandle<R>> {
+fn review_builder<'a>(app: &'a AppHandle, label: &str, url: String, title: &str) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
     let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into())).title(title).min_inner_size(720.0, 480.0);
     #[cfg(target_os = "macos")]
     let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
@@ -626,7 +624,7 @@ fn review_builder<'a, R: Runtime>(app: &'a AppHandle<R>, label: &str, url: Strin
 }
 
 /// Fills the main screen's usable area (not full screen).
-fn fill_screen<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>) {
+fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
     if let Ok(Some(monitor)) = app.primary_monitor() {
         let area = monitor.work_area();
         let _ = window.set_position(area.position);
@@ -635,7 +633,7 @@ fn fill_screen<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>)
 }
 
 /// Makes the spare review window, hidden, if there isn't one. Main thread.
-fn prepare_spare<R: Runtime>(app: &AppHandle<R>) {
+fn prepare_spare(app: &AppHandle) {
     let reviews = app.state::<Reviews>();
     if reviews.spare.lock().unwrap().is_some() {
         return;
@@ -649,7 +647,7 @@ fn prepare_spare<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// Soon, off the click that asked: making a web view takes the main thread for a moment.
-fn prepare_spare_soon<R: Runtime>(app: &AppHandle<R>) {
+fn prepare_spare_soon(app: &AppHandle) {
     let app = app.clone();
     thread::spawn(move || {
         thread::sleep(Duration::from_millis(400));
@@ -658,7 +656,7 @@ fn prepare_spare_soon<R: Runtime>(app: &AppHandle<R>) {
     });
 }
 
-fn drop_spare<R: Runtime>(app: &AppHandle<R>) {
+fn drop_spare(app: &AppHandle) {
     if let Some(label) = app.state::<Reviews>().spare.lock().unwrap().take()
         && let Some(window) = app.get_webview_window(&label) {
             let _ = window.destroy();
@@ -667,7 +665,7 @@ fn drop_spare<R: Runtime>(app: &AppHandle<R>) {
 
 /// In the Dock and the app switcher while a window of its own is open (a review, settings, setup);
 /// only in the menu bar otherwise.
-pub(crate) fn update_presence<R: Runtime>(app: &AppHandle<R>) {
+pub(crate) fn update_presence(app: &AppHandle) {
     #[cfg(not(target_os = "macos"))]
     let _ = app;
     #[cfg(target_os = "macos")]
@@ -707,11 +705,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     let reviews = app.state::<Reviews>();
     let existing = reviews.open.lock().unwrap().get(&id).cloned();
     if let Some(window) = existing.and_then(|label| app.get_webview_window(&label)) {
-        let _ = window.unminimize();
-        window.show().map_err(|e| e.to_string())?;
-        update_presence(&app);
-        activate();
-        return window.set_focus().map_err(|e| e.to_string());
+        return bring_back(&app, &window);
     }
     let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone(), queue: queue.clone() };
     // Only a spare that's listening; one still loading stays for the next click.
@@ -749,6 +743,13 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     window.set_focus().map_err(|e| e.to_string())
 }
 
+fn bring_back(app: &AppHandle, window: &tauri::WebviewWindow) -> Result<(), String> {
+    let _ = window.unminimize();
+    window.show().map_err(|e| e.to_string())?;
+    update_presence(app);
+    activate();
+    window.set_focus().map_err(|e| e.to_string())
+}
 
 /// A review window moving on to the next pull request of its queue: the same window shows it, so
 /// going through a queue leaves one window, not one per pull request. One already open in a window
@@ -762,10 +763,7 @@ fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo:
     let reviews = app.state::<Reviews>();
     let elsewhere = reviews.open.lock().unwrap().get(&id).cloned().filter(|label| label != window.label());
     if let Some(other) = elsewhere.and_then(|label| app.get_webview_window(&label)) {
-        let _ = other.unminimize();
-        other.show().map_err(|e| e.to_string())?;
-        activate();
-        return other.set_focus().map_err(|e| e.to_string());
+        return bring_back(&app, &other);
     }
     {
         let mut open = reviews.open.lock().unwrap();
@@ -789,7 +787,7 @@ struct Card {
 
 /// Shows a review window growing out of the card that was clicked to its full size, the way a Mac
 /// window zooms from where it came from; with Reduce Motion it only fades in. Main thread.
-fn show_growing<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>, from: Option<Card>) -> tauri::Result<()> {
+fn show_growing(app: &AppHandle, window: &tauri::WebviewWindow, from: Option<Card>) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     let _ = (app, from);
     #[cfg(target_os = "macos")]
@@ -826,13 +824,13 @@ thread_local! {
 /// over it (drawn by then, where it'll stay) and takes the stand-in away. Resizing the review window
 /// itself would lay its page out again every frame. With Reduce Motion, only the fade.
 #[cfg(target_os = "macos")]
-fn grow<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>, from: objc2_foundation::NSRect, to: objc2_foundation::NSRect) {
+fn grow(app: &AppHandle, window: &tauri::WebviewWindow, from: objc2_foundation::NSRect, to: objc2_foundation::NSRect) {
     use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext, NSAutoresizingMaskOptions, NSBackingStoreType, NSBox, NSBoxType, NSColor, NSTitlePosition, NSWindow, NSWindowStyleMask, NSWorkspace};
     use objc2_quartz_core::CAMediaTimingFunction;
     const GROW: f64 = 0.34;
     const FADE: f64 = 0.14;
 
-    let fade_in = |window: &tauri::WebviewWindow<R>, duration: f64| {
+    let fade_in = |window: &tauri::WebviewWindow, duration: f64| {
         with_ns_window(window, |w| {
             NSAnimationContext::beginGrouping();
             NSAnimationContext::currentContext().setDuration(duration);
@@ -922,7 +920,7 @@ fn quit(app: AppHandle) {
 
 // MARK: Windows
 
-pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub(crate) fn show_settings(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETTINGS) {
         window.show()?;
         return window.set_focus();
@@ -956,7 +954,7 @@ pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()>
 }
 
 /// First run (or "Run setup again"): connect GitHub, pick queues, notifications, AI.
-pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub(crate) fn show_setup(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETUP) {
         window.show()?;
         return window.set_focus();
@@ -973,7 +971,7 @@ pub(crate) fn show_setup<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
 /// The panel floats under the tray icon (over it, when the taskbar is at the bottom of the screen),
 /// its leading edge on the icon's as a menu bar extra's menu is, kept inside the screen it's on.
-fn place_panel<R: Runtime>(panel: &tauri::WebviewWindow<R>, rect: &Rect) -> tauri::Result<()> {
+fn place_panel(panel: &tauri::WebviewWindow, rect: &Rect) -> tauri::Result<()> {
     // In points: with screens of different scales (a 1x display beside a Retina one) each screen's
     // "physical" coordinates use its own scale, so mixing them puts the panel off the icon. The
     // icon's rect comes scaled by its own screen's factor; the screen it's on is the one that
@@ -1015,7 +1013,7 @@ fn place_panel<R: Runtime>(panel: &tauri::WebviewWindow<R>, rect: &Rect) -> taur
 /// Bumped whenever the panel shows or hides, so only the latest hide closes it.
 static PANEL_GENERATION: AtomicU64 = AtomicU64::new(0);
 
-pub(crate) fn hide<R: Runtime>(app: &AppHandle<R>) {
+pub(crate) fn hide(app: &AppHandle) {
     let Some(panel) = app.get_webview_window(PANEL) else { return };
     let _ = panel.hide();
     let generation = PANEL_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
@@ -1039,7 +1037,7 @@ pub(crate) fn hide<R: Runtime>(app: &AppHandle<R>) {
     });
 }
 
-pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, rect: &Rect) -> tauri::Result<()> {
+pub(crate) fn toggle_panel(app: &AppHandle, rect: &Rect) -> tauri::Result<()> {
     let panel = match app.get_webview_window(PANEL) {
         Some(panel) if panel.is_visible()? => {
             hide(app);
@@ -1077,7 +1075,7 @@ fn activate() {
 /// The page draws the window's toolbar under a see-through title bar. An empty native toolbar
 /// makes that bar the toolbar's height, so macOS itself centres the window buttons in it (as in
 /// Finder or Mail) rather than leaving them up at the top; the page's bar is TOOLBAR tall.
-fn native_toolbar<R: Runtime>(window: &tauri::WebviewWindow<R>) {
+fn native_toolbar(window: &tauri::WebviewWindow) {
     #[cfg(target_os = "macos")]
     {
         let window = window.clone();
@@ -1097,7 +1095,7 @@ fn native_toolbar<R: Runtime>(window: &tauri::WebviewWindow<R>) {
 /// macOS can turn an activation down, or finish it only after the panel was shown, leaving the
 /// panel up but not taking the keyboard or the pointer's hover until it's clicked. Asked once more,
 /// shortly after, if that's what happened.
-fn keep_focus<R: Runtime>(app: &AppHandle<R>, panel: &tauri::WebviewWindow<R>) {
+fn keep_focus(app: &AppHandle, panel: &tauri::WebviewWindow) {
     let (app, panel) = (app.clone(), panel.clone());
     thread::spawn(move || {
         for wait in [60, 200] {
@@ -1117,7 +1115,7 @@ fn keep_focus<R: Runtime>(app: &AppHandle<R>, panel: &tauri::WebviewWindow<R>) {
 
 /// The panel's NSWindow, for what Tauri doesn't do (floating.rs). On the main thread only.
 #[cfg(target_os = "macos")]
-fn with_ns_window<R: Runtime>(window: &tauri::WebviewWindow<R>, f: impl FnOnce(&objc2_app_kit::NSWindow)) {
+fn with_ns_window(window: &tauri::WebviewWindow, f: impl FnOnce(&objc2_app_kit::NSWindow)) {
     if objc2::MainThreadMarker::new().is_none() {
         return;
     }
@@ -1140,10 +1138,10 @@ pub(crate) fn is_active() -> bool {
 /// The shadow of a see-through window follows what was drawn when it was worked out; worked out
 /// before the page drew its rounded corners, it's a rectangle that squares them off. Worked out
 /// again now and once the page has drawn.
-fn reshadow<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>) {
+fn reshadow(app: &AppHandle, window: &tauri::WebviewWindow) {
     #[cfg(target_os = "macos")]
     {
-        let now = |window: &tauri::WebviewWindow<R>| {
+        let now = |window: &tauri::WebviewWindow| {
             if let Ok(pointer) = window.ns_window() {
                 // SAFETY: Tauri hands out its live NSWindow; this runs on the main thread.
                 unsafe { (*(pointer as *const objc2_app_kit::NSWindow)).invalidateShadow() };
@@ -1160,7 +1158,7 @@ fn reshadow<R: Runtime>(app: &AppHandle<R>, window: &tauri::WebviewWindow<R>) {
     let _ = (app, window);
 }
 
-fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewWindow<R>> {
+fn create_panel(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     let builder = WebviewWindowBuilder::new(app, PANEL, WebviewUrl::App("index.html".into()))
         .title("Focus Diff")
         .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
@@ -1194,7 +1192,7 @@ fn create_panel<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::WebviewW
     Ok(panel)
 }
 
-fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
+fn create_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     tray::prepare();
     let builder = TrayIconBuilder::with_id("main")
         .icon(tray::frame(0.0, false))
@@ -1225,7 +1223,7 @@ fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
 
 /// The tray icon's menu where it has one (create_tray).
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
+pub(crate) fn tray_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder};
     MenuBuilder::new(app)
         .item(&MenuItemBuilder::with_id("open", i18n::tr!("Open Focus Diff", "Abrir o Focus Diff")).build(app)?)
@@ -1236,7 +1234,7 @@ pub(crate) fn tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::
 }
 
 /// Before the rename to Focus Diff the app's folder was com.focusdiff.pro: its files move over once.
-fn move_old_files<R: Runtime>(app: &AppHandle<R>) {
+fn move_old_files(app: &AppHandle) {
     let Ok(dir) = app.path().app_config_dir() else { return };
     let old = dir.with_file_name("com.focusdiff.pro");
     // A folder without state.json hasn't been used yet (at most a default config.json was written).
@@ -1250,26 +1248,35 @@ fn move_old_files<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+fn answer(scheme: &str, serve: impl FnOnce() -> tauri::http::Response<Vec<u8>>) -> tauri::http::Response<Vec<u8>> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(serve)).unwrap_or_else(|_| {
+        eprintln!("[{scheme}] the request failed");
+        tauri::http::Response::builder().status(tauri::http::StatusCode::INTERNAL_SERVER_ERROR).body(vec![]).unwrap_or_default()
+    })
+}
+
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_notification::init())
+    let builder = tauri::Builder::default();
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .on_menu_event(menu::on_event)
         .register_asynchronous_uri_scheme_protocol("avatar", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
-            thread::spawn(move || responder.respond(avatars::serve(&app, &request)));
+            thread::spawn(move || responder.respond(answer("avatar", || avatars::serve(&app, &request))));
         })
         .register_asynchronous_uri_scheme_protocol("media", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
-            thread::spawn(move || responder.respond(media::serve(&app, &request)));
+            thread::spawn(move || responder.respond(answer("media", || media::serve(&app, &request))));
         })
         .manage(update::Pending::default())
         .manage(github::Auth::default())
         .manage(logs::Logs::default())
         .manage(web::WebSession::default())
-        .manage(Tray::<tauri::Wry>(Mutex::new(None)))
+        .manage(Tray(Mutex::new(None)))
         .manage(link::Waiting::default())
         .manage(Reviews::default())
         .invoke_handler(tauri::generate_handler![
@@ -1367,7 +1374,7 @@ pub fn run() {
             }
 
             let icon = create_tray(&handle)?;
-            *app.state::<Tray<tauri::Wry>>().0.lock().unwrap() = Some(icon);
+            *app.state::<Tray>().0.lock().unwrap() = Some(icon);
             app.manage(watch::Watch::start(&handle));
             app.manage(outbox::Outbox::start(&handle));
             app.manage(drafts::Drafts::start(&handle));
@@ -1403,15 +1410,10 @@ pub fn run() {
                 let app = window.app_handle();
                 let label = window.label().to_string();
                 menu::forget(app, &label);
-                app.state::<Reviews>().open.lock().unwrap().retain(|_, l| *l != label);
-                app.state::<Reviews>().ready.lock().unwrap().remove(&label);
-                {
-                    let reviews = app.state::<Reviews>();
-                    let mut spare = reviews.spare.lock().unwrap();
-                    if spare.as_deref() == Some(label.as_str()) {
-                        *spare = None;
-                    }
-                }
+                let reviews = app.state::<Reviews>();
+                reviews.open.lock().unwrap().retain(|_, l| *l != label);
+                reviews.ready.lock().unwrap().remove(&label);
+                reviews.spare.lock().unwrap().take_if(|spare| *spare == label);
                 update_presence(app);
             }
         })
@@ -1437,7 +1439,14 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::app_link;
+    use super::{answer, app_link};
+
+    #[test]
+    fn a_failing_request_is_answered() {
+        let response = answer("media", || panic!("bad request"));
+        assert_eq!(response.status(), tauri::http::StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(answer("media", || tauri::http::Response::new(vec![1])).body(), &[1]);
+    }
 
     #[test]
     fn fix_in_cursor_opens_cursor() {

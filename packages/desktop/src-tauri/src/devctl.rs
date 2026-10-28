@@ -48,7 +48,7 @@ fn run(app: &AppHandle, command: &str) {
         (Some("open"), Some("panel"), _) => {
             // Under the tray icon when it can say where that is; the top right corner otherwise.
             let rect = app
-                .state::<crate::Tray<tauri::Wry>>()
+                .state::<crate::Tray>()
                 .0
                 .lock()
                 .unwrap()
@@ -117,7 +117,7 @@ fn run(app: &AppHandle, command: &str) {
             .map_err(|e| e.to_string())
         }
         (Some("tray"), _, _) => {
-            let rect = app.state::<crate::Tray<tauri::Wry>>().0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
+            let rect = app.state::<crate::Tray>().0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
             eprintln!("[devctl] tray: {rect:?}");
             Ok(())
         }

@@ -2,20 +2,20 @@
 //! from a few fading tones (the way Focus Diff's extension makes its sounds), so there's no audio
 //! file to ship. AppKit plays it on macOS; elsewhere the notification's own sound stands in.
 
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle};
 
 /// Whether this system plays the sound here; if not, the notification brings the system's own.
 pub const OWN: bool = cfg!(target_os = "macos");
 
 // Only the Mac plays its own sound (OWN); the bowl stays tested everywhere.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 const RATE: u32 = 22_050;
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 const SECONDS: f32 = 2.6;
 
 /// The bowl as a WAV file: 16-bit mono. Each partial is (ratio to the note, gain, seconds to fade
 /// out, Hz off the ratio); the twin a little off the note beats against it, as a real bowl shimmers.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 pub fn bowl() -> Vec<u8> {
     const NOTE: f32 = 432.0;
     const PARTIALS: [(f32, f32, f32, f32); 4] = [(1.0, 0.5, 2.4, 0.0), (1.0, 0.28, 2.6, 1.3), (2.76, 0.2, 1.3, 0.0), (5.4, 0.07, 0.6, 0.0)];
@@ -66,7 +66,7 @@ thread_local! {
 }
 
 /// Plays the bowl (macOS); elsewhere nothing, as the notification brings a sound of its own.
-pub fn play<R: Runtime>(app: &AppHandle<R>) {
+pub fn play(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.run_on_main_thread(|| {
         use objc2::AllocAnyThread;

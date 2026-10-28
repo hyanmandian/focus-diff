@@ -254,3 +254,17 @@ export const notifySwitch = ({
   allowButton.addEventListener("click", () => void askAgain());
   return { sync };
 };
+
+export const copyOrShow = async (text: string, fallback: HTMLElement, box: HTMLTextAreaElement): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    fallback.hidden = true;
+    return true;
+  } catch {
+    box.value = text;
+    fallback.hidden = false;
+    box.focus();
+    box.select();
+    return false;
+  }
+};

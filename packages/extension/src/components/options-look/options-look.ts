@@ -1,5 +1,6 @@
 import { i18n } from "#i18n";
 import type { Demo } from "@/components/demo/demo";
+import { copyOrShow } from "@/components/options-widgets/options-widgets";
 import {
   appearanceCss,
   createStyler,
@@ -35,6 +36,8 @@ const COLOR_NAMES: Record<ThemeColor, string> = {
 };
 
 /** A computed `rgb()` or `rgba()` colour as hex, with its alpha when it has one. */
+const themeLabel = (name: string) => name.trim() || i18n.t("untitledTheme");
+
 const hexOf = (color: string): string | null => {
   const [r, g, b, a = 1] = color.match(/[\d.]+/gu)?.map(Number) ?? [];
   if (r === undefined || g === undefined || b === undefined) return null;
@@ -179,7 +182,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     select.replaceChildren(
       new Option(i18n.t("themeProvider"), PROVIDER_THEME),
       ...PROVIDERS.map((provider) => new Option(provider.name, provider.id)),
-      ...appearance.themes.map((theme) => new Option(theme.name.trim() || i18n.t("untitledTheme"), theme.id)),
+      ...appearance.themes.map((theme) => new Option(themeLabel(theme.name), theme.id)),
     );
     select.value = appearance.theme;
   };
@@ -205,7 +208,7 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
       name.removeAttribute("aria-invalid");
     }
     const option = select.selectedOptions[0];
-    if (option) option.textContent = name.value.trim() || i18n.t("untitledTheme");
+    if (option) option.textContent = themeLabel(name.value);
     sync();
   });
 
@@ -229,25 +232,15 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     appearance = { theme: PROVIDER_THEME, themes: appearance.themes.filter((each) => each !== theme) };
     render();
     onChange();
-    notify(i18n.t("themeDeleted", [theme.name.trim() || i18n.t("untitledTheme")]));
+    notify(i18n.t("themeDeleted", [themeLabel(theme.name)]));
     select.focus();
   });
 
   const copyTheme = async () => {
     const theme = current();
     if (!theme) return;
-    const json = shareTheme(theme);
-    try {
-      await navigator.clipboard.writeText(json);
-      $("#theme-export-fallback").hidden = true;
-      notify(i18n.t("themeCopied", [theme.name.trim() || i18n.t("untitledTheme")]));
-    } catch {
-      const fallback = $<HTMLTextAreaElement>("#theme-export");
-      fallback.value = json;
-      $("#theme-export-fallback").hidden = false;
-      fallback.focus();
-      fallback.select();
-    }
+    if (await copyOrShow(shareTheme(theme), $("#theme-export-fallback"), $<HTMLTextAreaElement>("#theme-export")))
+      notify(i18n.t("themeCopied", [themeLabel(theme.name)]));
   };
   $("#theme-copy").addEventListener("click", () => void copyTheme());
 

@@ -7,6 +7,7 @@ import { createLook } from "@/components/options-look/options-look";
 import { createNotifications } from "@/components/options-notifications/options-notifications";
 import { createPopupSettings } from "@/components/options-popup-settings/options-popup-settings";
 import { createReviewTime } from "@/components/options-review-time/options-review-time";
+import { copyOrShow } from "@/components/options-widgets/options-widgets";
 import { toaster } from "@/components/toast/toast";
 import { normalizeAppearance } from "@/utils/appearance/appearance";
 import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
@@ -406,17 +407,9 @@ export const startOptions = (): void => {
 
   const copyFilters = async () => {
     const json = JSON.stringify(normalize(config), null, 2);
-    try {
-      await navigator.clipboard.writeText(json);
-      $("#export-fallback").hidden = true;
+    if (await copyOrShow(json, $("#export-fallback"), $<HTMLTextAreaElement>("#export-json"))) {
       const count = filterCount(config);
       notify(i18n.t("copied", count, [count]));
-    } catch {
-      const fallback = $<HTMLTextAreaElement>("#export-json");
-      fallback.value = json;
-      $("#export-fallback").hidden = false;
-      fallback.focus();
-      fallback.select();
     }
   };
   $("#export").addEventListener("click", () => void copyFilters());
@@ -468,37 +461,33 @@ export const startOptions = (): void => {
     filtersChanged();
   };
 
+  const follow = <T>(item: { watch: (callback: (value: T) => void) => unknown }, apply: (value: T) => void) => {
+    item.watch((value) => {
+      if (saving) return;
+      if (dirty) {
+        say(i18n.t("statusChangedElsewhere"), "warn");
+        return;
+      }
+      apply(value);
+    });
+  };
+
   // Another tab, the welcome page or another device changed the filters: follow along unless there are unsaved edits here.
-  configItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(configItem, (value) => {
     config = normalize(value);
     render();
   });
 
   const look = createLook({ onChange: setDirty, notify });
 
-  appearanceItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(appearanceItem, (value) => {
     look.render(normalizeAppearance(value));
   });
 
   const notifications = createNotifications({ onChange: setDirty, say });
   const popupSettings = createPopupSettings({ onChange: setDirty });
 
-  popupItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(popupItem, (value) => {
     popupSettings.render(normalizePopup(value));
   });
 
@@ -511,21 +500,11 @@ export const startOptions = (): void => {
     },
   });
 
-  reviewTimeItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(reviewTimeItem, (value) => {
     reviewTime.render(normalizeReviewTime(value));
   });
 
-  notifyItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(notifyItem, (value) => {
     notifications.render(normalizeNotify(value));
   });
 

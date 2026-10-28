@@ -36,8 +36,9 @@ pub(crate) fn decode(s: &str) -> String {
     while i < bytes.len() {
         match bytes[i] {
             b'%' if i + 2 < bytes.len() => {
-                if let Ok(b) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                    out.push(b);
+                let hex = |b: u8| char::from(b).to_digit(16);
+                if let (Some(high), Some(low)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                    out.push((high * 16 + low) as u8);
                     i += 3;
                     continue;
                 }
@@ -228,6 +229,12 @@ mod tests {
         assert_eq!(kind(b"\0\0\0\x18ftypmp42", "https://x/v"), "video/mp4");
         assert_eq!(kind(b"x", "https://x/a.MOV"), "video/quicktime");
         assert_eq!(decode("https%3A%2F%2Fgithub.com%2Fa%20b"), "https://github.com/a b");
+    }
+
+    #[test]
+    fn decodes_any_text() {
+        assert_eq!(decode("a%2"), "a%2");
+        assert_eq!(decode("%aé/%é"), "%aé/%é");
     }
 
     #[test]

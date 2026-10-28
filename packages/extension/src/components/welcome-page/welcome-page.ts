@@ -3,6 +3,7 @@ import { browser } from "wxt/browser";
 import { i18n } from "#i18n";
 import { toaster } from "@/components/toast/toast";
 import { appearanceCss, createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
+import { h } from "@/utils/dom/dom";
 import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
 import { normalize, type Config } from "@/utils/filters/filters";
 import { message, uiLanguage } from "@/utils/i18n/i18n";
@@ -32,18 +33,19 @@ const recipeIds = (recipe: Recipe) => recipe.filters.map((_, index) => recipeId(
 
 const names = (recipe: Recipe) => recipe.filters.map((filter) => message(filter.name)).join(", ");
 
-const pattern = (label: string, value: string) => {
-  const row = document.createElement("div");
-  const term = document.createElement("dt");
-  term.textContent = label;
-  const detail = document.createElement("dd");
-  const code = document.createElement(value ? "code" : "span");
-  code.textContent = value || i18n.t("recipeEverything");
-  if (!value) code.className = "everything";
-  detail.append(code);
-  row.append(term, detail);
-  return row;
-};
+const pattern = (label: string, value: string) =>
+  h(
+    "div",
+    {},
+    h("dt", { textContent: label }),
+    h(
+      "dd",
+      {},
+      value
+        ? h("code", { textContent: value })
+        : h("span", { textContent: i18n.t("recipeEverything"), className: "everything" }),
+    ),
+  );
 
 /** The page that opens on install: picking recipes, review time and trying the bar. */
 export const startWelcome = (): void => {
@@ -87,23 +89,23 @@ export const startWelcome = (): void => {
     translate(item);
     // The buttons it adds, by name; their patterns are folded below, for whoever wants to read them.
     $(".recipe-names", item).replaceChildren(
-      ...recipe.filters.map((filter) =>
-        Object.assign(document.createElement("li"), { textContent: message(filter.name) }),
-      ),
+      ...recipe.filters.map((filter) => h("li", { textContent: message(filter.name) })),
     );
     const list = $(".recipe-filters", item);
-    for (const filter of recipe.filters) {
-      const group = document.createElement("div");
-      group.className = "recipe-filter";
-      const name = document.createElement("span");
-      name.className = "recipe-filter-name";
-      name.textContent = message(filter.name);
-      const patterns = document.createElement("dl");
-      patterns.append(pattern(i18n.t("recipeInclude"), filter.include));
-      if (filter.exclude) patterns.append(pattern(i18n.t("recipeExclude"), filter.exclude));
-      group.append(name, patterns);
-      list.append(group);
-    }
+    for (const filter of recipe.filters)
+      list.append(
+        h(
+          "div",
+          { className: "recipe-filter" },
+          h("span", { className: "recipe-filter-name", textContent: message(filter.name) }),
+          h(
+            "dl",
+            {},
+            pattern(i18n.t("recipeInclude"), filter.include),
+            filter.exclude ? pattern(i18n.t("recipeExclude"), filter.exclude) : null,
+          ),
+        ),
+      );
     $<HTMLButtonElement>(".recipe-toggle", item).addEventListener("click", () => void toggle(recipe));
     showState(item, recipe);
     return item;
@@ -184,32 +186,29 @@ export const startWelcome = (): void => {
         const [title, description] = PRESET_NAMES[preset.id]!;
         const session = presetSession(preset, title);
         const on = presetOn(preset);
-        const item = document.createElement("li");
-        item.className = "recipe";
-        item.dataset.preset = preset.id;
-        item.toggleAttribute("data-added", on);
-        const text = document.createElement("div");
-        text.className = "recipe-text";
-        text.append(
-          Object.assign(document.createElement("h3"), { className: "recipe-title", textContent: title }),
-          Object.assign(document.createElement("p"), { className: "recipe-description", textContent: description }),
-        );
-        const facts = document.createElement("ul");
-        facts.className = "recipe-names";
-        facts.setAttribute("role", "list");
-        facts.append(
-          ...[sessionSummary(session), ORDER_NAMES[session.order]].map((fact) =>
-            Object.assign(document.createElement("li"), { textContent: fact }),
+        const item = h(
+          "li",
+          { className: "recipe", "data-preset": preset.id },
+          h(
+            "div",
+            { className: "recipe-text" },
+            h("h3", { className: "recipe-title", textContent: title }),
+            h("p", { className: "recipe-description", textContent: description }),
           ),
+          h(
+            "ul",
+            { className: "recipe-names", role: "list" },
+            ...[sessionSummary(session), ORDER_NAMES[session.order]].map((fact) => h("li", { textContent: fact })),
+          ),
+          h("button", {
+            type: "button",
+            className: "btn recipe-toggle",
+            textContent: on ? i18n.t("presetStop") : i18n.t("presetUse"),
+            "aria-label": on ? i18n.t("presetStopLabel", [title]) : i18n.t("presetUseLabel", [title]),
+            onClick: () => void togglePreset(preset),
+          }),
         );
-        const button = Object.assign(document.createElement("button"), {
-          type: "button",
-          className: "btn recipe-toggle",
-          textContent: on ? i18n.t("presetStop") : i18n.t("presetUse"),
-        });
-        button.setAttribute("aria-label", on ? i18n.t("presetStopLabel", [title]) : i18n.t("presetUseLabel", [title]));
-        button.addEventListener("click", () => void togglePreset(preset));
-        item.append(text, facts, button);
+        item.toggleAttribute("data-added", on);
         return item;
       }),
     );
@@ -229,7 +228,7 @@ export const startWelcome = (): void => {
   };
 
   const renderShortcuts = async () => {
-    const commands = (await browser.commands?.getAll?.()) ?? [];
+    const commands = (await browser.commands?.getAll?.()?.catch(() => [])) ?? [];
     const keys = Object.entries(DEFAULT_SHORTCUTS).map(
       ([name, fallback]) => commands.find((command) => command.name === name)?.shortcut || fallback,
     );

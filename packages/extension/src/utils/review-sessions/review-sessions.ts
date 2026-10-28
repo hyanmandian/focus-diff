@@ -4,7 +4,7 @@ import { repoMatches } from "@focus-diff/core/repos";
 
 import { filtersFor, newId, type Config } from "@/utils/filters/filters";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
-import { repoList } from "@/utils/inbox/inbox";
+import { isTime, repoList } from "@/utils/inbox/inbox";
 import { asRecord, keysOf, oneOf } from "@/utils/record/record";
 import { PACES, type Pace } from "@/utils/review-time/review-time";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
@@ -86,7 +86,6 @@ export interface ReviewTimeSettings {
   sound: SoundSetting;
 }
 
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
 const WEEKDAYS = [1, 2, 3, 4, 5];
 
 export const newSession = (name = ""): ReviewSession => ({
@@ -125,7 +124,7 @@ export const DEFAULT_REVIEW_TIME: ReviewTimeSettings = {
   sound: { id: "bowl", volume: 70 },
 };
 
-const time = (value: unknown, fallback: string) => (typeof value === "string" && TIME.test(value) ? value : fallback);
+const time = (value: unknown, fallback: string) => (isTime(value) ? value : fallback);
 const flag = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
 
 const normalizeSession = (value: unknown): ReviewSession => {
@@ -134,9 +133,7 @@ const normalizeSession = (value: unknown): ReviewSession => {
   const days = Array.isArray(raw.days)
     ? raw.days.filter((day): day is number => typeof day === "number" && Number.isInteger(day) && day >= 0 && day <= 6)
     : base.days;
-  const times = Array.isArray(raw.times)
-    ? raw.times.filter((each): each is string => typeof each === "string" && TIME.test(each))
-    : base.times;
+  const times = Array.isArray(raw.times) ? raw.times.filter(isTime) : base.times;
   const minutes = Number(raw.minutes);
   return {
     id: typeof raw.id === "string" && raw.id ? raw.id : base.id,
@@ -145,7 +142,7 @@ const normalizeSession = (value: unknown): ReviewSession => {
     days: [...new Set(days)].toSorted((a, b) => a - b),
     repeat: oneOf(["times", "every"] as const, raw.repeat, base.repeat),
     times: [...new Set(times)].toSorted().slice(0, MAX_TIMES),
-    every: oneOf(EVERY_HOURS, raw.every, 2),
+    every: oneOf(EVERY_HOURS, raw.every, base.every),
     from: time(raw.from, base.from),
     to: time(raw.to, base.to),
     minutes: Number.isFinite(minutes)
@@ -231,15 +228,6 @@ export const nextOccurrence = (settings: ReviewTimeSettings, after: number): Occ
   return best;
 };
 
-/** The sessions due at `at`, to the minute: two set for the same time come as one. */
-export const sessionsAt = (settings: ReviewTimeSettings, at: number): ReviewSession[] => {
-  const day = new Date(at);
-  const minute = day.getHours() * 60 + day.getMinutes();
-  return settings.sessions.filter(
-    (session) => session.on && session.days.includes(day.getDay()) && startsOf(session).includes(minute),
-  );
-};
-
 /** A changed file as review time knows it: its path, line counts, and whether the reader marked it viewed. */
 export type PullFile = [path: string, additions: number, deletions: number, viewed: boolean];
 
@@ -260,20 +248,19 @@ export interface Estimate {
 }
 
 /** The session's filters that apply in a repository, as matchers; `null` counts every file. */
+const sessionFilters = (config: Config, repo: string, ids: string[]) =>
+  filtersFor(config, repo).filter((filter) => ids.includes(filter.id));
+
 export const sessionMatchers = (config: Config, repo: string, ids: string[]): Matcher[] | null => {
   if (ids.length === 0) return null;
-  const matchers = filtersFor(config, repo)
-    .filter((filter) => ids.includes(filter.id))
-    .flatMap((filter) => toMatcher(filter) ?? []);
+  const matchers = sessionFilters(config, repo, ids).flatMap((filter) => toMatcher(filter) ?? []);
   // A repository none of the filters are for is reviewed whole.
   return matchers.length > 0 ? matchers : null;
 };
 
 /** The filter ids of a session that apply in a repository, to turn on in the bar. */
 export const sessionFilterIds = (config: Config, repo: string, ids: string[]): string[] =>
-  filtersFor(config, repo)
-    .filter((filter) => ids.includes(filter.id))
-    .map((filter) => filter.id);
+  sessionFilters(config, repo, ids).map((filter) => filter.id);
 
 /** A pull request's minutes: its files in the session's filters, at the reader's pace, and a moment for the pull request. */
 export const estimate = (
@@ -373,7 +360,7 @@ export const plan = (items: Planned[], minutes: number, order: Order, againFirst
   const rest = sorted.filter((item) => !again(item));
   const ordered = [...first, ...rest];
   const fit = (list: Planned[], room: number): Planned[] => {
-    if (order === "fill") return bestFill(list, room).toSorted(byAge);
+    if (order === "fill") return bestFill(list, Math.floor(room)).toSorted(byAge);
     const fits: Planned[] = [];
     for (const item of list) {
       if (item.estimate.minutes > room) continue;
@@ -384,7 +371,7 @@ export const plan = (items: Planned[], minutes: number, order: Order, againFirst
   };
   const sum = (list: Planned[]) => list.reduce((total, item) => total + item.estimate.minutes, 0);
   const pickedFirst = fit(first, minutes);
-  let picked = [...pickedFirst, ...fit(rest, Math.floor(minutes - sum(pickedFirst)))];
+  let picked = [...pickedFirst, ...fit(rest, minutes - sum(pickedFirst))];
   if (picked.length === 0 && ordered[0]) picked = [ordered[0]];
   const total = sum(picked);
   const left = ordered.filter((item) => !picked.includes(item));
@@ -434,6 +421,8 @@ export const runPulls = (picked: Planned[]): RunPull[] =>
 
 /** When a run's time is up: from its start, or for one only offered, when the offer lapses. */
 export const runEndsAt = (run: ReviewRun): number => (run.startedAt ?? run.offeredAt) + run.minutes * 60_000;
+
+export const minutesLeft = (run: ReviewRun): number => Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
 
 /** Review times to start from, offered on the welcome page: a session's settings and the names to show it by. */
 export interface ReviewPreset {

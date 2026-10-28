@@ -21,7 +21,6 @@ import {
   runPulls,
   sessionFilterIds,
   sessionMatchers,
-  sessionsAt,
   startsOf,
   type Planned,
   type PullFile,
@@ -144,13 +143,6 @@ describe("schedule", () => {
     expect(isScheduled(settings({ days: [] }))).toBe(false);
     expect(isScheduled(settings({ times: [] }))).toBe(false);
   });
-
-  it("knows which sessions are due at a minute", () => {
-    const value = settings({ repeat: "every", every: 1, from: "09:00", to: "12:00" });
-    expect(sessionsAt(value, at(9, 11))).toHaveLength(1);
-    expect(sessionsAt(value, at(9, 11, 30))).toHaveLength(0);
-    expect(sessionsAt(value, at(10, 11))).toHaveLength(0);
-  });
 });
 
 describe("estimate", () => {
@@ -258,6 +250,12 @@ describe("plan", () => {
     const result = plan([empty, unread, planned(1, 5)], 30, "oldest");
     expect(result.nothing.map((each) => each.number)).toEqual([5]);
     expect(result.picked.map((item) => item.pull.number)).toEqual([1, 6]);
+  });
+
+  it("fits the rest in what the ones asked for again leave, to the fraction of a minute", () => {
+    const odd = [planned(1, 10.4, { again: true }), planned(2, 19.5)];
+    expect(plan(odd, 30, "oldest", true).picked.map((item) => item.pull.number)).toEqual([1, 2]);
+    expect(plan(odd, 30, "fill", true).picked.map((item) => item.pull.number)).toEqual([1]);
   });
 
   it("puts the ones asked for again first, when they fit, in the session’s order after that", () => {

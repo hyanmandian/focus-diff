@@ -15,7 +15,7 @@ import {
 } from "@/components/icons/icons";
 import { renderReviewPanel } from "@/components/popup-review-time/popup-review-time";
 import { rowMenu } from "@/components/row-menu/row-menu";
-import { FADE, scrollRow } from "@/components/scroll-row/scroll-row";
+import { FADE, placeIndicator, scrollRow } from "@/components/scroll-row/scroll-row";
 import { customThemeCss, normalizeAppearance, type Appearance } from "@/utils/appearance/appearance";
 import { h } from "@/utils/dom/dom";
 import { $, reveal, translateDocument } from "@/utils/extension-page/extension-page";
@@ -520,11 +520,7 @@ export const startPopup = (): void => {
       const pressed = chips.querySelector<HTMLElement>('[aria-pressed="true"]');
       const last = chips.querySelector<HTMLElement>(".chip:last-child");
       if (!pressed?.offsetWidth || !last) return;
-      const width = last.offsetLeft + last.offsetWidth;
-      highlight.style.width = `${width}px`;
-      const right = width - pressed.offsetLeft - pressed.offsetWidth;
-      const bottom = highlight.offsetHeight - pressed.offsetTop - pressed.offsetHeight;
-      highlight.style.clipPath = `inset(${pressed.offsetTop}px ${right}px ${bottom}px ${pressed.offsetLeft}px round 8px)`;
+      placeIndicator(highlight, pressed, last);
       highlightAt[list] = { clip: highlight.style.clipPath, width: highlight.style.width };
     };
     // The bar's row: arrows and a fade at a side with more chips, and the wheel scrolling it sideways.
@@ -633,11 +629,14 @@ export const startPopup = (): void => {
       section.setAttribute("aria-labelledby", id);
       return section;
     });
-    const inRepo = (each: PullRequest[]) =>
-      narrowed[list] ? each.filter((pull) => pull.repo === narrowed[list]) : each;
-    if (inRepo(drafts).length > 0) sections.push(foldedSection("drafts", inRepo(drafts), list));
-    if (inRepo(finished).length > 0) sections.push(foldedSection("done", inRepo(finished), list));
-    if (inRepo(away).length > 0) sections.push(foldedSection("ignored", inRepo(away), list));
+    for (const [kind, folded] of [
+      ["drafts", drafts],
+      ["done", finished],
+      ["ignored", away],
+    ] as const) {
+      const inRepo = narrowed[list] ? folded.filter((pull) => pull.repo === narrowed[list]) : folded;
+      if (inRepo.length > 0) sections.push(foldedSection(kind, inRepo, list));
+    }
     return { filter: groups.length > 1 ? repoFilter(groups, list, pulls.length) : null, sections };
   };
 

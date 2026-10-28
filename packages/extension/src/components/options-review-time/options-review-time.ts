@@ -5,6 +5,7 @@ import { chevronIcon, closeIcon } from "@/components/icons/icons";
 import {
   notifySwitch,
   repoPicker,
+  segmented,
   soundPicker,
   switchInput,
   toggleChip,
@@ -54,30 +55,6 @@ const OPENS_NAMES: Record<Opens, string> = {
   first: i18n.t("reviewOpensFirst"),
   all: i18n.t("reviewOpensAll"),
   none: i18n.t("reviewOpensNone"),
-};
-
-/** Radio buttons drawn as one control, a pill per choice. */
-const segmented = <T extends string>(
-  name: string,
-  label: string,
-  choices: [T, string][],
-  value: T,
-  onPick: (value: T) => void,
-) => {
-  const group = h(
-    "div",
-    { className: "segmented", role: "radiogroup" },
-    ...choices.map(([choice, text]) => {
-      const id = `${name}-${choice}`;
-      const radio = h("input", { type: "radio", name, id, value: choice, checked: value === choice });
-      radio.addEventListener("change", () => {
-        onPick(choice);
-      });
-      return h("span", { className: "segment" }, radio, h("label", { htmlFor: id, textContent: text }));
-    }),
-  );
-  group.setAttribute("aria-label", label);
-  return group;
 };
 
 const block = (legend: string, ...children: (Node | null)[]) =>
@@ -241,6 +218,7 @@ export const createReviewTime = ({
   /** Checks for every field that can be wrong, to run on save. */
   let checks: (() => boolean)[] = [];
   const open = new Set<string>();
+  const openers = new WeakMap<Element, (value: boolean) => void>();
   const toggle = $<HTMLInputElement>("#review-on");
   const body = $("#review-body");
   const permission = $("#review-permission");
@@ -354,6 +332,7 @@ export const createReviewTime = ({
       const input = h("input", { type: "time", id: `session-${session.id}-${key}`, value: session[key] });
       input.addEventListener("change", () => {
         if (input.value) session[key] = input.value;
+        else input.value = session[key];
         refresh();
       });
       return [h("label", { htmlFor: input.id, textContent: label }), input];
@@ -572,6 +551,7 @@ export const createReviewTime = ({
     syncLabels();
     summary.textContent = sessionSummary(session);
     setOpen(open.has(session.id));
+    openers.set(card, setOpen);
     if (focus)
       requestAnimationFrame(() => {
         name.focus();
@@ -706,10 +686,8 @@ export const createReviewTime = ({
       if (!ok) {
         for (const card of sessions.querySelectorAll<HTMLElement>(".session")) {
           const sessionBody = $(".session-body", card);
-          if (sessionBody.hidden && (shownError(card) || card.querySelector('[aria-invalid="true"]'))) {
-            sessionBody.hidden = false;
-            card.querySelector(".session-expand")?.setAttribute("aria-expanded", "true");
-          }
+          if (sessionBody.hidden && (shownError(card) || card.querySelector('[aria-invalid="true"]')))
+            openers.get(card)!(true);
         }
       }
       return ok;

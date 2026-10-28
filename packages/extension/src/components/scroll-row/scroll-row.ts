@@ -38,3 +38,11 @@ export const scrollRow = (element: HTMLElement, signal?: AbortSignal) => {
   wheelScrollsSideways(element, signal);
   return { row, updateEdges };
 };
+
+export const placeIndicator = (indicator: HTMLElement, target: HTMLElement, last: HTMLElement): void => {
+  const width = last.offsetLeft + last.offsetWidth;
+  indicator.style.width = `${width}px`;
+  const right = width - target.offsetLeft - target.offsetWidth;
+  const bottom = indicator.offsetHeight - target.offsetTop - target.offsetHeight;
+  indicator.style.clipPath = `inset(${target.offsetTop}px ${right}px ${bottom}px ${target.offsetLeft}px round 8px)`;
+};

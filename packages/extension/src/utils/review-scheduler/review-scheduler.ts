@@ -13,6 +13,7 @@ import {
   newSession,
   nextOccurrence,
   plan,
+  minutesLeft,
   runEndsAt,
   runPulls,
   sessionFilterIds,
@@ -85,16 +86,13 @@ const liveRun = async (): Promise<ReviewRun | null> => {
  * Held notifications are changed one at a time: a look holding new ones and a review time ending can overlap, and
  * each reads, changes and writes the whole list.
  */
-let heldQueue: Promise<unknown> = Promise.resolve();
-const changeHeld = <T>(change: (held: HeldEvent[]) => { held: HeldEvent[]; result: T }): Promise<T> => {
-  const next = heldQueue.then(async () => {
+const oneChange = pool(1);
+const changeHeld = <T>(change: (held: HeldEvent[]) => { held: HeldEvent[]; result: T }): Promise<T> =>
+  oneChange(async () => {
     const { held, result } = change(await heldItem.getValue());
     await heldItem.setValue(held);
     return result;
   });
-  heldQueue = next.catch(() => {});
-  return next;
-};
 
 /** Shows held notifications; the ones that can't show yet, in quiet hours, wait for the next review time instead. */
 const release = async (events: HeldEvent[]) => {
@@ -104,8 +102,8 @@ const release = async (events: HeldEvent[]) => {
 };
 
 /** The next review time's alarm, or none; with none to come, what was kept for one shows now. */
-export const scheduleReviewTime = async (settings?: ReviewTimeSettings): Promise<void> => {
-  const [current, skipUntil] = await Promise.all([settings ?? loadReviewTime(), reviewSkipItem.getValue()]);
+export const scheduleReviewTime = async (): Promise<void> => {
+  const [current, skipUntil] = await Promise.all([loadReviewTime(), reviewSkipItem.getValue()]);
   const next = nextOccurrence(current, Math.max(Date.now(), skipUntil - 1));
   const name = next ? `${NEXT_ALARM}${next.session.id}` : "";
   const stale = (await browser.alarms.getAll()).filter(
@@ -151,12 +149,9 @@ const VIEWED_FRESH_MS = 30 * 60_000;
  * after a while. One read at a time, since each writes the whole cache, and a plan right after a look finds the files
  * the look just read.
  */
-let filesQueue: Promise<unknown> = Promise.resolve();
-const filesOf = (pulls: PullRequest[], reviews: PullRequest[], viewed: boolean): Promise<(FilesRecord | null)[]> => {
-  const next = filesQueue.then(() => readFiles(pulls, reviews, viewed));
-  filesQueue = next.catch(() => {});
-  return next;
-};
+const oneRead = pool(1);
+const filesOf = (pulls: PullRequest[], reviews: PullRequest[], viewed: boolean): Promise<(FilesRecord | null)[]> =>
+  oneRead(() => readFiles(pulls, reviews, viewed));
 
 const readFiles = async (pulls: PullRequest[], reviews: PullRequest[], viewed: boolean) => {
   // A copy: with nothing stored, the item hands out its one fallback object, which mustn't fill up.
@@ -396,7 +391,11 @@ const clearRun = async () => {
  */
 export type Ending = "time" | "ended" | "skipped" | "lapsed";
 
-export const endRun = async (ending: Ending): Promise<void> => {
+const oneEnding = pool(1);
+
+export const endRun = (ending: Ending): Promise<void> => oneEnding(() => finishRun(ending));
+
+const finishRun = async (ending: Ending): Promise<void> => {
   const [run, settings] = await Promise.all([reviewRunItem.getValue(), loadReviewTime()]);
   await clearRun();
   const seen = (event: HeldEvent) => ending !== "lapsed" && run !== null && event.heldAt <= run.offeredAt;
@@ -499,6 +498,6 @@ export const runBadge = async (): Promise<{ text: string; color: string } | null
   const run = await liveRun();
   if (!run) return null;
   if (!run.startedAt) return { text: "▶", color: "#1a7f37" };
-  const left = Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
+  const left = minutesLeft(run);
   return { text: `${left}m`, color: "#1a7f37" };
 };

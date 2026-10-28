@@ -335,6 +335,7 @@ describe("when", () => {
     pick($("#session-a-every"), "3");
     pick($("#session-a-from"), "08:00");
     pick($("#session-a-to"), "");
+    expect($("#session-a-to").value).toBe("18:00");
     expect(reviewTime.value().sessions[0]).toMatchObject({ repeat: "every", every: 3, from: "08:00", to: "18:00" });
     expect($(".session-summary", card()).textContent).toBe("Weekdays every 3 hours from 8:00 AM to 6:00 PM · 30 min");
   });
@@ -459,6 +460,14 @@ describe("checking before saving", () => {
     $<HTMLButtonElement>(".time-picker .btn", card()).click();
     expect($("#session-a-time").hasAttribute("aria-invalid")).toBe(false);
     expect($("#session-a-times-error").textContent).toBe("");
+  });
+
+  it("keeps a card unfolded for a fix unfolded when drawn again", async () => {
+    const { reviewTime } = await setUp({ sessions: [session({ times: [] })] });
+    expect(reviewTime.check()).toBe(false);
+    reviewTime.redraw();
+    expect($(".session-body", card()).hidden).toBe(false);
+    expect($(".session-expand", card()).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("asks for a day, focusing the first", async () => {

@@ -254,3 +254,41 @@ export const notifySwitch = ({
   allowButton.addEventListener("click", () => void askAgain());
   return { sync };
 };
+
+export const copyOrShow = async (text: string, fallback: HTMLElement, box: HTMLTextAreaElement): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    fallback.hidden = true;
+    return true;
+  } catch {
+    box.value = text;
+    fallback.hidden = false;
+    box.focus();
+    box.select();
+    return false;
+  }
+};
+
+/** Radio buttons drawn as one control, a pill per choice. */
+export const segmented = <T extends string>(
+  name: string,
+  label: string,
+  choices: [T, string][],
+  value: T,
+  onPick: (value: T) => void,
+) => {
+  const group = h(
+    "div",
+    { className: "segmented", role: "radiogroup" },
+    ...choices.map(([choice, text]) => {
+      const id = `${name}-${choice}`;
+      const radio = h("input", { type: "radio", name, id, value: choice, checked: value === choice });
+      radio.addEventListener("change", () => {
+        onPick(choice);
+      });
+      return h("span", { className: "segment" }, radio, h("label", { htmlFor: id, textContent: text }));
+    }),
+  );
+  group.setAttribute("aria-label", label);
+  return group;
+};

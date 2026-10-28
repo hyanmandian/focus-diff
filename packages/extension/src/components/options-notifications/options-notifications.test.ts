@@ -123,6 +123,7 @@ describe("createNotifications", () => {
     change(field("#quiet-from"), "22:00");
     // A time cleared keeps the one before.
     change(field("#quiet-to"), "");
+    expect(field("#quiet-to").value).toBe("09:00");
     change(field("#quiet-weekends"), false);
     change(field("#delivery-grouped"), true);
     change(field("#delivery-sticky"), true);

@@ -7,6 +7,7 @@ import { createLook } from "@/components/options-look/options-look";
 import { createNotifications } from "@/components/options-notifications/options-notifications";
 import { createPopupSettings } from "@/components/options-popup-settings/options-popup-settings";
 import { createReviewTime } from "@/components/options-review-time/options-review-time";
+import { copyOrShow } from "@/components/options-widgets/options-widgets";
 import { toaster } from "@/components/toast/toast";
 import { normalizeAppearance } from "@/utils/appearance/appearance";
 import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
@@ -109,6 +110,7 @@ export const startOptions = (): void => {
 
   let config: Config = normalize({});
   let dirty = false;
+  let edits = 0;
   let saving = false;
   let suggestedRepo = "";
 
@@ -134,6 +136,7 @@ export const startOptions = (): void => {
   };
   const setDirty = () => {
     dirty = true;
+    edits += 1;
     say(i18n.t("statusUnsaved"), "warn");
   };
 
@@ -176,7 +179,7 @@ export const startOptions = (): void => {
           showFilterProblems(row, filter);
           if (key === "name") label(row, filter);
           setDirty();
-          updateTryWhileTyping();
+          filtersChangedWhileTyping();
         });
       }
       $(".remove-filter", row).addEventListener("click", () => {
@@ -188,7 +191,7 @@ export const startOptions = (): void => {
         (neighbour ? $(".f-name", neighbour) : addButton).focus();
         syncEmpty();
         setDirty();
-        updateTry();
+        filtersChanged();
       });
       label(row, filter);
       showFilterProblems(row, filter);
@@ -239,7 +242,7 @@ export const startOptions = (): void => {
       syncLabel();
       if (input.hasAttribute("aria-invalid")) check(false);
       setDirty();
-      updateTryWhileTyping();
+      filtersChangedWhileTyping();
     });
     input.addEventListener("blur", () => {
       check(false);
@@ -250,7 +253,7 @@ export const startOptions = (): void => {
       syncRepos();
       $("#add-repo").focus();
       setDirty();
-      updateTry();
+      filtersChanged();
     });
 
     syncLabel();
@@ -297,6 +300,16 @@ export const startOptions = (): void => {
     typing = window.setTimeout(updateTry, TYPING_PAUSE_MS);
   };
 
+  const filtersChanged = () => {
+    updateTry();
+    reviewTime.redraw();
+  };
+  let editing = 0;
+  const filtersChangedWhileTyping = () => {
+    clearTimeout(editing);
+    editing = window.setTimeout(filtersChanged, TYPING_PAUSE_MS);
+  };
+
   const save = async () => {
     const rows = [...document.querySelectorAll<HTMLElement>(".filter")];
     const filters = [...config.global, ...config.repos.flatMap((entry) => entry.filters)];
@@ -338,6 +351,7 @@ export const startOptions = (): void => {
     }
     // Each is saved on its own, so a quota error says which one is too big.
     let saved: "filters" | "look" | "popup" | "reviewTime" | "notifications" = "filters";
+    const editsBefore = edits;
     try {
       saving = true;
       await saveConfig(config);
@@ -349,8 +363,10 @@ export const startOptions = (): void => {
       await saveReviewTime(reviewTime.value());
       saved = "notifications";
       await saveNotify(notifications.value());
-      dirty = false;
-      say(i18n.t("statusSaved"), "ok");
+      if (edits === editsBefore) {
+        dirty = false;
+        say(i18n.t("statusSaved"), "ok");
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const quota = {
@@ -391,17 +407,9 @@ export const startOptions = (): void => {
 
   const copyFilters = async () => {
     const json = JSON.stringify(normalize(config), null, 2);
-    try {
-      await navigator.clipboard.writeText(json);
-      $("#export-fallback").hidden = true;
+    if (await copyOrShow(json, $("#export-fallback"), $<HTMLTextAreaElement>("#export-json"))) {
       const count = filterCount(config);
       notify(i18n.t("copied", count, [count]));
-    } catch {
-      const fallback = $<HTMLTextAreaElement>("#export-json");
-      fallback.value = json;
-      $("#export-fallback").hidden = false;
-      fallback.focus();
-      fallback.select();
     }
   };
   $("#export").addEventListener("click", () => void copyFilters());
@@ -450,42 +458,36 @@ export const startOptions = (): void => {
       renderRepo(entry, false);
     });
     syncRepos();
-    updateTry();
-    // Review times pick from the filters.
-    reviewTime.redraw();
+    filtersChanged();
+  };
+
+  const follow = <T>(item: { watch: (callback: (value: T) => void) => unknown }, apply: (value: T) => void) => {
+    item.watch((value) => {
+      if (saving) return;
+      if (dirty) {
+        say(i18n.t("statusChangedElsewhere"), "warn");
+        return;
+      }
+      apply(value);
+    });
   };
 
   // Another tab, the welcome page or another device changed the filters: follow along unless there are unsaved edits here.
-  configItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(configItem, (value) => {
     config = normalize(value);
     render();
   });
 
   const look = createLook({ onChange: setDirty, notify });
 
-  appearanceItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(appearanceItem, (value) => {
     look.render(normalizeAppearance(value));
   });
 
   const notifications = createNotifications({ onChange: setDirty, say });
   const popupSettings = createPopupSettings({ onChange: setDirty });
 
-  popupItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(popupItem, (value) => {
     popupSettings.render(normalizePopup(value));
   });
 
@@ -498,21 +500,11 @@ export const startOptions = (): void => {
     },
   });
 
-  reviewTimeItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(reviewTimeItem, (value) => {
     reviewTime.render(normalizeReviewTime(value));
   });
 
-  notifyItem.watch((value) => {
-    if (saving) return;
-    if (dirty) {
-      say(i18n.t("statusChangedElsewhere"), "warn");
-      return;
-    }
+  follow(notifyItem, (value) => {
     notifications.render(normalizeNotify(value));
   });
 

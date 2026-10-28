@@ -113,6 +113,7 @@ export const splitRepos = (text: string): string[] => [...new Set(text.split(/[\
 export const invalidRepos = (repos: string[]): string[] => repos.filter((repo) => !REPO_PATTERN.test(repo));
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
+export const isTime = (value: unknown): value is string => typeof value === "string" && TIME.test(value);
 export const repoList = (value: unknown): string[] =>
   Array.isArray(value) ? splitRepos(value.filter((repo) => typeof repo === "string").join(" ")) : [];
 
@@ -139,8 +140,8 @@ export const normalizeNotify = (value: unknown): NotifySettings => {
     interval: INTERVALS.find((interval) => interval === raw.interval) ?? DEFAULT_NOTIFY.interval,
     quiet: {
       on: quiet.on === true,
-      from: typeof quiet.from === "string" && TIME.test(quiet.from) ? quiet.from : defaults.from,
-      to: typeof quiet.to === "string" && TIME.test(quiet.to) ? quiet.to : defaults.to,
+      from: isTime(quiet.from) ? quiet.from : defaults.from,
+      to: isTime(quiet.to) ? quiet.to : defaults.to,
       weekends: quiet.weekends === undefined ? defaults.weekends : quiet.weekends === true,
     },
     delivery: {
@@ -204,7 +205,6 @@ const EXCLUDES: Record<Exception, (event: InboxEvent) => boolean> = {
   approved: (event) => event.approvedByMe,
   bots: (event) => event.bot,
 };
-const excludes = (exception: Exception, event: InboxEvent) => EXCLUDES[exception](event);
 
 /** Whether the reader wants this kind of event in this repository, before knowing who did it. */
 export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: string): boolean => {
@@ -218,7 +218,7 @@ export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: strin
 /** Whether the reader wants to be told about this event. */
 export const wants = (settings: NotifySettings, event: InboxEvent): boolean =>
   mayNotify(settings, event.kind, event.repo) &&
-  !settings.events[event.kind].except.some((exception) => excludes(exception, event));
+  !settings.events[event.kind].except.some((exception) => EXCLUDES[exception](event));
 
 /** Whether working an event out takes a look at its pull request's page, to know if the reader approved it. */
 export const needsDetail = (settings: NotifySettings, kind: EventKind, repo: string): boolean =>
@@ -276,12 +276,7 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
 
 /** Threads with an event since the last look. Nothing is new on the first look, which only remembers where things stand. */
 export const freshActivity = (previous: Record<string, string> | null, current: Activity[]): Activity[] =>
-  previous
-    ? current.filter(
-        (activity) =>
-          previous[activity.thread] !== activity.updatedAt && activity.updatedAt > (previous[activity.thread] ?? ""),
-      )
-    : [];
+  previous ? current.filter((activity) => activity.updatedAt > (previous[activity.thread] ?? "")) : [];
 
 /** What a thread's latest event was, for the reader: a comment or review on their own pull request, or on one they review. */
 export const activityKind = (activity: Activity, review: Detail["review"]): EventKind | null => {

@@ -103,15 +103,15 @@ const filterTree = (
 };
 
 /** Every counter the site shows, found or not. */
-const counterList = ({ files, additions, deletions }: PageCounters) => [files, additions, deletions];
+const unmirror = ({ files, additions, deletions }: PageCounters) => {
+  for (const counter of [files, additions, deletions]) mirror(counter, null);
+};
 
 const updatePageCounters = (provider: Provider, totals: Totals, filtering: boolean) => {
   const counters = provider.counters();
   const number = provider.formatCount;
   if (!filtering) {
-    counterList(counters).forEach((counter) => {
-      mirror(counter, null);
-    });
+    unmirror(counters);
     return;
   }
   mirror(counters.files, `${number(totals.visible)}/${number(totals.total)}`);
@@ -126,9 +126,7 @@ const restorePage = (provider: Provider) => {
   provider.closeUp?.([], 0);
   for (const item of provider.tree.files()) show(item.element, true);
   for (const folder of provider.tree.folders()) show(folder.element, true);
-  counterList(provider.counters()).forEach((counter) => {
-    mirror(counter, null);
-  });
+  unmirror(provider.counters());
 };
 
 /** Compiled filters, kept until the configuration changes. Each matcher remembers its answer per path. */
@@ -225,11 +223,7 @@ export const startController = async (
 
   const toggle = (id: string) => {
     const repo = provider.repository();
-    if (!repo) {
-      select(ALL);
-      return;
-    }
-    choose(toggled(selectedIds(repo), id));
+    if (repo) choose(toggled(selectedIds(repo), id));
   };
 
   const step = (offset: number) => {

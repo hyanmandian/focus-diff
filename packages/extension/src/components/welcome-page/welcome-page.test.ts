@@ -76,7 +76,7 @@ describe("startWelcome", () => {
     // The page without its script, which the test runs itself.
     document.body.innerHTML = /<body>(?<body>[\s\S]*)<script/u.exec(page)?.groups?.body ?? "";
     location.hash = "";
-    demo.createDemo.mockReturnValue({ setTheme: demo.setTheme, destroy: vi.fn<() => void>() });
+    demo.createDemo.mockReturnValue({ setTheme: demo.setTheme });
     manifest(["notifications"]);
     commands();
   });
@@ -335,6 +335,12 @@ describe("startWelcome", () => {
     it("names the defaults where the browser can't list its shortcuts", async () => {
       // Safari's gives nothing back.
       getAll().mockReturnValue(void 0);
+      await start();
+      expect(keys()).toEqual(["Alt+Shift+.", "Alt+Shift+,", "Alt+Shift+0", "Alt+Shift+J"]);
+    });
+
+    it("names the defaults, and shows the page, when listing the shortcuts fails", async () => {
+      getAll().mockRejectedValue(new Error("unsupported"));
       await start();
       expect(keys()).toEqual(["Alt+Shift+.", "Alt+Shift+,", "Alt+Shift+0", "Alt+Shift+J"]);
     });

@@ -343,6 +343,13 @@ describe("pageCounters", () => {
     vi.advanceTimersByTime(30_000);
     expect(pageCounters()).toBe(empty);
   });
+  it("searches again for counters GitHub drew anew, however long after the first search", () => {
+    html(`<span id="files_tab_counter">2</span><span>+1</span>`);
+    pageCounters();
+    vi.advanceTimersByTime(25_000);
+    html(`<span id="files_tab_counter">3</span><span>+4</span>`);
+    expect(pageCounters().files?.textContent).toBe("3");
+  });
 });
 
 describe("the newer view's list", () => {
@@ -388,6 +395,18 @@ describe("going to files", () => {
     expect(location.hash).toBe("#diff-def");
     reveal("");
     expect(location.hash).toBe("#diff-");
+  });
+  it("takes GitHub to a file again when the address already points at it", () => {
+    html("");
+    location.hash = "diff-abc";
+    let changes = 0;
+    const count = () => {
+      changes += 1;
+    };
+    addEventListener("hashchange", count);
+    reveal("abc");
+    removeEventListener("hashchange", count);
+    expect(changes).toBe(1);
   });
 });
 

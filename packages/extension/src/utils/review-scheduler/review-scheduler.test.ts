@@ -184,7 +184,8 @@ describe("scheduleReviewTime", () => {
     await reviewSkipItem.setValue(at(9, 16));
     await scheduleReviewTime();
     expect((await fakeBrowser.alarms.get("review-time:next:s1"))?.scheduledTime).toBe(at(12, 15));
-    await scheduleReviewTime(settings({}, { times: ["11:00"] }));
+    await reviewTimeItem.setValue(settings({}, { times: ["11:00"] }));
+    await scheduleReviewTime();
     expect((await fakeBrowser.alarms.get("review-time:next:s1"))?.scheduledTime).toBe(at(12, 11));
   });
 
@@ -215,7 +216,8 @@ describe("scheduleReviewTime", () => {
   it("keeps what was kept while one is under way", async () => {
     await heldItem.setValue([event(1)]);
     await reviewRunItem.setValue(run({ startedAt: NOW }));
-    await scheduleReviewTime(settings({ enabled: false }));
+    await reviewTimeItem.setValue(settings({ enabled: false }));
+    await scheduleReviewTime();
     expect(hooks.release).not.toHaveBeenCalled();
     expect(await heldItem.getValue()).toEqual([event(1)]);
   });
@@ -698,6 +700,15 @@ describe("endRun", () => {
     await onReviewAlarm({ name: "review-time:end", scheduledTime: NOW });
     expect(created).toHaveLength(1);
     expect(await reviewRunItem.getValue()).toBeNull();
+  });
+  it("ends once when its end and its minute's tick go off together", async () => {
+    await reviewRunItem.setValue(run({ startedAt: NOW - 30 * MINUTE }));
+    await Promise.all([
+      onReviewAlarm({ name: "review-time:end", scheduledTime: NOW }),
+      onReviewAlarm({ name: "review-time:tick", scheduledTime: NOW }),
+    ]);
+    expect(created.map(([id]) => id)).toEqual(["review-time:end"]);
+    expect(play).toHaveBeenCalledTimes(1);
   });
 });
 

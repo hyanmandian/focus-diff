@@ -9,6 +9,7 @@ import type { Message } from "@/utils/messages/messages";
 import {
   MINUTE_PRESETS,
   nextOccurrence,
+  minutesLeft,
   runEndsAt,
   type ReviewRun,
   type ReviewTimeSettings,
@@ -130,13 +131,16 @@ const heldSection = (held: HeldEvent[]) => {
   );
 };
 
+const elapsedPercent = (minutes: number, startedAt: number) =>
+  Math.min(100, Math.round(((Date.now() - startedAt) / (minutes * 60_000)) * 100));
+
 /** The run's head: the time left, or set aside, how far along, and what to do. */
 const runHead = (run: ReviewRun, reviewed: number) => {
   const total = run.pulls.reduce((sum, pull) => sum + pull.minutes, 0);
   const { startedAt } = run;
   const started = startedAt !== null;
-  const left = Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
-  const elapsed = started ? Math.min(100, Math.round(((Date.now() - startedAt) / (run.minutes * 60_000)) * 100)) : 0;
+  const left = minutesLeft(run);
+  const elapsed = started ? elapsedPercent(run.minutes, startedAt) : 0;
   const head = h(
     "div",
     { className: "run-head" },
@@ -349,8 +353,8 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
 /** The time left and the bar, the only things that change as the minutes go by. */
 const tick = (card: HTMLElement, run: ReviewRun) => {
   if (!run.startedAt) return;
-  const left = Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
-  const elapsed = Math.min(100, Math.round(((Date.now() - run.startedAt) / (run.minutes * 60_000)) * 100));
+  const left = minutesLeft(run);
+  const elapsed = elapsedPercent(run.minutes, run.startedAt);
   const clockText = card.querySelector(".run-clock");
   if (clockText) clockText.textContent = i18n.t("popupLeft", [left]);
   card.querySelector<HTMLElement>(".run-bar span")?.style.setProperty("--done", `${elapsed}%`);

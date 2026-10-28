@@ -5,9 +5,16 @@ import { fakeBrowser } from "wxt/testing/fake-browser";
 import type { play } from "@/utils/background-sound/background-sound";
 import { samplePull } from "@/utils/github-sample-pull/github-sample-pull";
 import type { checkInbox, CheckResult } from "@/utils/inbox-check/inbox-check";
-import { DEFAULT_NOTIFY, type InboxEvent, type InboxSnapshot, type NotifySettings } from "@/utils/inbox/inbox";
+import {
+  DEFAULT_NOTIFY,
+  EVENT_KINDS,
+  type InboxEvent,
+  type InboxSnapshot,
+  type NotifySettings,
+} from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
 import type { readBranches } from "@/utils/pull-branches/pull-branches";
+import { recordOf } from "@/utils/record/record";
 import type {
   endRun,
   hold,
@@ -271,6 +278,19 @@ describe("scheduling the looks", () => {
     expect(await fakeBrowser.alarms.get("inbox")).toBeUndefined();
     expect(await inboxMemoryItem.getValue()).toBeNull();
     expect((await badge()).text).toBe("");
+  });
+
+  it("forgets what it saw while on but told of nothing, so turning an event on doesn't bring up everything since", async () => {
+    await notifyItem.setValue(enabled());
+    await settle();
+    await inboxMemoryItem.setValue({ threads: { a: "b" }, reviews: [] });
+    const events = recordOf(EVENT_KINDS, (kind) => ({ ...DEFAULT_NOTIFY.events[kind], on: false }));
+    // Told of nothing, a look reads only the lists, and leaves what was seen as it was.
+    mocks.checkInbox.mockResolvedValue(result({ memory: null }));
+    await notifyItem.setValue(enabled({ events }));
+    await settle();
+    expect(await inboxMemoryItem.getValue()).toBeNull();
+    expect((await fakeBrowser.alarms.get("inbox"))?.periodInMinutes).toBe(2);
   });
 
   it("looks on its alarm, and leaves the others to review time", async () => {
@@ -612,6 +632,13 @@ describe("notifications", () => {
     expect(await hooks.release([event(1)])).toBe(true);
     expect(created()).toHaveLength(1);
   });
+
+  it("keeps the links of notifications shown at the same time from two places", async () => {
+    await notifyItem.setValue(enabled());
+    await settle();
+    await Promise.all([hooks.release([event(1)]), hooks.release([event(2)])]);
+    expect(Object.keys(await notificationLinksItem.getValue())).toHaveLength(2);
+  });
 });
 
 describe("the icon", () => {
@@ -678,6 +705,13 @@ describe("the popup's refresh", () => {
     await inboxItem.setValue(snapshot({ problem: "offline" }));
     await message({ type: "inbox-refresh" });
     expect(mocks.checkInbox).toHaveBeenCalledTimes(2);
+  });
+
+  it("answers false when reading the lists fails", async () => {
+    mocks.checkInbox.mockRejectedValue(new Error("storage"));
+    const { kept, answers } = await message({ type: "inbox-refresh" });
+    expect(kept).toBe(true);
+    expect(answers).toEqual([false]);
   });
 
   it("reads them when there are none, and waits for a look already running", async () => {

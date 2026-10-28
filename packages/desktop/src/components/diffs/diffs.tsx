@@ -497,7 +497,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     const file = filesByPath.get(path);
     try {
       const old = lines?.side === "deletions" || file?.status === "removed";
-      const sha = old ? await from.base() : to.head;
+      const sha = old ? await from.base() : from.head;
       await copy(permalink(to, sha, old ? (file?.previousPath ?? path) : path, lines), t("diff.linkCopied"));
     } catch (e) {
       props.onSay(e instanceof Error ? e.message : String(e));
@@ -809,6 +809,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           {menuAt ? (
             <>
               <DropdownMenuItem
+                disabled={!commentable}
                 onClick={() => {
                   setComposing({
                     path: menuAt.path,

@@ -244,11 +244,12 @@ export function Panel() {
   // Esc closes the panel, like a menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const command = primary(e) && !e.altKey && !(isMac && e.ctrlKey);
       // The app's own shortcuts, which the menu bar would answer if a tray app had one showing.
-      if (primary(e) && !e.altKey && !(isMac && e.ctrlKey) && (e.key === "," || e.key === "q")) {
+      if (command && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
-      } else if (e.metaKey && !e.altKey && !e.ctrlKey && e.key === "o") {
+      } else if (command && e.key === "o") {
         e.preventDefault();
         setLinkSheet({ at: Date.now(), initial: null });
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {

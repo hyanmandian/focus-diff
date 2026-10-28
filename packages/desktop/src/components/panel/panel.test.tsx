@@ -10,6 +10,19 @@ import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 import { start, type ReviewRun, type Status } from "@/utils/store/store";
 
+// The Mac's keys unless a test picks another system.
+const platform = vi.hoisted(() => ({ mac: true }));
+vi.mock("@/utils/os/os", async (importOriginal) => {
+  const real = await importOriginal<Record<string, unknown>>();
+  return {
+    ...real,
+    get isMac() {
+      return platform.mac;
+    },
+    primary: (e: KeyboardEvent) => (platform.mac ? e.metaKey : e.ctrlKey),
+  };
+});
+
 const HOUR = 3_600_000;
 let serial = 0;
 
@@ -172,6 +185,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  platform.mac = true;
   Reflect.deleteProperty(HTMLElement.prototype, "offsetParent");
   vi.useRealTimers();
   // Unmounted while the fake platform's events are still there: the panel lets go of its listeners a tick later.
@@ -285,6 +299,15 @@ describe("Panel", () => {
     expect(within(stack).getByText("1 of 2 in a stack, from the bottom")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Drafts/u }));
     expect(screen.getAllByRole("list", { name: "Stack of 2" })).toHaveLength(2);
+  });
+
+  it("opens the link sheet with Ctrl+O off the Mac", async () => {
+    platform.mac = false;
+    await setup(live());
+    fireEvent.keyDown(window, { key: "o", metaKey: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(window, { key: "o", ctrlKey: true });
+    expect(await screen.findByRole("textbox", { name: "Pull request link" })).toBeTruthy();
   });
 
   it("opens a pull request from its link: Open Pull Request… in the menu or ⌘O, pasted, or sent", async () => {

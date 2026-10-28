@@ -17,6 +17,7 @@ import { bridge, type AiStatus, type AuthStatus } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
+  isRepoPattern,
   loadConfig,
   saveConfig,
   TEMPLATES,
@@ -33,7 +34,7 @@ import { useTheme } from "@/utils/theme/theme";
 
 const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
-const repoError = (s: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(s) ? null : i18n()("setup.repoError"));
+const repoError = (s: string) => (isRepoPattern(s) ? null : i18n()("setup.repoError"));
 
 /** A checkbox or radio button as macOS lays them out: the box on the leading edge, a 13pt label and
  *  an 11pt description under it. No card and no highlight under the pointer; the focus ring is on

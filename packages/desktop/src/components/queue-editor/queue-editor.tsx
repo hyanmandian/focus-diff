@@ -14,6 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-g
 import { cn } from "@/utils/cn/cn";
 import {
   canBe,
+  isRepoPattern,
   KIND_EVENTS,
   LEAVE_OUT,
   PARTS,
@@ -46,7 +47,7 @@ const NOTIFY_AT: Array<Queue["notifyAt"]> = ["now", "review"];
 const oneOf = <V extends string>(list: readonly V[], v: unknown): v is V => list.some((x) => x === v);
 
 // Called as a value is added, so they read the words then.
-const repoError = (v: string) => (/^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(v) ? null : i18n()("settings.repoError"));
+const repoError = (v: string) => (isRepoPattern(v) ? null : i18n()("settings.repoError"));
 const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/u.test(v) ? null : i18n()("settings.teamError"));
 const userError = (v: string) => (/^[\w-]+(\[bot\])?$/u.test(v) ? null : i18n()("settings.userError"));
 

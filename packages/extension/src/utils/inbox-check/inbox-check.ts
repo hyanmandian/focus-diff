@@ -43,12 +43,13 @@ export const pool = (size: number) => {
       await new Promise<void>((resolve) => {
         waiting.push(resolve);
       });
-    active += 1;
+    else active += 1;
     try {
       return await task();
     } finally {
-      active -= 1;
-      waiting.shift()?.();
+      const next = waiting.shift();
+      if (next) next();
+      else active -= 1;
     }
   };
 };

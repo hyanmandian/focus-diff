@@ -4,7 +4,7 @@ import { InboxError, type Activity, type Detail, type PullRequest } from "@/util
 import { sampleActivity, sampleNotify, samplePull } from "@/utils/github-sample-pull/github-sample-pull";
 import { DEFAULT_NOTIFY, type InboxMemory } from "@/utils/inbox/inbox";
 
-import { checkInbox, type InboxSource } from "./inbox-check";
+import { checkInbox, pool, type InboxSource } from "./inbox-check";
 
 const pull = samplePull;
 
@@ -226,5 +226,28 @@ describe("checkInbox", () => {
     const result = await checkInbox(github, on({ "review-requested": ["approved"] }), memory());
     expect(result.events).toMatchObject([{ kind: "review-requested", number: 1, team: false, approvedByMe: false }]);
     expect(result.snapshot.reviews[0]?.team).toBeUndefined();
+  });
+});
+
+describe("pool", () => {
+  it("hands a finished task's place to the one waiting, not to one that comes right after it finishes", async () => {
+    const queue = pool(1);
+    let running = 0;
+    let most = 0;
+    const task = async () => {
+      running += 1;
+      most = Math.max(most, running);
+      await Promise.resolve();
+      running -= 1;
+    };
+    let finish = () => {};
+    const first = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const tasks = [queue(() => first), queue(task)];
+    const late = first.then(() => queue(task));
+    finish();
+    await Promise.all([...tasks, late]);
+    expect(most).toBe(1);
   });
 });

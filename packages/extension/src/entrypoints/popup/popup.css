@@ -22,30 +22,18 @@ body {
   color: var(--fd-fg);
   font: 14px/1.5 var(--fd-font);
 }
+body:has(.tabs[data-count="3"]) {
+  width: 460px;
+}
 body:has(.tabs[data-count="4"]) {
-  width: 440px;
+  width: 540px;
 }
 
 .head-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 12px 10px 10px 16px;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.brand img {
-  border-radius: 6px;
-}
-.brand h1 {
-  font-size: 15px;
-  line-height: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  padding: 12px 8px 10px 12px;
 }
 .icon-button {
   display: grid;
@@ -68,8 +56,9 @@ body:has(.tabs[data-count="4"]) {
   display: grid;
   grid-auto-columns: 1fr;
   grid-auto-flow: column;
+  flex: 1;
   gap: 2px;
-  margin: 0 12px;
+  min-width: 0;
   padding: 4px;
   border: 1px solid var(--fd-border);
   border-radius: 12px;
@@ -121,7 +110,9 @@ body:has(.tabs[data-count="4"]) {
   display: none;
 }
 .tabs:not([data-count="2"]) {
+  flex: 0 1 auto;
   grid-auto-columns: auto;
+  margin-right: auto;
 }
 .tabs:not([data-count="2"]) .tab {
   gap: 4px;
@@ -784,19 +775,24 @@ a.pull:focus-visible {
 .text-button.quiet:hover {
   color: var(--fd-fg);
 }
-.notify-state.on {
-  color: var(--fd-muted);
-}
-.notify-state.on svg {
-  color: var(--fd-add);
-}
-.notify-state.on:hover {
-  color: var(--fd-fg);
-}
 
 .head-actions {
   display: flex;
+  flex: none;
   gap: 2px;
+}
+#refresh[aria-busy="true"] svg {
+  animation: spin 900ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #refresh[aria-busy="true"] svg {
+    animation: none;
+  }
 }
 #review-now {
   position: relative;

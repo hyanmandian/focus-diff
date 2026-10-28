@@ -35,6 +35,7 @@ export const clockIcon = () =>
   ]);
 export const checkIcon = () => icon("M3.5 8.5 6.5 11.5 12.5 4.5");
 export const bellIcon = () => icon("M4 11.5V7a4 4 0 0 1 8 0v4.5l1 1.25H3zM6.75 14.25h2.5");
+export const refreshIcon = () => icon("M13 8a5 5 0 1 1-1.5-3.55M13 2.5v3h-3");
 export const externalIcon = () => icon("M6 3.5H3.5v9h9V10M9 2.75h4.25V7M13 3 7.5 8.5", 14);
 export const pullRequestIcon = () =>
   icon([

@@ -7,10 +7,25 @@
   </head>
   <body>
     <header class="head">
+      <h1 class="visually-hidden" data-i18n="popupTitle"></h1>
       <div class="head-row">
-        <div class="brand">
-          <img src="/logo-96.webp" width="22" height="22" alt="" />
-          <h1 data-i18n="popupTitle"></h1>
+        <div class="tabs" role="tablist" data-i18n-label="popupLists">
+          <button type="button" role="tab" class="tab" id="tab-reviews" aria-controls="panel-reviews">
+            <span data-i18n="popupReviewQueue"></span>
+            <span class="option-count" id="count-reviews"></span>
+          </button>
+          <button type="button" role="tab" class="tab" id="tab-mine" aria-controls="panel-mine">
+            <span data-i18n="popupMine"></span>
+            <span class="option-count" id="count-mine"></span>
+          </button>
+          <button type="button" role="tab" class="tab" id="tab-updates" aria-controls="panel-updates" hidden>
+            <span data-i18n="popupUpdates"></span>
+            <span class="option-count" id="count-updates"></span>
+          </button>
+          <button type="button" role="tab" class="tab" id="tab-merged" aria-controls="panel-merged" hidden>
+            <span data-i18n="popupMerged"></span>
+            <span class="option-count" id="count-merged"></span>
+          </button>
         </div>
         <div class="head-actions">
           <button
@@ -20,27 +35,9 @@
             aria-expanded="false"
             aria-controls="review-card"
           ></button>
+          <button type="button" class="icon-button" id="refresh" data-i18n-label="popupRefresh"></button>
           <button type="button" class="icon-button" id="settings" data-i18n-label="panelSettings"></button>
         </div>
-      </div>
-
-      <div class="tabs" role="tablist" data-i18n-label="popupLists">
-        <button type="button" role="tab" class="tab" id="tab-reviews" aria-controls="panel-reviews">
-          <span data-i18n="popupReviewQueue"></span>
-          <span class="option-count" id="count-reviews"></span>
-        </button>
-        <button type="button" role="tab" class="tab" id="tab-mine" aria-controls="panel-mine">
-          <span data-i18n="popupMine"></span>
-          <span class="option-count" id="count-mine"></span>
-        </button>
-        <button type="button" role="tab" class="tab" id="tab-updates" aria-controls="panel-updates" hidden>
-          <span data-i18n="popupUpdates"></span>
-          <span class="option-count" id="count-updates"></span>
-        </button>
-        <button type="button" role="tab" class="tab" id="tab-merged" aria-controls="panel-merged" hidden>
-          <span data-i18n="popupMerged"></span>
-          <span class="option-count" id="count-merged"></span>
-        </button>
       </div>
     </header>
 
@@ -126,7 +123,7 @@
     <footer class="foot">
       <p id="updated" role="status"></p>
       <p id="flash" role="status"></p>
-      <button type="button" class="text-button notify-state" id="notify-setup"></button>
+      <button type="button" class="text-button" id="mark-read" data-i18n="popupMarkAllRead" hidden></button>
       <div class="selection" id="selection" hidden>
         <p id="selection-text" role="status"></p>
         <button type="button" class="text-button quiet" id="selection-clear" data-i18n="popupClear"></button>

@@ -5,8 +5,8 @@ import { browser } from "wxt/browser";
 
 import { i18n } from "#i18n";
 import {
-  bellIcon,
   clockIcon,
+  refreshIcon,
   commentIcon,
   externalIcon,
   pullRequestIcon,
@@ -59,13 +59,12 @@ import {
   inboxItem,
   learnedItem,
   loadAppearance,
-  loadNotify,
   loadPopup,
   loadReviewTime,
-  notifyItem,
   popupItem,
   pullBranchesItem,
   pullFilesItem,
+  readItem,
   reviewRunItem,
   reviewSkipItem,
   reviewTimeItem,
@@ -186,15 +185,6 @@ const openOptions = async (section?: string) => {
   window.close();
 };
 
-const renderNotify = (enabled: boolean) => {
-  const button = $("#notify-setup");
-  button.classList.toggle("on", enabled);
-  button.replaceChildren(
-    bellIcon(),
-    h("span", { textContent: i18n.t(enabled ? "popupNotifyOn" : "popupNotifySetup") }),
-  );
-};
-
 export const startPopup = (): void => {
   type List = PopupList;
   const LISTS = POPUP_LISTS;
@@ -296,6 +286,7 @@ export const startPopup = (): void => {
   };
 
   let done: DoneMarks = {};
+  let read: Record<string, string> = {};
   const picked = recordOf(LISTS, () => new Set<string>());
   let justMarked: PullRequest[] = [];
   let ignored: IgnoredMarks = {};
@@ -682,7 +673,10 @@ export const startPopup = (): void => {
   const render = () => {
     const problem = snapshot?.problem ?? null;
     const shownLists = popupLists(popup);
-    const shown = (pulls: PullRequest[] = []) => pulls.filter((pull) => inPopup(popup, pull));
+    const shown = (pulls: PullRequest[] = []) =>
+      pulls
+        .filter((pull) => inPopup(popup, pull))
+        .map((pull) => (pull.unread && read[pull.url] === pull.updatedAt ? { ...pull, unread: false } : pull));
     const all = recordOf(LISTS, (list) => shown(snapshot?.[list]));
     const lists = recordOf(LISTS, (list) =>
       all[list].filter((pull) => !isDone(done, pull) && !isIgnored(ignored, list, pull)),
@@ -729,11 +723,23 @@ export const startPopup = (): void => {
       $("#problem-retry").hidden = problem === "signed-out";
     }
     renderReview();
+    $("#refresh").setAttribute("aria-busy", String(updating));
+    syncMarkRead();
     $("#updated").textContent = updating
       ? i18n.t("popupUpdating")
       : !snapshot || blocking
         ? ""
         : i18n.t(problem ? "popupListsFrom" : "popupUpdated", [ago(snapshot.checkedAt)]);
+  };
+
+  function syncMarkRead() {
+    $("#mark-read").hidden = !$("#selection").hidden || !active[currentList()].some((pull) => pull.unread);
+  }
+
+  const markRead = (pulls: PullRequest[]) => {
+    read = { ...read, ...Object.fromEntries(pulls.map((pull) => [pull.url, pull.updatedAt])) };
+    void readItem.setValue(read);
+    render();
   };
 
   const ignoredText = (list: List) => i18n.t(list === "merged" ? "popupJustSeen" : "popupJustIgnored");
@@ -748,7 +754,7 @@ export const startPopup = (): void => {
     $("#selection").hidden = !showing;
     $("#flash").hidden = showing;
     $("#updated").hidden = showing || Boolean($("#flash").textContent);
-    $("#notify-setup").hidden = showing;
+    syncMarkRead();
     $("#selection-text").textContent = count
       ? i18n.t("popupSelected", count, [count])
       : justMarked.length > 0
@@ -833,6 +839,8 @@ export const startPopup = (): void => {
     }
     void browser.tabs.create({ url: link.href, active: false });
     link.classList.remove("unread");
+    const opened = LISTS.flatMap((list) => active[list]).find((pull) => pull.unread && link.href.startsWith(pull.url));
+    if (opened) markRead([opened]);
   });
 
   document.addEventListener("paste", (event) => {
@@ -861,7 +869,13 @@ export const startPopup = (): void => {
   settings.append(settingsIcon());
   settings.title = i18n.t("panelSettings");
   settings.addEventListener("click", () => void openOptions());
-  $("#notify-setup").addEventListener("click", () => void openOptions("notifications"));
+  const refreshButton = $("#refresh");
+  refreshButton.append(refreshIcon());
+  refreshButton.title = i18n.t("popupRefresh");
+  refreshButton.addEventListener("click", refresh);
+  $("#mark-read").addEventListener("click", () => {
+    markRead(active[currentList()].filter((pull) => pull.unread));
+  });
   document.querySelectorAll(".retry").forEach((button) => {
     button.addEventListener("click", refresh);
   });
@@ -969,12 +983,10 @@ export const startPopup = (): void => {
     snapshot = value;
     render();
   });
-  notifyItem.watch(
-    () =>
-      void loadNotify().then((notify) => {
-        renderNotify(notify.enabled);
-      }),
-  );
+  readItem.watch((value) => {
+    read = value;
+    render();
+  });
   doneItem.watch((value) => {
     done = value;
     render();
@@ -991,7 +1003,7 @@ export const startPopup = (): void => {
   });
   void Promise.all([
     inboxItem.getValue(),
-    loadNotify(),
+    readItem.getValue(),
     doneItem.getValue(),
     loadReviewTime(),
     reviewRunItem.getValue(),
@@ -1003,7 +1015,7 @@ export const startPopup = (): void => {
     ignoredItem.getValue(),
     pullBranchesItem.getValue(),
     loadAppearance().then(restyle),
-  ]).then(([value, notify, marks, savedReviewTime, current, kept, skipping, files, pace, repos, away, known]) => {
+  ]).then(([value, seen, marks, savedReviewTime, current, kept, skipping, files, pace, repos, away, known]) => {
     popup = repos;
     ignored = away;
     branches = known;
@@ -1015,7 +1027,7 @@ export const startPopup = (): void => {
     reviewTime = savedReviewTime;
     run = current;
     held = kept;
-    renderNotify(notify.enabled);
+    read = seen;
     render();
     reveal();
     refresh();

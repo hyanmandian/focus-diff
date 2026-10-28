@@ -228,9 +228,15 @@ export const fetchPulls = async (list: PullList): Promise<PullRequest[]> => {
   };
   const first = await read(1);
   const rest = await Promise.all(
-    Array.from({ length: Math.min(pageCount(first), PAGES) - 1 }, (_, index) => read(index + 2)),
+    Array.from({ length: Math.min(pageCount(first), PAGES) - 1 }, async (_, index) => {
+      try {
+        return parsePulls(await read(index + 2));
+      } catch {
+        return [];
+      }
+    }),
   );
-  const pulls = new Map([first, ...rest].flatMap((each) => parsePulls(each)).map((pull) => [pull.url, pull]));
+  const pulls = new Map([...parsePulls(first), ...rest.flat()].map((pull) => [pull.url, pull]));
   return [...pulls.values()];
 };
 

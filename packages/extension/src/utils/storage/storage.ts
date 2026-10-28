@@ -74,6 +74,8 @@ export const doneItem = storage.defineItem<DoneMarks>("sync:inboxDone", { fallba
 
 export const ignoredItem = storage.defineItem<IgnoredMarks>("sync:inboxIgnored", { fallback: {} });
 
+export const readItem = storage.defineItem<Record<string, string>>("local:inboxRead", { fallback: {} });
+
 export const inboxMemoryItem = storage.defineItem<InboxMemory | null>("local:inboxMemory", { fallback: null });
 
 export const notificationLinksItem = storage.defineItem<Record<string, string>>("local:notificationLinks", {

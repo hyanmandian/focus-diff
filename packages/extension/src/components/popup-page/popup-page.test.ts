@@ -8,7 +8,7 @@ import html from "@/entrypoints/popup/index.html?raw";
 import { h } from "@/utils/dom/dom";
 import { $ } from "@/utils/extension-page/extension-page";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
-import { DEFAULT_NOTIFY, normalizePopup, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
+import { normalizePopup, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
 import { pageBody } from "@/utils/page-body/page-body";
 import { DEFAULT_REVIEW_TIME, type ReviewRun } from "@/utils/review-sessions/review-sessions";
@@ -19,10 +19,10 @@ import {
   ignoredItem,
   inboxItem,
   learnedItem,
-  notifyItem,
   popupItem,
   pullBranchesItem,
   pullFilesItem,
+  readItem,
   reviewRunItem,
   reviewSkipItem,
   reviewTimeItem,
@@ -589,6 +589,8 @@ describe("startPopup", () => {
       active: false,
     });
     expect(link.classList.contains("unread")).toBe(false);
+    await settle();
+    expect(await readItem.getValue()).toEqual({ "https://github.com/a/b/pull/1": "2026-10-26T09:00:00Z" });
     vi.mocked(fakeBrowser.tabs.create).mockClear();
     link.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 1 }));
     $("#settings").dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -610,21 +612,39 @@ describe("startPopup", () => {
     expect(fakeBrowser.tabs.create).not.toHaveBeenCalled();
   });
 
-  it("opens settings, and the notifications' from the footer", async () => {
-    await notifyItem.setValue({ ...DEFAULT_NOTIFY, enabled: true });
+  it("opens settings, and refreshes the lists from the header", async () => {
     await start();
-    expect($("#notify-setup").textContent).toBe("Notifications on");
-    expect($("#notify-setup").classList.contains("on")).toBe(true);
     $("#settings").click();
     await settle();
     expect(sent).toContainEqual({ type: "open-options", section: undefined });
     expect(window.close).toHaveBeenCalled();
-    $("#notify-setup").click();
+    sent = [];
+    $("#refresh").click();
+    expect($("#refresh").getAttribute("aria-busy")).toBe("true");
     await settle();
-    expect(sent).toContainEqual({ type: "open-options", section: "notifications" });
-    await notifyItem.setValue({ ...DEFAULT_NOTIFY, enabled: false });
+    expect(sent).toContainEqual({ type: "inbox-refresh" });
+    expect($("#refresh").getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("marks the list's new activity as read, until it changes again", async () => {
+    const fresh = pull({ url: "https://github.com/acme/web/pull/1", unread: true });
+    const other = pull({ url: "https://github.com/acme/web/pull/2", number: 2, unread: true });
+    await inboxItem.setValue(inbox({ reviews: [fresh, other], mine: [pull({ url: "m", unread: false })] }));
+    await start();
+    const button = $("#mark-read");
+    expect(button.hidden).toBe(false);
+    expect(document.querySelectorAll("#panel-reviews a.pull.unread")).toHaveLength(2);
+    button.click();
     await settle();
-    expect($("#notify-setup").textContent).toBe("Turn on notifications");
+    expect(document.querySelectorAll("#panel-reviews a.pull.unread")).toHaveLength(0);
+    expect(button.hidden).toBe(true);
+    expect(await readItem.getValue()).toEqual({ [fresh.url]: fresh.updatedAt, [other.url]: other.updatedAt });
+    await inboxItem.setValue(inbox({ reviews: [{ ...fresh, updatedAt: "2026-10-26T11:00:00Z" }, other] }));
+    await settle();
+    expect(document.querySelectorAll("#panel-reviews a.pull.unread")).toHaveLength(1);
+    expect(button.hidden).toBe(false);
+    $("#tab-mine").click();
+    expect(button.hidden).toBe(true);
   });
 
   it("shows review time on asking to review now, and puts it away", async () => {

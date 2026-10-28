@@ -412,6 +412,11 @@ describe("fetching from GitHub", () => {
     expect(queries[1]).toContain("is:merged");
   });
 
+  it("keeps the first page when a later one doesn't read", async () => {
+    stubFetch((url) => (url.includes("page=2") ? respond("<html>") : respond(listPage(1, 2))));
+    expect((await fetchPulls("reviews")).map((each) => each.number)).toEqual([1, 12]);
+  });
+
   it("says when a list doesn't read as JSON", async () => {
     stubFetch(() => respond("<html>"));
     await expect(fetchPulls("reviews")).rejects.toMatchObject({ problem: "unreadable" });

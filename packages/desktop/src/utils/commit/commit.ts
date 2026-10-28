@@ -1,19 +1,11 @@
-// Committing suggested changes to the pull request's branch, as GitHub's "Commit suggestion" does:
-// each file read at the head the review was of, the suggestions applied to it, and one commit made
-// on the branch only if its head is still that one (GitHub checks), crediting the suggestions'
-// authors. Signed by GitHub, like a commit made on the site.
-
 import { github, GitHubError } from "@/utils/bridge/bridge";
 import { mutate } from "@/utils/comments/comments";
 import { applyEdits, coAuthors, toBase64, type Author, type Edit } from "@/utils/suggestion/suggestion";
 
-/** A suggestion to commit: which conversation it's in, the lines it replaces and with what. */
 export type Applied = Edit & { thread: string; comment: string; path: string; author: Author };
 
-/** The branch moved since the review loaded: what it showed is no longer what's there. */
 export class StaleHead extends Error {}
 
-/** The default message, as GitHub writes it. */
 export const defaultHeadline = (items: Applied[]) =>
   items.length === 1 ? `Update ${items[0]!.path.split("/").pop()}` : "Apply suggestions from code review";
 

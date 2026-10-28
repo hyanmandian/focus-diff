@@ -9,7 +9,6 @@ import { i18n, setLanguage } from "@/utils/i18n/i18n";
 
 const make = (kind: QueueKind, patch: Partial<Queue> = {}): Queue => ({ ...TEMPLATES[kind].make(), ...patch });
 
-/** The editor as Settings holds it: each change kept, and the latest one readable. */
 function setup(initial: Queue) {
   const changes = vi.fn<(q: Queue) => void>();
   function Harness() {
@@ -84,7 +83,6 @@ describe("QueueEditor", () => {
     await choose(user, "Waiting long after", "8 hours");
     expect(last().staleHours).toBe(8);
 
-    // Asked directly only: teams don't count, so they aren't asked for.
     await user.click(screen.getByRole("switch", { name: /Only when I'm asked directly/u }));
     expect(last().directOnly).toBe(true);
     expect(screen.queryByRole("textbox", { name: "Teams" })).toBeNull();
@@ -204,7 +202,6 @@ describe("QueueEditor", () => {
     await user.type(screen.getByRole("textbox", { name: "Repositories to notify about" }), "acme/web{Enter}");
     expect(last().notifyRepos).toEqual(["acme/web"]);
 
-    // A custom queue notifies of new ones: turning that off leaves nothing to tell, nor when.
     await user.click(screen.getByRole("switch", { name: "Enters the queue" }));
     expect(last().notify).toEqual([]);
     expect(screen.queryByRole("group", { name: "When to tell me" })).toBeNull();
@@ -214,7 +211,6 @@ describe("QueueEditor", () => {
 });
 
 describe("QueueEditor, drawn again with nothing changed", () => {
-  // Settings redraws the editor whenever anything else on the page changes; what's on screen stays.
   it.each([
     ["review", make("review")],
     ["involved", make("involved")],

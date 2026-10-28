@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { newSession, type ReviewSession } from "@/utils/review-sessions/review-sessions";
 
-// The reader's language is read once, as the module loads, before the setup's beforeEach gives the fake browser one.
 await vi.hoisted(async () => {
   const { fakeBrowser } = await import("wxt/testing/fake-browser");
   Object.assign(fakeBrowser.i18n, { getUILanguage: () => "en-US" });
@@ -59,7 +58,6 @@ describe("the first day of the week", () => {
 
   const weekWith = async (info: object) => {
     vi.resetModules();
-    // Only the week's start is read as it loads.
     vi.stubGlobal("Intl", {
       Locale: vi.fn<() => object>(function locale() {
         return info;

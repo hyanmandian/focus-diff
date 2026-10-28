@@ -1,5 +1,3 @@
-# Weekly, and a week behind: a version published in the last 7 days waits, so a freshly hijacked release has time to
-# be caught and pulled before it gets here. Titles follow Conventional Commits, which the pull request check enforces.
 version: 2
 updates:
   - package-ecosystem: npm

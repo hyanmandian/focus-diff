@@ -21,7 +21,6 @@ const withApi = (api: ConversationApi | null) =>
 const thumbs: Reaction = { content: "THUMBS_UP", count: 3, mine: false, who: ["octocat"] };
 const heart: Reaction = { content: "HEART", count: 1, mine: true, who: ["mona"] };
 
-/** A comment's reactions, as a comment shows them. */
 function Reactions({ given }: { given: Reaction[] }) {
   const [reactions, toggle] = useReactions("C_1", given);
   return (

@@ -13,9 +13,6 @@ import type { MergeView } from "@/utils/merging/merging";
 import type { PullRef, Thread } from "@/utils/review/review";
 import type { TimelinePage } from "@/utils/timeline/timeline";
 
-// The hook brings together the pull request's state, commits, checks, timeline and actions, each
-// a util of its own (manage.ts, commits.ts, checks.ts, timeline.ts, merging.ts): here, what they
-// answer, so what the hook does with them shows.
 type Checks = {
   checks: CheckItem[];
   loaded: boolean;
@@ -78,7 +75,6 @@ vi.mock("@/utils/merging/merging", () => ({
 }));
 vi.mock("@/utils/timeline/timeline", () => ({
   loadTimeline: u.loadTimeline,
-  // Each node as an event of its own, to see their order.
   mapTimeline: (nodes: Array<{ id: string }>) => nodes.map((n) => n.id),
 }));
 
@@ -198,7 +194,6 @@ const commit = (oid: string, parent: string | null): Commit => ({
 });
 const COMMITS: Commits = { commits: [commit("c1", null), commit("c2", "c1")], forcePushes: [], reviewed: "c1" };
 
-/** The manage state as `patch` leaves it. */
 let manageNow: Manage = MANAGE;
 let checksNow: CheckItem[] | null = [];
 let confirmAnswer = true;
@@ -221,7 +216,6 @@ function setChecks(checks: CheckItem[], running = false) {
 
 type Props = { details: Details | null; threads?: Thread[] };
 
-/** The hook in a review window that holds the details. */
 function setup(initial: Details | null = DETAILS, threads: Thread[] = []) {
   const say = vi.fn<(message: string) => void>();
   const reloadAll = vi.fn<() => void>();
@@ -247,7 +241,6 @@ function setup(initial: Details | null = DETAILS, threads: Thread[] = []) {
   return { ...view, say, reloadAll };
 }
 
-/** Lets the clock run on 2.5 seconds at a time, rendering in between. */
 async function wait2500(times: number): Promise<void> {
   if (times === 0) return;
   await act(() => vi.advanceTimersByTimeAsync(2500));
@@ -334,7 +327,6 @@ describe("usePull", () => {
     const { rerender } = setup({ ...DETAILS, mergeable: "UNKNOWN" });
     await wait2500(8);
     expect(u.loadMergeState).toHaveBeenCalledTimes(6);
-    // Known again: counting starts over.
     rerender({ details: { ...DETAILS, mergeStateStatus: "CLEAN" } });
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -432,7 +424,6 @@ describe("usePull", () => {
     await act(() => result.current.pull.loadOlder());
     expect(u.loadTimeline).toHaveBeenCalledTimes(2);
 
-    // The pull request changing brings the newest page again, in place of the first.
     u.loadTimeline.mockResolvedValueOnce({ nodes: [{ id: "e4" }, { id: "e5" }], older: "cursor1" });
     act(() => {
       result.current.setDetails({ ...DETAILS, updatedAt: "later" });
@@ -470,7 +461,6 @@ describe("usePull", () => {
       expect(result.current.details?.state).toBe("MERGED");
       expect(say).toHaveBeenCalledWith("Merged");
       expect(u.call).not.toHaveBeenCalledWith("deleteBranch", "rename");
-      // Then what merging changed comes in again.
       expect(u.loadMergeState).toHaveBeenCalled();
       expect(result.current.pull.busy).toBeNull();
     });
@@ -485,7 +475,6 @@ describe("usePull", () => {
         title: "Merge #42 without waiting for its requirements?",
       });
       expect(u.call).toHaveBeenCalledWith("deleteBranch", "rename");
-      // The branch staying isn't a failure to merge.
       expect(say).toHaveBeenCalledWith("Merged");
     });
 

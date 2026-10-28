@@ -24,7 +24,6 @@ describe("createScoreboard", () => {
   });
 
   it("keeps its cells when a number has a separator fewer than the widest", () => {
-    // Portuguese leaves four-digit numbers ungrouped.
     const board = createScoreboard("additions");
     board.set("1234", "12.345");
     expect(shown(board.element)).toBe("[][1]()[2][3][4]");
@@ -59,7 +58,6 @@ describe("createScoreboard's flips", () => {
     board.set("13", "99");
     expect(animate).toHaveBeenCalledTimes(3);
     board.set("3", "99");
-    // The first cell empties without a flip; the second keeps its 3.
     expect(animate).toHaveBeenCalledTimes(3);
   });
 });

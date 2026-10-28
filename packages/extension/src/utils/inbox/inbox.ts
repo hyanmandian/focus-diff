@@ -5,7 +5,6 @@ import type { Activity, Detail, InboxProblem, PullRequest } from "@/utils/github
 import { asRecord, recordOf } from "@/utils/record/record";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
-/** Something on a pull request the reader can be told about. */
 export type EventKind =
   | "review-requested"
   | "ready-for-review"
@@ -15,7 +14,6 @@ export type EventKind =
   | "approved"
   | "changes-requested";
 
-/** What a rule can leave out. */
 export type Exception = "drafts" | "approved" | "bots";
 
 export const EVENT_KINDS: EventKind[] = [
@@ -28,7 +26,6 @@ export const EVENT_KINDS: EventKind[] = [
   "mention",
 ];
 
-/** The exceptions that mean something for each kind of event, in the order settings offer them. */
 export const EXCEPTIONS: Record<EventKind, Exception[]> = {
   "review-requested": ["drafts", "approved"],
   "ready-for-review": ["approved"],
@@ -39,42 +36,31 @@ export const EXCEPTIONS: Record<EventKind, Exception[]> = {
   "changes-requested": ["bots"],
 };
 
-/** Right away, or kept for the next review time, when the reader has review times set. */
 export type When = "now" | "review";
 
-/** Whether an event is wanted, and what to leave out of it. */
 interface EventSetting {
   on: boolean;
   except: Exception[];
-  /** The repositories this event is for, in place of the general ones; empty means the general ones. */
   repos: string[];
   when: When;
 }
 
-/** How often GitHub is read, in minutes. */
 export const INTERVALS = [2, 5, 10, 15, 30] as const;
 type Interval = (typeof INTERVALS)[number];
 
-/** Hours to keep quiet, like nights, and weekends too if asked; the lists still update, only nothing pops up. */
 interface QuietHours {
   on: boolean;
-  /** `HH:MM`, local time. A span past midnight, like 19:00 to 09:00, is fine. */
   from: string;
   to: string;
   weekends: boolean;
 }
 
-/** How a notification shows: one per event or one summing them up, which sound it makes, and until clicked. */
 export interface Delivery {
   grouped: boolean;
   sticky: boolean;
   sound: SoundSetting;
 }
 
-/**
- * Notifications: on or off, the repositories they're for (all of them when empty) and the ones never, what to be told
- * about, how often to look, when to keep quiet, and how they show.
- */
 export interface NotifySettings {
   enabled: boolean;
   repos: string[];
@@ -85,7 +71,6 @@ export interface NotifySettings {
   delivery: Delivery;
 }
 
-/** What most reviewers want, to start from. */
 const DEFAULT_EVENTS: Record<EventKind, EventSetting> = {
   "review-requested": { on: true, except: ["drafts"], repos: [], when: "review" },
   "ready-for-review": { on: true, except: ["approved"], repos: [], when: "review" },
@@ -106,10 +91,8 @@ export const DEFAULT_NOTIFY: NotifySettings = {
   delivery: { grouped: false, sticky: false, sound: { id: "chime", volume: 60 } },
 };
 
-/** The repositories typed in one field, apart: `octo/web, octo/*` or one per line. */
 export const splitRepos = (text: string): string[] => [...new Set(text.split(/[\s,]+/u).filter(Boolean))];
 
-/** The ones that don't read as a repository path. */
 export const invalidRepos = (repos: string[]): string[] => repos.filter((repo) => !REPO_PATTERN.test(repo));
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
@@ -147,7 +130,6 @@ export const normalizeNotify = (value: unknown): NotifySettings => {
     delivery: {
       grouped: delivery.grouped === true,
       sticky: delivery.sticky === true,
-      // Before there were sounds to pick, there was only quiet or not.
       sound: normalizeSound(
         delivery.sound,
         delivery.silent === true ? { id: "none", volume: 60 } : DEFAULT_NOTIFY.delivery.sound,
@@ -158,18 +140,15 @@ export const normalizeNotify = (value: unknown): NotifySettings => {
 
 const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 
-/** Whether it's within the reader's quiet hours, or a weekend they keep quiet. */
 export const isQuiet = ({ quiet }: NotifySettings, now: Date): boolean => {
   if (!quiet.on) return false;
   if (quiet.weekends && (now.getDay() === 0 || now.getDay() === 6)) return true;
   const at = now.getHours() * 60 + now.getMinutes();
   const from = minutes(quiet.from);
   const to = minutes(quiet.to);
-  // From 19:00 to 09:00 wraps past midnight; from 12:00 to 14:00 doesn't. Equal times keep no hours quiet.
   return from < to ? at >= from && at < to : from > to && (at >= from || at < to);
 };
 
-/** Whether a look should read the notifications inbox at all. */
 export const isWatching = (settings: NotifySettings): boolean =>
   settings.enabled && EVENT_KINDS.some((kind) => settings.events[kind].on);
 
@@ -179,24 +158,17 @@ export interface InboxEvent {
   number: number;
   title: string;
   url: string;
-  /** Who did it, when known. */
   actor: string;
   bot: boolean;
   draft: boolean;
-  /** Whether the reader's latest review approved the pull request, when known. */
   approvedByMe: boolean;
-  /** Whether the review was asked of one of the reader's teams and not of them, when known. */
   team: boolean;
-  /** Back on the review queue after the reader reviewed it: asked to review it again. */
   again: boolean;
-  /** The start of what a comment or review said, or empty. */
   excerpt: string;
 }
 
-/** An event kept for later: for the next review time, or for the end of the one under way. */
 export interface HeldEvent extends InboxEvent {
   until: "review" | "end";
-  /** When it was kept, to tell the ones a review time offered from the ones that came after. */
   heldAt: number;
 }
 
@@ -206,48 +178,37 @@ const EXCLUDES: Record<Exception, (event: InboxEvent) => boolean> = {
   bots: (event) => event.bot,
 };
 
-/** Whether the reader wants this kind of event in this repository, before knowing who did it. */
 export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: string): boolean => {
   const event = settings.events[kind];
-  // An event's own repositories take the general ones' place; the ones never wanted are left out of every event.
   const repos = event.repos.length > 0 ? event.repos : settings.repos;
   const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, repo));
   return event.on && (repos.length === 0 || among(repos)) && !among(settings.excludeRepos);
 };
 
-/** Whether the reader wants to be told about this event. */
 export const wants = (settings: NotifySettings, event: InboxEvent): boolean =>
   mayNotify(settings, event.kind, event.repo) &&
   !settings.events[event.kind].except.some((exception) => EXCLUDES[exception](event));
 
-/** Whether working an event out takes a look at its pull request's page, to know if the reader approved it. */
 export const needsDetail = (settings: NotifySettings, kind: EventKind, repo: string): boolean =>
   mayNotify(settings, kind, repo) && settings.events[kind].except.includes("approved");
 
-/** The events about pull requests on the review queue, which follow it in leaving out the reviews asked of a team. */
 export const QUEUE_KINDS: EventKind[] = ["review-requested", "ready-for-review", "comment-reviewing"];
 
-/** What the background remembers between looks, to tell what's new. */
 export interface InboxMemory {
-  /** The latest update seen on each notification thread. */
   threads: Record<string, string>;
-  /** The review list as of the last look, to tell a request that's new, or a draft that's now ready. */
   reviews: PullRequest[];
 }
 
-/** The reader's lists as the popup shows them. */
 export interface InboxSnapshot {
   me: string;
   reviews: PullRequest[];
   mine: PullRequest[];
-  /** The lists the reader can add to the popup, there only while they have. */
   updates?: PullRequest[];
   merged?: PullRequest[];
   checkedAt: number;
   problem: InboxProblem | null;
 }
 
-/** New review requests, and drafts on the list that are now ready. Nothing is new on the first look. */
 export const reviewListEvents = (previous: PullRequest[] | null, current: PullRequest[]): InboxEvent[] => {
   if (!previous) return [];
   const before = new Map(previous.map((pull) => [pull.url, pull]));
@@ -274,11 +235,9 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
   });
 };
 
-/** Threads with an event since the last look. Nothing is new on the first look, which only remembers where things stand. */
 export const freshActivity = (previous: Record<string, string> | null, current: Activity[]): Activity[] =>
   previous ? current.filter((activity) => activity.updatedAt > (previous[activity.thread] ?? "")) : [];
 
-/** What a thread's latest event was, for the reader: a comment or review on their own pull request, or on one they review. */
 export const activityKind = (activity: Activity, review: Detail["review"]): EventKind | null => {
   if (activity.kind === "other") return null;
   if (activity.reason === "mention" || activity.reason === "team_mention") return "mention";
@@ -289,7 +248,6 @@ export const activityKind = (activity: Activity, review: Detail["review"]): Even
   return null;
 };
 
-/** The thread updates a notification inbox remembers, at most this many, the latest first. */
 const MEMORY_LIMIT = 300;
 
 export const rememberThreads = (
@@ -304,10 +262,8 @@ export const rememberThreads = (
   );
 };
 
-/** Pull requests the reader marked done, each with when it was last updated as they marked it. */
 export type DoneMarks = Record<string, string>;
 
-/** Done until something happens on it: an update after the mark brings a pull request back. */
 export const isDone = (done: DoneMarks, pull: PullRequest): boolean => {
   const markedAt = done[pull.url];
   return markedAt !== undefined && pull.updatedAt <= markedAt;
@@ -323,17 +279,11 @@ export const unmarkDone = (done: DoneMarks, pulls: PullRequest[]): DoneMarks => 
   return Object.fromEntries(Object.entries(done).filter(([url]) => !urls.has(url)));
 };
 
-/** Which pull requests the popup lists, and counts on the icon. */
 export interface PopupSettings {
-  /** Only these repositories, as `owner/name` or `owner/*`; none for every repository. */
   repos: string[];
-  /** Never these. */
   excludeRepos: string[];
-  /** Whether the review queue lists the reviews asked of the reader's teams, and not only of them by name. */
   teams: boolean;
-  /** Whether the popup adds the open pull requests the reader took part in, as Updates. */
   updates: boolean;
-  /** Whether it adds the ones merged lately that still asked for their review, as Merged. */
   merged: boolean;
 }
 
@@ -350,15 +300,12 @@ export const normalizePopup = (value: unknown): PopupSettings => {
   };
 };
 
-/** The popup's lists: the two it always has, then the ones the reader can add. */
 export type PopupList = "reviews" | "mine" | "updates" | "merged";
 export const POPUP_LISTS: PopupList[] = ["reviews", "mine", "updates", "merged"];
 
-/** The lists the popup shows, as the reader set it up. */
 export const popupLists = (settings: PopupSettings): PopupList[] =>
   POPUP_LISTS.filter((list) => (list === "updates" || list === "merged" ? settings[list] : true));
 
-/** Whether the popup lists a pull request: from the repositories picked, and not only a team's to review if left out. */
 export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, "repo" | "team">): boolean => {
   const among = (patterns: string[]) => patterns.some((pattern) => repoMatches(pattern, pull.repo));
   return (
@@ -368,17 +315,10 @@ export const inPopup = (settings: PopupSettings, pull: Pick<PullRequest, "repo" 
   );
 };
 
-/** When each pull request left the review queue, or came back to it after that: by its url, in ms. */
 export type QueueHistory = Record<string, { left?: number; again?: number }>;
 
-/** How long a pull request that left the review queue is remembered, for when it comes back. */
 const HISTORY_MS = 90 * 86_400_000;
 
-/**
- * Marks the pull requests back on the review queue after leaving it. GitHub takes one off once the reader reviews it,
- * so one back was asked to be reviewed again. `previous` is the last list read, or `null` when there's none to go by,
- * like on the first look, when nothing has left yet.
- */
 export const markAgain = (
   previous: PullRequest[] | null,
   current: PullRequest[],
@@ -401,16 +341,11 @@ export const markAgain = (
   return { reviews, history: next };
 };
 
-/** Only the marks still hiding a pull request on the lists, so what's synced doesn't grow with every one ever marked. */
 export const pruneDone = (done: DoneMarks, pulls: PullRequest[]): DoneMarks => {
   const kept = new Set(pulls.filter((pull) => isDone(done, pull)).map((pull) => pull.url));
   return Object.fromEntries(Object.entries(done).filter(([url]) => kept.has(url)));
 };
 
-/**
- * Pull requests the reader ignored, by list: unlike a done mark, nothing new brings one back, only the reader. Kept
- * while it's on that list, so what's synced doesn't grow with every one ever ignored.
- */
 export type IgnoredMarks = Partial<Record<PopupList, string[]>>;
 
 export const isIgnored = (ignored: IgnoredMarks, list: PopupList, pull: Pick<PullRequest, "url">): boolean =>
@@ -426,7 +361,6 @@ export const unignore = (ignored: IgnoredMarks, list: PopupList, pull: Pick<Pull
   [list]: (ignored[list] ?? []).filter((url) => url !== pull.url),
 });
 
-/** Only the marks of pull requests still on their list; a list the popup no longer reads lets all of its marks go. */
 export const pruneIgnored = (ignored: IgnoredMarks, lists: Partial<Record<PopupList, PullRequest[]>>): IgnoredMarks =>
   Object.fromEntries(
     POPUP_LISTS.flatMap((list) => {

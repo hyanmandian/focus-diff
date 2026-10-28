@@ -1,6 +1,3 @@
-// GitHub's HTML for a comment, cleaned (utils/sanitize/sanitize.ts): links open in the browser, pictures in the
-// viewer, diagrams drawn, suggested changes as a small diff (suggestion.css).
-
 import { useRef, type MouseEvent } from "react";
 
 import { openViewer } from "@/components/viewer/viewer";
@@ -11,8 +8,6 @@ import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
 
 import "@/components/suggestion/suggestion.css";
 
-/** A click in GitHub's HTML: a picture opens in the viewer (even one GitHub wrapped in a link to
- *  itself), a link in the browser. */
 export function openClicked(e: MouseEvent) {
   if (!(e.target instanceof Element)) return;
   const picture = e.target.closest("img");
@@ -28,7 +23,6 @@ export function openClicked(e: MouseEvent) {
   }
 }
 
-/** `base`: the lines a previewed suggestion replaces. */
 export function CommentHtml({ html, base, className }: { html: string; base?: string[]; className?: string }) {
   const clean = sanitize(html, base);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,7 +36,6 @@ export function CommentHtml({ html, base, className }: { html: string; base?: st
         className,
       )}
       onClick={openClicked}
-      // Sanitized: an allowlist of tags and attributes, https links and GitHub images only.
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );

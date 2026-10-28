@@ -10,11 +10,8 @@ import type { ReviewFile } from "@/utils/review/review";
 
 type Reply = { status: number; body: string };
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
-/** Answers GitHub's contents API for each file by its name, in turn (the last answer stays), and
- *  records the calls and the links opened. */
 function github(replies: Record<string, Reply[]>) {
   const calls: Array<{ method: unknown; path: string; accept: unknown }> = [];
   const opened: unknown[] = [];
@@ -31,7 +28,6 @@ function github(replies: Record<string, Reply[]>) {
 
 const ok = (body: string): Reply[] => [{ status: 200, body }];
 
-/** GitHub's answer held back until `answer` is called. */
 function heldBack() {
   const pending: Array<(reply: Reply) => void> = [];
   mockCommands(
@@ -47,7 +43,6 @@ function heldBack() {
   };
 }
 
-// Rust's errors reach the page as plain strings.
 // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the case under test.
 const noBase = () => Promise.reject("no base");
 

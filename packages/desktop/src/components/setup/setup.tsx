@@ -1,7 +1,3 @@
-// First run: connect GitHub, pick queues, how to be told, and (optionally) an AI, in a minute.
-// Opens on its own when there's no setup yet, and again from the panel's menu. Everything here
-// can be changed later in Settings; the choices here are saved when you finish.
-
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -36,9 +32,6 @@ const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
 const repoError = (s: string) => (isRepoPattern(s) ? null : i18n()("setup.repoError"));
 
-/** A checkbox or radio button as macOS lays them out: the box on the leading edge, a 13pt label and
- *  an 11pt description under it. No card and no highlight under the pointer; the focus ring is on
- *  the box. */
 function Choice({
   checked,
   onClick,
@@ -125,8 +118,6 @@ export function Setup() {
     });
   };
 
-  /** The chosen queues: the ones you had stay as they were, new ones come from their template;
-   *  your own searches are left alone. */
   const finalConfig = (): Config => {
     const queues: Queue[] = [];
     for (const kind of OFFERED) {
@@ -149,8 +140,6 @@ export function Setup() {
 
   const at = STEPS[step];
   const canContinue = at === "github" ? Boolean(auth?.signed_in) : at === "queues" ? kinds.size > 0 : true;
-  // Return is the default button's (Continue, or Open Focus Diff at the end), unless a field or
-  // another button has it.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (
       e.key !== "Enter" ||
@@ -262,8 +251,6 @@ export function Setup() {
               </h1>
               <p className="text-body text-muted-foreground">{t("setup.notifyBody")}</p>
             </div>
-            {/* A grouped form, as System Settings draws one: rows on one rounded group, hairlines
-                between them, a mini switch. */}
             <div className="flex flex-col divide-y divide-border rounded-(--radius-group) border bg-card">
               <div className="flex min-h-10 items-center justify-between gap-4 px-3 py-2">
                 <Label htmlFor="sound">{t("setup.sound")}</Label>
@@ -400,8 +387,6 @@ export function Setup() {
         )}
       </main>
 
-      {/* Back beside Continue at the bottom right, as in the Mac's Setup Assistant; Continue is the
-          default button. */}
       <footer className="flex h-14 shrink-0 items-center gap-2 border-t px-5">
         <div className="ml-auto flex items-center gap-2">
           {at === "ai" && !config.ai.provider ? (

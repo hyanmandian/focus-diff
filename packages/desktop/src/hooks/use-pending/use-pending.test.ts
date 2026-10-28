@@ -41,12 +41,10 @@ const DETAILS: Details = {
   mergeMethods: ["squash"],
 };
 
-/** An IPC call's arguments as a plain record. */
 const fields = (payload: unknown): Record<string, unknown> =>
   typeof payload === "object" && payload !== null ? Object.fromEntries(Object.entries(payload)) : {};
 const parse = (text: string | undefined): unknown => JSON.parse(text ?? "null");
 
-/** One of your pending comments as GitHub's GraphQL has it. */
 const onGitHub = (id: string, body: string, line = 3) => ({
   id,
   body,
@@ -61,15 +59,11 @@ const onGitHub = (id: string, body: string, line = 3) => ({
 });
 
 type World = {
-  /** Your pending review's comments on GitHub, or a failure. */
   pending: () => Array<ReturnType<typeof onGitHub>> | Error | Promise<never>;
-  /** What's on its way, as Rust says, or a failure. */
   state: () => DraftsState | Error | Promise<DraftsState>;
-  /** Commands that fail. */
   failing?: string[];
 };
 
-/** GitHub and Rust as the hook sees them; what was asked of them. */
 function world({ pending, state, failing = [] }: World) {
   const calls: Array<[string, Record<string, unknown>]> = [];
   mockCommands((cmd, payload) => {
@@ -119,7 +113,6 @@ const draft = (key: string, body: string, over: Partial<Draft> = {}): Draft => (
 });
 
 const NOTHING = () => {};
-/** Lets what's pending (promises, effects) run. */
 const settle = () => act(() => Promise.resolve());
 
 describe("usePending", () => {

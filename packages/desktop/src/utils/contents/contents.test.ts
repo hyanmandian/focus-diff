@@ -11,7 +11,6 @@ const field = (args: Args | undefined, key: string): unknown =>
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
-/** Rust's file store: `files` by "sha:path"; a missing one is "absent", and `failing` paths fail. */
 function store(files: Record<string, Uint8Array | ArrayBuffer>, failing: string[] = []) {
   const asked: string[] = [];
   mockCommands((cmd, args) => {
@@ -20,7 +19,6 @@ function store(files: Record<string, Uint8Array | ArrayBuffer>, failing: string[
     asked.push(`${String(field(args, "repo"))} ${key}`);
     if (failing.includes(key)) throw new Error("offline");
     const file = files[key];
-    // Rust's errors arrive as plain strings; "absent" is its word for a file that isn't there.
     // oxlint-disable-next-line eslint/no-throw-literal, typescript/only-throw-error
     if (!file) throw "absent";
     return file;
@@ -82,7 +80,6 @@ describe("textAt", () => {
   });
 });
 
-/** GitHub's pull request and compare answers; `fail` fails the compare. */
 function githubPulls(fail = false) {
   const asked: string[] = [];
   mockCommands((_cmd, args) => {

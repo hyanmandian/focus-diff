@@ -1,10 +1,7 @@
-// The Settings window, on the sample configuration (src/utils/mock/mock.ts): four queues, two actions.
-
 import { expect, test, type Page } from "@playwright/test";
 
 import { recordCalls, savedConfig } from "./ipc";
 
-/** Opens a pane from the sidebar and checks it's the one showing. */
 async function showPane(page: Page, name: string) {
   const tab = page.getByRole("tablist", { name: "Settings" }).getByRole("tab", { name });
   await tab.click();
@@ -36,7 +33,6 @@ test("edits a queue: what it takes in, where you come in and its search terms", 
 
   const prs = page.getByRole("group", { name: "Pull requests" });
   await expect(prs.getByRole("button", { name: "Open" })).toHaveAttribute("aria-pressed", "true");
-  // Merged ones ask how far back, and leave out the kinds that only fit open ones.
   await prs.getByRole("button", { name: "Merged lately" }).click();
   await expect(prs.getByRole("button", { name: "Merged lately" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("combobox", { name: "Days" })).toBeVisible();
@@ -87,7 +83,6 @@ test("adds an action as a menu with choices, each with its steps", async ({ page
   await showsAs.getByRole("button", { name: "Menu" }).click();
   await expect(showsAs.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-pressed", "true");
 
-  // The first choice, named, with a comment after the command it starts with.
   await page.getByRole("textbox", { name: "Name" }).fill("Dana");
   await expect(page.getByRole("heading", { name: "Dana", level: 2 })).toBeVisible();
   await page.getByRole("button", { name: "Add Step" }).click();
@@ -96,7 +91,6 @@ test("adds an action as a menu with choices, each with its steps", async ({ page
   await page.getByRole("textbox", { name: "Comment" }).fill("@dana could you take this one?");
   await expect(page.getByRole("button", { name: "Remove step 2" })).toBeVisible();
 
-  // A second choice.
   await page.getByRole("button", { name: "Add Choice" }).click();
   await expect(page.getByRole("heading", { name: "Choice 2", level: 2 })).toBeVisible();
 
@@ -124,7 +118,6 @@ test("asks before removing an action, and keeps it when told no", async ({ page 
   await page.getByRole("tab", { name: "Actions" }).click();
   await page.getByRole("button", { name: /^Ask the team/u }).click();
 
-  // The sample's confirm is the browser's own.
   const asked: string[] = [];
   page.once("dialog", (dialog) => {
     asked.push(dialog.message());

@@ -106,7 +106,6 @@ const live = (over: Partial<Live> = {}): Live => ({
   ...over,
 });
 
-/** Everything the items' events say, as seen. */
 function seenAll(...items: Item[]) {
   const seen: Record<string, true> = {};
   for (const e of items.flatMap((i) => i.events)) seen[e.key] = true;
@@ -115,9 +114,7 @@ function seenAll(...items: Item[]) {
 
 type Options = {
   config?: Config;
-  /** What GitHub's GraphQL answers, as its `data`. */
   github?: unknown;
-  /** A link sent from outside before the panel opened. */
   waiting?: string;
   update?: string | null;
   failInstall?: boolean;
@@ -173,14 +170,12 @@ const snapshot = async (state: Live) => {
   });
 };
 
-/** Whether GitHub was asked about the pull request (an earlier test's fetches may still be finishing). */
 const fetchedAhead = (calls: Array<{ cmd: string; args: unknown }>, one: Item) =>
   calls.some((c) => c.cmd === "github" && JSON.stringify(c.args).includes(String(one.pr.number)));
 
 const footer = () => document.querySelector("footer")!;
 
 beforeEach(() => {
-  // The rows are laid out in a real web view; happy-dom has no layout to give them a parent.
   Object.defineProperty(HTMLElement.prototype, "offsetParent", { configurable: true, get: () => document.body });
 });
 
@@ -188,7 +183,6 @@ afterEach(async () => {
   platform.mac = true;
   Reflect.deleteProperty(HTMLElement.prototype, "offsetParent");
   vi.useRealTimers();
-  // Unmounted while the fake platform's events are still there: the panel lets go of its listeners a tick later.
   cleanup();
   await new Promise((resolve) => {
     setTimeout(resolve, 0);
@@ -327,14 +321,12 @@ describe("Panel", () => {
     });
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    // ⌘O, and Cancel.
     fireEvent.keyDown(window, { key: "o", metaKey: true });
     await user.click(await screen.findByRole("button", { name: "Cancel" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
-    // Pasted in the panel: opened; what isn't a link, or is typed in a field, is left alone.
     const paste = (text: string, target: EventTarget = document.body) => {
       const event = new Event("paste", { bubbles: true, cancelable: true });
       Object.assign(event, { clipboardData: { getData: () => text } });
@@ -356,7 +348,6 @@ describe("Panel", () => {
     document.body.append(input);
     expect(paste("https://github.com/acme/web/pull/9", input).defaultPrevented).toBe(false);
     input.remove();
-    // A link that isn't a pull request's: the sheet says so, with it, and the panel shows.
     await act(async () => {
       paste("https://github.com/acme/web/issues/9");
       await Promise.resolve();
@@ -371,7 +362,6 @@ describe("Panel", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
-    // Sent from a focusdiff:// link.
     await act(() => emit("open-link", "https://github.com/acme/web/pull/9"));
     await waitFor(() => {
       expect(opened()).toHaveLength(3);
@@ -511,14 +501,12 @@ describe("Panel", () => {
     const third = order[2]!.replace("Select ", "");
     await user.click(screen.getByRole("checkbox", { name: `Select ${first}` }));
 
-    // Shift down and the pointer on the third: the run is shown ahead.
     fireEvent.keyDown(window, { key: "Shift", shiftKey: true });
     const thirdRow = screen.getByRole("checkbox", { name: `Select ${third}` }).parentElement!;
     fireEvent.pointerEnter(thirdRow);
     const pending = document.querySelectorAll("[data-pending]");
     expect(pending).toHaveLength(3);
 
-    // A box click with Shift picks the run.
     fireEvent.click(thirdRow.querySelector("div[aria-hidden]")!, { shiftKey: true });
     expect(within(footer()).getByRole("status").textContent).toBe("3 selected");
 
@@ -528,7 +516,6 @@ describe("Panel", () => {
     fireEvent.blur(window);
     expect(document.querySelectorAll("[data-pending]")).toHaveLength(0);
 
-    // Unpicking a run lets them all go.
     fireEvent.click(thirdRow.querySelector("div[aria-hidden]")!, { shiftKey: true });
     fireEvent.click(
       screen.getByRole("checkbox", { name: `Select ${first}` }).parentElement!.querySelector("div[aria-hidden]")!,
@@ -596,7 +583,6 @@ describe("Panel", () => {
     screen.getByText("First").closest("button")!.focus();
     await user.keyboard("x");
     expect(within(footer()).getByRole("status").textContent).toBe("1 selected");
-    // Not with a modifier, and not off a row.
     fireEvent.keyDown(document.activeElement!, { key: "x", metaKey: true });
     fireEvent.keyDown(document.activeElement!, { key: "x", ctrlKey: true });
     fireEvent.keyDown(document.activeElement!, { key: "x", altKey: true });
@@ -646,7 +632,6 @@ describe("Panel", () => {
     chip.focus();
     fireEvent.keyDown(chip, { key: "ArrowDown" });
     expect(document.activeElement).toBe(chip);
-    // Home and End still reach the list from the chips.
     fireEvent.keyDown(chip, { key: "End" });
     expect(document.activeElement?.hasAttribute("data-row")).toBe(true);
 

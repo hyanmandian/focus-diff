@@ -18,7 +18,6 @@ import { startController, type Controller } from "./review-controller";
 
 const REPO = "octo/web";
 
-/** What the fake site says about itself, changed by each test. */
 const site = {
   repo: REPO as string | null,
   summary: null as FileSummary[] | null,
@@ -31,7 +30,6 @@ const site = {
 const byPath = (path: string) => document.querySelector<HTMLElement>(`.diff[data-path="${path}"]`)!;
 const rowOf = (path: string) => byPath(path).parentElement!;
 
-/** Reads a drawn file the way a provider would: the diff in a row, its counts and Viewed toggle inside. */
 const diffOf = (element: HTMLElement): Diff => ({
   element,
   container: element.parentElement!,
@@ -86,7 +84,6 @@ const provider: Provider = {
   conversations: () => site.conversations,
 };
 
-/** Draws a file: its row with the diff, and its link in the tree. */
 const draw = (
   path: string,
   { anchor = path, added = 1, viewed = false }: { anchor?: string; added?: number; viewed?: boolean | null } = {},
@@ -148,24 +145,19 @@ const start = async () => {
   controller = await startController(ctx, panel, provider);
 };
 
-/** Sends the content script a message, as the background would. */
 const message = async (body: unknown): Promise<void> => {
   const answers = await fakeBrowser.runtime.onMessage.trigger(body, {}, () => {});
-  // The content script answers nothing, so other listeners can.
   expect(answers).toEqual([undefined]);
 };
 
-/** Watches where the page is scrolled to. */
 const spyOnScroll = () => {
   const spy = vi.fn<(options: ScrollToOptions) => void>();
   vi.stubGlobal("scrollTo", spy);
   return spy;
 };
 
-/** Lets the frames, idle callbacks and storage updates waiting run. */
 const settle = () => vi.advanceTimersByTimeAsync(250);
 
-/** Places a file's row on screen. */
 const box = (path: string, top: number, height = 200) => {
   rowOf(path).getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: top, width: 10, height });
 };
@@ -259,10 +251,8 @@ describe("startController", () => {
     expect(await selectionsItem.getValue()).toEqual({ [REPO]: ["code"] });
     expect(panel.announce).toHaveBeenCalledWith(expect.objectContaining({ name: "Code", visible: 2 }));
     expect([hidden("src/a.ts"), hidden("src/b.ts"), hidden("docs/c.md")]).toEqual([false, false, true]);
-    // The tree shows only the filter's files, and the folders they're in.
     const tree = [...document.querySelectorAll<HTMLElement>("nav > *")].map((each) => each.style.display);
     expect(tree).toEqual(["", "none", "", "", "none"]);
-    // The site's counters show the filter's numbers, through copies beside them.
     expect(counter("files")!.style.display).toBe("none");
     expect(document.querySelector("header")!.textContent).toBe("32/3+9+5−3−2");
     expect(panel.renderConversations).toHaveBeenLastCalledWith({ current: 0, list: [] }, 0);
@@ -295,11 +285,9 @@ describe("startController", () => {
     await selectionsItem.setValue({ [REPO]: ["python"] });
     site.reported = 5;
     draw("src/a.ts");
-    // A count the site doesn't show is left alone.
     counter("deleted")!.remove();
     await start();
     expect(lastOptions()).toEqual(["python"]);
-    // Files not loaded yet are pending, so the counts beside the site's stay its own.
     expect(document.querySelector("header")!.textContent).toBe("30/5+9");
   });
 
@@ -316,7 +304,6 @@ describe("startController", () => {
     expect(closeUp).toHaveBeenLastCalledWith([], 0);
     expect(panel.setVisible).toHaveBeenLastCalledWith(false);
     expect(document.querySelectorAll("[data-focus-diff-counter]")).toHaveLength(0);
-    // Again, with nothing to put back.
     closeUp.mockClear();
     document.dispatchEvent(new Event("change"));
     await settle();
@@ -397,7 +384,6 @@ describe("startController", () => {
       { file: { ...summaryOf("src/a.ts"), stats: null, diff: null }, line: 1, state: "waiting", element: null, open },
     ];
     await start();
-    // Without a filter, there's no count of all of them beside it.
     const [conversations, most] = panel.renderConversations.mock.lastCall!;
     expect(conversations).toEqual({ current: 0, list: [{ path: "src/a.ts", line: 1, state: "waiting" }] });
     expect(most).toBeUndefined();
@@ -483,7 +469,6 @@ describe("next unviewed", () => {
     expect(panel.announceText).toHaveBeenLastCalledWith("src/c.ts. 2 files left to review.");
     expect(scroll).toHaveBeenLastCalledWith(expect.objectContaining({ top: 100 }));
 
-    // The file at the top already brought up: on to the next one, around to the first.
     box("src/c.ts", 0);
     box("src/b.ts", -200);
     box("src/a.ts", -400);
@@ -498,7 +483,6 @@ describe("next unviewed", () => {
     await start();
     await next();
     expect(lastOptions()).toEqual(["docs"]);
-    // Nothing left anywhere: nothing to do.
     rowOf("docs/c.md").querySelector("input")!.checked = true;
     document.dispatchEvent(new Event("change"));
     await settle();
@@ -521,7 +505,6 @@ describe("next unviewed", () => {
     await start();
     await next();
     expect(reveal).toHaveBeenLastCalledWith("src/a.ts");
-    // Where the site covers nothing at all, a file it hasn't drawn sits at the top.
     covered.mockReturnValue(-10);
     reveal.mockClear();
     await next();
@@ -583,7 +566,6 @@ describe("watching the page", () => {
     document.querySelector("main")!.append(document.createElement("p"));
     await settle();
     expect(panel.renderStats.mock.calls.length).toBe(renders + 1);
-    // Text changes, like ticking timestamps, don't count.
     document.querySelector("p")!.textContent = "now";
     await settle();
     expect(panel.renderStats.mock.calls.length).toBe(renders + 1);
@@ -614,7 +596,6 @@ describe("watching the page", () => {
     await settle();
     expect(panel.renderStats.mock.calls.length).toBe(renders + 2);
 
-    // Where the browser has idle callbacks, those (happy-dom, like Safari, has none).
     vi.stubGlobal("requestIdleCallback", (callback: () => void) => setTimeout(callback, 50));
     vi.stubGlobal("cancelIdleCallback", (id: number) => {
       clearTimeout(id);
@@ -675,11 +656,9 @@ describe("the site's tree", () => {
       DOMRect.fromRect({ x: 0, y: 400, width: 10, height: 100 });
     await vi.advanceTimersByTimeAsync(50);
     expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ top: 400 }));
-    // Never drawn: nothing to line up.
     const lost = document.createElement("a");
     lost.dataset.anchor = "lost";
     document.querySelector("nav")!.append(lost);
-    // The reader scrolling lets go of the last file.
     dispatchEvent(new Event("wheel"));
     scroll.mockClear();
     click(lost);

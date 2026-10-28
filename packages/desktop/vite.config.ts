@@ -9,14 +9,7 @@ import { defineConfig } from "vite-plus";
 const host = process.env.TAURI_DEV_HOST;
 const page = (name: string) => fileURLToPath(new URL(`./${name}.html`, import.meta.url));
 
-// Vite+ runs it all from here (vp dev, vp build, vp check, vp test): four pages (the panel under
-// the tray icon, settings, first-run setup and a pull request's review), Oxfmt, Oxlint, Vitest. The
-// screens are in src/components, src/hooks and src/utils, the UI kit beside them.
 export default defineConfig({
-  // React Compiler memoizes components and hooks at build time, so renders stay cheap without
-  // hand-written useMemo/useCallback.
-  // Not while testing: coverage measures the code as written, not the compiler's cache checks
-  // (some of which no render can reach).
   plugins: [react(), ...(process.env.VITEST ? [] : [babel({ presets: [reactCompilerPreset()] })]), tailwindcss()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
@@ -27,7 +20,6 @@ export default defineConfig({
       input: { panel: page("index"), settings: page("settings"), setup: page("setup"), review: page("review") },
     },
   },
-  // Tauri expects a fixed port, keeps Rust errors visible, and rebuilds itself.
   clearScreen: false,
   server: {
     port: 1420,
@@ -63,10 +55,6 @@ export default defineConfig({
     ],
     categories: { correctness: "error", suspicious: "error", perf: "error", pedantic: "error" },
     rules: {
-      // What the categories turn on that doesn't fit: the old JSX transform's rule, readonly
-      // parameters and strict booleans (outside typescript-eslint's strict sets too), render
-      // performance rules the React Compiler makes moot, JSDoc @param/@returns that would only
-      // repeat the types, and size limits on files and functions.
       "react/react-in-jsx-scope": "off",
       "typescript/prefer-readonly-parameter-types": "off",
       "typescript/strict-boolean-expressions": "off",
@@ -75,9 +63,7 @@ export default defineConfig({
       "react-perf/jsx-no-new-array-as-prop": "off",
       "react-perf/jsx-no-jsx-as-prop": "off",
       "react/jsx-no-constructed-context-values": "off",
-      // Immutable state updates copy with a spread on purpose.
       "oxc/no-map-spread": "off",
-      // `void p.then(() => {...})` ends a chain on purpose.
       "promise/always-return": ["error", { ignoreLastCallback: true }],
       "jsdoc/require-param": "off",
       "jsdoc/require-returns": "off",
@@ -85,18 +71,11 @@ export default defineConfig({
       "eslint/max-lines": "off",
       "import/max-dependencies": "off",
       "eslint/no-inline-comments": "off",
-      // An effect that returns its cleanup on one path can't satisfy both of these on another
-      // ("return;" or "return undefined;"); the cleanup contract is React's, not ours.
       "typescript/consistent-return": "off",
-      // "" means missing in the person's settings and GitHub's fields (x?.trim() || null).
       "typescript/prefer-nullish-coalescing": ["error", { ignorePrimitives: { string: true } }],
-      // Stylesheets are imported for what they do.
       "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
-      // Not type-aware: it would have data-* set through .dataset on elements that have none (an Element).
       "unicorn/prefer-dom-node-dataset": "off",
-      // GraphQL's __typename and Tauri's __TAURI_INTERNALS__ are names we don't choose.
       "eslint/no-underscore-dangle": ["error", { allow: ["__typename", "__TAURI_INTERNALS__"] }],
-      // No barrels, no cycles, nothing unused.
       "import/no-cycle": "error",
       "import/no-self-import": "error",
       "import/no-duplicates": "error",
@@ -140,8 +119,6 @@ export default defineConfig({
 
   test: {
     environment: "happy-dom",
-    // A Mac's web view on every machine: happy-dom names the system it runs on, and the pages take
-    // the Mac's shortcuts and look from it (utils/os). Other systems' are tested by setting it.
     environmentOptions: {
       happyDOM: {
         settings: { navigator: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15" } },
@@ -152,8 +129,6 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      // The windows' entry points, development-only glue, the sample data, the tests' own helpers, the
-      // messages and type declarations aren't units.
       exclude: [
         "src/entries/**",
         "src/utils/dev-log/**",

@@ -27,8 +27,6 @@
 .filters.combined .option[aria-pressed="true"] {
   background: var(--fd-selected-bg);
 }
-/* Neighbours that are both on read as one pill: the corners between them go square, the gap fills in, and a hairline
-   divides them. Each keeps its own width. */
 .filters.combined .option[aria-pressed="true"]:has(+ .option[aria-pressed="true"]) {
   border-start-end-radius: 0;
   border-end-end-radius: 0;

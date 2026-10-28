@@ -34,7 +34,6 @@ import {
 } from "@/utils/storage/storage";
 import { canTransition, removeTransitionStyle, withTransition } from "@/utils/transition/transition";
 
-/** A site keeps drawing while a pull request loads; page changes wait for idle time, at most this long. */
 const IDLE_TIMEOUT_MS = 200;
 
 const show = (element: HTMLElement, visible: boolean) => {
@@ -42,10 +41,6 @@ const show = (element: HTMLElement, visible: boolean) => {
   if (element.style.display !== display) element.style.display = display;
 };
 
-/**
- * Filters a rendered diff. The newer, virtualized list places each file by the height it measured, so there the file's
- * row stays and only the file in it is hidden: the list measures the row again and closes up around it.
- */
 const present = (diff: { element: HTMLElement; container: HTMLElement }, visible: boolean, virtualized: boolean) => {
   const hidden = virtualized ? diff.element : diff.container;
   for (const element of new Set([diff.container, diff.element])) show(element, visible || element !== hidden);
@@ -53,10 +48,6 @@ const present = (diff: { element: HTMLElement; container: HTMLElement }, visible
 
 const COUNTER_COPY = "data-focus-diff-counter";
 
-/**
- * Shows `value` in place of one of the site's counters through a copy beside it, so the site keeps updating its own node.
- * `null` removes the copy and shows the original again.
- */
 const mirror = (original: HTMLElement | null, value: string | null) => {
   if (!original) return;
   let copy =
@@ -79,7 +70,6 @@ const mirror = (original: HTMLElement | null, value: string | null) => {
   show(original, false);
 };
 
-/** Hides tree files outside the filter, and folders left with nothing to show. */
 const filterTree = (
   provider: Provider,
   matches: Matcher,
@@ -102,7 +92,6 @@ const filterTree = (
   for (const folder of provider.tree.folders()) show(folder.element, !filtering || folders.has(folder.path));
 };
 
-/** Every counter the site shows, found or not. */
 const unmirror = ({ files, additions, deletions }: PageCounters) => {
   for (const counter of [files, additions, deletions]) mirror(counter, null);
 };
@@ -120,7 +109,6 @@ const updatePageCounters = (provider: Provider, totals: Totals, filtering: boole
   mirror(counters.deletions, complete ? `−${number(totals.deletions)}` : null);
 };
 
-/** Puts the page back the way the site drew it. */
 const restorePage = (provider: Provider) => {
   for (const diff of provider.diffs()) present(diff, true, false);
   provider.closeUp?.([], 0);
@@ -129,7 +117,6 @@ const restorePage = (provider: Provider) => {
   unmirror(provider.counters());
 };
 
-/** Compiled filters, kept until the configuration changes. Each matcher remembers its answer per path. */
 const memoize = (matches: Matcher): Matcher => {
   const answers = new Map<string, boolean>();
   return (path) => {
@@ -156,7 +143,6 @@ const changesElements = (record: MutationRecord) =>
 
 const dismissUpdate = () => void updateItem.setValue(null);
 
-/** Runs the bar on one review site: reads its page through `provider`, and filters it as the reader picks filters. */
 export const startController = async (
   ctx: ContentScriptContext,
   panel: Panel,
@@ -166,7 +152,6 @@ export const startController = async (
   await restyle(await loadAppearance());
   let config: Config = await loadConfig();
   let selections: Selections = await selectionsItem.getValue();
-  // The reader's pace, from Review time and what it has learned, so the bar's estimates and review time's agree.
   let reviewTime: ReviewTimeSettings = await loadReviewTime();
   let learned = normalizeLearned(await learnedItem.getValue());
   let estimator: Estimator = reviewMinutes;
@@ -190,10 +175,6 @@ export const startController = async (
 
   let files: Files = { list: [], complete: false };
 
-  /**
-   * The reader's saved filters for a repository, less those with no files in this pull request; with none left, All.
-   * The saved choice stays as it is, so another pull request in the repository still gets the full set.
-   */
   const selectedIds = (repo: string) => {
     const matchers = new Map(filters(repo).map((filter) => [filter.id, filter.matches]));
     return (selections[repo] ?? []).filter((id) => {
@@ -202,9 +183,7 @@ export const startController = async (
     });
   };
 
-  /** Files the site hasn't loaded yet could still match any filter, so a filter's count is only final once they're in. */
   const loading = () => !files.complete && provider.reportedFileCount() > files.list.length;
-  /** Whether a filter has, or may yet have, files in this pull request. */
   const hasFiles = (matches?: Matcher) => !matches || loading() || files.list.some((file) => matches(file.path));
 
   const choose = (ids: string[]) => {
@@ -229,12 +208,10 @@ export const startController = async (
   const step = (offset: number) => {
     const repo = provider.repository();
     if (!repo) return;
-    // Filters with nothing in this pull request are skipped.
     const ids = optionsFor(repo)
       .filter((option) => hasFiles(option.matches))
       .map((option) => option.id);
     const index = Math.max(0, ids.indexOf(selectedIds(repo)[0] ?? ALL));
-    // All is always among them, so there's always a next one.
     select(ids[(index + offset + ids.length) % ids.length]!);
   };
 
@@ -255,10 +232,6 @@ export const startController = async (
   const showReview = createReviewView(panel);
   const comment = (direction: 1 | -1) => void navigation.comment(shown, files.complete, direction);
 
-  /**
-   * The next shown file left to review, after the one at the top of the screen, wrapping around. With none left in the
-   * shown filters, the next filter with files to review is picked, which takes the reader to its first one.
-   */
   const nextUnviewed = () => {
     const repo = provider.repository();
     if (!repo) return;
@@ -273,7 +246,6 @@ export const startController = async (
     const top = provider.coveredTop();
     const atTop = shown.findIndex((file) => (file.diff?.container.getBoundingClientRect().bottom ?? 0) > top + 1);
     const current = shown[atTop];
-    // The file at the top counts when it hasn't been brought all the way up yet.
     const currentIsNext =
       current && !current.viewed && (current.diff?.container.getBoundingClientRect().top ?? 0) > top + 4;
     const target = currentIsNext ? current : (left.find((file) => shown.indexOf(file) > atTop) ?? first);
@@ -281,10 +253,6 @@ export const startController = async (
     panel.announceText(i18n.t("panelJumpedToFile", left.length, [target.path, format(left.length)]));
   };
 
-  /**
-   * A file the reader just marked viewed is one they reviewed: the time they spent on it, next to what the starting pace
-   * gave it, teaches the estimates their pace. A file ticked off in a few seconds was skipped, not reviewed.
-   */
   const activeTime = createActiveTime(ctx, () =>
     provider.diffs().flatMap((diff): OnScreen => {
       const box = diff.container.getBoundingClientRect();
@@ -292,12 +260,7 @@ export const startController = async (
       return height > 0 ? [[diff.path, height]] : [];
     }),
   );
-  /** A file marked viewed after less than this wasn't reviewed, only ticked off. */
   const MIN_REVIEW_SECONDS = 2;
-  /**
-   * Files seen not viewed on this page: only those can be learned from once marked. GitHub loads the list a bit at a
-   * time, so a file already viewed can turn up later, and that's not the reader marking it.
-   */
   let unviewed = { pathname: "", paths: new Set<string>() };
   const learnFromViewed = async (list: FileInfo[]) => {
     if (unviewed.pathname !== location.pathname) unviewed = { pathname: location.pathname, paths: new Set() };
@@ -305,7 +268,6 @@ export const startController = async (
     for (const file of list) if (!file.viewed) unviewed.paths.add(file.path);
     for (const file of marked) unviewed.paths.delete(file.path);
     if (!reviewTime.learn) return;
-    // Without its line counts, there's nothing to tell the time spent on a file against.
     const samples = marked.flatMap((file) => {
       const seconds = activeTime.take(file.path);
       return file.stats && seconds >= MIN_REVIEW_SECONDS
@@ -319,7 +281,6 @@ export const startController = async (
         : [];
     });
     if (samples.length === 0) return;
-    // Read again first: another tab may have learned something since.
     let latest = normalizeLearned(await learnedItem.getValue());
     for (const sample of samples) latest = learnFile(latest, sample.path, sample.expected, sample.actual);
     learned = latest;
@@ -350,7 +311,6 @@ export const startController = async (
     const virtualized = provider.isVirtualized();
     shown = current.shown;
     for (const file of files.list) if (file.diff) present(file.diff, matches(file.path), virtualized);
-    // Places in the list are only known from the site's data, which lists every file in order.
     provider.closeUp?.(
       virtualized && files.complete && filtering
         ? files.list.flatMap((file, index) =>
@@ -366,7 +326,6 @@ export const startController = async (
       shown.map((file) => file.path),
       new Map(files.list.filter((file) => file.anchor).map((file) => [file.anchor, file.path])),
     );
-    // A new pull request or a new selection starts the conversation count over.
     const key = `${location.pathname} ${selection.join()}`;
     if (selectionKey !== key) {
       selectionKey = key;
@@ -382,12 +341,7 @@ export const startController = async (
     announceNext = false;
   };
 
-  /**
-   * Reader actions apply on the next frame; changes the site makes to the page wait for idle time. A frame request
-   * overtakes a pending idle one, which then does nothing.
-   */
   let ticket = 0;
-  /** Set by the reader picking filters, so that apply animates and goes to the first unviewed file. */
   let chosen = false;
   const pieces = () =>
     files.list.flatMap((file) =>
@@ -405,31 +359,24 @@ export const startController = async (
         apply();
         return;
       }
-      // A new selection: the files on screen move into place at the first file left to review, in one motion.
       chosen = false;
       let undrawn: FileInfo | undefined;
-      // Inside a transition the move is the animation, so the scroll itself is instant.
       const behavior = canTransition() ? "instant" : undefined;
       void withTransition(() => {
         apply();
-        // Picked again while this change was being prepared: that pick gets its own turn.
         if (chosen) schedule();
         const next = shown.find((file) => !file.viewed);
         if (next?.diff?.element.isConnected) scrollToTop(next.diff.container, covered, behavior);
         else undrawn = next;
       }, pieces).then(() => {
-        // A file the site hasn't drawn yet is opened once the motion is over.
         if (undrawn) void goToFile(provider, undrawn);
       });
     };
-    // A tab in the background draws no frames, so there even the reader's changes wait for idle time.
     if (when === "frame" && !document.hidden) ctx.requestAnimationFrame(run);
-    // Safari has no requestIdleCallback; a short timeout keeps page changes batched there.
     else if ("requestIdleCallback" in window) ctx.requestIdleCallback(run, { timeout: IDLE_TIMEOUT_MS });
     else ctx.setTimeout(run, IDLE_TIMEOUT_MS / 4);
   };
 
-  /** New diffs get filtered on the next frame so they never flash in; text-only changes, like ticking timestamps, are ignored. */
   const pageObserver = new MutationObserver((records) => {
     const relevant = records.filter((each) => changesElements(each));
     if (relevant.length === 0) return;
@@ -442,7 +389,6 @@ export const startController = async (
   const observe = (active: boolean) => {
     if (active === observing) return;
     observing = active;
-    // Some Viewed toggles only change an attribute; checkboxes fire `change`, which is watched below.
     if (active)
       pageObserver.observe(document.documentElement, {
         childList: true,
@@ -492,8 +438,6 @@ export const startController = async (
     schedule();
   });
 
-  // A file picked in the site's tree scrolls smoothly from where the page was, and lines up below the sticky bar
-  // instead of under it. The site still updates the address and the tree; a jump of its own is undone before it's painted.
   ctx.addEventListener(
     document,
     "click",
@@ -513,7 +457,6 @@ export const startController = async (
           bringIn(diff);
         });
       } else {
-        // Not drawn yet: the site brings it in, then it's lined up.
         void waitFor(() => provider.diffAt(anchor)).then((found) => {
           if (found) scrollToTop(found, covered);
         });
@@ -543,8 +486,6 @@ export const startController = async (
     unwatchAppearance();
   });
 
-  // The first pass runs straight away, not on the next frame, so a pull request opened in a background tab is already
-  // filtered when the reader gets to it.
   apply();
   return { toggle, openSettings, comment, nextUnviewed, dismissUpdate };
 };

@@ -26,10 +26,6 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
   );
 }
 
-// A sheet, as macOS shows one: a card come down from the top of the window, which dims a little
-// behind it (no blur). Buttons go at the bottom right, the default one last (Return), Cancel answers
-// Esc; there's no close box unless asked for (named by closeLabel, in the app's language). For a
-// yes-or-no question use a native alert instead (the desktop's bridge.confirm).
 function DialogContent({ className, children, ...props }: DialogPrimitive.Popup.Props) {
   return (
     <DialogPortal>

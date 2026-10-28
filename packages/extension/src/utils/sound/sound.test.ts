@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { isOwnSound, normalizeSound, playSound, SOUND_CHOICES, type SoundId } from "./sound";
 
-/** A param that remembers what it was set to and every ramp scheduled on it. */
 const param = () => ({
   value: 0,
   events: [] as [string, number, number][],
@@ -17,7 +16,6 @@ const param = () => ({
   },
 });
 
-/** Just enough of an audio context to tell what a sound plays: its oscillators, and what the master gain is set to. */
 const fakeContext = () => {
   const oscillators: { type: string; frequency: ReturnType<typeof param>; start: number; stop: number }[] = [];
   const gains: ReturnType<typeof param>[] = [];

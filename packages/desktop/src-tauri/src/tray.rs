@@ -1,11 +1,3 @@
-//! The menu bar / system tray icon. On macOS it's the system's own SF Symbol for reading text
-//! under a magnifying glass, drawn by AppKit, so it has the weight and shape of the menu bar's
-//! other icons. Elsewhere (and if the symbol were missing) it's drawn here: a rounded square with
-//! the glass cut out.
-//!
-//! On macOS it's a template image (black + alpha), which the system tints for light and dark menu
-//! bars. Elsewhere trays don't tint, so it's drawn in Focus Diff's green.
-
 use std::sync::{Mutex, OnceLock};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
@@ -18,7 +10,7 @@ use tauri::{AppHandle};
 use crate::i18n::tr;
 use crate::sync::Locked;
 
-const SIZE: u32 = 36; // 18pt at 2x, the menu bar's icon size
+const SIZE: u32 = 36;
 const SUPERSAMPLE: u32 = 4;
 
 #[cfg(target_os = "macos")]
@@ -26,20 +18,16 @@ const INK: [u8; 3] = [0, 0, 0];
 #[cfg(not(target_os = "macos"))]
 const INK: [u8; 3] = [46, 160, 67];
 
-/// Distance from (x, y) to the segment a–b.
 fn to_segment(x: f32, y: f32, (ax, ay): (f32, f32), (bx, by): (f32, f32)) -> f32 {
     let (dx, dy) = (bx - ax, by - ay);
     let t = (((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy).max(f32::EPSILON)).clamp(0.0, 1.0);
     ((x - ax - t * dx).powi(2) + (y - ay - t * dy).powi(2)).sqrt()
 }
 
-/// How many sizes the glass grows through in the attention animation.
 const STEPS: usize = 8;
 
-/// The symbol's coverage (alpha) at each step of the animation, rendered once.
 static SYMBOL: OnceLock<Option<Vec<Vec<u8>>>> = OnceLock::new();
 
-/// Renders the symbol's frames. On the main thread, at startup: AppKit draws them.
 pub fn prepare() {
     SYMBOL.get_or_init(|| {
         #[cfg(target_os = "macos")]
@@ -59,7 +47,6 @@ mod symbol {
 
     use super::SIZE;
 
-    /// The symbol at `points`, centered in an 18pt square, as alpha at 2x.
     pub fn render(points: f64) -> Option<Vec<u8>> {
         let px = SIZE as isize;
         let image = NSImage::imageWithSystemSymbolName_accessibilityDescription(&NSString::from_str("text.magnifyingglass"), None)?;
@@ -98,8 +85,6 @@ mod symbol {
     }
 }
 
-/// One frame. `focus` 0..1 is how far into the attention animation (0 at rest); `dot` adds the
-/// unread badge on the top right corner, with a gap cut around it.
 pub fn frame(focus: f32, dot: bool) -> Image<'static> {
     let Some(Some(steps)) = SYMBOL.get() else { return drawn(focus, dot) };
     let Some(alpha) = steps.get((focus.clamp(0.0, 1.0) * STEPS as f32).round() as usize) else { return drawn(focus, dot) };
@@ -108,7 +93,6 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
     for (i, &a) in alpha.iter().enumerate() {
         let (px, py) = ((i as u32 % SIZE) as f32, (i as u32 / SIZE) as f32);
         let a = if dot {
-            // How much of the pixel the badge, and the gap around it, cover.
             let cover = |r: f32| {
                 let mut hits = 0;
                 for s in 0..SUPERSAMPLE * SUPERSAMPLE {
@@ -128,12 +112,9 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
     Image::new_owned(rgba, SIZE, SIZE)
 }
 
-/// The drawn fallback, on an 18-point grid: a filled rounded square (the app icon's shape) with
-/// the magnifying glass cut out.
 fn drawn(focus: f32, dot: bool) -> Image<'static> {
     let scale = SIZE as f32 / 18.0;
     let zoom = 1.0 + 0.14 * focus;
-    // The glass, around the square's center, so zooming keeps it in place.
     let at = |v: f32| 9.0 + (v - 9.0) * zoom;
     let (gx, gy, ring, rim) = (at(8.0), at(8.0), 3.4 * zoom, 0.95 * zoom);
     let handle = ((at(10.6), at(10.6)), (at(13.5), at(13.5)), 1.15 * zoom);
@@ -148,7 +129,6 @@ fn drawn(focus: f32, dot: bool) -> Image<'static> {
                 for sx in 0..SUPERSAMPLE {
                     let x = (px as f32 + (sx as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
                     let y = (py as f32 + (sy as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
-                    // The square: 16pt with 4.5pt corners.
                     let (qx, qy) = ((x - 9.0).abs() - 3.5, (y - 9.0).abs() - 3.5);
                     let square = (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) <= 4.5;
                     let glass = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - ring).abs() <= rim || to_segment(x, y, handle.0, handle.1) <= handle.2;
@@ -165,23 +145,18 @@ fn drawn(focus: f32, dot: bool) -> Image<'static> {
     Image::new_owned(rgba, SIZE, SIZE)
 }
 
-/// Sets a frame. On macOS replacing the image drops its template flag, which leaves it black on a
-/// dark menu bar, so it's set again each time.
 fn show(tray: &TrayIcon, image: Image<'static>) {
     let _ = tray.set_icon(Some(image));
     #[cfg(target_os = "macos")]
     let _ = tray.set_icon_as_template(true);
 }
 
-/// While a review time is under way, the minutes left, shown beside the icon.
 static COUNTDOWN: Mutex<Option<i64>> = Mutex::new(None);
 
-/// The minutes left as the menu bar shows them: "24m", "24 min".
 fn left(minutes: i64) -> String {
     tr!("{minutes}m", "{minutes} min")
 }
 
-/// What the icon says on hover: the countdown first, while there is one.
 fn tooltip(count: u32) -> String {
     let waiting = match count {
         0 => tr!("nothing waiting on you", "nada esperando por você"),
@@ -197,7 +172,6 @@ fn tooltip(count: u32) -> String {
     }
 }
 
-/// The countdown beside the icon, as text (only the Mac's menu bar shows text beside an icon).
 #[cfg(target_os = "macos")]
 fn title() -> Option<String> {
     COUNTDOWN.held().map(left)
@@ -205,31 +179,23 @@ fn title() -> Option<String> {
 
 static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
-/// Shows (or, with None, takes away) review time's countdown beside the icon. Windows has no text
-/// beside a tray icon, so there it's in the tooltip only.
 pub fn countdown(tray: &TrayIcon, minutes: Option<i64>) {
     *COUNTDOWN.held() = minutes;
     relocalize(tray);
 }
 
-/// Says the tooltip and countdown again, in the language in use.
 pub fn relocalize(tray: &TrayIcon) {
     #[cfg(target_os = "macos")]
     let _ = tray.set_title(title().as_deref());
     let _ = tray.set_tooltip(Some(&tooltip(LAST_COUNT.load(Ordering::SeqCst))));
 }
 
-/// Bumped by every new animation, so an older one still running stops drawing.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
-/// Shows how many pull requests wait on you, and, when something new came in, plays the focus
-/// animation: the glass zooms in three times, then rest with the unread dot.
 pub fn update(app: &AppHandle, tray: &TrayIcon, count: u32, animate: bool) {
     let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let dot = count > 0;
     LAST_COUNT.store(count, Ordering::SeqCst);
-    // No number beside it: the dot says there's something, the panel says what (a count of every
-    // unread pull request in every queue is noise in a menu bar). Only review time's countdown.
     relocalize(tray);
     let rest = frame(0.0, dot);
     if !animate {
@@ -239,13 +205,12 @@ pub fn update(app: &AppHandle, tray: &TrayIcon, count: u32, animate: bool) {
     let tray = tray.clone();
     let app = app.clone();
     thread::spawn(move || {
-        const FRAMES: u32 = 18; // one close-in-and-out, at 30 fps
+        const FRAMES: u32 = 18;
         for _ in 0..3 {
             for f in 0..=FRAMES {
                 if GENERATION.load(Ordering::SeqCst) != generation {
                     return;
                 }
-                // Ease in and out: sin² over the cycle.
                 let t = (std::f32::consts::PI * f as f32 / FRAMES as f32).sin().powi(2);
                 let image = frame(t, dot);
                 let tray = tray.clone();
@@ -280,8 +245,6 @@ mod tests {
         });
     }
 
-    /// Writes the rest frame, mid-focus and the unread frame as BMPs into $TRAY_PREVIEW_DIR, to
-    /// look at the icon's drawing. Skipped when the variable isn't set.
     #[test]
     fn preview_frames() {
         let Ok(dir) = std::env::var("TRAY_PREVIEW_DIR") else { return };
@@ -300,7 +263,6 @@ mod tests {
             bmp.extend_from_slice(&1u16.to_le_bytes());
             bmp.extend_from_slice(&32u16.to_le_bytes());
             bmp.extend_from_slice(&[0; 24]);
-            // On white, as a light menu bar shows it: blend the ink over white.
             for px in image.rgba().chunks(4) {
                 let a = px[3] as u32;
                 let blend = |c: u8| ((c as u32 * a + 255 * (255 - a)) / 255) as u8;

@@ -1,17 +1,11 @@
-// A pull request's review window, on the sample pull request #1807 (src/utils/mock/mock.ts): ten
-// changed files, five comments on the code and one of yours pending.
-
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { callsOf, recordCalls } from "./ipc";
 
 const URL = "/review.html?id=PR_1807&repo=acme/web&number=1807&queue=review";
 
-/** A file's diff. The diff is drawn by @pierre/diffs in a shadow root, without roles for its parts. */
 const fileDiff = (page: Page, path: string) => page.locator("diffs-container").filter({ hasText: path });
 
-/** Waits for something in the diff to hold still: the diff scrolls smoothly to a file, and draws its
- *  lines again as they come on screen. */
 async function settled(page: Page, target: Locator) {
   await expect(async () => {
     const before = await target.boundingBox();
@@ -21,8 +15,6 @@ async function settled(page: Page, target: Locator) {
   }).toPass();
 }
 
-/** Selects lines of a file's new version as a person does, dragging over their numbers. The library
- *  gives the numbers no role, so they're found by the line number it puts on them. */
 async function selectLines(page: Page, file: Locator, from: number, to: number) {
   const number = (line: number) => file.locator(`[data-line-type="change-addition"][data-column-number="${line}"]`);
   await expect(async () => {
@@ -43,7 +35,6 @@ const openDiff = async (page: Page) => {
 };
 
 test.beforeEach(async ({ page }) => {
-  // GitHub's emoji, kept from an earlier day (utils/writer/writer.ts), so ":" has some to offer.
   await page.addInitScript(() => {
     localStorage.setItem(
       "emoji",
@@ -122,7 +113,6 @@ test("narrows the files to one part with the filter chips", async ({ page }) => 
   await expect(tree.getByRole("treeitem", { name: /^promo\.go/u })).toBeVisible();
   await expect(tree.getByRole("treeitem", { name: /^cart\.ts/u })).toBeHidden();
 
-  // A second chip adds its files to the first's.
   await parts.getByRole("button", { name: "Tests 1" }).click();
   await expect(parts.getByRole("button", { name: "Backend 1" })).toHaveAttribute("aria-pressed", "true");
   await expect(tree.getByRole("treeitem", { name: /^promo\.test\.ts/u })).toBeVisible();
@@ -136,11 +126,9 @@ test("narrows the files to one part with the filter chips", async ({ page }) => 
 
 test("steps through the comments from the floating bar, with its arrows and with n and p", async ({ page }) => {
   await openDiff(page);
-  // As the extension's bar has it: a button with the count, its card over it.
   const toggle = page.getByRole("button", { name: "Comments, 5 comments" });
   await toggle.click();
   const card = page.getByRole("dialog", { name: "Comments" });
-  // Opening lands on the first.
   await expect(card).toContainText("1/5");
   await card.getByRole("button", { name: "Next comment" }).click();
   await expect(card).toContainText("2/5");
@@ -153,7 +141,6 @@ test("steps through the comments from the floating bar, with its arrows and with
   await expect(card).toContainText("3/5");
   await page.keyboard.press("p");
   await expect(card).toContainText("2/5");
-  // Before the first comes the last.
   await page.keyboard.press("p");
   await page.keyboard.press("p");
   await expect(card).toContainText("5/5");
@@ -168,7 +155,6 @@ test("shows the keyboard shortcuts with ?", async ({ page }) => {
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toBeHidden();
 
-  // From the diff too, and Esc closes it.
   await openDiff(page);
   await page.keyboard.press("?");
   await expect(dialog).toBeVisible();
@@ -181,10 +167,8 @@ test("moves between files with j and k", async ({ page }) => {
   const tree = page.getByRole("tree", { name: "Files" });
   await tree.getByRole("treeitem", { name: /^promo\.go/u }).click();
   await settled(page, page.getByRole("checkbox", { name: "Viewed api/promo.go" }));
-  // Off the tree, where the arrows are its own.
   await page.getByRole("heading", { name: "Checkout: keep the promo code when the cart changes" }).click();
 
-  // In the diff's order, which keeps the files GitHub sent no patch for till the end.
   await page.keyboard.press("j");
   await expect(tree.getByRole("treeitem", { name: /^promo-codes\.md/u })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("k");
@@ -256,7 +240,6 @@ test("submits the review from its popover", async ({ page }) => {
 
 test("goes through a stack in order, from Next and from the stack's menu", async ({ page }) => {
   await recordCalls(page);
-  // #1807 is the bottom of a stack of two in the sample data.
   const stack = page.getByRole("button", { name: "1 of 2 in the stack" });
   await expect(stack).toBeVisible();
   await stack.click();

@@ -25,10 +25,8 @@ describe("centreOver", () => {
   it("centres the popover over its button, the arrow pointing at the button", () => {
     at(parent, 100, 800);
     at(trigger, 480, 40);
-    // Where it lands, for the arrow.
     at(popover, 400, 200);
     centreOver(popover, trigger, parent);
-    // Centred at 500: from 400, which is 300 into the parent.
     expect(popover.style.left).toBe("300px");
     expect(popover.style.right).toBe("auto");
     expect(popover.style.getPropertyValue("--fd-arrow-x")).toBe("100px");

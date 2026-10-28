@@ -1,4 +1,3 @@
-// The settings window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -15,7 +14,6 @@ await boot();
 
 createRoot(document.querySelector("#root")!).render(
   <StrictMode>
-    {/* AppKit's tooltip delay, about a second: the provider's default. */}
     <TooltipProvider>
       <Settings />
     </TooltipProvider>

@@ -28,7 +28,6 @@ const label = (kind: "LabeledEvent" | "UnlabeledEvent", name: string, when: stri
 });
 const commitsOf = (event: TimelineEvent | undefined) => (event?.kind === "commits" ? event.commits : []);
 
-/** Answers the timeline query with these nodes, and `older` as the cursor to the page before. */
 function answer(nodes: unknown[], older: string | null = null) {
   const asked: string[] = [];
   const pageInfo = { hasPreviousPage: older !== null, startCursor: older };

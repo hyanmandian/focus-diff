@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createWebI18n } from "./i18n-web";
 
-// Brazilian Portuguese as it might be mid-translation: a message missing, and plural forms of every shape.
 vi.mock("@/locales/pt_BR.json", () => ({
   default: {
     filterAll: "Todos",

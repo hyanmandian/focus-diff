@@ -1,7 +1,3 @@
-// What the pages ask of "Rust": the sample data in src/utils/mock/mock.ts, the pages' platform in a
-// browser, answers every command, and this keeps a list of them, so a test can check that a click
-// asked for a window, a save or a quit.
-
 import type { Page } from "@playwright/test";
 
 export interface Call {
@@ -18,7 +14,6 @@ declare global {
   }
 }
 
-/** Records every command from now on. The page must have loaded (its platform is set as it does). */
 export async function recordCalls(page: Page) {
   await page.waitForFunction(() => window.focusDiffPlatform !== undefined);
   await page.evaluate(() => {
@@ -34,12 +29,10 @@ export async function recordCalls(page: Page) {
   });
 }
 
-/** The calls of one command since recording began. */
 export function callsOf(page: Page, cmd: string): Promise<Call[]> {
   return page.evaluate((name) => (window.recordedCalls ?? []).filter((c) => c.cmd === name), cmd);
 }
 
-/** The configuration as last saved, if it was. */
 export async function savedConfig(page: Page): Promise<unknown> {
   const last = (await callsOf(page, "write_file")).findLast((c) => c.args.name === "config");
   return last ? JSON.parse(String(last.args.contents)) : null;

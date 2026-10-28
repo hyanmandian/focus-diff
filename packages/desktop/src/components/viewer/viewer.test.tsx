@@ -77,14 +77,12 @@ describe("Viewer", () => {
     expect(scale()).toBe("100%");
     await userEvent.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(scale()).toBe("125%");
-    // No further than 800%.
     await userEvent.keyboard("+".repeat(12));
     expect(scale()).toBe("800%");
     await userEvent.click(screen.getByRole("button", { name: "Actual size" }));
     expect(scale()).toBe("100%");
     await userEvent.click(screen.getByRole("button", { name: "Zoom out" }));
     expect(scale()).toBe("80%");
-    // No smaller than 50%.
     await userEvent.keyboard("-".repeat(5));
     expect(scale()).toBe("50%");
     await userEvent.keyboard("{Escape}");

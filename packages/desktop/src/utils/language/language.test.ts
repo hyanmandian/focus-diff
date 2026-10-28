@@ -4,7 +4,6 @@ import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n, setLanguage } from "@/utils/i18n/i18n";
 import { followLanguage } from "@/utils/language/language";
 
-/** Rust with this settings file (null: none yet); `reads` counts how often it's read. */
 function settings(file: { text: string | null }) {
   const reads = { count: 0 };
   mockCommands((cmd) => {

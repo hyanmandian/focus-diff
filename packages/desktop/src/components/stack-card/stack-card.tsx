@@ -1,7 +1,3 @@
-// The stack this pull request is in, at the top of the overview: every pull request of it from the
-// bottom up, joined by a line, with how each one's review stands, this one marked and the others a
-// click away (in this window, as the toolbar's menu).
-
 import { Layers } from "lucide-react";
 
 import { Standing } from "@/components/stack-menu/stack-menu";
@@ -30,7 +26,6 @@ export function StackCard({ stack, onPick }: { stack: Stack; onPick: (pull: Stac
           const here = i === stack.at;
           const body = (
             <>
-              {/* The line through the stack, and this one's dot on it. */}
               <span className="relative flex w-4 shrink-0 justify-center self-stretch" aria-hidden>
                 {i > 0 ? <span className="absolute top-0 h-1/2 w-0.5 bg-foreground/15" /> : null}
                 {i < last ? <span className="absolute top-1/2 bottom-0 w-0.5 bg-foreground/15" /> : null}

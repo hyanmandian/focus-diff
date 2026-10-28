@@ -26,7 +26,6 @@ const filter = (id: string, include: string, repos: string[] = [], exclude = "")
 const frontend = filter("frontend", "\\.tsx?$", [], "\\.test\\.");
 const docs = filter("docs", "\\.md$");
 const payments = filter("payments", "^payments/", ["acme/web", "acme/*"]);
-/** A filter as Focus Diff's text has it. */
 const shared = (id: string, f: DiffFilter) => ({ id, name: f.name, include: f.include, exclude: f.exclude });
 
 describe("per repository", () => {
@@ -79,7 +78,6 @@ describe("breakdown and the next file", () => {
   it("adds up files, viewed, lines and time left", () => {
     const t = totals(files, isViewed, reviewMinutes);
     expect(t).toMatchObject({ files: 3, viewed: 1, additions: 5110, deletions: 3050 });
-    // A lockfile only costs opening it.
     expect(t.minutesLeft).toBeCloseTo(reviewMinutes("src/app.tsx", files[0]!) + 0.25);
     expect(t.minutes).toBeGreaterThan(t.minutesLeft);
   });
@@ -102,7 +100,6 @@ describe("breakdown and the next file", () => {
 });
 
 describe("sharing with Focus Diff", () => {
-  // As Focus Diff's settings copy it: JSON.stringify(normalize(config), null, 2).
   const fromExtension = JSON.stringify(
     {
       global: [{ id: "k3j9x0aa", name: "Frontend", include: "\\.(tsx?|css)$", exclude: "\\.test\\." }],
@@ -124,13 +121,11 @@ describe("sharing with Focus Diff", () => {
       ["Payments", ["acme/web", "acme/*"]],
       ["Broken", ["acme/api"]],
     ]);
-    // Through the config's own checks: a broken pattern is emptied.
     expect(filters[2]!.include).toBe("");
   });
 
   it("copies in Focus Diff's exact shape", () => {
     const text = exportFilters([frontend, payments]);
-    // Ids unique across the whole text, as Focus Diff keeps them.
     const expected = {
       global: [shared("frontend", frontend)],
       repos: [
@@ -138,7 +133,6 @@ describe("sharing with Focus Diff", () => {
         { repo: "acme/*", filters: [shared("payments-2", payments)] },
       ],
     };
-    // Key for key in the same order, two-space indented.
     expect(text).toBe(JSON.stringify(expected, null, 2));
   });
 

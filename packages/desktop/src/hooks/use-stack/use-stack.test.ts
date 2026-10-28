@@ -9,7 +9,6 @@ import { loadStack, type StackPull } from "@/utils/stack/stack";
 vi.mock("@/utils/stack/stack", () => ({ loadStack: vi.fn<typeof loadStack>() }));
 
 let made = 0;
-/** A pull request's details, a new head each time unless one is given. */
 const details = (over: Partial<Details> = {}): Details =>
   fakeDetails({
     id: "PR_7",
@@ -53,7 +52,6 @@ describe("useStack", () => {
       baseRefName: "cart",
       self: { id: "PR_7", decision: "REVIEW_REQUIRED" },
     });
-    // The same head read again: nothing's asked again.
     rerender({ d: { ...first } });
     await act(() => Promise.resolve());
     expect(loadStack).toHaveBeenCalledTimes(1);

@@ -1,10 +1,3 @@
-// The pull request's files as one virtualized list (@pierre/diffs' CodeView): sticky file headers
-// with the size and a Viewed box, conversations and pending comments between the lines, and the
-// "+" beside a line to comment on it. Viewed files fold away, as on GitHub. The lines between
-// hunks expand from both versions of the file (contents.ts), whitespace changes can be hidden,
-// Markdown can be read rendered, and files GitHub sends no patch for show what can be shown of
-// them after the rest (rich-diff.tsx).
-
 import type { OnScreen } from "@focus-diff/core/active-time";
 import {
   getSingularPatch,
@@ -59,31 +52,23 @@ type Side = Thread["side"];
 
 export type DiffsHandle = {
   scrollToFile: (path: string) => void;
-  /** At a line on a side (the new version's when not said); the file's top when it isn't shown. */
   scrollToLine: (path: string, line: number, side?: Side) => void;
-  /** Where the conversation is shown: at its line, or the top of its file. */
   scrollToThread: (thread: Thread) => void;
   scrollToTop: () => void;
-  /** The files in the list, in order: those with a diff (GitHub's, or loaded from both versions). */
   listed: () => string[];
-  /** The files on screen and how much of it each takes, for the time spent on them. */
   onScreen: () => OnScreen;
-  /** The file at the top of the screen, and whether it's been brought all the way up. */
   atTop: () => { path: string; reached: boolean } | null;
 };
 
-/** Where the pull request is on github.com, for links to its lines. */
 export type LinkTarget = { owner: string; repo: string; number: number; head: string };
 
 type Props = {
   files: ReviewFile[];
   threads: Map<string, Thread[]>;
   drafts: Draft[];
-  /** The AI review's comments on the diff's lines, and who made them. */
   findings: Finding[];
   findingsBy: string;
   onAcceptFinding: (finding: Finding, side: Side) => void;
-  /** Asks the AI about selected lines; null when there's no AI. */
   onAsk:
     | ((
         path: string,
@@ -95,20 +80,14 @@ type Props = {
     | null;
   onDismissFinding: (finding: Finding) => void;
   isViewed: (file: ReviewFile) => boolean;
-  /** Viewed files opened anyway (to show a comment in one): they don't fold. */
   opened: Set<string>;
   diffStyle: "split" | "unified";
   wrap: boolean;
-  /** Whitespace changes hidden (GitHub's "Hide whitespace"). */
   whitespace: boolean;
   dark: boolean;
-  /** Both versions of the files, to expand context and load what GitHub sent no patch for; null
-   *  until the pull request's head is known. */
   source: Source | null;
-  /** False for an older range of commits: its lines aren't the head's, so no new comments on them. */
   commentable: boolean;
   link: LinkTarget | null;
-  /** Says something for a moment (the toolbar's notice): "Link copied". */
   onSay: (message: string) => void;
   onViewed: (file: ReviewFile, viewed: boolean) => void;
   onAddDraft: (draft: Omit<Draft, "key">) => void;
@@ -119,10 +98,8 @@ type Props = {
   onResolve: (thread: Thread, resolved: boolean) => Promise<void>;
 };
 
-/** A small, stable number for a string: an item's version must change whenever what it shows does. */
 const version = (s: string) => {
   let h = 0;
-  // A 32-bit wrap over UTF-16 code units, as Java's String.hashCode.
   // oxlint-disable-next-line unicorn/prefer-math-trunc, unicorn/prefer-code-point -- see above
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return h >>> 0;
@@ -139,7 +116,6 @@ const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Dra
   body,
 });
 
-/** Things kept by path, in their order: each file's own, looked up once rather than filtered for. */
 function byPath<V extends { path: string }>(list: V[]) {
   const map = new Map<string, V[]>();
   for (const v of list) {
@@ -150,8 +126,6 @@ function byPath<V extends { path: string }>(list: V[]) {
   return map;
 }
 
-/** A rendered Markdown file is a file item (one column, the width of the list) of one blank line,
- *  hidden (RENDERED_CSS), with the rendered page above it as a file-wide annotation. */
 const renderedItem = (file: ReviewFile, key: number, collapsed: boolean): CodeViewItem<Annotation> => ({
   id: file.path,
   type: "file",
@@ -160,22 +134,14 @@ const renderedItem = (file: ReviewFile, key: number, collapsed: boolean): CodeVi
   collapsed,
   version: key,
 });
-/** Only rendered pages are file items: their blank line goes. */
 const RENDERED_CSS = "pre[data-file] [data-line], pre[data-file] [data-column-number] { display: none; }";
-/** The "+" just past a line's number, over the code's margin, not on the number; and not on picked
- *  lines, whose comment box is already open. Picked numbers in the selection's blue. */
 const GUTTER_CSS = `[data-gutter-utility-slot] { right: auto; left: calc(100% - 4px); justify-content: flex-start; align-items: center; z-index: 2; }
 [data-selected-line] [data-gutter-utility-slot] { display: none; }
 [data-column-number][data-selected-line], [data-gutter-buffer][data-selected-line] { color: var(--diffs-selection-number-fg-override); }`;
 
-/** What building the list keeps from one render to the next, changed as it builds: each patch as
- *  parsed, each item as built, and where each conversation was put. */
 class Cache {
-  // Parsing a patch is the costly part: once per file, patch and whitespace setting.
   private parsed = new Map<string, { patch: string; whitespace: boolean; diff: FileDiffMetadata }>();
-  // Each item as last built, reused while its version holds, so the list sees nothing new.
   private items = new Map<string, CodeViewItem<Annotation>>();
-  /** Where each conversation was put, for stepping to it. */
   readonly placed = new Map<string, Placement>();
 
   parse(file: ReviewFile, whitespace: boolean): FileDiffMetadata {
@@ -196,7 +162,6 @@ class Cache {
   keep(items: Map<string, CodeViewItem<Annotation>>) {
     this.items = items;
   }
-  /** The files in the list, in order. */
   listed() {
     return [...this.items.keys()];
   }
@@ -225,15 +190,10 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     commentable,
   } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
-  // `file`: a comment on the file as a whole, written at its top.
   const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange; file?: boolean } | null>(null);
-  // Markdown files shown rendered rather than as source, by path.
   const [rendered, setRendered] = useState<Set<string>>(() => new Set());
-  // Files GitHub sent no patch for, loaded from both versions on request.
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(() => new Map());
-  // What building the list keeps from one render to the next (Cache, above).
   const [cache] = useState(() => new Cache());
-  // The line under the pointer, for the contextual menu.
   const hovered = useRef<{ path: string; side: Side; line: number } | null>(null);
   const [menuAt, setMenuAt] = useState<{
     path: string;
@@ -250,7 +210,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   };
   const scrollToFile = (path: string) => {
     if (cache.built(path)) viewer.current?.scrollTo({ type: "item", id: path, align: "start" });
-    // One of the files after the list (no patch): its card, in the footer.
     else
       container.current
         ?.querySelector(`[id="file-${CSS.escape(path)}"]`)
@@ -297,7 +256,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       const box = view?.getContainerElement()?.getBoundingClientRect();
       if (!view || !box) return null;
       const top = view.getRenderedItems().find(({ element }) => element.getBoundingClientRect().bottom > box.top + 1);
-      // Brought up: its start is at the top (past the list's own padding), not still below it.
       return top ? { path: top.id, reached: top.element.getBoundingClientRect().top <= box.top + 24 } : null;
     },
   }));
@@ -320,7 +278,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       const viewed = isViewed(f) && !opened.has(f.path);
       const key = version(
         JSON.stringify([
-          // The header and comments say things in words: drawn again in another language.
           t.locale,
           viewed,
           asRendered,
@@ -344,8 +301,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       }
       const annotations: Array<DiffLineAnnotation<Annotation>> = [
         ...fileThreads.map((thread) => {
-          // On the file, outdated, or on a line this diff no longer shows: at the top of the
-          // file, saying where it was, rather than on whatever line now has that number.
           const at = placeThread(diff, thread);
           cache.placed.set(thread.id, at);
           return {
@@ -354,7 +309,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
             metadata: { kind: "thread" as const, thread, moved: at.moved },
           };
         }),
-        // One on the file goes at its top, as its conversations do.
         ...fileDrafts.map((draft) => ({
           side: draft.side,
           lineNumber: draft.file ? 0 : draft.line,
@@ -413,8 +367,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     () => ({
       diffStyle,
       overflow: wrap ? ("wrap" as const) : ("scroll" as const),
-      // GitHub's own themes: every token readable (WCAG AA) on its background; Pierre's light one
-      // has some below 3:1.
       theme: { dark: "github-dark-default", light: "github-light-default" },
       themeType: dark ? ("dark" as const) : ("light" as const),
       lineDiffType: "word" as const,
@@ -422,16 +374,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       enableGutterUtility: commentable,
       layout: { paddingTop: 12, paddingBottom: 48, gap: 12 },
       unsafeCSS: `${RENDERED_CSS}\n${GUTTER_CSS}`,
-      // The library's expand controls, named and reachable from the keyboard.
       onPostRender: (node: HTMLElement) => {
         labelExpandButtons(node, t);
       },
-      // Selecting lines (dragging over their numbers) opens the same box: comment or ask.
       enableLineSelection: commentable,
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
         if (range && latest?.item) setComposing({ path: latest.item.id, range });
       },
-      // Only a diff's lines: a rendered page's one line is hidden.
       onLineEnter: (line: OnLineEnterLeaveProps | OnDiffLineEnterLeaveProps, context?: { item?: { id: string } }) => {
         if (context?.item && "annotationSide" in line)
           hovered.current = { path: context.item.id, side: line.annotationSide, line: line.lineNumber };
@@ -439,8 +388,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       onLineLeave: () => {
         hovered.current = null;
       },
-      // The lines between hunks, from both versions of the file, fetched the first time any are
-      // expanded (and kept for good: a commit never changes).
       ...(source
         ? {
             loadDiffFiles: async (fileDiff: FileDiffMetadata) => {
@@ -458,7 +405,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     [diffStyle, wrap, dark, source, filesByPath, commentable, t],
   );
 
-  /** Loads a file GitHub sent no patch for, from both its versions. */
   const loadFile = async (file: ReviewFile) => {
     if (!source) return;
     setLoaded((m) => new Map(m).set(file.path, { state: "loading" }));
@@ -484,8 +430,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     }
     props.onSay(done);
   };
-  /** A permalink: the new version's lines at the head commit, the old's at the merge base. (Offered
-   *  only once both are known.) */
   const copyPermalink = async (
     to: LinkTarget,
     from: Source,
@@ -509,7 +453,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     await copy(await diffLink(to, path, lines), t("diff.linkCopied"));
   };
 
-  /** A pending comment thrown away, once a native alert has asked. */
   const removeDraft = async (key: string) => {
     const say = i18n();
     if (
@@ -524,18 +467,13 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
 
   const noPatch = files.filter((f) => !f.patch && loaded.get(f.path)?.state !== "done");
 
-  // The line counts in file headers in the app's own green and red, which pass contrast, and a
-  // lighter highlight on changed words, so code colored on it stays readable (4.5:1).
   const colors: Record<`--${string}`, string> = {
     "--diffs-addition-color-override": "var(--success)",
     "--diffs-deletion-color-override": "var(--destructive)",
     "--diffs-bg-addition-emphasis-override": dark ? "#183323" : "#e0f8e6",
     "--diffs-bg-deletion-emphasis-override": dark ? "#4a2326" : "#fff0ee",
     ...(dark ? {} : { "--diffs-bg-addition-override": "#f3fcf5", "--diffs-bg-deletion-override": "#fff6f5" }),
-    // Selected lines in a pale blue (dark: deep blue) every syntax color stays readable on;
-    // the default amber took some below 4.5:1.
     "--diffs-bg-selection-override": dark ? "#1b2c47" : "#dcebff",
-    // Their numbers in a stronger one of the same, so the two read as one selection.
     "--diffs-bg-selection-number-override": dark ? "#1f6feb" : "#9ec5fe",
     "--diffs-selection-number-fg-override": dark ? "#cae0ff" : "#0a3069",
   };
@@ -546,8 +484,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         onOpenChange={(open) => {
           if (!open) return;
           const line = hovered.current;
-          // Lines picked in that file: the menu is about them; otherwise the line under the pointer
-          // (and nothing away from a line).
           const range = line && composing?.path === line.path ? lineRange(composing.range) : null;
           setMenuAt(
             range && line
@@ -564,8 +500,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       >
         <ContextMenuTrigger
           className="flex min-h-0 flex-1 flex-col"
-          // The code's own menu only over a line; the system's in text fields, over selected
-          // text and elsewhere (a link in a comment, say).
           onContextMenuCapture={(e) => {
             const selected = window.getSelection();
             if (!hovered.current || typing(e.target) || (selected && !selected.isCollapsed)) e.stopPropagation();
@@ -574,13 +508,9 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           <CodeView<Annotation>
             ref={viewer}
             items={items}
-            // The code can be selected and copied (it inherits into the library's shadow root).
             className="selectable min-h-0 flex-1"
-            // Room at the end for the filter bar that floats over it.
             style={{ height: "100%", overflow: "auto", paddingBottom: 72 }}
             options={options}
-            // The "+" beside a line: the library's own has no name for a screen reader; this one says
-            // what it does. (Several lines: drag over their numbers.)
             renderGutterUtility={(getHovered, item) => (
               <button
                 type="button"
@@ -604,7 +534,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
               if (!file) return null;
               const asRendered = rendered.has(file.path);
               return (
-                // A click on the controls isn't one on the header, which folds the file.
                 // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only keeps clicks from bubbling; the buttons inside take the keyboard themselves.
                 <span
                   className="flex items-center gap-0.5 font-sans text-foreground select-none"
@@ -787,7 +716,6 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                         key={f.path}
                         file={f}
                         source={source}
-                        // Still one to tick off, or the review never adds up.
                         viewed={isViewed(f)}
                         loading={load?.state === "loading"}
                         error={load?.state === "error" ? load.message : null}

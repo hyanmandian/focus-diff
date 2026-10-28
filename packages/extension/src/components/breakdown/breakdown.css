@@ -20,7 +20,6 @@
   display: grid;
   grid-template-columns: 16px minmax(96px, max-content) repeat(3, max-content);
   column-gap: 16px;
-  /* Fits above the bar however short the window, with the column headings: 180px is the bar, gaps and headings. */
   max-height: min(52vh, 420px, calc(100vh - 180px));
   padding: 8px;
   overflow-y: auto;
@@ -45,7 +44,6 @@
 .row > :nth-child(n + 4) {
   justify-self: end;
 }
-/* Viewed reads with the filter's name; the line counts start a new group. */
 .columns > :nth-child(3),
 .row > :nth-child(3) {
   justify-self: start;
@@ -115,7 +113,6 @@
   .row[aria-pressed="true"] {
     outline: 2px solid Highlight;
   }
-  /* Focus has to stand out from the pressed outline. */
   .row:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 2px;

@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Config } from "@/utils/config/config";
 
-/** The system's appearance, which can change while the page is open. */
 class SystemScheme extends EventTarget implements MediaQueryList {
   readonly media = "(prefers-color-scheme: dark)";
   onchange: MediaQueryList["onchange"] = null;
@@ -69,7 +68,6 @@ describe("the theme", () => {
     rerender({ theme: "light" });
     expect(isDark()).toBe(false);
     expect(localStorage.getItem("theme")).toBe("light");
-    // The same pick again changes nothing.
     rerender({ theme: "light" });
     expect(isDark()).toBe(false);
   });

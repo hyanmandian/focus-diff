@@ -1,16 +1,9 @@
-// The whole conversation on a pull request, however long: every comment and review (the details
-// query, utils/details/details.ts, has only the latest), each with its Markdown, reactions and what you may
-// do to it; and what the description and suggestions need (its Markdown, whether you can edit it,
-// apply suggestions, the branch to commit them to). Kept on disk like the rest of a review (kept.ts),
-// so it shows at once next time.
-
 import { graphql } from "@/utils/bridge/bridge";
 import { AUTHOR, REACTION_FIELDS, toReactions, type Reaction } from "@/utils/comments/comments";
 import type { Entry } from "@/utils/details/details";
 import { invoke } from "@/utils/platform/platform";
 import type { PullRef } from "@/utils/review/review";
 
-/** What a comment or review says beyond its HTML, and what you may do with it. */
 export type Said = {
   body: string;
   canEdit: boolean;
@@ -22,19 +15,15 @@ export type Said = {
 export type ConversationEntry = Entry & Said;
 
 export type Conversation = {
-  /** The description's Markdown and HTML (newer than the details' when it's just been edited). */
   body: string;
   html: string;
   canEdit: boolean;
   canReact: boolean;
   reactions: Reaction[];
-  /** Whether you can commit suggestions to the pull request's branch. */
   canApplySuggestion: boolean;
-  /** Where its branch is ("owner/name"): a fork, perhaps. */
   headRepo: string | null;
   headRef: string;
   headOid: string;
-  /** Newest first, as the Overview shows them. */
   entries: ConversationEntry[];
 };
 
@@ -110,7 +99,6 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
   const entries: ConversationEntry[] = [];
   const longer: Array<Promise<unknown>> = [];
   let after: string | null = null;
-  // As long as it is, a hundred a page (with the pull request's own fields on the first).
   for (let page = 0; page < 100; page++) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- each page needs the cursor the one before gave
     const data: Raw = await graphql<Raw>(
@@ -153,7 +141,6 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
           ...said(node),
         });
       } else {
-        // Your pending review isn't part of the conversation yet: its comments show as pending.
         if (node.state === "PENDING") continue;
         const comments = node.comments.nodes.map(toComment);
         entries.push({
@@ -178,7 +165,6 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
   return { ...head!, entries: entries.toReversed() };
 }
 
-/** A review's comments past its first hundred. */
 async function moreReviewComments(review: string, after: string) {
   const all: ReturnType<typeof toComment>[] = [];
   let cursor: string | null = after;
@@ -195,7 +181,6 @@ async function moreReviewComments(review: string, after: string) {
   return all;
 }
 
-// Beside the review's own copy (kept.ts), under the pull request's id and a suffix.
 const keptId = (prId: string) => `${prId}-conversation`;
 
 export async function readKeptConversation(prId: string): Promise<Conversation | null> {
@@ -209,11 +194,9 @@ export async function readKeptConversation(prId: string): Promise<Conversation |
   }
 }
 
-/** Enough of a check that a kept copy from an older version, or a damaged one, isn't taken for one. */
 const isConversation = (value: unknown): value is Conversation =>
   typeof value === "object" && value !== null && "entries" in value && Array.isArray(value.entries);
 
 export function keepConversation(prId: string, conversation: Conversation) {
-  // Only slower next time if it fails.
   invoke("kept_write", { id: keptId(prId), contents: JSON.stringify(conversation) }).catch(() => {});
 }

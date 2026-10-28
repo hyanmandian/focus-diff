@@ -1,10 +1,3 @@
-//! Focus Diff: your pull request reviews from the menu bar (system tray on Windows and Linux).
-//!
-//! The app is a tray icon and a floating panel under it, plus settings and review windows. The
-//! queues live here (watch.rs, engine.rs): fetched, compared and notified about with no web view
-//! open, so the panel's web view only exists while it's in use. The pages call in for what needs
-//! the system: GitHub with the keychain's token, the app's files, notifications, opening links.
-
 mod actions;
 mod ai;
 mod avatars;
@@ -53,7 +46,6 @@ use tauri::{
 };
 use tauri::utils::config::WindowEffectsConfig;
 use sync::Locked;
-// The window materials: the Mac's and Windows' (Linux has none to ask for).
 #[cfg(any(target_os = "macos", windows))]
 use tauri::window::Effect;
 use tauri::window::EffectState;
@@ -65,23 +57,15 @@ pub(crate) const PANEL: &str = "panel";
 const SETTINGS: &str = "settings";
 const SETUP: &str = "setup";
 const PANEL_SIZE: (f64, f64) = (470.0, 600.0);
-/// The panel's corners, as the page draws them (panel.tsx); what's inside follows them in.
 const PANEL_RADIUS: f64 = 18.0;
-/// How long a hidden panel's web view is kept, to open again instantly; after that it's closed
-/// and its memory given back, and the next click makes a new one.
 const PANEL_KEEP: Duration = Duration::from_secs(3 * 60);
 
 pub(crate) struct Tray(pub(crate) Mutex<Option<TrayIcon>>);
 
-// MARK: Files
-
-/// The files the pages may read and write, by name: the person's setup. (What's been seen is
-/// watch.rs's own.)
 fn file_path(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     let file = match name {
         "config" => "config.json",
         "auth" => "auth.json",
-        // The reader's review pace, learned from the files they mark as viewed (src/utils/estimate/estimate.ts).
         "pace" => "pace.json",
         _ => return Err("Unknown file".into()),
     };
@@ -99,8 +83,6 @@ fn read_file(app: AppHandle, name: &str) -> Result<Option<String>, String> {
     }
 }
 
-/// Written to a temporary file first and moved into place, so a crash mid-write never leaves half
-/// a file behind.
 #[tauri::command]
 fn write_file(app: AppHandle, name: &str, contents: &str) -> Result<(), String> {
     disk::write(&file_path(&app, name)?, contents).map_err(|e| e.to_string())?;
@@ -113,12 +95,9 @@ fn write_file(app: AppHandle, name: &str, contents: &str) -> Result<(), String> 
         "auth" => app.state::<watch::Watch>().send(watch::Message::Auth),
         _ => {}
     }
-    // Other windows (the panel, settings) follow along.
     let _ = app.emit("file-changed", name);
     Ok(())
 }
-
-// MARK: Queues
 
 #[tauri::command]
 fn snapshot(watch: State<'_, watch::Watch>) -> serde_json::Value {
@@ -145,7 +124,6 @@ fn dismiss(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_
     watch.dismiss(&app, &queue_id, &pr_id);
 }
 
-/// Settings' test: a notification now, to see they get through.
 #[tauri::command]
 fn test_notification(app: AppHandle, sound: bool) {
     show_notification(&app, i18n::tr!("Notifications work", "As notificações funcionam"), i18n::tr!("Focus Diff will tell you here when something needs you.", "O Focus Diff vai te avisar aqui quando algo precisar de você."), sound);
@@ -161,7 +139,6 @@ fn restore(app: AppHandle, watch: State<'_, watch::Watch>, queue_id: String, pr_
     watch.restore(&app, &queue_id, &pr_id);
 }
 
-/// The panel's End on a review time under way.
 #[tauri::command]
 fn end_review(watch: State<'_, watch::Watch>) {
     watch.end_review();
@@ -171,8 +148,6 @@ fn end_review(watch: State<'_, watch::Watch>) {
 fn clear_arrival(app: AppHandle, watch: State<'_, watch::Watch>, pr_id: String) {
     watch.clear_arrival(&app, &pr_id);
 }
-
-// MARK: GitHub
 
 #[derive(Serialize)]
 struct Response {
@@ -186,7 +161,6 @@ async fn github(auth: State<'_, github::Auth>, method: String, path: String, bod
     Ok(Response { status, body })
 }
 
-/// A file at a commit (blobs.rs), as bytes; "absent" when it isn't there.
 #[tauri::command]
 async fn github_file(app: AppHandle, auth: State<'_, github::Auth>, repo: String, sha: String, path: String) -> Result<tauri::ipc::Response, String> {
     match blobs::file_at(&app, &auth, &repo, &sha, &path)? {
@@ -195,13 +169,11 @@ async fn github_file(app: AppHandle, auth: State<'_, github::Auth>, repo: String
     }
 }
 
-/// A GitHub Actions job's log (logs.rs): its end, when it's long.
 #[tauri::command]
 async fn job_log(auth: State<'_, github::Auth>, logs: State<'_, logs::Logs>, owner: String, repo: String, job: u64, done: bool) -> Result<logs::Log, String> {
     logs::job_log(&auth, &logs, &owner, &repo, job, done)
 }
 
-/// Marks a file viewed, or not, on github.com, through the outbox: kept until GitHub takes it.
 #[tauri::command]
 fn queue_viewed(outbox: State<'_, outbox::Outbox>, pull: String, path: String, viewed: bool) {
     outbox.add(pull, path, viewed);
@@ -212,7 +184,6 @@ fn queued_viewed(outbox: State<'_, outbox::Outbox>, pull: String) -> HashMap<Str
     outbox.pending(&pull)
 }
 
-/// A comment written or edited for your pending review: kept until GitHub takes it (drafts.rs).
 #[tauri::command]
 fn drafts_put(drafts: State<'_, drafts::Drafts>, put: drafts::Put) {
     drafts.put(put);
@@ -223,7 +194,6 @@ fn drafts_remove(drafts: State<'_, drafts::Drafts>, pull: String, key: String, i
     drafts.remove(pull, key, id);
 }
 
-/// A pull request's pending comments still on their way, and the ids of those that arrived.
 #[tauri::command]
 fn drafts_state(drafts: State<'_, drafts::Drafts>, pull: String) -> drafts::Pending {
     drafts.pending(&pull)
@@ -239,7 +209,6 @@ fn drafts_forget(drafts: State<'_, drafts::Drafts>, pull: String) {
     drafts.forget(&pull);
 }
 
-/// Waits for every pending comment to reach GitHub, before the review is submitted.
 #[tauri::command]
 async fn drafts_flush(app: AppHandle, pull: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || app.state::<drafts::Drafts>().flush(&pull)).await.map_err(|e| e.to_string())?
@@ -284,15 +253,11 @@ async fn auth_sign_out(app: AppHandle, auth: State<'_, github::Auth>) -> Result<
     remember_source(&app, None)
 }
 
-// MARK: Attachments
-
-/// Who's signed in on github.com for uploads (web.rs), if anyone.
 #[tauri::command]
 async fn github_web_session(web: State<'_, web::WebSession>) -> Result<Option<String>, String> {
     Ok(web.login())
 }
 
-/// Opens github.com's sign-in page in a window of its own; a "web-session" event says when it's done.
 #[tauri::command]
 fn sign_in_web(app: AppHandle) -> Result<(), String> {
     web::sign_in(&app).map_err(|e| e.to_string())
@@ -303,8 +268,6 @@ fn sign_out_web(app: AppHandle) {
     web::sign_out(&app);
 }
 
-/// A picture or video for a comment, uploaded as github.com does (uploads.rs). The file's bytes
-/// are the request's body; which pull request and its name come in its headers.
 #[tauri::command]
 async fn upload_attachment(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<uploads::Uploaded, uploads::Error> {
     let bad = || uploads::Error::Failed { message: "Bad request".into() };
@@ -317,8 +280,6 @@ async fn upload_attachment(app: AppHandle, request: tauri::ipc::Request<'_>) -> 
     tauri::async_runtime::spawn_blocking(move || uploads::upload(&app, &owner, &repo, number, &name, &bytes)).await.map_err(|e| uploads::Error::Failed { message: e.to_string() })?
 }
 
-// MARK: AI (optional)
-
 #[tauri::command]
 async fn ai_statuses() -> Result<Vec<ai::Status>, String> {
     tauri::async_runtime::spawn_blocking(ai::statuses).await.map_err(|e| e.to_string())
@@ -329,7 +290,6 @@ async fn ai_models(provider: ai::Provider) -> Result<Vec<String>, String> {
     tauri::async_runtime::spawn_blocking(move || ai::models(provider)).await.map_err(|e| e.to_string())
 }
 
-/// The pull request whose code the AI may read.
 #[derive(serde::Deserialize)]
 struct Project {
     repo: String,
@@ -340,7 +300,6 @@ struct Project {
 #[derive(Serialize)]
 struct Answer {
     text: String,
-    /// Whether it could read the project, or only the diff, and why not.
     project: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     note: Option<String>,
@@ -352,9 +311,6 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
     tauri::async_runtime::spawn_blocking(move || {
         let run = run.filter(|r| r.len() <= 64 && r.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'));
         let cancel = run.as_deref().map(ai::start_run);
-        // The project's code when asked for, if it's ready soon (it's fetched when the pull request
-        // opens, see ai_prepare); the diff alone if it can't be had, or not yet: a big repository's
-        // new commit can take minutes, and the answer shouldn't wait on it.
         let (folder, note) = match project {
             None => (None, None),
             Some(p) => match project_soon(&app, p) {
@@ -387,11 +343,8 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
     .map_err(|e| e.to_string())?
 }
 
-/// How long a question waits for the project's code before answering from the diff.
 const PROJECT_WAIT: Duration = Duration::from_secs(20);
 
-/// The pull request's code checked out, if that's done within PROJECT_WAIT: Err(Some) when it
-/// failed, Err(None) when it's still going (it carries on, for the next question).
 fn project_soon(app: &AppHandle, p: Project) -> Result<PathBuf, Option<String>> {
     match check_out(app, p)?.recv_timeout(PROJECT_WAIT) {
         Ok(result) => result.map_err(Some),
@@ -409,20 +362,15 @@ fn check_out(app: &AppHandle, p: Project) -> Result<std::sync::mpsc::Receiver<Re
     Ok(rx)
 }
 
-/// Gets a pull request's code ready for questions about it, in the background (when its review
-/// opens, with the AI set to read the project).
 #[tauri::command]
 fn ai_prepare(app: AppHandle, project: Project) {
     let _ = check_out(&app, project);
 }
 
-/// Stops a question (the window's Stop button).
 #[tauri::command]
 fn ai_cancel(run: String) {
     ai::cancel(&run);
 }
-
-// MARK: Actions
 
 #[tauri::command]
 async fn run_action(app: AppHandle, action: String, name: String, step: usize, pr: actions::Context) -> Result<String, String> {
@@ -432,8 +380,6 @@ async fn run_action(app: AppHandle, action: String, name: String, step: usize, p
         .await
         .map_err(|e| e.to_string())?
 }
-
-// MARK: System
 
 pub(crate) fn show_notification(app: &AppHandle, title: String, body: String, sound: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
@@ -461,7 +407,6 @@ pub(crate) fn update_tray(app: &AppHandle, count: u32, animate: bool) {
     }
 }
 
-/// Review time's minutes left beside the tray icon, or none.
 pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] countdown {minutes:?}");
@@ -471,8 +416,6 @@ pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     }
 }
 
-/// The language picked in Settings (or the Mac's), for what Rust says: the menu bar, the tray and
-/// the windows' titles say it again when it changes; notifications use it from then on.
 fn apply_language(app: &AppHandle, config: &str) {
     let before = i18n::current();
     i18n::apply_config(config);
@@ -499,20 +442,15 @@ fn setup_title() -> String {
     i18n::tr!("Welcome to Focus Diff", "Boas-vindas ao Focus Diff")
 }
 
-/// Web links only, in the default browser.
 #[tauri::command]
 fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err(i18n::tr!("Only https links open", "Só links https abrem"));
     }
-    // Straight to the app the page would only hand it on to, when it's here.
     let url = app_link(&url).filter(|link| can_open(link)).unwrap_or(url);
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
-/// The app link behind a web page that only passes a link on to an app: Cursor Bugbot's "Fix in
-/// Cursor" (cursor.com/open), which opens Cursor at cursor://anysphere.cursor-deeplink/createchat
-/// with the same query, after a stop in the browser. Cursor checks what it's given itself.
 fn app_link(url: &str) -> Option<String> {
     let rest = url.strip_prefix("https://cursor.com/open?").or_else(|| url.strip_prefix("https://www.cursor.com/open?"))?;
     let query = rest.split('#').next()?;
@@ -521,7 +459,6 @@ fn app_link(url: &str) -> Option<String> {
     (safe && carries).then(|| format!("cursor://anysphere.cursor-deeplink/createchat?{query}"))
 }
 
-/// Whether some app on this Mac opens links like this one.
 fn can_open(link: &str) -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -546,8 +483,6 @@ fn open_setup(app: AppHandle) -> Result<(), String> {
     show_setup(&app).map_err(|e| e.to_string())
 }
 
-/// Where the tray icon is, to show the panel by it. Linux doesn't say where its tray icon is, so
-/// there it's the top right corner of the main screen, where GNOME and KDE put theirs.
 pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
     let rect = app.try_state::<Tray>().and_then(|tray| tray.0.held().as_ref().and_then(|t| t.rect().ok().flatten()));
     rect.unwrap_or_else(|| {
@@ -556,13 +491,11 @@ pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
     })
 }
 
-/// The panel under the tray icon, as a click on it would show it (from setup's last step).
 #[tauri::command]
 fn open_panel(app: AppHandle) {
     show_panel(&app);
 }
 
-/// Shows the panel under the tray icon, if it isn't showing.
 pub(crate) fn show_panel(app: &AppHandle) {
     if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
         return;
@@ -570,36 +503,28 @@ pub(crate) fn show_panel(app: &AppHandle) {
     let _ = toggle_panel(app, &tray_rect(app));
 }
 
-/// Settings' Install: `focus-diff` on the command line (link.rs); where it went.
 #[tauri::command]
 fn install_cli() -> Result<String, String> {
     link::install()
 }
 
-/// Where `focus-diff` is installed, if it is; refused where the app can't install it.
 #[tauri::command]
 fn cli_installed() -> Result<Option<String>, String> {
     if cfg!(target_os = "macos") { Ok(link::installed()) } else { Err("The command line is installed on macOS only, for now".into()) }
 }
 
-/// A pull request link sent from outside (link.rs) before the panel was there to take it.
 #[tauri::command]
 fn take_link(waiting: State<'_, link::Waiting>) -> Option<String> {
     waiting.0.held().take()
 }
 
-/// Review windows: which pull request each shows, and the one made ahead of time, loaded and
-/// hidden, so a click shows a pull request at once instead of starting a web view.
 #[derive(Default)]
 pub(crate) struct Reviews {
     open: Mutex<HashMap<String, String>>,
     spare: Mutex<Option<String>>,
-    /// Spares whose page is loaded and listening for which pull request to show: one asked of
-    /// before that would miss being told.
     ready: Mutex<HashSet<String>>,
 }
 
-/// The last copy kept of a pull request's review (kept.rs).
 #[tauri::command]
 async fn kept_read(app: AppHandle, id: String) -> Result<Option<String>, String> {
     kept::read(&app, &id)
@@ -610,7 +535,6 @@ async fn kept_write(app: AppHandle, id: String, contents: String) -> Result<(), 
     kept::write(&app, &id, &contents)
 }
 
-/// A spare's page saying it's ready to be told which pull request to show.
 #[tauri::command]
 fn spare_ready(app: AppHandle, window: tauri::WebviewWindow) {
     app.state::<Reviews>().ready.held().insert(window.label().to_string());
@@ -625,7 +549,6 @@ fn review_builder<'a>(app: &'a AppHandle, label: &str, url: String, title: &str)
     builder
 }
 
-/// Fills the main screen's usable area (not full screen).
 fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
     if let Ok(Some(monitor)) = app.primary_monitor() {
         let area = monitor.work_area();
@@ -634,7 +557,6 @@ fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
     }
 }
 
-/// Makes the spare review window, hidden, if there isn't one. Main thread.
 fn prepare_spare(app: &AppHandle) {
     let reviews = app.state::<Reviews>();
     if reviews.spare.held().is_some() {
@@ -648,7 +570,6 @@ fn prepare_spare(app: &AppHandle) {
     }
 }
 
-/// Soon, off the click that asked: making a web view takes the main thread for a moment.
 fn prepare_spare_soon(app: &AppHandle) {
     let app = app.clone();
     thread::spawn(move || {
@@ -665,8 +586,6 @@ fn drop_spare(app: &AppHandle) {
         }
 }
 
-/// In the Dock and the app switcher while a window of its own is open (a review, settings, setup);
-/// only in the menu bar otherwise.
 pub(crate) fn update_presence(app: &AppHandle) {
     #[cfg(not(target_os = "macos"))]
     let _ = app;
@@ -684,20 +603,15 @@ struct ReviewTarget {
     repo: String,
     number: u64,
     teams: Vec<String>,
-    /// The queue it was opened from, whose next one the window offers.
     queue: Option<String>,
 }
 
-/// Whether a pull request's id, repository, teams and queue are what GitHub and the app make: they
-/// go into a window's address and events.
 fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> bool {
     let token = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
     let name = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
     token(id) && name(repo) && teams.iter().all(|t| name(t)) && queue.is_none_or(token)
 }
 
-/// A pull request in its own window, one per pull request; opening one that's already open brings
-/// it back.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
@@ -710,7 +624,6 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         return bring_back(&app, &window);
     }
     let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone(), queue: queue.clone() };
-    // Only a spare that's listening; one still loading stays for the next click.
     let spare = {
         let mut spare = reviews.spare.held();
         let ready = spare.as_ref().is_some_and(|label| reviews.ready.held().remove(label));
@@ -718,7 +631,6 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     }
     .and_then(|label| app.get_webview_window(&label));
     let window = match spare {
-        // The spare, already loaded: told which pull request it is now.
         Some(window) => {
             window.emit_to(window.label(), "review-open", target).map_err(|e| e.to_string())?;
             let _ = window.set_title(&title);
@@ -737,7 +649,6 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
     reviews.open.held().insert(id, window.label().to_string());
     show_growing(&app, &window, from).map_err(|e| e.to_string())?;
     update_presence(&app);
-    // The next one ready too, while the panel's in use.
     if app.get_webview_window(PANEL).is_some() {
         prepare_spare_soon(&app);
     }
@@ -753,9 +664,6 @@ fn bring_back(app: &AppHandle, window: &tauri::WebviewWindow) -> Result<(), Stri
     window.set_focus().map_err(|e| e.to_string())
 }
 
-/// A review window moving on to the next pull request of its queue: the same window shows it, so
-/// going through a queue leaves one window, not one per pull request. One already open in a window
-/// of its own is brought forward instead.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>) -> Result<(), String> {
@@ -776,8 +684,6 @@ fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo:
     window.emit_to(window.label(), "review-open", ReviewTarget { id, repo, number, teams, queue }).map_err(|e| e.to_string())
 }
 
-/// The card a review was opened from, in the panel's points from its top left (only the Mac grows
-/// a window out of it).
 #[derive(Clone, Copy, serde::Deserialize)]
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 struct Card {
@@ -787,8 +693,6 @@ struct Card {
     height: f64,
 }
 
-/// Shows a review window growing out of the card that was clicked to its full size, the way a Mac
-/// window zooms from where it came from; with Reduce Motion it only fades in. Main thread.
 fn show_growing(app: &AppHandle, window: &tauri::WebviewWindow, from: Option<Card>) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     let _ = (app, from);
@@ -797,7 +701,6 @@ fn show_growing(app: &AppHandle, window: &tauri::WebviewWindow, from: Option<Car
         use objc2_foundation::{NSPoint, NSRect, NSSize};
         let mut start = None;
         with_ns_window(&panel, |p| {
-            // AppKit counts from the bottom left.
             let f = p.frame();
             start = Some(NSRect::new(NSPoint::new(f.origin.x + card.x, f.origin.y + f.size.height - card.y - card.height), NSSize::new(card.width, card.height)));
         });
@@ -815,16 +718,11 @@ fn show_growing(app: &AppHandle, window: &tauri::WebviewWindow, from: Option<Car
     window.show()
 }
 
-// The stand-in that grows out of the card: a plain window-colored shape, so nothing has to lay out
-// on the way. Kept here (main thread only) until the window it stood in for has faded in over it.
 #[cfg(target_os = "macos")]
 thread_local! {
     static STAND_IN: std::cell::RefCell<Option<objc2::rc::Retained<objc2_app_kit::NSWindow>>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Grows a stand-in from the card to the review window's frame, then fades the review window in
-/// over it (drawn by then, where it'll stay) and takes the stand-in away. Resizing the review window
-/// itself would lay its page out again every frame. With Reduce Motion, only the fade.
 #[cfg(target_os = "macos")]
 fn grow(app: &AppHandle, window: &tauri::WebviewWindow, from: objc2_foundation::NSRect, to: objc2_foundation::NSRect) {
     use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext, NSAutoresizingMaskOptions, NSBackingStoreType, NSBox, NSBoxType, NSColor, NSTitlePosition, NSWindow, NSWindowStyleMask, NSWorkspace};
@@ -861,13 +759,11 @@ fn grow(app: &AppHandle, window: &tauri::WebviewWindow, from: objc2_foundation::
     shape.setContentViewMargins(objc2_foundation::NSSize::new(0.0, 0.0));
     shape.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable);
     stand_in.setContentView(Some(&shape));
-    // Over the review window, which is up already but still clear.
     stand_in.orderFront(None);
 
     NSAnimationContext::beginGrouping();
     let context = NSAnimationContext::currentContext();
     context.setDuration(GROW);
-    // Quick out of the card, settling gently: the curve the app's own transitions use.
     context.setTimingFunction(Some(&CAMediaTimingFunction::functionWithControlPoints(0.16, 1.0, 0.3, 1.0)));
     stand_in.animator().setFrame_display(to, true);
     NSAnimationContext::endGrouping();
@@ -907,7 +803,6 @@ fn hide_panel(app: AppHandle) {
     hide(&app);
 }
 
-/// Development only: the web views' errors in the terminal that runs `tauri dev`.
 #[tauri::command]
 fn log(window: tauri::Window, message: String) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
@@ -920,15 +815,11 @@ fn quit(app: AppHandle) {
     app.exit(0);
 }
 
-// MARK: Windows
-
 pub(crate) fn show_settings(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETTINGS) {
         window.show()?;
         return window.set_focus();
     }
-    // The system's sidebar material behind the whole page: the sidebar floats over it as a pane of
-    // glass, the desktop showing through, and the content side paints the window's own colour.
     let builder = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings.html".into()))
         .title(settings_title())
         .inner_size(880.0, 640.0)
@@ -955,7 +846,6 @@ pub(crate) fn show_settings(app: &AppHandle) -> tauri::Result<()> {
     window.set_focus()
 }
 
-/// First run (or "Run setup again"): connect GitHub, pick queues, notifications, AI.
 pub(crate) fn show_setup(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETUP) {
         window.show()?;
@@ -971,13 +861,7 @@ pub(crate) fn show_setup(app: &AppHandle) -> tauri::Result<()> {
     window.set_focus()
 }
 
-/// The panel floats under the tray icon (over it, when the taskbar is at the bottom of the screen),
-/// its leading edge on the icon's as a menu bar extra's menu is, kept inside the screen it's on.
 fn place_panel(panel: &tauri::WebviewWindow, rect: &Rect) -> tauri::Result<()> {
-    // In points: with screens of different scales (a 1x display beside a Retina one) each screen's
-    // "physical" coordinates use its own scale, so mixing them puts the panel off the icon. The
-    // icon's rect comes scaled by its own screen's factor; the screen it's on is the one that
-    // contains it once divided back.
     let (rx, ry, rw, rh) = match (rect.position, rect.size) {
         (tauri::Position::Physical(p), tauri::Size::Physical(s)) => (p.x as f64, p.y as f64, s.width as f64, s.height as f64),
         (position, size) => {
@@ -1012,7 +896,6 @@ fn place_panel(panel: &tauri::WebviewWindow, rect: &Rect) -> tauri::Result<()> {
     panel.set_position(tauri::LogicalPosition::new(x.round(), y.round()))
 }
 
-/// Bumped whenever the panel shows or hides, so only the latest hide closes it.
 static PANEL_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn hide(app: &AppHandle) {
@@ -1027,7 +910,6 @@ pub(crate) fn hide(app: &AppHandle) {
         }
         if let Some(panel) = app.get_webview_window(PANEL)
             && !panel.is_visible().unwrap_or(true) {
-                // Back to the window Tauri made before it's taken apart (floating.rs).
                 let _ = app.run_on_main_thread(move || {
                     #[cfg(target_os = "macos")]
                     // SAFETY: the live panel window, on the main thread.
@@ -1051,8 +933,6 @@ pub(crate) fn toggle_panel(app: &AppHandle, rect: &Rect) -> tauri::Result<()> {
     PANEL_GENERATION.fetch_add(1, Ordering::SeqCst);
     place_panel(&panel, rect)?;
     panel.show()?;
-    // A non-activating panel takes the keyboard without the app being made active, which macOS
-    // won't do from a tray click (floating.rs).
     #[cfg(target_os = "macos")]
     with_ns_window(&panel, floating::show);
     #[cfg(not(target_os = "macos"))]
@@ -1064,9 +944,6 @@ pub(crate) fn toggle_panel(app: &AppHandle, rect: &Rect) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Makes Focus Diff the active app, so the panel takes the keyboard and closes when you click
-/// elsewhere. The older call Tauri makes is only a request on current macOS and is often ignored
-/// for an app without a Dock icon.
 fn activate() {
     #[cfg(target_os = "macos")]
     if let Some(main) = objc2::MainThreadMarker::new() {
@@ -1074,9 +951,6 @@ fn activate() {
     }
 }
 
-/// The page draws the window's toolbar under a see-through title bar. An empty native toolbar
-/// makes that bar the toolbar's height, so macOS itself centres the window buttons in it (as in
-/// Finder or Mail) rather than leaving them up at the top; the page's bar is TOOLBAR tall.
 fn native_toolbar(window: &tauri::WebviewWindow) {
     #[cfg(target_os = "macos")]
     {
@@ -1094,9 +968,6 @@ fn native_toolbar(window: &tauri::WebviewWindow) {
     let _ = window;
 }
 
-/// macOS can turn an activation down, or finish it only after the panel was shown, leaving the
-/// panel up but not taking the keyboard or the pointer's hover until it's clicked. Asked once more,
-/// shortly after, if that's what happened.
 fn keep_focus(app: &AppHandle, panel: &tauri::WebviewWindow) {
     let (app, panel) = (app.clone(), panel.clone());
     thread::spawn(move || {
@@ -1115,7 +986,6 @@ fn keep_focus(app: &AppHandle, panel: &tauri::WebviewWindow) {
     });
 }
 
-/// The panel's NSWindow, for what Tauri doesn't do (floating.rs). On the main thread only.
 #[cfg(target_os = "macos")]
 fn with_ns_window(window: &tauri::WebviewWindow, f: impl FnOnce(&objc2_app_kit::NSWindow)) {
     if objc2::MainThreadMarker::new().is_none() {
@@ -1127,7 +997,6 @@ fn with_ns_window(window: &tauri::WebviewWindow, f: impl FnOnce(&objc2_app_kit::
     }
 }
 
-/// Whether Focus Diff is the active app (for devctl).
 #[cfg(any(debug_assertions, feature = "devctl"))]
 pub(crate) fn is_active() -> bool {
     #[cfg(target_os = "macos")]
@@ -1137,9 +1006,6 @@ pub(crate) fn is_active() -> bool {
     false
 }
 
-/// The shadow of a see-through window follows what was drawn when it was worked out; worked out
-/// before the page drew its rounded corners, it's a rectangle that squares them off. Worked out
-/// again now and once the page has drawn.
 fn reshadow(app: &AppHandle, window: &tauri::WebviewWindow) {
     #[cfg(target_os = "macos")]
     {
@@ -1166,15 +1032,12 @@ fn create_panel(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
         .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
         .resizable(false)
         .decorations(false)
-        // A click on a row opens it even while the app isn't the active one, instead of only
-        // activating it.
         .accept_first_mouse(true)
         .transparent(true)
         .shadow(true)
         .always_on_top(true)
         .skip_taskbar(true)
         .visible(false)
-        // The system's own popover material behind the page, like a menu bar extra's.
         .effects(WindowEffectsConfig {
             effects: vec![
                 #[cfg(target_os = "macos")]
@@ -1207,8 +1070,6 @@ fn create_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
         });
     #[cfg(target_os = "macos")]
     let builder = builder.icon_as_template(true);
-    // Elsewhere the icon has a menu too: Windows opens it with the right button, and Linux only
-    // ever shows a menu (its tray icons don't report clicks).
     #[cfg(not(target_os = "macos"))]
     let builder = builder.menu(&tray_menu(app)?).on_menu_event(|app, event| match event.id().as_ref() {
         "open" => {
@@ -1223,7 +1084,6 @@ fn create_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     builder.build(app)
 }
 
-/// The tray icon's menu where it has one (create_tray).
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn tray_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -1235,11 +1095,9 @@ pub(crate) fn tray_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<taur
         .build()
 }
 
-/// Before the rename to Focus Diff the app's folder was com.focusdiff.pro: its files move over once.
 fn move_old_files(app: &AppHandle) {
     let Ok(dir) = app.path().app_config_dir() else { return };
     let old = dir.with_file_name("com.focusdiff.pro");
-    // A folder without state.json hasn't been used yet (at most a default config.json was written).
     if dir.join("state.json").exists() || !old.is_dir() {
         return;
     }
@@ -1343,16 +1201,13 @@ pub fn run() {
             menu::menu_state,
         ])
         .setup(|app| {
-            // A tray app: no Dock icon, no app switcher entry.
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-            // The system asks the first time whether Focus Diff may notify.
             #[cfg(target_os = "macos")]
             notify::ask();
 
             let handle = app.handle().clone();
             move_old_files(&handle);
-            // The theme and language picked last time, before any window or menu shows.
             match read_file(handle.clone(), "config") {
                 Ok(Some(text)) => {
                     menu::apply_theme(&handle, &text);
@@ -1366,7 +1221,6 @@ pub fn run() {
                 app.set_menu(bar)?;
                 app.manage(items);
             }
-            // Where GitHub's token comes from, as chosen last time.
             if let Ok(Some(text)) = read_file(handle.clone(), "auth") {
                 let source = serde_json::from_str::<serde_json::Value>(&text)
                     .ok()
@@ -1393,14 +1247,12 @@ pub fn run() {
                     blobs::sweep(&app);
                 });
             }
-            // No setup yet: the first thing to see is how to start.
             if file_path(&handle, "config").is_ok_and(|p| !p.exists()) {
                 show_setup(&handle)?;
             }
             Ok(())
         })
         .on_window_event(|window, event| {
-            // The panel goes away when you click elsewhere, like a menu.
             if window.label() == PANEL
                 && let WindowEvent::Focused(false) = event {
                     hide(window.app_handle());
@@ -1422,12 +1274,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running Focus Diff")
         .run(|app, event| {
-            // A tray app lives on with no window open (the panel's web view is closed when it's
-            // not in use): only Quit, which exits with a code, ends it.
             if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event {
                 api.prevent_exit();
             }
-            // focusdiff:// links, handed over by macOS.
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = &event {
                 for url in urls {

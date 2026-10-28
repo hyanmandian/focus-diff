@@ -1,4 +1,3 @@
-// The first-run setup window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 

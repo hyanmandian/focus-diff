@@ -1,7 +1,3 @@
-// The review time under way, over the queues: how long is left, the pull requests picked for it (a
-// click opens one), and a way to end it early. Rust runs it (review.rs) and counts down in the menu
-// bar too; this follows the snapshot.
-
 import { Timer } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -10,7 +6,6 @@ import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { markSeen, type ReviewRun, type RunPull } from "@/utils/store/store";
 
-/** Whole minutes left, rounded up, as the menu bar shows them. */
 const minutesLeft = (endsAt: number, now: number) => Math.max(0, Math.ceil((endsAt - now) / 60_000));
 
 export function ReviewTime({ review, items }: { review: ReviewRun; items: Record<string, Item[]> }) {
@@ -27,7 +22,6 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
   const { run, endsAt } = review;
   const left = minutesLeft(endsAt, now);
 
-  // From the queue it's in, when it still is: a click there counts as looking at it.
   const open = (pull: RunPull) => {
     const item = Object.values(items)
       .flat()
@@ -63,7 +57,6 @@ export function ReviewTime({ review, items }: { review: ReviewRun; items: Record
           {t("panel.end")}
         </button>
       </div>
-      {/* Rows as the panel's: a light fill under the pointer, the accent for the keyboard. */}
       <ol className="-mx-1.5 mt-1 flex flex-col">
         {run.pulls.map((pull) => (
           <li key={pull.id}>

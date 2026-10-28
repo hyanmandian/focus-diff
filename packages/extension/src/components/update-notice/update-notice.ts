@@ -5,7 +5,6 @@ import { h } from "@/utils/dom/dom";
 
 const RELEASES = "https://github.com/hyanmandian/focus-diff/releases";
 
-/** "New in 1.1", linking to that release's notes, until the reader opens or dismisses it. */
 export const createUpdateNotice = (
   { focused }: PanelContext,
   { onSeen, fallback }: { onSeen: () => void; fallback: HTMLElement },
@@ -13,7 +12,6 @@ export const createUpdateNotice = (
   const text = h("span");
   const link = h(
     "a",
-    // Every release's notes until a version is set, so the link always goes somewhere.
     {
       className: "update-link",
       href: RELEASES,

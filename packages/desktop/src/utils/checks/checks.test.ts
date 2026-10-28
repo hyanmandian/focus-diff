@@ -29,7 +29,6 @@ const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
-/** Rust answering each call with the next reply, keeping what was asked. */
 function rust(...replies: unknown[]) {
   const calls: Call[] = [];
   mockCommands((cmd, args) => {
@@ -41,7 +40,6 @@ function rust(...replies: unknown[]) {
 
 const body = (call: Call | undefined) => String(call?.fields.body);
 
-/** One page of the checks query's answer. */
 const page = (nodes: unknown[], next: string | null = null, oid = "h1") =>
   ok({
     data: {

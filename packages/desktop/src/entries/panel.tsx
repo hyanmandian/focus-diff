@@ -1,4 +1,3 @@
-// The panel under the tray icon.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 

@@ -45,7 +45,6 @@ describe("createNotifications", () => {
     });
     Object.assign(fakeBrowser.permissions, { contains: () => Promise.resolve(true) });
     vi.stubEnv("FIREFOX", "");
-    // happy-dom has no Option constructor.
     vi.stubGlobal("Option", function Option(text: string, value?: string) {
       return Object.assign(
         document.createElement("option"),
@@ -81,13 +80,11 @@ describe("createNotifications", () => {
     expect([field("#delivery-grouped").checked, field("#delivery-sticky").checked]).toEqual([true, true]);
     expect(field("#events-reviewing").children).toHaveLength(3);
     expect(field("#events-mine").children).toHaveLength(3);
-    // An event with its own repositories shows them, unfolded.
     expect(field("#event-mention-repos").hidden).toBe(false);
     expect(field("#event-mention-repos").textContent).toContain("acme/web");
     expect(field(".event-repos-toggle", field("#events-other")).textContent).toContain("1");
     expect(field("#event-comment-mine").getAttribute("aria-label")).toBeTruthy();
     expect(field("#event-approved").getAttribute("aria-label")).toBeNull();
-    // Chrome can keep a notification on screen.
     expect(field(".chrome-only").hidden).toBe(false);
   });
 
@@ -121,7 +118,6 @@ describe("createNotifications", () => {
     change(field("#quiet-on"), true);
     expect(field("#quiet-fields").hidden).toBe(false);
     change(field("#quiet-from"), "22:00");
-    // A time cleared keeps the one before.
     change(field("#quiet-to"), "");
     expect(field("#quiet-to").value).toBe("09:00");
     change(field("#quiet-weekends"), false);
@@ -184,7 +180,6 @@ describe("createNotifications", () => {
     notifications.setReviewTime(true);
     expect(groups().some(Boolean)).toBe(false);
     expect(field("#notify-when-hint").hidden).toBe(false);
-    // Drawn again, it remembers.
     notifications.render(normalizeNotify({ enabled: true }));
     expect(groups().some(Boolean)).toBe(false);
     notifications.setReviewTime(false);
@@ -199,7 +194,6 @@ describe("createNotifications", () => {
     expect(notifications.check()).toBe(false);
     expect(field("#event-mention-repos").hidden).toBe(false);
     expect(field(".event-repos-toggle", field("#events-other")).getAttribute("aria-expanded")).toBe("true");
-    // Already unfolded, it stays so.
     expect(notifications.check()).toBe(false);
     field("#event-mention-repos-input").value = "";
     field("#notify-repos").value = "nope/";

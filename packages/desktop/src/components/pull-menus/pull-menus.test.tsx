@@ -8,7 +8,6 @@ import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menu
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { fakeDetails, fakePull, fakeView } from "@/utils/mock-pull/mock-pull";
 
-/** The items, in an open menu as the toolbar shows them. */
 function Menu({ children }: { children: ReactNode }) {
   return (
     <DropdownMenu open>

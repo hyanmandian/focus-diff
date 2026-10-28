@@ -1,17 +1,3 @@
-//! Optional AI, on the person's own subscription: it runs the coding agent CLI they already have
-//! installed and signed in (Claude Code or Cursor), never a login or key of ours.
-//!
-//! How it's run follows each tool's rules for this:
-//! - their own, unmodified binary, signed in by them in their terminal; this app never reads or
-//!   stores their credentials;
-//! - read-only: Claude Code gets only its Read, Grep and Glob tools, Cursor runs in "ask" mode, so
-//!   neither can edit files or run commands;
-//! - in the pull request's own code (checkout.rs), so it can look at where the changed code is used
-//!   and what it affects, with the repository's rules (CLAUDE.md, AGENTS.md, .cursor/rules); but
-//!   with no project settings, hooks or MCP servers, which a pull request's author controls. Without
-//!   that checkout, in an empty folder with no tools at all;
-//! - the material (the diff, the description) on standard input, with a time limit.
-
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -25,9 +11,8 @@ use crate::i18n::tr;
 use crate::sync::Locked;
 
 const TIME_LIMIT: Duration = Duration::from_secs(180);
-/// Reading around a project takes longer than reading a diff.
 const PROJECT_TIME_LIMIT: Duration = Duration::from_secs(600);
-const MAX_INPUT: usize = 400_000; // characters; more is cut, with a note
+const MAX_INPUT: usize = 400_000;
 const READ_ONLY_TOOLS: &str = "Read,Grep,Glob";
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -47,8 +32,6 @@ impl Provider {
         }
     }
 
-    /// What to run in Terminal to sign in, for the account this app uses: Claude Code's default
-    /// one (~/.claude), named outright when the person's terminal is set to another.
     fn login_command(self) -> String {
         match self {
             Provider::Claude if login_env().claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR=~/.claude claude auth login".into(),
@@ -57,11 +40,9 @@ impl Provider {
         }
     }
 
-    /// How hard it thinks, in the CLI's own words; anything else is left to its default.
     fn effort(self, effort: Option<&str>) -> Option<&'static str> {
         let allowed: &[&'static str] = match self {
             Provider::Claude => &["low", "medium", "high", "xhigh", "max"],
-            // Cursor's effort is part of the model's name.
             Provider::Cursor => &[],
         };
         let effort = effort?.trim();
@@ -78,10 +59,6 @@ pub struct Status {
     login_command: String,
 }
 
-/// What the person's login shell has that apps opened from the Finder or a launcher don't: its
-/// PATH (these CLIs usually live in ~/.local/bin, Homebrew or a Node version manager), and whether
-/// the terminal uses another Claude Code account than the default (CLAUDE_CONFIG_DIR), to say how
-/// to sign in to the one the app uses.
 struct LoginEnv {
     path: String,
     claude_config_dir: Option<String>,
@@ -90,7 +67,6 @@ struct LoginEnv {
 fn login_env() -> &'static LoginEnv {
     static ENV: OnceLock<LoginEnv> = OnceLock::new();
     ENV.get_or_init(|| {
-        // Filled in from the login shell on Mac and Linux (below); as they are on Windows.
         #[cfg_attr(windows, allow(unused_mut))]
         let mut path = std::env::var("PATH").unwrap_or_default();
         #[cfg_attr(windows, allow(unused_mut))]
@@ -117,7 +93,6 @@ fn login_env() -> &'static LoginEnv {
             }
             path.push_str(":/opt/homebrew/bin:/usr/local/bin");
         }
-        // The default account isn't another one.
         let default = std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".claude"));
         let claude_config_dir = claude_config_dir.filter(|d| default.as_deref() != Some(Path::new(d.trim_end_matches('/'))));
         LoginEnv { path, claude_config_dir }
@@ -153,15 +128,10 @@ pub(crate) struct Output {
     pub stderr: String,
 }
 
-/// Runs a command with its own environment's PATH, optional input on stdin, and a time limit after
-/// which it's killed.
 pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: Duration) -> Result<Output, String> {
     run_until(command, input, limit, None)
 }
 
-/// `run_with_limit`, also stopped when `cancel` is set. What it started goes with it: it runs in a
-/// process group of its own, ended whole, and its output is waited for only briefly once it's done,
-/// so something it left behind holding the output can't keep us waiting.
 pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Duration, cancel: Option<&AtomicBool>) -> Result<Output, String> {
     command.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(unix)]
@@ -175,7 +145,6 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
     };
     if let (Some(input), Some(mut stdin)) = (input, child.stdin.take()) {
         let input = input.to_string();
-        // Written from a thread so a full pipe can't block us while the child waits to be read.
         std::thread::spawn(move || {
             let _ = stdin.write_all(input.as_bytes());
         });
@@ -217,9 +186,6 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
 fn command(binary: &Path) -> Command {
     let mut command = Command::new(binary);
     command.env("PATH", search_path());
-    // Claude Code's default account (~/.claude), however the app was opened. When the terminal is
-    // set to another account, it's named outright, as the sign-in command we show names it: Claude
-    // Code keeps an account named that way apart from the unnamed default.
     command.env_remove("CLAUDE_CONFIG_DIR");
     if login_env().claude_config_dir.is_some()
         && let Some(home) = std::env::var_os("HOME") {
@@ -228,13 +194,11 @@ fn command(binary: &Path) -> Command {
     command
 }
 
-/// Questions being answered, by the id the window gave them, so they can be stopped.
 fn running() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
     static RUNNING: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
     RUNNING.get_or_init(Default::default)
 }
 
-/// A question's stop flag, kept while it's answered.
 pub fn start_run(id: &str) -> Arc<AtomicBool> {
     let flag = Arc::new(AtomicBool::new(false));
     running().held().insert(id.to_string(), flag.clone());
@@ -245,7 +209,6 @@ pub fn end_run(id: &str) {
     running().held().remove(id);
 }
 
-/// Stops a question being answered (the window's Stop).
 pub fn cancel(id: &str) {
     if let Some(flag) = running().held().get(id) {
         flag.store(true, Ordering::Relaxed);
@@ -267,8 +230,6 @@ pub fn status(provider: Provider) -> Status {
     let signed_in = run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
         .map(|o| {
             let text = format!("{}{}", o.stdout, o.stderr).to_lowercase();
-            // Cursor's CLI says it's logged in even when its token no longer works, but then can't
-            // fetch the account: that's not signed in for our purposes.
             o.status_ok
                 && !text.contains("not logged in")
                 && !text.contains("not authenticated")
@@ -286,10 +247,8 @@ pub fn statuses() -> Vec<Status> {
     })
 }
 
-/// The models the CLI offers on this account, to suggest; empty when it can't list them.
 pub fn models(provider: Provider) -> Vec<String> {
     match provider {
-        // Aliases for the latest of each, as Claude Code takes them.
         Provider::Claude => ["fable", "opus", "sonnet", "haiku"].map(String::from).to_vec(),
         Provider::Cursor => {
             let Some(binary) = find(provider) else { return vec![] };
@@ -306,23 +265,17 @@ pub fn models(provider: Provider) -> Vec<String> {
     }
 }
 
-/// A question for the person's AI.
 pub struct Question<'a> {
     pub provider: Provider,
     pub model: Option<&'a str>,
     pub effort: Option<&'a str>,
     pub prompt: &'a str,
-    /// The material: description and diff.
     pub input: &'a str,
-    /// The pull request's code, to read around in; None for the diff alone.
     pub project: Option<&'a Path>,
-    /// A JSON Schema the answer must follow; the answer is then that JSON.
     pub schema: Option<&'a str>,
-    /// Set to stop it.
     pub cancel: Option<&'a AtomicBool>,
 }
 
-/// Asks the person's agent CLI and returns its answer. Blocking: run it off the main thread.
 pub fn ask(q: Question) -> Result<String, String> {
     let binary = find(q.provider).ok_or_else(|| tr!("It isn't installed", "Não está instalado"))?;
     if let Some(project) = q.project {
@@ -355,9 +308,6 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
         Provider::Claude => {
             let tools = if q.project.is_some() { READ_ONLY_TOOLS } else { "" };
             cmd.args(["-p", "--output-format", "json", "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk", "--no-session-persistence", "--strict-mcp-config"]);
-            // The user's own settings only: a repository's .claude/settings.json (hooks,
-            // permissions) is its author's, not the reviewer's. And none of their hooks: those are
-            // for their own sessions, and would be handed the pull request (or hold the answer up).
             cmd.args(["--setting-sources", "user", "--settings", r#"{"disableAllHooks":true}"#]);
             if let Some(model) = model {
                 cmd.args(["--model", model]);
@@ -380,12 +330,10 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
             }
         }
         Provider::Cursor => {
-            // "ask" mode reads and answers, nothing else; MCP servers stay off without --approve-mcps.
             cmd.args(["-p", "--output-format", "json", "--mode", "ask", "--sandbox", "enabled", "--trust", "--workspace"]).arg(workspace);
             if let Some(model) = model {
                 cmd.args(["--model", model]);
             }
-            // Cursor's CLI takes the whole prompt as an argument.
             cmd.arg(&message);
             let output = run_until(&mut cmd, None, limit, q.cancel)?;
             let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
@@ -396,7 +344,6 @@ fn ask_in(q: &Question, binary: &Path, workspace: &Path) -> Result<String, Strin
     Ok(answer.trim().to_string())
 }
 
-/// The JSON object in a reply that may wrap it in prose or a code fence.
 fn json_object(text: &str) -> Option<String> {
     let start = text.find('{')?;
     let end = text.rfind('}')?;
@@ -404,8 +351,6 @@ fn json_object(text: &str) -> Option<String> {
     serde_json::from_str::<serde_json::Value>(candidate).ok().filter(|v| v.is_object()).map(|v| v.to_string())
 }
 
-/// The most useful line of what a CLI said when it failed: its last error line, or the start of
-/// what it printed.
 fn failure(output: &Output) -> String {
     let text = format!("{}\n{}", output.stderr, output.stdout);
     let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).map(String::from).unwrap_or_else(|| tr!("It didn't answer", "Não houve resposta"));
@@ -435,7 +380,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Talks to the CLIs installed on this machine, so it's opt-in: `cargo test -- --ignored ai`.
     #[test]
     #[ignore]
     fn ai_round_trip() {

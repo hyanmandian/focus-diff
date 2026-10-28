@@ -1,8 +1,3 @@
-//! The words Rust shows (the menu bar, the tray, notifications, native alerts, errors the pages
-//! show) in English and Brazilian Portuguese, side by side at each place they're said: English
-//! first, so the two can't drift apart. The language is the one picked in Settings, or the Mac's,
-//! by the same rule as the pages (src/utils/i18n/i18n.ts), and it changes live when Settings saves.
-
 use std::sync::atomic::{AtomicU8, Ordering};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,8 +16,6 @@ pub fn set(locale: Locale) {
     CURRENT.store(locale as u8, Ordering::Relaxed);
 }
 
-/// The first language in `preferred` the app speaks: any Portuguese is Brazilian, one it doesn't
-/// speak falls through to the next, and English when none match. A pick ("en", "pt-BR") wins.
 pub fn resolve(language: &str, preferred: &[String]) -> Locale {
     match language {
         "en" => return Locale::En,
@@ -39,32 +32,25 @@ pub fn resolve(language: &str, preferred: &[String]) -> Locale {
     Locale::En
 }
 
-/// The Mac's preferred languages, in order (System Settings → General → Language & Region).
 #[cfg(target_os = "macos")]
 pub fn system_languages() -> Vec<String> {
     objc2_foundation::NSLocale::preferredLanguages().iter().map(|l| l.to_string()).collect()
 }
 
-/// Elsewhere, the POSIX locale ("pt_BR.UTF-8").
 #[cfg(not(target_os = "macos"))]
 pub fn system_languages() -> Vec<String> {
     ["LC_ALL", "LC_MESSAGES", "LANG"].iter().filter_map(|v| std::env::var(v).ok()).filter(|v| !v.is_empty()).collect()
 }
 
-/// Uses the language in the settings file's text ("system", or none, follows the system).
 pub fn apply_config(config: &str) {
     let language = serde_json::from_str::<serde_json::Value>(config).ok().and_then(|c| c["language"].as_str().map(String::from)).unwrap_or_default();
     set(resolve(&language, &system_languages()));
 }
 
-/// Whether `n` takes the singular. Portuguese counts 0 with 1 (CLDR: "0 arquivo"), but nothing
-/// here says a count of 0 (it says "nothing" instead), so only 1 is singular in both.
 pub fn one(n: usize) -> bool {
     n == 1
 }
 
-/// The same thing said in each language: `tr!("{n} files", "{n} arquivos")`. Both are format
-/// strings over the same names; only the one in use is made.
 macro_rules! tr {
     ($en:literal, $pt:literal $(,)?) => {
         match $crate::i18n::current() {
@@ -75,7 +61,6 @@ macro_rules! tr {
 }
 pub(crate) use tr;
 
-/// Tests that read the words in a language take this lock, since the language is global.
 #[cfg(test)]
 pub fn in_locale<T>(locale: Locale, f: impl FnOnce() -> T) -> T {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

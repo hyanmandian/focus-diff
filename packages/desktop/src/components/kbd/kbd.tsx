@@ -1,7 +1,5 @@
 import { cn } from "@/utils/cn/cn";
 
-// A shortcut written as macOS writes one in menus and tooltips (⌥⇧J): plain secondary glyphs,
-// no keycap.
 function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
     <kbd

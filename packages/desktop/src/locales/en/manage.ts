@@ -1,7 +1,4 @@
-// What's done around a pull request in the review window: merging and its kin, checks, commits and
-// ranges, reviewers, assignees, labels, milestone, linked issues, deployments, the timeline.
 export const manage = {
-  // Merging
   "status.merged": "Merged",
   "status.closed": "Closed",
   "status.draft": "This pull request is still a draft",
@@ -73,7 +70,6 @@ export const manage = {
   reopen: "Reopen Pull Request",
   reopenedNotice: "Pull request reopened",
 
-  // Checks
   "count.failure": { one: "{count} failing", other: "{count} failing" },
   "count.pending": { one: "{count} running", other: "{count} running" },
   "count.neutral": { one: "{count} skipped", other: "{count} skipped" },
@@ -116,7 +112,6 @@ export const manage = {
   log: "Job log",
   logTruncated: "Only the end of a long log is shown.",
 
-  // Commits and ranges
   commits: "Commits",
   commitCount: { one: "{count} commit", other: "{count} commits" },
   forcePushes: { one: "force-pushed once", other: "force-pushed {count} times" },
@@ -137,7 +132,6 @@ export const manage = {
   olderVersion: "an older version: comments are off",
   showAllChanges: "Show All Changes",
 
-  // Reviewers, assignees, labels, milestone
   requestReviewers: "Request Reviews",
   editReviewers: "Edit reviewers",
   searchPeople: "Search people and teams",
@@ -178,7 +172,6 @@ export const manage = {
   "deploy.inactive": "Inactive",
   openDeployment: "Open {environment}",
 
-  // The timeline
   olderEvents: "Show Older Activity",
   "event.commits": { one: "{who} added a commit", other: "{who} added {count} commits" },
   "event.forcePushed": "{who} force-pushed {ref} from {from} to {to}",

@@ -9,7 +9,6 @@ let visibility: DocumentVisibilityState = "visible";
 let animate = vi.spyOn(document.documentElement, "animate");
 const cancelled = new Set<Animation>();
 
-/** A view transition that runs its update at once, and settles when the test says so. */
 const viewTransition = ({ fail = false } = {}) => {
   let finish = () => {};
   const finished = new Promise<void>((resolve) => {
@@ -26,7 +25,6 @@ const viewTransition = ({ fail = false } = {}) => {
   return { start, finish };
 };
 
-/** A file at `top` on screen, `height` tall. */
 const piece = (key: string, top: number, height = 100): Piece => {
   const element = document.createElement("div");
   element.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: top, width: 10, height });
@@ -101,7 +99,6 @@ describe("withTransition", () => {
       () => current,
     );
     expect(start).toHaveBeenCalledOnce();
-    // Named before the old page is captured, unnamed inside the update.
     expect(names).toEqual([""]);
     expect(document.documentElement.hasAttribute(ACTIVE)).toBe(true);
     expect(document.querySelector("#focus-diff-transition")?.textContent).toContain("::view-transition");

@@ -1,7 +1,3 @@
-// A picture from a description or comment, shown large: zoom with the trackpad, the wheel or the
-// buttons, drag to move around, Esc or a click outside to close. Opened with openViewer from
-// anywhere on the page; <Viewer /> is mounted once per page.
-
 import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -38,7 +34,6 @@ const MAX = 8;
 
 export function Viewer() {
   const picture = useSyncExternalStore(subscribe, () => current);
-  // Fresh for each picture: at its own size, in the middle.
   return picture ? createPortal(<Shown key={picture.src} picture={picture} />, document.body) : null;
 }
 
@@ -69,16 +64,13 @@ function Shown({ picture }: { picture: Picture }) {
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      // Back where the person was.
       if (opener instanceof HTMLElement || opener instanceof SVGElement) opener.focus();
     };
   }, [zoom, reset]);
 
   return (
-    // Esc closes it from the keyboard (the window's keydown above), as a click outside does.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
-      // A view over the page drawn by hand; a <dialog> brings its own box and top layer.
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="dialog"
       aria-modal="true"
@@ -88,7 +80,6 @@ function Shown({ picture }: { picture: Picture }) {
         if (e.target === e.currentTarget) close();
       }}
       onWheel={(e) => {
-        // A pinch on a trackpad comes as a wheel with Ctrl.
         e.preventDefault();
         zoom(e.deltaY < 0 ? 1.1 : 0.9);
       }}
@@ -140,7 +131,6 @@ function Shown({ picture }: { picture: Picture }) {
           <X />
         </Button>
       </div>
-      {/* Dragged with the pointer; the keys zoom and Esc closes, as around it. */}
       {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="flex min-h-0 flex-1 cursor-grab items-center justify-center overflow-hidden active:cursor-grabbing"
@@ -159,7 +149,6 @@ function Shown({ picture }: { picture: Picture }) {
           drag.current = null;
         }}
       >
-        {/* A double click zooms in or back, as the keys and buttons do. */}
         {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <img
           src={picture.src}

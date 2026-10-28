@@ -1,12 +1,3 @@
-// The app's words in English and Brazilian Portuguese. English (src/locales/en) is the source of
-// truth: its keys and placeholders type every call, and the Portuguese dictionary must have the
-// same keys (src/locales/pt-BR, checked by the compiler and by i18n.test.ts). No library: a key
-// is "namespace.name", a value is a string with {placeholders} or plural forms picked by
-// Intl.PluralRules from `count`.
-//
-// Components read the words through useT(), so the React Compiler sees the translator as an input
-// and a language change re-renders what it changed, in every open window, without remounting.
-
 import { durationParts } from "@focus-diff/core/duration";
 import { useSyncExternalStore } from "react";
 
@@ -15,12 +6,9 @@ import { ptBR } from "@/locales/pt-BR/index";
 
 export const LOCALES = ["en", "pt-BR"] as const;
 export type Locale = (typeof LOCALES)[number];
-/** What Settings → General offers: the system's language, or one picked. */
 export type Language = "system" | Locale;
 export const LANGUAGES = ["system", ...LOCALES] as const satisfies readonly Language[];
 
-/** Plural forms, as Intl.PluralRules names them. `zero`, when given, is used for 0 whatever the
- *  language's rules say ("Nothing yet" reads better than "0 files"). */
 export type Plural = { zero?: string; one: string; other: string; many?: string };
 
 type English = typeof en;
@@ -32,22 +20,17 @@ type Value<K extends Key> = K extends `${infer N extends Namespace}.${infer M}`
     : never
   : never;
 
-/** The names between braces in a message: "{who} asked" → "who". */
 type Placeholders<S> = S extends `${string}{${infer P}}${infer Rest}` ? P | Placeholders<Rest> : never;
 type Names<V> = V extends string ? Placeholders<V> : V extends Plural ? Placeholders<V[keyof V]> | "count" : never;
 type Params<K extends Key> = { [P in Names<Value<K>>]: P extends "count" ? number : string | number };
-/** No argument for a message without placeholders; every placeholder for one with them. */
 type Args<K extends Key> = [Names<Value<K>>] extends [never] ? [] : [params: Params<K>];
 
-/** A dictionary with English's shape: every namespace and key, plain strings where English has a
- *  string, plural forms where it has them. */
 export type Dictionary = {
   [N in Namespace]: { [M in keyof English[N]]: English[N][M] extends string ? string : Plural };
 };
 
 const DICTIONARIES: Record<Locale, Dictionary> = { en, "pt-BR": ptBR };
 
-/** A dictionary's messages by their whole key, "namespace.name". */
 const byKey = (dictionary: Dictionary) =>
   new Map<string, string | Plural>(
     Object.entries(dictionary).flatMap(([namespace, messages]) =>
@@ -56,9 +39,6 @@ const byKey = (dictionary: Dictionary) =>
   );
 const ENGLISH = byKey(en);
 
-/** The first language in `preferred` the app speaks: any Portuguese is Brazilian, anything it
- *  doesn't speak falls through to the next, and English when none match. The same rule as Rust's
- *  (src-tauri/src/i18n.rs). */
 export function resolveLocale(language: Language | undefined, preferred: readonly string[]): Locale {
   if (language === "en" || language === "pt-BR") return language;
   for (const tag of preferred) {
@@ -72,19 +52,12 @@ export function resolveLocale(language: Language | undefined, preferred: readonl
 export type T = {
   <K extends Key>(key: K, ...args: Args<K>): string;
   locale: Locale;
-  /** 1,234 or 1.234. */
   number: (value: number, options?: Intl.NumberFormatOptions) => string;
-  /** An estimate in minutes: under a minute, whole minutes, then five-minute steps past an hour. */
   duration: (minutes: number) => string;
-  /** How long ago, in words: "3m ago", "há 3 min", "yesterday", "now". */
   ago: (time: number, now?: number) => string;
-  /** How long since, compactly, for a list's corner: "3m", "3 min", "2d", "2 d". */
   since: (time: number, now?: number) => string;
-  /** A time of day, as the person's clock shows it: "3:00 PM", "15:00". */
   clock: (date: Date) => string;
-  /** A day of the week, 0 for Sunday. */
   weekday: (day: number, style: "short" | "long") => string;
-  /** "a, b and c", "a, b e c". */
   list: (items: string[], type?: "conjunction" | "disjunction") => string;
 };
 
@@ -100,7 +73,6 @@ export function translator(locale: Locale): T {
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "narrow" });
   const clock = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" });
 
-  // English stands in for anything missing, so a slip shows words, not a key.
   const lookup = (key: string): string | Plural => dictionary.get(key) ?? ENGLISH.get(key) ?? key;
 
   const fill = (text: string, params: Record<string, string | number>) =>
@@ -139,8 +111,6 @@ export function translator(locale: Locale): T {
               : ms < MONTH
                 ? [Math.floor(ms / DAY), "day"]
                 : [Math.floor(ms / MONTH), "month"];
-      // Narrow Portuguese abbreviates with a period ("há 3 min."), which reads as the end of a
-      // sentence in the middle of one.
       return relative.format(-value, unit).replace(/\.$/u, "");
     },
     since: (time: number, now = Date.now()) => {
@@ -159,8 +129,6 @@ export function translator(locale: Locale): T {
   });
   return t;
 }
-
-// MARK: The language in use
 
 const KEY = "language";
 const listeners = new Set<() => void>();
@@ -181,15 +149,11 @@ function remembered(): Language {
   }
 }
 
-/** Uses the language picked in Settings ("system" follows the Mac). Every page calls it when the
- *  settings arrive or change; the pick is remembered, so the next window opens in it at once. */
 export function setLanguage(next: Language | undefined) {
   language = next ?? "system";
   try {
     localStorage.setItem(KEY, language);
-  } catch {
-    // Picked up from the settings next time.
-  }
+  } catch {}
   const locale = resolveLocale(language, systemLanguages());
   if (locale === current.locale) return;
   current = translator(locale);
@@ -197,15 +161,12 @@ export function setLanguage(next: Language | undefined) {
   for (const listener of listeners) listener();
 }
 
-// The Mac's languages changing reaches the web view as this.
 window.addEventListener("languagechange", () => {
   setLanguage(language);
 });
 
-/** The words in the language in use, for code outside components (an error made in a callback). */
 export const i18n = () => current;
 
-/** The words in the language in use; a component re-renders when it changes. */
 export function useT(): T {
   return useSyncExternalStore(
     (listener) => {

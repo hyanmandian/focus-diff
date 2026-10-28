@@ -63,7 +63,6 @@ describe("createConversations", () => {
     expect(onOpen).toHaveBeenCalledOnce();
     expect(onStep).toHaveBeenCalledWith(1);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    // Until the jump lands, the first one shows.
     expect(text(".conversation-name")).toBe("main.ts");
     expect(text(".conversation-line")).toBe(":1,200");
     expect(popover.querySelector<HTMLElement>(".conversation-file")?.dataset.tip).toBe("src/app/main.ts");
@@ -77,7 +76,6 @@ describe("createConversations", () => {
     expect(text(".conversation-position")).toBe("2/3");
     render({ list: LIST, current: 3 });
     expect(text(".conversation-state")).toBe("Answered");
-    // The same state keeps its icon.
     const icon = popover.querySelector(".conversation-icon svg");
     render({ list: [...LIST, { path: "b.ts", line: 9, state: "answered" }], current: 3 });
     expect(popover.querySelector(".conversation-icon svg")).toBe(icon);
@@ -102,7 +100,6 @@ describe("createConversations", () => {
     expect(onStep).toHaveBeenLastCalledWith(-1);
     button(".step:nth-child(2)").click();
     expect(onStep).toHaveBeenLastCalledWith(1);
-    // Focus on an arrow moves to Go to when the arrows go, and back again.
     button(".step:nth-child(2)").focus();
     render({ list: LIST.slice(0, 1), current: 1 });
     expect(popover.hasAttribute("data-single")).toBe(true);
@@ -111,7 +108,6 @@ describe("createConversations", () => {
     expect(onStep).toHaveBeenLastCalledWith(1);
     render({ list: LIST, current: 1 });
     expect(document.activeElement).toBe(button(".step:nth-child(2)"));
-    // Focus elsewhere stays put.
     fallback.focus();
     render({ list: LIST.slice(0, 1), current: 1 });
     expect(document.activeElement).toBe(fallback);

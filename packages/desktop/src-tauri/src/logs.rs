@@ -1,8 +1,3 @@
-//! A GitHub Actions job's log, for a check opened in the review window. GitHub answers the API with
-//! a redirect to a short-lived download on its storage; that's followed here without the token, and
-//! only to GitHub's own storage hosts. A long log is read through and only its end is kept (where a
-//! failure is), so a huge one never fills memory. Finished jobs' logs don't change: they're kept.
-
 use std::collections::{HashMap, VecDeque};
 use std::io::Read;
 use std::sync::Mutex;
@@ -14,19 +9,15 @@ use crate::github::{self, name_ok, Auth};
 use crate::i18n::tr;
 use crate::sync::Locked;
 
-/// The most of a log kept: its last megabyte.
 const TAIL: usize = 1024 * 1024;
-/// The most read through to find the end, so a runaway log can't keep a download going.
 const READ_AT_MOST: u64 = 512 * 1024 * 1024;
 
 #[derive(Clone, Serialize)]
 pub struct Log {
     pub text: String,
-    /// Only its end is here.
     pub truncated: bool,
 }
 
-/// Finished jobs' logs, by job id; the oldest go past a few.
 #[derive(Default)]
 pub struct Logs {
     kept: Mutex<(HashMap<u64, Log>, VecDeque<u64>)>,
@@ -53,13 +44,10 @@ impl Logs {
     }
 }
 
-/// Only GitHub's storage for Actions logs, over https: whatever else a redirect says isn't followed.
 fn trusted(url: &str) -> bool {
     github::https_host(url).is_some_and(|host| [".blob.core.windows.net", ".actions.githubusercontent.com", ".githubusercontent.com"].iter().any(|s| host.ends_with(s)))
 }
 
-/// The last `max` bytes of what `reader` gives, and whether there was more before them. When cut,
-/// it starts at a line's start, so the first line shown is whole.
 pub fn tail(reader: impl Read, max: usize) -> std::io::Result<(Vec<u8>, bool)> {
     let mut reader = reader;
     let mut kept: VecDeque<u8> = VecDeque::with_capacity(max.min(64 * 1024));

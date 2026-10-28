@@ -19,7 +19,6 @@ vi.mock(import("@/components/demo/demo"), () => ({
   createDemo: demo.createDemo,
 }));
 
-/** Lets the page's promises and the storage's events settle. */
 const flush = async (turns = 10): Promise<void> => {
   await new Promise<void>((resolve) => {
     setTimeout(resolve, 0);
@@ -36,7 +35,6 @@ const manifest = (permissions?: Browser.runtime.ManifestOptionalPermission[]) =>
   });
 };
 
-// The browser's types end on the callback overloads, which hide the promises these give back.
 const request = () =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the promise overload, as the page calls it.
   vi.spyOn(fakeBrowser.permissions, "request") as unknown as MockInstance<
@@ -52,7 +50,6 @@ const getAll = () =>
 const commands = (list: Browser.commands.Command[] = []) => getAll().mockResolvedValue(list);
 
 const start = async () => {
-  // Imported once the browser's language can be read: the page reads it as it loads.
   const { startWelcome } = await import("./welcome-page");
   startWelcome();
   await vi.waitFor(
@@ -73,7 +70,6 @@ const toast = () => document.querySelector("#toast")?.textContent;
 describe("startWelcome", () => {
   beforeEach(() => {
     document.documentElement.className = "pending";
-    // The page without its script, which the test runs itself.
     document.body.innerHTML = /<body>(?<body>[\s\S]*)<script/u.exec(page)?.groups?.body ?? "";
     location.hash = "";
     demo.createDemo.mockReturnValue({ setTheme: demo.setTheme });
@@ -108,7 +104,6 @@ describe("startWelcome", () => {
     expect(frontend.querySelector(".recipe-filter-name")?.textContent).toBe("Frontend");
     expect([...frontend.querySelectorAll("dt")].map((term) => term.textContent)).toEqual(["Include", "Exclude"]);
     expect(frontend.querySelector("code")?.textContent).toBe("\\.(tsx?|jsx?|vue|svelte|css|scss)$");
-    // A filter that includes every file says so, and one that excludes nothing has no Exclude.
     const [code, only] = recipe("tests").querySelectorAll(".recipe-filter");
     expect(code?.querySelector(".everything")?.textContent).toBe("every file");
     expect(only?.querySelectorAll("dt")).toHaveLength(1);
@@ -333,7 +328,6 @@ describe("startWelcome", () => {
     });
 
     it("names the defaults where the browser can't list its shortcuts", async () => {
-      // Safari's gives nothing back.
       getAll().mockReturnValue(void 0);
       await start();
       expect(keys()).toEqual(["Alt+Shift+.", "Alt+Shift+,", "Alt+Shift+0", "Alt+Shift+J"]);
@@ -364,9 +358,7 @@ describe("startWelcome", () => {
   });
 
   it("loads the demo in the reader's look, follows it, and sends its settings button to settings", async () => {
-    const assign = vi.spyOn(location, "assign").mockImplementation(() => {
-      // Stays on the page.
-    });
+    const assign = vi.spyOn(location, "assign").mockImplementation(() => {});
     await start();
     await vi.waitFor(() => {
       expect(demo.createDemo).toHaveBeenCalledOnce();

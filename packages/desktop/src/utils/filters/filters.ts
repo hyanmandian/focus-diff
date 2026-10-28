@@ -1,7 +1,3 @@
-// The diff's filters at work in the review window, as in Focus Diff's bar: the ones a repository
-// gets, several on at once, what each holds (files viewed, lines, time left), the next file left to
-// review, and filters shared as text with Focus Diff in both directions.
-
 import type { Estimator } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import { repoMatches } from "@focus-diff/core/repos";
@@ -9,11 +5,9 @@ import { repoMatches } from "@focus-diff/core/repos";
 import { isRecord } from "@/utils/bridge/bridge";
 import { isRepoPattern, newId, normalize, type DiffFilter } from "@/utils/config/config";
 
-/** The filters a repository gets: those for everywhere, and its own. */
 export const filtersFor = (filters: DiffFilter[], repo: string) =>
   filters.filter((f) => f.repos.length === 0 || f.repos.some((p) => repoMatches(p, repo)));
 
-/** A repository's choice as it was kept: one filter id before filters could be combined, a list now. */
 export const keptSelection = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((id): id is string => typeof id === "string")
@@ -21,18 +15,14 @@ export const keptSelection = (value: unknown): string[] =>
       ? [value]
       : [];
 
-/** The choice after a chip is pressed: All ("") clears it, a filter joins it or leaves it. */
 export const toggled = (ids: string[], id: string): string[] =>
   id ? (ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]) : [];
 
-/** Whether a file is in any of the chosen filters; with none chosen, every file is. */
 export const inAny = (chosen: DiffFilter[], path: string) =>
   chosen.length === 0 || chosen.some((f) => inFilter(f, path));
 
 type FileLike = { path: string; additions: number; deletions: number };
 
-/** What a set of files holds: how many, how many viewed, their lines, the minutes they take and
- *  the minutes left for those not viewed yet. */
 export type Totals = {
   files: number;
   viewed: number;
@@ -56,7 +46,6 @@ export function totals<F extends FileLike>(files: F[], isViewed: (f: F) => boole
   return t;
 }
 
-/** The next filter in the bar, after the chosen ones, that still has files to review. */
 export function nextFilterWithWork<F extends FileLike>(
   files: F[],
   filters: DiffFilter[],
@@ -73,8 +62,6 @@ export function nextFilterWithWork<F extends FileLike>(
   return undefined;
 }
 
-/** The file to go to next: the first not viewed after the one at the top of the screen, wrapping
- *  around. `atTop` is the file there, if it's already been brought up (else it's the next itself). */
 export function nextFile<F extends FileLike>(
   shown: F[],
   isViewed: (f: F) => boolean,
@@ -87,8 +74,6 @@ export function nextFile<F extends FileLike>(
   return left.find((f) => shown.indexOf(f) > at) ?? left[0];
 }
 
-/** One step through the bar's chips (All first), from the first chosen: one filter at a time, as
- *  Focus Diff's next and previous filter do. `options` are the chips worth stopping at. */
 export function stepFilter(options: string[], ids: string[], by: 1 | -1): string[] {
   const all = ["", ...options];
   const at = Math.max(0, all.indexOf(ids[0] ?? ""));
@@ -96,14 +81,9 @@ export function stepFilter(options: string[], ids: string[], by: 1 | -1): string
   return next ? [next] : [];
 }
 
-// MARK: Sharing
-
-/** Focus Diff's filters as it copies them: those for everywhere, then each repository's own. */
 type Shared = { global: SharedFilter[]; repos: Array<{ repo: string; filters: SharedFilter[] }> };
 type SharedFilter = { id: string; name: string; include: string; exclude: string };
 
-/** The filters as text, exactly as Focus Diff copies its own, so either can import them. A filter
- *  for several repositories goes under each; ids stay unique, as Focus Diff's are. */
 export function exportFilters(filters: DiffFilter[]): string {
   const used = new Set(["all"]);
   const unique = (id: string) => {
@@ -128,19 +108,11 @@ export function exportFilters(filters: DiffFilter[]): string {
 }
 
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-/** Focus Diff keeps only filters with a name. */
 const named = (v: unknown): v is Record<string, unknown> =>
   isRecord(v) && typeof v.name === "string" && Boolean(v.name.trim());
 
-/** What makes two filters the same, whatever their ids. */
 const sameness = (f: DiffFilter) => JSON.stringify([f.name, f.include, f.exclude, f.repos.toSorted()]);
 
-/**
- * Filters from text Focus Diff (or this app) copied, through the config's own checks. The same
- * filter under several repositories comes back as one. Null when it isn't such text; an empty list
- * when it has no filters. Repositories this app can't name (a GitLab group's) are left out, with
- * their filters, rather than turning them into filters for everywhere.
- */
 export function importFilters(text: string): DiffFilter[] | null {
   let raw: unknown;
   try {
@@ -151,7 +123,6 @@ export function importFilters(text: string): DiffFilter[] | null {
   if (!isRecord(raw) || (!Array.isArray(raw.global) && !Array.isArray(raw.repos))) return null;
   const found: Array<Record<string, unknown> & { repos: string[] }> = list(raw.global)
     .filter((v) => named(v))
-    // Fresh from JSON.parse, so these objects are ours to add to.
     .map((f) => Object.assign(f, { repos: [] }));
   for (const entry of list(raw.repos)) {
     if (!isRecord(entry) || typeof entry.repo !== "string" || !isRepoPattern(entry.repo.trim())) continue;
@@ -167,8 +138,6 @@ export function importFilters(text: string): DiffFilter[] | null {
   return normalize({ filters: found }).filters;
 }
 
-/** Imported filters added to the person's own: ones they already have are skipped, ids kept
- *  unique, up to the 12 the app keeps. */
 export function addImported(
   own: DiffFilter[],
   imported: DiffFilter[],

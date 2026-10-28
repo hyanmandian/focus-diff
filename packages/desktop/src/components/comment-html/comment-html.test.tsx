@@ -10,10 +10,8 @@ import type { Args } from "@/utils/platform/platform";
 
 const PICTURE = "https://user-images.githubusercontent.com/1/shot.png";
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
-/** Records what's sent to Rust's open_url. */
 function opened() {
   const urls: unknown[] = [];
   mockCommands((cmd, args) => {

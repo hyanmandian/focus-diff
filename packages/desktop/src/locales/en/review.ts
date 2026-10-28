@@ -1,7 +1,4 @@
-// The review window (src/review): its toolbar, the Overview and Diff tabs, conversations, the
-// filter bar. "{who}" or "{path}" marks where a styled part goes in a sentence (split, not joined).
 export const review = {
-  // The toolbar
   view: "View",
   overview: "Overview",
   diff: "Diff",
@@ -47,7 +44,6 @@ export const review = {
   tryAgain: "Try again",
   ai: "AI",
 
-  // Submitting the review
   submit: "Submit Review…",
   submitShort: "Submit…",
   finishTitle: "Finish Your Review",
@@ -62,7 +58,6 @@ export const review = {
   reviewSent: "Review sent",
   commentPosted: "Comment posted",
 
-  // The files list
   loading: "Loading",
   loadingFiles: "Loading files",
   files: "Files",
@@ -76,7 +71,6 @@ export const review = {
   noFilesIn: "No files in {filters}.",
   noFilesMatch: "No files match.",
 
-  // The filter bar
   nextFile: { one: "Next file to review, {count} left", other: "Next file to review, {count} left" },
   nextFilter: { one: "Next: {filter}, {count} file to review", other: "Next: {filter}, {count} files to review" },
   allViewed: "Every file here is viewed",
@@ -102,7 +96,6 @@ export const review = {
   breakdownRow: "{name}: {files}, {viewed} viewed, {additions} lines added, {deletions} removed. {left}",
   leftToReview: "{time} left to review",
 
-  // The Overview
   description: "Description",
   noDescription: "No description.",
   openedBy: "{who} opened it {ago}",
@@ -123,7 +116,6 @@ export const review = {
   "state.COMMENTED": "Commented",
   "state.PENDING": "Not reviewed yet",
   "state.DISMISSED": "Dismissed",
-  // After a name, in the conversation: "Ana approved".
   "did.APPROVED": "approved",
   "did.CHANGES_REQUESTED": "changes requested",
   "did.COMMENTED": "commented",
@@ -146,7 +138,6 @@ export const review = {
   nothingWorth: "Nothing worth raising.",
   readProject: "Read the whole project.",
 
-  // Conversations and comments between the lines
   writeFirst: "Write something first.",
   resolvedConversation: "Resolved conversation · {comments} · show",
   onGoneLine: "On line {line}, which this diff no longer shows",
@@ -188,12 +179,10 @@ export const review = {
   addToReview: "Add to my review",
   dismiss: "Dismiss",
 
-  // The diff
   commentOnLine: "Comment on this line",
   viewed: "Viewed",
   viewedFile: "Viewed {path}",
 
-  // Writing, editing and reacting to comments; suggested changes; the pending review
   write: "Write",
   preview: "Preview",
   nothingToPreview: "Nothing to preview.",

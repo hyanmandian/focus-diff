@@ -17,16 +17,11 @@ const MARKER_TIMEOUT_MS = 600;
 
 const lineOf = (thread: ThreadSummary) => Number(thread.line.slice(1)) || 0;
 
-/** The open, expanded conversation for a thread, once GitHub has rendered its comments. */
 const openThread = (id: string) => {
   const thread = threadById(id);
   return thread && threadComments(thread).length > 0 ? thread : null;
 };
 
-/**
- * Newer view: conversations from GitHub's data, in file order then line order, kept current with the ones open on the
- * page: a new conversation joins them, a deleted one leaves, and a reply of the reader's marks one as answered.
- */
 const knownThreads = (files: FileInfo[]) =>
   files.flatMap((file) => {
     const diff = file.diff?.element;
@@ -48,10 +43,6 @@ const knownThreads = (files: FileInfo[]) =>
       .map((thread) => ({ file, thread }));
   });
 
-/**
- * Newer view: GitHub's own comment link opens the thread, resolved or not, wherever it is in the diff. Replacing the
- * hash keeps these jumps out of the reader's history. Without it, the file is opened and its marker found.
- */
 const known = (file: FileInfo, thread: ThreadSummary): ConversationTarget => ({
   file,
   line: lineOf(thread) || null,
@@ -74,7 +65,6 @@ const known = (file: FileInfo, thread: ThreadSummary): ConversationTarget => ({
   },
 });
 
-/** Classic view: every conversation is already on the page; a collapsed one, like a resolved one, is opened first. */
 const rendered = (file: FileInfo, thread: Thread): ConversationTarget => ({
   file,
   line: thread.line,
@@ -84,14 +74,12 @@ const rendered = (file: FileInfo, thread: Thread): ConversationTarget => ({
     const toggle = collapsedThreadToggle(thread.element);
     if (toggle) {
       toggle.click();
-      // GitHub loads a resolved thread's comments on demand; it's ready once they're in.
       await waitFor(() => (threadComments(thread.element).length > 0 ? thread.element : null), EXPAND_TIMEOUT_MS);
     }
     return thread.element;
   },
 });
 
-/** The conversations in `files`: from GitHub's data in the newer view, from the page in the classic one. */
 export const conversations = (files: FileInfo[], complete: boolean): ConversationTarget[] =>
   complete
     ? knownThreads(files).map(({ file, thread }) => known(file, thread))

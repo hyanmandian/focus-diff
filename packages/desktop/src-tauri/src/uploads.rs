@@ -1,17 +1,3 @@
-//! Pictures and videos attached to a comment, the way github.com attaches them: GitHub has no
-//! API for it, so this does what github.com's comment box does, as the person signed in on
-//! github.com (web.rs). The address it gives back (github.com/user-attachments/assets/…) follows
-//! the repository's permissions, so nothing from a private repository is shown to anyone else.
-//!
-//! 1. The pull request's page, for the upload token, the page's fetch nonce and the
-//!    repository's id.
-//! 2. POST /upload/policies/assets: where to put the file (GitHub's storage, on S3) and with what.
-//! 3. The file to that storage, with only the fields it was given: no GitHub cookies go there.
-//! 4. PUT the asset's upload address on github.com, which makes it live.
-//!
-//! None of this is documented by GitHub; the steps follow github.com's own requests as
-//! open-source tools reproduce them (drogers0/gh-image, sudosubin/gh-attach).
-
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -25,16 +11,12 @@ use crate::i18n::tr;
 use crate::web::{self, HOST, Session, WebSession};
 
 const IMAGE_LIMIT: usize = 10 * 1024 * 1024;
-/// GitHub's limit on paid plans; on free ones it's 10 MB, and GitHub says so when it refuses.
 const VIDEO_LIMIT: usize = 100 * 1024 * 1024;
 
-/// Why an upload didn't happen, as the pages tell it apart.
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Error {
-    /// Nobody's signed in on github.com in the app.
     NotSignedIn,
-    /// The session ended (signed out on github.com, or it expired): sign in again.
     SessionExpired,
     Failed { message: String },
 }
@@ -46,11 +28,9 @@ fn failed(message: String) -> Error {
 #[derive(Serialize)]
 pub struct Uploaded {
     pub href: String,
-    /// "image" or "video": how it goes into the comment.
     pub kind: &'static str,
 }
 
-/// What GitHub takes, by the file's extension, checked against its first bytes; true for videos.
 fn content_type(name: &str, bytes: &[u8]) -> Option<(&'static str, bool)> {
     let extension = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
     let (kind, video) = match extension.as_str() {
@@ -76,13 +56,9 @@ fn content_type(name: &str, bytes: &[u8]) -> Option<(&'static str, bool)> {
     looks_right.then_some((kind, video))
 }
 
-// MARK: The page
-
-/// What the pull request's page gives for an upload.
 #[derive(Default, Debug)]
 struct Page {
     referer: String,
-    /// The comment box's own upload token, in the page's data.
     upload_token: Option<String>,
     fetch_nonce: Option<String>,
     release: Option<String>,
@@ -117,8 +93,6 @@ fn parse_page(referer: String, html: &str) -> Page {
     }
 }
 
-/// github.com's "Sign in to GitHub" page, served in place of the one asked for when the session
-/// has ended (a real page carries "currentUser" in its data, signed in or not).
 fn is_sign_in_page(html: &str) -> bool {
     let start = html.find("<title>").map(|i| &html[i + 7..]).unwrap_or("");
     start.trim_start().starts_with("Sign in to") && !html.contains("\"currentUser\"")
@@ -131,12 +105,10 @@ fn is_sign_in(location: Option<&str>) -> bool {
     })
 }
 
-/// A page of the repository, read as the person signed in on github.com.
 fn read_page(session: &mut Session, owner: &str, path: &str) -> Result<Option<Page>, Error> {
     let answer = web::request(session, "GET", path, &[("Accept", "text/html")], None).map_err(failed)?;
     match answer.status {
         200 if is_sign_in_page(&answer.body) => {
-            // An organization's single sign-on, not the end of the session.
             if answer.body.to_ascii_lowercase().contains(&format!("/orgs/{}/sso", owner.to_ascii_lowercase())) {
                 return Err(failed(tr!(
                     "{owner} asks for single sign-on on github.com: open the pull request there once to authorize, then try again",
@@ -159,7 +131,6 @@ fn find_page(app: &AppHandle, session: &mut Session, owner: &str, repo: &str, nu
             "O github.com não mostrou este pull request para @{login}: é a conta com que você revisa?"
         )));
     };
-    // The upload token is on the repository's page when the pull request's doesn't carry it.
     if page.upload_token.is_none()
         && let Ok(Some(home)) = read_page(session, owner, &format!("/{owner}/{repo}"))
     {
@@ -184,9 +155,6 @@ fn find_page(app: &AppHandle, session: &mut Session, owner: &str, repo: &str, nu
     Ok(page)
 }
 
-// MARK: Requests
-
-/// multipart/form-data, as a browser sends a form: the fields, then the file if there's one.
 fn multipart(fields: &[(&str, &str)], file: Option<(&str, &str, &[u8])>) -> (String, Vec<u8>) {
     static COUNT: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
@@ -205,7 +173,6 @@ fn multipart(fields: &[(&str, &str)], file: Option<(&str, &str, &[u8])>) -> (Str
     (format!("multipart/form-data; boundary={boundary}"), body)
 }
 
-/// What GitHub said when it refused, in its words when it gave some.
 fn refusal(status: u16, body: &str) -> Error {
     let said = serde_json::from_str::<Value>(body).ok().and_then(|v| {
         let text = |v: &Value| v.as_str().map(String::from);
@@ -219,7 +186,6 @@ fn refusal(status: u16, body: &str) -> Error {
     })
 }
 
-/// The headers github.com's comment box sends with its requests.
 fn headers(page: &Page) -> Vec<(&'static str, String)> {
     let mut list = vec![
         ("Accept", "application/json".to_string()),
@@ -248,7 +214,6 @@ fn send(session: &mut Session, method: &str, path: &str, page: &Page, fields: &[
     Ok(answer)
 }
 
-/// The asset's upload policy: where the file goes and what it's sent with.
 fn policy(session: &mut Session, page: &Page, name: &str, size: usize, kind: &str) -> Result<Value, Error> {
     let size = size.to_string();
     let id = page.repository_id.unwrap_or_default().to_string();
@@ -258,7 +223,6 @@ fn policy(session: &mut Session, page: &Page, name: &str, size: usize, kind: &st
     }
     fields.push(("repository_id", id.as_str()));
     let mut answer = send(session, "POST", "/upload/policies/assets", page, &fields)?;
-    // Refused with the page's token: once more with the fetch nonce alone, as the newer comment box asks.
     if matches!(answer.status, 403 | 422) && page.upload_token.is_some() && page.fetch_nonce.is_some() {
         fields.retain(|(k, _)| *k != "authenticity_token");
         let again = send(session, "POST", "/upload/policies/assets", page, &fields)?;
@@ -272,8 +236,6 @@ fn policy(session: &mut Session, page: &Page, name: &str, size: usize, kind: &st
     serde_json::from_str(&answer.body).map_err(|_| refusal(answer.status, ""))
 }
 
-/// The file to GitHub's storage, with the fields the policy gave, in its order, and the file last.
-/// Only to an https address of its storage, and with no cookies.
 fn store(policy: &Value, name: &str, kind: &str, bytes: &[u8]) -> Result<(), Error> {
     let url = policy["upload_url"].as_str().unwrap_or_default();
     let storage = crate::github::https_host(url).is_some_and(|host| host.ends_with(".amazonaws.com") || host.ends_with(".githubusercontent.com") || host == "github.com");
@@ -308,7 +270,6 @@ fn store(policy: &Value, name: &str, kind: &str, bytes: &[u8]) -> Result<(), Err
     Ok(())
 }
 
-/// Makes the asset live on github.com, and its address.
 fn finish(session: &mut Session, page: &Page, policy: &Value) -> Result<String, Error> {
     let path = policy["asset_upload_url"].as_str().unwrap_or_default();
     let token = policy["asset_upload_authenticity_token"].as_str().unwrap_or_default();
@@ -328,7 +289,6 @@ fn finish(session: &mut Session, page: &Page, policy: &Value) -> Result<String, 
     Ok(href)
 }
 
-/// Uploads one picture or video for a comment on `owner/repo#number`. Blocking.
 pub fn upload(app: &AppHandle, owner: &str, repo: &str, number: u64, name: &str, bytes: &[u8]) -> Result<Uploaded, Error> {
     if !crate::github::name_ok(owner) || !crate::github::name_ok(repo) {
         return Err(failed("Bad request".into()));
@@ -359,7 +319,6 @@ pub fn upload(app: &AppHandle, owner: &str, repo: &str, number: u64, name: &str,
             web_session.forget();
             web::announce(app);
         }
-        // github.com's cookies change as it answers: the newest are kept for next time.
         _ if serde_json::to_string(&session).unwrap_or_default() != before => {
             let _ = web_session.save(session);
         }

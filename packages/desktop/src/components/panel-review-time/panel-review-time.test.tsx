@@ -26,7 +26,6 @@ function review(endsAt: number, pulls: RunPull[]): ReviewRun {
   };
 }
 
-/** The pull request as the review queue has it. */
 const queued: Item = {
   queueId: "review",
   pr: {
@@ -102,7 +101,6 @@ describe("ReviewTime", () => {
     try {
       const endsAt = Date.now() + 10 * 60_000;
       const { view } = setup(review(endsAt, [pull()]));
-      // A tick inside the same minute.
       act(() => {
         vi.advanceTimersByTime(15_000);
       });

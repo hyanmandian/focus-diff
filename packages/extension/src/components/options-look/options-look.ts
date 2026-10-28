@@ -35,7 +35,6 @@ const COLOR_NAMES: Record<ThemeColor, string> = {
   attention: i18n.t("colorAttention"),
 };
 
-/** A computed `rgb()` or `rgba()` colour as hex, with its alpha when it has one. */
 const themeLabel = (name: string) => name.trim() || i18n.t("untitledTheme");
 
 const hexOf = (color: string): string | null => {
@@ -45,7 +44,6 @@ const hexOf = (color: string): string | null => {
   return `#${channels.map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
 };
 
-/** `#rgb`, `#rgba` and `#rrggbbaa` as the `#rrggbb` a colour picker takes; its alpha, if any, is left out. */
 const pickerValue = (hex: string): string => {
   const digits = hex.slice(1);
   const full = digits.length <= 4 ? Array.from(digits, (digit) => digit + digit).join("") : digits;
@@ -53,19 +51,12 @@ const pickerValue = (hex: string): string => {
 };
 
 interface LookOptions {
-  /** The reader changed something that isn't saved yet. */
   onChange: () => void;
-  /** Says something briefly, like that a theme was copied. */
   notify: (text: string) => void;
 }
 
-/**
- * The bar's look in settings: pick a theme, or make one by picking colours, and share it the way filters are shared.
- * The preview, the welcome page's demo on a few of its files, follows every change; pull requests get it once saved.
- */
 export const createLook = ({ onChange, notify }: LookOptions) => {
   let appearance: Appearance = normalizeAppearance({});
-  /** What's typed in each colour field, valid or not, for the theme being edited. */
   let drafts: Partial<Record<ThemeColor, string>> = {};
   let preview: Demo | null = null;
   const restylePreview = createStyler((css) => {
@@ -80,11 +71,9 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   const list = $("#colors");
   const current = () => appearance.themes.find((theme) => theme.id === appearance.theme);
 
-  /** The colours as the preview shows them, so a colour left to the provider's theme still shows what it is. */
   const showDefaults = () => {
     const host = $("#preview").shadowRoot?.querySelector<HTMLElement>(".demo-bar");
     if (!host) return;
-    // A colour can be `light-dark()` or a site's variable; a probe inside the bar resolves it to the colour shown.
     const probe = document.createElement("span");
     (host.shadowRoot ?? host).append(probe);
     for (const row of list.querySelectorAll<HTMLElement>(".color")) {
@@ -98,7 +87,6 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     probe.remove();
   };
 
-  /** The theme being edited, with its valid colours: what the preview shows while the reader types. */
   const sync = () => {
     const theme = current();
     if (theme) {
@@ -109,7 +97,6 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     void restylePreview(appearance);
   };
 
-  /** Each colour row's check: whether its value can be saved; if not, it says why at the field. */
   const rowChecks = new WeakMap<HTMLElement, () => boolean>();
   const colorRow = (color: ThemeColor) => {
     const template = templateElement<HTMLElement>("color-template");
@@ -212,7 +199,6 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     sync();
   });
 
-  /** A new theme starts as the provider's: every colour left to it, until one is picked. */
   $("#theme-new").addEventListener("click", () => {
     const theme: CustomTheme = {
       id: newId(),
@@ -269,10 +255,6 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     select.focus();
   });
 
-  /**
-   * The preview is the demo's bar, a bundle of its own: it's loaded after the page shows, below the fold, so it never
-   * holds the page up. It starts in the look as it is by then.
-   */
   let previewLoading: Promise<void> | null = null;
   const loadPreview = async () => {
     const [{ createDemo }, { SAMPLE_PULL_REQUEST }] = await Promise.all([
@@ -282,7 +264,6 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     preview = createDemo(
       $("#preview"),
       { ...SAMPLE_PULL_REQUEST, files: SAMPLE_PULL_REQUEST.files.slice(0, 2) },
-      // Settings are this page; the button goes to the filters.
       {
         onSettings: () => {
           $("#global-h").focus();
@@ -294,13 +275,11 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
   };
 
   return {
-    /** Shows a look, like the saved one or one saved elsewhere, with the preview wearing it. */
     render: (next: Appearance) => {
       appearance = next;
       previewLoading ??= loadPreview();
       render();
     },
-    /** Whether the theme being edited can be saved; if not, says why at the field and focuses it. */
     check: (): boolean => {
       const theme = current();
       if (!theme) return true;

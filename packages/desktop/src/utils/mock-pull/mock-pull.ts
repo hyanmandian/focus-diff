@@ -1,7 +1,3 @@
-// Tests only: a pull request as the review window holds it (usePull's result, the details it
-// started from, the conversation's API), every part typed and plain, every action a spy that
-// resolves. Each test changes only what it's about.
-
 import { vi } from "vite-plus/test";
 
 import type { ConversationApi } from "@/hooks/use-conversation/use-conversation";
@@ -188,7 +184,6 @@ export function fakePull(extra: Partial<Pull> = {}): Pull {
   };
 }
 
-/** A review window's conversation API: what's done to comments is spied on, the rest does nothing. */
 export function fakeConversation(extra: Partial<ConversationApi> = {}): ConversationApi {
   return {
     repo: "acme/shop",

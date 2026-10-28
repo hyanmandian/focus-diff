@@ -1,8 +1,3 @@
-//! The app's live state, kept here rather than in a web view so the panel can be closed while
-//! hidden: refreshes the queues on the configured rhythm, remembers what's been seen, notifies (or
-//! keeps notifications for review time), runs review time, and keeps the tray icon current. The
-//! panel reads it as a snapshot and follows its changes.
-
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -21,41 +16,27 @@ use crate::i18n::tr;
 use crate::{github, sound};
 use crate::sync::Locked;
 
-/// Every pull request in full again this often, changed or not: a safety net for what GitHub
-/// doesn't count as an update.
 const FULL_EVERY: i64 = 20 * 60_000;
 const MAX_NOTIFICATIONS: usize = 4;
-/// Notifications kept for later, the latest of them.
 const MAX_HELD: usize = 50;
-/// How often review time's clock is looked at: to start on the minute and count down.
 const TICK: Duration = Duration::from_secs(15);
-/// Bumped when there are new kinds of event: the first refresh after notifies about none of them,
-/// or every comment and draft made ready in the queues would be news at once.
 const EVENTS_VERSION: u32 = 1;
 
 pub enum Message {
     Refresh { force: bool },
-    /// config.json changed.
     Config,
-    /// Signed in or out.
     Auth,
-    /// Review time's clock.
     Tick,
-    /// The panel's End on a review time under way.
     EndReview,
 }
 
-/// What a notification kept for later waits for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum Until {
-    /// The next review time.
     Review,
-    /// The end of the one under way.
     End,
 }
 
-/// A notification kept for later, as it would have shown.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Held {
     key: String,
@@ -64,31 +45,20 @@ struct Held {
     until: Until,
 }
 
-/// What's remembered between launches (state.json).
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 struct Persisted {
-    /// Event keys of cards you clicked.
     seen: HashMap<String, bool>,
-    /// Every event key last time, to tell what's new. None before the first refresh.
     keys: Option<Vec<String>>,
     ci: HashMap<String, CiMemo>,
-    /// "queueId:prId" taken off a queue by hand: merged ones marked as seen, others ignored.
     dismissed: HashMap<String, bool>,
-    /// Each queue's search last time: a queue that's new or searches differently starts quietly,
-    /// its first results the baseline rather than a burst of notifications.
     searches: HashMap<String, String>,
-    /// The kinds of event `keys` knows about (EVENTS_VERSION).
     events_version: u32,
-    /// Notifications waiting for review time, or for the end of the one under way.
     held: Vec<Held>,
-    /// The review time under way.
     run: Option<Run>,
-    /// When review time's schedule was last looked at (ms): one that started since is due.
     review_checked_at: i64,
 }
 
-/// A queue's search without the date a merged queue moves along each day.
 fn search_key(search: &str) -> String {
     search.split(' ').filter(|p| !p.starts_with("merged:>=")).collect::<Vec<_>>().join(" ")
 }
@@ -110,22 +80,15 @@ struct State {
     persisted: Persisted,
     items: Vec<(String, Vec<Item>)>,
     status: Status,
-    /// Pull request ids with something new to call out, until the panel shows them.
     arrivals: HashSet<String>,
     last_count: Option<usize>,
-    /// GitHub couldn't be reached to tell who's signed in: asked again before the next refresh.
     auth_unknown: bool,
-    /// GitHub asked to slow down: no refresh before this (ms), and how long the last wait was.
     retry_at: i64,
     backoff: i64,
-    /// What the tray shows of review time's countdown.
     countdown: Option<i64>,
-    /// Pull requests just taken off by hand, with the event keys that counted as seen then, for
-    /// Undo to put back as they were. The latest few only.
     dismissed_now: Vec<(String, Item, Vec<String>)>,
 }
 
-/// How many pull requests taken off by hand Undo can still put back.
 const MOST_UNDONE: usize = 50;
 const FIRST_BACKOFF: i64 = 5 * 60_000;
 const LONGEST_BACKOFF: i64 = 30 * 60_000;
@@ -139,7 +102,6 @@ fn now() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
 }
 
-/// GitHub's GraphQL API, through the signed-in token.
 struct Github<'a>(&'a github::Auth);
 
 impl Gql for Github<'_> {
@@ -159,8 +121,6 @@ impl Gql for Github<'_> {
     }
 }
 
-// MARK: Files
-
 fn config_dir(app: &AppHandle) -> Option<PathBuf> {
     app.path().app_config_dir().ok()
 }
@@ -175,7 +135,6 @@ fn read<T: for<'de> Deserialize<'de>>(path: Option<PathBuf>) -> Option<T> {
     serde_json::from_str(&fs::read_to_string(path?).ok()?).ok()
 }
 
-/// Written next to the file and moved into place, so a crash mid-write never leaves half a file.
 fn write(path: Option<PathBuf>, contents: &str) {
     if let Some(path) = path {
         let _ = crate::disk::write(&path, contents);
@@ -186,23 +145,17 @@ fn read_config(app: &AppHandle) -> Option<Config> {
     Config::parse(&fs::read_to_string(config_dir(app)?.join("config.json")).ok()?)
 }
 
-// MARK: Words
-
 fn first_name(actor: Option<&engine::Actor>) -> String {
     actor
         .and_then(|a| a.name.as_deref().and_then(|n| n.split_whitespace().next()).map(String::from).or_else(|| (!a.login.is_empty()).then(|| a.login.clone())))
         .unwrap_or_else(|| tr!("Someone", "Alguém"))
 }
 
-/// What a notification says: what happened, by whom (and for a review request, whether it's asked
-/// of you or your team, or again), then what a comment or review said, if anything, over the pull
-/// request it's on.
 fn words(fresh: &engine::Fresh, kind: Option<Kind>) -> (String, String) {
     let pr = &fresh.item.pr;
     let who = first_name(fresh.event.who.as_ref());
     let teams = fresh.item.via_teams.as_deref().unwrap_or_default();
     let reviewing = kind == Some(Kind::Review);
-    // The extension's words (its pt_BR notify*), so both products say it the same way.
     let title = match fresh.event.kind {
         "new" if reviewing && !teams.is_empty() => tr!("{who} asked your team for a review", "{who} pediu revisão ao seu time"),
         "new" if reviewing => tr!("{who} asked for your review", "{who} pediu sua revisão"),
@@ -240,16 +193,13 @@ fn words(fresh: &engine::Fresh, kind: Option<Kind>) -> (String, String) {
     (title, body)
 }
 
-/// Why notifications were kept, for the one that sums them up.
 #[derive(Clone, Copy)]
 enum Why {
-    /// No review time is coming any more.
     CameIn,
     WaitedForReview,
     CameInWhileReviewing,
 }
 
-/// Several notifications as one: how many, and a line each for the first few.
 fn summary(notes: &[Held], why: Why) -> (String, String) {
     let lines: Vec<String> = notes.iter().take(5).map(|n| format!("{}: {}", n.title, n.body.lines().next().unwrap_or(""))).collect();
     let more = if notes.len() > 5 {
@@ -324,7 +274,6 @@ impl Watch {
                     Err(RecvTimeoutError::Timeout) => Message::Refresh { force: false },
                     Err(RecvTimeoutError::Disconnected) => return,
                 };
-                // Several requests that piled up during a refresh make one.
                 let (mut refresh, mut force, mut config, mut auth, mut end) = (false, false, false, false, false);
                 for message in std::iter::once(first).chain(receiver.try_iter()) {
                     match message {
@@ -344,7 +293,6 @@ impl Watch {
                 if end {
                     worker.end_review();
                 }
-                // The clock's ticks alone don't refresh: GitHub is asked on its own rhythm.
                 if refresh || config || auth {
                     worker.refresh(force || config || auth);
                     next = Instant::now() + rhythm(&worker);
@@ -371,7 +319,6 @@ impl Watch {
         self.state.held().snapshot()
     }
 
-    /// Runs `change` on the state, then saves, updates the tray and tells the panel.
     fn change(&self, app: &AppHandle, change: impl FnOnce(&mut State)) {
         let worker = Worker { app: app.clone(), state: self.state.clone() };
         {
@@ -383,7 +330,6 @@ impl Watch {
         worker.publish();
     }
 
-    /// Clicking a card counts as having looked at it.
     pub fn mark_seen(&self, app: &AppHandle, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
             let keys: Vec<String> = state.find(queue_id, pr_id).map(|i| i.events.iter().map(|e| e.key.clone()).collect()).unwrap_or_default();
@@ -403,8 +349,6 @@ impl Watch {
         });
     }
 
-    /// Takes a pull request off a queue by hand (merged: seen; others: ignored), until it leaves
-    /// the queue's search.
     pub fn dismiss(&self, app: &AppHandle, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
             if let Some(item) = state.find(queue_id, pr_id).cloned() {
@@ -426,8 +370,6 @@ impl Watch {
         });
     }
 
-    /// Your review sent, or you off its reviewers: off the queues waiting on your review at once,
-    /// not at the next refresh, and kept off while GitHub's search, a while behind, still has it.
     pub fn reviewed(&self, app: &AppHandle, pr_id: &str) {
         self.change(app, |state| {
             let queues: Vec<String> = state.config.iter().flat_map(|c| c.enabled()).filter(|q| q.kind == crate::config::Kind::Review).map(|q| q.id.clone()).collect();
@@ -441,7 +383,6 @@ impl Watch {
         });
     }
 
-    /// Undo for `dismiss`: the pull request back on its queue, as unread as it was.
     pub fn restore(&self, app: &AppHandle, queue_id: &str, pr_id: &str) {
         self.change(app, |state| {
             state.persisted.dismissed.remove(&format!("{queue_id}:{pr_id}"));
@@ -458,8 +399,6 @@ impl Watch {
         });
     }
 
-    /// Development only (devctl): forgets having seen the latest events of `n` pull requests, so
-    /// the next refresh finds them new.
     #[cfg(any(debug_assertions, feature = "devctl"))]
     pub fn forget(&self, n: usize) -> Vec<String> {
         let mut state = self.state.held();
@@ -479,7 +418,6 @@ impl Watch {
         picked.into_iter().map(|(title, _)| title).collect()
     }
 
-    /// Ends the review time under way, on the refreshing thread.
     pub fn end_review(&self) {
         self.send(Message::EndReview);
     }
@@ -492,22 +430,18 @@ impl Watch {
     }
 }
 
-/// Takes the notifications kept for this, in the order they came.
 fn take_held(state: &mut State, until: Until) -> Vec<Held> {
     let (taken, kept) = std::mem::take(&mut state.persisted.held).into_iter().partition(|h| h.until == until);
     state.persisted.held = kept;
     taken
 }
 
-/// The refreshing thread's side.
 struct Worker {
     app: AppHandle,
     state: Arc<Mutex<State>>,
 }
 
 impl Worker {
-    /// Last launch's state and pull requests first, so the panel has something to show at once;
-    /// then who's signed in, then GitHub.
     fn boot(&self) {
         {
             let mut state = self.state.held();
@@ -542,7 +476,6 @@ impl Worker {
                     self.update_tray(&mut state, false);
                 }
             }
-            // Offline: keep last launch's account and try again on the next refresh.
             Err(message) => {
                 let mut state = self.state.held();
                 state.auth_unknown = true;
@@ -555,7 +488,6 @@ impl Worker {
     fn reload_config(&self) {
         let mut state = self.state.held();
         state.config = read_config(&self.app);
-        // The new rules on what's known already, before GitHub answers.
         self.apply(&mut state);
         drop(state);
         self.publish();
@@ -604,12 +536,10 @@ impl Worker {
                 write(cache_file(&self.app), &serde_json::to_string(&state.cache).unwrap_or_default());
             }
             Err(failure) => {
-                // What came in before GitHub refused is kept (the cache was updated as it went).
                 write(cache_file(&self.app), &serde_json::to_string(&state.cache).unwrap_or_default());
                 let message = if failure.status == 401 {
                     tr!("GitHub signed you out", "O GitHub desconectou você")
                 } else if failure.rate_limited() {
-                    // Waiting longer each time it asks again, up to half an hour.
                     state.backoff = (state.backoff * 2).clamp(FIRST_BACKOFF, LONGEST_BACKOFF);
                     state.retry_at = now() + state.backoff;
                     let minutes = state.backoff / 60_000;
@@ -630,7 +560,6 @@ impl Worker {
         self.publish();
     }
 
-    /// The items of every queue from the cache, and what's new since last time.
     fn apply(&self, state: &mut State) {
         let (Some(config), Some(me)) = (state.config.clone(), state.me.clone()) else { return };
         let queues: Vec<&crate::config::Queue> = config.enabled().collect();
@@ -663,19 +592,14 @@ impl Worker {
             for f in &fresh {
                 state.arrivals.insert(f.item.pr.id.clone());
             }
-            // Only what shows now draws the eye: what's kept waits quietly.
             animate = self.notify(state, &config, &fresh) > 0;
         }
-        // Only once GitHub answered for them: before that a queue has no results to start from.
         if !searches.is_empty() {
             state.persisted.searches = searches;
             state.persisted.events_version = EVENTS_VERSION;
         }
-        // The first refresh notifies about nothing: it's all old news. Cards still show as unclicked.
         state.persisted.keys = Some(keys.iter().cloned().collect());
-        // Forget what's gone, so the state stays small.
         state.persisted.seen.retain(|k, _| keys.contains(k));
-        // A pull request taken off a queue by hand stays off while it still turns up in its search.
         let lists = &state.cache.lists;
         state.persisted.dismissed.retain(|key, _| {
             let (queue_id, pr_id) = key.split_once(':').unwrap_or((key, ""));
@@ -690,9 +614,6 @@ impl Worker {
         self.update_tray(state, animate);
     }
 
-    /// Shows what's new, or keeps it: for the next review time when its queue says so (and there is
-    /// one coming), or for the end of the one under way when everything waits while reviewing.
-    /// Returns how many showed now.
     fn notify(&self, state: &mut State, config: &Config, fresh: &[engine::Fresh]) -> usize {
         let reviewing = state.persisted.run.is_some();
         let scheduled = review::is_scheduled(&config.review_time);
@@ -722,7 +643,6 @@ impl Worker {
         now.len()
     }
 
-    /// Notifications, a few at most, with one sound for the batch, not one per notification.
     fn show(&self, notes: &[Held], sound: bool) {
         let mut sound = sound;
         for note in notes.iter().take(MAX_NOTIFICATIONS) {
@@ -736,7 +656,6 @@ impl Worker {
         }
     }
 
-    /// Notifications that were kept: as they were if just one, summed up in one otherwise.
     fn release(&self, notes: Vec<Held>, why: Why, sound: bool) {
         match notes.len() {
             0 => {}
@@ -748,7 +667,6 @@ impl Worker {
         }
     }
 
-    /// Review time's own notification: its own sound where there is one, else the system's.
     fn chime(&self, config: &Config, title: String, body: String) {
         crate::show_notification(&self.app, title, body, config.sound && !sound::OWN);
         if config.sound {
@@ -756,13 +674,10 @@ impl Worker {
         }
     }
 
-    /// Review time's clock: the one under way ends when its time is up, one that's due starts, and
-    /// the tray counts down. What was kept for review times that won't come any more shows now.
     fn review_tick(&self) {
         let now = now();
         let over = self.state.held().persisted.run.as_ref().is_some_and(|r| now >= r.ends_at());
         if over {
-            // How far it got, from the queues as they are now.
             self.refresh(true);
             let mut state = self.state.held();
             self.end_run(&mut state, true);
@@ -776,13 +691,11 @@ impl Worker {
                 self.save_state(&state);
             }
             let last = std::mem::replace(&mut state.persisted.review_checked_at, now);
-            // The first look starts the clock: nothing from before counts.
             let due = (last > 0).then(|| review::due(&config.review_time, last, now, &review::local_offset)).flatten().map(|d| d.session.clone());
             due.filter(|_| state.persisted.run.is_none() && state.me.is_some())
         };
         let started = due.is_some();
         if let Some(session) = due {
-            // What's waiting as it stands now, not as of the last refresh.
             self.refresh(true);
             let mut state = self.state.held();
             self.start_run(&mut state, &session, now);
@@ -795,7 +708,6 @@ impl Worker {
         }
     }
 
-    /// The items of the queues a session picks from: the ones it names, or every review queue.
     fn session_items<'a>(state: &'a State, session: Option<&Session>) -> Vec<&'a Item> {
         let config = state.config.as_ref();
         let picks = |id: &str| match session.filter(|s| !s.queues.is_empty()) {
@@ -805,7 +717,6 @@ impl Worker {
         state.items.iter().filter(|(id, _)| picks(id)).flat_map(|(_, items)| items.iter()).collect()
     }
 
-    /// Starts a review time: picks what fits and says so, with what waited for it.
     fn start_run(&self, state: &mut State, session: &Session, now: i64) {
         let Some(config) = state.config.clone() else { return };
         let mut ids = HashSet::new();
@@ -826,15 +737,12 @@ impl Worker {
         } else {
             self.release(waited, Why::WaitedForReview, config.sound);
         }
-        // Nothing to review: nothing to count down.
         if !run.pulls.is_empty() {
             state.persisted.run = Some(run);
         }
         self.save_state(state);
     }
 
-    /// Ends the review time under way: its time is up (said, if asked), or it was ended by hand.
-    /// What waited for the end of it shows now.
     fn end_run(&self, state: &mut State, time_up: bool) {
         let Some(config) = state.config.clone() else { return };
         let Some(run) = state.persisted.run.take() else { return };
@@ -858,7 +766,6 @@ impl Worker {
         self.publish();
     }
 
-    /// The minutes left beside the tray icon, while a review time is under way.
     fn update_countdown(&self, state: &mut State, now: i64) {
         let minutes = state.persisted.run.as_ref().map(|r| r.minutes_left(now));
         if state.countdown != minutes {
@@ -880,7 +787,6 @@ impl Worker {
         crate::update_tray(&self.app, count as u32, animate);
     }
 
-    /// The panel, when it's open, gets the new state. Nothing is serialized when it's closed.
     fn publish(&self) {
         if self.app.get_webview_window(crate::PANEL).is_some() {
             let snapshot = self.state.held().snapshot();

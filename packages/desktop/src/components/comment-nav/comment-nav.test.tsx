@@ -12,7 +12,6 @@ const STOPS: CommentStop[] = [
   { path: "src/deep/promo.ts", line: 12, kind: "conversation" },
 ];
 
-/** The window's side: where it is, stepping round and round, as review.tsx does. */
 function Stepping({ stops, from = -1 }: { stops: CommentStop[]; from?: number }) {
   const [stop, setStop] = useState(from);
   return (
@@ -44,7 +43,6 @@ describe("CommentNav", () => {
     await userEvent.click(button("Next comment"));
     expect(card.textContent).toContain("Your pending comment");
     await userEvent.click(button("Next comment"));
-    // The file's name, its path in the title.
     expect(screen.getByTitle("src/deep/promo.ts").textContent).toBe("promo.ts:12");
     expect(card.textContent).toContain("Open conversation");
     await userEvent.click(button("Previous comment"));
@@ -61,7 +59,6 @@ describe("CommentNav", () => {
     await userEvent.click(button("Comments, 3 comments"));
     expect(await screen.findByText("Comment 2 of 3")).toBeTruthy();
     expect(onStep).not.toHaveBeenCalled();
-    // Its button closes it again.
     await userEvent.click(button("Comments, 3 comments"));
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();

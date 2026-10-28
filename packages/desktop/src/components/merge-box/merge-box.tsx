@@ -1,8 +1,3 @@
-// The merge box, as GitHub's: where the pull request stands, what stands in the way of merging it
-// (reviews, checks, conversations, conflicts, an out-of-date branch), and what can be done: merge
-// (with the commit message, editable), merge when ready (auto-merge), the merge queue, update the
-// branch, bypass as an admin, delete the branch after. Merging asks first with a native alert.
-
 import {
   ChevronDown,
   CircleAlert,
@@ -72,7 +67,6 @@ export function MergeBox({ details, pull }: Props) {
   const m = pull.manage;
   const [method, setMethod] = useState<Method | null>(null);
   const chosen = method && details.mergeMethods.includes(method) ? method : (details.mergeMethods[0] ?? null);
-  // The commit message, as GitHub would write it, until it's edited (per method).
   const [edited, setEdited] = useState<Partial<Record<Method, { title: string; body: string }>>>({});
   const [bypass, setBypass] = useState(false);
   const [deleteAfter, setDeleteAfter] = useState(false);

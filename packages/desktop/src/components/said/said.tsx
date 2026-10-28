@@ -1,6 +1,3 @@
-// What every comment has around its words, in a conversation or in the Overview: reactions (seen,
-// and given, at once), and a menu to copy a link to it, quote it, or edit and delete your own.
-
 import { Copy, MoreHorizontal, Pencil, Quote, SmilePlus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -19,7 +16,6 @@ import { cn } from "@/utils/cn/cn";
 import { EMOJI, REACTIONS, toggled, type Reaction, type ReactionContent } from "@/utils/comments/comments";
 import { useT } from "@/utils/i18n/i18n";
 
-/** Reactions shown as given at once; if GitHub refuses, they go back. */
 export function useReactions(subject: string, given: Reaction[]) {
   const api = useConversationApi();
   const [mine, setMine] = useState<Reaction[] | null>(null);
@@ -32,17 +28,13 @@ export function useReactions(subject: string, given: Reaction[]) {
     void (async () => {
       try {
         await api.react(subject, content, on, after);
-      } catch {
-        // Refused: GitHub's copy, without it, is what shows again.
-      }
-      // GitHub's copy has it now (or never will): back to following it.
+      } catch {}
       setMine(null);
     })();
   };
   return [reactions, toggle] as const;
 }
 
-/** The smiley that adds a reaction: GitHub's eight, in a popover. */
 export function ReactionPicker({
   reactions,
   onToggle,
@@ -100,8 +92,6 @@ export function ReactionPicker({
   );
 }
 
-/** The reactions given, each a capsule with its count (yours in the accent): a click takes yours
- *  back or adds it. */
 export function ReactionList({
   reactions,
   canReact,
@@ -152,13 +142,9 @@ export function ReactionList({
   );
 }
 
-/** Where a comment's smiley and "…" sit: shown under the pointer, with the keyboard's focus, or
- *  while one is open, so a long conversation isn't a column of buttons. Put `group/said` on the
- *  comment. */
 export const ACTIONS =
   "flex items-center opacity-0 transition-opacity duration-(--duration) group-hover/said:opacity-100 group-focus-within/said:opacity-100 has-[[aria-expanded=true]]:opacity-100 motion-reduce:transition-none";
 
-/** "…" beside a comment. */
 export function CommentMenu({
   url,
   onQuote,

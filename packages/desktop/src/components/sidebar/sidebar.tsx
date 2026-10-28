@@ -1,7 +1,3 @@
-// The Overview's side column beyond the AI: reviewers (asked, answered, asked again), assignees,
-// labels, milestone, the issues it closes and its deployments, each changed from a picker where
-// you're allowed to. Every change shows at once and goes back if GitHub refuses it.
-
 import {
   CircleCheck,
   CircleDot,
@@ -58,7 +54,6 @@ export function Face({ actor, className }: { actor: Actor; className?: string })
   );
 }
 
-/** A label as a capsule with its colour as a dot: readable in light and dark alike. */
 export function LabelChip({ label, className }: { label: Pick<Label, "name" | "color">; className?: string }) {
   return (
     <span
@@ -97,12 +92,10 @@ function Section({
   );
 }
 
-/** The gear that opens a section's picker. */
 const gear = (label: string) => (
   <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={label} />
 );
 
-// Their words: t(`review.state.${state}`).
 const STATE_TONE = {
   APPROVED: "text-success",
   CHANGES_REQUESTED: "text-destructive",
@@ -113,7 +106,6 @@ const STATE_TONE = {
 
 type Props = { details: Details; pull: Pull; me: string | null; onError: (message: string) => void };
 
-/** Runs a change: shown at once, GitHub asked, and back as it was (GitHub's) if it refuses. */
 function useChange(pull: Pull, onError: Props["onError"]) {
   return async (optimistic: (m: Manage) => Manage, call: () => Promise<unknown>) => {
     pull.patch(optimistic);
@@ -133,7 +125,6 @@ function Reviewers({ details, pull, me, onError }: Props) {
   const change = useChange(pull, onError);
   const [candidates, setCandidates] = useState<{ people: Person[]; teams: Team[] }>({ people: [], teams: [] });
   const [loading, setLoading] = useState(false);
-  // Authors can ask for reviews of their own pull request; otherwise it takes triage access.
   const may = Boolean(m && details.state === "OPEN" && (canTriage(m) || details.viewerDidAuthor));
   const list: Reviewer[] =
     m?.reviewers ??
@@ -181,7 +172,6 @@ function Reviewers({ details, pull, me, onError }: Props) {
         selected: requested.has(p.login),
       })),
   ];
-  // Those asked or reviewing that the candidates don't have (yet) still show, to take off.
   for (const r of list)
     if (r.requested && !choices.some((c) => c.id === r.key))
       choices.unshift({
@@ -216,7 +206,6 @@ function Reviewers({ details, pull, me, onError }: Props) {
                 {
                   key: id,
                   actor: team ? null : person,
-                  // Picked from the list: a team asked here is one of its teams.
                   team: known,
                   state: null,
                   requested: true,
@@ -273,7 +262,6 @@ function Reviewers({ details, pull, me, onError }: Props) {
               >
                 {r.requested && !r.state ? t("review.state.PENDING") : r.state ? t(`review.state.${r.state}`) : ""}
               </span>
-              {/* Asked again: one click, for someone whose review is in (and who isn't you). */}
               {may && r.state && !r.requested && r.actor && r.actor.login !== me ? (
                 <Tooltip>
                   <TooltipTrigger
@@ -434,7 +422,6 @@ function Labels({ details, pull, onError }: Props) {
     selected: chosen.some((c) => c.name === l.name),
   }));
   const toggle = (name: string, on: boolean) => {
-    // Picked from the list, so it's there.
     const label = all.filter((l) => l.name === name);
     void change(
       (now) => ({
@@ -508,7 +495,6 @@ function MilestoneSection({ details, pull, onError }: Props) {
   if (current && !choices.some((c) => c.selected))
     choices.unshift({ id: String(current.number), label: current.title, selected: true });
   const pick = (c: Choice) => {
-    // One not chosen is from the list (the closed one kept at its top is the chosen one).
     const next = c.selected ? null : all.find((x) => String(x.number) === c.id)!;
     setOpen(false);
     void change(
@@ -620,7 +606,6 @@ function Deployments({ pull }: { pull: Pull }) {
   const t = useT();
   const deployments = pull.manage?.deployments ?? [];
   if (deployments.length === 0) return null;
-  // The latest per environment, as GitHub shows them.
   const latest = [...new Map(deployments.map((d) => [d.environment, d])).values()];
   return (
     <Section id="deployments" title={t("manage.deployments")}>
@@ -655,7 +640,6 @@ function Deployments({ pull }: { pull: Pull }) {
   );
 }
 
-/** The side column's sections, in GitHub's order. */
 export function Sidebar(props: Props) {
   return (
     <>

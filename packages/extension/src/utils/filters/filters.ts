@@ -4,7 +4,6 @@ import { isRecord } from "@/utils/record/record";
 
 export const ALL = "all";
 
-/** A repository's path, `owner/name`, or deeper where a site nests groups, like `group/subgroup/name`. */
 export const REPO_PATTERN = /^[^/\s]+(?:\/[^/\s]+)+$/u;
 
 export interface Filter {

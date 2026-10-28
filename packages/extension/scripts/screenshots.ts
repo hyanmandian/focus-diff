@@ -1,12 +1,3 @@
-/**
- * Takes the store and README screenshots of the built extension on a real pull request:
- *
- *   npm run screenshots -- https://github.com/<owner>/<repo>/pull/<number>/files
- *
- * It loads .output/chrome-mv3, sets up the Frontend, Backend and Docs examples, picks Frontend, and writes
- * store/screenshots/: store-1280x800-{light,dark}.png (the store's exact size), pull-request.png, and readme.png, which
- * frames pull-request.png with the bar zoomed in. Signed out, so no account shows. Optimise the PNGs afterwards.
- */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -21,7 +12,6 @@ const extension = path.resolve(".output/chrome-mv3");
 const out = path.resolve("store/screenshots");
 const messages: Record<string, unknown> = en;
 
-/** The examples the welcome page offers, named as in English. */
 const EXAMPLES = [
   ["stack", "recipeStackFrontend"],
   ["stack", "recipeStackBackend"],
@@ -47,15 +37,12 @@ const open = async (colorScheme: "light" | "dark", width: number, height: number
   });
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
   await worker.evaluate((global) => chrome.storage.sync.set({ config: { global, repos: [] } }), EXAMPLES);
-  // The welcome page opens on install; only the pull request is wanted.
   for (const page of context.pages()) await page.close();
   const page = await context.newPage();
   await page.goto(url, { waitUntil: "domcontentloaded" });
   const bar = page.locator("focus-diff-panel .panel");
   await bar.waitFor();
   await bar.getByRole("button", { name: /^Frontend/u }).click();
-  // GitHub keeps loading files after the first paint: wait until the bar has read the same totals
-  // for two seconds, so every shot counts the whole pull request, then let the cells finish flipping.
   let last = "";
   for (let stable = 0, tries = 0; stable < 4 && tries < 60; tries += 1) {
     await page.waitForTimeout(500);
@@ -70,7 +57,6 @@ const open = async (colorScheme: "light" | "dark", width: number, height: number
   return { context, page, bar };
 };
 
-/** From the pull request's title down, without GitHub's site header. */
 const titleTop = (page: Page) =>
   page.evaluate(() => {
     const title = document.querySelector('.gh-header-title, [data-component="PH_Title"], h1');
@@ -91,9 +77,6 @@ for (const scheme of ["light", "dark"] as const) {
   await close(context);
 }
 
-// At twice the pixels, so the zoomed-in bar stays sharp; the page itself is kept at its CSS size.
-// The viewport is the shot's own size, scrolled to the title, so the bar, fixed to the bottom of the
-// viewport, sits inside the frame.
 const { context, page, bar } = await open("dark", 1871, 807, 2);
 await page.evaluate(
   (top) => {
@@ -107,7 +90,6 @@ const box = await bar.boundingBox();
 const zoomed = await bar.screenshot({ scale: "device" });
 await close(context);
 
-// The README frame: the page on a gradient, its bar ringed and shown again larger above it.
 const framer = await chromium.launch();
 const frame = await framer.newPage({ viewport: { width: 1991, height: 951 } });
 const image = (buffer: Buffer) => `data:image/png;base64,${buffer.toString("base64")}`;

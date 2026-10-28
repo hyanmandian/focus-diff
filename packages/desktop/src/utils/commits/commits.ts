@@ -1,8 +1,3 @@
-// A pull request's commits, and which of its changes the diff shows: all of them, one commit, a run
-// of commits, or what changed since your last review (as GitHub's "Changes since your last review").
-// A range is two commits; its files come from GitHub's compare in the same shape as the pull
-// request's own (ReviewFile), so the diff shows either the same way.
-
 import { useEffect, useState } from "react";
 
 import { github, graphql } from "@/utils/bridge/bridge";
@@ -18,21 +13,17 @@ export type Commit = {
   body: string;
   at: string;
   author: { login: string | null; name: string; avatarUrl: string | null };
-  /** Signed and GitHub checked the signature; null when unsigned. */
   verified: boolean | null;
   ci: Ci;
-  /** The commit before it (the base's, for the first): where a diff of this commit starts. */
   parent: string | null;
 };
 export type ForcePush = { at: string; actor: string | null; before: string | null; after: string | null };
 export type Commits = {
   commits: Commit[];
   forcePushes: ForcePush[];
-  /** The commit your latest review was on, if you've reviewed it. */
   reviewed: string | null;
 };
 
-/** Which changes the diff shows: those after `from` up to and including `to`. Null: all of them. */
 export type Range = { from: string; to: string } | null;
 
 const QUERY = `query($owner: String!, $name: String!, $number: Int!, $after: String) {
@@ -91,7 +82,6 @@ export async function loadCommits(ref: PullRef): Promise<Commits> {
   let forcePushes: ForcePush[] = [];
   let reviewed: string | null = null;
   let after: string | null = null;
-  // GitHub lists at most 250 commits of a pull request.
   for (let page = 0; page < 3; page++) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
     const data: Raw = await graphql<Raw>(QUERY, { owner: ref.owner, name: ref.repo, number: ref.number, after });
@@ -130,8 +120,6 @@ export async function loadCommits(ref: PullRef): Promise<Commits> {
   return { commits, forcePushes, reviewed };
 }
 
-/** The pull request's commits as a hook: the copy kept from last time at once, GitHub's after;
- *  asked again when the head moves. */
 export function useCommits(prId: string, ref: PullRef, head: string | undefined) {
   const [list, setList] = useState<Commits | null>(() => shelved<Commits>(`commits:${prId}`)?.value ?? null);
   useEffect(() => {
@@ -142,9 +130,7 @@ export function useCommits(prId: string, ref: PullRef, head: string | undefined)
         if (!live) return;
         setList(c);
         shelve(`commits:${prId}`, c);
-      } catch {
-        // The kept copy stands.
-      }
+      } catch {}
     };
     if (head) void load();
     return () => {
@@ -154,22 +140,15 @@ export function useCommits(prId: string, ref: PullRef, head: string | undefined)
   return list;
 }
 
-// MARK: Ranges
-
-/** The commits from index `a` to `b` (either order, both included). */
 export function commitRange(commits: Commit[], a: number, b: number): Range {
   const first = commits[Math.min(a, b)];
   const last = commits[Math.max(a, b)];
   if (!first || !last) return null;
-  // All of them is no range at all; a first commit without a parent (a new history) can't start one.
   if (Math.min(a, b) === 0 && Math.max(a, b) === commits.length - 1) return null;
   if (!first.parent) return null;
   return { from: first.parent, to: last.oid };
 }
 
-/** What changed since your last review: from the commit it was on to the head. `count`: the commits
- *  since; `rewritten`: that commit isn't in the pull request any more (a force push), so the
- *  comparison is between the two versions; null when you haven't reviewed or nothing's new. */
 export function sinceReview(list: Commits): { range: NonNullable<Range>; count: number; rewritten: boolean } | null {
   const head = list.commits.at(-1);
   if (!list.reviewed || !head || list.reviewed === head.oid) return null;
@@ -178,26 +157,20 @@ export function sinceReview(list: Commits): { range: NonNullable<Range>; count: 
   return { range: { from: list.reviewed, to: head.oid }, count: list.commits.length - 1 - at, rewritten: false };
 }
 
-/** The indexes of the commits a range shows (all of them for no range); empty when a commit of it
- *  isn't in the list (a version from before a force push). */
 export function inRange(commits: Commit[], range: Range): number[] {
   if (!range) return commits.map((_, i) => i);
   const end = commits.findIndex((c) => c.oid === range.to);
   if (end === -1) return [];
   const start = commits.findIndex((c) => c.oid === range.from);
-  // `from` is the commit before the first shown: the base's for the first commit.
   const first = start === -1 ? commits.findIndex((c) => c.parent === range.from) : start + 1;
   if (first === -1 || first > end) return [];
   return Array.from({ length: end - first + 1 }, (_, i) => first + i);
 }
 
-/** Whether the range is the same as one commit or "since your last review", for labels. */
 export const sameRange = (a: Range, b: Range) => a?.from === b?.from && a?.to === b?.to;
 
-// Two commits never change, so neither does what's between them: each comparison is asked once.
 const compared = new Map<string, Promise<ReviewFile[]>>();
 
-/** The files a range changes, in the pull request's own shape. */
 export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise<ReviewFile[]> {
   const key = `${ref.owner}/${ref.repo}:${range.from}...${range.to}`;
   const known = compared.get(key);
@@ -212,7 +185,6 @@ export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise
       patch?: string;
     }>;
   };
-  // Every changed file comes with the first page (up to 300); one commit a page keeps it small.
   const files = github<Compared>(
     "GET",
     `/repos/${ref.owner}/${ref.repo}/compare/${range.from}...${range.to}?per_page=1`,
@@ -231,15 +203,12 @@ export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise
   return files;
 }
 
-/** The files a range changes, as a hook: null while they load (and for no range). */
 export function useRangeFiles(ref: PullRef, range: Range) {
   const [files, setFiles] = useState<{ key: string; files: ReviewFile[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The range's two commits are what matter, not the object.
   const from = range?.from;
   const to = range?.to;
   const key = from && to ? `${from}...${to}` : "";
-  // A new range (or pull request) starts without the last one's error.
   const [asked, setAsked] = useState({ ref, key });
   if (asked.ref !== ref || asked.key !== key) {
     setAsked({ ref, key });

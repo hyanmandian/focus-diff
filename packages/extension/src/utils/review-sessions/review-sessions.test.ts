@@ -42,7 +42,6 @@ const settings = (extra: Partial<ReviewSession> = {}) => ({
   enabled: true,
   sessions: [session(extra)],
 });
-/** Local time, like the alarms. */
 const at = (day: number, hours: number, minutes = 0) => new Date(2026, 9, day, hours, minutes).getTime();
 const planned = (number: number, minutes: number, extra: Partial<PullRequest> = {}): Planned => ({
   pull: pull(number, extra),
@@ -115,7 +114,6 @@ describe("schedule", () => {
   });
 
   it("finds the next one, skipping the days it is off", () => {
-    // 9 October 2026 is a Friday; the weekdays' 15:00 after Friday evening is Monday's.
     const weekdays = settings({ times: ["15:00"] });
     expect(nextOccurrence(weekdays, at(9, 10))?.at).toBe(at(9, 15));
     expect(nextOccurrence(weekdays, at(9, 15))?.at).toBe(at(12, 15));
@@ -263,7 +261,6 @@ describe("plan", () => {
     expect(plan(again, 30, "oldest", true).picked.map((item) => item.pull.number)).toEqual([2, 4]);
     expect(plan(again, 30, "oldest").picked.map((item) => item.pull.number)).toEqual([1]);
     expect(plan(again, 32, "fill", true).picked.map((item) => item.pull.number)).toEqual([2, 4, 3]);
-    // One that doesn't fit gives way to the rest; with none fitting at all, it's the one picked.
     expect(
       plan([planned(1, 50, { again: true }), planned(2, 10)], 30, "oldest", true).picked.map(
         (item) => item.pull.number,

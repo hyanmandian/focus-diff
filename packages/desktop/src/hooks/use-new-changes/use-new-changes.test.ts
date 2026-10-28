@@ -14,7 +14,6 @@ const response = (pr: Pull) => ({
   body: JSON.stringify({ head: { sha: pr.head }, updated_at: pr.updated ?? UPDATED, user: null }),
 });
 
-/** GitHub's pull request, as each look finds it (or why it can't, or later); counts the looks. */
 function github(answer: () => Pull | Error | Promise<Pull>) {
   const looks: unknown[] = [];
   mockCommands((cmd, args) => {
@@ -27,7 +26,6 @@ function github(answer: () => Pull | Error | Promise<Pull>) {
   return looks;
 }
 
-/** Each look's answer in turn, the last one again after. */
 function inTurn(...answers: Array<Pull | Error>) {
   return () => (answers.length > 1 ? answers.shift()! : answers[0]!);
 }
@@ -91,7 +89,6 @@ describe("useNewChanges", () => {
     expect(latest).toHaveBeenCalledOnce();
     expect(first).not.toHaveBeenCalled();
     expect(result.current).toBeNull();
-    // Without its own time to go by, nothing is newer.
     rerender({ head: "abc", updatedAt: undefined, onActivity: latest });
     await wait(30_000);
     expect(latest).toHaveBeenCalledOnce();
@@ -106,7 +103,6 @@ describe("useNewChanges", () => {
     visibility.mockReturnValue("visible");
     await wait(30_000);
     await wait(30_000);
-    // The first look hasn't come back.
     expect(paths).toHaveLength(1);
     rerender({ head: undefined, updatedAt: undefined, onActivity: () => {} });
     await wait(60_000);

@@ -1,19 +1,9 @@
-// How long the reader actually spends on each file, to learn their pace from (Focus Diff's
-// content/active-time). Only time they're there counts: the window showing and something happening,
-// a scroll, a key, the mouse. A still moment counts too, up to a limit, since reading a hard line
-// through takes stillness; past it they've likely stepped away. The time is shared by the files on
-// screen, each by how much of it it takes.
-
 import { creditFor, share, type OnScreen } from "@focus-diff/core/active-time";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
-/** Activity is taken in at most this often; a moving mouse fires many times a second. */
 const SAMPLE_MS = 1000;
 const EVENTS = ["scroll", "wheel", "keydown", "pointerdown", "pointermove", "selectionchange"] as const;
 
-/** `onScreen`: the files showing now; `on`: whether the files are showing at all (the Diff tab).
- *  Returns `take`: the seconds spent on a file so far, let go of once taken, so a file is learned
- *  from once. */
 export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
   const spent = useRef(new Map<string, number>());
   const last = useRef(0);
@@ -23,7 +13,6 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
     read.current = onScreen;
   });
 
-  /** Gives the time since the last moment of activity to the files on screen since then. */
   const settle = useCallback((now: number) => {
     if (!last.current) return;
     for (const [path, part] of share(creditFor(now - last.current), current.current))
@@ -51,7 +40,6 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
       (type === "selectionchange" ? document : window).addEventListener(type, sample, { passive: true, capture: true });
     document.addEventListener("visibilitychange", visibility);
     return () => {
-      // Leaving the files: what's been spent so far is kept, the stillness after isn't counted.
       settle(Date.now());
       last.current = 0;
       for (const type of EVENTS)

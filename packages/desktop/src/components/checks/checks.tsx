@@ -1,9 +1,3 @@
-// The checks, all of them, grouped as GitHub groups them (failing, in progress, skipped,
-// successful). Opening one shows what it says of itself, its steps, the lines it complains about
-// (each a way to that line in the diff) and, for a GitHub Actions job, its log, scrolled to the
-// first error. Re-running and approving fork runs are here for those allowed; while anything runs,
-// the list follows it (checks.ts).
-
 import {
   ArrowDownToLine,
   ChevronDown,
@@ -49,7 +43,6 @@ import { useT } from "@/utils/i18n/i18n";
 import { canWrite } from "@/utils/manage/manage";
 import type { PullRef } from "@/utils/review/review";
 
-// Their words: t(`review.check.${state}`), t(`manage.group.${state}`).
 const CHECK_ICON = {
   success: { icon: CircleCheck, className: "text-success" },
   failure: { icon: CircleX, className: "text-destructive" },
@@ -57,14 +50,12 @@ const CHECK_ICON = {
   neutral: { icon: CircleMinus, className: "text-muted-foreground" },
 } as const;
 
-/** How long it ran: "42s", "3m 5s". */
 function took(check: CheckItem) {
   if (!check.startedAt || !check.completedAt) return null;
   const seconds = Math.max(0, Math.round((Date.parse(check.completedAt) - Date.parse(check.startedAt)) / 1000));
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-// GitHub's words for how a check went or where it is, in ours: t(`manage.detail.${detail}`).
 const DETAILS = [
   "cancelled",
   "timed_out",
@@ -94,12 +85,10 @@ const LEVEL = {
 function LogView({ lines, truncated }: { lines: LogLine[]; truncated: boolean }) {
   const t = useT();
   const box = useRef<HTMLDivElement>(null);
-  // At the first error, where a failure is explained; at the end otherwise.
   useEffect(() => {
     const el = box.current!;
     const error = el.querySelector<HTMLElement>("[data-kind=error]");
     el.scrollTop = error ? error.offsetTop - 24 : el.scrollHeight;
-    // A log is shown once, as it was loaded: placed when it appears.
   }, []);
   return (
     <div className="flex flex-col gap-1">
@@ -154,7 +143,6 @@ function Opened({
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const done = check.state !== "pending";
-  // Asked again as the check's state changes: what it says of itself grows as it finishes.
   useEffect(() => {
     if (check.kind !== "run") return;
     let live = true;
@@ -162,9 +150,7 @@ function Opened({
       try {
         const d = await loadCheckDetail(check.id);
         if (live) setDetail(d);
-      } catch {
-        // Only the list's own words, then.
-      }
+      } catch {}
     })();
     return () => {
       live = false;
@@ -332,7 +318,6 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
   const groups = groupChecks(checks);
   const write = canWrite(pull.manage);
   const failing = counts.failure > 0;
-  // Open when something needs looking at; closed when everything passed.
   const [open, setOpen] = useState(failing || counts.pending > 0);
   if (checks.length === 0 && pull.awaiting.length === 0) return null;
   const summary = (["failure", "pending", "neutral", "success"] as CheckState[])

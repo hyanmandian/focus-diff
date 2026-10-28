@@ -1,7 +1,3 @@
-/* A suggested change in a comment (built by utils/sanitize/sanitize.ts): a small diff in the code's font, the
-   removed lines over the added ones, in the diff's own red and green, with GitHub's syntax colors
-   (its "prettylights" palette, light and dark). */
-
 [data-suggestion] {
   margin: 6px 0;
   overflow: hidden;

@@ -1,6 +1,3 @@
-// What sits between a file's lines: a conversation (with replies and resolving), a comment written
-// for this review, or the box to write one.
-
 import {
   AlertCircle,
   Check,
@@ -52,7 +49,6 @@ function Person({ actor }: { actor: Actor }) {
   );
 }
 
-/** A box to write in (Markdown, with a preview): ⌘/Ctrl+Enter sends, Esc cancels. */
 export function Composer({
   placeholder,
   submitLabel,
@@ -69,7 +65,6 @@ export function Composer({
   onSubmit: (body: string) => Promise<void> | void;
   onCancel: () => void;
   secondary?: { label: string; onClick: (body: string) => Promise<void> | void };
-  /** The lines it's on, to suggest a change to. */
   suggestion?: string[] | null;
   base?: string[];
 }) {
@@ -133,7 +128,6 @@ export function Composer({
 }
 
 const Box = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  // Chrome around what's said: not selectable itself (the code around it is), the comments are.
   <div
     className={cn(
       "mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none",
@@ -144,11 +138,8 @@ const Box = ({ children, className }: { children: React.ReactNode; className?: s
   </div>
 );
 
-/** A conversation folds its middle once it's longer than this, as GitHub's do. */
 const LONG_THREAD = 8;
 
-/** One comment in a conversation: who and when, what they said (editable when it's yours), its
- *  suggested change, its reactions. */
 function CommentView({
   thread,
   comment,
@@ -232,14 +223,12 @@ export function ThreadView({
 }: {
   thread: ThreadData;
   className?: string;
-  /** Shown at the top of the file rather than at its line (on the file, or a line no longer here). */
   moved?: boolean;
   onReply: (body: string) => Promise<void>;
   onResolve: (resolved: boolean) => Promise<void>;
 }) {
   const t = useT();
   const api = useConversationApi();
-  // As it is now: the diff draws a conversation again only when its comments come or go.
   const thread = api?.thread(drawn.id) ?? drawn;
   const [replying, setReplying] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -273,7 +262,6 @@ export function ThreadView({
       </Box>
     );
   }
-  // A long one: its start and its latest, the middle a click away.
   const folded = !whole && thread.comments.length > LONG_THREAD;
   const hidden = folded ? thread.comments.length - 4 : 0;
   const shown = folded ? [...thread.comments.slice(0, 1), null, ...thread.comments.slice(-3)] : thread.comments;
@@ -339,7 +327,6 @@ export function ThreadView({
               await onReply(body);
               setReplying(null);
             }}
-            // Like GitHub's "Start a review": the reply waits in your pending review.
             secondary={
               api
                 ? {
@@ -396,7 +383,6 @@ export function DraftView({
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-callout font-medium text-unread">
               {draft.replyTo ? t("review.pendingReply") : draft.file ? t("review.pendingOnFile") : t("review.pending")}
-              {/* Where it is: on its way to your pending review on GitHub, or there. */}
               {error ? null : sending ? (
                 <output className="flex items-center gap-1 font-normal text-muted-foreground">
                   <CloudUpload className="size-3.5" aria-hidden /> {t("review.savingToGitHub")}
@@ -445,9 +431,6 @@ export function DraftView({
   );
 }
 
-/** What opens on selected lines: a comment for the author (to your review, or posted now: either
- *  way it's on GitHub), or a question for your AI about what the code does. */
-// The tab picked last is the one the next selection opens on.
 const TAB = "selection-tab";
 type Mode = "comment" | "ask";
 function lastMode(): Mode {
@@ -458,13 +441,10 @@ function lastMode(): Mode {
   }
 }
 
-/** One question about the selected lines, and what came back. `id`: to tell them apart. */
 type Turn = { id: number; question: string; answer?: string; note?: string };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** The box for selected lines: a comment for the author (into your review, or posted now), or a
- *  conversation with the AI about them that you can keep going and turn into a comment. */
 export function NewComment({
   lines,
   path,
@@ -477,21 +457,17 @@ export function NewComment({
   askName,
 }: {
   lines: string;
-  /** The file and lines it's on, for a suggested change to start from them. */
   path?: string;
   range?: { start: number; end: number; side?: "additions" | "deletions"; endSide?: "additions" | "deletions" };
-  /** On the file as a whole. */
   file?: boolean;
   onAdd: (body: string) => void;
   onSendNow: (body: string) => Promise<void>;
   onCancel: () => void;
-  /** Null when no AI is set up. */
   ask: ((question: string, earlier: Exchange[], run: string) => Promise<Answer>) | null;
   askName: string;
 }) {
   const t = useT();
   const api = useConversationApi();
-  // A suggested change goes on the new code's lines, as GitHub has it: those lines, from the patch.
   const patch = path ? api?.patchOf(path) : undefined;
   const side = range?.endSide ?? range?.side ?? "additions";
   const picked =
@@ -506,7 +482,6 @@ export function NewComment({
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef<HTMLLIElement>(null);
-  // The question being answered, to stop it by, and since when.
   const [asked, setAsked] = useState<{ run: string; at: number } | null>(null);
   const waited = useSeconds(asked?.at ?? null);
   const tabs = useId();
@@ -517,16 +492,12 @@ export function NewComment({
     setError(null);
     try {
       localStorage.setItem(TAB, next);
-    } catch {
-      // Still switches for this box.
-    }
+    } catch {}
   };
 
-  // The question's field takes the focus when its tab opens (a comment's focuses itself).
   useEffect(() => {
     if (mode === "ask") field.current?.focus();
   }, [mode]);
-  // The newest question and answer in view as they come (in braces: scrolling may return a promise).
   useEffect(() => {
     if (turns.length > 0)
       latest.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
@@ -572,7 +543,6 @@ export function NewComment({
         list.map((turn, i) => (i === list.length - 1 ? { ...turn, answer: a.text, note: a.note } : turn)),
       );
     } catch (e) {
-      // The question goes back in the box to try again.
       setTurns((list) => list.slice(0, -1));
       setQuestion(q);
       fail(e);
@@ -588,7 +558,6 @@ export function NewComment({
   return (
     <Box className="p-0">
       <div className="flex items-center gap-3 px-3 pt-3">
-        {/* A segmented control in content: the chosen segment in the accent, as Tahoe draws it. */}
         {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- in a tab list the tabs take the focus (WAI-ARIA's tabs pattern), not the list. */}
         <div
           role="tablist"
@@ -671,7 +640,6 @@ export function NewComment({
                     </div>
                   ) : (
                     <output className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
-                      {/* What it's doing and for how long, so a long answer doesn't look stuck. */}
                       <span className="text-subheadline text-muted-foreground tabular-nums">
                         {t("review.readingCode", { name: askName })}
                         {waited >= 3 ? (
@@ -715,8 +683,6 @@ export function NewComment({
                 setQuestion(e.target.value);
               }}
               onKeyDown={(e) => {
-                // Asking is a chat: Enter sends, Shift+Enter breaks the line (a comment, like GitHub's, sends
-                // with ⌘/Ctrl+Enter: MarkdownField).
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (!e.shiftKey && !e.nativeEvent.isComposing))) {
                   e.preventDefault();
                   submit();
@@ -790,7 +756,6 @@ export function NewComment({
   );
 }
 
-/** A comment the AI suggests on a line: added to your review (where you can still edit it) or dismissed. */
 export function FindingView({
   finding,
   by,

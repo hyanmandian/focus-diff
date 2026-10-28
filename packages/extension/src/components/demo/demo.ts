@@ -15,7 +15,6 @@ import demoStyles from "./demo.css?inline";
 import themeStyles from "@/components/theme/theme.css?inline";
 import tooltipStyles from "@/components/tooltip/tooltip.css?inline";
 
-/** The bar's own styles, every component's, adopted into its shadow root the way the content script injects them. */
 const componentStyles = Object.values(
   import.meta.glob<string>(["../**/*.css", "!./**"], { query: "?inline", import: "default", eager: true }),
 );
@@ -27,23 +26,14 @@ const sheet = (css: string) => {
 };
 
 export interface DemoOptions {
-  /** What the bar's settings button does: on the welcome page, open the settings; on the site, say how to get them. */
   onSettings: () => void;
-  /** The bar's look: a theme's `--fd-*` properties, and any of the reader's own CSS after them. */
   theme: string;
 }
 
 export interface Demo {
-  /** Restyles the demo, as the reader edits the bar's look. */
   setTheme: (css: string) => void;
 }
 
-/**
- * The real bar on a made-up pull request, for trying it out: the filters pick files, the numbers count what's left,
- * marking a file as viewed counts it off until Done, and the bar's buttons move through files and conversations. It's
- * built from the same components and the same review logic as on a review site. It renders into a shadow root on
- * `target`, so it looks the same on any page; it needs no extension API beyond the messages.
- */
 export const createDemo = (
   target: HTMLElement,
   pullRequest: DemoPullRequest,
@@ -51,7 +41,6 @@ export const createDemo = (
 ): Demo => {
   const controller = new AbortController();
   const root = target.shadowRoot ?? target.attachShadow({ mode: "open" });
-  // The sample files take the theme's colours too; the bar gets its own copy, in its shadow root.
   const themeSheet = sheet(theme);
   root.adoptedStyleSheets = [sheet(themeStyles), sheet(tooltipStyles), sheet(demoStyles), themeSheet];
 
@@ -70,7 +59,6 @@ export const createDemo = (
   let ids: string[] = [];
   let shown: File[] = files;
   let current: File | null = null;
-  /** 1-based, 0 before the first step, like the bar's own count. */
   let conversation = 0;
 
   const conversationsIn = (list: File[]) =>
@@ -99,7 +87,6 @@ export const createDemo = (
         },
         i18n.t("demoViewed"),
       );
-      // A marker for each conversation, by its line; the bar's status says which one the reader is on.
       const talks = (file.conversations ?? []).map(({ line }) =>
         h("span", { className: "demo-talk", "data-line": String(line) }, commentIcon(), `L${format(line)}`),
       );
@@ -107,7 +94,6 @@ export const createDemo = (
         "li",
         { className: "demo-file" },
         h("span", { className: "demo-path", id: pathId, textContent: file.path }),
-        // Said after the path for files outside the filter; empty otherwise.
         h("span", { className: "visually-hidden", id: outsideId }),
         talks.length > 0 ? h("span", { className: "demo-talks", "aria-hidden": "true" }, ...talks) : null,
         h(
@@ -125,12 +111,10 @@ export const createDemo = (
   const host = h("div", { className: "demo-bar" });
   const panelRoot = host.attachShadow({ mode: "open" });
   const container = h("div");
-  // A style element, as the content script's, so the theme the bar adds after it wins the same way.
   panelRoot.append(h("style", { textContent: componentStyles.join("\n") }), container);
   const list = h("ul", { className: "demo-files" }, ...rows.values());
   root.replaceChildren(h("div", { className: "demo", role: "group", "aria-label": i18n.t("demoLabel") }, list, host));
 
-  /** Puts the reader at a file, the way the bar scrolls a review page to it. */
   const goTo = (file: File | null) => {
     current = file;
     for (const [each, row] of rows) {
@@ -156,7 +140,6 @@ export const createDemo = (
         if (threads.length === 0) return;
         const index = stepFrom(conversation, direction, threads.length);
         conversation = index + 1;
-        // The conversations are those of the shown files, so the step lands on one of them.
         const { path } = threads[index]!;
         goTo(shown.find((file) => file.path === path)!);
         apply();
@@ -166,7 +149,6 @@ export const createDemo = (
     },
   );
   const showReview = createReviewView(panel);
-  // The bar's tooltip, for the files' buttons too: a disabled Viewed button says why.
   const tooltip = createTooltip({ signal: controller.signal }, list);
   root.addEventListener(
     "keydown",
@@ -183,7 +165,6 @@ export const createDemo = (
     shown = now.shown;
     const conversations = conversationsIn(shown);
     const at = conversations[conversation - 1];
-    // Files outside the filter stay where they are, set back, so nothing on the page moves; on a review site they're hidden.
     const outside = now.filtering ? i18n.t("demoOutside", [now.name]) : "";
     for (const [file, row] of rows) {
       const out = !now.matches(file.path);
@@ -203,7 +184,6 @@ export const createDemo = (
     showReview(now, now.selection.join(), { announce });
   }
 
-  /** A new selection: the reader starts at the first file left to review in it. */
   function choose(next: string[]) {
     ids = next;
     conversation = 0;
@@ -211,11 +191,9 @@ export const createDemo = (
     goTo(shown.find((file) => !file.viewed) ?? null);
   }
 
-  /** The next shown file left to review, after the current one; with none left, the next filter that has some. */
   function nextFile() {
     const left = shown.filter((file) => !file.viewed);
     if (left.length === 0) {
-      // The bar's button is only enabled here when a filter is shown and a later one has files left.
       choose([nextFilterWithWork(files, filters, ids)!.id]);
       return;
     }
@@ -225,10 +203,6 @@ export const createDemo = (
     panel.announceText(i18n.t("panelJumpedToFile", left.length, [upNext.path, format(left.length)]));
   }
 
-  /**
-   * The bar keeps to one row: where the demo is too narrow for all of it, it goes compact, as on a phone. Its full width
-   * is measured as it would lay out with all the room it wants.
-   */
   const fit = () => {
     const bar = container.querySelector(".panel")!;
     panel.setCompact(false);
@@ -244,7 +218,6 @@ export const createDemo = (
   apply();
   panel.setTheme(theme);
   panel.setVisible(true);
-  // Fitted now, not on the observer's first call, so a demo made on a narrow page never shows wider than it.
   fit();
   return {
     setTheme: (css) => {

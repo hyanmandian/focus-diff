@@ -1,6 +1,3 @@
-// Editing one queue: what puts a pull request in it, where, what to leave out, and what's worth a
-// notification. Every change applies right away (Settings saves it).
-
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS } from "@focus-diff/core/recipes";
 import { useId, type ReactNode } from "react";
@@ -28,13 +25,11 @@ import {
 } from "@/utils/config/config";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
-/** Path filters to start from, the same as Focus Diff's recipes; `name` keys their words (settings.preset.*). */
 export const PATH_PRESETS = (["frontend", "backend", "code", "infra", "database", "docs"] as const).map((name) => ({
   name,
   ...PATH_FILTERS[name],
 }));
 
-/** What a queue's notifications can leave out that has a line under its name. */
 const LEAVE_OUT_HINTS: Partial<Record<LeaveOut, "settings.leaveOut.bots.hint">> = {
   bots: "settings.leaveOut.bots.hint",
 };
@@ -43,10 +38,8 @@ const SKIPS: Array<Queue["skipIfI"]> = ["approved", "reviewed", "tookPart"];
 const DRAFTS: Array<Queue["drafts"]> = ["show", "hide", "only"];
 const NOTIFY_AT: Array<Queue["notifyAt"]> = ["now", "review"];
 
-/** Whether a value the controls hand back is one of a list's. */
 const oneOf = <V extends string>(list: readonly V[], v: unknown): v is V => list.some((x) => x === v);
 
-// Called as a value is added, so they read the words then.
 const repoError = (v: string) => (isRepoPattern(v) ? null : i18n()("settings.repoError"));
 const teamError = (v: string) => (/^[\w.-]+\/[\w.-]+$/u.test(v) ? null : i18n()("settings.teamError"));
 const userError = (v: string) => (/^[\w-]+(\[bot\])?$/u.test(v) ? null : i18n()("settings.userError"));
@@ -91,8 +84,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
           />
         </Row>
         <Row label={t("settings.color")}>
-          {/* Roving focus: the picked swatch takes Tab and the arrows move between them (radioKeys), so
-              the group itself needs no focus. */}
           {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- see above */}
           <div className="flex gap-2" role="radiogroup" aria-label={t("settings.color")} onKeyDown={radioKeys}>
             {TONES.map((tone) => (
@@ -107,7 +98,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
                 onClick={() => {
                   set("tone", tone);
                 }}
-                // The picked colour ringed, as the accent colours in System Settings are; a touch brighter under the pointer.
                 className={cn(
                   "size-5 cursor-default rounded-full focus-ring outline-offset-2 transition-[filter] duration-(--duration-fast) hover:brightness-110",
                   TONE_FILL[tone],
@@ -120,7 +110,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
       </Group>
 
       <Group>
-        {/* Two choices make any queue: which pull requests, and what you have to do with them. */}
         <Row label={t("settings.showState")}>
           <ToggleGroup
             value={[source.state]}
@@ -138,7 +127,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
         <Row label={t("settings.myPart")} description={t("settings.myPartHint")}>
           <Select
             value={source.part}
-            // Never null here: it's only for a select that can be left empty.
             onValueChange={(v) => {
               onChange(withSource(queue, source.state, v!));
             }}
@@ -240,7 +228,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             <Row label={t("settings.skipIfI")} description={t("settings.skipIfIHint")}>
               <Select
                 value={queue.skipIfI}
-                // Never null here, as above.
                 onValueChange={(v) => {
                   set("skipIfI", v!);
                 }}
@@ -295,7 +282,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
             </Row>
           </>
         ) : null}
-        {/* Anything else GitHub's search can say, on any queue: a label, a team, a word. */}
         <Row stacked label={t("settings.searchTerms")} description={t("settings.searchTermsHint")} htmlFor={ids.query}>
           <Input
             id={ids.query}
@@ -517,8 +503,6 @@ export function QueueEditor({ queue, onChange }: { queue: Queue; onChange: (queu
   );
 }
 
-/** A queue in a line, from how it's set up, for its row in the list: where its pull requests come
- *  from, then what narrows them. Made from the settings, so it fits any queue. */
 export function queueSummary(queue: Queue, t: T): string {
   const source = sourceOf(queue);
   const parts = [t(`settings.summary.${source.state}.${source.part}`)];

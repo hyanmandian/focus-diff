@@ -1,5 +1,3 @@
-// Everything about one pull request for its detail view, and what can be done to it from there.
-
 import { github, graphql } from "@/utils/bridge/bridge";
 import { checkState } from "@/utils/checks/checks";
 import type { Actor } from "@/utils/engine/engine";
@@ -79,7 +77,6 @@ const QUERY = `query($owner: String!, $name: String!, $number: Int!) {
 
 type ReviewState = Details["reviewers"][number]["state"];
 
-/** The conversation's comments and reviews, as the query asks for them. */
 type TimelineNode =
   | { __typename: "IssueComment"; id: string; author: Actor; bodyHTML: string; createdAt: string; url: string }
   | {
@@ -154,7 +151,6 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
       state: checkState(c),
       url: c.detailsUrl ?? c.targetUrl ?? null,
     }))
-    // Failing first, then running, then the rest.
     .toSorted(
       (a, b) =>
         ["failure", "pending", "neutral", "success"].indexOf(a.state) -
@@ -175,7 +171,6 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
         author: c.author,
         url: c.url,
       }));
-      // Replies in threads come as empty "commented" reviews: only keep reviews that say something.
       if (node.state === "COMMENTED" && !node.bodyHTML.trim() && comments.length === 0) continue;
       const { id, author, state, bodyHTML: html, createdAt: at, url } = node;
       entries.push({ kind: "review", id, author, state, html, at, url, comments });
@@ -195,19 +190,16 @@ export async function loadDetails(nameWithOwner: string, number: number): Promis
     reviewers,
     checks,
     files: pr.files.nodes,
-    entries: entries.toReversed(), // newest first
+    entries: entries.toReversed(),
     mergeMethods,
   };
 }
-
-// MARK: Actions
 
 const base = (d: Details) => `/repos/${d.owner}/${d.repo}`;
 
 export const review = (d: Details, event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT", body: string) =>
   github("POST", `${base(d)}/pulls/${d.number}/reviews`, { event, body });
 
-/** The new comment's id, the one the conversation knows it by. */
 export const comment = async (d: Details, body: string) =>
   (await github<{ node_id: string }>("POST", `${base(d)}/issues/${d.number}/comments`, { body })).node_id;
 
@@ -219,7 +211,6 @@ export const markReady = (d: Details) =>
     id: d.id,
   });
 
-/** Takes you off the pull request's review requests (and, if asked through them, these teams). */
 export const leaveReview = (d: Details, me: string, teams: string[]) =>
   github("DELETE", `${base(d)}/pulls/${d.number}/requested_reviewers`, {
     reviewers: [me],

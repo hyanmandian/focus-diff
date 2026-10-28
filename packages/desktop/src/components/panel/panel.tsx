@@ -1,8 +1,3 @@
-// The floating panel under the tray icon, laid out like Focus Diff's popup: the queues as tabs, the
-// chosen one's pull requests on a raised pane, narrowed to a repository with chips and grouped by
-// repository, drafts folded at the end. A click opens the pull request's review window, where the
-// reviewing happens.
-
 import { parsePullLink } from "@focus-diff/core/pull-link";
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -55,15 +50,11 @@ function remembered(key: string) {
 function remember(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
-  } catch {
-    // Kept for this session only.
-  }
+  } catch {}
 }
 
-/** Whether a moment was within the last minute (as of now). */
 const lastMinute = (at: number) => Date.now() - at < 60_000;
 
-/** Whether the panel is on screen: arrivals play only then, so they're seen. */
 function useShown() {
   const [shown, setShown] = useState(() => document.visibilityState === "visible");
   useEffect(() => {
@@ -82,8 +73,6 @@ function useShown() {
   return shown;
 }
 
-/** A count on a tab or chip, as Focus Diff's popup has it: a small pill of tabular figures, white on
-    the accent when its option is chosen. */
 function Count({ n, on }: { n: number; on?: boolean }) {
   return (
     <span
@@ -97,18 +86,14 @@ function Count({ n, on }: { n: number; on?: boolean }) {
   );
 }
 
-/** The panel's raised panes, as the extension's: on a hairline border, rounded, with a small shadow. */
 const PANE =
   "rounded-[12px] border border-(--panel-separator) bg-(--panel-raised) shadow-[0_1px_2px_rgb(0_0_0/0.06),0_6px_18px_rgb(0_0_0/0.08)] dark:shadow-[0_1px_2px_rgb(0_0_0/0.3),0_6px_18px_rgb(0_0_0/0.35)]";
 
-/** A repository by its name alone, unless two owners have one by that name. */
 const shortName = (repo: string, all: string[]) => {
   const name = repo.slice(repo.indexOf("/") + 1);
   return all.filter((r) => r.endsWith(`/${name}`)).length > 1 ? repo : name;
 };
 
-/** The header's buttons: 28pt, a 16pt glyph in the secondary label color; a fill only while pressed
- *  or while its menu is open (controls in a popover don't light up under the pointer). */
 const TOOL =
   "rounded-full text-muted-foreground active:bg-foreground/8 aria-expanded:bg-foreground/8 aria-expanded:text-foreground dark:active:bg-foreground/10";
 
@@ -116,11 +101,9 @@ export function Panel() {
   const { ready, signedIn, auth, config, items, status, arrivals, seen, review } = useStore();
   const shown = useShown();
   const t = useT();
-  // Open Pull Request…: open, and what it shows on opening (a link that couldn't be opened, and why).
   const [linkSheet, setLinkSheet] = useState<{ at: number; initial: { text: string; error: string } | null } | null>(
     null,
   );
-  // A link pasted in the panel or sent from a focusdiff:// link: opened, or the sheet says why not.
   const tRef = useRef(t);
   useLayoutEffect(() => {
     tRef.current = t;
@@ -132,7 +115,6 @@ export function Panel() {
       void bridge.openPanel();
       setLinkSheet({ at: Date.now(), initial: { text: text.trim(), error } });
     };
-    // Pasted anywhere but a text field: a pull request's link, or what looks like a link to one.
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target;
       if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA)$/u.test(target.tagName)))
@@ -155,8 +137,6 @@ export function Panel() {
       off();
     };
   }, []);
-  // Opening the panel moves the keyboard into it, on the list, as a popover does: ↑↓ walk it
-  // right away and VoiceOver reads where you are.
   const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (shown && ready) requestAnimationFrame(() => listRef.current?.focus({ preventScroll: true }));
@@ -172,14 +152,11 @@ export function Panel() {
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [update, setUpdate] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
-  // Rows picked to mark done, in the queue on screen, and the ones just marked, which Undo puts back.
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [marked, setMarked] = useState<Item[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // The rows in the order they show, and the one last picked or unpicked, for shift-click.
   const shownRef = useRef<Item[]>([]);
   const lastPick = useRef<string | null>(null);
-  // While Shift is down, the rows a click on the one under the pointer would pick, shown ahead.
   const [anchor, setAnchor] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [shift, setShift] = useState(false);
@@ -204,7 +181,6 @@ export function Panel() {
     const rows = shownRef.current;
     const from = range && lastPick.current ? rows.findIndex((i) => i.pr.id === lastPick.current) : -1;
     const to = rows.findIndex((i) => i.pr.id === item.pr.id);
-    // From the last one to this, all as this one goes.
     const ids =
       from >= 0 && to >= 0 ? rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((i) => i.pr.id) : [item.pr.id];
     lastPick.current = item.pr.id;
@@ -230,16 +206,13 @@ export function Panel() {
     remember("tab", id);
   };
 
-  // What's picked as of the last render, for the keys (set after it, as refs are).
   const pickedRef = useRef(picked);
   useLayoutEffect(() => {
     pickedRef.current = picked;
   });
-  // Esc closes the panel, like a menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const command = primary(e) && !e.altKey && !(isMac && e.ctrlKey);
-      // The app's own shortcuts, which the menu bar would answer if a tray app had one showing.
       if (command && (e.key === "," || e.key === "q")) {
         e.preventDefault();
         void (e.key === "," ? bridge.openSettings() : bridge.quit());
@@ -247,12 +220,9 @@ export function Panel() {
         e.preventDefault();
         setLinkSheet({ at: Date.now(), initial: null });
       } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
-        // Lets go of what's picked first, then closes.
         if (pickedRef.current.size > 0) setPicked(new Set());
         else void bridge.hidePanel();
-      }
-      // `x` on a row picks it, or lets it go.
-      else if (
+      } else if (
         e.key === "x" &&
         !e.metaKey &&
         !e.ctrlKey &&
@@ -262,10 +232,7 @@ export function Panel() {
       ) {
         e.preventDefault();
         e.target.parentElement?.querySelector<HTMLInputElement>("input[type=checkbox]")?.click();
-      }
-      // Like a menu: ↑↓ walk the pull requests (from anywhere but a field or a tab row), Home/End
-      // jump to the ends, Return opens the one focused.
-      else if (
+      } else if (
         /^(ArrowDown|ArrowUp|Home|End)$/u.test(e.key) &&
         !e.defaultPrevented &&
         !document.querySelector("[data-popup-open]") &&
@@ -309,7 +276,6 @@ export function Panel() {
   }, []);
 
   const list = queue ? (items[queue.id] ?? []) : [];
-  // The busiest repositories first.
   const repos = [...new Set(list.map((i) => i.pr.repository.nameWithOwner))].toSorted(
     (a, b) =>
       list.filter((i) => i.pr.repository.nameWithOwner === b).length -
@@ -319,7 +285,6 @@ export function Panel() {
   const narrowed = shownRepo ? list.filter((i) => i.pr.repository.nameWithOwner === shownRepo) : list;
   const { groups, drafts, stacks } = arrange(narrowed, unread);
   const inOrder = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
-  // For shift-click: picking happens after the render that showed the rows.
   useLayoutEffect(() => {
     shownRef.current = inOrder;
   });
@@ -331,7 +296,6 @@ export function Panel() {
       for (const i of inOrder.slice(Math.min(from, to), Math.max(from, to) + 1)) pending.add(i.pr.id);
   }
   const unreadHere = list.filter((i) => unread(i)).length;
-  // What's picked and has since gone (done elsewhere, off the list) isn't picked any more.
   const pickedHere = list.filter((i) => picked.has(i.pr.id));
   const markDone = () => {
     for (const item of pickedHere) dismiss(item);
@@ -348,8 +312,6 @@ export function Panel() {
     setMarked([]);
   };
 
-  // The top of the list on screen, fetched ahead a moment after the panel opens (not competing with
-  // its first paint), so a click on any of them opens at once. Only ones changed since last kept.
   const top = groups
     .flatMap((g) => g.items)
     .slice(0, 5)
@@ -358,7 +320,6 @@ export function Panel() {
   useLayoutEffect(() => {
     topRef.current = top;
   });
-  // Again for each list put on screen: another queue, another repository's chips.
   useEffect(() => {
     if (!shown || !ready) return;
     const timer = setTimeout(() => {
@@ -389,7 +350,6 @@ export function Panel() {
       />
     </li>
   );
-  /** A list's rows, each stack's (together, from arrange) in a group of its own. */
   const rows = (these: Item[], of: Queue) => {
     const out: ReactNode[] = [];
     for (let i = 0; i < these.length;) {
@@ -413,15 +373,11 @@ export function Panel() {
 
   return (
     <div className="flex h-full animate-in flex-col overflow-hidden rounded-[18px] bg-(--panel-tint) text-foreground shadow-[inset_0_0_0_0.5px_var(--panel-edge)] duration-(--duration) ease-out fade-in-0 motion-reduce:animate-none">
-      {/* No name: the panel was opened from its own icon. The queues straight away, and beside them
-          refreshing and the menu, on the same 12px inset as everything under them. */}
       <header className="flex min-h-14 shrink-0 items-center gap-1.5 px-3 pt-3 pb-2.5" data-tauri-drag-region>
         <h1 className="sr-only">Focus Diff</h1>
         {ready ? (
           signedIn && queue ? (
             <>
-              {/* The queues as the extension draws them: on a raised pane, the chosen one on an accent pill
-                  that slides to the next (concentric: 12px pane, 4px in, 8px pill). */}
               {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- its tabs take the focus, one at a time (the roving tabindex of WAI-ARIA's tabs pattern), not the list */}
               <div
                 role="tablist"
@@ -504,7 +460,6 @@ export function Panel() {
               </Tooltip>
             )
           ) : null}
-          {/* Open Pull Request…, Settings and Quit. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon" className={TOOL} aria-label={t("panel.menu")} />}
@@ -593,8 +548,6 @@ export function Panel() {
                   </div>
                 ) : null}
 
-                {/* Each queue's list, and each repository's, shows at once: switching is frequent, so it
-                isn't animated. */}
                 <div
                   key={`${queue.id}:${repo}`}
                   ref={listRef}
@@ -614,7 +567,6 @@ export function Panel() {
                           )}
                         >
                           {groups.length > 1 || repos.length > 1 ? (
-                            // A repository's name stays up while its rows scroll by, over their boxes.
                             <h2 className="sticky top-0 z-20 -mx-1 flex items-center gap-2 bg-(--panel-raised) px-3.5 pt-2.5 pb-1.5 text-body leading-[18px] font-semibold">
                               <span className="min-w-0 truncate">
                                 <span className="font-normal text-muted-foreground">
@@ -663,7 +615,6 @@ export function Panel() {
 
               <footer className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-4 text-callout leading-4 text-muted-foreground">
                 {pickedHere.length > 0 || marked.length > 0 ? (
-                  // While something is picked, or just marked: how many, and what to do with them.
                   <>
                     <output className="flex-1 font-semibold whitespace-nowrap text-foreground">
                       {pickedHere.length > 0
@@ -750,7 +701,6 @@ export function Panel() {
           </div>
         )
       ) : (
-        // The shape of what's coming, at its size: nothing moves when it arrives.
         <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label={t("panel.loading")}>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pt-1">
             {[0, 1, 2, 3, 4].map((i) => (

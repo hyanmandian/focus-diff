@@ -19,7 +19,6 @@ const action = (steps: ActionStep[]): Action => ({ id: "a", name: "Hand off", co
 const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 
-/** Answers Rust as it would, and keeps what was asked of it. */
 function rust(answers: { github?: { status: number; body: string }; run?: string; refuse?: string } = {}) {
   const calls: Array<{ cmd: string; args: Record<string, unknown> }> = [];
   mockCommands((cmd, args) => {

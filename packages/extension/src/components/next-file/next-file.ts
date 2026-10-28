@@ -3,16 +3,11 @@ import { nextFileIcon } from "@/components/icons/icons";
 import { h } from "@/utils/dom/dom";
 import { formatNumber as format } from "@/utils/format/format";
 
-/** What's left to review: files in the shown filters, or else the next filter in the bar that still has some. */
 export interface NextFile {
   left: number;
   nextFilter?: { name: string; left: number };
 }
 
-/**
- * The button before the filters that goes to the next file left to review. Once the shown files are all viewed, it
- * moves on to the next filter that has some; with nothing left anywhere, it's disabled and its tooltip says so.
- */
 export const createNextFile = (onNext: () => void) => {
   const element = h(
     "button",

@@ -11,7 +11,6 @@ import { createUpdateNotice } from "@/components/update-notice/update-notice";
 import { h } from "@/utils/dom/dom";
 import { formatDuration, formatNumber as format } from "@/utils/format/format";
 
-/** What every part of the panel shares: where it's mounted, when it's torn down, and what has focus inside it. */
 export interface PanelContext {
   host: HTMLElement;
   signal: AbortSignal;
@@ -23,32 +22,22 @@ export interface PanelActions {
   onSettings: () => void;
   onComment: (step: 1 | -1) => void;
   onNextFile: () => void;
-  /** The reader opened or dismissed the update notice. */
   onUpdateSeen: () => void;
 }
 
 export interface Panel {
   renderOptions: (options: PanelOption[], selected: string[]) => void;
-  /** `all` is the totals with every file shown, the most the numbers can be. */
   renderStats: (totals: Totals, all?: Totals) => void;
-  /** `most` is the pull request's conversations in all. */
   renderConversations: (conversations: Conversations, most?: number) => void;
   renderNextFile: (next: NextFile) => void;
-  /** Rows are only computed while the breakdown is open. */
   renderBreakdown: (rows: () => BreakdownRow[], selected: string[]) => void;
   announce: (summary: Totals & { name: string }) => void;
-  /** Reads out a short message, like where a jump landed. */
   announceText: (text: string) => void;
   setVisible: (visible: boolean) => void;
-  /** One row whose chips scroll, without the numbers. A floating bar goes compact on very small screens by itself. */
   setCompact: (compact: boolean) => void;
-  /** Throws confetti from the Done badge and says the named filter is reviewed. */
   celebrate: (name: string) => void;
-  /** Points to the notes of a release the reader hasn't seen, or hides the notice with `null`. */
   showUpdate: (version: string | null) => void;
-  /** Styles the bar: a theme's `--fd-*` properties, and any of the reader's own CSS after them. */
   setTheme: (css: string) => void;
-  /** The theme's accent colour, for lighting up what a jump lands on. */
   accent: () => string;
 }
 
@@ -57,14 +46,9 @@ interface PanelMount {
   container: HTMLElement;
   host: HTMLElement;
   signal: AbortSignal;
-  /** Floating over the page, which then keeps room for it at the bottom; a bar laid out in a page doesn't. */
   floating?: boolean;
 }
 
-/**
- * The floating bar: filters, stats, the breakdown, conversations, the update notice and settings, in that order. Each
- * part lives in its own module; this one lays them out and settles what they share, like which popover is open.
- */
 export const createPanel = (
   { root, container, host, signal, floating = true }: PanelMount,
   { onToggle, onSettings, onComment, onNextFile, onUpdateSeen }: PanelActions,
@@ -101,7 +85,6 @@ export const createPanel = (
   });
   const update = createUpdateNotice(context, { onSeen: onUpdateSeen, fallback: settings });
   const status = h("span", { className: "visually-hidden", role: "status" });
-  // The breakdown follows its toggle so Tab moves straight into it; it's positioned against the host.
   const panelElement = h(
     "div",
     { className: "panel" },
@@ -118,14 +101,9 @@ export const createPanel = (
   container.append(panelElement);
   const tooltip = createTooltip(context, container);
 
-  // Last in the shadow root, so the reader's CSS wins over the bar's own at the same specificity.
   const theme = h("style", { "data-focus-diff-theme": "" });
   root.append(theme);
 
-  /**
-   * Keyboard focus on the review page scrolls clear of the bar: the page gets bottom scroll padding as tall as the bar
-   * while it shows. Only set when it changes, since it touches the site's root element.
-   */
   let padding = "";
   const reserveScrollRoom = () => {
     if (!floating) return;
@@ -155,10 +133,8 @@ export const createPanel = (
     "keydown",
     (event) => {
       if (event.key !== "Escape") return;
-      // One thing at a time: the tooltip, then the breakdown, then the conversations.
       if (tooltip.isVisible()) tooltip.hide();
       else if (breakdown.isOpen()) breakdown.setOpen(false);
-      // Escape elsewhere on the page belongs to the site, like cancelling a reply.
       else if (conversations.isOpen() && context.focused()) conversations.setOpen(false);
     },
     { signal },
@@ -171,7 +147,6 @@ export const createPanel = (
     { signal },
   );
 
-  /** Without filters there's nothing to break down, and settings becomes a labelled call to set them up. */
   const renderOptions = (list: PanelOption[], selected: string[]) => {
     if (!filters.render(list, selected)) return;
     const configured = list.length > 1;
@@ -192,7 +167,6 @@ export const createPanel = (
   const announce = ({ name, visible, total, additions, deletions, pending, minutes }: Totals & { name: string }) => {
     const parts = [
       i18n.t("panelAnnounce", [name, format(visible), format(total), format(additions), format(deletions)]),
-      // The estimate's ~ would be read out as "tilde"; the sentence already says "about".
       i18n.t("panelAnnounceTime", [formatDuration(minutes).replace(/^~/u, "")]),
     ];
     if (pending > 0) parts.push(i18n.t("panelAnnouncePartial", pending, [format(pending)]));

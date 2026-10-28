@@ -10,19 +10,12 @@ import { isDone, type Totals } from "@/components/stats/stats";
 import { ALL } from "@/utils/filters/filters";
 import type { FileStats } from "@/utils/provider/provider";
 
-/**
- * What the bar shows for a pull request and a selection of filters, worked out from the files alone. The content script
- * feeds it a review site's page; the welcome page feeds it a sample pull request, so both show the same bar.
- */
-
-/** A button in the bar: All, or a filter with the paths it matches. */
 export interface Option {
   id: string;
   name: string;
   matches?: Matcher;
 }
 
-/** What the numbers need of a changed file. */
 export interface ReviewFile {
   path: string;
   stats: FileStats | null;
@@ -31,7 +24,6 @@ export interface ReviewFile {
 
 export interface FileList<T extends ReviewFile = ReviewFile> {
   list: T[];
-  /** True when the list covers every changed file, not only the rendered ones. */
   complete: boolean;
 }
 
@@ -52,7 +44,6 @@ const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: num
     else totals.minutesLeft += minutes;
   }
   if (complete) return totals;
-  // Files the site hasn't loaded yet might match too, so with a filter the totals are partial: never Done.
   const unrendered = total - list.length;
   totals.pending += unrendered;
   if (matches === everything) {
@@ -63,15 +54,12 @@ const totalsFor = ({ list, complete }: FileList, matches: Matcher, reported: num
   return totals;
 };
 
-/** The selection after a button is pressed: All clears it, a filter joins it or leaves it. */
 export const toggled = (ids: string[], id: string): string[] =>
   id === ALL ? [] : ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id];
 
-/** The 0-based index one step from `position`, 1-based with 0 for none yet, among `total`, wrapping around. */
 export const stepFrom = (position: number, direction: 1 | -1, total: number): number =>
   position === 0 ? (direction > 0 ? 0 : total - 1) : (position - 1 + direction + total) % total;
 
-/** The next filter in the bar, after the ones shown, that still has files to review. */
 export const nextFilterWithWork = (list: ReviewFile[], filters: Option[], ids: string[]) => {
   const last = Math.max(-1, ...ids.map((id) => filters.findIndex((filter) => filter.id === id)));
   for (let offset = 1; offset <= filters.length; offset++) {
@@ -85,24 +73,16 @@ export const nextFilterWithWork = (list: ReviewFile[], filters: Option[], ids: s
 export interface Review<T extends ReviewFile = ReviewFile> {
   filtering: boolean;
   matches: Matcher;
-  /** The pressed buttons: the chosen filters, or All. */
   selection: string[];
-  /** What the bar reads out for the selection, like "Frontend + Docs". */
   name: string;
   shown: T[];
   totals: Totals;
-  /** The totals with every file shown, the most the numbers can be. */
   all: Totals;
   options: PanelOption[];
   nextFile: NextFile;
-  /** Only worked out while the breakdown is open. */
   rows: () => BreakdownRow[];
 }
 
-/**
- * `options` starts with All; `ids` are the chosen filters, `loading` says files may still arrive, and `minutes`
- * estimates a file, at the reader's pace as Review time has learned it.
- */
 export const review = <T extends ReviewFile>(
   files: FileList<T>,
   options: Option[],
@@ -143,10 +123,6 @@ export const review = <T extends ReviewFile>(
   };
 };
 
-/**
- * Shows a review in the bar. A new selection is read out once; a selection whose last file gets marked as viewed is
- * celebrated, once. The conversations are left to the caller, which knows where they are.
- */
 export const createReviewView = (panel: Panel) => {
   let unfinished = "";
   return (current: Review, key: string, { announce = false } = {}) => {

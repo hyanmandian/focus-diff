@@ -13,7 +13,6 @@ const claude: AiStatus = {
   login_command: "claude /login",
 };
 
-/** Settings with `provider` chosen. */
 const using = (provider: AiProvider | null): Config => {
   const config = defaultConfig();
   return { ...config, ai: { ...config.ai, provider } };
@@ -23,28 +22,23 @@ type Props = { config: Config | null };
 const nothing: Props = { config: null };
 const chosen: Props = { config: using("claude") };
 
-/** The module afresh, nothing asked of the CLIs yet. */
 function fresh() {
   vi.resetModules();
   return import("@/utils/ai-ready/ai-ready");
 }
 
-/** Rust answering what the CLIs say with `statuses` (counting the looks), and the alert with
- *  `ok`; every command asked lands in the list. */
 function mac(statuses: () => unknown, ok = false) {
   const commands: string[] = [];
   mockCommands((cmd) => {
     commands.push(cmd);
     if (cmd === "ai_statuses") return statuses();
     if (cmd === "confirm") return ok;
-    // Settings isn't open to be told which pane.
     if (cmd === EMIT_TO) return Promise.reject(new Error("no window"));
     return null;
   });
   return commands;
 }
 
-/** A promise to settle later, from the test. */
 function later<T>() {
   let settle!: (value: T) => void;
   const promise = new Promise<T>((resolve) => {
@@ -164,7 +158,6 @@ describe("useAiProblem", () => {
       expect(result.current).toMatchObject({ title: "Claude Code isn't installed" });
     });
     installed = true;
-    // Back from Settings: the cached answer is dropped.
     await openAiSettings();
     act(() => {
       window.dispatchEvent(new Event("focus"));

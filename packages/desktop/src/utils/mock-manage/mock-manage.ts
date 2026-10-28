@@ -1,7 +1,3 @@
-// Development only: the sample pull request's state around it (mock.ts has the rest), so merging,
-// checks with their logs, commits and ranges, reviewers, labels and the timeline can be worked on
-// and screenshotted in a plain browser. Writes succeed and change what's asked next.
-
 import { type Args, isRecord, json, str, strings, wait } from "@/utils/mock-ipc/mock-ipc";
 
 type Reply = { status: number; body: string };
@@ -23,7 +19,6 @@ const people = {
 };
 const ok = (data: unknown): Reply => ({ status: 200, body: JSON.stringify(data) });
 
-// What changes as the sample is acted on.
 const pr = {
   state: "OPEN",
   isDraft: false,
@@ -423,7 +418,6 @@ const compareFiles = [
   },
 ];
 
-/** The sample's answer to a call of the app's, or undefined to leave it to mock.ts. */
 export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
   if (cmd === "job_log") {
     await wait(300);

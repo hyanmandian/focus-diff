@@ -6,7 +6,6 @@ import { OpenLink, openLink } from "@/components/open-link/open-link";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
 
-/** GitHub answering with `data`, or failing. */
 function github(data: unknown) {
   mockCommands((cmd) => {
     if (cmd !== "github") return null;
@@ -25,7 +24,6 @@ describe("openLink", () => {
     );
     github(new Error("offline"));
     expect(await openLink("https://github.com/acme/web/pull/1", t)).toContain("offline");
-    // Rust refuses with a plain string, not an Error.
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- as the app's commands refuse
     mockCommands((cmd) => (cmd === "github" ? Promise.reject("down") : null));
     expect(await openLink("https://github.com/acme/web/pull/1", t)).toContain("down");

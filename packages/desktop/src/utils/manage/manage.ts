@@ -1,8 +1,3 @@
-// What's around a pull request beyond its review: who can do what to it, its labels, assignees,
-// milestone, linked issues and deployments, the reviewers asked and how they answered, and how it
-// can be merged. Loaded beside the details (details.ts) and kept on this machine (shelf.ts), so a
-// window shows it at once; every change here shows at once too, and goes back if GitHub refuses.
-
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { github, graphql } from "@/utils/bridge/bridge";
@@ -33,16 +28,12 @@ export type Deployment = {
   logUrl: string | null;
   at: string;
 };
-/** A reviewer: asked (and not yet answered since), or answered. */
 export type Reviewer = {
   key: string;
   actor: Actor;
   team: Team | null;
-  /** Their latest review, if they've given one. */
   state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED" | "PENDING" | null;
-  /** Asked now (a review given and asked again shows as both). */
   requested: boolean;
-  /** Asked because they own code it changes (CODEOWNERS). */
   codeOwner: boolean;
 };
 
@@ -54,7 +45,6 @@ export type Manage = {
   squashMessage: "PR_BODY" | "COMMIT_MESSAGES" | "BLANK";
   mergeTitle: "PR_TITLE" | "MERGE_MESSAGE";
   mergeMessage: "PR_BODY" | "PR_TITLE" | "BLANK";
-  /** Teams can be asked only in an organization's repositories. */
   orgOwned: boolean;
   body: string;
   isMergeQueueEnabled: boolean;
@@ -66,7 +56,6 @@ export type Manage = {
   viewerCanMergeAsAdmin: boolean;
   viewerCanDeleteHeadRef: boolean;
   autoMerge: { method: "MERGE" | "SQUASH" | "REBASE"; by: string | null } | null;
-  /** The head branch is still there (not deleted after merging). */
   headRefExists: boolean;
   headOwner: string;
   headRepo: string;
@@ -170,8 +159,6 @@ type Raw = {
   };
 };
 
-/** The reviewers as GitHub lists them: those asked, then those who answered, each once; someone who
- *  answered and was asked again shows their answer and that they're asked. */
 export function reviewerList(
   requests: Raw["repository"]["pullRequest"]["reviewRequests"]["nodes"],
   reviews: Raw["repository"]["pullRequest"]["latestReviews"]["nodes"],
@@ -208,10 +195,8 @@ export function reviewerList(
   return list;
 }
 
-/** A link GitHub may send empty: null then. */
 const link = (url: string | null | undefined) => (url === "" ? null : (url ?? null));
 
-/** `again`: past Rust's memory of the last answer (checks.ts). */
 export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
   const data = await graphql<Raw>(again ? fresh(QUERY) : QUERY, {
     owner: ref.owner,
@@ -269,18 +254,13 @@ export async function loadManage(ref: PullRef, again = false): Promise<Manage> {
   };
 }
 
-/** Can push to the repository: merge, re-run checks, update the branch. */
 export const canWrite = (m: Manage | null) =>
   m?.viewerPermission === "ADMIN" || m?.viewerPermission === "MAINTAIN" || m?.viewerPermission === "WRITE";
-/** Can triage: labels, assignees, milestone. */
 export const canTriage = (m: Manage | null) => canWrite(m) || m?.viewerPermission === "TRIAGE";
 
-/** The state around a pull request, as a hook: the copy kept from last time at once, GitHub's
- *  after. `patch` changes it here at once (for an action under way); `reload` asks GitHub again. */
 export function useManage(prId: string, ref: PullRef) {
   const [manage, setManage] = useState<Manage | null>(() => shelved<Manage>(`manage:${prId}`)?.value ?? null);
   const [error, setError] = useState<string | null>(null);
-  // Answers can come out of order: only the latest request's counts.
   const latest = useRef(0);
   const reload = useCallback(
     async (again = false) => {
@@ -307,15 +287,11 @@ export function useManage(prId: string, ref: PullRef) {
   return { manage, error, reload, patch };
 }
 
-// MARK: Lists to pick from
-
 export type Person = NonNullable<Actor>;
 
 const DAY = 24 * 3_600_000;
 const HOUR = 3_600_000;
 
-/** The people who can be asked to review or assigned: the first hundred, kept a day; a search past
- *  them asks GitHub. */
 export function people(ref: PullRef, query: string, onValue: (list: Person[]) => void) {
   type R = { repository: { assignableUsers: { nodes: Person[] } } };
   const load = () =>
@@ -331,7 +307,6 @@ export function people(ref: PullRef, query: string, onValue: (list: Person[]) =>
   return cachedList(`people:${ref.owner}/${ref.repo}`, DAY, load, onValue);
 }
 
-/** The organization's teams that can be asked to review, kept a day. */
 export function teams(ref: PullRef, query: string, onValue: (list: Team[]) => void) {
   type R = { organization: { teams: { nodes: Team[] } } | null };
   const load = () =>
@@ -358,7 +333,6 @@ export function teams(ref: PullRef, query: string, onValue: (list: Team[]) => vo
   return cachedList(`teams:${ref.owner}`, DAY, load, onValue);
 }
 
-/** Every label of the repository, kept a day. */
 export function labels(ref: PullRef, onValue: (list: Label[]) => void) {
   type R = { repository: { labels: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Label[] } } };
   const load = async () => {
@@ -396,7 +370,6 @@ export function labels(ref: PullRef, onValue: (list: Label[]) => void) {
   return cachedList(`labels:${ref.owner}/${ref.repo}`, DAY, load, onValue);
 }
 
-/** The repository's open milestones, kept an hour. */
 export function milestones(ref: PullRef, onValue: (list: Milestone[]) => void) {
   type R = { repository: { milestones: { nodes: Milestone[] } } };
   const load = () =>
@@ -420,12 +393,9 @@ export function milestones(ref: PullRef, onValue: (list: Milestone[]) => void) {
   return cachedList(`milestones:${ref.owner}/${ref.repo}`, HOUR, load, onValue);
 }
 
-// MARK: Changes
-
 const issue = (ref: PullRef) => `/repos/${ref.owner}/${ref.repo}/issues/${ref.number}`;
 const pull = (ref: PullRef) => `/repos/${ref.owner}/${ref.repo}/pulls/${ref.number}`;
 
-/** Asks people or teams to review; asking someone who already reviewed asks them again. */
 export const requestReviews = (ref: PullRef, users: string[], teamSlugs: string[] = []) =>
   github("POST", `${pull(ref)}/requested_reviewers`, { reviewers: users, team_reviewers: teamSlugs });
 export const removeReviewRequests = (ref: PullRef, users: string[], teamSlugs: string[] = []) =>

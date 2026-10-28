@@ -8,7 +8,6 @@ import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversa
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { emoji, mentionable, preview, referable, savedReplies } from "@/utils/writer/writer";
 
-// What the box asks GitHub for (utils/writer/writer.ts, tested on its own) is answered here.
 vi.mock("@/utils/writer/writer", () => ({
   emoji: vi.fn<typeof emoji>(),
   mentionable: vi.fn<typeof mentionable>(),
@@ -17,7 +16,6 @@ vi.mock("@/utils/writer/writer", () => ({
   savedReplies: vi.fn<typeof savedReplies>(),
 }));
 
-// The Mac's ⌘ or everyone else's Ctrl, switched per test (the page itself reads it once).
 const platform = vi.hoisted(() => ({ mac: false }));
 vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
@@ -62,7 +60,6 @@ function apiFor(url = "https://github.com/acme/app/pull/12"): ConversationApi {
 
 type FieldProps = Partial<Parameters<typeof MarkdownField>[0]> & { api?: ConversationApi | null; initial?: string };
 
-/** The field as a comment box holds it: its text in state, what's sent and cancelled recorded. */
 function Field({ api = apiFor(), initial = "", ...props }: FieldProps) {
   const [value, setValue] = useState(initial);
   return (
@@ -83,7 +80,6 @@ function Field({ api = apiFor(), initial = "", ...props }: FieldProps) {
 
 const field = () => screen.getByRole<HTMLTextAreaElement>("combobox", { name: "Comment" });
 const valueNow = () => screen.getByTestId("value").textContent;
-/** Lets a frame go by: what the field does after drawing (selections, inserted text). */
 const nextFrame = () =>
   act(
     () =>
@@ -96,7 +92,6 @@ const nextFrame = () =>
 
 const nothing = () => {};
 
-/** A promise settled from outside, for an answer that comes when the test says. */
 function deferred<T>() {
   let resolve: (value: T) => void = nothing;
   let reject: (reason: unknown) => void = nothing;
@@ -107,7 +102,6 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-/** Something dragged over the field: whether the field takes it. */
 function dragOver(types: string[]) {
   const event = new Event("dragover", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", { value: { types } });
@@ -115,13 +109,10 @@ function dragOver(types: string[]) {
   return event.defaultPrevented;
 }
 
-/** Files let go over the field. */
 const drop = (files: File[]) => fireEvent.drop(field(), { dataTransfer: { files, types: ["Files"] } });
 
-/** The hint under the field, as a screen reader is told it. */
 const hint = () => document.querySelector(`#${CSS.escape(field().getAttribute("aria-describedby")!)}`)?.textContent;
 
-/** Rust: who's signed in on github.com, and each upload answered in order. */
 function rust({
   session = "you",
   uploads = [],
@@ -136,7 +127,6 @@ function rust({
   return sent;
 }
 
-/** execCommand as WebKit has it (happy-dom hasn't): says whether it typed. */
 function execCommand(typed: boolean) {
   const run = vi.fn<(command: string, ui?: boolean, value?: string) => boolean>(() => typed);
   Object.defineProperty(document, "execCommand", { configurable: true, value: run });
@@ -153,7 +143,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Unmounted before the stand-ins below go.
   cleanup();
   Reflect.deleteProperty(document, "execCommand");
   Reflect.deleteProperty(document, "caretPositionFromPoint");
@@ -178,7 +167,6 @@ describe("MarkdownField", () => {
     await user.type(field(), "@an");
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(mentionable).not.toHaveBeenCalled();
-    // Pasted pictures go nowhere either.
     fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -216,7 +204,6 @@ describe("MarkdownField", () => {
         await rendered.promise;
       });
       expect(screen.getByText("Looks good").tagName).toBe("STRONG");
-      // Back to writing, where the text is as it was.
       await user.click(screen.getByRole("tab", { name: "Write" }));
       expect(field().value).toBe("**Looks good**");
     });
@@ -281,7 +268,6 @@ describe("MarkdownField", () => {
         "ANandre",
         "ANanabelAnabel",
       ]);
-      // Round the list both ways.
       await user.keyboard("{ArrowUp}");
       expect(screen.getAllByRole("option")[2]?.getAttribute("aria-selected")).toBe("true");
       await user.keyboard("{ArrowDown}{ArrowDown}");
@@ -293,7 +279,6 @@ describe("MarkdownField", () => {
     });
 
     it("keeps the caret after what's typed straight after picking, before the next frame", async () => {
-      // No pause between keys: the typing lands before the frame the pick waits for.
       const user = userEvent.setup({ delay: null });
       vi.mocked(mentionable).mockResolvedValue([]);
       render(<Field initial="Thanks " />);
@@ -331,7 +316,6 @@ describe("MarkdownField", () => {
       await user.type(field(), "@an");
       await user.keyboard("{Enter}");
       expect(run).toHaveBeenCalledWith("insertText", false, "@ana ");
-      // The browser typed it: nothing else changes the text.
       expect(valueNow()).toBe("@an");
     });
 
@@ -428,7 +412,6 @@ describe("MarkdownField", () => {
       expect(screen.queryByRole("listbox")).toBeNull();
       expect(onCancel).not.toHaveBeenCalled();
 
-      // Moving within what's being completed keeps it; moving off it closes it.
       await user.keyboard("{Backspace}");
       expect(screen.getByRole("listbox")).toBeTruthy();
       fireEvent.select(field());
@@ -438,7 +421,6 @@ describe("MarkdownField", () => {
       expect(screen.queryByRole("listbox")).toBeNull();
       fireEvent.select(field());
 
-      // Leaving the field closes it too.
       await user.keyboard("{End}{Backspace}");
       expect(screen.getByRole("listbox")).toBeTruthy();
       fireEvent.blur(field());
@@ -510,7 +492,6 @@ describe("MarkdownField", () => {
       await wrapWith("k");
       expect(valueNow()).toBe("[word]()");
       expect(field().selectionStart).toBe(7);
-      // Not with Shift or Option: those are other shortcuts.
       await user.keyboard(
         "{Control>}{Shift>}b{/Shift}{/Control}{Control>}{Alt>}b{/Alt}{/Control}{Control>}x{/Control}",
       );
@@ -563,7 +544,6 @@ describe("MarkdownField", () => {
       fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
       await nextFrame();
       expect(valueNow()).toBe("Before\n![Uploading shot.png…]()\n");
-      // The caret where it was: the whole text selected, its end moves with the swap.
       field().focus();
       field().setSelectionRange(0, field().value.length);
       await act(async () => {
@@ -581,7 +561,6 @@ describe("MarkdownField", () => {
       const user = userEvent.setup();
       const uploads = [2, 3, 4].map(() => deferred<unknown>());
       const sent = rust({ uploads: uploads.map((u) => () => u.promise) });
-      /** The next upload done, once its placeholder is in. */
       const uploaded = async (n: number) => {
         await nextFrame();
         await act(async () => {
@@ -600,11 +579,9 @@ describe("MarkdownField", () => {
       expect(valueNow()).toBe("ab\nhttps://github.com/user-attachments/assets/2\n");
       expect(input.value).toBe("");
 
-      // Dragged over: only files are taken.
       expect(dragOver(["Files"])).toBe(true);
       expect(dragOver(["text/plain"])).toBe(false);
 
-      // Dropped: at the point under the pointer, when the web view says where that is.
       drop([]);
       Object.defineProperty(document, "caretPositionFromPoint", {
         configurable: true,
@@ -688,7 +665,6 @@ describe("MarkdownField", () => {
       const attempt = async () => {
         fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
         await nextFrame();
-        // Elsewhere meanwhile: the caret is the field's own business.
         field().blur();
         await act(async () => {
           const upload = uploads.shift()!;

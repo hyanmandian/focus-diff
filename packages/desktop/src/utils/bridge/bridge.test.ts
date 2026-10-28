@@ -5,7 +5,6 @@ import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 type Call = { cmd: string; args: unknown };
 
-/** Rust answering every command with `answer`; what it was asked lands in the list. */
 function rust(answer: (cmd: string, args: unknown) => unknown = () => null) {
   const calls: Call[] = [];
   mockCommands((cmd, args) => {
@@ -15,7 +14,6 @@ function rust(answer: (cmd: string, args: unknown) => unknown = () => null) {
   return calls;
 }
 
-/** GitHub answering with `status` and `body`. */
 const replying = (status: number, body: string) => () => ({ status, body });
 
 const pr: ReviewPull = {
@@ -37,7 +35,6 @@ const code: DeviceCode = {
 const project = { repo: "acme/web", number: 7, head: "abc" };
 
 describe("bridge", () => {
-  // Each call, and the command and arguments Rust gets for it.
   const cases: Array<[string, () => Promise<unknown>, string, unknown]> = [
     [
       "queueViewed",

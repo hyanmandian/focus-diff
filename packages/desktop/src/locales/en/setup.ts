@@ -1,4 +1,3 @@
-// The first-run setup window.
 export const setup = {
   "step.github": "GitHub",
   "step.queues": "Queues",

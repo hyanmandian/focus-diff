@@ -1,20 +1,12 @@
-//! Review time's own sound, so it's told apart from a pull request's: a soft singing bowl, made here
-//! from a few fading tones (the way Focus Diff's extension makes its sounds), so there's no audio
-//! file to ship. AppKit plays it on macOS; elsewhere the notification's own sound stands in.
-
 use tauri::{AppHandle};
 
-/// Whether this system plays the sound here; if not, the notification brings the system's own.
 pub const OWN: bool = cfg!(target_os = "macos");
 
-// Only the Mac plays its own sound (OWN); the bowl stays tested everywhere.
 #[cfg(any(target_os = "macos", test))]
 const RATE: u32 = 22_050;
 #[cfg(any(target_os = "macos", test))]
 const SECONDS: f32 = 2.6;
 
-/// The bowl as a WAV file: 16-bit mono. Each partial is (ratio to the note, gain, seconds to fade
-/// out, Hz off the ratio); the twin a little off the note beats against it, as a real bowl shimmers.
 #[cfg(any(target_os = "macos", test))]
 pub fn bowl() -> Vec<u8> {
     const NOTE: f32 = 432.0;
@@ -28,7 +20,6 @@ pub fn bowl() -> Vec<u8> {
             PARTIALS
                 .iter()
                 .map(|&(ratio, gain, fade, detune)| {
-                    // Down 60 dB by `fade`.
                     let envelope = gain * attack * (-6.9 * t / fade).exp();
                     envelope * (std::f32::consts::TAU * (NOTE * ratio + detune) * t).sin()
                 })
@@ -36,7 +27,6 @@ pub fn bowl() -> Vec<u8> {
         })
         .collect();
     let peak = samples.iter().fold(0.0f32, |m, s| m.max(s.abs())).max(f32::EPSILON);
-    // Soft: half of full scale at its loudest.
     let pcm: Vec<i16> = samples.iter().map(|s| (s / peak * 0.5 * i16::MAX as f32) as i16).collect();
 
     let data = (pcm.len() * 2) as u32;
@@ -45,8 +35,8 @@ pub fn bowl() -> Vec<u8> {
     wav.extend_from_slice(&(36 + data).to_le_bytes());
     wav.extend_from_slice(b"WAVEfmt ");
     wav.extend_from_slice(&16u32.to_le_bytes());
-    wav.extend_from_slice(&1u16.to_le_bytes()); // PCM
-    wav.extend_from_slice(&1u16.to_le_bytes()); // mono
+    wav.extend_from_slice(&1u16.to_le_bytes());
+    wav.extend_from_slice(&1u16.to_le_bytes());
     wav.extend_from_slice(&RATE.to_le_bytes());
     wav.extend_from_slice(&(RATE * 2).to_le_bytes());
     wav.extend_from_slice(&2u16.to_le_bytes());
@@ -61,11 +51,9 @@ pub fn bowl() -> Vec<u8> {
 
 #[cfg(target_os = "macos")]
 thread_local! {
-    /// Made once, on the main thread, and kept: AppKit stops a sound that's let go mid-play.
     static SOUND: std::cell::OnceCell<Option<objc2::rc::Retained<objc2_app_kit::NSSound>>> = const { std::cell::OnceCell::new() };
 }
 
-/// Plays the bowl (macOS); elsewhere nothing, as the notification brings a sound of its own.
 pub fn play(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.run_on_main_thread(|| {
@@ -94,7 +82,6 @@ mod tests {
         assert_eq!(wav.len(), 44 + (RATE as f32 * SECONDS) as usize * 2);
         let loudest = wav[44..].chunks(2).map(|b| i16::from_le_bytes([b[0], b[1]]).unsigned_abs()).max().unwrap();
         assert!(loudest <= i16::MAX as u16 / 2 + 1, "{loudest}");
-        // Writes it to $SOUND_PREVIEW to listen to.
         if let Ok(path) = std::env::var("SOUND_PREVIEW") {
             std::fs::write(path, &wav).unwrap();
         }

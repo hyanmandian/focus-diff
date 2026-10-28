@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Merged into the app's Info.plist by Tauri. The languages the app speaks (src/locales,
-     src-tauri/src/i18n.rs), so what AppKit adds to the menus and the web views' navigator.languages
-     agree with the app's own words; and its focusdiff:// links. -->
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -12,7 +9,6 @@
 		<string>en</string>
 		<string>pt-BR</string>
 	</array>
-	<!-- focusdiff://open?url=<a pull request's link>: opens its review (src/link.rs). -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

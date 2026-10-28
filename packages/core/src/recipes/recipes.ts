@@ -1,6 +1,5 @@
 import type { PathPatterns } from "../filters/filters";
 
-/** The path filters both apps offer to start from. Each app names them in its own words, keyed by these names. */
 export const PATH_FILTER_NAMES = [
   "frontend",
   "backend",
@@ -34,7 +33,6 @@ export const PATH_FILTERS: Record<PathFilterName, PathPatterns> = {
   docs: { include: "\\.(mdx?|rst|txt)$|(^|/)docs/", exclude: "" },
 };
 
-/** Recipes: sets of filters for a common way to split a review. */
 export const RECIPE_IDS = ["stack", "area", "tests", "generated", "infra", "database", "docs"] as const;
 export type RecipeId = (typeof RECIPE_IDS)[number];
 

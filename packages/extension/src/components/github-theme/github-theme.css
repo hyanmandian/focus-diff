@@ -1,7 +1,3 @@
-/*
- * The bar in GitHub's colours: each --fd-provider-* reads Primer's token, or the older name before it. Where neither is on
- * the page, the property is left unset and the bar keeps its default (see components/theme.css).
- */
 :host {
   --fd-provider-bg: var(--overlay-bgColor, var(--color-canvas-overlay));
   --fd-provider-fg: var(--fgColor-default, var(--color-fg-default));

@@ -1,7 +1,3 @@
-// Choosing the optional AI: none (the default), or the coding agent CLI the person already uses,
-// with what's installed and signed in on this machine; then how it's asked: model, effort, the
-// person's own review guidelines and the prompts offered on each pull request.
-
 import { ArrowDown, ArrowUp, Check, Copy, ExternalLink, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 
@@ -53,7 +49,6 @@ function CopyCommand({ command }: { command: string }) {
 
 export function Ai({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
-  // Checked as the pane opens.
   const [checking, setChecking] = useState(true);
   const modelId = useId();
   const effortId = useId();
@@ -61,7 +56,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   const projectId = useId();
   const autoId = useId();
   const reviewPromptId = useId();
-  // The models the chosen CLI offers, with which one they're for.
   const [offered, setOffered] = useState<{ provider: AiProvider; models: string[] } | null>(null);
   const t = useT();
   const load = useCallback(async () => {
@@ -84,7 +78,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   const setAi = (patch: Partial<Config["ai"]>) => {
     onChange({ ...config, ai: { ...ai, ...patch } });
   };
-  // Model and effort belong to one CLI: another starts from its defaults.
   const choose = (provider: AiProvider | null) => {
     setAi(provider === ai.provider ? {} : { provider, model: "", effort: "" });
   };
@@ -94,9 +87,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
       let models: string[] = [];
       try {
         models = await bridge.aiModels(selected);
-      } catch {
-        // None to suggest; the field takes any name.
-      }
+      } catch {}
       setOffered({ provider: selected, models });
     };
     void ask();
@@ -129,8 +120,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
         }
         footer={t("settings.checkAgainFooter")}
       >
-        {/* Roving focus: the picked choice takes Tab and the arrows move between them (radioKeys), so
-            the group itself needs no focus. */}
         {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- see above */}
         <div role="radiogroup" aria-label={t("settings.pane.ai")} className="contents" onKeyDown={radioKeys}>
           {[null, ...AI_PROVIDERS].map((provider) => {
@@ -149,7 +138,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                   }}
                   className="group flex min-w-0 flex-1 cursor-default items-start gap-2.5 rounded-(--radius-control-sm) text-left focus-ring outline-none"
                 >
-                  {/* A radio button as AppKit draws one: the field's well and edge, the accent once picked. */}
                   <span
                     className={cn(
                       "grid size-4 shrink-0 place-items-center rounded-full border border-input bg-(--field-bg) transition-colors duration-(--duration-fast) group-hover:border-(--field-border-hover)",
@@ -229,7 +217,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 <Select
                   value={ai.effort}
                   onValueChange={(v) => {
-                    // Never null: the CLI's default is a choice of its own ("").
                     setAi({ effort: v! });
                   }}
                   items={PROVIDERS[selected].efforts.map((e) => ({ value: e, label: t(`config.effort.${e}`) }))}

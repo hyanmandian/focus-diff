@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { labelExpandButtons } from "@/utils/expand-buttons/expand-buttons";
 import { i18n } from "@/utils/i18n/i18n";
 
-/** A rendered file's separators, as @pierre/diffs draws them, in a shadow root or not. */
 function file(shadow: boolean) {
   const host = document.createElement("div");
   const root = shadow ? host.attachShadow({ mode: "open" }) : host;

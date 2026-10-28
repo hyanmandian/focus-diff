@@ -84,17 +84,14 @@ vi.mock(import("@/utils/pull-branches/pull-branches"), async (original) => ({
 }));
 
 const { scheduler } = mocks;
-/** Friday 9 October 2026, 10:00 local time. */
 const NOW = new Date(2026, 9, 9, 10).getTime();
 
 const create = vi.fn<(id: string, options: Browser.notifications.NotificationCreateOptions) => Promise<string>>();
 const clear = vi.fn<(id: string) => Promise<boolean>>();
-/** The notifications shown, as their ids and what they say, and the ones cleared. */
 const created = () => create.mock.calls;
 const cleared = () => clear.mock.calls.map(([id]) => id);
 const contains = vi.fn<(permissions: unknown) => Promise<boolean>>();
 const tabMessages = vi.fn<(tabId: number, message: unknown) => Promise<unknown>>();
-/** An event the fake browser doesn't have, to fire by hand. */
 const fakeEvent = <T extends unknown[]>() => {
   let listeners: ((...args: T) => unknown)[] = [];
   return {
@@ -121,7 +118,6 @@ const snapshot = (extra: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
   problem: null,
   ...extra,
 });
-/** What happened on a sample pull request: by default, a comment on one of the reader's. */
 const event = (number: number, extra: Partial<InboxEvent> = {}): InboxEvent => {
   const { repo, title, url } = samplePull(number);
   return {
@@ -154,13 +150,11 @@ const enabled = (extra: Partial<NotifySettings> = {}): NotifySettings => ({
 
 const alarm = (name: string): Browser.alarms.Alarm => ({ name, scheduledTime: NOW, persistAcrossSessions: false });
 
-/** Lets what a listener started, without waiting on it, run to its end. */
 const settle = () =>
   new Promise((resolve) => {
     setTimeout(resolve, 0);
   });
 
-/** The badge, its colour as `#rrggbb`. */
 const badge = async () => ({
   text: await fakeBrowser.action.getBadgeText({}),
   color: `#${(await fakeBrowser.action.getBadgeBackgroundColor({}))
@@ -170,7 +164,6 @@ const badge = async () => ({
 });
 const openTabs = async () => (await fakeBrowser.tabs.query({})).flatMap((tab) => tab.url ?? []);
 
-/** A fresh background, its state and listeners its own. */
 const start = async () => {
   vi.resetModules();
   const { startBackground } = await import("./background");
@@ -285,7 +278,6 @@ describe("scheduling the looks", () => {
     await settle();
     await inboxMemoryItem.setValue({ threads: { a: "b" }, reviews: [] });
     const events = recordOf(EVENT_KINDS, (kind) => ({ ...DEFAULT_NOTIFY.events[kind], on: false }));
-    // Told of nothing, a look reads only the lists, and leaves what was seen as it was.
     mocks.checkInbox.mockResolvedValue(result({ memory: null }));
     await notifyItem.setValue(enabled({ events }));
     await settle();
@@ -339,7 +331,6 @@ describe("a look", () => {
     expect((await inboxItem.getValue())?.reviews).toHaveLength(4);
     expect(await inboxMemoryItem.getValue()).toEqual({ threads: {}, reviews: [] });
     expect(await badge()).toEqual({ text: "1", color: "#1f6feb" });
-    // A mark is let go once its pull request is off the lists.
     expect(Object.keys(await doneItem.getValue())).toEqual([samplePull(4).url]);
     expect(scheduler.readQueueFiles).toHaveBeenCalledWith((await inboxItem.getValue())?.reviews);
   });
@@ -362,7 +353,6 @@ describe("a look", () => {
     });
     expect(mocks.readBranches).toHaveBeenCalledWith([snapshot().reviews, snapshot().mine, [one, three], [two]]);
 
-    // Taken away, a list isn't kept, nor are its marks.
     await popupItem.setValue({ repos: [], excludeRepos: [], teams: true, updates: false, merged: false });
     mocks.checkInbox.mockResolvedValue(result());
     await look();
@@ -536,7 +526,6 @@ describe("notifications", () => {
     expect(created()[0]?.[1].message).toBe(
       "ada commented on your pull request: Pull request 1\nada commented on your pull request: “Nice”",
     );
-    // One alone shows as itself.
     await show([event(3)], enabled({ delivery }));
     expect(created()[0]?.[0]).toMatch(/^inbox:comment-mine:/u);
   });
@@ -669,7 +658,6 @@ describe("the icon", () => {
     await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: false, merged: false });
     await settle();
     expect(mocks.checkInbox).toHaveBeenCalledTimes(1);
-    // A list added is read at once, to have it there.
     await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: true, merged: false });
     await settle();
     await popupItem.setValue({ repos: [], excludeRepos: [], teams: false, updates: true, merged: true });

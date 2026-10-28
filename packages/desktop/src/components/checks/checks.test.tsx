@@ -12,19 +12,14 @@ import type { Args } from "@/utils/platform/platform";
 
 const pr = { owner: "acme", repo: "shop", number: 42, state: "OPEN" };
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 type Answers = {
-  /** GraphQL's node for a check run's detail, or a failure. */
   detail?: unknown;
-  /** The job's log, or what Rust says instead. */
   log?: { text: string; truncated: boolean } | string | Error;
-  /** Re-running a job: GitHub's status. */
   rerun?: number;
 };
 
-/** Answers what opening a check asks, recording the calls. */
 function answer({ detail = null, log = { text: "", truncated: false }, rerun = 201 }: Answers = {}) {
   const calls: string[] = [];
   mockCommands((cmd, args) => {

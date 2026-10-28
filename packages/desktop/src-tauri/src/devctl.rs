@@ -1,15 +1,3 @@
-//! Development only: drives the running app from a file, for testing it end to end without
-//! clicking. Compiled into debug builds only (or with the `devctl` feature, to measure a release), and only listening when FOCUS_DIFF_DEVCTL names a
-//! file. Each line appended to that file is a command:
-//!
-//! - `open panel|settings|setup`, `hide panel`, `close <window label>`, `open review <id> <owner/name> <number>`
-//! - `eval <window label> <javascript>`: runs it in that window; pages report back with
-//!   `window.__TAURI_INTERNALS__.invoke("log", { message })`, printed as `[label] message`
-//! - `refresh` / `refresh force`, `windows`, `forget <n>` (the next refresh finds n pull requests'
-//!   latest events new)
-//!
-//! Output goes to the terminal running `tauri dev`, prefixed with [devctl].
-
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::time::Duration;
 
@@ -47,7 +35,6 @@ fn run(app: &AppHandle, command: &str) {
     let mut words = command.splitn(3, ' ');
     let result: Result<(), String> = match (words.next(), words.next(), words.next()) {
         (Some("open"), Some("panel"), _) => {
-            // Under the tray icon when it can say where that is; the top right corner otherwise.
             let rect = app
                 .state::<crate::Tray>()
                 .0
@@ -61,7 +48,6 @@ fn run(app: &AppHandle, command: &str) {
             } else {
                 let started = std::time::Instant::now();
                 let fresh = app.get_webview_window(crate::PANEL).is_none();
-                // On the main thread, as a click on the tray icon is.
                 let handle = app.clone();
                 app.run_on_main_thread(move || {
                     let result = crate::toggle_panel(&handle, &rect);
@@ -104,7 +90,6 @@ fn run(app: &AppHandle, command: &str) {
             let panel = app.get_webview_window(crate::PANEL);
             app.run_on_main_thread(move || {
                 let key = panel.as_ref().map(|p| p.is_focused().unwrap_or(false));
-                // What gets the keys in the panel: its web view, or (unfocused page) something else.
                 #[cfg(target_os = "macos")]
                 let responder = panel.as_ref().and_then(|p| p.ns_window().ok()).and_then(|pointer| {
                     // SAFETY: Tauri's live NSWindow, on the main thread.
@@ -141,7 +126,6 @@ fn run(app: &AppHandle, command: &str) {
                 .map_err(|e| e.to_string()),
             None => Err(format!("no window {label}")),
         },
-        // Which view a click at x, y (from the top left, in points) would reach.
         #[cfg(target_os = "macos")]
         (Some("hit"), Some(label), Some(at)) => match (app.get_webview_window(label), at.split_once(' ')) {
             (Some(window), Some((x, y))) => {

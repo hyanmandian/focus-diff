@@ -10,7 +10,6 @@ import type { AiAnswer } from "@/utils/bridge/bridge";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, Thread, ThreadComment } from "@/utils/review/review";
 
-// The comment box's lookups (utils/writer/writer.ts) aren't what's tested here.
 vi.mock("@/utils/writer/writer", () => ({
   emoji: vi.fn<() => Promise<never[]>>(() => Promise.resolve([])),
   mentionable: vi.fn<() => Promise<never[]>>(() => Promise.resolve([])),
@@ -19,7 +18,6 @@ vi.mock("@/utils/writer/writer", () => ({
   savedReplies: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
 }));
 
-// The Mac's ⌘ or everyone else's Ctrl, switched per test.
 const platform = vi.hoisted(() => ({ mac: false }));
 vi.mock("@/utils/os/os", async (original) => ({
   ...(await original<object>()),
@@ -30,7 +28,6 @@ vi.mock("@/utils/os/os", async (original) => ({
 
 const nothing = () => {};
 
-/** A promise settled from outside, for an answer that comes when the test says. */
 function deferred<T>() {
   let resolve: (value: T) => void = nothing;
   let reject: (reason: unknown) => void = nothing;
@@ -106,7 +103,6 @@ const draftOf = (more: Partial<Draft> = {}): Draft => ({
   ...more,
 });
 
-/** Rust: the commands sent, by name and arguments. */
 function rust() {
   const sent: Array<[string, unknown]> = [];
   mockCommands((cmd, args) => {
@@ -122,12 +118,10 @@ const box = (name: string | RegExp) => screen.getByRole<HTMLTextAreaElement>("co
 beforeEach(() => {
   platform.mac = false;
   rust();
-  // As WebKit has it (happy-dom hasn't): it doesn't type here, so the field's own change does.
   Object.defineProperty(document, "execCommand", { configurable: true, value: () => false });
 });
 
 afterEach(() => {
-  // Unmounted before the stand-ins below go.
   cleanup();
   Reflect.deleteProperty(document, "execCommand");
 });
@@ -211,7 +205,6 @@ describe("Composer", () => {
     render(<Composer placeholder="Reply" submitLabel="Send" initial="Hi" onSubmit={onSubmit} onCancel={nothing} />);
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Not allowed");
-    // ⌘/Ctrl+Enter from the field sends too.
     await user.click(box("Reply"));
     await user.keyboard("{Control>}{Enter}{/Control}");
     await waitFor(() => {
@@ -255,7 +248,6 @@ describe("ThreadView", () => {
     expect(screen.getByText("Person")).toBeTruthy();
     expect(screen.getByText("?")).toBeTruthy();
     expect(screen.getByText("BO")).toBeTruthy();
-    // Only shown outside a review window: no menus.
     expect(screen.queryByRole("button", { name: "More for this comment" })).toBeNull();
   });
 
@@ -400,7 +392,6 @@ describe("ThreadView", () => {
     await user.click(screen.getByRole("menuitem", { name: /Delete/u }));
     expect(api.deleteComment).toHaveBeenCalledWith(mine);
 
-    // Without its Markdown (an older copy), there's nothing to quote or edit.
     await user.click(second!);
     const menu = screen.getByRole("menu");
     expect(within(menu).queryByRole("menuitem", { name: "Quote Reply" })).toBeNull();
@@ -505,7 +496,6 @@ describe("NewComment", () => {
       expect(onAdd).toHaveBeenCalledWith("Rename this");
       await user.click(screen.getByRole("button", { name: "Post now" }));
       expect(onSendNow).toHaveBeenCalledWith("Rename this");
-      // ⌘/Ctrl+Enter from the field.
       await user.click(box("Your comment for the author"));
       await user.keyboard("{Control>}{Enter}{/Control}");
       expect(onAdd).toHaveBeenCalledTimes(2);
@@ -575,7 +565,6 @@ describe("NewComment", () => {
       newComment({ range: { start: 2, end: 2 } }, null);
       expect(suggestOffered()).toBeNull();
       cleanup();
-      // With no side said, the new version's.
       newComment({ path: "src/cart.ts", range: { start: 2, end: 2 } }, api);
       expect(suggestOffered()).toBeTruthy();
     });
@@ -600,7 +589,6 @@ describe("NewComment", () => {
       expect(screen.getByText(/Set up Claude Code or Cursor/u)).toBeTruthy();
       await user.click(screen.getByRole("button", { name: "Open Settings" }));
       expect(sent.map(([cmd]) => cmd)).toContain("open_settings");
-      // The tab picked last is the one the next box opens on.
       expect(localStorage.getItem("selection-tab")).toBe("ask");
     });
 
@@ -636,7 +624,6 @@ describe("NewComment", () => {
       newComment({ ask });
       await user.click(tab("Ask Claude"));
       expect(screen.getByRole("button", { name: "Ask" })).toHaveProperty("disabled", true);
-      // Nothing asked yet: Enter does nothing.
       await user.keyboard("{Enter}");
       expect(ask).not.toHaveBeenCalled();
 
@@ -647,7 +634,6 @@ describe("NewComment", () => {
       expect(question().value).toBe("");
       expect(screen.getByRole("status").textContent).toContain("Claude is reading the code…");
       expect(scrolled).toHaveBeenLastCalledWith({ block: "nearest", behavior: "smooth" });
-      // Still answering: Enter doesn't ask again.
       await user.type(question(), "And?");
       await user.keyboard("{Enter}");
       expect(ask).toHaveBeenCalledOnce();
@@ -676,7 +662,6 @@ describe("NewComment", () => {
       await user.click(screen.getAllByRole("button", { name: "Turn into a comment" })[1]!);
       expect(tab("Comment").getAttribute("aria-selected")).toBe("true");
       expect(box("Your comment for the author").value).toBe("It's only for **guests**.");
-      // Back to asking: the conversation is still there.
       await user.click(tab("Ask Claude"));
       expect(screen.getAllByRole("listitem")).toHaveLength(2);
     });
@@ -687,7 +672,6 @@ describe("NewComment", () => {
       let now = 1_000_000;
       vi.spyOn(Date, "now").mockImplementation(() => now);
       const ask = vi.fn<Ask>(() => new Promise(() => {}));
-      // Reduce Motion on: the newest answer comes into view without a slide.
       const still = window.matchMedia("(prefers-reduced-motion: reduce)");
       Object.defineProperty(still, "matches", { value: true });
       vi.spyOn(window, "matchMedia").mockReturnValue(still);
@@ -725,18 +709,15 @@ describe("NewComment", () => {
       expect(screen.queryByRole("list")).toBeNull();
       await user.click(screen.getByRole("button", { name: "Ask" }));
       expect((await screen.findByRole("alert")).textContent).toBe("Timed out");
-      // Switching tabs clears what was said.
       await user.click(tab("Comment"));
       expect(screen.queryByRole("alert")).toBeNull();
       await user.click(tab("Ask Claude"));
-      // Escape closes, and isn't the window's.
       const outside = vi.fn<() => void>();
       window.addEventListener("keydown", outside);
       fireEvent.keyDown(question(), { key: "Escape" });
       window.removeEventListener("keydown", outside);
       expect(onCancel).toHaveBeenCalledOnce();
       expect(outside).not.toHaveBeenCalled();
-      // A key that's neither: typed.
       fireEvent.keyDown(question(), { key: "a" });
       expect(onCancel).toHaveBeenCalledOnce();
     });

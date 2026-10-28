@@ -1,7 +1,3 @@
-// Committing suggested changes, as on GitHub: one at once ("Commit Suggestion"), or several gathered
-// in a batch and committed together. Only offered when you can push to the pull request's branch,
-// and only for suggestions that still apply (not outdated, resolved, or on removed lines).
-
 import { GitCommitHorizontal, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -16,7 +12,6 @@ import { useT } from "@/utils/i18n/i18n";
 import type { Thread, ThreadComment } from "@/utils/review/review";
 import { suggestionsIn } from "@/utils/suggestion/suggestion";
 
-/** Why a comment's suggestion can't be committed, if it can't. Their words: t(`review.cantApply.${why}`). */
 function whyNot(thread: Thread, comment: ThreadComment, count: number) {
   if (comment.pending) return "pending";
   if (thread.resolved) return "resolved";
@@ -26,7 +21,6 @@ function whyNot(thread: Thread, comment: ThreadComment, count: number) {
   return null;
 }
 
-/** The commit's message, then the commit: a popover from the button that opened it. */
 function CommitPopover({
   api,
   items,
@@ -99,7 +93,6 @@ function CommitPopover({
   );
 }
 
-/** Under a comment with a suggested change: commit it, or gather it for one commit with others. */
 export function SuggestionActions({ thread, comment }: { thread: Thread; comment: ThreadComment }) {
   const t = useT();
   const api = useConversationApi();
@@ -142,8 +135,6 @@ export function SuggestionActions({ thread, comment }: { thread: Thread; comment
   );
 }
 
-/** The batch, over the diff's bottom corner (clear of the file headers and the filter bar) while
- *  it has suggestions in it: commit them all, or let them go. */
 export function SuggestionBatch() {
   const t = useT();
   const api = useConversationApi();

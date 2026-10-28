@@ -1,8 +1,3 @@
-// The review window, where a pull request is reviewed, in two tabs: Overview (description,
-// conversation, AI, reviewers, checks) and Diff (files and diffs with their conversations, a way to
-// step through the comments, the review itself). Pending comments and what's been viewed are kept
-// on this machine, so closing the window loses nothing.
-
 import { createEstimator, LINES_PER_HOUR, reviewMinutes } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import {
@@ -107,15 +102,10 @@ import type { StackPull } from "@/utils/stack/stack";
 import { useTheme } from "@/utils/theme/theme";
 import { inTreeOrder } from "@/utils/tree/tree";
 
-/** The pull request a window shows. `teams`: the ones its review was asked of on your behalf
- *  ("org/slug"), for leaving the review. */
-/** `queue`: the one it was opened from, whose next pull request the toolbar offers. */
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
 
-/** A file marked viewed after less than this wasn't reviewed, only ticked off: nothing to learn. */
 const MIN_REVIEW_SECONDS = 2;
 
-// Whether the page is drawn dark (theme.ts sets the class), read again whenever the class changes.
 const isDark = () => document.documentElement.classList.contains("dark");
 const watchDark = (changed: () => void) => {
   const observer = new MutationObserver(changed);
@@ -126,7 +116,6 @@ const watchDark = (changed: () => void) => {
 };
 const useDark = () => useSyncExternalStore(watchDark, isDark);
 
-// What each kept setting may be; anything else kept under its key is ignored.
 const isString = (v: unknown): v is string => typeof v === "string";
 const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 const isAnything = (v: unknown): v is unknown => v !== undefined;
@@ -141,16 +130,11 @@ const STYLES = ["split", "unified"] as const;
 
 type Event = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 
-/** The toolbar's items: borderless, 28pt, in capsules, as Tahoe's toolbars draw them. Toolbars are
- *  where macOS does light up an item under the pointer. */
 const TOOL =
   "h-(--toolbar-item-h) rounded-full px-2.5 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
 const TOOL_ICON =
   "size-(--toolbar-item-h) rounded-full px-0 text-muted-foreground hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed) aria-expanded:bg-(--fill-control-pressed) aria-expanded:text-foreground";
 
-/** Submit Review…: the toolbar's one prominent action. Its popover keeps what was typed when it
- *  closes (and across closing the window), as a nonmodal popover should; sending clears it.
- *  `open`/`onOpenChange`: the menu bar's Submit Review… opens it too. */
 function SubmitReview({
   details,
   drafts,
@@ -164,9 +148,7 @@ function SubmitReview({
   drafts: Draft[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Sends the review with your pending comments (utils/pending/pending.ts); throws to say why not. */
   onSubmit: (event: Event, body: string) => Promise<void>;
-  /** Throws your pending review away, here and on GitHub. */
   onDiscard: () => Promise<void>;
   onSubmitted: () => void;
 }) {
@@ -271,8 +253,6 @@ function SubmitReview({
               {error}
             </p>
           ) : null}
-          {/* The default button, bottom right; ⌘↩ sends from the field. Throwing the pending review
-              away can't be undone: a native alert asks first. */}
           <div className="flex items-center justify-end gap-2">
             {drafts.length > 0 ? (
               <Button variant="destructive" className="mr-auto" disabled={busy} onClick={() => void discard()}>
@@ -294,7 +274,6 @@ function SubmitReview({
   );
 }
 
-/** Where a comment is, to step through them: a conversation, a pending comment, an AI comment. */
 type Stop = {
   path: string;
   line: number;
@@ -316,19 +295,14 @@ export function Review({ target }: { target: Target }) {
   const [hideViewed, setHideViewed] = useState(false);
   const [diffStyle, setDiffStyle] = usePersisted("diff-style", "split", isDiffStyle);
   const [wrap, setWrap] = usePersisted("diff-wrap", false, isBoolean);
-  // Whitespace changes hidden, as GitHub's ?w=1; kept like the layout and wrapping.
   const [whitespace, setWhitespace] = usePersisted("diff-whitespace", false, isBoolean);
   const [shortcuts, setShortcuts] = useState(false);
   const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {}, isMarks);
   const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview", isTab);
   const [stop, setStop] = useState(-1);
-  // The parts being reviewed, remembered per repository: their files are what shows. (One filter's
-  // id, from before they could be combined, reads as a list of one.)
   const [kept, setKept] = usePersisted<unknown>(`filter:${repo}`, [], isAnything);
-  // Viewed files opened anyway, to show a comment in one: they don't fold until marked again.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
   const learned = useLearned();
-  // This pull request, for coming back to it from the next.
   const here = useMemo<Visit | null>(
     () =>
       details
@@ -347,7 +321,6 @@ export function Review({ target }: { target: Target }) {
     [details, prId, number, repo, teams, target.queue],
   );
   const { next: nextPull, go: goNext, goTo, previous, back: goBack } = useNextInQueue(target.queue, prId, here);
-  // Reviewing a stack, Next goes up it, in order, before going on with the queue.
   const stack = useStack(details);
   const upStack = stack && stack.at < stack.pulls.length - 1 ? stack.pulls[stack.at + 1] : null;
   const visitOf = (pull: StackPull): Visit => ({
@@ -369,12 +342,10 @@ export function Review({ target }: { target: Target }) {
       setNotice((n) => (n === message ? null : n));
     }, 3500);
   };
-  // On to the next, or saying the queue's done when there's none.
   const nextInQueue = async () => {
     if (upStack) return goTo(visitOf(upStack));
     if (!(await goNext())) say(t("review.queueDone", { queue: queueName || t("review.theQueue") }));
   };
-  // Off the queue, as the panel's Mark Done, and on to the next; saying so when it was the last.
   const markDone = async () => {
     if (!(await goNext(true))) say(t("review.doneQueueDone", { queue: queueLabel }));
   };
@@ -387,7 +358,6 @@ export function Review({ target }: { target: Target }) {
     markDoneRef.current = markDone;
   });
   const minutesOf = useMemo(() => createEstimator(LINES_PER_HOUR, learned), [learned]);
-  // The AI review of this pull request's current head, kept until it changes.
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(
     `ai-review:${prId}`,
     null,
@@ -399,20 +369,14 @@ export function Review({ target }: { target: Target }) {
   const dark = useDark();
   const diffs = useRef<DiffsHandle>(null);
   const [me, setMe] = useState<string | null>(null);
-  // Opened from the toolbar or the menu bar.
   const [submitting, setSubmitting] = useState(false);
   const [mergeMenu, setMergeMenu] = useState(false);
-  // The file last picked in the sidebar: its row stays selected, as in a source list.
   const [picked, setPicked] = useState<string | null>(null);
-  // The toolbar draws its edge only once something has scrolled under it.
   const [scrolled, setScrolled] = useState(false);
-  // The title centred on the window, as a Mac window's is, while it has room between the two ends;
-  // when it hasn't, it takes what's between them instead.
   const leadingRef = useRef<HTMLDivElement>(null);
   const trailingRef = useRef<HTMLDivElement>(null);
   const [titleBox, setTitleBox] = useState<{ left: number; right: number } | null>(null);
   useLayoutEffect(() => {
-    // Both ends are drawn with the toolbar, which is there on the first showing.
     const leading = leadingRef.current!;
     const trailing = trailingRef.current!;
     const bar = leading.parentElement!;
@@ -433,26 +397,17 @@ export function Review({ target }: { target: Target }) {
   }, []);
   const filterField = useRef<HTMLInputElement>(null);
 
-  const ref = useMemo(
-    // "owner/name", as GitHub writes a repository.
-    () => ({ owner: repo.split("/")[0]!, repo: repo.split("/")[1]!, number }),
-    [repo, number],
-  );
-  // Your pending review, on GitHub (pending.ts); the conversations without its comments.
+  const ref = useMemo(() => ({ owner: repo.split("/")[0]!, repo: repo.split("/")[1]!, number }), [repo, number]);
   const pending = usePending(prId, ref, threads);
   const drafts = pending.drafts;
   const conversations = useMemo(() => published(threads), [threads]);
-  // Both versions of the files (to expand context, show pictures, load large files) and links to
-  // them, once the head commit is known.
   const head = details?.headRefOid;
   const source = useMemo<Source | null>(
     () => (head ? { repo, head, base: () => mergeBase(ref, head) } : null),
     [repo, ref, head],
   );
   const link = useMemo<LinkTarget | null>(() => (head ? { ...ref, head } : null), [ref, head]);
-  // The copy kept from last time shows at once (kept.ts); what GitHub has now replaces it.
   const shownOnce = useRef(false);
-  /** What you've viewed on github.com, for the files not marked here; what's marked here goes to GitHub. */
   const followGitHub = useCallback(
     (list: ReviewFile[], states: Map<string, ViewedState>, queued: Record<string, boolean>) => {
       setViewed((m) => {
@@ -461,8 +416,6 @@ export function Review({ target }: { target: Target }) {
           const state = states.get(f.path);
           const mine = m[f.path];
           if (!state || f.path in queued) continue;
-          // Marked here (viewed, at these changes, or unmarked): the app's mark wins and goes to
-          // GitHub if it says otherwise. Untouched here, or marked before the file changed: GitHub's.
           if (mine === "" || mine === patchHash(f)) {
             if ((state === "VIEWED") !== (mine !== "")) void bridge.queueViewed(prId, f.path, mine !== "");
           } else if (state === "VIEWED") next[f.path] = patchHash(f);
@@ -473,15 +426,11 @@ export function Review({ target }: { target: Target }) {
     },
     [setViewed, prId],
   );
-  // What's on screen, to fetch only what changed since: the copy kept on disk for the first
-  // showing, what was last loaded after that.
   const last = useRef<Kept | null>(null);
   const load = useCallback(async () => {
-    // Beside the rest, never in its way: without it, what's kept here stands.
     const onGitHub = loadViewed(ref).catch(() => null);
     const asked = loadDetails(repo, number);
     try {
-      // Only for the first showing: a reload after you did something already has newer on screen.
       let before = last.current;
       if (!shownOnce.current) {
         before = await readKept(prId);
@@ -494,8 +443,6 @@ export function Review({ target }: { target: Target }) {
       }
       let d: Details, f: ReviewFile[], th: Thread[];
       if (before) {
-        // Shown already: ask for the details, then only what changed. The files change only with
-        // the head commit (or another base branch); the conversations, with the pull request.
         d = await asked;
         setDetails(d);
         const sameFiles = before.details.headRefOid === d.headRefOid && before.details.baseRefName === d.baseRefName;
@@ -506,8 +453,6 @@ export function Review({ target }: { target: Target }) {
             : loadThreads(ref).then((got) => (setThreads(got), got)),
         ]);
       } else {
-        // Nothing yet: all three at once, each needs only the pull request's address. What the
-        // panel fetched ahead of a click comes back from memory (github.rs).
         [d, f, th] = await Promise.all([
           asked.then((got) => (setDetails(got), got)),
           loadFiles(ref).then((got) => (setFiles(got), got)),
@@ -535,8 +480,6 @@ export function Review({ target }: { target: Target }) {
     // oxlint-disable-next-line react/set-state-in-effect -- it fetches: what it sets comes after GitHub answers, not during the effect
     void load();
   }, [load]);
-  // Settings changed in their window (an AI set up, a filter edited) or another account signed in:
-  // this window follows at once, as the panel does, rather than at its next opening.
   useEffect(() => {
     const off = bridge.on<string>("file-changed", (name) => {
       if (name === "config") void loadConfig().then(setConfig);
@@ -552,12 +495,10 @@ export function Review({ target }: { target: Target }) {
   const ai = config?.ai.provider ? config : null;
   const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;
   const aiProblemNow = useAiProblem(ai);
-  // The pull request's code fetched as soon as it's known, so questions can read it straight away.
   const projectHead = ai?.ai.project && details?.state === "OPEN" ? details.headRefOid : null;
   useEffect(() => {
     if (projectHead && !aiProblemNow) void bridge.aiPrepare({ repo, number, head: projectHead }).catch(() => {});
   }, [projectHead, aiProblemNow, repo, number]);
-  // Asked for: says what's missing when the AI can't answer. On its own: only when it can.
   const runReview = useCallback(
     async (asked = true) => {
       if (!ai || !details || !files) return;
@@ -574,7 +515,6 @@ export function Review({ target }: { target: Target }) {
     },
     [ai, details, files, setReviewed],
   );
-  // On its own when the person asked for that, once per head commit.
   useEffect(() => {
     if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
       // oxlint-disable-next-line react/set-state-in-effect -- it sets state only once the AI's readiness is known (awaited)
@@ -597,7 +537,6 @@ export function Review({ target }: { target: Target }) {
     );
   };
 
-  // The whole conversation, and what its comments can do wherever they're drawn (use-conversation.tsx).
   const talk = useConversation({
     prId,
     ref,
@@ -611,25 +550,19 @@ export function Review({ target }: { target: Target }) {
     reloadAll: () => void load(),
   });
   const reloadConversation = talk.reload;
-  // Merging, checks, commits, people and the rest around the pull request (use-pull.ts); the range of
-  // commits the diff shows, and its files when it isn't all of them.
   const pull = usePull({ prId, ref, details, setDetails, threads, say, reloadAll: () => void load() });
   const [rangeMenu, setRangeMenu] = useState(false);
   const ranged = useRangeFiles(ref, pull.range);
   const shownFiles = pull.range ? ranged.files : files;
-  // Viewed marks belong to the pull request's version of a file, whichever range shows it.
   const pullFiles = useMemo(() => new Map((files ?? []).map((f) => [f.path, f])), [files]);
   const pullFileOf = useCallback((f: ReviewFile) => pullFiles.get(f.path) ?? f, [pullFiles]);
   const range = pull.range;
-  // Conversations sit on the head's lines: an older version's lines aren't those.
   const olderRange = Boolean(range && details && range.to !== details.headRefOid);
-  // The two versions the expanded lines come from: the range's ends when it's a range.
   const diffSource = useMemo<Source | null>(
     () => (range ? { repo, head: range.to, base: () => Promise.resolve(range.from) } : source),
     [range, repo, source],
   );
 
-  // The panel's lists catch up right away.
   const changed = useCallback(async () => {
     void bridge.refresh(true);
     void reloadConversation();
@@ -641,8 +574,6 @@ export function Review({ target }: { target: Target }) {
     } catch {}
   }, [ref, repo, number, reloadConversation]);
 
-  // Pushed to while it's open: said, with a way to show it (the diff doesn't change under you).
-  // Anything else new (comments, reviews, labels) comes in on its own.
   const newChanges = useNewChanges(repo, number, details?.headRefOid, details?.updatedAt, () => void changed());
   const [updating, setUpdating] = useState(false);
   const update = async () => {
@@ -654,15 +585,12 @@ export function Review({ target }: { target: Target }) {
   };
 
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === patchHash(pullFileOf(f)), [viewed, pullFileOf]);
-  // The filters for everywhere and this repository's own; the chosen ones that have files here. The
-  // kept choice stays as it is, so another pull request in the repository gets the full set.
   const repoFilters = useMemo(() => filtersFor(config?.filters ?? [], repo), [config, repo]);
   const chosen = useMemo(() => {
     const ids = keptSelection(kept);
     return repoFilters.filter((f) => ids.includes(f.id) && (!files || files.some((x) => inFilter(f, x.path))));
   }, [kept, repoFilters, files]);
   const chosenIds = useMemo(() => chosen.map((f) => f.id), [chosen]);
-  // In the sidebar's order (folders first), so the diff reads as the tree lists it.
   const ordered = useMemo(() => (shownFiles ? inTreeOrder(shownFiles) : []), [shownFiles]);
   const inPart = useMemo(() => ordered.filter((f) => inAny(chosen, f.path)), [ordered, chosen]);
   const visible = useMemo(() => {
@@ -685,12 +613,10 @@ export function Review({ target }: { target: Target }) {
   const choose = useCallback(
     (ids: string[]) => {
       setKept(ids);
-      // Another part starts at its top, not wherever the last one was scrolled to.
       requestAnimationFrame(() => diffs.current?.scrollToTop());
     },
     [setKept],
   );
-  // Next and previous filter stop only at filters with files here.
   const stepPart = (by: 1 | -1) => {
     choose(
       stepFilter(
@@ -700,11 +626,8 @@ export function Review({ target }: { target: Target }) {
       ),
     );
   };
-  /** The next file left to review, after the one at the top of the screen; with none left in the
-   *  chosen filters, the next filter that has some. */
   const goToNextFile = () => {
     setTab("diff");
-    // Files GitHub sends no diff for aren't in the list to go to.
     const upcoming = nextFile(
       visible.filter((f) => f.patch),
       isViewed,
@@ -714,25 +637,20 @@ export function Review({ target }: { target: Target }) {
     else if (next.nextFilter) choose([next.nextFilter.id]);
   };
 
-  /** j and k: the next or previous file in the list (files with a diff). */
   const stepToFile = (by: 1 | -1) => {
     const path = stepFile(diffs.current?.listed() ?? [], diffs.current?.atTop() ?? null, by);
     if (!path) return;
     setPicked(path);
     diffs.current?.scrollToFile(path);
   };
-  /** v: the file at the top of the screen, marked viewed or not. */
   const toggleViewedAtTop = () => {
     const top = diffs.current?.atTop();
     const file = top && visible.find((f) => f.path === top.path);
     if (file) setFileViewed(file, !isViewed(file));
   };
 
-  // The time spent on each file showing, to learn the reader's pace from the files they mark viewed.
   const take = useActiveTime(() => diffs.current?.onScreen() ?? [], tab === "diff");
-  /** Marks a file viewed or not, here at once and on github.com after; if GitHub refuses, it goes back. */
   const setFileViewed = (f: ReviewFile, v: boolean) => {
-    // Unmarked stays as "", so GitHub's older mark doesn't come back over it.
     setViewed((m) => ({ ...m, [f.path]: v ? patchHash(pullFileOf(f)) : "" }));
     if (v) {
       setOpened((s) => (s.has(f.path) ? new Set([...s].filter((p) => p !== f.path)) : s));
@@ -740,7 +658,6 @@ export function Review({ target }: { target: Target }) {
       if (seconds >= MIN_REVIEW_SECONDS)
         void learnFiles([{ path: f.path, expected: reviewMinutes(f.path, f), actual: seconds / 60 }]);
     }
-    // Rust keeps it until GitHub takes it (outbox.rs), so it's never undone here.
     void bridge.queueViewed(prId, f.path, v);
   };
 
@@ -750,8 +667,6 @@ export function Review({ target }: { target: Target }) {
     return map;
   }, [conversations]);
 
-  // The comments to step through, in the order of the files: open conversations, your pending
-  // comments, the AI's. Resolved conversations are done with.
   const stops = useMemo<Stop[]>(() => {
     const order = new Map(ordered.map((f, i) => [f.path, i]));
     const all: Stop[] = [
@@ -768,16 +683,12 @@ export function Review({ target }: { target: Target }) {
       .toSorted((a, b) => order.get(a.path)! - order.get(b.path)! || a.line - b.line);
   }, [ordered, conversations, drafts, current]);
 
-  /** Shows a file (at a line) in the Diff tab, bringing it into view if a filter, a search or its
-   *  folding as viewed hides it. */
   const jump = (path: string, line: number | null, side?: Thread["side"], thread?: Thread) => {
     setTab("diff");
     setPicked(path);
     if (!inAny(chosen, path)) setKept([]);
     setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
-    // Opened, not unmarked: it stays viewed, here and on GitHub.
     setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
-    // After the tab and the list have drawn.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (thread) diffs.current?.scrollToThread(thread);
@@ -794,9 +705,6 @@ export function Review({ target }: { target: Target }) {
     const at = stops[index]!;
     jump(at.path, at.line, at.side, at.thread);
   };
-  // n and p step through the comments, like a reader's next and previous. The filters' shortcuts are
-  // Focus Diff's own (⌥⇧. and ⌥⇧, for next and previous filter, ⌥⇧0 for all files, ⌥⇧J for the next
-  // file to review), read by key position, since ⌥ changes the character typed.
   const filterKeys = useRef({ stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step });
   useLayoutEffect(() => {
     filterKeys.current = { stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step };
@@ -804,14 +712,11 @@ export function Review({ target }: { target: Target }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
-      // ⌘] on to the next pull request of the queue and ⌘[ back, as forward and back in Safari
-      // (Ctrl elsewhere).
       if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
         e.preventDefault();
         void (e.key === "]" ? goNextRef : goBackRef).current();
         return;
       }
-      // Taken already (a menu's type-to-select, the file tree's arrows): not a shortcut.
       if (e.metaKey || e.ctrlKey) return;
       if (e.altKey && e.shiftKey) {
         const keys = filterKeys.current;
@@ -833,13 +738,11 @@ export function Review({ target }: { target: Target }) {
         action();
         return;
       }
-      // e marks it done, as on GitHub's notifications: only for one opened from a queue.
       if (e.key === "e" && !e.altKey && target.queue) {
         e.preventDefault();
         void markDoneRef.current();
         return;
       }
-      // ? shows every shortcut, from either tab, as on GitHub.
       if (e.key === "?") {
         e.preventDefault();
         setShortcuts(true);
@@ -850,7 +753,6 @@ export function Review({ target }: { target: Target }) {
         e.preventDefault();
         filterKeys.current.step(e.key === "n" ? 1 : -1);
       } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
-        // j, k and v as on GitHub: next file, previous file, viewed.
         e.preventDefault();
         if (e.key === "v") filterKeys.current.toggleViewedAtTop();
         else filterKeys.current.stepToFile(e.key === "j" ? 1 : -1);
@@ -869,7 +771,6 @@ export function Review({ target }: { target: Target }) {
       void load();
     }
   };
-  // Anyone with write access, as GitHub's own merge box allows (use-pull.ts, merging.ts).
   const view = pull.view;
   const canMerge = Boolean(
     view &&
@@ -903,8 +804,6 @@ export function Review({ target }: { target: Target }) {
     }
   };
 
-  // The menu bar's review commands (src-tauri/src/menu.rs) come here when this window is in front;
-  // it's told which of them this pull request allows, so the others are dimmed.
   const menuActions = useRef<Record<string, () => void>>({});
   useLayoutEffect(() => {
     menuActions.current = {
@@ -969,7 +868,6 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
-    // Without a menu bar (Windows, Linux: a tray app's windows have none), its shortcuts are the page's.
     const keys: Record<string, string> = { "1": "overview", "2": "diff", f: "find", ",": "settings", q: "quit" };
     const onKey = (e: KeyboardEvent) => {
       const id = keys[e.key.toLowerCase()];
@@ -1001,7 +899,6 @@ export function Review({ target }: { target: Target }) {
     "open-github": Boolean(details),
     leave: canLeave,
   };
-  // Told again only when one of them changes: "id=true id=false…", read back into the items.
   const allowedKey = Object.entries(allowed)
     .map(([id, on]) => `${id}=${on}`)
     .join(" ");
@@ -1029,12 +926,6 @@ export function Review({ target }: { target: Target }) {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      {/* One toolbar, as in Xcode or Safari: the view switch right after the traffic lights (and, in
-          the Diff, which changes show), the title centred in the window, the Diff's controls and the
-          actions at the trailing end. The title gives way first; as the window narrows the branch
-          line goes, then the actions fold into a menu, then labels turn into icons. The sides are
-          equal columns at least as wide as what's in them, so the title stays centred while it can.
-          The bar is a size container so this follows its width. */}
       <header
         data-tauri-drag-region
         className={cn(
@@ -1044,7 +935,6 @@ export function Review({ target }: { target: Target }) {
         )}
       >
         <div ref={leadingRef} data-tauri-drag-region className="flex shrink-0 items-center gap-2">
-          {/* The view switch: a capsule with a neutral knob, concentric with the toolbar, as Finder's. */}
           {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- its tabs take the focus, one at a time (the roving tabindex of WAI-ARIA's tabs pattern), not the list */}
           <div
             role="tablist"
@@ -1077,15 +967,12 @@ export function Review({ target }: { target: Target }) {
                 className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:not-aria-selected:bg-(--fill-control-hover)"
               >
                 {label}
-                {/* Its room kept while loading, so the switch doesn't grow when the count arrives. */}
                 <span className="min-w-3.5 text-center text-subheadline text-muted-foreground tabular-nums @max-[860px]:hidden">
                   {count === undefined ? <Skeleton className="h-3 w-3.5" /> : count || null}
                 </span>
               </button>
             ))}
           </div>
-          {/* Which changes show: all, since your last review, a commit or a run of them. On both tabs,
-              so nothing after it moves when switching; picking one from the overview shows the diff. */}
           <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
             <RangePicker
               pull={{
@@ -1100,7 +987,6 @@ export function Review({ target }: { target: Target }) {
               onOpenChange={setRangeMenu}
             />
           </div>
-          {/* The stack it's in, on the left with what's being looked at. */}
           {stack ? <StackMenu stack={stack} className={TOOL} onPick={(other) => void goTo(visitOf(other))} /> : null}
         </div>
 
@@ -1117,8 +1003,6 @@ export function Review({ target }: { target: Target }) {
               <h1 data-tauri-drag-region className="max-w-full truncate text-headline font-bold" title={details.title}>
                 {details.title}
               </h1>
-              {/* What just happened shows here for a moment, in place of the branch line, rather than
-                  as a toast: a Mac window says it where you're looking. */}
               {notice ? (
                 <output className="block max-w-full animate-in truncate text-subheadline text-foreground duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   {notice}
@@ -1143,15 +1027,11 @@ export function Review({ target }: { target: Target }) {
           )}
         </div>
 
-        {/* In a phone-wide browser tab the buttons can outgrow the bar: there they scroll inside it,
-            rather than the whole page scrolling sideways (relative, so labels hidden for the eye stay inside). */}
         <div
           ref={trailingRef}
           data-tauri-drag-region
           className="flex shrink-0 items-center justify-end gap-1 @max-[520px]:relative @max-[520px]:min-w-0 @max-[520px]:shrink @max-[520px]:justify-start @max-[520px]:overflow-x-auto"
         >
-          {/* The Diff's controls: drawn always, opened only in the Diff, so switching tabs moves no
-            button; the title's room shrinks smoothly instead (at once with reduced motion). */}
           <div
             data-tauri-drag-region
             aria-hidden={tab !== "diff"}
@@ -1162,7 +1042,6 @@ export function Review({ target }: { target: Target }) {
             )}
           >
             <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
-              {/* Layout and wrapping, one capsule of glyphs. */}
               <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
                 <ToggleGroup
                   value={[diffStyle]}
@@ -1239,8 +1118,6 @@ export function Review({ target }: { target: Target }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            {/* The person's own actions, AI, readiness and merging: one capsule of labelled items. The
-              actions fold into a pull-down menu as the window narrows. */}
             {(config?.actions.length && details && me) ||
             (ai && details) ||
             canMerge ||
@@ -1337,7 +1214,6 @@ export function Review({ target }: { target: Target }) {
                   </Button>
                 ) : null}
                 {canMerge && details ? (
-                  // A pull-down button: how to merge, then a native alert to confirm (it can't be undone).
                   <DropdownMenu open={mergeMenu} onOpenChange={setMergeMenu}>
                     <DropdownMenuTrigger
                       render={<Button variant="ghost" className={cn(TOOL, "gap-1 @max-[1360px]:px-2")} />}
@@ -1424,15 +1300,12 @@ export function Review({ target }: { target: Target }) {
                   say(i18n()("review.reviewDiscarded"));
                 }}
                 onSubmitted={() => {
-                  // Sending any review takes the request off you: off the review queues now.
                   void bridge.reviewed(details.id);
                   say(i18n()("review.reviewSent"));
                   void changed();
                 }}
               />
             ) : null}
-            {/* Done with it: off the queue it was opened from, as the panel's Mark Done, and on to the
-                next there. */}
             {target.queue ? (
               <Tooltip>
                 <TooltipTrigger
@@ -1457,9 +1330,6 @@ export function Review({ target }: { target: Target }) {
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            {/* Back to the pull request shown before and on to the next of the queue it was opened
-              from, in this window, as back and forward in Safari: the last item, where the eye goes
-              once the review is sent. */}
             {nextPull || previous || upStack ? (
               <div
                 // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a capsule of toolbar buttons, not a form's fieldset (with its legend and min-inline-size)
@@ -1548,7 +1418,6 @@ export function Review({ target }: { target: Target }) {
         </div>
       </header>
 
-      {/* What the comments in both tabs can do (use-conversation.tsx). */}
       <ConversationProvider value={talk.api}>
         <main
           className="relative flex min-h-0 flex-1 flex-col [view-transition-name:page]"
@@ -1557,7 +1426,6 @@ export function Review({ target }: { target: Target }) {
           }}
         >
           {newChanges ? (
-            // Over the top of either tab, as GitHub's bar, without moving what's under it.
             <output className="absolute top-2 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 animate-in items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu) duration-(--duration) fade-in-0 slide-in-from-top-2 motion-reduce:animate-none">
               <GitCommitHorizontal className="size-3.5 shrink-0 text-primary" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{t("review.newChanges")}</span>
@@ -1611,7 +1479,6 @@ export function Review({ target }: { target: Target }) {
                 say={say}
               />
             ) : (
-              // The Overview's own layout, empty: nothing moves when it fills in.
               <div
                 className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]"
                 aria-busy="true"
@@ -1641,7 +1508,6 @@ export function Review({ target }: { target: Target }) {
           >
             <aside className="flex w-72 shrink-0 flex-col border-r" aria-label={t("review.files")}>
               <div className="flex flex-col gap-2 border-b p-3">
-                {/* A search field: a capsule, the magnifier inside, a clear button once there's text. */}
                 <div className="relative">
                   <Search
                     className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -1674,7 +1540,6 @@ export function Review({ target }: { target: Target }) {
                       }}
                       className="group/clear absolute top-1/2 right-0.5 grid size-6 -translate-y-1/2 cursor-default place-items-center rounded-full focus-ring outline-none"
                     >
-                      {/* The clear button's 14px circle, in a 24px target. */}
                       <span className="grid size-3.5 place-items-center rounded-full bg-muted-foreground/60 text-background transition-colors duration-(--duration-fast) group-hover/clear:bg-muted-foreground">
                         <X className="size-2.5" strokeWidth={3} aria-hidden />
                       </span>

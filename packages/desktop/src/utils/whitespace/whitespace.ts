@@ -1,21 +1,10 @@
-// Hiding whitespace changes (GitHub's "Hide whitespace", git diff -w), worked out from the patch
-// alone, with nothing more to fetch: within each run of removed and added lines, the lines that
-// are the same once all whitespace is taken out pair up and show as unchanged (in their new form).
-// Line numbers stay as they are, so comments still land where they were made. A hunk left with no
-// changes goes; a file whose changes were all whitespace keeps its hunks, unchanged, rather than
-// showing nothing.
-
-/** Past this many line pairs in one run, lines pair only in order (no full search). */
 const LARGEST = 4_000_000;
 
 const bare = (line: string) => line.slice(1).replaceAll(/\s+/gu, "");
 
-/** The removed and added lines of one run, as unchanged pairs and what's left, in order. */
 function pairUp(removed: string[], added: string[]): string[] {
   const a = removed.map((line) => bare(line));
   const b = added.map((line) => bare(line));
-  // Which added line each removed line pairs with: the longest run of lines both share (the
-  // classic table, read back from the start), or, for a huge run, only lines at the same place.
   const pairs = new Map<number, number>();
   if (a.length * b.length > LARGEST) {
     for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) pairs.set(i, i);
@@ -33,7 +22,6 @@ function pairUp(removed: string[], added: string[]): string[] {
   const out: string[] = [];
   let i = 0;
   let j = 0;
-  // Between two pairs, the removed lines first, then the added, as git writes them.
   for (const [pi, pj] of [...pairs, [a.length, b.length] as const]) {
     while (i < pi) out.push(removed[i++]!);
     while (j < pj) out.push(added[j++]!);
@@ -58,7 +46,6 @@ export function ignoreWhitespace(patch: string): string {
   const changed = hunks.map((hunk) => {
     const out = [hunk[0]!];
     let run: string[] = [];
-    // "\ No newline at end of file" belongs to the line before it: a run with one stays as it is.
     const end = () => {
       out.push(
         ...(run.some((l) => l[0] === "\\")

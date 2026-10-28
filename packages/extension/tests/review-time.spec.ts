@@ -5,7 +5,6 @@ import type { ReviewRun, ReviewTimeSettings } from "../src/utils/review-sessions
 import { accessibilityViolations, expect, test } from "./fixtures";
 import { allowNotifications, dashboard, routeGitHubRest } from "./github";
 
-/** Review time on, with these sessions. */
 const turnOnReviewTime = (background: Worker, sessions: Record<string, unknown>[]) =>
   background.evaluate((value) => chrome.storage.sync.set({ reviewTime: { enabled: true, sessions: value } }), sessions);
 
@@ -23,7 +22,6 @@ const pull = (number: number, hoursOld: number, extra: Record<string, unknown> =
   ...extra,
 });
 
-/** Lines changed in each pull request's files: at the starting pace, a thousand lines take an hour. */
 const FILES: Record<number, [string, number][]> = {
   12: [
     ["web/src/covers.ts", 300],
@@ -33,7 +31,6 @@ const FILES: Record<number, [string, number][]> = {
   14: [["docs/reading.md", 1200]],
 };
 
-/** GitHub as review time reads it: the review queue, and each pull request's files. */
 const routeGitHub = async (context: BrowserContext) => {
   await context.route(/^https:\/\/github\.com\/pulls\/(reviews|authored)$/u, (route) =>
     route.fulfill({
@@ -103,7 +100,6 @@ test.describe("review time settings", () => {
     await allowNotifications(page);
     await page.reload();
 
-    // Turned on, it starts with one review time, open to fill in.
     await page.getByRole("switch", { name: "Remind me when it’s review time" }).click();
     const card = page.locator(".session");
     await expect(card).toHaveCount(1);
@@ -121,7 +117,6 @@ test.describe("review time settings", () => {
     await page.getByLabel("Sound").first().selectOption("marimba");
     expect(await accessibilityViolations(page, "#review-time")).toEqual([]);
 
-    // With review times, an event can wait for the next one.
     await page.getByRole("switch", { name: "Notify me" }).click();
     const comments = page.getByRole("radiogroup", {
       name: "When to tell me about “Someone comments on my pull request”",
@@ -148,7 +143,6 @@ test.describe("review time settings", () => {
       filters: ["tests"],
     });
     expect(saved.notifications.events["comment-mine"].when).toBe("review");
-    // The next one has its alarm, at 16:30 on a day it's on.
     const alarm = await background.evaluate(
       async () =>
         (await chrome.alarms.getAll()).find((each: { name: string }) => each.name.startsWith("review-time:next:"))
@@ -174,14 +168,12 @@ test.describe("review time in the popup", () => {
   test("starts one now with what fits, then ends it", async ({ context, openExtensionPage, background }) => {
     await routeGitHub(context);
     const page = await openExtensionPage("popup.html");
-    // Set up once, review time keeps out of the way; the clock asks for one now.
     const panel = page.getByRole("region", { name: "Review time", exact: true });
     await expect(panel).toBeHidden();
     await page.getByRole("button", { name: "Review now" }).click();
     await panel.getByRole("group", { name: "How long do you have?" }).getByRole("button", { name: "45 min" }).click();
     await panel.getByRole("button", { name: "Start" }).click();
 
-    // Waiting longest first, the ones that fit: 12 takes 33 minutes, 13 eight, 14 seventy-four.
     const rows = panel.getByRole("link");
     await expect(rows).toHaveCount(2);
     await expect(rows.first()).toHaveAccessibleName(/^Cache the book covers\s*web#12\s*ada\s*~33 min\s*2 files$/u);
@@ -204,7 +196,6 @@ test.describe("review time in the popup", () => {
     background,
   }) => {
     await routeGitHub(context);
-    // 14 left the queue after the reader reviewed it; back on it, they were asked again.
     await background.evaluate(async (url) => {
       await chrome.storage.local.set({ reviewQueueHistory: { [url]: { left: Date.now() - 3600_000 } } });
     }, "https://github.com/octo/web/pull/14");
@@ -217,7 +208,6 @@ test.describe("review time in the popup", () => {
     await expect(rows.nth(2)).toContainText("~8 min");
     expect(await accessibilityViolations(page)).toEqual([]);
 
-    // Turned off, the queue reads no files and says nothing of time.
     await background.evaluate(async () => {
       const { reviewTime } = await chrome.storage.sync.get<{ reviewTime: ReviewTimeSettings }>("reviewTime");
       await chrome.storage.sync.set({ reviewTime: { ...reviewTime, queueEstimates: false } });
@@ -234,7 +224,6 @@ test.describe("review time in the popup", () => {
     await turnOnReviewTime(background, [
       { id: "quick", name: "Quick look", days: [0, 1, 2, 3, 4, 5, 6], times: ["03:00"], minutes: 5, order: "quickest" },
     ]);
-    // Scheduled first: with no review time to come, what's kept would show at once instead.
     await expect
       .poll(() =>
         background.evaluate(async () =>
@@ -260,12 +249,10 @@ test.describe("review time in the popup", () => {
         ],
       }),
     );
-    // Put off earlier, its time comes again.
     await background.evaluate(() => chrome.alarms.create("review-time:snooze:quick", { when: Date.now() + 50 }));
     await expect.poll(() => run(background).then((value) => value?.name)).toBe("Quick look");
 
     const page = await openExtensionPage("popup.html");
-    // Offered, it's over the lists as the popup opens.
     const panel = page.getByRole("region", { name: "Review time", exact: true });
     await expect(panel).toContainText("5 min set aside");
     await expect(panel.getByRole("note")).toHaveText(
@@ -371,7 +358,6 @@ test.describe("review time, when things go sideways", () => {
     const page = await openExtensionPage("popup.html");
     await page.getByRole("region", { name: "Review time", exact: true }).getByRole("button", { name: "Skip" }).click();
     await expect.poll(() => run(background)).toBeNull();
-    // The one offered with it was seen; the one that came after waits for the next.
     const left = () =>
       background.evaluate(async () =>
         (

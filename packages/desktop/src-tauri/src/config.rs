@@ -1,7 +1,3 @@
-//! The part of the person's setup (config.json) that the queue engine needs. The settings window
-//! owns the file and writes it complete (src/utils/config/config.ts); this side only reads it, so anything
-//! missing or unknown falls back to the same defaults instead of failing.
-
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Default)]
@@ -62,11 +58,8 @@ pub struct Queue {
     pub skip_merged_by: Vec<String>,
     pub query: String,
     pub notify: Vec<String>,
-    /// What to leave out of its notifications: "drafts", "bots", "approved" (ones you approved).
     pub notify_leave_out: Vec<String>,
-    /// Notifications only from these repositories ("owner/name" or "owner/*"); empty: all of the queue's.
     pub notify_repos: Vec<String>,
-    /// Right away, or kept for the next review time. Missing: review queues wait, others don't.
     pub notify_at: Option<NotifyAt>,
 }
 
@@ -104,12 +97,10 @@ impl Default for Queue {
 }
 
 impl Queue {
-    /// Path filters can only be checked against the files GitHub lists.
     pub fn needs_files(&self) -> bool {
         !self.include_paths.is_empty() || !self.exclude_paths.is_empty()
     }
 
-    /// Whether its notifications wait for review time (when there is one to wait for).
     pub fn waits_for_review(&self) -> bool {
         self.notify_at.unwrap_or(if self.kind == Kind::Review { NotifyAt::Review } else { NotifyAt::Now }) == NotifyAt::Review
     }
@@ -127,7 +118,6 @@ pub enum NotifyAt {
     Now,
 }
 
-/// Which of the pull requests that fit a review time go first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Order {
@@ -138,20 +128,16 @@ pub enum Order {
     Oldest,
 }
 
-/// A time set aside to review, like weekdays at 15:00 for half an hour.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Session {
     pub id: String,
     pub name: String,
     pub on: bool,
-    /// Days of the week, 0 for Sunday.
     pub days: Vec<u8>,
-    /// "HH:MM", local time.
     pub times: Vec<String>,
     pub minutes: u32,
     pub order: Order,
-    /// The queues it picks from, by id; empty: every review queue.
     pub queues: Vec<String>,
     pub drafts: bool,
 }
@@ -167,13 +153,9 @@ impl Default for Session {
 pub struct ReviewTime {
     pub enabled: bool,
     pub sessions: Vec<Session>,
-    /// Pull requests you were asked to review again go first, when they fit.
     pub again_first: bool,
-    /// A notification when the time's up, saying how far it got.
     pub remind_end: bool,
-    /// With nothing to review, the time passes without a word.
     pub skip_empty: bool,
-    /// While reviewing, every notification waits for the time to be up.
     pub hold_while_reviewing: bool,
 }
 

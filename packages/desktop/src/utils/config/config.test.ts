@@ -96,7 +96,6 @@ describe("notifications and review time", () => {
     expect(review?.notify).toEqual(["new", "ready"]);
     expect(review?.notifyLeaveOut).toEqual(["bots"]);
     expect(review?.notifyRepos).toEqual(["acme/*"]);
-    // Review requests wait for review time unless told otherwise; the rest show right away.
     expect(review?.notifyAt).toBe("review");
     expect(custom?.notifyAt).toBe("now");
   });
@@ -130,7 +129,6 @@ describe("notifications and review time", () => {
         sessions: [{ id: "a", name: "Afternoon", days: [1, 2, 3, 4, 5], times: ["15:00"], minutes: 30 }],
       },
     });
-    // Friday 2026-01-09, before and after.
     expect(nextReviewTime(reviewTime, new Date(2026, 0, 9, 14, 0))?.at).toEqual(new Date(2026, 0, 9, 15, 0));
     expect(nextReviewTime(reviewTime, new Date(2026, 0, 9, 15, 0))?.at).toEqual(new Date(2026, 0, 12, 15, 0));
     expect(nextReviewTime({ ...reviewTime, enabled: false }, new Date(2026, 0, 9))).toBeNull();
@@ -364,7 +362,6 @@ const review = (sessions: Array<{ id: string; times: string[]; on?: boolean }>) 
   normalize({ reviewTime: { enabled: true, sessions: sessions.map((s) => ({ days: [5], ...s })) } }).reviewTime;
 
 describe("the next review time", () => {
-  // Friday 2026-01-09, in the morning.
   const friday = new Date(2026, 0, 9, 9, 0);
 
   it("takes the earliest of the day's sessions", () => {
@@ -393,7 +390,6 @@ describe("the next review time", () => {
   });
 });
 
-/** Rust with this file in the config folder; `written` gets what's saved. */
 function disk(text: string | null) {
   const written: string[] = [];
   mockCommands((cmd, args?: Args) => {

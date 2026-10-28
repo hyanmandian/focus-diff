@@ -1,6 +1,3 @@
-// One event of the timeline in the conversation, compact: a small glyph, who did what, and when,
-// in one line (a run of commits opens to list them).
-
 import {
   Bookmark,
   CircleDot,
@@ -60,7 +57,6 @@ const ICON: Record<TimelineEvent["kind"], LucideIcon> = {
   baseChanged: GitBranch,
 };
 
-/** The event in words, its name first: "ana added 3 commits". */
 export function describe(e: TimelineEvent, t: T): string {
   const who = e.actor ?? t("common.someone");
   switch (e.kind) {
@@ -115,7 +111,6 @@ export function describe(e: TimelineEvent, t: T): string {
     case "branchRestored":
       break;
   }
-  // The rest say only who did it.
   return t(`manage.event.${e.kind}`, { who });
 }
 

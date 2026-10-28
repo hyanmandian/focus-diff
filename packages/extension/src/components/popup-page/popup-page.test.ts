@@ -60,15 +60,12 @@ const inbox = (over: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
   ...over,
 });
 
-/** Lets the storage reads, the messages and the frames they wait on settle. */
 const settle = async () => {
   await vi.advanceTimersByTimeAsync(50);
 };
 
-/** The ResizeObservers the popup makes, to say a size changed. */
 let resized: (() => void)[] = [];
 
-/** The messages the popup sent the background, and how the background answers. */
 let sent: Message[] = [];
 let answer: "ok" | "never" | "fail" = "ok";
 
@@ -139,7 +136,6 @@ beforeEach(() => {
   vi.spyOn(fakeBrowser.tabs, "create");
   vi.spyOn(window, "close").mockImplementation(() => {});
   vi.mocked(renderReviewPanel).mockReset();
-  // An author's picture is still loading as it's placed.
   vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(false);
 });
 
@@ -202,12 +198,10 @@ describe("startPopup", () => {
     expect(none.querySelector(".pull-author")).toBeNull();
     expect(none.querySelector(".pull-estimate")).toBeNull();
     expect(none.querySelector(".pull-time")).toBeNull();
-    // Drafts on the review queue wait folded, and the count leaves them out.
     expect($("#count-reviews").textContent).toBe("2");
     const drafts = $<HTMLDetailsElement>("#panel-reviews details");
     expect(drafts.querySelector("summary")?.textContent).toBe("Drafts1");
     expect(drafts.open).toBe(false);
-    // My own say draft on the row, and open on the conversation.
     const mine = $("#panel-mine a[href='mine']");
     expect(mine.querySelector(".pull-draft")?.textContent).toBe("Draft");
     expect(mine.querySelector(".pull-time")?.textContent).toBe("2y ago");
@@ -332,7 +326,6 @@ describe("startPopup", () => {
       [expect.objectContaining({ transform: "translateX(-24px)" }), expect.anything()],
       expect.anything(),
     );
-    // A repository that's gone lets go of the narrowing.
     await inboxItem.setValue(
       inbox({ reviews: [pull({ url: "b", repo: "acme/api" }), pull({ url: "c", repo: "x/y" })] }),
     );
@@ -355,7 +348,6 @@ describe("startPopup", () => {
       layout(row(), { clientWidth: 150 });
       layout(highlight(), { offsetHeight: 24 });
     };
-    // Without a size yet, nothing to place.
     for (const callback of resized) callback();
     expect(highlight().style.width).toBe("");
     lay();
@@ -363,7 +355,6 @@ describe("startPopup", () => {
     expect(highlight().style.width).toBe("290px");
     expect(highlight().style.clipPath).toBe("inset(2px 200px 2px 0px round 8px)");
     expect(highlight().classList.contains("ready")).toBe(true);
-    // Drawn again with another chip picked, the highlight starts where it was.
     const before = highlight().style.clipPath;
     $$<HTMLButtonElement>("#panel-reviews .chip")[2]!.click();
     expect(highlight().style.clipPath).toBe(before);
@@ -372,7 +363,6 @@ describe("startPopup", () => {
     expect(row().scrollLeft).toBe(200 - 56);
     expect(highlight().style.clipPath).toBe("inset(2px 0px 2px 200px round 8px)");
     expect(highlight().classList.contains("ready")).toBe(true);
-    // A chip that fits leaves the row where it starts.
     $$<HTMLButtonElement>("#panel-reviews .chip")[0]!.click();
     lay();
     layout(row(), { clientWidth: 1000 });
@@ -425,7 +415,6 @@ describe("startPopup", () => {
     expect(titles()).toStrictEqual(["A", "B"]);
     expect(await doneItem.getValue()).toStrictEqual({});
     expect($("#selection").hidden).toBe(true);
-    // Undo stays a few seconds, then goes.
     box("a").click();
     $("#mark-done").click();
     vi.advanceTimersByTime(6000);
@@ -440,7 +429,6 @@ describe("startPopup", () => {
     expect(restore.getAttribute("aria-label")).toBe("Not done: “A”");
     restore.click();
     expect(titles()).toStrictEqual(["A"]);
-    // Marked elsewhere, it goes here too.
     await doneItem.setValue({ a: "2026-10-26T09:00:00Z" });
     await settle();
     expect(titles()).toStrictEqual([]);
@@ -454,7 +442,6 @@ describe("startPopup", () => {
     expect($<HTMLInputElement>("#panel-reviews .pick").checked).toBe(false);
     expect($("#selection").hidden).toBe(true);
     $<HTMLInputElement>("#panel-reviews .pick").click();
-    // Drawn again, what's picked stays picked.
     await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "a2" })] }));
     await settle();
     expect($$("#panel-reviews .row.picked")).toHaveLength(1);
@@ -467,7 +454,6 @@ describe("startPopup", () => {
   });
 
   it("works the rows from the keyboard", async () => {
-    // Rows on screen have somewhere to be laid out in.
     Object.defineProperty(HTMLElement.prototype, "offsetParent", { configurable: true, get: () => document.body });
     await inboxItem.setValue(
       inbox({
@@ -493,7 +479,6 @@ describe("startPopup", () => {
     expect($<HTMLInputElement>("#panel-reviews .pick").checked).toBe(true);
     expect(press(links()[0]!, "Escape").defaultPrevented).toBe(true);
     expect($("#selection").hidden).toBe(true);
-    // Keys elsewhere are left alone.
     expect(press($("#panel-reviews .see-all"), "ArrowDown").defaultPrevented).toBe(false);
     const text = document.createTextNode("");
     $("main").append(text);
@@ -534,7 +519,6 @@ describe("startPopup", () => {
     press(mine, "ArrowRight");
     expect(document.activeElement).toBe(reviews);
     expect(press(reviews, "a").defaultPrevented).toBe(false);
-    // With reduced motion, a list only fades in.
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
     document.documentElement.style.setProperty("--ease", "linear");
     mine.click();
@@ -574,7 +558,6 @@ describe("startPopup", () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
     expect(animate).toHaveBeenCalledTimes(1);
     section.dispatchEvent(new Event("toggle"));
-    // Drawn again, it stays open.
     await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "d", draft: true, title: "New" })] }));
     await settle();
     const again = $<HTMLDetailsElement>("#panel-reviews details");
@@ -583,7 +566,6 @@ describe("startPopup", () => {
     expect(again.open).toBe(true);
     for (const animation of again.querySelector(".fold-body")!.getAnimations()) animation.finish();
     expect(again.open).toBe(false);
-    // With reduced motion, at once.
     vi.stubGlobal("matchMedia", () => ({ matches: true }));
     animate.mockClear();
     again.querySelector("summary")!.click();
@@ -591,7 +573,6 @@ describe("startPopup", () => {
     again.querySelector("summary")!.click();
     expect(again.open).toBe(false);
     expect(animate).not.toHaveBeenCalled();
-    // Outside a scrolling list, nothing to scroll.
     scrollTo.mockClear();
     again.closest(".scroll")!.classList.remove("scroll");
     again.querySelector("summary")!.click();
@@ -665,7 +646,6 @@ describe("startPopup", () => {
     expect(document.activeElement).toBe(card.querySelector("button"));
     const [, state, options] = vi.mocked(renderReviewPanel).mock.lastCall!;
     expect([...state.waiting]).toStrictEqual(["a"]);
-    // What the card asks of the popup.
     expect(options.avatar("bo").textContent).toBe("B");
     options.openOptions("review-time");
     await settle();
@@ -673,7 +653,6 @@ describe("startPopup", () => {
     options.skip(123);
     await settle();
     expect(await reviewSkipItem.getValue()).toBe(123);
-    // Keys other than Escape stay on the card.
     expect(press(card, "a").defaultPrevented).toBe(false);
     expect(press(card, "Escape").defaultPrevented).toBe(true);
     expect(card.hidden).toBe(true);
@@ -728,7 +707,6 @@ describe("startPopup", () => {
     expect(image!.isConnected).toBe(true);
     image!.dispatchEvent(new Event("error"));
     expect(image!.isConnected).toBe(false);
-    // Drawn again, they keep their initial.
     await inboxItem.setValue(inbox({ reviews: [pull({ url: "c", author: "ana" })] }));
     await settle();
     expect(images()).toHaveLength(0);
@@ -750,7 +728,6 @@ describe("startPopup", () => {
     await draw("c", "cy");
     await draw("d", "bo");
     expect(shown()).toBe(image);
-    // One that failed while off the page has no error left to fire.
     await draw("e", "cy");
     layout(image, { complete: true, naturalWidth: 0 });
     await draw("f", "bo");
@@ -763,7 +740,6 @@ describe("startPopup", () => {
     const images = $$<HTMLImageElement>("#panel-reviews .avatar img");
     expect(images).toHaveLength(2);
     expect(images[0]).not.toBe(images[1]);
-    // The copy has the same fallback as the first.
     images[1]!.dispatchEvent(new Event("error"));
     expect(images[1]!.src).toBe("https://github.com/bo.png?size=48");
   });
@@ -802,7 +778,6 @@ describe("startPopup", () => {
           pull({ url: "bottom", title: "Bottom" }),
           pull({ url: "middle", title: "Middle", updatedAt: "2026-10-20T00:00:00Z" }),
         ],
-        // GitHub's own stacks say where each stands, on the list or not.
         mine: [pull({ url: "native", title: "Native", stack: { position: 2, size: 3 } })],
       }),
     );
@@ -826,7 +801,6 @@ describe("startPopup", () => {
     ]);
     expect($("#panel-mine .pull-stack").getAttribute("title")).toBe("2 of 3 in a stack, from the bottom");
     expect($("#panel-mine .row").classList.contains("stack-up")).toBe(false);
-    // Branches read later put it together then.
     await pullBranchesItem.setValue({});
     await settle();
     expect(titles()).toStrictEqual(["Top", "Lone", "Bottom", "Middle"]);
@@ -847,19 +821,16 @@ describe("startPopup", () => {
     expect($("#panel-updates a.pull").getAttribute("href")).toBe("u");
     expect($("#panel-updates .pull-author").textContent).toBe("bo");
     expect($("#panel-merged a.pull").getAttribute("href")).toBe("m/changes");
-    // Only the review queue folds its drafts away.
     expect($$("#panel-merged details")).toHaveLength(0);
     const query = (list: string) => new URL($<HTMLAnchorElement>(`#panel-${list} .see-all`).href).searchParams.get("q");
     expect(query("updates")).toContain("involves:@me");
     expect(query("merged")).toContain("merged:>=2026-10-19");
-    // The tabs' keys go between the lists there are.
     $("#tab-merged").click();
     press($("#tab-merged"), "ArrowRight");
     expect(document.activeElement).toBe($("#tab-reviews"));
     press($("#tab-reviews"), "End");
     expect(document.activeElement).toBe($("#tab-merged"));
 
-    // Taken away while on it, the popup goes back to the review queue.
     await popupItem.setValue({ ...normalizePopup({}), updates: true });
     await settle();
     expect($("#tab-merged").hidden).toBe(true);
@@ -911,7 +882,6 @@ describe("startPopup", () => {
     vi.advanceTimersByTime(2400);
     expect($("#flash").textContent).toBe("");
     expect($("#updated").hidden).toBe(false);
-    // A link that couldn't be copied says nothing.
     writeText.mockRejectedValueOnce(new Error("denied"));
     items[1]!.click();
     await settle();
@@ -956,7 +926,6 @@ describe("startPopup", () => {
     const section = $<HTMLDetailsElement>("#panel-reviews details");
     expect(section.querySelector("summary")?.textContent).toBe("Ignored1");
     expect(section.querySelector(".row-menu")).toBeNull();
-    // Undo stays a few seconds, then goes.
     vi.advanceTimersByTime(6000);
     expect($("#selection").hidden).toBe(true);
     const restore = section.querySelector<HTMLButtonElement>(".restore")!;
@@ -964,14 +933,12 @@ describe("startPopup", () => {
     restore.click();
     expect(titles()).toStrictEqual(["A", "B"]);
 
-    // Picking or marking done lets go of the Undo for it.
     ignoreIt("A");
     $<HTMLInputElement>("#panel-reviews .pick").click();
     expect($("#selection-text").textContent).toBe("1 selected");
     $("#mark-done").click();
     $("#undo-done").click();
     expect(await ignoredItem.getValue()).toStrictEqual({ reviews: ["a"] });
-    // Ignored elsewhere, it goes here too.
     await ignoredItem.setValue({ reviews: ["a", "b"] });
     await settle();
     expect(titles()).toStrictEqual([]);

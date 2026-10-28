@@ -8,7 +8,6 @@ import type { ActionContext } from "@/utils/bridge/bridge";
 import type { Action } from "@/utils/config/config";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
-// The real runner, which a test can make throw something other than an Error.
 type Run = (action: Action, pr: ActionContext) => Promise<string>;
 const runner = vi.hoisted(() => ({ run: vi.fn<Run>() }));
 vi.mock("@/utils/actions/actions", async (original) => {
@@ -48,7 +47,6 @@ const DELEGATE = action({
 
 const NOTHING = () => {};
 
-/** A promise to settle by hand. */
 function deferred() {
   let resolve: () => void = NOTHING;
   const promise = new Promise<void>((yes) => {
@@ -57,7 +55,6 @@ function deferred() {
   return { promise, resolve };
 }
 
-/** Answers Rust; `confirm` with what the alert's answer should be. */
 function rust({ confirm = true, open }: { confirm?: boolean; open?: () => unknown } = {}) {
   const calls: Array<[string, unknown]> = [];
   mockCommands((cmd, args) => {
@@ -172,7 +169,6 @@ describe("ActionButtons", () => {
     const calls = rust();
     render(<ActionButtons actions={[DELEGATE]} pr={PR} onResult={onResult} />);
     await userEvent.click(screen.getByRole("button", { name: "Delegate" }));
-    // A choice with no steps can't be run.
     expect((await screen.findByRole("menuitem", { name: "Platform…" })).getAttribute("aria-disabled")).toBe("true");
     await userEvent.click(screen.getByRole("menuitem", { name: "Mona…" }));
     await waitFor(() => {

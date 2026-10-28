@@ -1,7 +1,3 @@
-// A Markdown file shown rendered, as GitHub shows a rich diff of prose: the file as it reads at the
-// head commit (the base's, for a deleted one), rendered by GitHub itself (the contents API's HTML)
-// and cleaned like every other HTML from it (sanitize.ts).
-
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -16,7 +12,6 @@ import { sanitize } from "@/utils/sanitize/sanitize";
 
 const rendered = new Map<string, Promise<string>>();
 
-/** GitHub's HTML of a file at a commit, asked for once (the commit never changes). */
 function renderedAt(repo: string, sha: string, path: string) {
   const key = `${repo}\n${sha}\n${path}`;
   let known = rendered.get(key);
@@ -40,9 +35,6 @@ export const isMarkdown = (path: string) => /\.(md|markdown|mdx)$/iu.test(path);
 
 export function Rendered({ file, source }: { file: ReviewFile; source: Source }) {
   const t = useT();
-  // What was loaded, and for which file: anything else (the first render, or after the file
-  // changed) shows as loading.
-  // The sanitized page, or what went wrong (shown as text), kept apart.
   const [loaded, setLoaded] = useState<{
     file: ReviewFile;
     source: Source;
@@ -84,7 +76,6 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
     <div
       ref={ref}
       className={
-        // Prose to read, as the Overview shows a description.
         "selectable max-w-3xl px-5 py-4 font-sans text-body leading-(--type-reading-leading) break-words text-foreground " +
         "[&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground " +
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 " +
@@ -92,7 +83,6 @@ export function Rendered({ file, source }: { file: ReviewFile; source: Source })
         "[&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:px-2 [&_th]:border [&_th]:px-2"
       }
       onClick={openClicked}
-      // Sanitized above: an allowlist of tags and attributes, https links and GitHub images only.
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

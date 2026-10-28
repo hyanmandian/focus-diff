@@ -38,7 +38,6 @@ describe("Pane", () => {
         <p>Body</p>
       </Pane>,
     );
-    // The strip's copy is hidden from assistive tech while the big one shows.
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByText("What's waiting on you, in the panel's tabs")).toBeTruthy();
     const header = container.querySelector("header")!;
@@ -213,7 +212,6 @@ describe("useDetail", () => {
     expect(screen.getByText("Detail of b")).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back to List" }));
 
-    // Rendered again, it stays where it is.
     rerender(<Detail />);
     expect(screen.getByText("Detail of b")).toBeTruthy();
 
@@ -223,7 +221,6 @@ describe("useDetail", () => {
 
   it("goes back with ⌘[ and only then", () => {
     render(<Detail />);
-    // Nothing open: the shortcut does nothing.
     const idle = new KeyboardEvent("keydown", { key: "[", metaKey: true, cancelable: true });
     act(() => {
       window.dispatchEvent(idle);
@@ -250,7 +247,6 @@ function Radios({ onPick }: { onPick: (v: string) => void }) {
         <button
           key={v}
           type="button"
-          // radioKeys is for the hand-drawn radios (buttons with role="radio"), so that's what it's tested on.
           // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
           role="radio"
           aria-checked={false}
@@ -300,8 +296,6 @@ describe("radioKeys", () => {
 });
 
 describe("re-rendering", () => {
-  // The React Compiler keeps each part of a component until what it's made from changes: rendered
-  // again with the same props, a pane shows exactly what it did.
   it("keeps showing the same thing when rendered again with the same props", () => {
     const back = { label: "Queues", onBack: () => {} };
     const leading = <span>•</span>;

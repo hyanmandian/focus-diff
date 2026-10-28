@@ -1,9 +1,3 @@
-//! The menu bar, while a window of the app's own is open (the app is in the Dock then): the Mac's
-//! standard menus, which text fields need for ⌘C, ⌘V, ⌘A and ⌘Z, plus every command of the review
-//! window's toolbar, as the HIG asks. A command for a review goes to the window that's in front
-//! (as a "menu" event, src/components/review/review.tsx); its items are dimmed when no review is, and the
-//! review says which of them apply to its pull request.
-
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -14,31 +8,23 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use crate::i18n::tr;
 use crate::sync::Locked;
 
-/// The commands that act on the review in front.
 const REVIEW: &[&str] = &[
     "find", "overview", "diff", "wrap", "whitespace", "file-next", "file-previous", "toggle-viewed", "next-file", "next-comment", "previous-comment", "commits", "all-changes", "since-review", "ai-review", "submit", "merge", "auto-merge",
     "update-branch", "ready", "draft", "close", "reopen", "delete-branch", "rerun-failed", "open-github", "leave", "shortcuts",
 ];
 
-/// The review commands' items, and what each review window last said applies to it.
 pub struct ReviewItems {
-    /// Made again when the language changes, with the menu bar.
     items: Mutex<Items>,
-    /// By window label: the commands it can do now.
     state: Mutex<HashMap<String, HashMap<String, bool>>>,
 }
 
-/// The menu bar in the language in use; `items`: its review commands, by id. Only the Mac has one.
 #[cfg(target_os = "macos")]
 pub fn build(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, ReviewItems)> {
     let (menu, items) = make(app)?;
     Ok((menu, ReviewItems { items: Mutex::new(items), state: Mutex::new(HashMap::new()) }))
 }
 
-/// The language changed: the menu bar is made again in it, the review commands as the window in
-/// front last said.
 pub fn relocalize(app: &AppHandle) {
-    // Where there's no menu bar, the tray icon's menu is the one to say again.
     #[cfg(not(target_os = "macos"))]
     if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray>(), crate::tray_menu(app))
         && let Some(icon) = tray.0.held().as_ref()
@@ -58,7 +44,6 @@ pub fn relocalize(app: &AppHandle) {
     }
 }
 
-/// The review commands' items, by id.
 type Items = HashMap<&'static str, MenuItem<tauri::Wry>>;
 
 fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
@@ -76,7 +61,6 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
         Ok(built)
     };
 
-    // Every item's text is given: the predefined ones' own are English whatever the language.
     let app_menu = SubmenuBuilder::new(app, &name)
         .item(&item("about", &tr!("About {name}", "Sobre o {name}"), None)?)
         .item(&item("updates", &tr!("Check for Updates…", "Buscar atualizações…"), None)?)
@@ -89,7 +73,6 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
         .item(&PredefinedMenuItem::hide_others(app, Some(&tr!("Hide Others", "Ocultar outros")))?)
         .item(&PredefinedMenuItem::show_all(app, Some(&tr!("Show All", "Mostrar tudo")))?)
         .separator()
-        // The app's own Quit: the run loop keeps a tray app alive through the system's.
         .item(&item("quit", &tr!("Quit {name}", "Sair do {name}"), Some("CmdOrCtrl+Q"))?)
         .build()?;
     let file = SubmenuBuilder::new(app, tr!("File", "Arquivo")).item(&PredefinedMenuItem::close_window(app, Some(&tr!("Close Window", "Fechar janela")))?).build()?;
@@ -104,8 +87,6 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
         .separator()
         .item(&item("find", &tr!("Find Files…", "Buscar arquivos…"), Some("CmdOrCtrl+F"))?)
         .build()?;
-    // j, k, v, n, p and ⌥⇧J are the page's own keys (they'd type into a field as menu shortcuts),
-    // so these items name no shortcut; the page's Keyboard Shortcuts sheet lists them.
     let view = SubmenuBuilder::new(app, tr!("View", "Visualizar"))
         .item(&item("overview", &tr!("Overview", "Visão geral"), Some("CmdOrCtrl+1"))?)
         .item(&item("diff", &tr!("Diff", "Diff"), Some("CmdOrCtrl+2"))?)
@@ -150,7 +131,6 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
         .separator()
         .item(&PredefinedMenuItem::bring_all_to_front(app, Some(&tr!("Bring All to Front", "Trazer tudo para a frente")))?)
         .build()?;
-    // The system's search field, which finds menu items, and the review window's shortcuts.
     let help = SubmenuBuilder::new(app, tr!("Help", "Ajuda")).item(&item("shortcuts", &tr!("Keyboard Shortcuts", "Atalhos de teclado"), None)?).build()?;
     let menu = MenuBuilder::new(app).items(&[&app_menu, &file, &edit, &view, &pull_request, &window, &help]).build()?;
     #[cfg(target_os = "macos")]
@@ -161,22 +141,18 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
     Ok((menu, items))
 }
 
-/// A window came to the front: the review commands follow it.
 pub fn focused(app: &AppHandle, label: &str) {
     let Some(review) = app.try_state::<ReviewItems>() else { return };
     let state = review.state.held();
     let mine = label.starts_with("review-").then(|| state.get(label)).map(|s| s.cloned().unwrap_or_default());
     for (id, item) in review.items.held().iter() {
-        // A review that hasn't said yet: everything on until it does.
         let _ = item.set_enabled(mine.as_ref().is_some_and(|s| s.get(*id).copied().unwrap_or(true)));
     }
 }
 
-/// What a review window can do now, from its page.
 #[tauri::command]
 pub fn menu_state(app: AppHandle, window: tauri::WebviewWindow, items: HashMap<String, bool>) {
     let label = window.label().to_string();
-    // No menu bar (and so nothing to keep) where the app has none: Windows and Linux.
     let Some(review) = app.try_state::<ReviewItems>() else { return };
     review.state.held().insert(label.clone(), items);
     if window.is_focused().unwrap_or(false) {
@@ -208,7 +184,6 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
     }
 }
 
-/// Check for Updates…: says what it found, and installs a newer version if asked to.
 fn check_for_updates(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -238,17 +213,12 @@ fn check_for_updates(app: &AppHandle) {
     });
 }
 
-/// A yes-or-no question about something that can't be undone, as a native alert on the window
-/// that asked (a sheet on the Mac). `ok` names the default button; Cancel answers Esc.
 #[tauri::command]
 pub async fn confirm(app: AppHandle, window: tauri::WebviewWindow, title: String, message: String, ok: String) -> Result<bool, String> {
     let dialog = app.dialog().message(message).title(title).parent(&window).buttons(MessageDialogButtons::OkCancelCustom(ok, tr!("Cancel", "Cancelar")));
     tauri::async_runtime::spawn_blocking(move || dialog.blocking_show()).await.map_err(|e| e.to_string())
 }
 
-/// The theme picked in Settings, for every window: the native parts (the panel's material, title
-/// bars, scroll bars, form controls and the web views' system colours) follow it, not only the
-/// page. "system" follows the Mac again.
 pub fn apply_theme(app: &AppHandle, config: &str) {
     let theme = serde_json::from_str::<serde_json::Value>(config).ok().and_then(|c| match c["theme"].as_str() {
         Some("light") => Some(Theme::Light),

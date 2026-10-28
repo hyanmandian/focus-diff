@@ -1,4 +1,3 @@
-// Words every window uses: time, counts, people.
 export const common = {
   someone: "Someone",
   now: "now",

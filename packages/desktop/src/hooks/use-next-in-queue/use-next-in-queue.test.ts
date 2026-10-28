@@ -13,7 +13,6 @@ const pull = (id: string, number: number): ReviewPull => ({
   author: { login: "mona", name: "Mona Lisa" },
 });
 
-/** A queue item as Rust's snapshot has it: enough for the panel's order. */
 const item = (id: string, number: number, updatedAt: string, viaTeams?: string[]) => ({
   queueId: "review",
   pr: { ...pull(id, number), updatedAt, isDraft: false },
@@ -24,7 +23,6 @@ const item = (id: string, number: number, updatedAt: string, viaTeams?: string[]
 
 const HERE: Visit = { pr: pull("PR_A", 1), teams: [], queue: "review" };
 
-/** Rust's side: the queues as `items` says (or a failure), and what was asked of it. */
 function rust(items: () => Record<string, unknown[]> | Error) {
   const calls: Array<[string, unknown]> = [];
   mockCommands((cmd, args) => {
@@ -36,10 +34,8 @@ function rust(items: () => Record<string, unknown[]> | Error) {
   });
   return calls;
 }
-/** What the window keeps to come back to. */
 const kept = (): unknown => JSON.parse(sessionStorage.getItem("review-back") ?? "null");
 
-/** Session storage that won't take what's kept to come back to. */
 function refuseToKeepVisits() {
   const setItem = Storage.prototype.setItem.bind(sessionStorage);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation((key: string, value: string) => {
@@ -143,7 +139,6 @@ describe("useNextInQueue", () => {
     answer = new Error("gone");
     await expect(result.current.go()).resolves.toBe(true);
     expect(asked(calls, "switch_review")).toEqual([expect.objectContaining({ id: "PR_B", teams: [] })]);
-    // Nothing to come back to without where it is.
     expect(sessionStorage.getItem("review-back")).toBeNull();
   });
 
@@ -170,7 +165,6 @@ describe("useNextInQueue", () => {
     expect(asked(calls, "switch_review")).toEqual([expect.objectContaining({ id: "PR_S", queue: "review" })]);
     expect(sessionStorage.getItem(DIRECTION)).toBe("forward");
     expect(kept()).toEqual([HERE]);
-    // Not yet known what this one is: nothing kept to come back to.
     sessionStorage.clear();
     const { result: early } = renderHook(() => useNextInQueue("review", "PR_A", null));
     await early.current.goTo(other);

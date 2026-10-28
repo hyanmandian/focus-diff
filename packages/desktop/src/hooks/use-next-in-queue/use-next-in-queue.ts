@@ -1,8 +1,3 @@
-// The pull request after this one in the queue it was opened from, in the panel's order, for going
-// through a queue without going back to the panel. Read from the app's live state when the window
-// comes forward (it's kept by Rust, watch.rs), and again when asked for. And back: the ones this
-// window showed before, as a browser's history (kept for the window, in its session storage).
-
 import { useCallback, useEffect, useState } from "react";
 
 import { nextAfter } from "@/utils/arrange/arrange";
@@ -12,13 +7,10 @@ import { isUnread } from "@/utils/store/store";
 
 type Live = { items: Record<string, Item[]>; seen: Record<string, true> };
 
-/** A pull request this window showed, enough to show it again. */
 export type Visit = { pr: ReviewPull; teams: string[]; queue: string | null };
 
 const BACK = "review-back";
-/** Which way the window is going, for the page to slide that way (entries/review.tsx). */
 export const DIRECTION = "review-direction";
-/** Written by this window (keepVisits), so a list is taken as one of visits. */
 const isVisits = (value: unknown): value is Visit[] => Array.isArray(value);
 function visits(): Visit[] {
   try {
@@ -31,9 +23,7 @@ function visits(): Visit[] {
 function keepVisits(list: Visit[]) {
   try {
     sessionStorage.setItem(BACK, JSON.stringify(list.slice(-50)));
-  } catch {
-    // Back only as far as this showing, then.
-  }
+  } catch {}
 }
 
 async function find(queue: string, current: string) {
@@ -51,9 +41,7 @@ export function useNextInQueue(queue: string | null | undefined, current: string
       try {
         const item = await find(queue, current);
         if (live) setNext(item);
-      } catch {
-        // What it was stays; the next look asks again.
-      }
+      } catch {}
     };
     const look = () => void ask();
     look();
@@ -64,15 +52,11 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     };
   }, [queue, current]);
 
-  /** On to it, in this window, counting as having looked at it as a click in the panel does. Asked
-   *  again first: the queue may have moved on since the window came forward. `done`: this one off
-   *  the queue first, as the panel's Mark Done, once the one after it is known. */
   const go = useCallback(
     async (done = false): Promise<boolean> => {
       if (!queue) return false;
       const item = (await find(queue, current).catch(() => null)) ?? next;
       if (done) await bridge.dismiss(queue, current);
-      // The queue's done: false, for the window to say so.
       if (!item) {
         setNext(null);
         return false;
@@ -86,7 +70,6 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     [queue, current, next, here],
   );
 
-  /** To another pull request (one of a stack, say), in this window: Back comes here again. */
   const goTo = useCallback(
     async (to: Visit) => {
       if (here) keepVisits([...visits(), here]);
@@ -96,7 +79,6 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     [here],
   );
 
-  /** Back to the one shown before this, in this window. */
   const back = useCallback(async () => {
     const list = visits();
     const last = list.pop();

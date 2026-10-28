@@ -22,7 +22,6 @@ describe("FileIcon", () => {
 
   it("writes dark on light colors", () => {
     expect(tile("index.js")?.dark).toContain("text-black/85");
-    // Also where white would be under 4.5:1, though the language's colour isn't marked light.
     expect(tile("main.go")?.dark).toContain("text-black/85");
   });
 
@@ -38,7 +37,6 @@ describe("FileIcon", () => {
     expect(glyph("docs/screenshot.PNG")).toContain("lucide-file-image");
     expect(glyph("LICENSE")).toContain("lucide-file");
     expect(glyph("notes.unknown")).toContain("lucide-file");
-    // A dotfile's name isn't its extension.
     expect(glyph(".gitignore")).toContain("lucide-file");
     expect(glyph("LICENSE")).toContain("extra");
   });

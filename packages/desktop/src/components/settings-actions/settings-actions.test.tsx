@@ -12,7 +12,6 @@ afterEach(() => {
   setLanguage("en");
 });
 
-/** Switches the app's language while the pane is on screen. */
 const speak = (language: "en" | "pt-BR") => {
   act(() => {
     setLanguage(language);
@@ -28,14 +27,11 @@ const action = (patch: Partial<Action> = {}): Action => ({
   ...patch,
 });
 
-/** The question a "confirm" call asks. */
 function titleOf(args: unknown): string {
   if (typeof args === "object" && args !== null && "title" in args && typeof args.title === "string") return args.title;
   return "";
 }
 
-/** The pane as Settings holds it: each change kept, the latest readable, and the answer to
- *  "Remove …?" given by `confirm`. */
 function setup(actions: Action[], confirm = true) {
   const asked: string[] = [];
   mockCommands((cmd, args) => {
@@ -211,11 +207,9 @@ describe("Actions", () => {
     expect(current().choices).toHaveLength(1);
     expect(current().choices[0]).toMatchObject({ name: "Choice 1", steps });
 
-    // Picking what it already is changes nothing.
     await user.click(screen.getByRole("button", { name: "Menu" }));
     expect(current().choices).toHaveLength(1);
 
-    // One choice: no question, its steps stay.
     await user.click(screen.getByRole("button", { name: "Button" }));
     expect(asked).toEqual([]);
     expect(current()).toMatchObject({ steps, choices: [] });

@@ -8,7 +8,6 @@ import { defaultConfig, normalize, TEMPLATES, type Config } from "@/utils/config
 import { CLOSE_WINDOW, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
-// The window's last words differ between the Mac and the others; the test picks.
 const platform = vi.hoisted(() => ({ mac: false }));
 vi.mock("@/utils/os/os", async (importOriginal) => {
   const real = await importOriginal<Record<string, unknown>>();
@@ -41,7 +40,6 @@ const ready = (provider: AiStatus["provider"], version: string | null = "1.0.0")
   login_command: `${provider} login`,
 });
 
-/** A promise the test settles when it wants. */
 function later<T>() {
   const settlers: Array<(value: T) => void> = [];
   const promise = new Promise<T>((resolve) => {
@@ -63,7 +61,6 @@ type Answers = {
   write?: () => Promise<void>;
 };
 
-/** Answers what the window asks Rust, and keeps what it sends. */
 function answer({
   auth = () => Promise.resolve(signedIn),
   config = defaultConfig(),
@@ -102,14 +99,12 @@ const next = async (user: ReturnType<typeof userEvent.setup>) => {
 const enter = (target: Element, key = "Enter") => {
   fireEvent.keyDown(target, { key });
 };
-/** Continue to the AI step. */
 const toAi = async (user: ReturnType<typeof userEvent.setup>) => {
   await next(user);
   await next(user);
   await next(user);
 };
 
-/** On the AI step, with Claude Code picked before, its model and effort set. */
 async function aiStep() {
   const config = defaultConfig();
   config.ai = { ...config.ai, provider: "claude", model: "opus", effort: "high" };
@@ -144,7 +139,6 @@ describe("Setup", () => {
     const useGh = await screen.findByRole("button", { name: "Use the GitHub CLI's login" });
     expect(screen.getByRole("button", { name: "Continue" }).hasAttribute("disabled")).toBe(true);
 
-    // Return does nothing while it can't go on.
     enter(screen.getByRole("heading", { level: 1 }));
     expect(screen.getByRole("heading", { name: "Your reviews, without opening GitHub" })).toBeTruthy();
 
@@ -175,7 +169,6 @@ describe("Setup", () => {
     await screen.findByText("@octocat");
     await next(user);
 
-    // Queues: the enabled ones are picked.
     expect(screen.getByRole("heading", { name: "What should it watch?" })).toBeTruthy();
     const review = screen.getByRole("checkbox", { name: /Needs my review/u });
     const involved = screen.getByRole("checkbox", { name: /Updates/u });
@@ -194,7 +187,6 @@ describe("Setup", () => {
     await user.type(repos, "acme/web{Enter}");
     await next(user);
 
-    // Notifications.
     expect(screen.getByRole("heading", { name: "How should it tell you?" })).toBeTruthy();
     await user.click(screen.getByRole("switch", { name: "Play a sound" }));
     await user.click(screen.getByRole("combobox", { name: "Check GitHub every" }));
@@ -202,7 +194,6 @@ describe("Setup", () => {
     expect(screen.getByRole("combobox", { name: "Check GitHub every" }).textContent).toContain("5 minutes");
     await next(user);
 
-    // AI: only agents ready to use can be picked; the others say why.
     expect(screen.getByRole("radio", { name: /No AI/u }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText("You can turn it on later.")).toBeTruthy();
     expect(screen.getByText("cursor login")).toBeTruthy();
@@ -265,7 +256,6 @@ describe("Setup", () => {
       await Promise.resolve();
     });
     expect(screen.queryByLabelText("Looking for coding agents")).toBeNull();
-    // Cursor isn't in the list at all: not installed either.
     const getIt = screen.getAllByRole("button", { name: /Get it/u });
     expect(getIt).toHaveLength(2);
     await user.click(getIt[0]!);

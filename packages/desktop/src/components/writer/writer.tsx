@@ -1,9 +1,3 @@
-// The box comments are written in, as GitHub's: Markdown, with a preview GitHub renders, @mentions
-// and #references completed as you type, ⌘B ⌘I ⌘E ⌘K for bold, italic, code and links, a suggested
-// change for the lines picked, and your saved replies. No formatting toolbar: the keys and the
-// text are the interface. Pictures and videos pasted, dropped or picked are uploaded as github.com
-// does, once you've signed in there (utils/attachments/attachments.ts).
-
 import { CircleDot, FileDiff, GitPullRequest, Loader2, Paperclip, Reply } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
@@ -66,7 +60,6 @@ type Option =
   | { kind: "reference"; reference: Reference }
   | { kind: "emoji"; emoji: Emoji };
 
-/** Where the caret is drawn in a text field, measured on a copy of it laid out the same way. */
 function caretAt(field: HTMLTextAreaElement, index: number) {
   const style = getComputedStyle(field);
   const copy = document.createElement("div");
@@ -104,7 +97,6 @@ function caretAt(field: HTMLTextAreaElement, index: number) {
   return at;
 }
 
-/** Your saved replies on GitHub, to start from. */
 function SavedReplies({ onPick }: { onPick: (body: string) => void }) {
   const t = useT();
   const [replies, setReplies] = useState<SavedReply[] | null | undefined>();
@@ -183,13 +175,9 @@ export function MarkdownField({
   label: string;
   placeholder: string;
   rows?: number;
-  /** ⌘/Ctrl+Enter. */
   onSubmit: () => void;
-  /** Esc. */
   onCancel: () => void;
-  /** The lines a comment is on, offered as a suggested change; null when there can't be one. */
   suggestion?: string[] | null;
-  /** The lines a suggestion in it replaces, for the preview. */
   base?: string[];
   autoFocus?: boolean;
 }) {
@@ -202,13 +190,10 @@ export function MarkdownField({
   const [token, setToken] = useState<Token | null>(null);
   const [options, setOptions] = useState<Option[]>([]);
   const [active, setActive] = useState(0);
-  // Where the caret is, and the field's width, for the list of completions under it.
   const [at, setAt] = useState({ top: 0, left: 0, height: 0, width: 288 });
-  // Under the field: why an attachment didn't go, or that github.com needs signing in to first.
   const [message, setMessage] = useState<{ kind: "sign-in" | "ended" } | { kind: "error"; text: string } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const session = useWebSession();
-  // The text as it is now, for uploads that finish after it changed.
   const latest = useRef(value);
   useLayoutEffect(() => {
     latest.current = value;
@@ -216,7 +201,6 @@ export function MarkdownField({
   const asked = useRef(0);
   const number = Number(/\/pull\/(\d+)/u.exec(api?.url ?? "")?.[1]) || null;
 
-  // Signed in on github.com: what asked for it goes.
   const [sessionSeen, setSessionSeen] = useState(session);
   if (session !== sessionSeen) {
     setSessionSeen(session);
@@ -227,7 +211,6 @@ export function MarkdownField({
     if (autoFocus) field.current?.focus();
   }, [autoFocus]);
 
-  // The preview, when it's showing: GitHub renders it (kept per text, utils/writer/writer.ts).
   useEffect(() => {
     let current = true;
     const show = async (repo: string) => {
@@ -244,7 +227,6 @@ export function MarkdownField({
     };
   }, [tab, value, api]);
 
-  /** What to offer for the @mention or #reference at the caret. */
   const lookUp = (text: string, caret: number) => {
     const next = api ? tokenAt(text, caret) : null;
     setToken(next);
@@ -268,7 +250,6 @@ export function MarkdownField({
           : referable(api.repo, next.query)
               .catch(() => [])
               .then((refs) => refs.map((reference) => ({ kind: "reference", reference })));
-    // The pull request's own people at once, the rest as they come.
     if (next.kind === "mention")
       setOptions(rankPeople(api.people, next.query).map((person) => ({ kind: "person", person })));
     void (async () => {
@@ -279,14 +260,11 @@ export function MarkdownField({
     })();
   };
 
-  /** A change made as if typed, so ⌘Z undoes it. */
   const apply = (change: Change) => {
     const el = field.current;
     if (!el) return;
     el.focus();
     el.setSelectionRange(change.from, change.to);
-    // execCommand is deprecated, but it's still the only way to change a field's text that the
-    // browser's own undo knows about.
     const typed = change.insert
       ? // oxlint-disable-next-line typescript/no-deprecated -- the one way to keep ⌘Z (above)
         document.execCommand("insertText", false, change.insert)
@@ -295,14 +273,11 @@ export function MarkdownField({
     const text = value.slice(0, change.from) + change.insert + value.slice(change.to);
     if (!typed) onChange(text);
     el.setSelectionRange(...change.select);
-    // Again once React has drawn the new value, which can put the caret at the end; but not if
-    // typing went on meanwhile, or the caret would jump back behind what was just typed.
     requestAnimationFrame(() => {
       if (el.value === text) el.setSelectionRange(...change.select);
     });
   };
 
-  /** Text in at the caret (over what's selected), on lines of its own when it's a block. */
   const insert = (text: string, block = false) => {
     const el = field.current;
     const start = el?.selectionStart ?? value.length;
@@ -316,8 +291,6 @@ export function MarkdownField({
     });
   };
 
-  /** One placeholder swapped for what took its place, keeping the caret where it was. Says whether
-   *  it was still there. */
   const replace = (mark: string, by: string) => {
     const before = latest.current;
     const index = before.indexOf(mark);
@@ -336,8 +309,6 @@ export function MarkdownField({
     return true;
   };
 
-  /** Pictures and videos into the comment: a placeholder for each at the caret, then each as
-   *  github.com writes it once it's uploaded. */
   const attach = (files: File[]) => {
     if (!api || !number || files.length === 0) return;
     const list = files.filter((file) => attachable(file));
@@ -402,7 +373,6 @@ export function MarkdownField({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
-        {/* A small segmented control: write, or see it as GitHub will show it. */}
         {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- in a tab list the tabs take the focus (WAI-ARIA's tabs pattern), not the list. */}
         <div
           role="tablist"
@@ -484,7 +454,6 @@ export function MarkdownField({
           accept={ACCEPT}
           hidden
           onChange={(e) => {
-            // A file input always has its list.
             attach([...e.target.files!]);
             e.target.value = "";
           }}
@@ -542,7 +511,6 @@ export function MarkdownField({
                 lookUp(e.target.value, e.target.selectionStart);
               }}
               onSelect={(e) => {
-                // The caret moved off what was being completed.
                 const caret = e.currentTarget.selectionStart;
                 if (token && (caret < token.start || caret > token.start + token.query.length + 1)) setToken(null);
               }}
@@ -593,7 +561,6 @@ export function MarkdownField({
                   attach(files);
                   return;
                 }
-                // A link pasted over words makes them a link, as on GitHub.
                 const pasted = e.clipboardData.getData("text/plain").trim();
                 const { selectionStart: start, selectionEnd: end } = e.currentTarget;
                 if (
@@ -611,7 +578,6 @@ export function MarkdownField({
               onDrop={(e) => {
                 if (e.dataTransfer.files.length === 0) return;
                 e.preventDefault();
-                // Where it's dropped is where it goes.
                 const el = e.currentTarget;
                 const point = document.caretPositionFromPoint?.(e.clientX, e.clientY);
                 if (point?.offsetNode === el) el.setSelectionRange(point.offset, point.offset);
@@ -636,13 +602,11 @@ export function MarkdownField({
                   top: at.top + at.height + 4,
                   left: Math.min(at.left, Math.max(0, at.width - 288)),
                 }}
-                // A click picks without taking the focus from the field.
                 onMouseDown={(e) => {
                   e.preventDefault();
                 }}
               >
                 {options.map((o, i) => (
-                  // The keyboard picks from the field (aria-activedescendant): the options only take clicks.
                   // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
                   <li
                     key={o.kind === "person" ? o.person.login : o.kind === "emoji" ? o.emoji.name : o.reference.number}

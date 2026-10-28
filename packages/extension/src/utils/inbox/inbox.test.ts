@@ -50,7 +50,6 @@ describe("normalizeNotify", () => {
     expect(settings.repos).toEqual(["octo/*", "octo/web"]);
     expect(settings.events.approved).toEqual({ on: true, except: ["bots"], repos: [], when: "review" });
     expect(settings.events.mention).toEqual({ on: false, except: [], repos: [], when: "now" });
-    // Review requests wait for review time to start with; what happens on the reader's own pull requests doesn't.
     expect(settings.events["review-requested"]).toEqual({ on: true, except: ["drafts"], repos: [], when: "review" });
     expect(normalizeNotify(null)).toMatchObject({ enabled: false, repos: [] });
   });
@@ -66,7 +65,6 @@ describe("normalizeNotify, the rest", () => {
     expect(settings.interval).toBe(15);
     expect(settings.quiet).toEqual({ on: true, from: "22:30", to: "09:00", weekends: true });
     expect(settings.delivery).toEqual({ grouped: true, sticky: false, sound: { id: "chime", volume: 60 } });
-    // Quiet, from before there were sounds to pick, stays quiet.
     expect(normalizeNotify({ delivery: { silent: true } }).delivery.sound.id).toBe("none");
     expect(normalizeNotify({ interval: 3 }).interval).toBe(2);
   });
@@ -85,7 +83,6 @@ describe("isQuiet", () => {
     expect(isQuiet(quiet("19:00", "09:00"), at(1, "09:00"))).toBe(false);
     expect(isQuiet(quiet("12:00", "14:00"), at(1, "13:00"))).toBe(true);
     expect(isQuiet(quiet("12:00", "14:00"), at(1, "15:00"))).toBe(false);
-    // 4 October 2026 is a Sunday.
     expect(isQuiet(quiet("12:00", "14:00", true), at(0, "10:00"))).toBe(true);
     expect(isQuiet({ ...DEFAULT_NOTIFY }, at(1, "23:00"))).toBe(false);
   });
@@ -146,15 +143,12 @@ describe("markAgain", () => {
 
   it("marks a pull request back on the queue after leaving it, until it leaves again", () => {
     const day = 86_400_000;
-    // Reviewed: off the queue.
     let step = markAgain([pull(1), pull(2)], [pull(2)], {}, 0);
     expect(step.history).toEqual({ [pull(1).url]: { left: 0 } });
-    // Asked again: back, and it stays marked while it waits.
     step = markAgain([pull(2)], [pull(1), pull(2)], step.history, day);
     expect(urls(step.reviews)).toEqual([1]);
     step = markAgain(step.reviews, step.reviews, step.history, 2 * day);
     expect(urls(step.reviews)).toEqual([1]);
-    // Reviewed again: off, and back once more, again.
     step = markAgain(step.reviews, [pull(2)], step.history, 3 * day);
     expect(step.history[pull(1).url]).toEqual({ left: 3 * day });
   });
@@ -248,11 +242,9 @@ describe("quiet hours, more", () => {
   it("falls back for a malformed start, and keeps Saturdays quiet too", () => {
     const settings = normalizeNotify({ quiet: { on: true, from: "25:00", to: "08:15", weekends: false } });
     expect(settings.quiet).toEqual({ on: true, from: "19:00", to: "08:15", weekends: false });
-    // 10 October 2026 is a Saturday.
     const saturday = new Date(2026, 9, 10, 12, 0);
     expect(isQuiet({ ...settings, quiet: { ...settings.quiet, weekends: true } }, saturday)).toBe(true);
     expect(isQuiet(settings, saturday)).toBe(false);
-    // Equal times keep no hours quiet.
     expect(isQuiet({ ...settings, quiet: { ...settings.quiet, from: "08:15" } }, saturday)).toBe(false);
   });
 });

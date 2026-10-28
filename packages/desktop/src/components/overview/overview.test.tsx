@@ -15,8 +15,6 @@ import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Thread } from "@/utils/review/review";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
-// What's beside the conversation has tests of its own: here they only show they're there, and the
-// boxes to write in hand back what was "written".
 vi.mock("@/components/merge-box/merge-box", () => ({ MergeBox: () => <p>Merge box</p> }));
 vi.mock("@/components/checks/checks", () => ({ Checks: () => <p>Checks</p> }));
 vi.mock("@/components/commits/commits", () => ({ CommitsSection: () => <p>Commits</p> }));
@@ -246,7 +244,6 @@ function props(extra: Partial<Props> = {}): Props {
     threads: [],
     onReply: vi.fn<Props["onReply"]>(done),
     onResolve: vi.fn<Props["onResolve"]>(done),
-    // Posted, but GitHub didn't say its id.
     onComment: vi.fn<Props["onComment"]>().mockResolvedValue(void 0),
     pull: pullWith(),
     me: "you",
@@ -445,7 +442,6 @@ describe("the conversation", () => {
     expect(within(said[1]!).getByText("approved")).toBeTruthy();
     expect(said[2]?.textContent).not.toContain("weird");
     expect(screen.getByText("Event E1")).toBeTruthy();
-    // Without the conversation API, nothing to quote or edit.
     expect(screen.queryByRole("button", { name: "Quote reply" })).toBeNull();
   });
 
@@ -468,7 +464,6 @@ describe("the conversation", () => {
           { id: "RC5", path: "src/promo.ts", line: 3, html: "<p>On promo</p>", author: ana, url: "u" },
         ],
       },
-      // Only a reply to a conversation shown above: nothing of its own.
       {
         kind: "review",
         id: "R2",
@@ -527,7 +522,6 @@ describe("the conversation", () => {
     expect(within(third!).queryAllByRole("button")).toHaveLength(0);
     expect(first?.textContent).toContain("· edited");
     expect(within(first!).getByText("0 reactions, can react")).toBeTruthy();
-    // A review's words can be edited, not deleted; with none, nothing to quote or react to.
     expect(within(second!).queryByRole("button", { name: "Delete" })).toBeNull();
     expect(within(second!).queryByRole("button", { name: "Quote reply" })).toBeNull();
     expect(within(second!).queryByRole("button", { name: "React" })).toBeNull();
@@ -543,7 +537,6 @@ describe("the conversation", () => {
     expect(talk.editEntry).toHaveBeenCalledWith("comment", "C1", "Written");
     expect(within(first!).queryByRole("group")).toBeNull();
 
-    // Editing a review that said nothing of its own still shows its box.
     await user.click(within(second!).getByRole("button", { name: "Edit" }));
     expect(within(second!).getByRole("group")).toBeTruthy();
 

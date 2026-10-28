@@ -51,7 +51,6 @@ const live = (extra: Record<string, unknown> = {}) => ({
 const config = defaultConfig();
 const signedOut: AuthStatus = { signed_in: false, source: null, login: null, device_flow: true, gh_available: false };
 
-/** Rust: answers the store's commands and keeps each one sent. */
 function rust(snapshot: Record<string, unknown> = live(), auth: AuthStatus = signedOut) {
   const calls: Array<[string, Args | undefined]> = [];
   mockCommands((cmd, args) => {
@@ -64,7 +63,6 @@ function rust(snapshot: Record<string, unknown> = live(), auth: AuthStatus = sig
   return { sent: (cmd: string) => calls.filter(([c]) => c === cmd).map(([, args]) => args) };
 }
 
-/** The store afresh, as a new panel has it. */
 function load() {
   vi.resetModules();
   return import("@/utils/store/store");

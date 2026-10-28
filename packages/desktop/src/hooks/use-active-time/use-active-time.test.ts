@@ -6,7 +6,6 @@ import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
 
 const T0 = new Date("2026-10-26T12:00:00Z").getTime();
 
-/** Something happens `ms` after the start: a scroll unless said. */
 function at(ms: number, event: "scroll" | "keydown" | "selectionchange" = "scroll") {
   vi.setSystemTime(T0 + ms);
   act(() => {
@@ -40,13 +39,11 @@ describe("useActiveTime", () => {
   it("shares the time between moments of activity among the files on screen, by their size", () => {
     const { result } = renderHook(() => useActiveTime(onScreen, true));
     at(0);
-    // Taken in at most once a second.
     at(500, "keydown");
     at(2000, "selectionchange");
     vi.setSystemTime(T0 + 2000);
     expect(result.current("a.ts")).toBe(0.5);
     expect(result.current("b.ts")).toBe(1.5);
-    // Let go of once taken.
     expect(result.current("a.ts")).toBe(0);
   });
 
@@ -92,7 +89,6 @@ describe("useActiveTime", () => {
     at(5000);
     vi.setSystemTime(T0 + 7000);
     rerender({ on: false });
-    // Off: activity isn't taken in.
     at(9000);
     expect(result.current("a.ts")).toBe(2);
   });

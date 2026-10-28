@@ -55,14 +55,12 @@ const thread: Thread = {
 };
 const kept = (files = [file("a.ts")]): Kept => ({ details, files, threads: [thread] });
 
-/** One of the arguments a command was sent with. */
 function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
 }
 
-/** Rust's kept files, in memory: what's written, and each write. */
 function disk(initial: Record<string, string> = {}) {
   const files = new Map(Object.entries(initial));
   const writes: string[] = [];

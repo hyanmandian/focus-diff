@@ -39,7 +39,6 @@ function PopoverContent({
           )}
           {...props}
         >
-          {/* The arrow points at what opened it (popovers have one; menus never do). */}
           <PopoverPrimitive.Arrow
             className={
               "z-50 size-3 rotate-45 rounded-[2px] border-(--separator-strong)/50 bg-popover data-[side=bottom]:-top-[6px] data-[side=bottom]:border-t data-[side=bottom]:border-l data-[side=inline-end]:-left-[5px] data-[side=inline-end]:border-b data-[side=inline-end]:border-l data-[side=inline-start]:-right-[5px] data-[side=inline-start]:border-t data-[side=inline-start]:border-r data-[side=left]:-right-[6px] data-[side=left]:border-t data-[side=left]:border-r data-[side=right]:-left-[6px] data-[side=right]:border-b data-[side=right]:border-l data-[side=top]:-bottom-[6px] data-[side=top]:border-r data-[side=top]:border-b"

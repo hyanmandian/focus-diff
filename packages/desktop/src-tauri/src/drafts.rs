@@ -1,10 +1,3 @@
-//! Pending review comments on their way to GitHub. A comment written in a review window goes into
-//! your pending review on github.com, so the site has it too and it outlives the window, but the
-//! window never waits for that: each change is kept on disk here and sent until GitHub takes it,
-//! through failures, sleep and restarts, as the viewed marks are (outbox.rs). What GitHub refuses
-//! is kept, with why, until it's changed, removed or tried again: what someone wrote is never
-//! dropped. Sent as soon as it's made; after a failure, again in 1s, 2s, 4s… up to 30s.
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,35 +13,25 @@ use crate::i18n::tr;
 use crate::sync::Locked;
 
 const LONGEST_WAIT: Duration = Duration::from_secs(30);
-/// How long submitting the review waits for its comments to reach GitHub.
 const FLUSH_FOR: Duration = Duration::from_secs(20);
 
-/// A comment written or edited: into the pending review if it's new, its text changed if it's
-/// there already.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Put {
-    /// The window's name for it, until GitHub gives it an id.
     pub key: String,
-    /// The pull request's node id.
     pub pull: String,
     pub path: String,
     pub line: u32,
-    /// "additions" or "deletions", as the window has it.
     pub side: String,
     #[serde(default)]
     pub start_line: Option<u32>,
-    /// The side several lines start on, when it's the other one (across the two).
     #[serde(default)]
     pub start_side: Option<String>,
-    /// On the file as a whole.
     #[serde(default)]
     pub file: bool,
     pub body: String,
-    /// Its id on GitHub, when the window knows it (one started on github.com).
     #[serde(default)]
     pub id: Option<String>,
-    /// A reply to this conversation (its node id), rather than a new one.
     #[serde(default)]
     pub reply_to: Option<String>,
 }
@@ -84,7 +67,6 @@ impl Change {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Job {
     pub change: Change,
-    /// Why GitHub refused it: it waits for the person, not sent again on its own.
     #[serde(default)]
     pub error: Option<String>,
 }
@@ -95,7 +77,6 @@ struct Synced {
     comment: String,
 }
 
-/// What's kept on disk: the changes still to send, and the ids GitHub gave the comments sent.
 #[derive(Default, Debug, Serialize, Deserialize)]
 struct Saved {
     jobs: Vec<Job>,
@@ -103,32 +84,26 @@ struct Saved {
     ids: HashMap<String, Synced>,
 }
 
-/// A pull request's comments as this side has them, for its window to show.
 #[derive(Serialize)]
 pub struct Pending {
     pub jobs: Vec<Job>,
-    /// GitHub's id for each comment sent, by the window's key.
     pub ids: HashMap<String, String>,
 }
 
 #[derive(Default)]
 struct Queue {
     saved: Saved,
-    /// Something new to send: skip the wait.
     woken: bool,
-    /// Sends that couldn't reach GitHub, counted, so a submit waiting on them stops waiting.
     unreachable: u64,
     last_failure: Option<String>,
 }
 
 impl Queue {
-    /// The latest text wins: an earlier change to the same comment that hasn't gone yet is replaced.
     fn put(&mut self, put: Put) {
         self.saved.jobs.retain(|j| !(matches!(j.change, Change::Put(_)) && j.change.key() == put.key));
         self.saved.jobs.push(Job { change: Change::Put(put), error: None });
     }
 
-    /// A comment never sent just goes; one on GitHub is deleted there.
     fn remove(&mut self, pull: String, key: String, id: Option<String>) {
         self.saved.jobs.retain(|j| j.change.key() != key);
         self.saved.jobs.push(Job { change: Change::Remove { key, pull, id }, error: None });
@@ -138,8 +113,6 @@ impl Queue {
         self.saved.jobs.iter().find(|j| j.error.is_none()).cloned()
     }
 
-    /// After a job is sent. Only the job as it was sent is settled: a newer change made meanwhile
-    /// stays to be sent (with the id this one got).
     fn settle(&mut self, job: &Job, sent: &Sent) {
         let still = self.saved.jobs.iter().position(|j| j == job);
         match sent {
@@ -176,7 +149,6 @@ impl Queue {
         }
     }
 
-    /// Refused changes get another go.
     fn retry(&mut self, pull: Option<&str>) {
         for job in &mut self.saved.jobs {
             if pull.is_none_or(|p| job.change.pull() == p) {
@@ -185,7 +157,6 @@ impl Queue {
         }
     }
 
-    /// The review was sent or thrown away: nothing of it is left to send or to know.
     fn forget(&mut self, pull: &str) {
         self.saved.jobs.retain(|j| j.change.pull() != pull);
         self.saved.ids.retain(|_, s| s.pull != pull);
@@ -194,11 +165,8 @@ impl Queue {
 
 #[derive(Debug, PartialEq)]
 enum Sent {
-    /// GitHub took it; a new comment's id.
     Done(Option<String>),
-    /// GitHub couldn't be reached or is busy: try again later.
     Later(String),
-    /// GitHub answered no, and why.
     Refused(String),
 }
 
@@ -208,8 +176,6 @@ pub struct Drafts {
 }
 
 impl Drafts {
-    /// Reads what was left from last time and starts sending it; what GitHub refused before gets
-    /// one more go.
     pub fn start(app: &AppHandle) -> Drafts {
         let file = app.path().app_config_dir().ok().map(|d| d.join("drafts.json"));
         let saved: Saved = file.as_ref().and_then(|f| fs::read_to_string(f).ok()).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
@@ -251,9 +217,6 @@ impl Drafts {
         self.queue.0.held().pending(pull)
     }
 
-    /// Waits until every change to a pull request's comments is on GitHub, to submit the review
-    /// with all of them. Blocking: run it off the main thread. Fails at once with what GitHub
-    /// refused, or when it can't be reached.
     pub fn flush(&self, pull: &str) -> Result<(), String> {
         let (lock, wake, done) = &*self.queue;
         let deadline = Instant::now() + FLUSH_FOR;
@@ -302,7 +265,6 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&
         q.settle(&job, &sent);
         crate::disk::save_json(file, &q.saved);
         done.notify_all();
-        // The window showing this pull request reads what changed.
         let _ = app.emit("drafts", job.change.pull());
         if failures > 0 && !q.woken {
             let wait = Duration::from_secs(1 << (failures.min(6) - 1)).min(LONGEST_WAIT);
@@ -327,8 +289,6 @@ fn send(auth: &github::Auth, job: &Job, synced: Option<String>) -> Sent {
         Change::Remove { id, .. } => {
             let Some(id) = id.clone().or(synced) else { return Sent::Done(None) };
             match graphql(auth, "mutation($id: ID!) { deletePullRequestReviewComment(input: { id: $id }) { clientMutationId } }", json!({ "id": id })) {
-                // Refused: already gone (deleted or sent on github.com), or never to be; either way
-                // there's nothing more to do here.
                 Ok(_) | Err(Sent::Refused(_)) => Sent::Done(None),
                 Err(sent) => sent,
             }
@@ -336,8 +296,6 @@ fn send(auth: &github::Auth, job: &Job, synced: Option<String>) -> Sent {
     }
 }
 
-/// A new comment: into your pending review (started now if there's none), unless a send that
-/// seemed to fail did reach GitHub and it's there already.
 fn create(auth: &github::Auth, put: &Put) -> Result<Sent, Sent> {
     let data = graphql(
         auth,
@@ -395,8 +353,6 @@ fn create(auth: &github::Auth, put: &Put) -> Result<Sent, Sent> {
     Ok(Sent::Done(id))
 }
 
-/// A GraphQL call as a page's write (so what the pages read next isn't from before it). Errors in
-/// the answer are GitHub's no.
 fn graphql(auth: &github::Auth, query: &str, variables: Value) -> Result<Value, Sent> {
     let body = json!({ "query": query, "variables": variables }).to_string();
     match auth.request_for_page("POST", "/graphql", Some(&body), None) {
@@ -407,7 +363,6 @@ fn graphql(auth: &github::Auth, query: &str, variables: Value) -> Result<Value, 
                 None => Ok(reply["data"].clone()),
             }
         }
-        // Offline, signed out for now, rate limited or GitHub having trouble.
         Err(e) => Err(Sent::Later(e)),
         Ok((status, _)) if status == 401 || status == 403 || status == 429 || status >= 500 => Err(Sent::Later(tr!("GitHub returned {status}", "O GitHub respondeu {status}"))),
         Ok((status, text)) => {
@@ -470,7 +425,6 @@ mod tests {
         let first = q.next().unwrap();
         q.settle(&first, &Sent::Refused("line must be part of the diff".into()));
         assert_eq!(q.saved.jobs[0].error.as_deref(), Some("line must be part of the diff"));
-        // The next one isn't held up by it.
         assert!(matches!(q.next().unwrap().change, Change::Put(ref p) if p.key == "k2"));
         q.retry(Some("PR_1"));
         assert!(q.saved.jobs.iter().all(|j| j.error.is_none()));

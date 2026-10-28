@@ -135,7 +135,6 @@ describe("createPanel", () => {
     expect(settings.getAttribute("aria-label")).toBe("Focus Diff settings");
     expect(settings.dataset.tip).toBe("Focus Diff settings");
     expect(toggle.hidden).toBe(false);
-    // Only a change to the filters touches settings.
     settings.dataset.tip = "kept";
     panel.renderOptions(OPTIONS, ["frontend"]);
     expect(settings.dataset.tip).toBe("kept");
@@ -211,7 +210,6 @@ describe("createPanel", () => {
     expect(find(".breakdown").hidden).toBe(true);
     find(".breakdown-toggle").click();
     expect(find(".conversations").hidden).toBe(true);
-    // Hiding the bar closes them all.
     panel.setVisible(true);
     panel.setVisible(false);
     expect(find(".breakdown").hidden).toBe(true);
@@ -236,7 +234,6 @@ describe("createPanel", () => {
     expect(find(".breakdown").hidden).toBe(true);
     find(".comments").click();
     expect(actions.onComment).not.toHaveBeenCalled();
-    // Escape elsewhere on the page is the site's.
     escape();
     expect(find(".conversations").hidden).toBe(false);
     find(".step").focus();

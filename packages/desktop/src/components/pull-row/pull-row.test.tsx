@@ -51,7 +51,6 @@ function setup(props: Partial<Props> & { item: Item }) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   mockCommands((cmd, args) => {
     calls.push({ cmd, args });
-    // Nothing on disk, and every other command just done.
     return null;
   });
   const handlers = {
@@ -297,7 +296,6 @@ describe("PullRow", () => {
       const one = item();
       const { calls } = setup({ item: one });
       const el = screen.getByText(one.pr.title).closest("button")!;
-      // Its own requests only: an earlier test's fetch may still be finishing on a slow machine.
       const fetchedIt = () =>
         calls.some((c) => c.cmd === "github" && JSON.stringify(c.args).includes(String(one.pr.number)));
       fireEvent.pointerEnter(el);

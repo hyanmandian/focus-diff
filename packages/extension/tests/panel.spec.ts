@@ -11,7 +11,6 @@ import {
 } from "./fixtures";
 import { PullRequestPage } from "./pull-request-page";
 
-/** Reloads the extension under the open tab, then changes the page so the old content script notices. */
 const reloadExtension = async (pr: PullRequestPage, background: Worker) => {
   await background
     .evaluate(() => {
@@ -23,7 +22,6 @@ const reloadExtension = async (pr: PullRequestPage, background: Worker) => {
   });
 };
 
-/** The default filters and one for Rust, which matches nothing on the pull request. */
 const WITH_RUST = {
   ...DEFAULT_CONFIG,
   global: [...DEFAULT_CONFIG.global, { id: "rust", name: "Rust", include: "\\.rs$", exclude: "" }],
@@ -113,7 +111,6 @@ test.describe("panel on a pull request", () => {
 
     await pr.panel.getByRole("button", { name: "How the review time is worked out" }).hover();
     await expect(pr.panel.locator(".tip")).toContainText("Review time assumes about 1,000 changed lines an hour");
-    // The pointer can move onto it to read it.
     await pr.panel.locator(".tip").hover();
     await expect(pr.panel.locator(".tip")).toBeVisible();
     await expect(
@@ -135,14 +132,12 @@ test.describe("panel on a pull request", () => {
 
     await pr.pick("Frontend");
     await expect.poll(() => pr.statsText()).toMatch(/~3 min left to review$/u);
-    // Finishing the filter's last file is celebrated.
     await pr.page.emulateMedia({ reducedMotion: "no-preference" });
     await viewedToggle("web/src/book-card.tsx").click();
     await expect.poll(() => pr.statsText()).toMatch(/^0 files left to review.*Done$/u);
     await expect(pr.status).toHaveText("Every file in Frontend is reviewed.");
     await expect(pr.panel.locator("canvas")).toHaveCount(1);
     await expect(pr.panel.locator("canvas")).toHaveCount(0, { timeout: 4000 });
-    // Coming back to a finished filter isn’t.
     await pr.pick("Backend");
     await pr.pick("Frontend");
     await expect(pr.status).toContainText("Frontend: 1 of 8 files");
@@ -190,11 +185,9 @@ test.describe("panel on a pull request", () => {
     await expect(pr.pressed).toHaveText(["Docs"]);
     await remember(["rust"]);
     await expect(pr.pressed).toHaveText(["All"]);
-    // What was remembered stays, for pull requests where Rust has files.
     expect(await background.evaluate(async () => (await chrome.storage.local.get("active")).active)).toEqual({
       "octo/web": ["rust"],
     });
-    // Picking from here starts from what’s shown.
     await pr.pick("Docs");
     await expect(pr.pressed).toHaveText(["Docs"]);
   });
@@ -210,7 +203,6 @@ test.describe("panel on a pull request", () => {
       .getByRole("button", { name: "Viewed" })
       .click();
     await pr.pick("Backend");
-    // service.py is viewed, so the next Backend file comes to the top, under GitHub's sticky header.
     await expect.poll(() => top("api/tests/test_service.py")).toBeLessThan(120);
   });
 
@@ -249,7 +241,6 @@ test.describe("panel on a pull request", () => {
       ),
     );
     await expect(pr.pressed).toHaveText(["All"]);
-    // Once it settles, nothing of any transition is left on GitHub's page.
     await expect
       .poll(() =>
         pr.page.evaluate(() => ({
@@ -259,7 +250,6 @@ test.describe("panel on a pull request", () => {
         })),
       )
       .toEqual({ active: false, named: 0, animations: 0 });
-    // And a later pick doesn't jump back to the first file on its own.
     await pr.page.evaluate(() => {
       scrollTo(0, 600);
     });
@@ -275,7 +265,6 @@ test.describe("panel on a pull request", () => {
     const pr = new PullRequestPage(await openPullRequest());
     await pr.pick("Backend");
     await pr.panel.locator(".comments").click();
-    // Opening lands on the resolved thread, which GitHub is still loading; the reader moves on, and the late jump neither lands nor speaks.
     await pr.pick("All");
     await expect(pr.status).toHaveText(/^All: /u);
     await pr.page.waitForTimeout(800);
@@ -293,7 +282,6 @@ test.describe("panel on a pull request", () => {
       global: [...DEFAULT_CONFIG.global, { id: "ruby", name: "Ruby", include: "\\.rb$", exclude: "" }],
     });
     await expect(pr.option("Ruby")).toHaveAttribute("aria-disabled", "true");
-    // GitHub reports more files than it has drawn so far.
     await pr.page.evaluate(() => (document.querySelector('[aria-current="page"] .Counter')!.textContent = "12"));
     await pr.pick("Docs");
     await expect(pr.option("Ruby")).toHaveAttribute("aria-disabled", "false");
@@ -359,7 +347,6 @@ test.describe("panel on a pull request", () => {
     expect(wide).toMatchObject({ left: 16, right: 16, scrolled: 0, scrolls: true });
     await expect(pr.stats).toBeVisible();
 
-    // With a mouse, the arrow at the side with more scrolls to it; the one at the start shows once there's something there.
     const before = pr.panel.locator(".scroll-button.before");
     await expect(before).toHaveCSS("opacity", "0");
     await pr.panel.locator(".scroll-button.after").click();
@@ -368,7 +355,6 @@ test.describe("panel on a pull request", () => {
     await before.click();
     await expect.poll(async () => (await layout()).scrolled).toBe(0);
 
-    // Picking a chip out of view brings it in, with the highlight on it.
     await pr.option("All").focus();
     await pr.page.keyboard.press("End");
     await pr.page.keyboard.press("Enter");
@@ -398,10 +384,8 @@ test.describe("panel on a pull request", () => {
     await expect(next).toHaveAccessibleName("Next file to review, 8 left");
     await next.hover();
     await expect(pr.panel.locator(".tip")).toHaveText("Next file to review, 8 left");
-    // The first file is already on screen, so it’s the one after it.
     await next.click();
     await expect(pr.status).toHaveText("web/src/book-card.test.tsx. 8 files left to review.");
-    // Docs done: the button moves on to the next filter in the bar.
     await pr.pick("Docs");
     await pr.page
       .locator("[data-diff-header-wrapper]", { hasText: "docs/books.md" })
@@ -423,7 +407,6 @@ test.describe("panel on a pull request", () => {
       if (tab?.id) await chrome.tabs.sendMessage(tab.id, { type: "command", command: "next-unviewed" });
     });
     await expect(pr.status).toHaveText(/^web\/src\/book-card\.test\.tsx\./u);
-    // With Docs the only filter, finishing it leaves nothing to go on to.
     await seed({ ...DEFAULT_CONFIG, global: DEFAULT_CONFIG.global.filter((filter) => filter.id === "docs") });
     await pr.pick("Docs");
     await pr.page
@@ -461,7 +444,6 @@ test.describe("panel on a pull request", () => {
           element.textContent?.includes(needle),
         )!;
         const box = thread.getBoundingClientRect();
-        // Near the top of the page there's nothing to scroll; on screen is as centred as it gets.
         const onScreen =
           scrollY === 0
             ? box.top >= 0 && box.bottom <= innerHeight
@@ -470,21 +452,18 @@ test.describe("panel on a pull request", () => {
       }, text);
 
     await expect(comments).toHaveAccessibleName("Conversations, 4 conversations");
-    // Opening lands on the first conversation.
     await comments.click();
     const popover = pr.panel.getByRole("dialog", { name: "Conversations" });
     await expect(pr.status).toHaveText("Conversation 1 of 4, in web/src/book-card.tsx.");
     await expect.poll(() => centred("missing cover")).toBe(true);
     await expect(popover).toContainText("book-card.tsx:12");
     await expect(popover).toContainText("Waiting on you1/4");
-    // The card stays within the panel, even with its button near the panel's edge.
     const [card, bar] = await Promise.all([popover.boundingBox(), pr.panel.locator(".panel").boundingBox()]);
     expect(card!.x).toBeGreaterThanOrEqual(bar!.x - 0.5);
     expect(card!.x + card!.width).toBeLessThanOrEqual(bar!.x + bar!.width + 0.5);
     await expect(comments).toHaveAccessibleName("Conversations, 4 conversations");
     await next.click();
     await expect(pr.status).toHaveText("Conversation 2 of 4, in api/books/service.py.");
-    // The resolved thread was collapsed; it opens so it can be read.
     await expect.poll(() => centred("Typo")).toBe(true);
     await expect(pr.page.getByText("Typo in the docstring.")).toBeVisible();
     await expect(popover).toContainText("Resolved2/4");
@@ -492,7 +471,6 @@ test.describe("panel on a pull request", () => {
     await expect(popover).toContainText("service.py:40");
     await expect(popover).toContainText("Answered3/4");
     await next.click();
-    // A reaction to the last comment counts as an answer.
     await expect(popover).toContainText("Answered4/4");
     await previous.click();
     await previous.click();
@@ -517,7 +495,6 @@ test.describe("panel on a pull request", () => {
     const comments = pr.panel.locator(".comments");
     await expect(comments).toHaveAttribute("aria-disabled", "true");
     await expect(comments).toHaveAccessibleName("Conversations, No conversations in these files yet");
-    // The disabled reason takes the place of the button's name in its tooltip.
     await comments.hover();
     await expect(pr.panel.locator(".tip")).toHaveText("No conversations in these files yet");
     await comments.click({ force: true });
@@ -574,7 +551,6 @@ test.describe("panel on a pull request", () => {
 
   test("follows the keyboard shortcuts", async ({ openPullRequest, background, seed }) => {
     const pr = new PullRequestPage(await openPullRequest());
-    // A filter with nothing here is stepped over.
     await seed(WITH_RUST);
     await expect(pr.option("Rust")).toBeVisible();
     const send = (command: string) =>
@@ -599,7 +575,6 @@ test.describe("panel on a pull request", () => {
       openPullRequest,
     }) => {
       const pr = new PullRequestPage(await openPullRequest(url));
-      // Docs' only file is viewed, so switching to it swaps the clock for the Done badge too.
       await pr.page
         .locator("[data-diff-header-wrapper]", { hasText: "docs/books.md" })
         .getByRole("button", { name: "Viewed" })
@@ -634,7 +609,6 @@ test.describe("panel on a pull request", () => {
           cells: [...board.children].map((cell) => cell.textContent),
         };
       }, `.scoreboard.${name}`);
-    // The cells are those of the widest number, the unused ones blank; the separators stay where they are.
     await expect.poll(() => cells("files-count")).toEqual({ hidden: "true", cells: ["1"] });
     expect(await cells("additions")).toEqual({ hidden: "true", cells: ["", "", "", "", "", "+", "5"] });
     expect(await cells("time")).toEqual({ hidden: "true", cells: ["", "0", ":", "0", "1"] });
@@ -664,7 +638,6 @@ test.describe("panel on a pull request", () => {
     const [settings] = await Promise.all([context.waitForEvent("page"), pr.settings.click()]);
     await expect(settings).toHaveURL(/\/options\.html#repo=octo%2Fweb$/u);
     await expect(settings.locator("#try-repo")).toHaveValue("octo/web");
-    // Opening it again, from another repository, reuses the tab.
     await pr.page.evaluate(() => {
       history.pushState(null, "", "/octo/api/pull/1/files");
     });
@@ -706,7 +679,6 @@ test.describe("panel on a pull request", () => {
     await expect(pr.panel.getByRole("link", { name: "New in 2.0" })).toBeHidden();
   });
 
-  // GitHub's own colour tokens (Primer), which the panel picks up, so contrast is checked against the real themes.
   const PRIMER = {
     light: {
       fg: "#1f2328",
@@ -794,7 +766,6 @@ test.describe("panel on a pull request", () => {
     await pr.pick("All");
     await expect.poll(() => pr.statsText()).toMatch(/^12 files left to review/u);
     await expect(pr.stats).toHaveAttribute("data-tip", /not loaded yet/u);
-    // Files not loaded yet might match the filter too, so it can't be done.
     await pr.pick("Docs");
     await pr.page
       .locator("[data-diff-header-wrapper]", { hasText: "docs/books.md" })

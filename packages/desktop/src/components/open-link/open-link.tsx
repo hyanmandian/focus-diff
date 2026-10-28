@@ -1,7 +1,3 @@
-// Open Pull Request…: a sheet over the panel for a pull request's link on GitHub, opened in its
-// review window on Return. It also shows when a link pasted in the panel, or sent from a
-// focusdiff:// link, couldn't be opened, with the link and why.
-
 import { parsePullLink } from "@focus-diff/core/pull-link";
 import { useState } from "react";
 
@@ -12,7 +8,6 @@ import { errorText } from "@/utils/error/error";
 import { useT, type T } from "@/utils/i18n/i18n";
 import { NoSuchPull, openPullLink } from "@/utils/pull-link/pull-link";
 
-/** Opens the review of the pull request a link is to; why not, in words, when it can't. */
 export async function openLink(text: string, t: T): Promise<string | null> {
   const link = parsePullLink(text);
   if (!link) return t("panel.notAPullLink");
@@ -29,7 +24,6 @@ export function OpenLink({
   initial,
 }: {
   onClose: () => void;
-  /** What to show on opening: a link that couldn't be opened, and why. */
   initial?: { text: string; error: string } | null;
 }) {
   const t = useT();
@@ -44,7 +38,6 @@ export function OpenLink({
     if (!why) onClose();
   };
   return (
-    // Shown while it's there: it only ever asks to close.
     <Dialog open onOpenChange={onClose}>
       <DialogContent>
         <DialogTitle>{t("panel.openPullTitle")}</DialogTitle>

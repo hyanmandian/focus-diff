@@ -11,14 +11,12 @@ const mermaid = vi.hoisted(() => ({
 }));
 vi.mock("mermaid", () => ({ default: mermaid }));
 
-/** Some HTML, its diagrams drawn. */
 function Page({ html }: { html: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useDiagrams(ref, html);
   return <div ref={ref} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
-/** The hook with nothing on the page yet to look in. */
 function Unshown({ html }: { html: string }) {
   useDiagrams(useRef<HTMLDivElement>(null), html);
   return null;

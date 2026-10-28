@@ -5,15 +5,9 @@ import { isOwnSound, playSound, type SoundSetting } from "@/utils/sound/sound";
 
 const OFFSCREEN = "/offscreen.html";
 
-/** Firefox's background is a page, with audio of its own. */
 let context: AudioContext | null = null;
-/** Creating the offscreen document twice at once fails; the second waits on the first. */
 let creating: Promise<void> | null = null;
 
-/**
- * Chrome's service worker has no audio, so a sound plays in an offscreen document made for it, which Chrome closes
- * again once it's been quiet a while.
- */
 const ensureOffscreen = async () => {
   const url = browser.runtime.getURL(OFFSCREEN);
   const existing = await browser.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"], documentUrls: [url] });
@@ -30,7 +24,6 @@ const ensureOffscreen = async () => {
   await creating;
 };
 
-/** Plays the reader's sound, when it's one of ours: the system's own comes with the notification, and none is none. */
 export const play = async ({ id, volume }: SoundSetting): Promise<void> => {
   if (!isOwnSound(id) || volume <= 0) return;
   try {
@@ -43,10 +36,7 @@ export const play = async ({ id, volume }: SoundSetting): Promise<void> => {
     await ensureOffscreen();
     const message: Message = { type: "play-sound", sound: id, volume };
     await browser.runtime.sendMessage(message);
-  } catch {
-    // A sound is a nicety; the notification still shows.
-  }
+  } catch {}
 };
 
-/** Chrome keeps a notification quiet when asked; it is whenever the sound is ours, or none. */
 export const isSilent = ({ id }: SoundSetting): boolean => id !== "system";

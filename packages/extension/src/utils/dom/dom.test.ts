@@ -70,7 +70,6 @@ describe("wheelScrollsSideways", () => {
 
   const wheel = (element: HTMLElement, { ctrlKey = false, ...init }: WheelEventInit) => {
     const event = new WheelEvent("wheel", { cancelable: true, ...init });
-    // happy-dom leaves a wheel event's modifier keys out.
     Object.defineProperty(event, "ctrlKey", { value: ctrlKey });
     element.dispatchEvent(event);
     return event;

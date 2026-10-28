@@ -1,8 +1,3 @@
-// Stepping from file to file in the Diff, as j and k do on GitHub: from the file at the top of the
-// screen to the next, or back to the start of the one being read (if it's scrolled partway), then
-// the one before.
-
-/** `atTop`: the file at the top of the screen, and whether its start is there (Diffs.atTop). */
 export function stepFile(
   paths: string[],
   atTop: { path: string; reached: boolean } | null,

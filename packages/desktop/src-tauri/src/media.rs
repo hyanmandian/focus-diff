@@ -1,9 +1,3 @@
-//! Pictures and videos in descriptions and comments, which in private repositories GitHub serves
-//! only to a signed-in browser (release assets, attachments). The pages ask for
-//! `media://localhost/?u=<the GitHub address>`; this fetches it with the token (which stays here),
-//! keeps it on disk for a week, and serves it, in ranges for videos so they can be scrubbed.
-//! Only GitHub's own hosts, https.
-
 use std::io::Read;
 use std::time::Duration;
 
@@ -39,13 +33,10 @@ pub(crate) fn decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// GitHub's hosts only: github.com and its user content hosts.
 fn allowed(url: &str) -> bool {
     crate::github::https_host(url).is_some_and(|host| host == "github.com" || host.ends_with(".githubusercontent.com"))
 }
 
-/// The cache key: private-user-images' addresses carry a token that changes each time; the path
-/// names the file.
 fn key(url: &str) -> String {
     if url.contains("private-user-images.githubusercontent.com") { url.split('?').next().unwrap_or(url).to_string() } else { url.to_string() }
 }
@@ -84,8 +75,6 @@ fn read_all(response: ureq::http::Response<ureq::Body>) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-/// A private repository's release asset, through the API (github.com's own download link wants a
-/// browser session): the release by tag, the asset by name, its bytes.
 fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
     let rest = url.strip_prefix("https://github.com/")?;
     let parts: Vec<&str> = rest.splitn(6, '/').collect();
@@ -103,7 +92,6 @@ fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
         .ok()?;
     let file = decode(file);
     let id = release["assets"].as_array()?.iter().find(|a| a["name"].as_str() == Some(&file))?["id"].as_u64()?;
-    // GitHub answers with a redirect to its storage, which ureq follows without the token.
     let response = agent
         .get(format!("https://api.github.com/repos/{owner}/{repo}/releases/assets/{id}"))
         .header("Authorization", &auth)
@@ -118,13 +106,9 @@ fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
         let token = app.state::<crate::github::Auth>().token_for_git().ok()?;
         return release_asset(&token, url);
     }
-    // An attachment in a private repository is the signed-in person's to see: asked as them on
-    // github.com when they're signed in there (web.rs), it's at a signed address on GitHub's
-    // content host, fetched without the session.
     if let Some(signed) = crate::web::signed_address(app, url) {
         return read_all(crate::github::agent().get(&signed).call().ok()?);
     }
-    // Everything else on GitHub's content hosts is reachable at its (signed) address.
     read_all(crate::github::agent().get(url).call().ok()?)
 }
 
@@ -132,7 +116,6 @@ fn empty(status: StatusCode) -> Response<Vec<u8>> {
     Response::builder().status(status).body(vec![]).unwrap_or_default()
 }
 
-/// The bytes asked for: all of them, or a range ("bytes=a-b"), as a video player asks.
 fn serve_bytes(request: &Request<Vec<u8>>, bytes: Vec<u8>, content_type: &str) -> Response<Vec<u8>> {
     let total = bytes.len();
     let range = request.headers().get("range").and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("bytes=")).and_then(|v| {
@@ -153,7 +136,6 @@ fn serve_bytes(request: &Request<Vec<u8>>, bytes: Vec<u8>, content_type: &str) -
     }
 }
 
-/// Answers one `media://` request. Blocking: run it off the main thread.
 pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let query = request.uri().query().unwrap_or("");
     let Some(url) = query.split('&').find_map(|p| p.strip_prefix("u=")).map(decode) else { return empty(StatusCode::BAD_REQUEST) };
@@ -169,7 +151,6 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
                 let _ = disk::write(&path, &bytes);
                 bytes
             }
-            // Offline, or gone: an older copy beats none.
             None => match cached {
                 Ok(bytes) => bytes,
                 Err(_) => return empty(StatusCode::BAD_GATEWAY),
@@ -177,14 +158,12 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         },
     };
     let content_type = kind(&bytes, &url);
-    // Something that isn't a picture or a video isn't shown, whatever GitHub sent.
     if content_type == "application/octet-stream" || content_type == "image/svg+xml" {
         return empty(StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
     serve_bytes(request, bytes, content_type)
 }
 
-/// Removes what nobody's looked at for a month.
 pub fn sweep(app: &AppHandle) {
     if let Some(dir) = disk::cache_folder(app, "media") {
         disk::sweep(&dir, KEEP * 4);

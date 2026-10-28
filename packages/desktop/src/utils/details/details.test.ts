@@ -14,7 +14,6 @@ const field = (args: Args | undefined, key: string): unknown =>
     ? args[key]
     : undefined;
 
-/** Answers every GitHub call with `reply` and keeps what was sent. */
 function github(reply: unknown) {
   const sent: Sent[] = [];
   mockCommands((cmd, args) => {

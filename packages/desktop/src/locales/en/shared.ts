@@ -1,4 +1,3 @@
-// Parts more than one window shows: connecting GitHub, the AI, actions, the picture viewer.
 export const shared = {
   close: "Close",
   connectEnterCode: "Enter this code on GitHub to finish signing in:",

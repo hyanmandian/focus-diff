@@ -1,11 +1,7 @@
-// An answer from the AI, shown as text (never as HTML): paragraphs, "- " points as a list, and
-// `code` and **bold** as such.
-
 import { Fragment } from "react";
 
 const POINT = /^[-*•]\s+/u;
 
-/** Each part keyed by where it starts in the line, which is unique and never moves. */
 function inline(text: string) {
   let at = 0;
   return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/gu).map((part) => {
@@ -26,7 +22,6 @@ function inline(text: string) {
 type Line = { at: number; text: string };
 
 export function AiAnswer({ text }: { text: string }) {
-  // Blocks and their lines are keyed by the line of the answer they start on.
   const blocks: Array<{ at: number; list: boolean; lines: Line[] }> = [];
   for (const [at, raw] of text.split("\n").entries()) {
     const line = raw.trim();

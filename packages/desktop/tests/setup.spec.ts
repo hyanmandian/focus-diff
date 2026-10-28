@@ -1,5 +1,3 @@
-// First-run setup, signed in already on the sample data: GitHub, queues, notifications, AI, ready.
-
 import { expect, test, type Page } from "@playwright/test";
 
 import { callsOf, recordCalls, savedConfig } from "./ipc";

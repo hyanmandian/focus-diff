@@ -1,7 +1,3 @@
-// The diff's filters: parts of a pull request to review on its own, by file path, offered as chips
-// in the review window, for every repository or only some. Like Focus Diff's, with its recipes as
-// starting points, and shared with it (and teammates) as the same text.
-
 import { isValidPattern } from "@focus-diff/core/filters";
 import { ArrowDown, ArrowUp, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
@@ -23,7 +19,6 @@ import { confirmRemove } from "@/utils/confirm/confirm";
 import { addImported, exportFilters, importFilters } from "@/utils/filters/filters";
 import { i18n, useT } from "@/utils/i18n/i18n";
 
-// Called as a repository is added, so it reads the words then.
 const repoError = (v: string) => (isRepoPattern(v) ? null : i18n()("settings.repoError"));
 
 function Pattern({
@@ -61,7 +56,6 @@ function Pattern({
   );
 }
 
-/** Copy the filters for a teammate (or Focus Diff in the browser), and import theirs in one step. */
 function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: DiffFilter[]) => void }) {
   const [copied, setCopied] = useState(false);
   const [text, setText] = useState("");

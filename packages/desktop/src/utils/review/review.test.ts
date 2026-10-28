@@ -18,14 +18,12 @@ import {
 
 type Request = { method: string; path: string; body: string };
 
-/** One of the arguments a command was sent with. */
 function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
 }
 
-/** Answers GitHub with what `answer` gives, and keeps each request. */
 function github(answer: (request: Request) => unknown) {
   const asked: Request[] = [];
   mockCommands((_cmd, args) => {
@@ -40,7 +38,6 @@ function github(answer: (request: Request) => unknown) {
   return asked;
 }
 
-/** What a request sent, as JSON. */
 const sentJson = (request: Request | undefined): unknown => JSON.parse(String(request?.body));
 
 const ref = { owner: "acme", repo: "app", number: 7 };
@@ -62,7 +59,6 @@ describe("file headers", () => {
   });
 });
 
-/** A pull request of `total` files, each page as GitHub gives it; the pages asked for, in order. */
 function files(total: number) {
   const pages: number[] = [];
   github((request) => {
@@ -176,7 +172,6 @@ const threadsPage = (nodes: unknown[], pageInfo: { hasNextPage: boolean; endCurs
   data: { repository: { pullRequest: { reviewThreads: { pageInfo, nodes } } } },
 });
 
-/** Conversations over two pages, the first with one too long for its page. */
 function twoPages(request: Request) {
   if (request.body.includes("PullRequestReviewThread"))
     return { data: { node: { comments: { pageInfo: none, nodes: [comment("T1-c2")] } } } };
@@ -267,7 +262,6 @@ const filesPage = (nodes: unknown[], pageInfo: { hasNextPage: boolean; endCursor
   data: { repository: { pullRequest: { files: { pageInfo, nodes } } } },
 });
 
-/** Viewed states over two pages. */
 const viewedPages = (request: Request) =>
   request.body.includes('"after":"p2"')
     ? filesPage([{ path: "b.ts", viewerViewedState: "DISMISSED" }], { hasNextPage: false, endCursor: null })

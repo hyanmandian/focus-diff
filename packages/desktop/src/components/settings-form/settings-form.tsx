@@ -1,8 +1,3 @@
-// The building blocks of a macOS grouped form (System Settings, Raycast's settings): a pane with its
-// title in the window's title-bar strip, sections drawn as rounded insets with a heading and
-// footnote, and rows inside them with the label on the left and the control on the right, or, for
-// wide controls, below it.
-
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
@@ -13,7 +8,6 @@ import { useT } from "@/utils/i18n/i18n";
 import { primary, shortcut } from "@/utils/os/os";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 
-/** A queue's colour, as a fill: the system colours (the -ic ones are for text). */
 export const TONE_FILL: Record<Queue["tone"], string> = {
   blue: "bg-(--blue)",
   purple: "bg-(--purple)",
@@ -23,18 +17,13 @@ export const TONE_FILL: Record<Queue["tone"], string> = {
   gray: "bg-(--gray)",
 };
 
-/** A menu item with a name and a line about it under, as the add menus have. */
 export const TWO_LINE_ITEM = "h-auto flex-col items-start gap-0 py-1 whitespace-normal";
 
-/** A push button that stays in (a preset picked, a queue included): the accent, as Tahoe draws a
- *  chosen segment, gray in a window that isn't in front. */
 export const PRESSED_CHIP =
   "aria-pressed:bg-selected aria-pressed:text-selected-foreground aria-pressed:active:brightness-90";
 
-/** How far a pane's big header scrolls before its name takes its place in the strip. */
 const HERO_PAST = 120;
 
-/** The way back from a detail to its list, in the strip. */
 function Back({ label, onBack, ref }: { label: string; onBack: () => void; ref?: React.Ref<HTMLButtonElement> }) {
   const t = useT();
   return (
@@ -46,19 +35,11 @@ function Back({ label, onBack, ref }: { label: string; onBack: () => void; ref?:
       title={t("settings.backToShortcut", { pane: label, shortcut: shortcut("[", ["cmd"]) })}
       className="-ml-1.5 grid size-(--toolbar-item-h) shrink-0 cursor-default place-items-center rounded-(--radius-capsule) text-muted-foreground focus-ring outline-none hover:bg-fill hover:text-foreground active:bg-(--fill-control-pressed)"
     >
-      {/* A toolbar item, which (unlike a button in the content) may light up under the pointer. */}
       <ChevronLeft className="size-[18px]" strokeWidth={2} aria-hidden />
     </button>
   );
 }
 
-/**
- * A pane: the 52px strip level with the traffic lights (its title, a way back from a detail, the
- * detail's own tools) and a scrolling column under it. The strip is the window's drag area; a
- * hairline shows under it once the content scrolls beneath, as in the system's own windows.
- * `hero`: a top-level pane opens on its tile, large, its name and what it's for, centred (Tahoe's
- * and Raycast's settings); the strip takes the name only once that has scrolled away.
- */
 export function Pane({
   title,
   back,
@@ -85,7 +66,6 @@ export function Pane({
           scrolled > 0 && (!hero || scrolled > HERO_PAST) ? "border-separator" : "border-transparent",
         )}
       >
-        {/* Lined up with the column below, so the title sits over the groups' edge. */}
         <div data-tauri-drag-region className="mx-auto flex h-[52px] max-w-[620px] items-center gap-1.5 px-5">
           {back ? <Back {...back} /> : null}
           <h1
@@ -98,13 +78,10 @@ export function Pane({
           >
             {title}
           </h1>
-          {/* The empty stretch between title and tools is the most likely grab point. */}
           <div data-tauri-drag-region className="h-full min-w-4 flex-1" />
           {tools ? <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">{tools}</div> : null}
         </div>
       </header>
-      {/* Room kept for a scroll bar on both sides (one shows with "Show scroll bars: Always" or a
-          mouse), so a pane that scrolls doesn't move the centred content over. */}
       <div
         className="min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto"
         onScroll={(e) => {
@@ -132,12 +109,10 @@ export function Pane({
   );
 }
 
-/** A pane's lead-in: what it's for, in secondary text above its sections. */
 export function Intro({ children }: { children: React.ReactNode }) {
   return <p className="max-w-[62ch] px-3 text-callout text-muted-foreground">{children}</p>;
 }
 
-/** A section: an optional heading (and something on its right, like an add button), the inset, a footnote. */
 export function Group({
   title,
   accessory,
@@ -167,10 +142,6 @@ export function Group({
   );
 }
 
-/**
- * A row: label and description on the left, the control on the right. `stacked` puts the control
- * under the label at full width, for lists, text fields and anything wide.
- */
 export function Row({
   label,
   description,
@@ -218,7 +189,6 @@ export function Row({
   );
 }
 
-/** A row with a switch, the mini one System Settings puts in a grouped form's rows. */
 export function SwitchRow({
   checked,
   onChange,
@@ -238,11 +208,6 @@ export function SwitchRow({
   );
 }
 
-/**
- * A row that opens a detail (a queue, an action): the whole row is the button, with a chevron at
- * its end, and an optional control (a switch) that stays its own target above it. No highlight under
- * the pointer, as in System Settings; a fill while pressed.
- */
 export const LinkRow = forwardRef<
   HTMLButtonElement,
   {
@@ -274,11 +239,6 @@ export const LinkRow = forwardRef<
   );
 });
 
-/**
- * A list that opens one item at a time in place (System Settings' drill-in), rather than a third
- * column: which item is open, focus moved to the way back on the way in and to the item's row on
- * the way out, and ⌘[ to go back.
- */
 export function useDetail() {
   const [openId, setOpenId] = useState<string | null>(null);
   const backRef = useRef<HTMLButtonElement>(null);
@@ -316,7 +276,6 @@ export function useDetail() {
   return { openId, open, close, backRef, rowRef };
 }
 
-/** Arrow keys within a hand-drawn radio group: move to the next or previous choice and pick it. */
 export function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
   const by =
     e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;

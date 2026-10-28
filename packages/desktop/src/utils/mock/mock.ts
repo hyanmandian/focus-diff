@@ -1,8 +1,3 @@
-// Development only: stands in for the app (the desktop's Rust side) when the pages run in a plain
-// browser (npm run dev, then open http://localhost:1420), with sample pull requests, so the interface
-// can be worked on and screenshotted without GitHub: a page's entry sets mockPlatform as its platform.
-// Never part of a build (see the desktop's entries/panel.tsx).
-
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
 import { type Args, fail, isRecord, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
 import { manageRoute } from "@/utils/mock-manage/mock-manage";
@@ -26,7 +21,6 @@ const people = {
 
 let n = 1800;
 function pr(overrides: Record<string, unknown>) {
-  // One with its own number leaves the others' as they were.
   if (!("number" in overrides)) n += 7;
   return {
     id: `PR_${n}`,
@@ -85,7 +79,6 @@ const review = [
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
     createdAt: iso(60 * 50),
   }),
-  // Built on the first one's branch: a stack of two.
   pr({
     id: "PR_1812",
     number: 1812,
@@ -381,7 +374,6 @@ const reviewFiles = [
       "@@ -1,3 +1,3 @@\n-export function PromoInput({ code }: Props) {\n+export function PromoField({ code }: Props) {\n   return <input value={code} />;\n }",
   },
   {
-    // Only re-indented, but for one line: "Hide whitespace changes" leaves that one.
     filename: "src/checkout/totals.ts",
     status: "modified",
     additions: 4,
@@ -389,7 +381,6 @@ const reviewFiles = [
     patch:
       "@@ -1,6 +1,6 @@\n export function total(items: Item[]) {\n-let sum = 0;\n-for (const i of items) sum += i.price;\n-return sum;\n+  let sum = 0;\n+  for (const i of items) sum += i.price * i.quantity;\n+  return sum;\n+\n-\n }",
   },
-  // GitHub sends no patch for these: a picture, compared side by side, and a file too large.
   { filename: "public/promo-badge.svg", status: "modified", additions: 3, deletions: 3 },
   { filename: "data/promo-fixtures.json", status: "modified", additions: 1200, deletions: 900 },
   {
@@ -409,7 +400,6 @@ const reviewFiles = [
   },
 ];
 
-// What github.com says you've viewed: marked there, so it shows ticked here too.
 const viewedOnGitHub = {
   repository: {
     pullRequest: {
@@ -424,7 +414,6 @@ const viewedOnGitHub = {
   },
 };
 
-// A reader a bit slower than the starting pace on code, quicker on tests (utils/estimate/estimate.ts).
 const pace = {
   all: { actual: 52, expected: 40, files: 18 },
   kinds: { code: { actual: 40, expected: 26, files: 11 }, tests: { actual: 6, expected: 9, files: 5 } },
@@ -459,7 +448,6 @@ const threads = {
             },
           },
           {
-            // On the old side: the line that dropped the code.
             id: "t2",
             isResolved: false,
             isOutdated: false,
@@ -484,7 +472,6 @@ const threads = {
             },
           },
           {
-            // Made on an earlier version, on a line 12 that held other code then: shown at the top.
             id: "t3",
             isResolved: false,
             isOutdated: true,
@@ -512,7 +499,6 @@ const threads = {
   },
 };
 
-// What Rust's queue engine would make of the pull requests above (src-tauri/src/engine.rs).
 type Sample = ReturnType<typeof pr>;
 const item = (
   queueId: string,
@@ -521,7 +507,6 @@ const item = (
   extra: object = {},
 ) => ({
   queueId,
-  // Rust sends the panel a count, not the comments.
   pr: {
     ...p,
     comments: typeof p.comments === "number" ? p.comments : (p.comments as { nodes: unknown[] }).nodes.length,
@@ -591,8 +576,6 @@ const snapshot = {
 
 const files: Record<string, string | null> = { config: JSON.stringify(config), pace: JSON.stringify(pace) };
 
-// Both versions of a few files (utils/contents/contents.ts), so the lines between hunks expand, the picture
-// compares and the large file loads. "base" is the merge base, "abc123" the head.
 const before = (count: number) => Array.from({ length: count }, (_, i) => `// helper ${i + 1}`);
 const cartOld = [
   ...before(8),
@@ -635,16 +618,13 @@ const contents: Record<string, string> = {
   "abc123:data/promo-fixtures.json": fixtures(60),
 };
 const listeners = new Map<string, Set<(payload: unknown) => void>>();
-// Events from the sample's side (utils/mock-conversation/mock-conversation.ts) reach the page's listeners.
 const emit = (event: string, payload: unknown) => {
   for (const heard of listeners.get(event) ?? []) heard(payload);
 };
 setEmitter(emit);
-// Signed in on github.com for attachments: nobody at first, so the sign-in is there to try.
 let webLogin: string | null = null;
 
 async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise<unknown> {
-  // Commenting (suggestions, the pending review, reactions…) answers first.
   const answered = await conversationMock(cmd, args, () => ({
     people,
     threads: threads.repository.pullRequest.reviewThreads.nodes,
@@ -652,7 +632,6 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
     files: reviewFiles,
   }));
   if (answered !== undefined) return answered;
-  // What's around the pull request: merging, checks, commits, people, the timeline (mock-manage.ts).
   const around = await manageRoute(cmd, args);
   if (around !== undefined) return around;
   switch (cmd) {
@@ -670,7 +649,6 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
         return { status: 200, body: JSON.stringify({ base: { sha: "tip" }, head: { sha: "abc123" } }) };
       if (path.includes("/compare/"))
         return { status: 200, body: JSON.stringify({ merge_base_commit: { sha: "base" } }) };
-      // A few of GitHub's emoji, for :completion.
       if (path === "/emojis")
         return {
           status: 200,
@@ -690,7 +668,6 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
       const query = str(json(args, "body"), "query");
       if (query.includes("reviewThreads(first: 100")) return { status: 200, body: JSON.stringify({ data: threads }) };
       if (query.includes("viewerViewedState")) return { status: 200, body: JSON.stringify({ data: viewedOnGitHub }) };
-      // #1807 is the bottom of a stack of two: #1812 is built on its branch.
       if (query.includes("above: pullRequests")) {
         const sent = json(args, "body").variables;
         const head = isRecord(sent) ? str(sent, "head") : "";
@@ -805,7 +782,6 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
 
 // oxlint-disable-next-line typescript/require-await, typescript/no-unnecessary-type-parameters -- a promise, as the app's registering is; the caller names the payload
 async function listen<T>(event: string, handler: (payload: T) => void): Promise<Unlisten> {
-  // A listener of its own each time, as the app's, even for the same handler twice.
   const heard = (payload: unknown) => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the sample sends the payload the listener names
     handler(payload as T);
@@ -817,8 +793,6 @@ async function listen<T>(event: string, handler: (payload: T) => void): Promise<
   };
 }
 
-/** The sample data as the pages' platform. Pictures come straight from GitHub (no mediaUrl): there's
- *  no app to keep them. Telling another window something reaches nobody: each page is on its own. */
 export const mockPlatform: Platform = {
   invoke: async <T>(command: string, args?: PlatformArgs, options?: InvokeOptions) =>
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the caller names the shape the sample answers in
@@ -826,7 +800,6 @@ export const mockPlatform: Platform = {
   listen,
   listenToWindow: listen,
   emitTo: () => Promise.resolve(),
-  // No version: Settings names the app alone.
   version: () => Promise.resolve(""),
   closeWindow: () => Promise.resolve(),
 };

@@ -1,12 +1,6 @@
-// What the comment box asks GitHub for: a preview of the Markdown (rendered by GitHub, so it's what
-// the comment will look like), who can be @mentioned, which issues and pull requests a # can point
-// to, and your saved replies. Each kept, so the box answers as you type: the people and the replies
-// for a day, previews and searches for the window's life.
-
 import { github, graphql } from "@/utils/bridge/bridge";
 import { emojiList, type Emoji, type Person } from "@/utils/writing/writing";
 
-/** In memory, the oldest out first past a few hundred. */
 function cache<T>(most = 300) {
   const entries = new Map<string, T>();
   return {
@@ -20,7 +14,6 @@ function cache<T>(most = 300) {
   };
 }
 
-/** On this machine for a day: `get` is null once it's older. */
 function daily<T>(key: string) {
   return {
     get: (): T | null => {
@@ -35,9 +28,7 @@ function daily<T>(key: string) {
     put: (value: T) => {
       try {
         localStorage.setItem(key, JSON.stringify({ at: Date.now(), value }));
-      } catch {
-        // Asked again next time.
-      }
+      } catch {}
     },
   };
 }
@@ -48,7 +39,6 @@ const repliesKept = daily<SavedReply[]>("saved-replies");
 const previews = cache<Promise<string>>(100);
 
 let emojiAsked: Promise<Emoji[]> | null = null;
-/** GitHub's emoji, as characters: asked once, then kept a day (they rarely change). */
 export function emoji(): Promise<Emoji[]> {
   const kept = emojiKept.get();
   if (kept) return Promise.resolve(kept);
@@ -61,14 +51,12 @@ export function emoji(): Promise<Emoji[]> {
   return emojiAsked;
 }
 
-/** The Markdown as GitHub renders it in this repository (so #12 and @ana link as they will). */
 export function preview(text: string, repo: string): Promise<string> {
   const key = `${repo}\n${text}`;
   const known = previews.get(key);
   if (known) return known;
   const asked = github<string>("POST", "/markdown", { text, mode: "gfm", context: repo }, "text/html");
   previews.set(key, asked);
-  // A failure isn't kept: the next look asks again.
   asked.catch(() => {
     previews.delete(key);
   });
@@ -79,8 +67,6 @@ type RawPerson = { login: string; name: string | null; avatarUrl: string };
 const PERSON = "login name avatarUrl(size: 40)";
 const searches = cache<Promise<Person[]>>();
 
-/** Who can be mentioned in the repository: the first hundred kept for a day, and those matching
- *  what's typed asked for when the hundred don't have enough. */
 export async function mentionable(repo: string, query: string): Promise<Person[]> {
   const [owner, name] = repo.split("/");
   const kept = daily<Person[]>(`mentionable:${repo}`);
@@ -115,8 +101,6 @@ export async function mentionable(repo: string, query: string): Promise<Person[]
 export type Reference = { number: number; title: string; kind: "issue" | "pull"; state: string };
 const references = cache<Promise<Reference[]>>();
 
-/** Issues and pull requests in the repository for a #: by number or words in the title, the most
- *  recently updated with nothing typed. */
 export function referable(repo: string, query: string): Promise<Reference[]> {
   const key = `${repo}\n#${query}`;
   const known = references.get(key);
@@ -167,8 +151,6 @@ export function referable(repo: string, query: string): Promise<Reference[]> {
 
 export type SavedReply = { id: string; title: string; body: string };
 
-/** Your saved replies on GitHub (Settings → Saved replies), kept for a day. Reading them needs the
- *  read:user permission, which tokens from before the app asked for it don't have: null then. */
 export async function savedReplies(): Promise<SavedReply[] | null> {
   const known = repliesKept.get();
   if (known) return known;

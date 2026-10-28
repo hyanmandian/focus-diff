@@ -39,7 +39,6 @@ test.describe("settings page", () => {
 
   test("marks the section picked in the index, even one too short to reach the top", async ({ openExtensionPage }) => {
     const page = await openExtensionPage("options.html");
-    // A tall window, where the next section's top is already near the top under an empty Repositories.
     await page.setViewportSize({ width: 1440, height: 1100 });
     const index = page.getByRole("navigation", { name: "Settings sections" });
     for (const name of ["Repositories", "Try a path", "Review queue"]) {
@@ -48,7 +47,6 @@ test.describe("settings page", () => {
       await page.waitForTimeout(1100);
       await expect(index.locator("[aria-current]")).toHaveText(name);
     }
-    // Scrolling on lets go of it.
     await page.mouse.wheel(0, 4000);
     await expect(index.getByRole("link", { name: "Review queue", exact: true })).not.toHaveAttribute(
       "aria-current",
@@ -85,7 +83,6 @@ test.describe("settings page", () => {
     openPullRequest,
     background,
   }) => {
-    // The accent as the bar paints it, through a probe: its default is a light-dark() pair, not a colour yet.
     const accent = (host: Locator) =>
       host.evaluate((element) => {
         const probe = document.createElement("span");
@@ -109,7 +106,6 @@ test.describe("settings page", () => {
     await expect(page.locator("#theme option:checked")).toHaveText("My theme 1");
     await page.getByLabel("Theme name").fill("Pink");
     await expect(page.locator("#theme option:checked")).toHaveText("Pink");
-    // An empty colour shows, as hex, what the provider’s theme gives it: the page is dark, so its dark accent.
     const accentField = page.getByRole("textbox", { name: "Accent", exact: true });
     await expect(accentField).toHaveAttribute("placeholder", "#4493f8");
     expect(themed).toBe("rgb(68, 147, 248)");
@@ -119,7 +115,6 @@ test.describe("settings page", () => {
     await expect(page.getByLabel("Pick Accent")).toHaveValue("#bf3989");
     await expect(page.locator("#status")).toHaveText("Unsaved changes");
 
-    // A typo is caught, keeps the preview as it was, and blocks saving.
     const textField = page.getByRole("textbox", { name: "Text", exact: true });
     await textField.fill("#12");
     await page.locator("#save").click();

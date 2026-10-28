@@ -1,7 +1,3 @@
-//! About Focus Diff: the standard About panel, with what the app is, where to find it and the
-//! open-source software it's built on as its credits, in the system's own text colours (a plain
-//! string there draws black, unreadable in Dark Mode).
-
 use tauri::{AppHandle};
 
 pub fn show(app: &AppHandle) {
@@ -27,7 +23,6 @@ mod mac {
 
     use crate::i18n::tr;
 
-    /// The credits, a paragraph to a line; the website's address is made a link.
     fn credits() -> String {
         [
             tr!("Code review without opening GitHub.", "Code review sem abrir o GitHub."),
@@ -58,7 +53,6 @@ mod mac {
                 credits.addAttribute_value_range(NSLinkAttributeName, &url, NSRange::new(at, WEBSITE.encode_utf16().count()));
             }
         }
-        // "Version 0.1.0", not "Version 0.1.0 (0.1.0)": an empty build number isn't shown.
         let keys: [&NSString; 3] = unsafe { [NSAboutPanelOptionApplicationVersion, NSAboutPanelOptionVersion, NSAboutPanelOptionCredits] };
         let values: [Retained<AnyObject>; 3] = [
             Retained::into_super(Retained::into_super(NSString::from_str(version))),

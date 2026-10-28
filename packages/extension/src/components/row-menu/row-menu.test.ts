@@ -44,7 +44,6 @@ describe("rowMenu", () => {
     expect(document.activeElement).toBe(items[0]);
     expect(menu.style.top).toBe("128px");
     expect(menu.style.right).toBe("26px");
-    // Clicked again, it closes.
     button.click();
     expect(menu.hidden).toBe(true);
     expect(button.getAttribute("aria-expanded")).toBe("false");
@@ -105,7 +104,6 @@ describe("rowMenu", () => {
     expect(document.activeElement).toBe(button);
 
     button.click();
-    // A click within the menu, or a scroll that leaves its row where it was, leaves it open.
     items[0]!.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     button.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     document.dispatchEvent(new Event("scroll"));
@@ -118,7 +116,6 @@ describe("rowMenu", () => {
     vi.spyOn(button, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ y: 40 }));
     document.dispatchEvent(new Event("scroll"));
     expect(menu.hidden).toBe(true);
-    // Closed, a scroll or click changes nothing.
     document.dispatchEvent(new Event("scroll"));
     document.dispatchEvent(new Event("pointerdown"));
     expect(menu.hidden).toBe(true);

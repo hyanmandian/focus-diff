@@ -43,7 +43,6 @@ const files: ReviewFile[] = [
   { path: "logo.png", previousPath: null, status: "added", additions: 0, deletions: 0, patch: "" },
 ];
 
-/** Settings with the AI on (Claude), `ai` changing what it says. */
 const withAi = (ai: Partial<Config["ai"]> = {}): Config => {
   const config = defaultConfig();
   return { ...config, ai: { ...config.ai, provider: "claude", project: false, ...ai } };
@@ -53,8 +52,6 @@ type Asked = { prompt: string; input: string; project: unknown; schema: string |
 const isAsked = (args: unknown): args is Asked =>
   typeof args === "object" && args !== null && "prompt" in args && "input" in args;
 
-/** Rust answering the AI with `text`, and the pull request's files from GitHub; what the AI was
- *  asked lands in the list returned. */
 function agent(text: string) {
   const asked: Asked[] = [];
   mockCommands((cmd, args) => {
@@ -70,7 +67,6 @@ function agent(text: string) {
   return asked;
 }
 
-/** What the one question asked carried. */
 const only = (asked: Asked[]) => asked[0]!;
 
 describe("commentable", () => {
@@ -137,7 +133,6 @@ describe("asking the AI", () => {
     expect(q.prompt).toContain("checked out");
     expect(q.prompt).toContain("The reviewer's own guidelines, to follow:\nBe brief.");
     expect(q.project).toEqual({ repo: "acme/web", number: 7, head: "abc123" });
-    // A file with no patch says so; a description with none says that.
     expect(q.input).toContain("logo.png: (no patch: binary or too large)");
   });
 

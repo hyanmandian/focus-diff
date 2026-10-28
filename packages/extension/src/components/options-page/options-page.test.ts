@@ -13,7 +13,6 @@ import { appearanceItem, configItem, notifyItem, popupItem, reviewTimeItem } fro
 
 import type { startOptions as StartOptions } from "./options-page";
 
-// The look's preview is the demo, tested on its own.
 vi.mock("@/components/demo/demo", () => ({ createDemo: () => ({ setTheme: vi.fn<(css: string) => void>() }) }));
 
 let startOptions: typeof StartOptions;
@@ -38,7 +37,6 @@ const CONFIG = {
   repos: [{ repo: "acme/web", filters: [{ id: "c", name: "Styles", include: "\\.css$", exclude: "" }] }],
 };
 
-/** Whatever the page listens to on the window or the document, let go after each test, with the page. */
 let listening: [EventTarget, string, EventListenerOrEventListenerObject | null][] = [];
 const track = (target: EventTarget) => {
   const add = target.addEventListener.bind(target);
@@ -61,12 +59,10 @@ describe("startOptions", () => {
     ({ startOptions } = await import("./options-page"));
     document.body.innerHTML = pageBody(page);
     document.documentElement.classList.add("pending");
-    // happy-dom has no Option constructor.
     vi.stubGlobal("Option", function Option(text: string, value: string) {
       return Object.assign(document.createElement("option"), { textContent: text, value });
     });
     vi.stubGlobal("matchMedia", () => ({ matches: false }));
-    // Like Safari's: nothing to ask for notifications.
     vi.spyOn(fakeBrowser.runtime, "getManifest").mockReturnValue({
       manifest_version: 3,
       name: "Focus Diff",
@@ -99,7 +95,6 @@ describe("startOptions", () => {
     expect($(".filter-fields").getAttribute("aria-label")).toBe("Code");
     expect($("#try-result").textContent).toBe(i18n.t("tryEmpty"));
     expect($("#add-repo").textContent).toBe(i18n.t("addRepo"));
-    // The whole page fits, so it's at its end: the last section is the one being read.
     expect($('.sections a[href="#share"]').getAttribute("aria-current")).toBe("true");
     expect($(".sections-mark")).toBeTruthy();
   });
@@ -121,7 +116,6 @@ describe("startOptions", () => {
       expect(status()).toBe(i18n.t("statusUnsaved"));
       expect($("#savebar").hasAttribute("data-raised")).toBe(true);
       expect($("#savebar").inert).toBe(false);
-      // Untouched, it doesn't complain yet.
       expect($(".error", row).textContent).toBe("");
       expect($(".filter-fields", row).getAttribute("aria-label")).toBe(i18n.t("untitledFilter"));
 
@@ -166,7 +160,6 @@ describe("startOptions", () => {
       const input = $(".repo-name", card);
       expect(document.activeElement).toBe(input);
       expect($(".remove-repo", card).getAttribute("aria-label")).toContain(i18n.t("thisRepository"));
-      // Left empty, it isn't wrong yet.
       input.dispatchEvent(new Event("blur"));
       expect(input.hasAttribute("aria-invalid")).toBe(false);
       type(input, "not a repo");
@@ -174,12 +167,10 @@ describe("startOptions", () => {
       input.dispatchEvent(new Event("blur"));
       expect(input.getAttribute("aria-invalid")).toBe("true");
       expect($(".repo-error", card).textContent).toBe(i18n.t("errorRepo"));
-      // Marked wrong, it's checked again as it's typed.
       type(input, "acme/api");
       expect(input.hasAttribute("aria-invalid")).toBe(false);
       expect($(".remove-repo", card).getAttribute("aria-label")).toContain("acme/api");
 
-      // A repository's own filters.
       find<HTMLButtonElement>(".add-filter", card).click();
       expect(filterRows(card)).toHaveLength(1);
 
@@ -222,13 +213,11 @@ describe("startOptions", () => {
     type($("#try-repo"), "acme/web");
     vi.advanceTimersByTime(400);
     expect($("#try-result").textContent).toBe(i18n.t("tryShown", [i18n.t("filterAll"), "Styles"]));
-    // A filter being typed counts as it is.
     type($(".f-include", filterRows()[0]), "\\.css$");
     vi.advanceTimersByTime(400);
     expect($("#try-result").textContent).toBe(i18n.t("tryShown", [i18n.t("filterAll"), "Code, Styles"]));
     type($(".repo-name"), "acme/other");
     click(".remove-filter");
-    // Right away once a filter goes.
     expect($("#try-result").textContent).toBe(i18n.t("tryOnlyAll", [i18n.t("filterAll")]));
   });
 
@@ -347,7 +336,6 @@ describe("startOptions", () => {
       expect(document.activeElement).toBe($("#notify-repos"));
     });
 
-    // Saved one after another, in this order.
     it.each([
       [0, "statusQuota"],
       [1, "statusQuotaTheme"],
@@ -443,7 +431,6 @@ describe("startOptions", () => {
   describe("the section index", () => {
     const link = (id: string) => find<HTMLAnchorElement>(`.sections a[href="#${id}"]`);
     const current = () => all(".sections a[aria-current]").map((each) => each.getAttribute("href"));
-    /** A long page, scrolled to `y`, with each section's top where `tops` says. */
     const layout = (y: number, tops: Record<string, number>) => {
       vi.stubGlobal("innerHeight", 1000);
       vi.stubGlobal("scrollY", y);
@@ -479,10 +466,8 @@ describe("startOptions", () => {
       layout(0, {});
       link("popup").click();
       expect(current()).toEqual(["#popup"]);
-      // Still getting there.
       await scroll();
       expect(current()).toEqual(["#popup"]);
-      // There, even if the section can't reach the top.
       layout(3000, {});
       vi.advanceTimersByTime(1000);
       window.dispatchEvent(new Event("scrollend"));
@@ -492,7 +477,6 @@ describe("startOptions", () => {
       layout(3500, { filters: -3000 });
       await scroll();
       expect(current()).toEqual(["#filters"]);
-      // A link that isn't to a section, or a click that isn't on a link, changes nothing.
       find<HTMLAnchorElement>(".skip").click();
       document.body.click();
       document.dispatchEvent(new MouseEvent("click"));
@@ -589,7 +573,6 @@ describe("startOptions", () => {
   });
 
   describe("unrolling what's shown", () => {
-    /** happy-dom's observer doesn't keep the old value; the page's is handed the changes it would see. */
     let observed: (records: Partial<MutationRecord>[]) => void = vi.fn<(records: Partial<MutationRecord>[]) => void>();
     const shown = async () => {
       vi.stubGlobal(
@@ -603,7 +586,6 @@ describe("startOptions", () => {
         },
       );
       await open();
-      // The page unrolls only once it's drawn.
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => {
           resolve();
@@ -620,7 +602,6 @@ describe("startOptions", () => {
       fields.hidden = false;
       observed([
         { target: fields, oldValue: "" },
-        // Hidden, or hidden again before it was seen: nothing to unroll.
         { target: $("#notify-body"), oldValue: null },
         { target: $("#review-body"), oldValue: "" },
         { target: document.createTextNode(""), oldValue: "" },
@@ -694,7 +675,6 @@ describe("startOptions", () => {
   });
 });
 
-/** Clears the status line, as if the reader had seen it. */
 const say = (text: string) => {
   $("#status").textContent = text;
 };

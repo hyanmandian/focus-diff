@@ -1,6 +1,3 @@
-// A list of short values (repositories, teams, labels, people) typed one by one: Enter or comma
-// adds, Backspace on an empty field removes the last, each has a remove button.
-
 import { X } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -11,7 +8,6 @@ type Props = {
   value: string[];
   onChange: (value: string[]) => void;
   placeholder?: string;
-  /** Returns an error for a value that can't be added. */
   validate?: (value: string) => string | null;
   label: string;
 };
@@ -39,8 +35,6 @@ export function TagInput({ value, onChange, placeholder, validate, label }: Prop
     <div className="flex flex-col gap-1">
       <div
         data-slot="tag-input"
-        // A text field (components/input) that holds its values as tokens, as AppKit's token field
-        // does: the field look (utilities.css), 28px tall until it wraps.
         className={cn(
           "flex min-h-(--field-h) flex-wrap items-center gap-1 rounded-(--radius-field) field px-1 py-0.5",
           error && "border-destructive",

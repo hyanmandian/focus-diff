@@ -7,8 +7,6 @@ import { invalidRepos, splitRepos } from "@/utils/inbox/inbox";
 import { oneOf } from "@/utils/record/record";
 import { isOwnSound, playSound, SOUND_CHOICES, type SoundChoice, type SoundSetting } from "@/utils/sound/sound";
 
-/** Settings' controls shared by its sections. */
-
 export const switchInput = (id: string, checked: boolean): HTMLInputElement => {
   const input = h("input", { type: "checkbox", className: "switch", id, checked });
   input.setAttribute("role", "switch");
@@ -22,10 +20,6 @@ interface RepoPickerOptions {
   onChange: (repos: string[]) => void;
 }
 
-/**
- * Repositories as chips, each with a way to remove it, and a field to add one: typed, or picked from the ones the
- * reader has pull requests in. A path that doesn't read as one stays in the field, saying why.
- */
 export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) => {
   let repos = [...values];
   const chips = h("ul", { className: "repo-chips", role: "list" });
@@ -61,7 +55,6 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
     );
   };
 
-  /** Adds what's typed; false when some of it isn't a repository path, which stays in the field. */
   const add = (): boolean => {
     const typed = splitRepos(input.value);
     const wrong = invalidRepos(typed)[0];
@@ -81,7 +74,6 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
     }
     if (event.key === "Backspace" && !input.value && repos.length > 0) update(repos.slice(0, -1));
   });
-  // Picking a suggestion fills the field whole; it's added at once.
   input.addEventListener("input", (event) => {
     if (!(event instanceof InputEvent) || event.inputType === "insertReplacementText") add();
   });
@@ -94,7 +86,6 @@ export const repoPicker = ({ id, label, values, onChange }: RepoPickerOptions) =
   return { element, check: add, input };
 };
 
-/** Repository pickers that each tell `onChange`, kept together to check them all before saving. */
 export const repoPickers = (onChange: () => void) => {
   let made: ReturnType<typeof repoPicker>[] = [];
   return {
@@ -111,9 +102,7 @@ export const repoPickers = (onChange: () => void) => {
       made.push(one);
       return one.element;
     },
-    /** Before drawing them again. */
     clear: () => (made = []),
-    /** The ones with something wrong typed in, each saying so at its field. */
     wrong: () => made.filter((each) => !each.check()),
   };
 };
@@ -130,10 +119,6 @@ const SOUND_NAMES: Record<SoundChoice, string> = {
 
 let preview: AudioContext | null = null;
 
-/**
- * A sound to pick, how loud, and a button to hear it. The volume is only for our own sounds: the system's plays at the
- * system's volume, and none at none.
- */
 export const soundPicker = ({
   id,
   label,
@@ -192,7 +177,6 @@ export const soundPicker = ({
   );
 };
 
-/** Buttons that are pressed or not, in a labelled group; for choices that are many, like days, or one of a few. */
 export const toggleChip = (label: string, pressed: boolean, onToggle: (pressed: boolean) => void, name?: string) => {
   const chip = h("button", { type: "button", className: "skip-chip", textContent: label });
   if (name) chip.setAttribute("aria-label", name);
@@ -205,16 +189,9 @@ export const toggleChip = (label: string, pressed: boolean, onToggle: (pressed: 
   return chip;
 };
 
-/** Safari has no notifications for extensions; there, nothing is asked. */
 const canNotify = () => Boolean(browser.runtime.getManifest().optional_permissions?.includes("notifications"));
 const PERMISSION: Browser.permissions.Permissions = { permissions: ["notifications"] };
 
-/**
- * A switch that turns on something that notifies: turning it on asks the browser for notifications first, and stays
- * off if it says no. On but not allowed in this browser, like after syncing from another one, a note says so, with a
- * button to allow them.
- */
-// Asked from the click itself: browsers only show the prompt for something the reader just did.
 const allow = (): Promise<boolean> =>
   canNotify() ? browser.permissions.request(PERMISSION).catch(() => false) : Promise.resolve(true);
 
@@ -269,7 +246,6 @@ export const copyOrShow = async (text: string, fallback: HTMLElement, box: HTMLT
   }
 };
 
-/** Radio buttons drawn as one control, a pill per choice. */
 export const segmented = <T extends string>(
   name: string,
   label: string,

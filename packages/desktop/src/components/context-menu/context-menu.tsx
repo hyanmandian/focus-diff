@@ -2,8 +2,6 @@ import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu
 
 import { cn } from "@/utils/cn/cn";
 
-// A contextual menu (Control-click or a two-finger click), drawn as the app's other menus are: the
-// same material, rows and selection. Its items are DropdownMenuItem's, which work in either.
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
   return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />;
 }

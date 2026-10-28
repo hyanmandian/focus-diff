@@ -1,8 +1,3 @@
-// The comments to step through, in the floating bar as the extension has them: a button with the
-// count that opens a card over it, with the file and line of the one you're on, what kind it is,
-// where it is in the list and arrows to the one before and after. The card stays open while you
-// step (n and p from the keyboard do the same with it closed).
-
 import { ChevronLeft, ChevronRight, MessageSquare, PencilLine, Sparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -13,7 +8,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/to
 import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 
-/** A comment to step to: an open conversation, one of your pending comments, or the AI's. */
 export type CommentStop = { path: string; line: number; kind: "conversation" | "pending" | "ai" };
 
 const KIND = {
@@ -24,7 +18,6 @@ const KIND = {
 
 type Props = {
   stops: CommentStop[];
-  /** The one stepped to last, from 0; -1 before the first step. */
   stop: number;
   onStep: (by: 1 | -1) => void;
 };
@@ -45,7 +38,6 @@ export function CommentNav({ stops, stop, onStep }: Props) {
       onOpenChange={(next) => {
         if (next && total === 0) return;
         setOpen(next);
-        // Opening lands on a comment straight away, so the card always has one to show.
         if (next && stop < 0) onStep(1);
       }}
     >
@@ -57,7 +49,6 @@ export function CommentNav({ stops, stop, onStep }: Props) {
                 <Button
                   variant="ghost"
                   className="h-8 shrink-0 gap-1.5 rounded-[8px] pr-2 pl-2.5 text-muted-foreground aria-expanded:bg-foreground/6 aria-expanded:text-foreground"
-                  // Without comments it stays in place, so the bar keeps its shape, and says why.
                   aria-disabled={total === 0}
                   aria-label={`${t("review.comments")}, ${where}`}
                   aria-keyshortcuts="N P"

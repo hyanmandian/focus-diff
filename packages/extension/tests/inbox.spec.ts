@@ -16,10 +16,6 @@ const pull = (number: number, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-/**
- * GitHub's dashboard lists, as the background reads them with the reader's session. #12 was asked of one of the reader's
- * teams: the search for the ones asked of them by name doesn't find it.
- */
 const routeGitHub = async (context: BrowserContext, { signedIn = true } = {}) => {
   await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/u, (route) =>
     route.fulfill({
@@ -59,9 +55,6 @@ test.describe("popup", () => {
     await routeGitHub(context);
     const page = await openExtensionPage("popup.html");
     const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
-    // By repository, what changed since the reader last looked first. Drafts aren't ready for review: they wait folded
-    // at the end, and nothing counts them, so the tab says what the icon does.
-    // One repository needs no heading, nor chips to narrow it.
     await expect(reviews.getByRole("heading")).toHaveCount(0);
     const web = reviews.getByRole("list").first().getByRole("link");
     await expect(web).toHaveCount(1);
@@ -78,12 +71,10 @@ test.describe("popup", () => {
     await expect(page.getByRole("tab", { name: "Review queue 1" })).toHaveAttribute("aria-selected", "true");
     await expect(page.locator("#updated")).toHaveText("Updated now");
 
-    // Up and down move between the pull requests.
     await fresh.focus();
     await page.keyboard.press("ArrowDown");
     await expect(draft).toBeFocused();
 
-    // The tabs take the arrow keys.
     await page.getByRole("tab", { name: /Review queue/u }).focus();
     await page.keyboard.press("ArrowRight");
     const mine = page.getByRole("tabpanel", { name: /My PRs/u });
@@ -98,13 +89,11 @@ test.describe("popup", () => {
     );
     await expect(mine.getByRole("heading")).toHaveText([/octo\/web\s*1/u, /octo\/api\s*1/u]);
 
-    // With more than one repository, chips narrow the list to one.
     const repos = mine.getByRole("group", { name: "Repositories" });
     await expect(repos.getByRole("button")).toHaveText([/All\s*2/u, /web\s*1/u, /api\s*1/u]);
     await repos.getByRole("button", { name: /api/u }).click();
     await expect(repos.getByRole("button", { name: /api/u })).toHaveAttribute("aria-pressed", "true");
     await expect(mine.getByRole("link", { name: /#\d+/u })).toHaveAccessibleName(/^Return 404 for unknown authors/u);
-    // Narrowed to one, the chip says which; the heading goes.
     await expect(mine.getByRole("heading")).toHaveCount(0);
     await expect(reviews).toBeHidden();
   });
@@ -119,7 +108,6 @@ test.describe("popup", () => {
     const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
     const cache = reviews.getByRole("link", { name: /^Cache the book covers/u });
 
-    // A row is picked with `x`, or its checkbox, and the footer offers to mark it done.
     await cache.focus();
     await page.keyboard.press("x");
     await expect(reviews.getByRole("checkbox", { name: "Select “Cache the book covers”" })).toBeChecked();
@@ -131,12 +119,10 @@ test.describe("popup", () => {
     const marks = () => background.evaluate(async () => (await chrome.storage.sync.get("inboxDone")).inboxDone ?? {});
     expect(Object.keys(await marks())).toEqual(["https://github.com/octo/web/pull/12"]);
 
-    // Undo takes it back at once.
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(cache).toBeVisible();
     await expect(page.getByRole("tab", { name: "Review queue 1" })).toBeVisible();
 
-    // Done again, it waits folded at the end, with a way back.
     await cache.focus();
     await page.keyboard.press("x");
     await page.getByRole("button", { name: "Mark as done" }).click();
@@ -163,7 +149,6 @@ test.describe("popup", () => {
       background.evaluate(async () => (await chrome.tabs.query({})).map((tab) => ({ id: tab.id, active: tab.active })));
     const before = new Set((await tabs()).map((tab) => tab.id));
     await page.getByRole("link", { name: /^Cache the book covers/u }).click();
-    // One new tab, behind; the test's driver can be slow to catch up with where it went, so its address is checked after.
     await expect
       .poll(async () => (await tabs()).filter((tab) => !before.has(tab.id)))
       .toEqual([{ id: expect.any(Number), active: false }]);
@@ -178,7 +163,6 @@ test.describe("popup", () => {
     openExtensionPage,
   }) => {
     await routeGitHub(context);
-    // Three built on one another, listed out of order, and one alone; GitHub numbers a stack of its own on My PRs.
     await context.route("https://github.com/pulls/reviews", (route) =>
       route.fulfill({
         contentType: "application/json",
@@ -235,7 +219,6 @@ test.describe("popup", () => {
     const more = page.getByRole("button", { name: "More for “Cache the book covers”" });
     const reviews = page.getByRole("tabpanel", { name: /Review queue/u });
     const cache = reviews.getByRole("link", { name: /^Cache the book covers/u });
-    // From the row, Tab goes to its menu, which opens on its first action.
     await cache.focus();
     await page.keyboard.press("Tab");
     await expect(more).toBeFocused();
@@ -248,8 +231,6 @@ test.describe("popup", () => {
     await expect(menu).toBeHidden();
     await expect(more).toBeFocused();
 
-    // Reading the clipboard back takes a permission an extension's page can't be given here, so what's written is
-    // noted on its way there.
     await page.evaluate(() => {
       const write = navigator.clipboard.writeText.bind(navigator.clipboard);
       navigator.clipboard.writeText = async (text) => {
@@ -273,7 +254,6 @@ test.describe("popup", () => {
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(cache).toBeVisible();
 
-    // Ignored again, it waits folded at the end, until brought back; nothing new brings it back on its own.
     await more.click();
     await menu.getByRole("menuitem", { name: "Ignore" }).click();
     await reviews.getByText("Ignored", { exact: true }).click();
@@ -295,7 +275,6 @@ test.describe("popup", () => {
         data.setData("text/plain", value);
         document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
       }, text);
-    // Anything else pasted does nothing.
     await paste("https://github.com/acme/web/issues/7");
     await paste("https://github.com/acme/web/pull/7#issuecomment-1");
     await expect(page.locator("#flash")).toHaveText("Opened acme/web#7 in a new tab");
@@ -334,7 +313,6 @@ test.describe("popup settings", () => {
     const only = page.getByRole("combobox", { name: "Only from" });
     await only.fill("octo/api");
     await only.press("Enter");
-    // A wrong path holds the save, at its field.
     const never = page.getByRole("combobox", { name: "Never from" });
     await never.fill("octo");
     await page.locator("#save").click();
@@ -363,7 +341,6 @@ test.describe("popup settings", () => {
     background,
   }) => {
     await routeGitHub(context);
-    // Each search as GitHub would answer it.
     await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/u, (route) => {
       const query = new URL(route.request().url()).searchParams.get("q") ?? "";
       const results = query.includes("involves:@me")
@@ -389,7 +366,6 @@ test.describe("popup settings", () => {
 
     const popup = await openExtensionPage("popup.html");
     await expect(popup.getByRole("tab")).toHaveText([/Review queue/u, /My PRs/u, /Updates\s*1/u, /Merged\s*2/u]);
-    // All four fit side by side, names and counts whole, even counts of two digits.
     const fit = await popup.getByRole("tablist").evaluate((list) => {
       for (const count of list.querySelectorAll(".option-count")) count.textContent = "88";
       return [...list.querySelectorAll("[role=tab]")].every(
@@ -409,7 +385,6 @@ test.describe("popup settings", () => {
       "href",
       "https://github.com/octo/web/pull/60/changes",
     );
-    // Once the list has come in: while it slides in, a menu opened on it is drawn within it.
     await merged.evaluate((panel) => Promise.all(panel.getAnimations().map((animation) => animation.finished)));
     await merged.getByRole("button", { name: "More for “Also merged”" }).click();
     await popup.getByRole("menuitem", { name: "Mark as seen" }).click();
@@ -435,7 +410,6 @@ test.describe("popup settings", () => {
     });
     expect(await accessibilityViolations(page, "#popup")).toEqual([]);
 
-    // #12 was asked of a team; the draft, of the reader, waits folded.
     const popup = await openExtensionPage("popup.html");
     const reviews = popup.getByRole("tabpanel", { name: /Review queue/u });
     await expect(popup.getByRole("tab", { name: "Review queue 0" })).toBeVisible();
@@ -473,7 +447,6 @@ test.describe("notification settings", () => {
     await expect(mine.getByRole("switch", { name: "Someone comments on my pull request" })).toBeChecked();
     expect(await accessibilityViolations(page, "#notifications")).toEqual([]);
 
-    // Comments on pull requests I review, skipping drafts too, in a repository of its own.
     const comments = reviewing.getByRole("switch", { name: "Someone comments on a pull request I review" });
     await expect(comments).not.toBeChecked();
     await comments.click();
@@ -488,7 +461,6 @@ test.describe("notification settings", () => {
     await own.press("Enter");
     await expect(reviewing.getByRole("button", { name: "Only in 1 repository" })).toBeVisible();
 
-    // The general repositories, and one never: a wrong path holds the save, at its field.
     const only = page.getByRole("combobox", { name: "Only in" });
     await only.fill("octo");
     await page.locator("#save").click();
@@ -504,7 +476,6 @@ test.describe("notification settings", () => {
     await never.fill("octo/legacy");
     await never.press("Enter");
 
-    // How often, when to keep quiet, and how they show.
     await page.getByLabel("Check every").selectOption("5");
     await page.getByRole("switch", { name: "Quiet hours" }).click();
     await expect(page.locator("#notifications").getByLabel("From")).toHaveValue("19:00");
@@ -532,14 +503,11 @@ test.describe("notification settings", () => {
       .poll(() => background.evaluate(async () => (await chrome.alarms.get("inbox"))?.periodInMinutes))
       .toBe(5);
 
-    // On, the icon counts what's waiting for review, leaving drafts out.
     await expect.poll(() => background.evaluate(() => chrome.action.getBadgeText({}))).toBe("1");
   });
 
   test("say what happened, and open where it did", async ({ context, background }) => {
     await routeGitHub(context);
-    // Since the last look: #14 asked of the reader, #15 of their team, #16 of the reader again after they reviewed it,
-    // and a comment on their own #20.
     await context.route(/^https:\/\/github\.com\/pulls\/reviews$/u, (route) =>
       route.fulfill({
         contentType: "application/json",
@@ -581,7 +549,6 @@ test.describe("notification settings", () => {
       }),
     );
 
-    // Notifications are allowed, and each one shown is kept to look at.
     await background.evaluate(() => {
       const shown: unknown[] = [];
       Object.assign(globalThis, { shown });
@@ -594,7 +561,6 @@ test.describe("notification settings", () => {
         onClicked: { addListener: () => {} },
         onButtonClicked: { addListener: () => {} },
       };
-      // Chromium has both namespaces, apart.
       for (const api of [chrome, (globalThis as unknown as { browser?: typeof chrome }).browser]) {
         if (!api) continue;
         api.permissions.contains = () => Promise.resolve(true);
@@ -641,7 +607,6 @@ test.describe("notification settings", () => {
         contextMessage: "octo/web#20 · Sort books by rating",
       },
     ]);
-    // Each its own, so none only replaces one still in the system's list; the comment opens on itself.
     const links = await background.evaluate(
       async () =>
         (await chrome.storage.local.get<{ notificationLinks: Record<string, string> }>("notificationLinks"))

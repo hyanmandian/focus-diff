@@ -1,7 +1,3 @@
-// Mermaid diagrams in descriptions and comments, drawn as GitHub draws them. Mermaid is large, so
-// it's loaded only once a page has one, and draws in strict mode: labels sanitized, no scripts, no
-// click handlers. The source stays a click away under the drawing.
-
 import type mermaidApi from "mermaid";
 import { useEffect, type RefObject } from "react";
 
@@ -32,7 +28,6 @@ async function draw(blocks: HTMLPreElement[]) {
       const picture = document.createElement("div");
       picture.setAttribute("role", "img");
       picture.setAttribute("aria-label", i18n()("shared.diagram", { first: source.split("\n")[0]!.trim() }));
-      // Mermaid's own output in strict mode (DOMPurify-cleaned); the page's CSP blocks scripts too.
       picture.innerHTML = svg;
       const details = document.createElement("details");
       const summary = document.createElement("summary");
@@ -40,16 +35,12 @@ async function draw(blocks: HTMLPreElement[]) {
       details.append(summary, pre.cloneNode(true));
       figure.append(picture, details);
       pre.replaceWith(figure);
-    } catch {
-      // Not a diagram mermaid can draw: its source stays, as GitHub leaves it.
-    }
+    } catch {}
   }
 }
 
-/** Draws the diagrams in what `ref` shows, whenever `html` changes. */
 export function useDiagrams(ref: RefObject<HTMLElement | null>, html: string) {
   useEffect(() => {
-    // Nothing shown, nothing to draw; each new HTML, its diagrams to find.
     if (!html) return;
     const blocks = [...(ref.current?.querySelectorAll<HTMLPreElement>("pre[data-mermaid]") ?? [])];
     if (blocks.length > 0) void draw(blocks);

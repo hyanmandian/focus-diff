@@ -7,7 +7,6 @@ export const $ = <T extends Element = HTMLElement>(selector: string, root: Paren
   return element;
 };
 
-/** A copy of the element in the template with this id. */
 // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the element its template holds.
 export const templateElement = <T extends HTMLElement>(id: string): T =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the caller names the element its template holds.
@@ -25,7 +24,6 @@ const richText = (text: string): Node[] =>
       return element;
     });
 
-/** Fills each element marked with a message key; the selectors only find elements that have one. */
 export const translate = <T extends ParentNode>(root: T): T => {
   root.querySelectorAll<HTMLElement>("[data-i18n]").forEach((element) => {
     element.textContent = message(element.dataset.i18n!);
@@ -48,7 +46,6 @@ export const translateDocument = (title: string): void => {
   translate(document.body);
 };
 
-/** Shows a page once its first render is complete; see `.pending` in global.css. */
 export const reveal = (): void => {
   document.documentElement.classList.remove("pending");
 };

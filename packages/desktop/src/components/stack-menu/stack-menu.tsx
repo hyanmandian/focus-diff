@@ -1,6 +1,3 @@
-// The stack this pull request is in, in the toolbar: where it is ("2/5"), and a menu of the whole
-// stack from the bottom up, each with how its review stands, to go to any of them in this window.
-
 import { Layers } from "lucide-react";
 
 import { Button } from "@/components/button/button";
@@ -19,7 +16,6 @@ import { cn } from "@/utils/cn/cn";
 import { useT } from "@/utils/i18n/i18n";
 import type { StackPull } from "@/utils/stack/stack";
 
-/** How each one's review stands, as a coloured word after its title. */
 const STANDING = {
   APPROVED: "text-success",
   CHANGES_REQUESTED: "text-destructive",

@@ -8,7 +8,6 @@ import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
-// Whether the AI is ready, and what it answers, are utils of their own (ai-ready.ts, ai.ts).
 const ai = vi.hoisted(() => ({
   ready: vi.fn<() => Promise<boolean>>(),
   problem: vi.fn<() => { title: string; message: string } | null>(),
@@ -68,7 +67,6 @@ function config(over: Partial<Config["ai"]> = {}): Config {
 
 const NOTHING = () => {};
 
-/** A promise to settle by hand. */
 function deferred<T = void>() {
   let resolve: (value: T) => void = NOTHING;
   let reject: (e: unknown) => void = NOTHING;
@@ -82,7 +80,6 @@ function deferred<T = void>() {
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Ask Claude Code about this pull request" });
 const send = () => screen.getByRole<HTMLButtonElement>("button", { name: "Ask" });
 
-/** What's asked of Rust to stop. */
 function cancels() {
   const runs: unknown[] = [];
   mockCommands((cmd, args) => {
@@ -116,7 +113,6 @@ describe("AskAi", () => {
     expect(await screen.findByText("renames")).toHaveProperty("tagName", "STRONG");
     expect(screen.getByText("Read the diff only.")).toBeTruthy();
     expect(ai.ask).toHaveBeenCalledWith(expect.anything(), DETAILS, "Explain this change.", expect.any(String));
-    // What was asked heads the answer.
     expect(screen.getAllByText("Explain").map((e) => e.tagName)).toEqual(["BUTTON", "P"]);
   });
 
@@ -139,7 +135,6 @@ describe("AskAi", () => {
       expect(ai.ready).toHaveBeenCalled();
     });
     expect(field().value).toBe("Is it safe?");
-    // A saved prompt waits for it too.
     await userEvent.click(screen.getByRole("button", { name: "Explain" }));
     expect(ai.ask).not.toHaveBeenCalled();
   });
@@ -159,10 +154,8 @@ describe("AskAi", () => {
     await userEvent.click(screen.getByRole("button", { name: "Explain" }));
     const reading = await screen.findByText(/Reading the diff/u);
     expect(screen.getByRole("region").getAttribute("aria-busy")).toBe("true");
-    // Busy: nothing else can be asked meanwhile.
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Explain" }).disabled).toBe(true);
     await userEvent.type(field(), "And this?{Enter}");
-    // Even sent without its button.
     fireEvent.submit(field());
     expect(ai.ask).toHaveBeenCalledOnce();
     expect(reading.textContent).not.toContain("·");

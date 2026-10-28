@@ -2,11 +2,8 @@ import { i18n } from "#i18n";
 import { uiLanguage } from "@/utils/i18n/i18n";
 import type { ReviewSession } from "@/utils/review-sessions/review-sessions";
 
-/** Review times in words, in the reader's language: their days, their times, how long. */
-
 export const language = uiLanguage();
 
-/** The week as the reader's language starts it: Monday in most places, Sunday in some. */
 const firstDay = (() => {
   const locale = new Intl.Locale(language) as Intl.Locale & {
     getWeekInfo?: () => { firstDay: number };
@@ -16,7 +13,6 @@ const firstDay = (() => {
   return day % 7;
 })();
 export const WEEK = Array.from({ length: 7 }, (_, index) => (firstDay + index) % 7);
-/** A Sunday, to name the days of the week from. */
 const SUNDAY = new Date(2024, 0, 7);
 export const dayName = (day: number, weekday: "short" | "long") =>
   new Intl.DateTimeFormat(language, { weekday }).format(new Date(2024, 0, SUNDAY.getDate() + day));
@@ -27,7 +23,6 @@ export const time = (value: string) =>
     new Date(2024, 0, 1, Number(value.slice(0, 2)), Number(value.slice(3))),
   );
 
-/** "Weekdays at 3:00 PM · 30 min", the way a session reads folded. */
 export const sessionSummary = (session: ReviewSession): string => {
   const days = session.days.join();
   const when =

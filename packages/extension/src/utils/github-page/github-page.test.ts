@@ -125,7 +125,6 @@ describe("treePathOf", () => {
   });
 });
 
-/** A fresh pull request address, so what the module keeps per page starts over. */
 const freshPage = () => {
   history.replaceState(null, "", `/octo/web/pull/${Math.random().toString(36).slice(2, 8)}/changes`);
 };

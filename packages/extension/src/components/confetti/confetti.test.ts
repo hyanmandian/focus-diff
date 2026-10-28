@@ -15,7 +15,6 @@ const fakeContext = () => ({
   fillStyle: "",
 });
 
-/** A stand-in for the 2D context, which happy-dom can't draw with, holding only what confetti calls. */
 const stubContext = () => {
   const context = fakeContext();
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the stand-in has only the context's members confetti uses.

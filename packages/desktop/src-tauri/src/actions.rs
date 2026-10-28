@@ -1,8 +1,3 @@
-//! The "run a command" step of the person's own actions. The web views can only name an action
-//! and a step: the command itself is read here, from the saved config, and runs only once the
-//! person has allowed that exact command in a native dialog, which no web page can click. So
-//! nothing shown in a web view (a pull request's text, say) can get a command run.
-
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,8 +12,6 @@ use crate::i18n::tr;
 
 const TIME_LIMIT: Duration = Duration::from_secs(120);
 
-/// The pull request the action runs on, given to the command as environment variables. Checked,
-/// though it's only ever data: nothing is put into the command's text.
 #[derive(Deserialize)]
 pub struct Context {
     number: u64,
@@ -43,7 +36,6 @@ impl Context {
 fn command_of(config: &Path, action: &str, step: usize) -> Result<String, String> {
     let text = fs::read_to_string(config).map_err(|_| tr!("Actions are set up in Settings", "As ações são configuradas nos Ajustes"))?;
     let config: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-    // An action, or one of a menu action's choices: they have steps of their own.
     let action = config["actions"]
         .as_array()
         .into_iter()
@@ -58,8 +50,6 @@ fn command_of(config: &Path, action: &str, step: usize) -> Result<String, String
     }
 }
 
-/// Commands the person has allowed, kept apart from the config, in a file the web views can't
-/// write.
 fn allowed(path: &Path) -> HashSet<String> {
     fs::read_to_string(path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
 }
@@ -93,7 +83,6 @@ fn shell(command: &str) -> Command {
     }
 }
 
-/// Runs step `step` of action `action`. Blocking: call it off the main thread.
 pub fn run(app: &tauri::AppHandle, config: PathBuf, trusted: PathBuf, action: &str, name: &str, step: usize, pr: Context) -> Result<String, String> {
     pr.check()?;
     let command = command_of(&config, action, step)?;

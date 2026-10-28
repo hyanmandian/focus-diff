@@ -1,20 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* The Mac look: shadcn's variants and the materials, the tokens, and a window's base styles. */
 @import "./styles/utilities.css";
 @import "./styles/tokens.css";
 @import "./styles/base.css";
-/* The screens' styles. */
 @import "./styles/styles.css";
 
-/* Tailwind finds the class names in the project's files on its own; the unit tests' aren't the app's. */
 @source not "./**/*.test.ts";
 @source not "./**/*.test.tsx";
 
-/* MARK: Desktop */
-
-/* The panel window is transparent with the system's popover material behind it (lib.rs): the page
-   stays clear so that material shows, and draws its own rounded edge. */
 html.panel,
 html.panel body {
   background: transparent;

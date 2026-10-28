@@ -16,7 +16,6 @@ import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 
 beforeEach(() => {
-  // A Wednesday morning.
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(2026, 0, 7, 10, 0));
 });
@@ -46,13 +45,11 @@ const queue = (id: string, name: string, patch: Partial<Queue> = {}): Queue => (
   ...patch,
 });
 
-/** The question a "confirm" call asks. */
 function titleOf(args: unknown): string {
   if (typeof args === "object" && args !== null && "title" in args && typeof args.title === "string") return args.title;
   return "";
 }
 
-/** The pane as Settings holds it: each change kept, the latest readable, "Remove …?" answered with `confirm`. */
 function setup(review: Partial<ReviewTime> = {}, queues: Queue[] = [], confirm = true) {
   const asked: string[] = [];
   mockCommands((cmd, args) => {

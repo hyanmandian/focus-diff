@@ -5,30 +5,24 @@ import { en } from "@/locales/en/index";
 import { ptBR } from "@/locales/pt-BR/index";
 import { resolveLocale, translator, type Dictionary, type Plural } from "@/utils/i18n/i18n";
 
-/** Every message of a dictionary, by its whole key. */
 const messages = (dictionary: Dictionary) =>
   Object.entries(dictionary).flatMap(([namespace, list]) =>
     Object.entries(list).map(([name, value]): [string, string | Plural] => [`${namespace}.${name}`, value]),
   );
 
-/** The placeholders a message uses, in every form. */
 const placeholders = (value: string | Plural) =>
   new Set([...JSON.stringify(value).matchAll(/\{(\w+)\}/gu)].map(([, name]) => name));
 
-/** What a translation must keep of English: every key, each a string or plural forms as English
- *  has it, with the same placeholders. */
 const shape = (dictionary: Dictionary) =>
   Object.fromEntries(
     messages(dictionary).map(([key, value]) => [key, { kind: typeof value, placeholders: placeholders(value) }]),
   );
 
-/** The module afresh, as a new window loads it. */
 function fresh() {
   vi.resetModules();
   return import("@/utils/i18n/i18n");
 }
 
-/** Storage that throws, as WebKit's can; restore it before the test ends (the setup clears it). */
 const blockStorage = () =>
   vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
     throw new Error("blocked");
@@ -57,7 +51,6 @@ describe("translator", () => {
     expect(pt("common.files", { count: 1200 })).toBe("1.200 arquivos");
     expect(pt("common.githubReturned", { status: "502" })).toBe("O GitHub respondeu 502");
     expect(t("common.files", { count: 0 })).toBe("0 files");
-    // Portuguese's "many" (a million) has no form of its own: "other" stands in.
     expect(pt("common.files", { count: 1_000_000 })).toBe("1.000.000 arquivos");
   });
 
@@ -105,7 +98,6 @@ describe("translator", () => {
     expect(t.since(now - 1000, now)).toBe("now");
     expect(t.since(now - 3 * 60_000, now)).toBe("3m");
     expect(t.since(now - 65 * 86_400_000, now)).toBe("2mo");
-    // Counted from now when not told otherwise; a time ahead is now.
     expect(t.ago(Date.now() + 60_000)).toBe("now");
     expect(t.since(Date.now() + 60_000)).toBe("now");
   });
@@ -158,7 +150,6 @@ describe("the language in use", () => {
     expect(result.current("common.now")).toBe("agora");
     expect(localStorage.getItem("language")).toBe("pt-BR");
     expect(document.documentElement.lang).toBe("pt-BR");
-    // The same language again changes nothing.
     const before = result.current;
     act(() => {
       setLanguage("pt-BR");

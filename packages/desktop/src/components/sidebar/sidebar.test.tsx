@@ -10,7 +10,6 @@ import type { LinkedIssue, Manage, Reviewer } from "@/utils/manage/manage";
 import { fakeDetails, fakeManage, fakePull } from "@/utils/mock-pull/mock-pull";
 import type { Args } from "@/utils/platform/platform";
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 const person = (login: string, name: string | null = null) => ({
@@ -28,11 +27,9 @@ type Lists = {
   teams?: unknown[] | null;
   labels?: unknown[];
   milestones?: unknown[];
-  /** GitHub's status for changes. */
   status?: number;
 };
 
-/** GitHub: the lists the pickers ask for, and the changes, which it records. */
 function github({ people = [ana, bo, cy], teams = [], labels = [], milestones = [], status = 200 }: Lists = {}) {
   const calls: string[] = [];
   mockCommands((cmd, args) => {
@@ -78,7 +75,6 @@ function sidebar({ details: d = {}, manage = {}, me = "me", pull: p = {} }: Setu
   return { pull, onError };
 }
 
-/** What the last change showed at once, made to `manage`. */
 const patched = (pull: Pull, manage: Manage) => vi.mocked(pull.patch).mock.lastCall![0](manage);
 const section = (name: string) => screen.getByRole("region", { name });
 const items = (name: string) =>
@@ -234,7 +230,6 @@ describe("Reviewers", () => {
     ]);
     await open("Edit reviewers");
     await userEvent.type(screen.getByRole("combobox"), "x");
-    // A team asked elsewhere, while the list has none.
     const asked = [reviewer("team:ops", { actor: null, team: { slug: "ops", name: "Ops", combinedSlug: "" } })];
     const { pull: other } = sidebar({ manage: { reviewers: asked, orgOwned: false } });
     await userEvent.click(screen.getAllByRole("button", { name: "Edit reviewers" })[1]!);

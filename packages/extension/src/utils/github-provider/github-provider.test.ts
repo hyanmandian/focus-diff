@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { github } from "./github-provider";
 
-/** One of the end-to-end tests' saved pull request pages, drawn the way the page's own script draws it. */
 const load = (name: string, address: string) => {
   const page = new DOMParser().parseFromString(readFileSync(path.resolve("tests/fixtures", name), "utf8"), "text/html");
   const script = page.querySelector("body > script")!;

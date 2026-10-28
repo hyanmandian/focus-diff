@@ -74,17 +74,12 @@ const label = (row: HTMLElement, filter: Filter) => {
   $(".remove-filter", row).setAttribute("aria-label", i18n.t("removeNamed", [name]));
 };
 
-/**
- * What a switch or a button shows, like a section's settings or a review time's details, unrolls into place from the
- * top instead of popping in. Watched on the whole page, so whatever is shown that way later does the same.
- */
 const unrollShown = () => {
   new MutationObserver((records) => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const ease = getComputedStyle(document.documentElement).getPropertyValue("--ease").trim() || "ease-out";
     for (const record of records) {
       const element = record.target;
-      // `oldValue` is '' when it was hidden, and null when it wasn't.
       if (!(element instanceof HTMLElement) || record.oldValue === null || element.hidden) continue;
       element.animate(
         [
@@ -97,7 +92,6 @@ const unrollShown = () => {
   }).observe($("main"), { attributes: true, attributeFilter: ["hidden"], attributeOldValue: true, subtree: true });
 };
 
-/** The settings page: filters, the bar's look, notifications, the popup and review time. */
 export const startOptions = (): void => {
   type Field = "name" | "include" | "exclude";
   type Tone = "" | "ok" | "warn" | "error";
@@ -116,13 +110,8 @@ export const startOptions = (): void => {
 
   const status = $("#status");
   const savebar = $("#savebar");
-  /** How long "Saved" stays up before the save bar goes away. */
   const SAVED_MS = 2500;
   let lowering = 0;
-  /**
-   * Says how saving stands. The save bar rises with anything to say, and is out of the way, and out of the tab order,
-   * when there's nothing: once saved, it lowers after a moment.
-   */
   const say = (text: string, tone: Tone = "") => {
     status.textContent = text;
     status.dataset.tone = tone;
@@ -263,7 +252,6 @@ export const startOptions = (): void => {
     if (focus) input.focus();
   };
 
-  /** With no repository of its own yet, the section says what one is for. */
   function syncRepos() {
     $("#repos-empty").hidden = config.repos.length > 0;
   }
@@ -292,7 +280,6 @@ export const startOptions = (): void => {
         : i18n.t("tryOnlyAll", [i18n.t("filterAll")]);
   };
 
-  /** The result is read out as it changes, so while typing it waits for a pause instead of speaking every keystroke. */
   const TYPING_PAUSE_MS = 400;
   let typing = 0;
   const updateTryWhileTyping = () => {
@@ -322,7 +309,6 @@ export const startOptions = (): void => {
     const notifyOk = notifications.check();
     const popupOk = popupSettings.check();
     if (!filtersOk || !reposOk) {
-      // Every filter has its row, in the same order: the global ones', then each repository's.
       filters.forEach((filter, index) => {
         showFilterProblems(rows[index]!, filter, { force: true });
       });
@@ -349,7 +335,6 @@ export const startOptions = (): void => {
       document.querySelector<HTMLElement>('#notifications [aria-invalid="true"]')?.focus();
       return;
     }
-    // Each is saved on its own, so a quota error says which one is too big.
     let saved: "filters" | "look" | "popup" | "reviewTime" | "notifications" = "filters";
     const editsBefore = edits;
     try {
@@ -472,7 +457,6 @@ export const startOptions = (): void => {
     });
   };
 
-  // Another tab, the welcome page or another device changed the filters: follow along unless there are unsaved edits here.
   follow(configItem, (value) => {
     config = normalize(value);
     render();
@@ -512,10 +496,6 @@ export const startOptions = (): void => {
     if (dirty) event.preventDefault();
   });
 
-  /**
-   * The section index marks the section being read, the one nearest the top of the screen. A section picked from a link
-   * stays marked once the page gets there, even when it's too short to reach the top, until the reader scrolls on.
-   */
   const sectionLinks = [...document.querySelectorAll<HTMLAnchorElement>(".sections a")];
   const sections = sectionLinks.flatMap((link) =>
     link.hash ? (document.querySelector<HTMLElement>(`#${CSS.escape(link.hash.slice(1))}`) ?? []) : [],
@@ -534,9 +514,7 @@ export const startOptions = (): void => {
       : (sections.findLast((section) => section.getBoundingClientRect().top <= line) ?? sections[0]);
     setCurrent(current?.id ?? "");
   };
-  /** A highlight behind the current section's link, sliding from one to the next as the page moves. */
   const sectionList = sectionLinks[0]?.closest("ul");
-  // A list item, so the list holds only items; hidden from screen readers, which hear `aria-current` instead.
   const sectionMark = document.createElement("li");
   sectionMark.className = "sections-mark";
   sectionMark.setAttribute("aria-hidden", "true");
@@ -548,7 +526,6 @@ export const startOptions = (): void => {
     sectionMark.style.setProperty("--y", `${link.offsetTop}px`);
     sectionMark.style.setProperty("--w", `${link.offsetWidth}px`);
     sectionMark.style.setProperty("--h", `${link.offsetHeight}px`);
-    // On a narrow screen the index is a row that scrolls sideways; the current one is brought into it.
     if (sectionList.scrollWidth > sectionList.clientWidth) {
       const left = link.offsetLeft - (sectionList.clientWidth - link.offsetWidth) / 2;
       sectionList.scrollTo({
@@ -570,16 +547,13 @@ export const startOptions = (): void => {
   };
   addEventListener("resize", placeMark);
 
-  /** Where the page ends up once a jump is over; a jump that doesn't move the page is over at once. */
   const settle = () => {
     if (picked && picked.y === null) picked.y = scrollY;
   };
-  /** A section jumped to, by a link or the address it was opened at. */
   const pick = (id: string) => {
     if (!sections.some((section) => section.id === id)) return;
     picked = { id, y: null };
     setCurrent(id);
-    // Not every browser fires scrollend; a jump is over well within a second.
     setTimeout(settle, 1000);
   };
   document.addEventListener("click", (event) => {
@@ -600,7 +574,6 @@ export const startOptions = (): void => {
   $("#tagline").textContent = i18n.t("optionsTagline", [providerNames(uiLanguage())]);
   $("#version").textContent = i18n.t("optionsVersion", [browser.runtime.getManifest().version]);
 
-  /** `#repo=owner/name` comes from the panel on that repository: it's tried, and offered as a new repository. */
   const applyRepoHash = () => {
     const repo = new URLSearchParams(location.hash.slice(1)).get("repo");
     if (repo) {
@@ -612,7 +585,6 @@ export const startOptions = (): void => {
   };
   window.addEventListener("hashchange", applyRepoHash);
 
-  // Opened again from a pull request: this tab comes forward, with that repository, instead of a new one opening.
   browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
     if (message?.type !== "show-options") return;
     sendResponse(true);
@@ -633,14 +605,12 @@ export const startOptions = (): void => {
       popupSettings.render(popup);
       notifications.render(notifySettings);
       reviewTime.render(review);
-      // Opened on a section, like Notifications from the popup: it's further down once everything above it has drawn.
       if (/^#[\w-]+$/u.test(location.hash)) {
         document.querySelector(location.hash)?.scrollIntoView();
         pick(location.hash.slice(1));
       }
       markSection();
       placeMark();
-      // Only once the page is drawn, so the first drawing doesn't unroll everything.
       requestAnimationFrame(() => {
         sectionMark.classList.add("ready");
         unrollShown();

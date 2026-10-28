@@ -1,9 +1,3 @@
-// Development only: the commenting side of GitHub for the sample pull request in mock.ts, so the
-// conversation features can be seen and tried in a plain browser: suggestions (and committing
-// them), a pending review started "on github.com" that the window picks up, comments to edit,
-// delete and react to, a long conversation, a long timeline, @mentions, #references, saved replies,
-// previews. Writes change what's answered next, for the page's life.
-
 import { type Args, fail, isRecord, json, maybeStr, str, texts, wait } from "@/utils/mock-ipc/mock-ipc";
 
 type Actor = { __typename: string; login: string; name: string; avatarUrl: string; databaseId?: number };
@@ -15,7 +9,6 @@ let ids = 9000;
 const nextId = (prefix: string) => `${prefix}_${++ids}`;
 
 const REACTIONS = ["THUMBS_UP", "THUMBS_DOWN", "LAUGH", "HOORAY", "CONFUSED", "HEART", "ROCKET", "EYES"];
-/** GitHub sends all eight groups, the empty ones too. */
 const groups = (given: Record<string, string[]> = {}) =>
   REACTIONS.map((content) => ({
     content,
@@ -24,13 +17,10 @@ const groups = (given: Record<string, string[]> = {}) =>
   }));
 
 type Groups = ReturnType<typeof groups>;
-/** Everything that can be reacted to carries its groups (said() and comment() give them). */
 const isGroups = (value: unknown): value is Groups => Array.isArray(value);
 
 const escape = (s: string) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-/** Just enough of GitHub's Markdown for the sample: fences (a suggestion as GitHub's API renders
- *  it), quotes, code, bold, mentions and paragraphs. */
 function markdown(text: string) {
   const out: string[] = [];
   const parts = text.replaceAll("\r\n", "\n").split(/^(`{3,}[^\n]*\n[\s\S]*?\n?`{3,})$/mu);
@@ -60,7 +50,6 @@ function markdown(text: string) {
   return out.join("\n");
 }
 
-/** A suggestion as GitHub's comment HTML has it (styled by classes the app doesn't have). */
 const blob = (removed: string[], added: string[]) =>
   `<div class="my-2 border rounded-2 js-suggested-changes-blob diff-view" id=""><div class="f6 p-2 lh-condensed border-bottom d-flex"><div class="flex-auto flex-items-center color-fg-muted">Suggested change</div></div><div itemprop="text" class="blob-wrapper data file"><table class="d-table tab-size mb-0 width-full"><tbody>${removed
     .map(
@@ -184,7 +173,6 @@ function thread(path: string, line: number | null, comments: Comment[], at: Part
 function seed({ people, threads, details, files }: Seed) {
   const { me, ana, bruno, carla, dev } = people as Record<"me" | "ana" | "bruno" | "carla" | "dev", Actor>;
   for (const [i, p] of Object.values(people).entries()) p.databaseId = 100 + i;
-  // mock.ts's conversation, with what the app reads of it now.
   const first = threads[0]!;
   const opener = first.comments.nodes[0]!;
   const t1 = thread(first.path, first.line, [
@@ -219,7 +207,6 @@ function seed({ people, threads, details, files }: Seed) {
   const onFile = thread("docs/promo-codes.md", null, [
     comment(carla, "Could this page link to the support macro too?", 30),
   ]);
-  // Started "on github.com": your pending review has one comment already.
   const webDraft = comment(me, "Nit: this could use `errors.Is` once the sentinel exists.", 5, {
     state: "PENDING",
     viewerCanUpdate: true,
@@ -285,7 +272,6 @@ function said(body: string, minutesAgo: number) {
   };
 }
 
-/** A file at the head, as the patch's new side has it, the rest filler. */
 function fileAt(path: string) {
   const patch = state!.files.find((f) => f.filename === path)?.patch ?? "";
   const lines = new Map<number, string>();
@@ -302,7 +288,6 @@ function fileAt(path: string) {
 const ok = (data: unknown): Reply => ({ status: 200, body: JSON.stringify({ data }) });
 const allComments = () => state!.threads.flatMap((t) => t.comments);
 
-/** Answers what it knows of; undefined for the rest (mock.ts answers those). */
 export function conversationMock(cmd: string, args: Args, seedWith: () => Seed): unknown {
   state ??= (seed(seedWith()), state);
   const s = state!;
@@ -319,7 +304,6 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
   const body = json(args, "body");
   const query = str(body, "query");
   const variables = isRecord(body.variables) ? body.variables : {};
-  // The variables this side reads are all text.
   const v = texts(variables);
 
   if (query.includes("reviewThreads(first: 100"))
@@ -422,7 +406,6 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
       },
     });
 
-  // Writes
   const reaction = query.match(/(addReaction|removeReaction)/u)?.[1];
   if (reaction) {
     const target =
@@ -506,8 +489,6 @@ function removeComment(id: string) {
   if (s.pending) s.pending.comments = s.pending.comments.filter((c) => c !== id);
 }
 
-// MARK: The pending review's comments on their way (src-tauri/src/drafts.rs, played here)
-
 type Put = {
   key: string;
   pull: string;
@@ -526,10 +507,8 @@ type Job = {
 };
 const queue: { jobs: Job[]; ids: Record<string, string> } = { jobs: [], ids: {} };
 let emit: (event: string, payload: unknown) => void = () => {};
-/** How the page hears "drafts" events from here (mock.ts keeps its listeners). */
 export const setEmitter = (f: typeof emit) => void (emit = f);
 
-/** What drafts_put carries (the page always sends all of it). */
 const isPut = (value: unknown): value is Put =>
   isRecord(value) && typeof value.key === "string" && typeof value.pull === "string" && typeof value.body === "string";
 
@@ -567,7 +546,6 @@ function drafts(cmd: string, args: Args): unknown {
   return undefined;
 }
 
-/** Settles once every queued change is sent, or fails with the first one GitHub refused. */
 async function flushed(): Promise<null> {
   const refused = queue.jobs.find((j) => j.error);
   if (refused) return fail(refused.error);
@@ -576,7 +554,6 @@ async function flushed(): Promise<null> {
   return flushed();
 }
 
-/** Sent a moment later, as if over the network: one at a time, oldest first. */
 function later() {
   setTimeout(() => {
     const job = queue.jobs.find((j) => !j.error);
@@ -591,7 +568,6 @@ function later() {
       const existing = id ? allComments().find((c) => c.id === id) : undefined;
       if (existing) Object.assign(existing, { body: change.body, bodyHTML: markdown(change.body) });
       else if (/fail/iu.test(change.body)) {
-        // A way to see a refusal: write "fail" in a comment.
         job.error = "pull_request_review_thread.line must be part of the diff";
       } else {
         s.pending ??= { id: nextId("PRR"), comments: [] };

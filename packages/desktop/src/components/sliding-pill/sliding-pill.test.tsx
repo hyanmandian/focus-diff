@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 
-// happy-dom lays nothing out: each option says where it is in data-box="left top width height".
 function box(this: HTMLElement, i: number) {
   return Number((this.dataset.box ?? "0 0 0 0").split(" ")[i]);
 }
@@ -23,7 +22,6 @@ function layOut() {
   });
 }
 
-/** Keeps what a ResizeObserver would be told, to tell it by hand. */
 function observeResizes() {
   const seen = { callback: null as (() => void) | null, observed: [] as Element[], disconnected: false };
   class Observer {
@@ -90,7 +88,6 @@ describe("SlidingPill", () => {
     const resizes = observeResizes();
     const { unmount } = render(<Row selected="all" sizes="0 0 0 0" />);
     expect(pill().style.opacity).toBe("0");
-    // The row and each option are watched.
     expect(resizes.observed).toHaveLength(3);
     screen.getByRole("button", { name: "All" }).dataset.box = "0 0 70 24";
     act(() => {

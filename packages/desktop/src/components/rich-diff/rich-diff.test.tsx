@@ -9,12 +9,10 @@ import { later } from "@/utils/mock-render/mock-render";
 import type { Args } from "@/utils/platform/platform";
 import type { ReviewFile } from "@/utils/review/review";
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 type Stored = Record<string, number | "absent" | Error>;
 
-/** Files at commits, by "sha:path": their size in bytes, absent, or a failure. Records what's asked. */
 function commits(stored: Stored) {
   const asked: string[] = [];
   mockCommands((_, args) => {
@@ -22,7 +20,6 @@ function commits(stored: Stored) {
     asked.push(key);
     const found = stored[key] ?? "absent";
     if (typeof found === "number") return new Uint8Array(found);
-    // Rust's errors arrive as they're thrown; a missing file as "absent".
     // oxlint-disable-next-line typescript/only-throw-error -- Rust says a file is missing with that string.
     throw found;
   });
@@ -39,12 +36,10 @@ beforeEach(() => {
   vi.spyOn(URL, "revokeObjectURL").mockImplementation(revoked);
 });
 
-// Rust's errors reach the page as plain strings.
 // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the case under test.
 const noBase = () => Promise.reject("no base");
 
 let unique = 0;
-/** A picture file, with a path no other test has used (fileAt remembers what it read). */
 const picture = (extra: Partial<ReviewFile> = {}, name = `shot${++unique}.png`): ReviewFile => ({
   path: `img/${name}`,
   previousPath: null,

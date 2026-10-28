@@ -9,18 +9,14 @@ import type { Totals } from "@/components/stats/stats";
 import { h } from "@/utils/dom/dom";
 import { formatDuration, formatNumber as format } from "@/utils/format/format";
 
-/** One filter's share of the pull request. */
 export interface BreakdownRow extends PanelOption, Totals {}
 
 interface BreakdownActions {
   onToggle: (id: string) => void;
-  /** Called as it opens, so other popovers can close. */
   onOpen: () => void;
-  /** Where focus goes when it closes and its toggle is gone. */
   fallback: HTMLElement;
 }
 
-/** A five-square diffstat, as GitHub draws one: the share of added and removed lines. */
 const diffstat = (additions: number, deletions: number) => {
   const total = additions + deletions;
   const added = total ? Math.round((additions / total) * 5) : 0;
@@ -34,7 +30,6 @@ const diffstat = (additions: number, deletions: number) => {
   );
 };
 
-/** The (i) beside "Time left": its tooltip explains the estimate, and is read out as its description. */
 const timeInfoButton = () => {
   const hint = i18n.t("timeHint", [format(LINES_PER_HOUR)]);
   return h(
@@ -62,7 +57,6 @@ const columns = () =>
     h("span", { className: "column-time" }, i18n.t("panelColumnTime"), timeInfoButton()),
   );
 
-/** How the pull request splits across the filters: files viewed, lines and time left for each. Rows toggle filters. */
 export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onOpen, fallback }: BreakdownActions) => {
   const rows = h("div", { className: "rows" });
   const popover = h(
@@ -90,10 +84,8 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
   );
 
   const row = (data: BreakdownRow, selected: boolean) => {
-    // A complete row already reads as done through its green Viewed count, so its time stays empty.
     const time = data.minutesLeft === 0 ? "" : formatDuration(data.minutesLeft);
     const complete = data.visible > 0 && data.viewed === data.visible;
-    // Files still loading might match, so an empty row only turns off once they're in.
     const disabled = data.visible === 0 && data.pending === 0 && !selected;
     return h(
       "button",
@@ -148,7 +140,6 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     const keepFocus = focused()?.dataset.row;
     const onInfo = focused()?.classList.contains("info");
     rows.replaceChildren(columns(), ...list.map((data) => row(data, selected.includes(data.id))));
-    // Redrawn controls take focus back, so it doesn't fall to the page.
     if (keepFocus) rows.querySelector<HTMLElement>(`[data-row="${CSS.escape(keepFocus)}"]`)?.focus();
     else if (onInfo) rows.querySelector<HTMLElement>(".info")?.focus();
   };
@@ -172,7 +163,6 @@ export const createBreakdown = ({ host, focused }: PanelContext, { onToggle, onO
     setOpen(!isOpen());
   });
 
-  /** Rows are only computed while it's open. */
   const render = (list: () => BreakdownRow[], selected: string[]) => {
     source = { rows: list, selected };
     draw();

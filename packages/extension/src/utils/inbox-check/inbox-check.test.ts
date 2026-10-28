@@ -141,7 +141,6 @@ describe("checkInbox", () => {
       ["comment-reviewing", 1, true],
       ["comment-mine", 3, false],
     ]);
-    // Left out of the queue, a team's review isn't told about, nor what's said on it; the reader's own pull requests are.
     const skipped = await checkInbox(github, settings, before, { skipTeams: true });
     expect(skipped.events.map(({ kind, number }) => [kind, number])).toEqual([
       ["review-requested", 2],
@@ -158,7 +157,6 @@ describe("checkInbox", () => {
     const result = await checkInbox(queue, { ...DEFAULT_NOTIFY }, null, { skipTeams: true });
     expect(result.snapshot.reviews.map(({ team }) => team)).toEqual([false, true]);
 
-    // Unread, none is known to be a team's.
     queue.pulls = vi.fn<InboxSource["pulls"]>((list) =>
       list === "direct"
         ? Promise.reject(new InboxError("unreadable"))

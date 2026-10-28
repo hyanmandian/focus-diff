@@ -6,7 +6,6 @@ import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";
 
 type Call = { cmd: string; args: unknown };
 
-/** Rust answering every command with `answer`; what it was asked lands in the list. */
 function rust(answer: (cmd: string) => unknown = () => null, events = false) {
   const calls: Call[] = [];
   mockWindows("review");

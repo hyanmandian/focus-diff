@@ -4,8 +4,6 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { cn } from "@/utils/cn/cn";
 
-// AppKit's tooltip timing: one appears after the pointer rests a moment (about a second); while one
-// is showing, its neighbours open at once.
 function TooltipProvider({ delay = 1000, ...props }: TooltipPrimitive.Provider.Props) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
 }
@@ -37,7 +35,6 @@ function TooltipContent({
         sideOffset={sideOffset}
         className="isolate z-50"
       >
-        {/* A plain label with no arrow, as AppKit draws tooltips, under the pointer's target. */}
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(

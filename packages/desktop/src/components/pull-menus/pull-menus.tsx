@@ -1,8 +1,3 @@
-// The toolbar's menus for what's done to a pull request: the Merge pull-down (merge by each way
-// allowed, merge when ready, the merge queue, updating the branch) and the More menu's part (draft
-// or ready, close or reopen, delete the branch). The merge box in the Overview has the same, with
-// the commit message to edit.
-
 import {
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -20,7 +15,6 @@ export function MergeMenuItems({ details, pull, onDetails }: { details: Details;
   const methods = details.mergeMethods;
   return (
     <>
-      {/* A label names a group: Base UI needs the group around it. */}
       {view.canMerge ? (
         <DropdownMenuGroup>
           <DropdownMenuLabel>{t("review.mergeTitle")}</DropdownMenuLabel>

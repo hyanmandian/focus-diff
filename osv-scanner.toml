@@ -1,6 +1,3 @@
-# Known advisories in development dependencies that can't affect the extension, each with why and until when. On that
-# date the scan fails again, so each one gets looked at again rather than forgotten.
-
 [[IgnoredVulns]]
 id = "GHSA-gcqx-w48m-w2h4"
 ignoreUntil = 2027-01-31

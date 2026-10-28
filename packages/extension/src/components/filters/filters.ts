@@ -7,18 +7,12 @@ import { formatNumber as format } from "@/utils/format/format";
 export interface PanelOption {
   id: string;
   name: string;
-  /** Files this option shows. */
   count?: number;
-  /** Files the site hasn't loaded yet might add to the count, so none isn't final. */
   loading?: boolean;
 }
 
 const ARROW_STEPS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
 
-/**
- * The filter chips: one roving tab stop, arrow keys between chips, and a highlight that slides to the pressed one.
- * `render` returns true when the list of filters itself changed.
- */
 export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: string) => void) => {
   const indicator = h("span", { className: "indicator", "aria-hidden": "true" });
   const element = h(
@@ -36,8 +30,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     element.classList.toggle("combined", pressed.length > 1);
     const target = pressed[0];
     if (pressed.length !== 1 || !target?.offsetWidth) return;
-    // Only chips are pressed, so with one pressed there's a last chip.
-    // The indicator spans every chip, not just the visible part of the row, so it scrolls along with them.
     placeIndicator(indicator, target, options().at(-1)!);
     if (!indicator.classList.contains("ready"))
       requestAnimationFrame(() => {
@@ -45,7 +37,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
       });
   };
 
-  /** Chips change width as their counts come in, which moves the ones after them without resizing a full row. */
   const chipObserver = new ResizeObserver(() => {
     moveIndicator();
   });
@@ -53,7 +44,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     chipObserver.disconnect();
   });
 
-  /** Scrolls the row just enough to show a chip whole, past the fade at either side. */
   const reveal = (option: HTMLElement) => {
     const left = option.offsetLeft - FADE;
     const right = option.offsetLeft + option.offsetWidth + FADE - element.clientWidth;
@@ -69,7 +59,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
       event.key === "Home" ? 0 : event.key === "End" ? list.length - 1 : index + (ARROW_STEPS[event.key] ?? Number.NaN);
     if (Number.isNaN(target)) return;
     event.preventDefault();
-    // The list has the focused chip in it, so the wrapped index is always in range.
     const next = list[(target + list.length) % list.length]!;
     list.forEach((option) => {
       option.tabIndex = option === next ? 0 : -1;
@@ -110,7 +99,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
 
     const current = focused()?.classList.contains("option") ? focused() : null;
     for (const option of options()) {
-      // The chips were drawn from a list with the same ids, so each has its item and its parts.
       const id = option.dataset.id!;
       const item = list.find((each) => each.id === id)!;
       const { count } = item;
@@ -123,10 +111,8 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
       }
       const pressed = selected.includes(id);
       if (option.getAttribute("aria-pressed") !== String(pressed)) option.setAttribute("aria-pressed", String(pressed));
-      // A filter with nothing to show can't be picked, and says why; one already on can still be turned off.
       const disabled = count === 0 && !pressed && !item.loading;
       option.setAttribute("aria-disabled", String(disabled));
-      // The reason shows as a tooltip and is read out as the chip's description.
       if (disabled) {
         const reason = i18n.t("panelFilterEmpty", [item.name]);
         option.dataset.tip = reason;
@@ -137,7 +123,6 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
       }
       option.tabIndex = (current ? option === current : option.dataset.id === selected[0]) ? 0 : -1;
     }
-    // Measuring the chips forces a layout, so it only happens when the selection changes; a ResizeObserver covers the rest.
     const pressedKey = `${optionsKey} ${selected.join()}`;
     if (pressedKey !== indicatorKey) {
       indicatorKey = pressedKey;

@@ -1,9 +1,3 @@
-// The Diff's sidebar: the files as an outline of folders, like the Finder's list view, or as a flat
-// list of paths while searching. Folders open and close (a click on the disclosure triangle, or ←
-// and → from the keyboard) and say how many of their files are viewed and how many conversations
-// are open in them. Only the rows on screen are drawn, so a pull request of thousands of files
-// scrolls as smoothly as one of ten.
-
 import { ChevronRight, Folder } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -15,9 +9,7 @@ import { useT } from "@/utils/i18n/i18n";
 import type { ReviewFile } from "@/utils/review/review";
 import { buildTree, flatten, foldersOf, outlineKey, type TreeRow } from "@/utils/tree/tree";
 
-/** --row-h-sm: every row the same height, so where each one is needs no measuring. */
 const ROW = 24;
-/** Rows drawn past each edge, so a fast scroll doesn't show them missing. */
 const OVERSCAN = 8;
 
 const keyOf = (row: TreeRow<ReviewFile>) => `${row.node.kind === "folder" ? "d" : "f"}:${row.node.path}`;
@@ -30,13 +22,10 @@ export function FileTree({
   comments,
   onPick,
 }: {
-  /** null while loading. */
   files: ReviewFile[] | null;
-  /** A flat list of paths (while searching) rather than folders. */
   flat: boolean;
   picked: string | null;
   isViewed: (f: ReviewFile) => boolean;
-  /** Open conversations on a file. */
   comments: (path: string) => number;
   onPick: (path: string) => void;
 }) {
@@ -61,8 +50,6 @@ export function FileTree({
   );
   const at = cursor ? rows.findIndex((r) => keyOf(r) === cursor) : -1;
 
-  // The list's height, to draw only the rows in view. The list isn't there while the files load,
-  // so it's watched again once they have.
   const loading = files === null;
   useLayoutEffect(() => {
     const el = box.current;
@@ -76,8 +63,6 @@ export function FileTree({
     };
   }, [loading]);
 
-  // A file picked elsewhere (a comment jumped to, the next file to review): its folders open and
-  // its row is selected (and brought into view, below). Done as it renders, so it shows at once.
   const [shown, setShown] = useState(picked);
   if (picked !== shown) {
     setShown(picked);
@@ -89,7 +74,6 @@ export function FileTree({
       });
     }
   }
-  // The selected row brought into view, as a list scrolls to its selection.
   useEffect(() => {
     const el = box.current;
     if (!el || at < 0) return;
@@ -126,7 +110,6 @@ export function FileTree({
     if ("focus" in action) {
       const row = rows[action.focus]!;
       setCursor(keyOf(row));
-      // Moving through files shows each, as Mail shows the message selected.
       if (row.node.kind === "file") onPick(row.node.path);
     } else if ("expand" in action) toggle(action.expand, true);
     else toggle(action.collapse, false);
@@ -148,8 +131,6 @@ export function FileTree({
   const last = Math.min(rows.length, Math.ceil((top + height) / ROW) + OVERSCAN);
 
   return (
-    // A source list: no highlight under the pointer; the selected row in the accent while the list
-    // has focus, gray otherwise (and in a window that isn't in front).
     <div
       ref={box}
       role="tree"
@@ -228,10 +209,8 @@ export function FileTree({
                 </>
               ) : (
                 <>
-                  {/* Lined up under the folders' names, past where their triangle is. */}
                   {flat ? null : <span aria-hidden className="w-3 shrink-0" />}
                   <FileIcon path={node.path} className={cn(done && "opacity-60")} />
-                  {/* Renamed: "old → new", the old name giving way first so the new one stays readable. */}
                   <span className="flex min-w-0 flex-1 font-mono">
                     {old ? (
                       <span className="min-w-0 shrink truncate text-muted-foreground">{old}&nbsp;→&nbsp;</span>

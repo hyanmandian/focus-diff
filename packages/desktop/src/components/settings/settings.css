@@ -1,10 +1,3 @@
-/* The settings window's own pieces; everything else (colours, controls, scroll bars, selection) is
-   the platform's, from the tokens and base styles (through index.css). */
-
-/* Liquid Glass, as Tahoe's own settings and Raycast's: the window has the system's sidebar material
-   behind it (lib.rs); the content side paints the window's colour over it, nearly opaque, and the
-   sidebar floats as a pane of glass with a light edge, the desktop showing through. With Reduce
-   Transparency everything goes opaque; with Increase Contrast the edges firm up. */
 html.settings,
 html.settings body {
   background: transparent;
@@ -48,8 +41,6 @@ html.settings.dark {
     --settings-group: var(--fill-tertiary);
   }
 }
-/* The pane, and around it the content's colour (its spread shadow, clipped by the sidebar's column,
-   which leaves only the pane itself clear); an inner light edge and an outer hairline. */
 .settings-glass {
   background: var(--settings-glass);
   box-shadow:
@@ -57,17 +48,12 @@ html.settings.dark {
     0 0 0 0.5px var(--settings-glass-line),
     0 0 0 48px var(--settings-content);
 }
-/* A window in the background dims its glass a little, as the system's does. */
 :root[data-window-inactive] .settings-glass {
   background: color-mix(in srgb, var(--settings-glass) 60%, transparent);
 }
 
-/* The sidebar's tiles: a white glyph on a rounded square in a system colour, with the faint top
-   light System Settings gives its panes. They keep their colour when selected or in the background,
-   as the system's do. */
 .settings-tile {
   --tile: var(--gray);
-  /* The colour alone, with a hairline: no sheen or coloured shadow round it. */
   background: var(--tile);
   box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.12);
 }
@@ -89,8 +75,6 @@ html.settings.dark {
 .settings-tile[data-tile="gray"] {
   --tile: var(--gray);
 }
-/* Hairlines between a group's rows, inset from its edges like the system's; rows can sit in a
-   display: contents wrapper (a list, a radio group) and still get them. */
 .settings-group > * + *,
 .settings-group > .contents > * + * {
   position: relative;
@@ -109,7 +93,6 @@ html.settings.dark {
   content: none;
 }
 
-/* With Increase Contrast, the groups get an edge as well as their fill. */
 .settings-group {
   box-shadow: inset 0 0 0 0.5px var(--separator);
 }

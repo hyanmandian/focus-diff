@@ -1,6 +1,3 @@
-// A queue's pull requests in the order the panel shows them, so "next" in a review window is the
-// row below in the panel. A stack's pull requests go together, bottom first, so next goes up it.
-
 import { groupStacks, type StackPlace } from "@focus-diff/core/stacks";
 
 import type { Item } from "@/utils/engine/engine";
@@ -9,8 +6,6 @@ type Group = { repo: string; items: Item[] };
 
 const at = (i: Item) => Math.max(...i.events.map((e) => e.at), Date.parse(i.pr.updatedAt));
 
-/** The items with each stack's together, where its first one stood; where each stacked one
- *  stands goes into `stacks`, by pull request. */
 function stacked(items: Item[], stacks: Map<string, StackPlace>) {
   const { list, places } = groupStacks(
     items.map((item) => ({
@@ -25,8 +20,6 @@ function stacked(items: Item[], stacks: Map<string, StackPlace>) {
   return list.map((each) => each.item);
 }
 
-/** By repository, the busiest first; within one, asked again first, then news, then the most
- *  recently active, with stacks kept together. Drafts apart, in the same order. */
 export function arrange(
   list: Item[],
   unread: (item: Item) => boolean,
@@ -51,8 +44,6 @@ export function arrange(
   return { groups, drafts: stacked(list.filter((i) => i.pr.isDraft).toSorted(order), stacks), stacks };
 }
 
-/** The one after `current` in the panel's order (drafts last), back to the top past the end; the
- *  first when `current` has left the queue (approved, say). None when it's the only one. */
 export function nextAfter(list: Item[], current: string, unread: (item: Item) => boolean): Item | null {
   const { groups, drafts } = arrange(list, unread);
   const all = [...groups.flatMap((g) => g.items), ...drafts];

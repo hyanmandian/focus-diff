@@ -1,7 +1,3 @@
-// The settings window, after Raycast's and System Settings': a sidebar under the traffic lights
-// (search, the account, the panes) and the open pane beside it. Queues are the heart of it.
-// Changes save as you make them; the panel follows along.
-
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { ArrowDown, ArrowUp, CircleUserRound, Loader2, LogOut, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -51,9 +47,7 @@ import { useTheme } from "@/utils/theme/theme";
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // A change of its own still to be written: what's on disk is older than what shows.
   const pending = useRef(false);
-  // What's waiting to be written, so closing the window in the meantime writes it at once.
   const unsaved = useRef<Config | null>(null);
   useEffect(() => {
     void loadConfig().then(setConfig);
@@ -64,7 +58,6 @@ function useConfig() {
       unsaved.current = null;
     };
     window.addEventListener("pagehide", flush);
-    // Changed elsewhere (setup, say): shown here too, so the next change here doesn't write over it.
     const off = bridge.on<string>("file-changed", (name) => {
       if (name === "config" && !pending.current) void loadConfig().then(setConfig);
     });
@@ -73,7 +66,6 @@ function useConfig() {
       off();
     };
   }, []);
-  // Saved shortly after the last change, so typing a name doesn't write on every key.
   const update = useCallback((next: Config) => {
     setConfig(next);
     clearTimeout(timer.current);
@@ -110,7 +102,6 @@ function AddQueue({ config, onAdd }: { config: Config; onAdd: (queue: Queue) => 
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
-        {/* From nothing: every option there to choose, so any of the above can be made by hand too. */}
         <DropdownMenuItem
           className={TWO_LINE_ITEM}
           onClick={() => {
@@ -321,7 +312,6 @@ function Account({ auth, onChange }: { auth: AuthStatus | null; onChange: () => 
   );
 }
 
-/** Signing in on github.com itself, only to attach pictures and videos (src-tauri/src/web.rs). */
 function Attachments() {
   const t = useT();
   const login = useWebSession();
@@ -359,8 +349,6 @@ function Attachments() {
 
 const THEMES: Array<Config["theme"]> = ["system", "light", "dark"];
 
-/** A language by its own name, so anyone can find theirs whatever the app is in now; the system's
- *  is said in the language in use. */
 const languageName = (language: Language, t: T) =>
   language === "en" ? "English" : language === "pt-BR" ? "Português (Brasil)" : t("settings.language.system");
 
@@ -387,7 +375,6 @@ function Updates() {
       const found = await bridge.checkUpdate();
       setState(found ? { phase: "found", version: found } : { phase: "latest" });
     } catch (e) {
-      // The updater's own words are technical; the gist is enough.
       const detail = String(e);
       setState({
         phase: "error",
@@ -460,7 +447,6 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           <Select
             value={config.theme}
             onValueChange={(v) => {
-              // Never null: there's no empty choice in the list.
               onChange({ ...config, theme: v! });
             }}
           >
@@ -480,9 +466,7 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           <Select
             value={config.language}
             onValueChange={(v) => {
-              // Never null: there's no empty choice in the list.
               const language = v!;
-              // This window at once; Rust and the other windows follow the saved settings.
               setLanguage(language);
               onChange({ ...config, language });
             }}
@@ -510,7 +494,6 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
           />
         </Row>
         <CommandLine />
-        {/* To see that notifications get through: the system may have them off for the app. */}
         <Row label={t("settings.notifications")} description={t("settings.testNotificationHint")}>
           <Button variant="outline" onClick={() => void bridge.testNotification(config.sound)}>
             {t("settings.testNotification")}
@@ -521,12 +504,10 @@ function General({ config, onChange }: { config: Config; onChange: (c: Config) =
   );
 }
 
-/** `focus-diff open <link>` on the command line: installed from here, and where it is. */
 function CommandLine() {
   const t = useT();
   const [path, setPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Only where the app can install it (macOS for now): elsewhere Rust says it can't.
   const [offered, setOffered] = useState(true);
   useEffect(() => {
     void bridge.cliInstalled().then(setPath, () => {
@@ -575,7 +556,6 @@ const PANE_IDS: ReadonlySet<string> = new Set<PaneId>([
   "general",
 ]);
 
-/** The panes in the sidebar under the account, in order. */
 const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as const).map((value) => ({
   value,
   icon: PANE_META[value].icon,
@@ -584,22 +564,18 @@ const PANES = (["queues", "review", "filters", "actions", "ai", "general"] as co
 
 const isPane = (id: string): id is PaneId => PANE_IDS.has(id);
 
-/** A pane's search words in the language in use, and in English too, so a setting is found by
- *  either name. */
 function keywords(pane: PaneId, t: T): string[] {
   const own = t(`settings.keywords.${pane}`).split("|");
   const english = t.locale === "en" ? [] : translator("en")(`settings.keywords.${pane}`).split("|");
   return [...own, ...english, ...(pane === "ai" ? Object.values(PROVIDERS).map((p) => p.name) : [])];
 }
 
-/** For matching: lower case, accents off, so "notificacoes" finds "Notificações". */
 const fold = (text: string) =>
   text
     .normalize("NFD")
     .replaceAll(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-/** What a search finds in a pane: nothing (null), its name, or the first setting that matches. */
 function match(query: string, label: string, words: string[]): { hint?: string } | null {
   const q = fold(query.trim());
   if (!q) return {};
@@ -608,7 +584,6 @@ function match(query: string, label: string, words: string[]): { hint?: string }
   return hit ? { hint: hit } : null;
 }
 
-/** The panes a search finds, with the setting (or queue, action, filter, prompt by name) that matched. */
 const names = (list: Array<{ name: string }>) => list.map((x) => x.name).filter(Boolean);
 
 function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T) {
@@ -630,7 +605,6 @@ function findPanes(query: string, config: Config, auth: AuthStatus | null, t: T)
   return { accountMatch, panes };
 }
 
-// Like a Mac settings window, it reopens on the pane last used (a convenience: fine to lose).
 const PANE_KEY = "settings-pane";
 function rememberedPane(): PaneId {
   try {
@@ -641,9 +615,6 @@ function rememberedPane(): PaneId {
   }
 }
 
-// A row of the glass sidebar, as Tahoe's (and Raycast's): the open pane on a soft rounded highlight
-// that keeps the text's own colour, a touch firmer while the list has the keyboard; the focus ring
-// only for the keyboard.
 const sidebarItem = cn(
   "group/item flex w-full cursor-default items-center gap-2.5 rounded-[9px] px-2 text-left text-body focus-ring-inset outline-none",
   "data-[active]:bg-(--settings-selected) group-focus-within/list:data-[active]:bg-(--settings-selected-focus)",
@@ -663,7 +634,6 @@ function Sidebar({
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const t = useT();
-  // ⌘F (Ctrl+F) finds a setting, as in System Settings.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (primary(e) && e.key.toLowerCase() === "f") {
@@ -682,14 +652,10 @@ function Sidebar({
   const nothing = !accountMatch && panes.length === 0;
 
   return (
-    // A pane of glass floating inset in the window, the traffic lights inside its top (they sit at
-    // x 19-79, centred at y 26). What's around it is painted the content's colour by its spread
-    // shadow (clipped by the column), so only the pane itself shows the material behind.
     <aside className="h-full w-[240px] shrink-0 overflow-hidden p-2">
       <div className="settings-glass flex h-full flex-col rounded-[18px]">
         <div data-tauri-drag-region className="h-11 shrink-0" />
         <div className="px-2.5 pb-3">
-          {/* A search field: a capsule, with a clear button once there's something in it. */}
           <div className="relative">
             <Search
               className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -711,7 +677,6 @@ function Sidebar({
                   e.preventDefault();
                   setQuery("");
                 } else if (e.key === "ArrowDown" || e.key === "Enter") {
-                  // Into the results; the first is already shown.
                   e.preventDefault();
                   (
                     listRef.current?.querySelector("[role=tab][aria-selected=true]") ??
@@ -733,7 +698,6 @@ function Sidebar({
                 }}
                 className="group/clear absolute top-1/2 right-0.5 grid size-6 -translate-y-1/2 cursor-default place-items-center rounded-full focus-ring outline-none"
               >
-                {/* The clear button's 14px circle, in a 24px target. */}
                 <span className="grid size-3.5 place-items-center rounded-full bg-muted-foreground/60 text-background transition-colors duration-(--duration-fast) group-hover/clear:bg-muted-foreground">
                   <X className="size-2.5" strokeWidth={3} aria-hidden />
                 </span>
@@ -803,24 +767,19 @@ export function Settings() {
   const loadAuth = useCallback(() => void bridge.authStatus().then(setAuth), []);
   useEffect(loadAuth, [loadAuth]);
   useTheme(config?.theme);
-  // Another window sending the person here for something (the AI's setup, say).
   useEffect(() => {
     const off = bridge.on<string>("settings-pane", (p) => {
       if (isPane(p)) setPane(p);
     });
     return off;
   }, []);
-  // The window is titled after the pane, as Mac settings windows are (Window menu, Mission Control).
   useEffect(() => {
     document.title = t(`settings.pane.${pane}`);
     try {
       localStorage.setItem(PANE_KEY, pane);
-    } catch {
-      /* not remembered */
-    }
+    } catch {}
   }, [pane, t]);
 
-  // Searching shows the first pane that matches, as System Settings does, unless the one open still does.
   const search = (q: string) => {
     setQuery(q);
     if (!config || !q.trim()) return;

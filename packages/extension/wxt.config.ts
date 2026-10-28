@@ -9,13 +9,9 @@ export default defineConfig({
     description: "__MSG_extensionDescription__",
     default_locale: "en",
     homepage_url: "https://focus-diff.com",
-    // `alarms` looks at GitHub every few minutes while notifications are on, and keeps review times. Notifications
-    // themselves are asked for when the reader turns them on, so updating doesn't ask everyone for a permission only
-    // some of them use. `offscreen`, which asks nothing of the reader, plays Chrome's sounds: its worker has no audio.
     permissions: ["storage", "alarms", ...(browser === "firefox" || browser === "safari" ? [] : ["offscreen"])],
     ...(browser === "safari" ? {} : { optional_permissions: ["notifications"] }),
     action: { default_title: "__MSG_actionTitle__" },
-    // light-dark(), which the bar's default colours use, arrived in Chrome 123.
     minimum_chrome_version: "123",
     commands: {
       "next-filter": { suggested_key: { default: "Alt+Shift+Period" }, description: "__MSG_commandNext__" },

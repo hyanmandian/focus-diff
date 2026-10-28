@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
 
-/** A fresh copy each time: the offscreen document and Firefox's audio are kept between plays. */
 const load = () => {
   vi.resetModules();
   return import("./background-sound");
@@ -34,7 +33,6 @@ describe("play on Chrome", () => {
     vi.unstubAllEnvs();
   });
 
-  /** The callback overload hides the promise one from vi.spyOn. */
   const documentMaker = (make: () => Promise<void>) => {
     const createDocument = vi.fn<(parameters: unknown) => Promise<void>>(make);
     Object.assign(fakeBrowser.offscreen, { createDocument });

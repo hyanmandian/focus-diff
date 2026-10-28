@@ -1,6 +1,3 @@
-// The review window's Overview tab: the pull request's description and conversation, with the AI,
-// reviewers and checks beside them.
-
 import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -48,7 +45,6 @@ function Person({ actor, className }: { actor: Actor; className?: string }) {
   );
 }
 
-/** GitHub's HTML, cleaned (sanitize.ts); links open in the browser. */
 function Html({ html, className }: { html: string; className?: string }) {
   const t = useT();
   const clean = sanitize(html);
@@ -56,12 +52,10 @@ function Html({ html, className }: { html: string; className?: string }) {
   useDiagrams(ref, clean);
   if (!clean.trim()) return <p className="text-body text-muted-foreground italic">{t("review.noDescription")}</p>;
   return (
-    // Presentation: the clicks it takes are its links' and pictures' (Enter on a link clicks it too).
     <div
       ref={ref}
       role="presentation"
       className={cn(
-        // Text to read and copy: selectable, 13pt with room between the lines, links in the link colour.
         "selectable prose-sm text-body leading-(--type-reading-leading) break-words",
         "[&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
@@ -70,8 +64,6 @@ function Html({ html, className }: { html: string; className?: string }) {
         className,
       )}
       onClick={(e) => {
-        // A picture opens in the viewer (even one GitHub wrapped in a link to itself).
-        // Always an element: React reports a click on text as one on its parent.
         const target = e.target instanceof Element && e.target;
         const picture = target && target.closest("img");
         if (picture && !leadsElsewhere(picture)) {
@@ -85,13 +77,11 @@ function Html({ html, className }: { html: string; className?: string }) {
           void bridge.openUrl(link.href);
         }
       }}
-      // Sanitized above: an allowlist of tags and attributes, https links and GitHub images only.
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
 }
 
-// Their words: t(`review.state.${state}`) on its own, t(`review.did.${state}`) after a name.
 const REVIEW_STATE = {
   APPROVED: "text-success",
   CHANGES_REQUESTED: "text-destructive",
@@ -102,8 +92,6 @@ const REVIEW_STATE = {
 type ReviewState = keyof typeof REVIEW_STATE;
 const isReviewState = (state: string): state is ReviewState => state in REVIEW_STATE;
 
-/** The AI review's summary, and its comments that aren't on a line of the diff (GitHub only takes
- *  those on the diff's lines; these are for you to read). */
 function ReviewSummary({
   by,
   project,
@@ -112,7 +100,6 @@ function ReviewSummary({
   error,
   onJump,
 }: {
-  /** Which AI reviewed it, and whether it reads the whole project. */
   by: string;
   project: boolean;
   review: AiReview | null;
@@ -181,7 +168,6 @@ function ReviewSummary({
           ))}
         </>
       ) : (
-        // Nothing else is left: it's being reviewed (with nothing at all, there's no section).
         <p className="text-callout text-muted-foreground">
           {project ? t("review.readingProject") : t("review.readingDiff")}
         </p>
@@ -193,35 +179,24 @@ function ReviewSummary({
 type Props = {
   config: Config | null;
   details: Details;
-  /** The whole conversation, with what you may do to each part of it; the details' latest until
-   *  it's loaded (utils/conversation/conversation.ts). */
   conversation?: Conversation | null;
   review: AiReview | null;
   reviewing: boolean;
   reviewError: string | null;
-  /** Shows a file (at a line, when there is one) in the diff. */
   onJump: (path: string, line: number | null) => void;
-  /** The conversations on lines, answered and resolved here as in the diff. */
   threads: Thread[];
   onReply: (thread: Thread, body: string) => Promise<void>;
   onResolve: (thread: Thread, resolved: boolean) => Promise<void>;
-  /** A comment on the pull request itself, at the end of the conversation. */
-  /** Resolves to the new comment's id, once the conversation has it. */
   onComment: (body: string) => Promise<string | undefined>;
-  /** What's around the pull request (use-pull.ts): merging, checks, commits, people, the timeline. */
   pull: Pull;
   me: string | null;
-  /** Shows a range of commits in the diff. */
   onOpenRange: (range: Range) => void;
-  /** Whether the diff has a file, to offer a way to it. */
   hasFile: (path: string) => boolean;
   say: (message: string) => void;
-  /** The stack it's in, if any, and going to another of it. */
   stack?: Stack | null;
   onPickStack?: (pull: StackPull) => void;
 };
 
-/** Where a conversation on a line is, with a way to it in the diff. */
 function Where({ path, line, onJump }: { path: string; line: number | null; onJump: Props["onJump"] }) {
   const t = useT();
   return (
@@ -245,7 +220,6 @@ function Where({ path, line, onJump }: { path: string; line: number | null; onJu
   );
 }
 
-/** The comment box at the end of the conversation, closed until it's wanted (or a quote opens it). */
 function AddComment({
   onComment,
   quoted,
@@ -285,7 +259,6 @@ function AddComment({
   );
 }
 
-/** What someone said, editable when it's yours: the description, a comment, a review's own words. */
 function Words({
   html,
   body,
@@ -320,8 +293,6 @@ function Words({
   return html.trim() ? <Html html={html} className={className} /> : null;
 }
 
-/** One entry in the conversation: a comment on the pull request or a review, with the conversations
- *  it started on lines. */
 function EntryView({
   entry,
   byComment,
@@ -347,9 +318,7 @@ function EntryView({
           return thread.comments[0]?.id === c.id ? [{ key: c.id, comment: c, thread }] : [];
         })
       : [];
-  // A review that's only replies to conversations shown above has nothing of its own.
   if (entry.kind === "review" && !entry.html.trim() && parts.length === 0 && entry.state === "COMMENTED") return null;
-  // A review's words can be edited, not deleted; a comment both.
   const said = entry.kind === "comment" || entry.html.trim() || editing;
   return (
     <article data-entry={entry.id} className="group/said -m-2 flex scroll-mt-16 gap-2.5 rounded-[10px] p-2">
@@ -428,11 +397,8 @@ function EntryView({
   );
 }
 
-/** The newest this many show first; older ones a page at a time, so a long conversation opens as
- *  fast as a short one. */
 const PAGE = 30;
 
-/** A branch's name, with a button to copy it. */
 function Branch({ name }: { name: string }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
@@ -468,11 +434,8 @@ function Branch({ name }: { name: string }) {
   );
 }
 
-/** The page's heading, as on GitHub: who opened it beside the title, then when, and which branch
- *  goes into which. The toolbar's copy of the title may be cut short; this one never is. */
 function Heading({ details }: { details: Details }) {
   const t = useT();
-  // "{who} opened it {ago}", with the name set apart.
   const [beforeWho, afterWho] = t("review.openedBy", {
     who: "\u0000",
     ago: t.ago(Date.parse(details.createdAt)),
@@ -502,7 +465,6 @@ function Heading({ details }: { details: Details }) {
   );
 }
 
-/** The description: the author's words, editable when you may, with its reactions. */
 function Description({ details, conversation }: { details: Details; conversation: Conversation | null | undefined }) {
   const t = useT();
   const api = useConversationApi();
@@ -514,8 +476,6 @@ function Description({ details, conversation }: { details: Details; conversation
       <h2 id="description" className="sr-only">
         {t("review.description")}
       </h2>
-      {/* Who and where are in the page's heading; the description keeps its own buttons, the text
-          flowing round them. */}
       <div className="float-right -mt-2 -mr-2 ml-2 flex items-center">
         {api && conversation?.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
         {api && conversation?.canEdit && !editing ? (
@@ -576,20 +536,12 @@ export function Overview({
   const [shown, setShown] = useState(PAGE);
   const [quoted, setQuoted] = useState<string | null>(null);
   const entries: Array<Entry & Partial<ConversationEntry>> = conversation?.entries ?? details.entries;
-  // Each conversation on a line shows once, under the review that started it (as on GitHub); the
-  // replies, which GitHub keeps as reviews of their own, are in it.
   const byComment = useMemo(
     () => new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const))),
     [threads],
   );
-  // What happened (commits, labels, merging...) among what was said, as on GitHub.
   const items = useMemo(() => byTime(entries, pull.events), [entries, pull.events]);
-  // A comment just posted: shown where it landed, at the top of the conversation (newest first),
-  // lit up a moment so the eye finds it. Without its id, the conversation's top.
-  // The conversation is fetched again after posting, so it may arrive a moment later: until then
-  // (a few seconds at most) its top shows, where it will be.
   const [landed, setLanded] = useState<string | null>(null);
-  // The one already lit up, so the conversation coming in again doesn't light it again.
   const lit = useRef<string | null>(null);
   useEffect(() => {
     let giveUp: ReturnType<typeof setTimeout> | undefined;
@@ -620,8 +572,6 @@ export function Overview({
       clearTimeout(giveUp);
     };
   }, [landed, items]);
-  // A page to read: the description and the conversation in a column, and beside them what's at a
-  // glance (the AI, reviewers, checks).
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-8 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-8">

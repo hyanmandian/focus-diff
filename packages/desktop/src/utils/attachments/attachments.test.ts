@@ -12,7 +12,6 @@ import {
 } from "@/utils/attachments/attachments";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 
-/** A PNG chunk: its length, type, data and a (blank) checksum. */
 const chunk = (type: string, data: number[]) => [
   0,
   0,
@@ -34,22 +33,18 @@ const header = chunk(
 );
 const retina = png(header, chunk("pHYs", [...perMeter(5669), ...perMeter(5669), 1]));
 
-/** Pictures decode at once, `width` pixels wide. */
 const decoded = (width: number) => {
   vi.spyOn(HTMLImageElement.prototype, "decode").mockResolvedValue();
   vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(width);
 };
 
-/** Rust answering who's signed in on github.com with `login`. */
 const session = (login: () => unknown) => (cmd: string) => (cmd === "github_web_session" ? login() : null);
 
-/** Unmounts, and lets it stop listening while the fake platform is still there. */
 const stop = async (unmount: () => void) => {
   unmount();
   await act(async () => {});
 };
 
-/** A promise to settle later, from the test. */
 function later<T>() {
   let settle!: (value: T) => void;
   const promise = new Promise<T>((resolve) => {
@@ -103,7 +98,6 @@ describe("pngDensity", () => {
     expect(pngDensity(png(header, chunk("IDAT", [1])))).toBeNull();
     expect(pngDensity(png(header, chunk("IEND", [])))).toBeNull();
     expect(pngDensity(png(chunk("pHYs", [...perMeter(1), ...perMeter(1), 0])))).toBeNull();
-    // Cut short: no chunk after the header, or a pHYs without its data.
     expect(pngDensity(png(header))).toBeNull();
     expect(pngDensity(png(chunk("pHYs", [1, 2])))).toBeNull();
     expect(pngDensity(png(chunk("pHYs", [...perMeter(1), ...perMeter(1), 1])).subarray(0, 24))).toBeNull();

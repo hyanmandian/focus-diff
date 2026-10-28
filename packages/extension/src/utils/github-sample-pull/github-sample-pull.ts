@@ -2,7 +2,6 @@ import type { Activity, PullRequest } from "@/utils/github-inbox/github-inbox";
 import { DEFAULT_NOTIFY, EVENT_KINDS, type EventKind, type Exception, type NotifySettings } from "@/utils/inbox/inbox";
 import { recordOf } from "@/utils/record/record";
 
-/** A pull request on one of the reader's lists, for tests: octo/web's, by ada, unless `extra` says otherwise. */
 export const samplePull = (number: number, extra: Partial<PullRequest> = {}): PullRequest => ({
   repo: "octo/web",
   number,
@@ -18,7 +17,6 @@ export const samplePull = (number: number, extra: Partial<PullRequest> = {}): Pu
   ...extra,
 });
 
-/** Activity on octo/web's pull request 12, for tests: a comment on the reader's own, unless `extra` says otherwise. */
 export const sampleActivity = (thread: string, extra: Partial<Activity> = {}): Activity => ({
   thread,
   repo: "octo/web",
@@ -32,7 +30,6 @@ export const sampleActivity = (thread: string, extra: Partial<Activity> = {}): A
   ...extra,
 });
 
-/** For tests: notifications on for just these events, each with what it leaves out. */
 export const sampleNotify = (
   events: Partial<Record<EventKind, Exception[]>>,
   repos: string[] = [],

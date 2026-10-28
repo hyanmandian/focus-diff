@@ -29,7 +29,6 @@ describe("TagInput", () => {
     await userEvent.type(field(), "acme/web,");
     expect(values()).toBe("acme/api|acme/web");
     expect(field().value).toBe("");
-    // With values, the placeholder goes.
     expect(field().getAttribute("placeholder")).toBe("");
   });
 

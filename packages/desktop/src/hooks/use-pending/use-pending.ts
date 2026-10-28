@@ -1,7 +1,3 @@
-// The review window's pending comments: what you write shows at once and goes to your pending review
-// on GitHub on its own (src-tauri/src/drafts.rs); what's there (written here, or on github.com)
-// comes back from GitHub. A copy is kept on this machine, so the window opens with them.
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { bridge, type DraftsState } from "@/utils/bridge/bridge";
@@ -19,7 +15,6 @@ import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const keptKey = (prId: string) => `drafts:${prId}`;
 
-/** Written by this window (the effect below), so a list is taken as one of drafts. */
 const isDrafts = (value: unknown): value is Draft[] => Array.isArray(value);
 
 function readKept(prId: string): Draft[] {
@@ -31,13 +26,10 @@ function readKept(prId: string): Draft[] {
   }
 }
 
-/** Without the pending ones: a thread you started in your pending review is one of your pending
- *  comments, as is a pending reply in someone's conversation. */
 export function published(threads: Thread[]): Thread[] {
   return (
     threads
       .filter((t) => !t.pending)
-      // A copy, not a change: threads are React state.
       // oxlint-disable-next-line oxc/no-map-spread
       .map((t) => (t.comments.some((c) => c.pending) ? { ...t, comments: t.comments.filter((c) => !c.pending) } : t))
   );
@@ -46,8 +38,6 @@ export function published(threads: Thread[]): Thread[] {
 const newKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
-  // What was kept from last time, and what's been written since (the side a comment is on, which
-  // GitHub doesn't say back).
   const [kept, setKept] = useState<Draft[]>(() => readKept(prId));
   const [github, setGithub] = useState<PendingReview | null>(null);
   const [state, setState] = useState<DraftsState>({ jobs: [], ids: {} });
@@ -57,12 +47,9 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   useEffect(() => {
     try {
       localStorage.setItem(keptKey(prId), JSON.stringify(drafts));
-    } catch {
-      // Still shown in this window.
-    }
+    } catch {}
   }, [prId, drafts]);
 
-  /** What GitHub and Rust have now; only the latest asking counts. */
   const refresh = useCallback(async () => {
     const turn = ++asked.current;
     const [onGitHub, queued] = await Promise.all([
@@ -88,7 +75,6 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
   useEffect(() => {
     const catchUp = async () => {
       const now = await refresh();
-      // Comments written before pending reviews lived on GitHub (or whose sending was lost) go now.
       if (!now?.queued || now.onGitHub === undefined) return;
       for (const draft of unsent(readKept(prId), now.onGitHub, now.queued)) send(draft);
     };
@@ -138,7 +124,6 @@ export function usePending(prId: string, ref: PullRef, threads: Thread[]) {
     await after();
   };
 
-  // Why GitHub refused a comment, and the ones still on their way, by key.
   const errors = useMemo(
     () => Object.fromEntries(state.jobs.flatMap((j) => (j.error ? [[j.change.key, j.error]] : []))),
     [state],

@@ -1,8 +1,3 @@
-// What happened on a pull request besides what was said: commits pushed, force pushes, review
-// requests, labels, title changes, drafts and readiness, merging and closing, references from
-// elsewhere, deployments. GitHub's timeline, a page at a time from the newest, each event made
-// compact (runs of commits by one person, and of label changes, read as one line).
-
 import { graphql } from "@/utils/bridge/bridge";
 import type { PullRef } from "@/utils/review/review";
 
@@ -135,7 +130,6 @@ type SimpleType =
   | "HeadRefDeletedEvent"
   | "HeadRefRestoredEvent";
 
-/** GitHub's timeline nodes, as the query above asks for them. */
 export type TimelineNode =
   | {
       __typename: "PullRequestCommit";
@@ -183,11 +177,8 @@ export type TimelineNode =
   | GitHubEvent<"BaseRefChangedEvent", { previousRefName: string; currentRefName: string }>
   | GitHubEvent<SimpleType>;
 
-/** Two changes this close together, by the same person, read as one. */
 const TOGETHER = 2 * 60_000;
 
-/** GitHub's timeline nodes (oldest first) as events (oldest first): consecutive commits by one
- *  author in one line, label changes made together in one, unknown kinds left out. */
 export function mapTimeline(nodes: TimelineNode[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
   for (const n of nodes) {
@@ -300,7 +291,6 @@ export function mapTimeline(nodes: TimelineNode[]): TimelineEvent[] {
       case "BaseRefChangedEvent":
         events.push({ ...base, kind: "baseChanged", from: n.previousRefName, to: n.currentRefName });
         break;
-      // Kinds GitHub may add later match no case and are left out.
       case "ReadyForReviewEvent":
       case "ConvertToDraftEvent":
       case "ClosedEvent":
@@ -333,7 +323,6 @@ const SIMPLE: Record<SimpleType, SimpleKind> = {
 
 export type TimelinePage = { nodes: TimelineNode[]; older: string | null };
 
-/** A page of the timeline, the newest first time, older ones with the cursor it gave (`older`). */
 export async function loadTimeline(ref: PullRef, before: string | null = null): Promise<TimelinePage> {
   type R = {
     repository: {
@@ -350,8 +339,6 @@ export async function loadTimeline(ref: PullRef, before: string | null = null): 
   };
 }
 
-/** The conversation's entries and the timeline's events in one list, newest first (both come
- *  newest first). */
 export function byTime<E extends { at: string }>(
   entries: E[],
   events: TimelineEvent[],
@@ -366,7 +353,6 @@ export function byTime<E extends { at: string }>(
       out.push({ kind: "entry", entry });
       i++;
     } else {
-      // The loop's condition leaves an event here whenever there's no entry to take.
       out.push({ kind: "event", event: event! });
       j++;
     }

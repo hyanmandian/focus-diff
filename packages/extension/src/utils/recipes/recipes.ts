@@ -12,7 +12,6 @@ export interface Recipe {
   filters: RecipeFilter[];
 }
 
-/** The recipes' words (message keys), in the order the welcome page offers them. */
 const WORDS: [RecipeId, title: string, description: string][] = [
   ["stack", "recipeStackTitle", "recipeStackDescription"],
   ["area", "recipeAreaTitle", "recipeAreaDescription"],
@@ -23,7 +22,6 @@ const WORDS: [RecipeId, title: string, description: string][] = [
   ["docs", "recipeDocsTitle", "recipeDocsDescription"],
 ];
 
-/** Each filter's name (a message key). */
 const NAMES: Record<PathFilterName, string> = {
   frontend: "recipeStackFrontend",
   backend: "recipeStackBackend",

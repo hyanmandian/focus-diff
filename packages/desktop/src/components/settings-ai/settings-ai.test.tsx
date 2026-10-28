@@ -22,12 +22,10 @@ const status = (provider: AiProvider, patch: Partial<AiStatus> = {}): AiStatus =
   ...patch,
 });
 
-/** One of the arguments a command was called with. */
 function field(args: unknown, key: string): unknown {
   return typeof args === "object" && args !== null ? Reflect.get(args, key) : undefined;
 }
 
-/** The models the model field suggests. */
 const suggested = () => [...document.querySelectorAll("datalist option")].map((o) => o.getAttribute("value"));
 
 type Rust = {
@@ -36,7 +34,6 @@ type Rust = {
   confirm?: boolean;
 };
 
-/** The pane as Settings holds it, with what's installed and what each CLI's models are. */
 function setup(ai: Partial<Config["ai"]> = {}, rust: Rust = {}) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   let answer: ((statuses: AiStatus[]) => void) | undefined;
@@ -148,7 +145,6 @@ describe("Ai", () => {
     expect(last()).toMatchObject({ provider: "claude", model: "", effort: "" });
     expect(screen.getByRole("radio", { name: "Claude Code" }).getAttribute("aria-checked")).toBe("true");
 
-    // Picking it again keeps it as it is.
     const before = changes.mock.calls.length;
     await user.click(screen.getByRole("radio", { name: "Claude Code" }));
     expect(changes.mock.calls).toHaveLength(before + 1);

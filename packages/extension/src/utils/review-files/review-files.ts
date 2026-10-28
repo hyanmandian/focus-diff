@@ -2,11 +2,8 @@ import type { Provider, ThreadSummary } from "@/utils/provider/provider";
 import type { FileList, ReviewFile } from "@/utils/review/review";
 
 export interface FileInfo extends ReviewFile {
-  /** How the site points to the file, for its links and its tree; empty when unknown. */
   anchor: string;
-  /** The drawn diff, when the site has it on the page. */
   diff: { element: HTMLElement; container: HTMLElement } | null;
-  /** Conversations known before the file is drawn, from the site's data. */
   threads: ThreadSummary[];
 }
 
@@ -15,10 +12,6 @@ export type Files = FileList<FileInfo>;
 const viewedByPath = new Map<string, boolean>();
 let viewedPathname = "";
 
-/**
- * Every changed file the page knows about. A site's embedded data lists them all, with exact line counts; otherwise
- * there's only what it drew. Viewed toggles seen on the page win over the data, which is fixed when the page loads.
- */
 export const collectFiles = (provider: Provider): Files => {
   if (viewedPathname !== location.pathname) {
     viewedByPath.clear();
@@ -49,7 +42,6 @@ export const collectFiles = (provider: Provider): Files => {
   const list = [...rendered.values()].map((diff) => ({
     path: diff.path,
     anchor: diff.anchor,
-    // Only drawn diffs need their line counts read from the page; the data already has them.
     stats: diff.stats(),
     viewed: viewedByPath.get(diff.path) ?? false,
     diff: { element: diff.element, container: diff.container },

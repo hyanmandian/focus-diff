@@ -1,5 +1,3 @@
-// English, the source of truth: every key and placeholder is defined here first. One file per
-// part of the app; a key is "file.name" (utils/i18n/i18n.ts).
 import { common } from "@/locales/en/common";
 import { config } from "@/locales/en/config";
 import { diff } from "@/locales/en/diff";

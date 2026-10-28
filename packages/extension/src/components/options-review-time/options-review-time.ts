@@ -62,14 +62,8 @@ const block = (legend: string, ...children: (Node | null)[]) =>
 
 const errorText = (id: string) => h("p", { className: "error", id, "aria-live": "polite" });
 
-/**
- * Settings' Review time section: one switch, the reader's review times as cards, each folded to a line that says when
- * and for how long, and unfolded, when, how long, in what order, and what to review; then how estimates are made and
- * what happens when it's time.
- */
 const named = (filter: { name: string }) => filter.name.trim();
 
-/** How long, and in what order the pull requests that fit are picked. */
 const lengthBlock = (session: ReviewSession, refresh: () => void) => {
   const otherId = `session-${session.id}-minutes`;
   const other = h("input", {
@@ -193,7 +187,6 @@ const learnedView = (learned: Learned) => {
   );
 };
 
-/** The first error saying something; found by its text, which reads the same as `:not(:empty)` everywhere. */
 const shownError = (root: ParentNode) =>
   [...root.querySelectorAll<HTMLElement>(".error")].find((error) => error.textContent);
 
@@ -215,7 +208,6 @@ export const createReviewTime = ({
   onEnabled: (on: boolean) => void;
 }) => {
   let settings: ReviewTimeSettings = normalizeReviewTime({});
-  /** Checks for every field that can be wrong, to run on save. */
   let checks: (() => boolean)[] = [];
   const open = new Set<string>();
   const openers = new WeakMap<Element, (value: boolean) => void>();
@@ -248,7 +240,6 @@ export const createReviewTime = ({
     onEnabled(settings.enabled && Boolean(next));
   };
 
-  /** When: days, then set times or every few hours. */
   const whenBlock = (session: ReviewSession, refresh: () => void) => {
     const days = h(
       "div",
@@ -374,7 +365,6 @@ export const createReviewTime = ({
 
     checks.push(() => {
       daysError.textContent = session.days.length > 0 ? "" : i18n.t("errorReviewDays");
-      // A time typed but not added yet is added on save rather than lost.
       if (newTime.value) add();
       const noTimes = session.repeat === "times" && session.times.length === 0;
       timesError.textContent = noTimes ? i18n.t("errorReviewTimes") : "";
@@ -388,7 +378,6 @@ export const createReviewTime = ({
     return block(i18n.t("notifyTiming"), days, daysError, repeat, times, hours);
   };
 
-  /** What to review: the filters whose files count, drafts or not, and the repositories. */
   const whatBlock = (session: ReviewSession, refresh: () => void) => {
     const { global, repos } = config();
     const options = [
@@ -397,11 +386,9 @@ export const createReviewTime = ({
         entry.filters.filter(named).map((filter) => ({ id: filter.id, label: named(filter), repo: entry.repo })),
       ),
     ];
-    // Filters since deleted are let go.
     session.filters = session.filters.filter((id) => options.some((option) => option.id === id));
     const chips = h("div", { className: "chips", role: "group" });
     chips.setAttribute("aria-label", i18n.t("reviewFiles"));
-    /** Drawn again after a pick, since All and the filters press each other off; the focus stays on the chip picked. */
     const draw = (focus = -1) => {
       chips.replaceChildren(
         toggleChip(i18n.t("reviewAllFiles"), session.filters.length === 0, () => {
@@ -475,7 +462,6 @@ export const createReviewTime = ({
     );
   };
 
-  /** A review time as a card: its switch, name and when, folded; unfolded, everything about it. */
   const sessionCard = (session: ReviewSession, focus = false) => {
     const label = () => session.name || i18n.t("reviewTimeName");
     const on = switchInput(`session-${session.id}-on`, session.on);
@@ -625,7 +611,6 @@ export const createReviewTime = ({
     onToggle: (on) => {
       settings.enabled = on;
       body.hidden = !on;
-      // Turned on with none yet, it starts with one, open, to fill in.
       if (on && settings.sessions.length === 0) {
         const session = newSession();
         settings.sessions.push(session);
@@ -673,14 +658,11 @@ export const createReviewTime = ({
       settings = structuredClone(next);
       render();
     },
-    /** Drawn again for filters added or renamed, keeping what's unsaved. */
     redraw: () => {
       render();
     },
     value: (): ReviewTimeSettings => normalizeReviewTime(settings),
-    /** Whether every time and repository reads right; if not, says so at the field, unfolding its card. */
     check: (): boolean => {
-      // Turned off, review times aren't used, and what's wrong in them, out of sight, mustn't hold up the rest.
       if (!settings.enabled) return true;
       const ok = checks.map((check) => check()).every(Boolean);
       if (!ok) {
@@ -692,7 +674,6 @@ export const createReviewTime = ({
       }
       return ok;
     },
-    /** Takes the reader to the first thing to fix: its field, or for days, the first day. */
     focusError: () => {
       const field = sessions.querySelector<HTMLElement>('[aria-invalid="true"]');
       if (field) {

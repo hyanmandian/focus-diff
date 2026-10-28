@@ -6,13 +6,11 @@ import { estimateHint, pullMinutes } from "@/utils/estimate/estimate";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
 
-/** The module afresh, with nothing read yet. */
 function fresh() {
   vi.resetModules();
   return import("@/utils/estimate/estimate");
 }
 
-/** What Rust gets asked to read and write of pace.json, answering reads with `kept`. */
 function disk(kept: () => string | null) {
   const writes: unknown[] = [];
   let reads = 0;
@@ -27,7 +25,6 @@ function disk(kept: () => string | null) {
   return { writes, reads: () => reads };
 }
 
-/** Rust with no pace.json, and no room to write one. */
 const fullDisk = (cmd: string) => (cmd === "read_file" ? null : Promise.reject(new Error("disk full")));
 
 const slow = { all: { actual: 40, expected: 20, files: 4 }, kinds: { code: { actual: 40, expected: 20, files: 4 } } };
@@ -35,7 +32,6 @@ const slow = { all: { actual: 40, expected: 20, files: 4 }, kinds: { code: { act
 describe("review time", () => {
   it("estimates a pull request from its totals", () => {
     expect(pullMinutes({ additions: 1000, deletions: 0, changedFiles: 4 }, null)).toBeCloseTo(61);
-    // A reader who takes 1.5 times as long.
     expect(pullMinutes({ additions: 1000, deletions: 0, changedFiles: 4 }, slow)).toBeCloseTo(61 * 1.5);
   });
 

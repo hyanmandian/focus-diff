@@ -8,7 +8,6 @@ import { accessibilityViolations, expect, test } from "./fixtures";
 const script = () => readFileSync(path.resolve(".output/demo/focus-diff-demo.js"), "utf8");
 const SITE = "https://site.test/";
 
-// The site's embed: a plain page, no extension, the demo from `npm run build:demo`.
 test("runs the demo on a plain web page, without the extension", async () => {
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ locale: "en-US" })).newPage();

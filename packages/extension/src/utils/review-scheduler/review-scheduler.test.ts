@@ -54,7 +54,6 @@ vi.mock(import("@/utils/background-sound/background-sound"), async (original) =>
   play: vi.fn<typeof play>(),
 }));
 
-/** Friday 9 October 2026, 10:00 local time. */
 const at = (day: number, hours: number, minutes = 0) => new Date(2026, 9, day, hours, minutes).getTime();
 const NOW = at(9, 10);
 const MINUTE = 60_000;
@@ -130,7 +129,6 @@ const event = (number: number, extra: Partial<HeldEvent> = {}): HeldEvent => ({
 });
 
 const alarmNames = async () => (await fakeBrowser.alarms.getAll()).map((alarm) => alarm.name).toSorted();
-/** The tabs opened; the fake browser starts with one of its own, at no address. */
 const openTabs = async () =>
   (await fakeBrowser.tabs.query({})).filter((tab) => tab.url).map((tab) => [tab.url, tab.active]);
 
@@ -298,7 +296,6 @@ describe("readQueueFiles", () => {
     const reviews = Array.from({ length: 33 }, (_, index) => samplePull(index + 1));
     const old = { sha: "abc123", files: FILES, readAt: 0 };
     await pullFilesItem.setValue({ [reviews[31]!.url]: old, [reviews[32]!.url]: { ...old, sha: "older" } });
-    // Which files are viewed only counts for a plan; for the queue, any read at this push is fresh.
     await readQueueFiles(reviews.slice(0, 31));
     expect(fetchFiles).toHaveBeenCalledTimes(30);
     vi.mocked(fetchFiles).mockClear();
@@ -307,7 +304,6 @@ describe("readQueueFiles", () => {
     await pullFilesItem.setValue({ [reviews[31]!.url]: old, [reviews[32]!.url]: { ...old, sha: "older" } });
     await onReviewAlarm({ name: "review-time:next:s1", scheduledTime: NOW });
     expect(fetchFiles).toHaveBeenCalledTimes(30);
-    // The 33rd, read at an older push, is a rough guess.
     expect((await reviewRunItem.getValue())?.pulls.find((pull) => pull.number === 33)?.files).toBeNull();
     expect((await reviewRunItem.getValue())?.pulls.find((pull) => pull.number === 32)?.files).toBe(1);
   });

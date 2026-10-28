@@ -7,7 +7,6 @@ import type { loadManage } from "@/utils/manage/manage";
 import type { loadFiles, loadThreads } from "@/utils/review/review";
 import { shelved } from "@/utils/shelf/shelf";
 
-// What GitHub would answer, one level up: prefetch only arranges the loads and keeps what comes.
 const load = vi.hoisted(() => ({
   details: vi.fn<typeof loadDetails>(),
   files: vi.fn<typeof loadFiles>(),
@@ -52,7 +51,6 @@ const details: Details = {
 };
 const commits = { commits: [], forcePushes: [], reviewed: null };
 
-/** The kept copies Rust was asked to write. */
 function disk() {
   const written: string[] = [];
   mockCommands((cmd, args) => {
@@ -62,7 +60,6 @@ function disk() {
   return written;
 }
 
-/** prefetch afresh, remembering nothing it fetched before. */
 function fresh() {
   vi.resetModules();
   return import("@/utils/prefetch/prefetch");

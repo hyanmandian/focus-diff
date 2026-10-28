@@ -63,7 +63,6 @@ const row = (name: string | RegExp) => screen.getByRole("treeitem", { name });
 const outline = () => screen.getByRole("tree", { name: "Files" });
 const selected = () => screen.queryAllByRole("treeitem").find((r) => r.getAttribute("aria-selected") === "true");
 
-/** ResizeObserver, told by the test when sizes change. */
 function watchSizes() {
   const callbacks: Array<() => void> = [];
   const observed: Element[] = [];
@@ -109,7 +108,6 @@ describe("FileTree", () => {
 
   it("shows the files as folders, with what's viewed and talked about", () => {
     tree();
-    // Each file's icon reads as its kind ("TS", "MD").
     expect(rows()).toEqual([
       "docs/guide1/1",
       "MDintro.md+3 −1",

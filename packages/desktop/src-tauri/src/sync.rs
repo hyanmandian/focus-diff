@@ -1,7 +1,3 @@
-//! Locks that outlive a panic elsewhere: with panics unwinding (Cargo.toml), one while a lock is
-//! held leaves it poisoned, and every later `lock().unwrap()` would panic in turn. What's guarded
-//! is taken as it was left instead.
-
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 pub(crate) trait Locked<T> {

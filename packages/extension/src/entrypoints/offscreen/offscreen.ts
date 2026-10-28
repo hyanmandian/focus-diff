@@ -3,7 +3,6 @@ import { browser } from "wxt/browser";
 import type { Message } from "@/utils/messages/messages";
 import { playSound } from "@/utils/sound/sound";
 
-/** Chrome's service worker has no audio: it asks this page, made only for that, to play its sounds. */
 let context: AudioContext | null = null;
 
 browser.runtime.onMessage.addListener((message: Message) => {

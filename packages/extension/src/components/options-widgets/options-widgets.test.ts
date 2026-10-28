@@ -9,7 +9,6 @@ vi.mock(import("@/utils/sound/sound"), async (original) => ({
   playSound: vi.fn<() => number>(),
 }));
 
-// Its names are read in the reader's language as it loads, once the fake browser speaks it.
 const load = () => import("./options-widgets");
 
 const type = (input: HTMLInputElement, value: string, inputType = "insertText") => {
@@ -25,7 +24,6 @@ const chips = (element: HTMLElement) =>
   [...element.querySelectorAll(".repo-chip span")].map((chip) => chip.textContent);
 
 beforeEach(() => {
-  // happy-dom has no Option constructor.
   vi.stubGlobal("Option", function option(text: string, value: string) {
     return Object.assign(document.createElement("option"), { textContent: text, value });
   });
@@ -296,7 +294,6 @@ describe("notifySwitch", () => {
     toggle.type = "checkbox";
     const permission = document.createElement("p");
     const allowButton = document.createElement("button");
-    // The callback overloads hide the promise ones from vi.spyOn.
     const contains = vi.fn<(permissions: unknown) => Promise<boolean>>().mockResolvedValue(allowed);
     const request = vi.fn<(permissions: unknown) => Promise<boolean>>().mockResolvedValue(granted);
     Object.assign(fakeBrowser.permissions, { contains, request });

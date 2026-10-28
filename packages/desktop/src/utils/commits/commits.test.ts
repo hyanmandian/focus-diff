@@ -25,7 +25,6 @@ const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
-/** Rust answering each call with the next reply, keeping what was asked. */
 function rust(...replies: unknown[]) {
   const calls: Call[] = [];
   mockCommands((cmd, args) => {
@@ -37,7 +36,6 @@ function rust(...replies: unknown[]) {
 
 const nothing = () => {};
 
-/** A reply that comes only when let go. */
 function later() {
   let release: (value: unknown) => void = nothing;
   const reply = new Promise((resolve) => {

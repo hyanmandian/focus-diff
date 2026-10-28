@@ -1,9 +1,3 @@
-// HTML from GitHub (bodyHTML of descriptions and comments) is already sanitized by GitHub. This is a
-// second line: only an allowlist of tags and attributes survives, links must be https (or anchors),
-// pictures and videos must come from GitHub's own hosts (and load through the app, utils/media/media.ts),
-// and everything else is dropped or unwrapped. The page's Content-Security-Policy blocks scripts on
-// top of that.
-
 import { i18n } from "@/utils/i18n/i18n";
 import { isVideo, media } from "@/utils/media/media";
 
@@ -83,8 +77,6 @@ const IMAGE_HOSTS = /^https:\/\/(?:[\w-]+\.)*(?:githubusercontent\.com|github\.c
 
 const isDark = () => document.documentElement.classList.contains("dark");
 
-/** A link whose only content is one small picture with words in its alt text, pointing somewhere
- *  other than the picture itself. */
 function isPictureButton(link: Element) {
   const images = link.querySelectorAll("img");
   if (images.length !== 1 || link.textContent?.trim()) return false;
@@ -97,13 +89,8 @@ function isPictureButton(link: Element) {
   );
 }
 
-// MARK: Suggested changes
-
 type Row = { kind: "deletion" | "addition"; code: Node[] };
 
-/** A suggested change as a small diff the app draws itself (components/suggestion/suggestion.css): GitHub's own is
- *  styled by classes this page doesn't have. Built from scratch, so nothing of the original but its
- *  text (and the names of its syntax colors) gets through. */
 function suggestion(doc: Document, rows: Row[]) {
   const box = doc.createElement("div");
   box.dataset.suggestion = "";
@@ -128,7 +115,6 @@ function suggestion(doc: Document, rows: Row[]) {
   return box;
 }
 
-/** A line of highlighted code as text, keeping only GitHub's syntax color names ("pl-k"). */
 function code(doc: Document, from: Node): Node[] {
   return Array.from(from.childNodes).flatMap((child): Node[] => {
     if (child.nodeType === Node.TEXT_NODE) return [doc.createTextNode(child.textContent!)];
@@ -143,7 +129,6 @@ function code(doc: Document, from: Node): Node[] {
   });
 }
 
-/** GitHub's suggested change, from a comment's HTML: its rows of removed and added lines. */
 function suggestedChange(element: Element) {
   const doc = element.ownerDocument;
   const rows = [...element.querySelectorAll("tr")].flatMap((tr): Row[] => {
@@ -154,8 +139,6 @@ function suggestedChange(element: Element) {
   return suggestion(doc, rows);
 }
 
-/** A ```suggestion block as GitHub's Markdown API renders it (a preview): the lines it suggests,
- *  under the ones they replace when those are known. */
 function previewedChange(element: Element, base: string[] | undefined) {
   const doc = element.ownerDocument;
   const text = element.textContent.replace(/\n$/u, "");
@@ -183,8 +166,6 @@ function clean(node: Node, base?: string[]) {
       element.replaceWith(previewedChange(element, base));
       continue;
     }
-    // GitHub's diagrams (mermaid, maps, 3D) come as their source plus a "Loading" placeholder its
-    // own page swaps for the drawing. Here: the source alone, marked for utils/diagrams/diagrams.ts to draw.
     if (tag === "section" && element.hasAttribute("data-type")) {
       const source = element.querySelector("pre")?.textContent ?? "";
       const pre = element.ownerDocument.createElement("pre");
@@ -193,7 +174,6 @@ function clean(node: Node, base?: string[]) {
       element.replaceWith(pre);
       continue;
     }
-    // A picture with light and dark versions: the one for the theme showing, as GitHub picks.
     if (tag === "picture") {
       const dark = isDark();
       const source = [...element.querySelectorAll("source")].find((s) =>
@@ -203,11 +183,8 @@ function clean(node: Node, base?: string[]) {
       const url = source?.getAttribute("srcset")?.trim().split(/\s+/u)[0];
       if (img && url) img.setAttribute("src", url);
     }
-    // A button drawn as a picture in a link ("Open in Web", "Fix in Cursor", CI badges with a
-    // label): a real button with its words, which reads, themes and clicks like the app's own.
     if (tag === "a" && isPictureButton(element)) {
       const href = element.getAttribute("href") ?? "";
-      // isPictureButton has made sure of the picture and its words.
       const label = element.querySelector("img")!.getAttribute("alt")!.trim();
       for (const attribute of Array.from(element.attributes)) element.removeAttribute(attribute.name);
       if (href.startsWith("https://")) element.setAttribute("href", href);
@@ -220,7 +197,6 @@ function clean(node: Node, base?: string[]) {
       continue;
     }
     if (!TAGS.has(tag)) {
-      // Keep the text, lose the element.
       clean(element, base);
       element.replaceWith(...element.childNodes);
       continue;
@@ -240,7 +216,6 @@ function clean(node: Node, base?: string[]) {
         continue;
       }
       element.setAttribute("src", media(src));
-      // The original, for opening it in the viewer or the browser.
       element.setAttribute("data-original", src);
       if (tag === "img") element.setAttribute("loading", "lazy");
       else {
@@ -249,7 +224,6 @@ function clean(node: Node, base?: string[]) {
         element.setAttribute("playsinline", "");
       }
     }
-    // GitHub shows a video it can't embed as a link to it: played here instead.
     if (tag === "a") {
       const href = element.getAttribute("href") ?? "";
       if (isVideo(href) && IMAGE_HOSTS.test(href) && !element.querySelector("img")) {
@@ -263,7 +237,6 @@ function clean(node: Node, base?: string[]) {
         continue;
       }
     }
-    // Task list checkboxes are shown, never toggled from here.
     if (tag === "input") {
       if (element.getAttribute("type") === "checkbox") {
         element.setAttribute("disabled", "");
@@ -275,16 +248,12 @@ function clean(node: Node, base?: string[]) {
   }
 }
 
-/** `base`: the lines a previewed suggestion replaces, to show them removed. */
 export function sanitize(html: string, base?: string[]): string {
-  // Parsed into a document of its own, inert: nothing in it loads or runs while it's cleaned.
   const { body } = new DOMParser().parseFromString(html, "text/html");
   clean(body, base);
   return body.innerHTML;
 }
 
-/** Whether a picture is in a link to somewhere else (a page, not the picture at full size): a
- *  click follows the link rather than opening the viewer. */
 export function leadsElsewhere(img: Element) {
   const href = img.closest("a[href]")?.getAttribute("href");
   return Boolean(href) && !IMAGE_HOSTS.test(href!) && !/\.(png|jpe?g|gif|webp)(\?|$)/iu.test(href!);

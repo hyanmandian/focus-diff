@@ -1,7 +1,3 @@
-// The person's own action buttons on a pull request (set up in Settings → Actions): as toolbar
-// buttons while there's room, as items of a pull-down menu once there isn't. One that asks first
-// asks with a native alert, as the Mac does before something that can't be taken back.
-
 import { ChevronDown, Loader2, Zap } from "lucide-react";
 import { useState } from "react";
 
@@ -24,7 +20,6 @@ import { useT } from "@/utils/i18n/i18n";
 
 type Result = (message: string, ok: boolean) => void;
 
-/** Runs an action, after asking when it's set to ask. */
 function useRun(action: Action, pr: ActionContext, onResult: Result) {
   const [busy, setBusy] = useState(false);
   const t = useT();
@@ -57,7 +52,6 @@ function useRun(action: Action, pr: ActionContext, onResult: Result) {
   return { busy, run };
 }
 
-/** A menu action: a pull-down button of its choices, as Mail's Move to. */
 function ActionPullDown({
   action,
   pr,
@@ -166,7 +160,6 @@ export function ActionButtons({
   );
 }
 
-/** The same actions as menu items, for a pull-down menu. */
 export function ActionMenuItems({
   actions,
   pr,
@@ -180,7 +173,6 @@ export function ActionMenuItems({
   return (
     <>
       {actions.map((action) =>
-        // In a menu already, a menu action's choices are a submenu.
         action.choices.length > 0 ? (
           <DropdownMenuSub key={action.id}>
             <DropdownMenuSubTrigger>{action.name}</DropdownMenuSubTrigger>

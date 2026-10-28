@@ -38,7 +38,6 @@ function DropdownMenuContent({
           )}
           {...props}
         >
-          {/* No arrow: a Mac menu opens flush under what opened it (popovers have one, menus never). */}
           <div className="max-h-(--available-height) overflow-x-hidden overflow-y-auto p-(--menu-pad)">{children}</div>
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>

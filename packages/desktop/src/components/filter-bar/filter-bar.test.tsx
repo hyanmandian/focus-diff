@@ -39,7 +39,6 @@ const shown: Totals = { files: 3, viewed: 1, additions: 60, deletions: 10, minut
 
 type Props = Parameters<typeof FilterBar>[0];
 
-/** Tooltips without the second's wait. */
 function AtOnce({ children }: { children: ReactNode }) {
   return <TooltipProvider delay={0}>{children}</TooltipProvider>;
 }

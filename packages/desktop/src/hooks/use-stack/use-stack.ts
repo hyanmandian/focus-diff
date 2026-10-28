@@ -1,7 +1,3 @@
-// The stack the pull request under review is in, for going through it in order: found once per
-// pull request and head (stacks change by being pushed to). Yours too: going through your own
-// stack in order is as handy.
-
 import { useEffect, useState } from "react";
 
 import type { Details } from "@/utils/details/details";
@@ -11,8 +7,6 @@ export type Stack = { pulls: StackPull[]; at: number };
 
 const found = new Map<string, Promise<StackPull[]>>();
 
-/** The stack, bottom first, and where this pull request is in it; null when it's in none (or it's
- *  no longer open). */
 export function useStack(details: Details | null): Stack | null {
   const [stack, setStack] = useState<{ key: string; stack: Stack } | null>(null);
   const wanted = details?.state === "OPEN" ? details : null;
@@ -42,13 +36,11 @@ export function useStack(details: Details | null): Stack | null {
     const settle = async () => {
       try {
         const pulls = await asked;
-        // Once per pull request and head: the details can be read again without anything new.
         if (live)
           setStack((s) =>
             s?.key === key ? s : { key, stack: { pulls, at: pulls.findIndex((p) => p.id === self.id) } },
           );
       } catch {
-        // Not known: no stack to show. Asked again for the next head.
         found.delete(key);
       }
     };
@@ -58,6 +50,5 @@ export function useStack(details: Details | null): Stack | null {
     };
   }, [key, wanted]);
 
-  // A stack of one isn't a stack; one for another pull request isn't this one's.
   return stack && stack.key === key && stack.stack.pulls.length > 1 ? stack.stack : null;
 }

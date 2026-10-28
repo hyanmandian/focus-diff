@@ -14,7 +14,6 @@ const commit = (n: number) => ({ oid: `oid${n}`, short: `abc${n}`, headline: `Co
 const red = { name: "bug", color: "d73a4a" };
 const blue = { name: "docs", color: "0075ca" };
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
 function opened() {

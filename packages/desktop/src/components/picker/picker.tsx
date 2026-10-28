@@ -1,8 +1,3 @@
-// A picker as a Mac popover: a search field over a list of choices with checkmarks, each change
-// made as it's clicked (GitHub's own pickers apply when they close; here nothing waits). The
-// arrows move through the list from the field, Return picks, Esc closes. What was chosen when it
-// opened stays at the top while it's open, so rows don't jump under the pointer.
-
 import { Check, Loader2, Search } from "lucide-react";
 import { useId, useState, type ReactElement, type ReactNode } from "react";
 
@@ -15,14 +10,11 @@ export type Choice = { id: string; label: string; detail?: string | null; leadin
 type Props = {
   title: string;
   placeholder: string;
-  /** What shows when nothing matches. */
   empty: string;
   choices: Choice[];
   onPick: (choice: Choice) => void;
-  /** The trigger, as Base UI's render prop takes it. */
   trigger: ReactElement;
   children: ReactNode;
-  /** Typed into the search field: for choices beyond those loaded (people past the first hundred). */
   onQuery?: (query: string) => void;
   loading?: boolean;
   open?: boolean;
@@ -46,7 +38,6 @@ export function Picker({
   const open = controlled ?? own;
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  // Chosen when it opened: these lead the list until it closes.
   const [first, setFirst] = useState<Set<string>>(() => new Set());
   const list = useId();
   const setOpen = (next: boolean) => {

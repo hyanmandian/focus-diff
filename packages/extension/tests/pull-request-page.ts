@@ -1,6 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
 
-/** The fixture pull request page with the Focus Diff panel on top of it. */
 export class PullRequestPage {
   readonly panel: Locator;
   readonly options: Locator;
@@ -26,7 +25,6 @@ export class PullRequestPage {
     return this.panel.locator(`.option:has(.option-name:text-is("${name}"))`);
   }
 
-  /** Shows only `name`, or adds it to the current filters with `combine`. */
   async pick(name: string, { combine = false } = {}) {
     if (!combine && name !== "All") await this.option("All").click();
     await this.option(name).click();
@@ -34,8 +32,6 @@ export class PullRequestPage {
 
   statsText() {
     return this.stats.evaluate((element) => {
-      // What's read out: parts hidden by the current state, like the Done badge, and the scoreboards, which are only
-      // for the eye, are left out.
       const hidden = [...element.querySelectorAll("*")].map((child) => {
         const style = getComputedStyle(child);
         return (

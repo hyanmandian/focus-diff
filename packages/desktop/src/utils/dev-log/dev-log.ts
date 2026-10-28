@@ -1,5 +1,3 @@
-// Development only: sends the page's errors to the terminal running `tauri dev` (lib.rs `log`),
-// since a web view's console isn't visible there.
 import { invoke } from "@tauri-apps/api/core";
 
 const send = (message: string) => void invoke("log", { message }).catch(() => {});
@@ -14,8 +12,6 @@ export function forwardErrors() {
         .join(" "),
     );
   };
-  // The browser's note that a ResizeObserver callback resized something again (the virtualized
-  // diff does, as comments open); harmless, and not an error in the page.
   window.addEventListener("error", (e) => {
     if (!e.message.startsWith("ResizeObserver loop")) send(`${e.message} at ${e.filename}:${e.lineno}`);
   });

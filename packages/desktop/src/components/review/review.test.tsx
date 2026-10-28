@@ -68,8 +68,6 @@ type QueueStub = {
   back: Mock<() => Promise<void>>;
 };
 
-// What the window is made of has tests of its own: here each part shows it's there and hands back
-// what it was given (kept in `h`), and the hooks around the pull request answer as the test says.
 const h = vi.hoisted(() => {
   const make = {
     pull: (over: Partial<PullStub> = {}): PullStub => ({
@@ -132,7 +130,6 @@ const h = vi.hoisted(() => {
     ranged: { files: null as ReviewFile[] | null, error: null as string | null },
     onResult: null as ((message: string, ok: boolean) => void) | null,
   };
-  // What the parts were given, noted as they draw.
   const see = {
     overview: (p: OverviewProps) => void (state.overview = p),
     diffs: (p: DiffsProps) => void (state.diffs = p),
@@ -179,7 +176,6 @@ vi.mock("@/components/file-tree/file-tree", () => ({
   },
 }));
 vi.mock("@/components/filter-bar/filter-bar", () => ({
-  // Its children (the comments' button) as they are.
   FilterBar: (props: BarProps) => {
     h.see.bar(props);
     return props.children;
@@ -325,8 +321,6 @@ vi.mock("@/utils/review/review", () => ({
 }));
 vi.mock("@/utils/theme/theme", () => ({ useTheme: () => {} }));
 
-// MARK: Sample data
-
 const details = (over: Partial<Details> = {}): Details => ({
   id: "PR_7",
   number: 7,
@@ -417,7 +411,6 @@ const visit = (number: number, title: string): Visit => ({
   queue: "q1",
 });
 
-/** A promise settled when the test says. */
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((r) => {
@@ -426,10 +419,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-/** What's kept on this machine under a key. */
 const stored = (key: string): unknown => JSON.parse(localStorage.getItem(key) ?? "null");
-
-// MARK: Rust's side
 
 let calls: Array<{ cmd: string; args: Args | undefined }> = [];
 let confirmed = true;
@@ -437,7 +427,6 @@ const sent = (cmd: string) => calls.filter((c) => c.cmd === cmd).map((c) => c.ar
 const fail = (message: string) => () => {
   throw new Error(message);
 };
-/** Answers the app's commands: these as the test says, the rest as a signed-in Mac would. */
 function answer(answers: Record<string, () => unknown> = {}) {
   const usual: Record<string, () => unknown> = {
     auth_status: () => ({ login: "me" }),
@@ -488,7 +477,6 @@ beforeEach(() => {
   answer();
 });
 
-// The menu bar's listener lets go after the window closes: before the fake platform is cleared.
 afterEach(async () => {
   vi.useRealTimers();
   cleanup();
@@ -497,7 +485,6 @@ afterEach(async () => {
 
 const TARGET: Target = { id: "PR_7", repo: "acme/shop", number: 7, teams: ["acme/web"], queue: "q1" };
 
-/** The window for a pull request, once its details and files are in. */
 async function openReview(target: Target = TARGET) {
   const view = render(<Review target={target} />);
   await screen.findByRole("heading", { level: 1, name: "Keep the promo code" });
@@ -523,9 +510,7 @@ const menu = async (id: string) => {
   await act(() => emit("menu", id));
 };
 const diffs = () => h.diffs!;
-/** Runs what was put off to the next frames. */
 const frames = () => act(() => wait(50));
-/** The toolbar this wide, its trailing end starting here (happy-dom lays nothing out). */
 function layOut(size: { bar: number; trailing: number }) {
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => size.bar);
   vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (this: HTMLElement) {
@@ -534,7 +519,6 @@ function layOut(size: { bar: number; trailing: number }) {
 }
 const states = (entries: Array<[string, ViewedState]>) => new Map(entries);
 const kinds = () => within(screen.getByRole("group", { name: "Kind of review" }));
-/** The comments from the AI, from your pending review, and a conversation, to step through. */
 const someComments = () => {
   vi.mocked(loadThreads).mockResolvedValue([
     thread("T1", "src/promo.ts", 4),
@@ -551,8 +535,6 @@ const someComments = () => {
   );
 };
 
-// MARK: Tests
-
 describe("Review", () => {
   describe("loading", () => {
     it("holds the places of what's coming, then shows the pull request", async () => {
@@ -560,7 +542,6 @@ describe("Review", () => {
       vi.mocked(loadDetails).mockReturnValue(later.promise);
       render(<Review target={TARGET} />);
       expect(screen.getByLabelText("Loading")).toBeTruthy();
-      // The files come first: the list shows them before the details are in.
       await waitFor(() => {
         expect(h.diffs).not.toBeNull();
       });
@@ -570,7 +551,6 @@ describe("Review", () => {
       });
       expect(commentNow).not.toHaveBeenCalled();
       expect(reply).not.toHaveBeenCalled();
-      // Activity before the first showing has nothing kept to bring up to date.
       const entries: Details["entries"] = [{ kind: "comment", id: "c", author: null, html: "", at: "", url: "" }];
       vi.mocked(loadThreads).mockResolvedValueOnce([]);
       vi.mocked(loadDetails).mockResolvedValueOnce(details({ entries }));
@@ -685,7 +665,6 @@ describe("Review", () => {
           ["src/g.ts", "VIEWED"],
         ]),
       );
-      // Waiting to go to GitHub already: what's marked here stands.
       answer({ queued_viewed: () => ({ "src/f.ts": false }) });
       await openReview();
       await waitFor(() => {
@@ -695,7 +674,6 @@ describe("Review", () => {
         { pull: "PR_7", path: "src/cart.ts", viewed: true },
         { pull: "PR_7", path: "src/promo.ts", viewed: false },
       ]);
-      // cart (here), c (GitHub's, at these changes), g: viewed; d dropped; f waits.
       await waitFor(() => {
         expect(screen.getByText("3/7 viewed")).toBeTruthy();
       });
@@ -725,7 +703,6 @@ describe("Review", () => {
       expect(vi.mocked(learnFiles).mock.lastCall?.[0]).toMatchObject([{ path: "src/cart.ts", actual: 1.5 }]);
       expect(sent("queue_viewed").at(-1)).toEqual({ pull: "PR_7", path: "src/cart.ts", viewed: true });
       expect(diffs().isViewed(A)).toBe(true);
-      // A glance isn't a review: nothing learned.
       act(() => {
         diffs().onViewed(B, true);
       });
@@ -751,7 +728,6 @@ describe("Review", () => {
       });
       expect(diffs().files.map((f) => f.path)).toContain("src/cart.ts");
       expect(diffs().opened.has("src/cart.ts")).toBe(true);
-      // Marked again, it folds away like the rest.
       act(() => {
         diffs().onViewed(A, true);
       });
@@ -820,7 +796,6 @@ describe("Review", () => {
       press("q", { ctrlKey: true });
       expect(sent("open_settings")).toHaveLength(1);
       expect(sent("quit")).toHaveLength(1);
-      // Not with another modifier, nor a key it doesn't know.
       press("1", { ctrlKey: true, shiftKey: true });
       press("x", { ctrlKey: true });
       expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
@@ -849,7 +824,6 @@ describe("Review", () => {
         vi.advanceTimersByTime(2000);
         h.overview!.say("Path copied");
       });
-      // The first one's time is up, but a newer message stays.
       act(() => {
         vi.advanceTimersByTime(1500);
       });
@@ -869,7 +843,6 @@ describe("Review", () => {
       await userEvent.click(tab("Diff"));
       await userEvent.click(button("One Column"));
       expect(diffs().diffStyle).toBe("unified");
-      // Pressing the one that's on leaves it on.
       await userEvent.click(button("One Column"));
       expect(diffs().diffStyle).toBe("unified");
       await userEvent.click(button("Wrap long lines"));
@@ -902,18 +875,15 @@ describe("Review", () => {
       someComments();
       await openReview();
       await userEvent.click(tab("Diff"));
-      // In the floating bar: opening its card goes to the first.
       await userEvent.click(button("Comments, 4 comments"));
       expect(screen.getByText("Comment 1 of 4")).toBeTruthy();
       await frames();
-      // The AI's on cart.ts line 3 comes first, then your pending line 9.
       expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("src/cart.ts", 3, "additions");
       press("n");
       await frames();
       expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("src/cart.ts", 9, "additions");
       press("n");
       await frames();
-      // On the file as a whole: its top.
       expect(h.handle.scrollToFile).toHaveBeenLastCalledWith("src/promo.ts");
       press("n");
       await frames();
@@ -967,7 +937,6 @@ describe("Review", () => {
       });
       expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
       expect(stored("filter:acme/shop")).toEqual([]);
-      // Already showing, in what's chosen and matching the search: left as it is.
       await userEvent.type(screen.getByRole("searchbox"), "cart");
       act(() => {
         h.overview!.onJump("src/cart.ts", 3);
@@ -982,7 +951,6 @@ describe("Review", () => {
       await userEvent.click(tab("Diff"));
       expect(button("Comments, No open comments").getAttribute("aria-disabled")).toBe("true");
       await menu("next-comment");
-      // Not a key of the Diff's.
       press("x");
       press("p");
       expect(h.handle.scrollToLine).not.toHaveBeenCalled();
@@ -1023,11 +991,9 @@ describe("Review", () => {
       expect(diffs().files).toHaveLength(4);
       await userEvent.type(search, "zzz");
       expect(screen.getByText("No files match.")).toBeTruthy();
-      // No list to step through.
       press("j");
       fireEvent.keyDown(search, { key: "Escape" });
       expect(diffs().files).toHaveLength(4);
-      // Empty already: Esc is the window's.
       const esc = fireEvent.keyDown(search, { key: "Escape" });
       expect(esc).toBe(true);
       fireEvent.keyDown(search, { key: "a" });
@@ -1058,7 +1024,6 @@ describe("Review", () => {
       expect(localStorage.getItem("filter:acme/shop")).toBe('["docs"]');
       await frames();
       expect(h.handle.scrollToTop).toHaveBeenCalled();
-      // All done in Docs: the bar offers the next part with work.
       act(() => {
         diffs().onViewed(DOC, true);
       });
@@ -1159,7 +1124,6 @@ describe("Review", () => {
       expect(diffs().isViewed(A)).toBe(true);
       press("v");
       expect(diffs().isViewed(A)).toBe(false);
-      // Nothing at the top, or nothing listed: nothing to do.
       h.handle.atTop.mockReturnValue(null);
       press("v");
       h.handle.listed.mockReturnValue([]);
@@ -1200,7 +1164,6 @@ describe("Review", () => {
       expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
       chord("Period");
       expect(h.bar!.chosen).toEqual(["code"]);
-      // Parts with no files here are passed over.
       chord("Period");
       expect(h.bar!.chosen).toEqual([]);
       chord("Comma");
@@ -1450,7 +1413,6 @@ describe("Review", () => {
         expect(screen.getByRole("status").textContent).toBe("You left the review");
       });
       expect(leaveReview).toHaveBeenCalledWith(expect.objectContaining({ number: 7 }), "me", ["acme/web"]);
-      // Off the review queues at once, not at the next refresh.
       expect(sent("reviewed")).toEqual([{ prId: "PR_7" }]);
       vi.mocked(leaveReview).mockRejectedValueOnce(new Error("Not requested"));
       await menu("leave");
@@ -1481,7 +1443,6 @@ describe("Review", () => {
       expect(screen.getByText("Sends 2 pending comments with it.")).toBeTruthy();
       await userEvent.type(screen.getByRole("textbox", { name: "Review comment" }), "Looks good");
       await userEvent.click(kinds().getByRole("button", { name: "Approve" }));
-      // The kind that's on stays on.
       await userEvent.click(kinds().getByRole("button", { name: "Approve" }));
       view.unmount();
       await openReview();
@@ -1618,7 +1579,6 @@ describe("Review", () => {
       expect(screen.getByRole("menuitemradio", { name: /#9 Top.*Draft/u })).toBeTruthy();
       await userEvent.click(screen.getByRole("menuitemradio", { name: /#5 Bottom/u }));
       expect(h.queue.goTo.mock.calls.at(-1)?.[0].pr.id).toBe("PR_5");
-      // And from the stack under the overview's heading.
       act(() => {
         h.overview?.onPickStack?.(h.stack!.pulls[2]!);
       });
@@ -1641,7 +1601,6 @@ describe("Review", () => {
       expect(h.queue.go).toHaveBeenCalledTimes(1);
       expect(h.queue.goTo).not.toHaveBeenCalled();
       await userEvent.click(button("2 of 2 in the stack"));
-      // The one already showing isn't gone to again.
       await userEvent.click(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }));
       expect(h.queue.goTo).not.toHaveBeenCalled();
       expect(screen.getByRole("menuitemradio", { name: /#3.*Changes requested/u })).toBeTruthy();
@@ -1704,7 +1663,6 @@ describe("Review", () => {
       await waitFor(() => {
         expect(screen.getByRole("status").textContent).toBe("Done. Nothing else waiting in Waiting on me");
       });
-      // Not as ⌥E (a typed character) or once typing.
       press("e", { altKey: true });
       expect(h.queue.go).toHaveBeenCalledTimes(2);
       const modal = document.createElement("div");

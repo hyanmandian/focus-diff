@@ -1,9 +1,3 @@
-// Everything the review window does to a pull request beyond reviewing it, in one hook: the state
-// around it (manage.ts), its commits and the range the diff shows (commits.ts), its checks
-// (checks.ts), its timeline (timeline.ts), and the actions: merging and its kin, readiness,
-// closing, re-running checks. Each action shows at once, then GitHub is asked only for what it
-// changed (never the whole window again); if GitHub refuses, what's shown goes back and says why.
-
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { bridge, GitHubError } from "@/utils/bridge/bridge";
@@ -44,13 +38,10 @@ type Options = {
   details: Details | null;
   setDetails: Dispatch<SetStateAction<Details | null>>;
   threads: Thread[];
-  /** Says something in the toolbar for a moment. */
   say: (message: string) => void;
-  /** Loads everything again: for a head that moved under an action. */
   reloadAll: () => void;
 };
 
-/** The checks the details came with, as the full list's items, until it arrives. */
 const fromDetails = (d: Details | null): CheckItem[] | null =>
   d
     ? d.checks.map((c, i) => ({
@@ -77,14 +68,12 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   const [range, setRange] = useState<Range>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  // The parts merging changes, from GitHub again; the panel's lists catch up too.
   const revalidate = useCallback(async () => {
     void bridge.refresh(true);
     const [state] = await Promise.allSettled([loadMergeState(ref), reloadManage(true)]);
     if (state.status === "fulfilled") setDetails((d) => (d ? { ...d, ...state.value } : d));
   }, [ref, reloadManage, setDetails]);
 
-  // GitHub works out whether it can be merged after a push: asked again a few times until it knows.
   const unknown =
     details?.state === "OPEN" && (details.mergeable === "UNKNOWN" || details.mergeStateStatus === "UNKNOWN");
   const tries = useRef(0);
@@ -101,17 +90,14 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     return () => {
       window.clearTimeout(timer);
     };
-    // The details changing is the cue to ask once more, while GitHub still doesn't know.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [unknown, revalidate, details]);
-  // Checks finishing changes what stands in the way of merging.
   const wasRunning = useRef(checks.running);
   useEffect(() => {
     if (wasRunning.current && !checks.running) void revalidate();
     wasRunning.current = checks.running;
   }, [checks.running, revalidate]);
 
-  // Fork runs waiting for approval: only someone who can approve them needs to know.
   const [awaiting, setAwaiting] = useState<Array<{ id: number; name: string }>>([]);
   const write = canWrite(manage);
   const head = details?.headRefOid;
@@ -122,9 +108,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       try {
         const runs = await awaitingApproval(ref, head);
         if (live) setAwaiting(runs);
-      } catch {
-        // None shown, as before.
-      }
+      } catch {}
     };
     void look();
     return () => {
@@ -132,7 +116,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     };
   }, [write, head, ref, details?.state]);
 
-  // The timeline: the newest page, again when the pull request changes; older pages on request.
   const [pages, setPages] = useState<TimelinePage[]>([]);
   const updatedAt = details?.updatedAt;
   useEffect(() => {
@@ -142,9 +125,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       try {
         const page = await loadTimeline(ref);
         if (live) setPages((old) => [page, ...old.slice(1)]);
-      } catch {
-        // The pages there are stay.
-      }
+      } catch {}
     };
     void look();
     return () => {
@@ -157,8 +138,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     const page = await loadTimeline(ref, older);
     setPages((p) => [...p, page]);
   }, [ref, older]);
-  // Oldest first for the mapping (runs of commits read forwards), then newest first, as the
-  // conversation is. The newest page, asked again, can overlap the next: each node counts once.
   const events = useMemo(() => {
     const seen = new Set<unknown>();
     const nodes = pages
@@ -181,7 +160,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         })
       : null;
 
-  /** Runs an action: `optimistic` shows its result at once, GitHub's answer replaces it after. */
   const act = async (
     name: string,
     call: () => Promise<unknown>,
@@ -194,7 +172,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       await call();
       say(done);
     } catch (e) {
-      // A head that moved since it was looked at: what's new is loaded, to look at first.
       if (e instanceof GitHubError && e.status === 409) {
         say(i18n()("manage.headMoved"));
         reloadAll();
@@ -206,7 +183,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   };
 
   const actions = {
-    /** Merging can't be undone: a native alert asks first, naming how. */
     merge: async (
       method: Method,
       text?: { title: string; body: string },
@@ -323,7 +299,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
         },
         i18n()("manage.reopenedNotice"),
       ),
-    /** GitHub can restore a deleted branch, but it's gone for anyone using it: asked first. */
     deleteBranch: async () => {
       if (!details || !manage) return;
       if (
@@ -349,7 +324,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       void act(
         "rerun",
         () => Promise.all(runs.map((run) => (which === "failed" ? rerunFailed(ref, run) : rerunAll(ref, run)))),
-        // Shown as running again at once; the poll takes over from there.
         () => {
           checks.setChecks(
             (list) =>
@@ -379,7 +353,6 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
   const open = details?.state === "OPEN";
   const failed = failedRuns(checks.checks).length > 0;
   const since = commits ? sinceReview(commits) : null;
-  // The menu bar's Pull Request commands for these (src-tauri/src/menu.rs).
   const allowed: Record<string, boolean> = {
     "update-branch": Boolean(view?.canUpdateBranch),
     "auto-merge": view ? view.canAutoMerge || view.canDisableAutoMerge : false,

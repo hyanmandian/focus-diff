@@ -19,7 +19,6 @@ const optionsFor = (count: number): Options => ({
   getItemKey: (index) => `key-${index}`,
 });
 
-/** A list like GitHub's: TanStack Virtual's instance, found through React's records on the list's element. */
 const fakeList = (count: number, drawn: number[], sizes: Record<number, number> = {}) => {
   const cache = new Map<unknown, number>(Object.entries(sizes).map(([index, size]) => [`key-${index}`, size]));
   const resized: [number, number][] = [];
@@ -98,11 +97,9 @@ describe("closeUpList", () => {
       [6, 116],
     ]);
 
-    // GitHub sets its options again on every render; they're closed up again.
     virtualizer.setOptions(optionsFor(8));
     expect(virtualizer.options.gap).toBe(0);
 
-    // Hiding one more while closed up keeps its size without the padding.
     resized.length = 0;
     hide(8, 1, 3, 4, 5);
     await settle();
@@ -178,7 +175,6 @@ describe("closeUpList", () => {
     expect(second.virtualizer.options.gap).toBe(0);
     expect(padding(second.list)).toEqual(["16px", ""]);
 
-    // The same list drawn in a new element keeps its options.
     second.list.remove();
     const again = document.createElement("div");
     again.append(row(0), row(1));
@@ -188,7 +184,6 @@ describe("closeUpList", () => {
     expect(second.virtualizer.options.gap).toBe(0);
     expect(padding(again)).toEqual(["16px", ""]);
 
-    // A list it can't reach gets nothing, and the one before gets its options back.
     again.remove();
     const unreachable = document.createElement("div");
     unreachable.append(row(0), row(1));

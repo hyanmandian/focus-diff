@@ -25,13 +25,11 @@ type Answers = {
   check?: () => Promise<string | null>;
   install?: () => Promise<void>;
   confirm?: boolean;
-  /** Commands that don't answer until `release` is called with them. */
   hold?: string[];
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
-/** Plays Rust for the settings window: the saved file, who's signed in, updates and alerts. */
 function app(answers: Answers = {}) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   const held = new Map<string, () => void>();
@@ -106,7 +104,6 @@ const blocked = () => {
   throw new Error("blocked");
 };
 
-/** Opens the window on the General pane. */
 const general = (answers: Answers = {}) => {
   localStorage.setItem("settings-pane", "general");
   return open(answers);
@@ -119,7 +116,6 @@ const tab = (name: RegExp | string) => within(sidebar()).getByRole("tab", { name
 const panel = () => screen.getByRole("tabpanel");
 
 afterEach(async () => {
-  // Unmounted while the fake platform's mocks are still there, so the event listeners can let go of them.
   cleanup();
   await new Promise((resolve) => {
     setTimeout(resolve, 0);
@@ -153,7 +149,6 @@ describe("Settings window", () => {
   });
 
   it("still works when storage refuses", async () => {
-    // happy-dom's storage isn't put back by restoreAllMocks, so these are put back by hand.
     const get = vi.spyOn(localStorage, "getItem").mockImplementation(blocked);
     const set = vi.spyOn(localStorage, "setItem").mockImplementation(blocked);
     try {
@@ -245,7 +240,6 @@ describe("Queues pane", () => {
   it("deletes a queue only once the alert says Remove", async () => {
     const rust = await open({ config: config({ queues: [queue("One"), queue("Two")] }), confirm: false });
     await userEvent.click(within(panel()).getByRole("button", { name: /One/u }));
-    // A queue whose name has been cleared goes by "Untitled queue".
     await userEvent.clear(within(panel()).getByRole("textbox", { name: "Name" }));
     expect(within(panel()).getAllByText("Untitled queue").length).toBeGreaterThan(0);
     await userEvent.click(within(panel()).getByRole("button", { name: "Delete" }));
@@ -335,7 +329,6 @@ describe("Account pane", () => {
     await waitFor(() => {
       expect(rust.called("auth_sign_out")).toHaveLength(1);
     });
-    // Signed out, the way to connect again, and no attachments.
     await waitFor(() => {
       expect(within(panel()).queryByText("@octocat")).toBeNull();
     });
@@ -406,7 +399,6 @@ describe("General pane", () => {
     });
     await userEvent.click(await within(panel()).findByRole("button", { name: /Update and Restart/u }));
     expect(await within(panel()).findByText(/Couldn't check: .*disk full/u)).toBeTruthy();
-    // Back to checking.
     expect(within(panel()).getByRole("button", { name: /Check for Updates/u })).toBeTruthy();
   });
 
@@ -448,7 +440,6 @@ describe("General pane", () => {
     await waitFor(() => {
       expect(sound().getAttribute("aria-checked")).toBe("true");
     });
-    // Turned off here; setup's older copy, coming in before that's written, doesn't turn it back on.
     await userEvent.click(sound());
     await act(() => emit("file-changed", "config"));
     expect(sound().getAttribute("aria-checked")).toBe("false");
@@ -482,7 +473,6 @@ describe("General pane", () => {
     await waitFor(() => {
       expect(rust.saved()?.sound).toBe(true);
     });
-    // Nothing left to write: a second goes by quietly, and the timer doesn't write it again.
     window.dispatchEvent(new Event("pagehide"));
     await new Promise((resolve) => {
       setTimeout(resolve, 400);
@@ -536,7 +526,6 @@ describe("General pane", () => {
     await waitFor(() => {
       expect(rust.saved()?.language).toBe("pt-BR");
     });
-    // The window follows at once.
     expect(document.title).toBe("Geral");
   });
 });
@@ -547,7 +536,6 @@ describe("Searching settings", () => {
     await userEvent.type(search(), "theme");
     const found = tab(/General/u);
     expect(found.textContent).toContain("Theme");
-    // The first pane that matches opens.
     expect(found.getAttribute("aria-selected")).toBe("true");
     expect(within(sidebar()).queryByRole("tab", { name: /Queues/u })).toBeNull();
   });
@@ -589,7 +577,6 @@ describe("Searching settings", () => {
     await userEvent.type(search(), "theme");
     await userEvent.keyboard("{Escape}");
     expect(search()).toHaveProperty("value", "");
-    // Escape on an empty field is left to the window.
     await userEvent.keyboard("{Escape}");
 
     await userEvent.type(search(), "theme");
@@ -631,8 +618,6 @@ describe("Searching settings", () => {
 });
 
 describe("re-rendering", () => {
-  // The React Compiler keeps each part until what it's made from changes: rendered again, or in
-  // another language and back, every pane shows what it did.
   it.each(["queues", "review", "filters", "actions", "ai", "account", "general"])(
     "shows the %s pane the same after rendering again and a trip through another language",
     async (pane) => {

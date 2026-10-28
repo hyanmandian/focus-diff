@@ -20,14 +20,12 @@ type Sent = { query: string; variables: Record<string, unknown> };
 const isSent = (value: unknown): value is Sent =>
   typeof value === "object" && value !== null && "query" in value && "variables" in value;
 
-/** The GraphQL request in a call to Rust's github command. */
 function request(args: unknown): unknown {
   return typeof args === "object" && args !== null && "body" in args && typeof args.body === "string"
     ? JSON.parse(args.body)
     : null;
 }
 
-/** GitHub answering each GraphQL call with the next of `replies`; what was sent lands in the list. */
 function graphqlReplies(...replies: unknown[]) {
   const sent: Sent[] = [];
   mockCommands((_cmd, args) => {
@@ -54,7 +52,6 @@ const comment = (id: string): RawComment => ({
   reactionGroups: [],
 });
 
-/** A page of a conversation's comments, with more after it when there's a cursor. */
 const page = (ids: string[], endCursor: string | null) => ({
   data: {
     node: {

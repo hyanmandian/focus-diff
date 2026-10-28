@@ -4,9 +4,6 @@ import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 
 import { cn } from "@/utils/cn/cn";
 
-// A switch at AppKit's Tahoe sizes: small 44×20 (default here), mini 36×16 (`sm`, the size for a
-// row of a grouped form). The accent when on, a quiet gray when off, a white knob that's never
-// tinted.
 function Switch({
   className,
   size = "default",

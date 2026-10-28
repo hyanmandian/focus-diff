@@ -33,7 +33,6 @@ function variables(args: Args | undefined): Record<string, string> {
   return isVariables(body) ? body.variables : {};
 }
 
-/** A repository whose open pull requests are these: answers which are on a branch, or based on one. */
 function repository(pulls: Pull[]) {
   let asked = 0;
   mockCommands((_cmd, args) => {
@@ -98,7 +97,6 @@ describe("finding a pull request's stack", () => {
   });
 
   it("stops at a loop instead of going round it", async () => {
-    // Two branches based on each other: each is found once.
     const a = pull(10, "a", "b");
     const b = pull(11, "b", "a");
     repository([a, b]);

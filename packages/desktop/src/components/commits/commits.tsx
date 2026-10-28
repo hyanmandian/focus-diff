@@ -1,8 +1,3 @@
-// A pull request's commits, and choosing which of its changes the diff shows. In the Overview, the
-// list (who, what, whether it's signed, how its checks went) with force pushes where they happened;
-// a commit opens its own changes in the diff. In the toolbar, the range picker: all changes, what's
-// new since your last review, one commit, or a run of them (shift-click), as on GitHub.
-
 import {
   BadgeCheck,
   ChevronDown,
@@ -71,7 +66,6 @@ function Verified({ verified }: { verified: boolean | null }) {
   );
 }
 
-/** What a range is called: "All changes", "Since your last review", "a1b2c3d", "3 commits". */
 export function rangeLabel(range: Range, list: List | null, since: Pull["since"], t: T) {
   if (!range) return t("manage.allChanges");
   if (since && sameRange(range, since.range)) return t("manage.sinceReview");
@@ -85,7 +79,6 @@ type Row =
   | { kind: "commit"; commit: Commit; index: number }
   | { kind: "push"; at: string; actor: string | null; before: string | null; after: string | null };
 
-/** The commits with the force pushes between them, by time. */
 function rows(list: List): Row[] {
   const all: Row[] = [
     ...list.commits.map((commit, index) => ({ kind: "commit" as const, commit, index })),
@@ -95,7 +88,6 @@ function rows(list: List): Row[] {
   return all.toSorted((a, b) => at(a) - at(b));
 }
 
-/** The Overview's list of commits; a click opens that commit in the diff. */
 export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: Range) => void }) {
   const t = useT();
   const list = pull.commits;
@@ -201,8 +193,6 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
   );
 }
 
-/** The toolbar's range picker: a popover with all changes, since your last review and the commits;
- *  shift-click (or shift and the arrows) picks a run of them. */
 export function RangePicker({
   pull,
   className,
@@ -242,7 +232,6 @@ export function RangePicker({
           }
         >
           <GitCommitHorizontal />
-          {/* Named only when it isn't all changes: the toolbar's room goes to the title otherwise. */}
           {range ? (
             <span className="max-w-32 truncate @max-[1100px]:sr-only">{rangeLabel(range, list, since, t)}</span>
           ) : null}
@@ -339,7 +328,6 @@ function Choice({
   );
 }
 
-/** Above the diff while a range shows: which, and the way back to all changes. */
 export function RangeBanner({
   pull,
   loading,
@@ -356,7 +344,6 @@ export function RangeBanner({
   if (!range) return null;
   const older = commits && commits.commits.at(-1)?.oid !== range.to;
   return (
-    // Floats over the top of the diff, as the filter bar does at its foot: the diff's layout stays.
     <output
       className={cn(
         "absolute left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-popover py-1 pr-1 pl-3 text-callout shadow-(--shadow-menu)",

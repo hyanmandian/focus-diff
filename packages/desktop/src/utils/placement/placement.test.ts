@@ -3,7 +3,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { findingSide, hunkTail, lineText, placeThread } from "@/utils/placement/placement";
 
-// Lines 10–14 of the old version, 10–15 of the new: line 11 changed, line 13 added.
 const diff = getSingularPatch(
   [
     "diff --git a/a.ts b/a.ts",
@@ -72,7 +71,6 @@ describe("placing a conversation", () => {
       lineNumber: 13,
       moved: false,
     });
-    // Same number, other code: never pinned there.
     expect(placeThread(diff, { side: "additions", line: 11, outdated: true, context: "two" })).toMatchObject({
       lineNumber: 0,
       moved: true,

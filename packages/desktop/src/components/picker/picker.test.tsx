@@ -11,7 +11,6 @@ const choices: Choice[] = [
   { id: "carla", label: "Carla Dias", detail: null, selected: false },
 ];
 
-// The words inside come from the Picker's children.
 const trigger = <Button />;
 const nothing = () => {};
 

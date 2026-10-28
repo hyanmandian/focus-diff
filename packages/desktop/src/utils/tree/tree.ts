@@ -1,17 +1,11 @@
-// The files of a pull request as folders, for the Diff's sidebar: an outline like the Finder's
-// list view. A folder holding only one folder reads as one row ("src/checkout"), as GitHub's tree
-// does, so deep paths don't push names off the edge. Folders come first, then files, each by name.
-
 type TreeFolder<F> = { kind: "folder"; path: string; name: string; children: Array<TreeNode<F>>; files: F[] };
 type TreeLeaf<F> = { kind: "file"; path: string; name: string; file: F };
 export type TreeNode<F> = TreeFolder<F> | TreeLeaf<F>;
 
-/** A row of the outline as shown: the node and how deep it is. */
 export type TreeRow<F> = { node: TreeNode<F>; depth: number; parent: string | null };
 
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-/** The folder alone in a folder (with nothing else beside it), to show as one row with it. */
 function alone<F>(folder: TreeFolder<F>): TreeFolder<F> | null {
   if (folder.path === "" || folder.children.length !== 1) return null;
   const only = folder.children[0]!;
@@ -40,7 +34,6 @@ export function buildTree<F extends { path: string }>(files: F[]): Array<TreeNod
   }
   const tidy = (folder: TreeFolder<F>): TreeFolder<F> => {
     let f = folder;
-    // One folder in a folder (and nothing else): one row.
     for (let only = alone(f); only; only = alone(f)) f = { ...only, name: `${f.name}/${only.name}` };
     f.children = f.children
       .map((c) => (c.kind === "folder" ? tidy(c) : c))
@@ -50,7 +43,6 @@ export function buildTree<F extends { path: string }>(files: F[]): Array<TreeNod
   return tidy(root).children;
 }
 
-/** The rows showing, folders in `collapsed` (by path) closed. */
 export function flatten<F>(
   nodes: Array<TreeNode<F>>,
   collapsed: ReadonlySet<string>,
@@ -66,7 +58,6 @@ export function flatten<F>(
   return rows;
 }
 
-/** The files in the order the tree shows them, so the diff reads in the sidebar's order. */
 export function inTreeOrder<F extends { path: string }>(files: F[]): F[] {
   const out: F[] = [];
   const walk = (nodes: Array<TreeNode<F>>) => {
@@ -79,15 +70,11 @@ export function inTreeOrder<F extends { path: string }>(files: F[]): F[] {
   return out;
 }
 
-/** The folders a file is in, by path, outermost first: to open them all to show it. */
 export function foldersOf(path: string): string[] {
   const parts = path.split("/");
   return parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join("/"));
 }
 
-/** What a key does in the outline, as NSOutlineView does it: ↑ and ↓ move, → opens a folder (or
- *  goes into an open one), ← closes it (or goes to the folder a row is in), Home and End go to the
- *  ends. `at`: the row with the focus. */
 type OutlineAction = { focus: number } | { expand: string } | { collapse: string } | null;
 
 export function outlineKey<F>(

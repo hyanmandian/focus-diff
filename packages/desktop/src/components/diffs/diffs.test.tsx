@@ -11,11 +11,6 @@ import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, ReviewFile, Thread } from "@/utils/review/review";
 
-// MARK: @pierre/diffs' CodeView, at its boundary
-// It draws in a worker pool, which happy-dom hasn't: in its place a list that draws what Diffs
-// gives it (each file's header controls, the things between its lines, the "+" beside a line, the
-// footer) and keeps the options and items, for the tests to act as the library would.
-
 type Hovered = { lineNumber: number; side?: "additions" | "deletions" };
 type Annotation = { side?: "additions" | "deletions"; lineNumber: number; metadata: { kind: string } };
 type Item = {
@@ -93,9 +88,6 @@ function FakeCodeView({ ref, ...view }: ViewProps) {
 vi.mock("@pierre/diffs/react", () => ({
   CodeView: (given: ViewProps) => FakeCodeView(given),
 }));
-
-// MARK: What's drawn between the lines (thread.tsx, tested on its own), as stand-ins that show
-// what they were given and call back.
 
 vi.mock("@/components/thread/thread", () => ({
   ThreadView: ({
@@ -257,8 +249,6 @@ vi.mock("@/utils/contents/contents", async (original) => ({
   bothVersions: vi.fn<typeof bothVersions>(),
 }));
 
-// MARK: Fixtures
-
 const patchOf = (path: string, hunks: string, status = "modified", old = path) =>
   [
     `diff --git a/${old} b/${path}`,
@@ -383,13 +373,11 @@ function draw(more: Partial<Props> = {}) {
 const options = () => lib.props!.options;
 const item = (path: string) => lib.props!.items.find((i) => i.id === path);
 const file = (path: string) => screen.getByRole("region", { name: path });
-/** Lines picked in a file, as the library says when the drag ends. */
 const pick = (path: string, range: SelectedLineRange) => {
   act(() => {
     options().onLineSelectionEnd(range, { item: { id: path } });
   });
 };
-/** The pointer over a line of a file's diff. */
 const over = (path: string, lineNumber: number, side: "additions" | "deletions" = "additions") => {
   act(() => {
     options().onLineEnter({ lineNumber, annotationSide: side }, { item: { id: path } });
@@ -404,7 +392,6 @@ const withRect = (box: DOMRect) => {
 
 const nothing = () => {};
 
-/** A promise settled from outside, for an answer that comes when the test says. */
 function deferred<T>() {
   let resolve: (value: T) => void = nothing;
   let reject: (reason: unknown) => void = nothing;
@@ -415,7 +402,6 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-/** Rust: the commands sent, and the answer to the native alert. */
 function rust(confirmed = true) {
   const sent: Array<[string, unknown]> = [];
   mockCommands((cmd, args) => {
@@ -440,7 +426,6 @@ function clipboardWorks(works = true) {
   });
 }
 
-/** userEvent, and a clipboard that keeps what's copied (in place of the one userEvent puts in). */
 function setup(works = true) {
   const user = userEvent.setup();
   clipboardWorks(works);
@@ -461,8 +446,6 @@ afterEach(() => {
   cleanup();
   window.getSelection()?.removeAllRanges();
 });
-
-// MARK: Tests
 
 describe("Diffs", () => {
   describe("the list", () => {
@@ -508,11 +491,9 @@ describe("Diffs", () => {
       const first = item(CART.path);
       redraw({ threads: new Map(p.threads) });
       expect(item(CART.path)).toBe(first);
-      // A new push with the same conversations: the same version, another diff.
       redraw({ files: [{ ...CART, patch: CART.patch.replace("const c = 4", "const c = 5") }] });
       expect(item(CART.path)).not.toBe(first);
       expect(item(CART.path)?.version).toBe(first?.version);
-      // Whitespace hidden: parsed again (and kept for the next drawing).
       redraw({ whitespace: true });
       const hidden = item(CART.path);
       expect(hidden?.version).not.toBe(first?.version);
@@ -627,7 +608,6 @@ describe("Diffs", () => {
       await user.click(plus);
       expect(screen.getByText("New comment on line 1 of src/cart.ts")).toBeTruthy();
       expect(file(CART.path).querySelector('[data-at="deletions:1"]')).toBeTruthy();
-      // A file's own line (no sides): the new version's.
       lib.hovered = { lineNumber: 4 };
       await user.click(plus);
       expect(file(CART.path).querySelector('[data-at="additions:4"]')).toBeTruthy();
@@ -684,11 +664,9 @@ describe("Diffs", () => {
       await user.click(screen.getByRole("button", { name: "Show Rendered" }));
       expect(file(README.path).dataset.type).toBe("file");
       expect(screen.getByText("Rendered README.md")).toBeTruthy();
-      // Drawn again unchanged: the same item.
       const shown = item(README.path);
       redraw({ files: [CART, README], threads: new Map() });
       expect(item(README.path)).toBe(shown);
-      // Without both versions it can't be read rendered.
       redraw({ files: [CART, README], source: null });
       expect(screen.queryByText("Rendered README.md")).toBeNull();
       redraw({ files: [CART, README] });
@@ -717,7 +695,6 @@ describe("Diffs", () => {
         expect(clipboard.at(-1)).toBe("https://github.com/acme/app/blob/head1/src/cart.ts");
       });
       expect(p.onSay).toHaveBeenLastCalledWith("Link copied");
-      // A deleted file's: at the merge base.
       await menu(OLD.path, "Copy Permalink");
       await waitFor(() => {
         expect(clipboard.at(-1)).toBe("https://github.com/acme/app/blob/base1/src/old.ts");
@@ -728,7 +705,6 @@ describe("Diffs", () => {
       });
       await menu(MOVED.path, "Open File on GitHub");
       expect(sent).toContainEqual(["open_url", { url: "https://github.com/acme/app/blob/head1/src/new-name.ts" }]);
-      // A deleted file isn't on the head to open.
       await user.click(screen.getByRole("button", { name: `Actions for ${OLD.path}` }));
       expect(screen.getByRole("menuitem", { name: "Open File on GitHub" }).getAttribute("aria-disabled")).toBe("true");
     });
@@ -839,7 +815,6 @@ describe("Diffs", () => {
       pick(CART.path, { start: 2, end: 3, side: "deletions", endSide: "additions" });
       over(CART.path, 9);
       rightClick();
-      // Across the sides: no permalink (a commit has one version), a link to the diff.
       expect((await screen.findByRole("menuitem", { name: "Copy Permalink" })).getAttribute("aria-disabled")).toBe(
         "true",
       );
@@ -847,7 +822,6 @@ describe("Diffs", () => {
       await waitFor(() => {
         expect(clipboard.at(-1)).toMatch(/L2-R3$/u);
       });
-      // One line picked: that one.
       pick(CART.path, { start: 4, end: 4, side: "additions", endSide: "additions" });
       over(CART.path, 9);
       rightClick();
@@ -870,12 +844,10 @@ describe("Diffs", () => {
       over(CART.path, 3);
       act(() => {
         options().onLineLeave();
-        // A rendered page's line, or one without its file: not one to comment on.
         options().onLineEnter({ lineNumber: 1 }, { item: { id: README.path } });
         options().onLineEnter({ lineNumber: 1, annotationSide: "additions" });
       });
       const trigger = screen.getByTestId("code-view");
-      // The menu's own state, as the library's area would open it.
       fireEvent.contextMenu(trigger.parentElement!);
       await act(async () => {});
       expect(screen.queryByRole("menuitem")).toBeNull();
@@ -1009,7 +981,6 @@ describe("Diffs", () => {
         ref.current!.scrollToLine(CART.path, line);
         expect(lib.scrolled.at(-1)).toEqual({ type: "item", id: CART.path, align: "start" });
       }
-      // A page shown rendered has no lines to go to.
       await user.click(screen.getByRole("button", { name: "Show Rendered" }));
       ref.current!.scrollToLine(README.path, 1);
       expect(lib.scrolled.at(-1)).toEqual({ type: "item", id: README.path, align: "start" });

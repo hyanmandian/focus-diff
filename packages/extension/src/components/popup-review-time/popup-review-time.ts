@@ -16,41 +16,29 @@ import {
   type RunPull,
 } from "@/utils/review-sessions/review-sessions";
 
-/**
- * Review time in the popup, a card over the lists. Under way: the time left, how far along, and the pull requests
- * picked, each with its estimate. Offered: the same, to start, put off or skip. Asked to review now: how long the
- * reader has, and when the next one is.
- */
-
 const language = uiLanguage();
 const clock = (time: number) => new Intl.DateTimeFormat(language, { hour: "numeric", minute: "2-digit" }).format(time);
 
 export interface ReviewState {
   settings: ReviewTimeSettings;
   run: ReviewRun | null;
-  /** The pull requests still waiting for the reader's review, by url; a picked one gone from it has been reviewed. */
   waiting: Set<string>;
   held: HeldEvent[];
-  /** Review times before this are skipped, or 0. */
   skipUntil: number;
 }
 
 interface Options {
   avatar: (login: string) => HTMLElement;
   openOptions: (section: string) => void;
-  /** Skips review times until a moment, or with 0, stops skipping. */
   skip: (until: number) => void;
-  /** Puts the review now form away. */
   close: () => void;
 }
 
 const send = (message: Message) => browser.runtime.sendMessage(message).catch(() => false);
 
-/** Minutes the reader picked to start one now, kept while the popup is open. */
 let minutesNow = 30;
 let sessionNow = "";
 let starting = false;
-/** Set when a start found nothing waiting, to say so instead of starting an empty one. */
 let nothingNow = false;
 
 const runRow = (pull: RunPull, reviewed: boolean, avatar: Options["avatar"]) => {
@@ -134,7 +122,6 @@ const heldSection = (held: HeldEvent[]) => {
 const elapsedPercent = (minutes: number, startedAt: number) =>
   Math.min(100, Math.round(((Date.now() - startedAt) / (minutes * 60_000)) * 100));
 
-/** The run's head: the time left, or set aside, how far along, and what to do. */
 const runHead = (run: ReviewRun, reviewed: number) => {
   const total = run.pulls.reduce((sum, pull) => sum + pull.minutes, 0);
   const { startedAt } = run;
@@ -190,7 +177,6 @@ const runHead = (run: ReviewRun, reviewed: number) => {
     end.addEventListener("click", () => void send({ type: "review-end" }));
     actions.append(end);
   } else if (run.pulls.length === 0) {
-    // Offered only for what was kept for it: nothing to start, only to put away.
     const dismiss = h("button", { type: "button", className: "button quiet", textContent: i18n.t("popupDismiss") });
     dismiss.addEventListener("click", () => void send({ type: "review-skip" }));
     actions.append(dismiss);
@@ -210,7 +196,6 @@ const runHead = (run: ReviewRun, reviewed: number) => {
 const when = (time: number) =>
   new Intl.DateTimeFormat(language, { weekday: "short", hour: "numeric", minute: "2-digit" }).format(time);
 
-/** The next review time, and a way to skip it or the rest of today; skipping, until when, and a way back. */
 const nextLine = (settings: ReviewTimeSettings, skipUntil: number, skip: Options["skip"]) => {
   const now = Date.now();
   const skipping = skipUntil > now;
@@ -247,14 +232,11 @@ const nextLine = (settings: ReviewTimeSettings, skipUntil: number, skip: Options
       ]),
     }),
     skipNext,
-    // Skipping the rest of today only differs from skipping the next one with more than one left today. There's always
-    // one after the next: the same a week on.
     nextOccurrence(settings, next.at)!.at < tomorrow ? rest : "",
   );
   return line;
 };
 
-/** With none under way: a way to start one now, and when the next one is. */
 const startForm = (state: ReviewState, options: Options, render: () => void) => {
   const { settings } = state;
   const close = h(
@@ -301,7 +283,6 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
       ...settings.sessions.map((session) => new Option(session.name || i18n.t("reviewTimeName"), session.id)),
     );
     like.value = sessionNow;
-    // Picking one of the reader's review times takes its length too, which they can still change.
     like.addEventListener("change", () => {
       sessionNow = like.value;
       const minutes = settings.sessions.find((session) => session.id === sessionNow)?.minutes;
@@ -332,7 +313,6 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
     nothingNow = (await send({ type: "review-start-now", minutes: minutesNow, session: sessionNow })) === false;
     starting = false;
     render();
-    // Started, the card is the review time now; the focus goes to its name. Not, it stays on Start, which says why.
     document.querySelector<HTMLElement>(nothingNow ? "#review-card .button" : "#review-card h2")?.focus();
   };
   start.addEventListener("click", () => void startNow());
@@ -350,7 +330,6 @@ const startForm = (state: ReviewState, options: Options, render: () => void) => 
   return form;
 };
 
-/** The time left and the bar, the only things that change as the minutes go by. */
 const tick = (card: HTMLElement, run: ReviewRun) => {
   if (!run.startedAt) return;
   const left = minutesLeft(run);
@@ -363,7 +342,6 @@ const tick = (card: HTMLElement, run: ReviewRun) => {
 
 let drawn = "";
 
-/** Draws review time into `card`: the one offered or under way, or with none, the way to start one now. */
 export const renderReviewPanel = (
   card: HTMLElement,
   state: ReviewState,
@@ -371,7 +349,6 @@ export const renderReviewPanel = (
   render: () => void,
 ): void => {
   const { run, waiting, held } = state;
-  // Drawn again only when something changed, so the focus and an open select stay put; the minutes tick in place.
   const key = JSON.stringify([
     state.settings,
     run,

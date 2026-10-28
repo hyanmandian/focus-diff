@@ -1,7 +1,3 @@
-// One pull request in the panel, laid out like a row of Focus Diff's popup: who, the title, then one
-// secondary line (number, author, estimate, what's going on), with when and how much talk on the
-// right. A click opens it.
-
 import type { StackPlace } from "@focus-diff/core/stacks";
 import { Ellipsis, GitPullRequest, Layers, MessageSquare } from "lucide-react";
 import { memo, useEffect, useRef, type ReactNode } from "react";
@@ -23,7 +19,6 @@ import { pullMinutes, useLearned } from "@/utils/estimate/estimate";
 import { useT } from "@/utils/i18n/i18n";
 import { prefetch } from "@/utils/prefetch/prefetch";
 
-// What each note is, said in color on plain text (no outline): a list row's secondary line, not a pill.
 const TONE: Record<string, string> = {
   blue: "text-(--panel-link)",
   green: "text-success",
@@ -33,7 +28,6 @@ const TONE: Record<string, string> = {
   gray: "",
 };
 
-/** One part of the secondary line. Parts never cut mid-word: what doesn't fit drops off whole. */
 function Part({
   tone = "gray",
   title,
@@ -77,7 +71,6 @@ function Avatar({ actor }: { actor: Actor }) {
   );
 }
 
-// What's worth a tag, most direct first.
 const ORDER = [
   "rerequest",
   "reply",
@@ -91,7 +84,6 @@ const ORDER = [
 ] as const;
 const rank = (kind: string) => ORDER.findIndex((k) => k === kind);
 
-/** How long it's been since a moment (ms), as of now. */
 const age = (since: number) => Date.now() - since;
 
 type Props = {
@@ -99,19 +91,14 @@ type Props = {
   queue: Queue;
   unread: boolean;
   arriving: boolean;
-  /** `from`: the row, for the review window to grow out of. */
   onOpen: (item: Item, from?: DOMRect) => void;
   onDismiss: (item: Item) => void;
   onArrived: (prId: string) => void;
-  /** Picked to be marked done; `selecting`: something in the list is, so every row shows its box. */
   picked: boolean;
   selecting: boolean;
-  /** `range`: shift-clicked, to pick everything from the last one picked to this. */
   onPick: (item: Item, on: boolean, range?: boolean) => void;
-  /** Would be picked by a shift-click on the row under the pointer. */
   pending?: boolean;
   onHover?: (id: string | null) => void;
-  /** Where it stands in a stack in the list, which its rows show joined. */
   stack?: StackPlace;
 };
 
@@ -134,13 +121,10 @@ export const PullRow = memo(function PullRow({
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const intent = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // Resting on a row, not passing over it: then its pull request is fetched ahead of a click.
   const ahead = () => void prefetch(pr.id, pr.repository.nameWithOwner, pr.number, pr.updatedAt);
 
-  // Something new plays the arrival once, while the panel shows it.
   useEffect(() => {
     if (!arriving) return;
-    // Set by now: effects run after the row is in the page.
     const el = ref.current!;
     el.classList.remove("arrive");
     void el.offsetWidth;
@@ -167,15 +151,11 @@ export const PullRow = memo(function PullRow({
   const teams = item.viaTeams?.length && kinds.length === 0 ? item.viaTeams : [];
   const ci = (item.ci === "FAILURE" || item.ci === "ERROR") && !kinds.includes("ci-failed");
   const status = item.status && item.status !== "MENTIONED" && kinds.length === 0 ? item.status : null;
-  // "3d", "5h": how long it's been waiting, an hour at least (a span, so from 0 to it).
   const waited = t.since(0, Math.max(waiting, 3_600_000));
-  // How long a review would take, for what's waiting on yours: from its totals, at your pace.
   const learned = useLearned();
   const minutes = queue.kind === "review" && pr.changedFiles ? pullMinutes(pr, learned) : null;
 
   return (
-    // As Focus Diff's popup: over the picture, a box to pick the row to mark done, on hover, on the
-    // focused row, and on every row once one is picked; a picked row takes a tint of the accent.
     <div
       ref={ref}
       data-picked={picked || undefined}
@@ -185,8 +165,6 @@ export const PullRow = memo(function PullRow({
       onPointerLeave={() => onHover?.(null)}
       className="group relative isolate rounded-[8px]"
     >
-      {/* The box takes clicks over the whole picture column, top to bottom, so one aimed at it never
-          opens the pull request; shift-click picks a run of rows, as in Finder. */}
       <div
         aria-hidden
         onClick={(e) => {
@@ -222,24 +200,19 @@ export const PullRow = memo(function PullRow({
         }}
         onFocus={ahead}
         className={cn(
-          // The extension's row: the picture on a 14pt inset, a quiet rounded highlight under the
-          // pointer and on the keyboard's row (a ring would fight the tint of a picked one).
           "relative flex w-full cursor-default items-start gap-2.5 rounded-[8px] py-2 pr-2.5 pl-3.5 text-left transition-colors duration-100 outline-none group-hover:bg-foreground/6 group-data-pending:bg-primary/8! group-data-picked:bg-primary/15! focus-visible:bg-foreground/8 active:bg-foreground/9",
         )}
       >
-        {/* A stack's rows joined by a line through their pictures, from the one below up. */}
         {stack && stack.index > 0 ? (
           <span data-rail className="absolute top-0 left-[25px] h-2 w-0.5 bg-foreground/15" aria-hidden />
         ) : null}
         {stack && stack.index < stack.size - 1 ? (
           <span data-rail className="absolute top-8 bottom-0 left-[25px] w-0.5 bg-foreground/15" aria-hidden />
         ) : null}
-        {/* What changed since you last looked: a dot at the row's edge, level with the title. */}
         {unread ? (
           <span data-dot className="absolute top-4 left-1 size-1.5 rounded-full bg-primary" aria-hidden />
         ) : null}
         {unread ? <span className="sr-only">{t("panel.unread")}</span> : null}
-        {/* The picture gives way to the box over it. */}
         <span className="contents group-hover:[&>*]:invisible group-has-[[data-row]:focus-visible]:[&>*]:invisible group-data-pending:[&>*]:invisible group-data-picked:[&>*]:invisible group-data-selecting:[&>*]:invisible">
           {mine ? (
             <span
@@ -262,8 +235,6 @@ export const PullRow = memo(function PullRow({
           >
             {pr.title}
           </span>
-          {/* One line: the number and who never give way; what doesn't fit after them drops off whole,
-              onto a hidden second line, rather than ending in "…". The full list is its tooltip. */}
           <span
             className="flex h-[18px] min-w-0 flex-wrap items-center overflow-hidden text-callout leading-[18px] text-muted-foreground"
             title={teams.length > 0 ? t("panel.askedOf", { teams: t.list(teams) }) : undefined}
@@ -324,8 +295,6 @@ export const PullRow = memo(function PullRow({
             ) : null}
           </span>
         </span>
-        {/* When and how much talk, on the right: the time level with the title, the comments under it
-            (under the pointer, the row's menu takes their place). */}
         <span className="flex min-w-10 shrink-0 flex-col items-end gap-1 text-callout leading-[18px] whitespace-nowrap text-muted-foreground tabular-nums">
           <span>{t.since(when)}</span>
           {pr.comments ? (

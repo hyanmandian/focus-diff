@@ -1,11 +1,7 @@
-// What can be done to what's been said on a pull request, beyond saying more: reactions, editing and
-// deleting your own comments (and the description), and the fields every comment is read with.
-
 import { github, GitHubError, graphql } from "@/utils/bridge/bridge";
 import type { Actor } from "@/utils/engine/engine";
 import { i18n } from "@/utils/i18n/i18n";
 
-/** GitHub's eight reactions, in its order. */
 export const REACTIONS = [
   "THUMBS_UP",
   "THUMBS_DOWN",
@@ -28,7 +24,6 @@ export const EMOJI: Record<ReactionContent, string> = {
   EYES: "👀",
 };
 
-/** One reaction on something: how many, whether you're one of them, and the first few who are. */
 export type Reaction = { content: ReactionContent; count: number; mine: boolean; who: string[] };
 
 export const REACTION_FIELDS =
@@ -40,7 +35,6 @@ type RawGroup = {
   reactors: { totalCount: number; nodes: Array<{ login?: string } | null> };
 };
 
-/** Only the reactions someone gave, in GitHub's order. */
 export const toReactions = (groups: RawGroup[] | null | undefined): Reaction[] =>
   (groups ?? [])
     .filter((g) => g.reactors.totalCount > 0 && REACTIONS.includes(g.content))
@@ -52,7 +46,6 @@ export const toReactions = (groups: RawGroup[] | null | undefined): Reaction[] =
       who: g.reactors.nodes.flatMap((n) => (n?.login ? [n.login] : [])),
     }));
 
-/** The reactions after you add or take back one, at once, before GitHub says. */
 export function toggled(reactions: Reaction[], content: ReactionContent, me: string | null): Reaction[] {
   const at = reactions.find((r) => r.content === content);
   if (at?.mine) {
@@ -73,7 +66,6 @@ export function toggled(reactions: Reaction[], content: ReactionContent, me: str
   );
 }
 
-/** A mutation: unlike a query, an error in it is the answer, even with data beside it. */
 export async function mutate<T>(query: string, variables: Record<string, unknown>): Promise<T> {
   const reply = await github<{ data?: T; errors?: Array<{ message: string }> }>("POST", "/graphql", {
     query,
@@ -90,8 +82,6 @@ export const react = (subject: string, content: ReactionContent, on: boolean) =>
     { id: subject, content },
   );
 
-/** What can be edited: a comment on lines, one on the pull request, a review's own text, or the
- *  pull request's description. */
 type Editable = "review-comment" | "issue-comment" | "review" | "pull";
 
 const EDIT: Record<Editable, { mutation: string; input: string; field: string }> = {
@@ -105,7 +95,6 @@ const EDIT: Record<Editable, { mutation: string; input: string; field: string }>
   pull: { mutation: "updatePullRequest", input: "pullRequestId", field: "pullRequest" },
 };
 
-/** Changes the text; GitHub sends back its HTML, shown at once. */
 export async function edit(kind: Editable, id: string, body: string): Promise<string> {
   const e = EDIT[kind];
   const data = await mutate<Record<string, Record<string, { bodyHTML: string }>>>(
@@ -121,10 +110,8 @@ export const remove = (kind: "review-comment" | "issue-comment", id: string) =>
     { id },
   );
 
-/** The person a comment is by, with what a suggestion's commit credits them with. */
 export const AUTHOR = "__typename login avatarUrl(size: 64) ... on User { name databaseId }";
 
-/** Every comment on lines is read with these (utils/review/review.ts reads them with its conversations). */
 export const COMMENT_FIELDS = `id databaseId author { ${AUTHOR} } body bodyHTML createdAt url state lastEditedAt viewerCanUpdate viewerCanDelete viewerCanReact replyTo { id } ${REACTION_FIELDS}`;
 
 export type RawComment = {
@@ -135,7 +122,6 @@ export type RawComment = {
   bodyHTML: string;
   createdAt: string;
   url: string;
-  /** "PENDING" (in your review not sent yet), "SUBMITTED", and the like. */
   state?: string;
   lastEditedAt: string | null;
   viewerCanUpdate: boolean;
@@ -145,7 +131,6 @@ export type RawComment = {
   reactionGroups: RawGroup[];
 };
 
-/** A conversation's comments past its first hundred, a hundred a page. */
 export async function moreComments(thread: string, after: string): Promise<RawComment[]> {
   type Raw = {
     node: { comments: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] } } | null;

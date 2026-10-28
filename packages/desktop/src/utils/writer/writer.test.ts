@@ -5,14 +5,12 @@ import type { Args } from "@/utils/platform/platform";
 
 type Request = { method: string; path: string; body: string; accept: unknown };
 
-/** One of the arguments a command was sent with. */
 function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
 }
 
-/** Answers GitHub with what `answer` gives (thrown: the call fails), and keeps each request. */
 function github(answer: (request: Request) => unknown) {
   const asked: Request[] = [];
   mockCommands((_cmd, args) => {
@@ -32,7 +30,6 @@ function github(answer: (request: Request) => unknown) {
 const DAY = 24 * 3_600_000;
 const person = (login: string, name: string | null = null) => ({ login, name, avatarUrl: "" });
 
-/** The module afresh, its memory empty, as a new window has it. */
 function load() {
   vi.resetModules();
   return import("@/utils/writer/writer");
@@ -132,7 +129,6 @@ describe("previews", () => {
 
 const hundred = [person("ana", "Ana Souza"), person("bruno"), ...Array.from({ length: 98 }, (_, i) => person(`u${i}`))];
 
-/** A hundred people, or one more for a search beyond them. */
 const searchOrHundred = (request: Request) => ({
   data: {
     repository: { mentionableUsers: { nodes: request.body.includes("query: $q") ? [person("souza-c")] : hundred } },

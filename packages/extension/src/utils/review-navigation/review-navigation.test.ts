@@ -45,7 +45,6 @@ const panel = { accent: () => "teal", announceText: vi.fn<Panel["announceText"]>
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- navigation only uses these parts of the panel.
 const bar = panel as unknown as Panel;
 
-/** A conversation whose centre sits at `centre` on screen, which opens to `found`. */
 const target = (path: string, centre: number | null, found: HTMLElement | null = document.createElement("p")) => {
   const element = centre === null ? null : document.createElement("div");
   if (element) element.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: centre! - 10, width: 1, height: 20 });
@@ -179,14 +178,12 @@ describe("createNavigation", () => {
     await navigation.comment([], false, 1);
     expect(panel.announceText).toHaveBeenLastCalledWith("Conversation 1 of 4, in a.ts.");
 
-    // Scrolled: the first one below the middle, or the last one above it.
     vi.stubGlobal("scrollY", 500);
     await navigation.comment([], false, 1);
     expect(panel.announceText).toHaveBeenLastCalledWith("Conversation 3 of 4, in c.ts.");
     await navigation.comment([], false, -1);
     expect(panel.announceText).toHaveBeenLastCalledWith("Conversation 4 of 4, in d.ts.");
 
-    // Nothing past the middle: around to either end.
     targets = [target("a.ts", 400)];
     await navigation.comment([], false, 1);
     expect(panel.announceText).toHaveBeenLastCalledWith("Conversation 1 of 1, in a.ts.");

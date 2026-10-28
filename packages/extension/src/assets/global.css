@@ -1,12 +1,7 @@
-/* Pages stay hidden until translated and rendered, so nothing shifts while they fill in. */
 .pending {
   visibility: hidden;
 }
 
-/*
- * The extension's pages wear the site's identity (focus-diff.com): a night ground with a deep blue glow at the top,
- * translucent panels on hairline borders, bold tight headings, and green kept for the one action that matters.
- */
 :root {
   --bg: #0b0f14;
   --glow: #142030;
@@ -110,7 +105,6 @@ kbd {
   background: var(--code);
   padding: 1px 6px;
   border-radius: 6px;
-  /* A short token, like a property name, reads as one: it moves to the next line whole instead of breaking at a hyphen. */
   white-space: nowrap;
 }
 kbd {
@@ -153,7 +147,6 @@ kbd {
   outline-offset: 2px;
 }
 
-/* Form controls, shared by the pages. */
 input,
 select,
 textarea {

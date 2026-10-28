@@ -1,11 +1,7 @@
-// The queues' data as the panel gets it. The rules that make it (searches, events, what's new)
-// are in src-tauri/src/engine.rs; these are the shapes, and the helpers the cards use.
-
 import type { EventKind } from "@/utils/config/config";
 
 export type Actor = { __typename?: string; login: string; avatarUrl?: string; name?: string | null } | null;
 
-/** What the panel gets of a pull request (PanelPr in src-tauri/src/engine.rs). */
 export type PullRequest = {
   id: string;
   number: number;
@@ -17,7 +13,6 @@ export type PullRequest = {
   updatedAt: string;
   mergedAt: string | null;
   headRefOid: string;
-  /** The branches, to tell a stack (not in what was kept before they were read). */
   headRefName?: string;
   baseRefName?: string;
   isCrossRepository?: boolean;
@@ -38,26 +33,20 @@ export type PullRequest = {
     }>;
   };
   latestOpinionatedReviews: { nodes: Array<{ author: Actor; state: string; submittedAt: string; url: string }> };
-  /** Comments and review conversations. */
   comments: number;
 };
 
 export type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED";
 
-/** `text`: the start of what a comment or review said, for its notification. */
 export type Event = { key: string; kind: EventKind; at: number; who: Actor; text?: string };
 
 export type Item = {
   queueId: string;
   pr: PullRequest;
   events: Event[];
-  /** How you left it (involved queues). */
   status?: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "MENTIONED";
-  /** review queues: requested through these teams rather than you. */
   viaTeams?: string[];
   ci: CiState | null;
-  /** CI went green again on the same commit since last time: worth a notification only. */
   passed?: boolean;
-  /** review queues: since when it's been waiting on you (ms). */
   waitingSince?: number;
 };

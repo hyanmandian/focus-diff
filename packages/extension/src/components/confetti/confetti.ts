@@ -2,7 +2,6 @@ const COUNT = 120;
 const DURATION_MS = 2200;
 const GRAVITY = 1400;
 const DRAG = 1.6;
-/** The theme's colours, as the panel reads them. */
 const COLORS = ["--fd-add", "--fd-accent", "--fd-attention", "--fd-done", "--fd-del"];
 
 interface Piece {
@@ -17,10 +16,6 @@ interface Piece {
   color: string;
 }
 
-/**
- * A burst of confetti from a point on the screen, drawn on a canvas that removes itself when it's done. Nothing happens
- * for readers who prefer reduced motion.
- */
 export const confetti = (parent: HTMLElement, from: { x: number; y: number }): void => {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const styles = getComputedStyle(parent);
@@ -31,7 +26,6 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
   const scale = devicePixelRatio || 1;
   canvas.width = Math.round(innerWidth * scale);
   canvas.height = Math.round(innerHeight * scale);
-  // Behind the panel, so it bursts out from under it.
   parent.append(canvas);
   const context = canvas.getContext("2d");
   if (!context) {
@@ -40,7 +34,6 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
   }
   context.scale(scale, scale);
 
-  // Thrown up and out in a fan, so it rises over the page before it falls.
   const pieces: Piece[] = Array.from({ length: COUNT }, (_, index) => {
     const angle = (-90 + (Math.random() - 0.5) * 110) * (Math.PI / 180);
     const speed = 500 + Math.random() * 650;
@@ -68,7 +61,6 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     context.clearRect(0, 0, innerWidth, innerHeight);
-    // Fades out over the last third.
     context.globalAlpha = Math.min(1, ((DURATION_MS - elapsed) / DURATION_MS) * 3);
     for (const piece of pieces) {
       piece.vx -= piece.vx * DRAG * dt;
@@ -80,7 +72,6 @@ export const confetti = (parent: HTMLElement, from: { x: number; y: number }): v
       context.save();
       context.translate(piece.x, piece.y);
       context.rotate(piece.rotation);
-      // Turning over as it falls: the piece narrows and widens like paper.
       context.scale(1, Math.cos(piece.flutter));
       context.fillStyle = piece.color;
       context.fillRect(-piece.size / 2, -piece.size / 4, piece.size, piece.size / 2);

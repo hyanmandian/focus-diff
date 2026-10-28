@@ -1,13 +1,3 @@
-//! The pull request's code on this machine, for the AI to read around the diff: where the changed
-//! code is used, what depends on it, the project's own rules. One shallow checkout per repository
-//! in the app's cache folder, moved to each pull request's head commit as it's asked about, and
-//! removed after two weeks without use.
-//!
-//! Git runs with none of the person's own git config (no credential helpers, hooks or URL
-//! rewrites), with the token passed as an HTTP header for github.com only. What the AI CLIs would
-//! load from a repository and run (project settings with hooks, MCP servers) is deleted after each
-//! checkout: those files belong to the pull request's author, not the reviewer.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -20,7 +10,6 @@ use crate::sync::Locked;
 const LIMIT: Duration = Duration::from_secs(300);
 const KEEP: Duration = Duration::from_secs(14 * 24 * 3600);
 
-/// Agent configuration that runs things, as opposed to rules that only say things.
 const UNTRUSTED: &[&str] = &[".claude/settings.json", ".claude/settings.local.json", ".mcp.json", ".cursor/mcp.json", ".cursor/hooks.json", ".cursor/cli.json", ".cursor/environment.json"];
 
 fn base64(bytes: &[u8]) -> String {
@@ -63,13 +52,11 @@ fn git(dir: &Path, args: &[&str], token: &str) -> Result<String, String> {
     Ok(output.stdout.trim().to_string())
 }
 
-/// One git operation at a time per repository.
 fn lock(key: &str) -> Arc<Mutex<()>> {
     static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
     LOCKS.get_or_init(Default::default).held().entry(key.to_string()).or_default().clone()
 }
 
-/// The pull request's head commit checked out under `cache/repos/owner/name`. Blocking.
 pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -> Result<PathBuf, String> {
     let (owner, name) = repo.split_once('/').ok_or("Bad repository")?;
     if !crate::github::repo_ok(repo) || head.len() != 40 || !head.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -84,7 +71,6 @@ pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -
         git(&dir, &["remote", "add", "origin", &format!("https://github.com/{owner}/{name}.git")], token)?;
     }
     if git(&dir, &["rev-parse", "HEAD"], token).ok().as_deref() != Some(head) {
-        // The commit itself; failing that (an old head), the pull request's ref.
         if git(&dir, &["fetch", "-q", "--depth=1", "--no-tags", "origin", head], token).is_err() {
             git(&dir, &["fetch", "-q", "--depth=1", "--no-tags", "origin", &format!("refs/pull/{number}/head")], token)?;
         }
@@ -92,18 +78,14 @@ pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -
     }
     git(&dir, &["clean", "-ffdxq"], token)?;
     remove_untrusted(&dir);
-    // Used now: kept from the next sweep. A file of its own in .git (which `git clean` leaves),
-    // since a folder's time can't be set on Windows.
     let _ = std::fs::write(used_mark(&dir), "");
     Ok(dir)
 }
 
-/// The file whose time says when a checkout was last used.
 fn used_mark(dir: &Path) -> std::path::PathBuf {
     dir.join(".git").join("focus-diff-used")
 }
 
-/// How long since a checkout was used: its mark's age, or the folder's for one made before marks.
 fn unused_for(dir: &Path) -> Option<Duration> {
     crate::disk::age(&used_mark(dir)).or_else(|| crate::disk::age(dir))
 }
@@ -125,7 +107,6 @@ fn remove_untrusted(dir: &Path) {
     }
 }
 
-/// Removes checkouts not used for two weeks.
 pub fn sweep(cache: &Path) {
     let Ok(owners) = std::fs::read_dir(cache.join("repos")) else { return };
     for owner in owners.flatten() {
@@ -195,7 +176,6 @@ mod tests {
 
 #[cfg(test)]
 mod live {
-    /// Fetches a real pull request: `FD_TOKEN=$(gh auth token) cargo test -- --ignored checkout`.
     #[test]
     #[ignore]
     fn checkout_round_trip() {
@@ -208,7 +188,6 @@ mod live {
         let started = std::time::Instant::now();
         super::prepare(&cache, &token, &repo, number, &head).unwrap();
         println!("again: {:?}", started.elapsed());
-        // And the AI reading it, with a structured answer.
         let schema = r#"{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"}}},"required":["files"]}"#;
         let answer = crate::ai::ask(crate::ai::Question {
             provider: crate::ai::Provider::Claude,

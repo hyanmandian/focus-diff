@@ -1,6 +1,4 @@
-// The settings window (src/settings).
 export const settings = {
-  // Panes and the sidebar
   "pane.account": "Account",
   "pane.queues": "Queues",
   "pane.review": "Review time",
@@ -8,7 +6,6 @@ export const settings = {
   "pane.actions": "Actions",
   "pane.ai": "AI",
   "pane.general": "General",
-  // What a search finds in each pane, "|" between them.
   "keywords.queues":
     "Tabs|Review requests|Pull requests where|Repositories|Changing files|Drafts|Bots|Labels|Teams|Notify me when|Notifications|Leave out of notifications|At review time|Right away|Color",
   "keywords.review":
@@ -43,7 +40,6 @@ export const settings = {
   usernamePlaceholder: "username",
   labelPlaceholder: "label",
 
-  // Queues
   addQueue: "Add Queue",
   untitledQueue: "Untitled queue",
   deleteQueue: "Delete queue",
@@ -53,7 +49,6 @@ export const settings = {
   showNamedInPanel: "Show {name} in the panel",
   noQueues: "No queues yet. Add one to start.",
 
-  // Queue editor
   color: "Color",
   "tone.blue": "Blue",
   "tone.purple": "Purple",
@@ -139,7 +134,6 @@ export const settings = {
   notifyReposHint: "Empty: every repository in this queue.",
   notifyReposLabel: "Repositories to notify about",
 
-  // Account
   githubFooter:
     "Focus Diff reads and acts on pull requests as you. Your token stays in your system keychain and is only ever sent to GitHub.",
   usingGh: "Using the GitHub CLI's login",
@@ -153,7 +147,6 @@ export const settings = {
   webSignIn: "Sign in to github.com",
   webSignOut: "Sign Out",
 
-  // General
   softwareUpdate: "Software update",
   behavior: "Behavior",
   checkEvery: "Check GitHub every",
@@ -182,7 +175,6 @@ export const settings = {
   updateRestart: "Update and Restart",
   checkUpdates: "Check for Updates",
 
-  // Review time
   "order.oldest": "Waiting longest",
   "order.oldest.hint": "The oldest pull requests first, so nobody waits too long.",
   "order.quickest": "Quickest",
@@ -193,7 +185,6 @@ export const settings = {
   everyDay: "Every day",
   weekdays: "Weekdays",
   weekends: "Weekends",
-  // "Weekdays at 3:00 PM · 30 min", a review time in its row.
   summaryAt: "{days} at {times} · {minutes} min",
   summaryNoTime: "{days} with no time yet · {minutes} min",
   timeError: "A time like 15:00, on a 24-hour clock",
@@ -235,7 +226,6 @@ export const settings = {
   hold: "Hold every notification while I review",
   holdHint: "They show once the time's up.",
 
-  // Filters
   notValidRegex: "Not a valid regular expression.",
   importEmpty: "That text has no filters in it. Ask for them to be copied again.",
   importInvalid: "That isn't a copied set of filters. Paste exactly what Copy Filters gave.",
@@ -267,7 +257,6 @@ export const settings = {
   blank: "Blank",
   newFilter: "New filter",
 
-  // Actions
   "stepHint.comment": "Posts a comment on the pull request, as you.",
   "stepHint.request": "Asks these people or teams to review.",
   "stepHint.unrequestMe": "Removes your own review request.",
@@ -296,7 +285,6 @@ export const settings = {
   removeStep: "Remove step {number}",
   addStep: "Add Step",
   noSteps: "No steps yet",
-  // A list of steps in a row: "Comment, then ask for reviews".
   stepsThen: "{first}, then {rest}",
   untitledAction: "Untitled action",
   deleteAction: "Delete action",
@@ -305,7 +293,6 @@ export const settings = {
   actionsEmptyHint:
     "Hand a review to a teammate, ping a channel, label, run a script. They show up in each pull request's review window.",
 
-  // AI
   copyNamed: "Copy {command}",
   aiIntro:
     "Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer, read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.",

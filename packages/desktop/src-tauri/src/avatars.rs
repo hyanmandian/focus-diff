@@ -1,8 +1,3 @@
-//! People's pictures, kept on disk for a week. GitHub serves avatars cacheable for five minutes, so
-//! each time the panel's web view is made again it would ask for every one again; pictures hardly
-//! ever change. The pages ask for `avatar://localhost/<path on avatars.githubusercontent.com>` and
-//! get the kept copy, fetched once (without the token: avatars are public).
-
 use std::time::Duration;
 
 use tauri::http::{Request, Response, StatusCode};
@@ -37,11 +32,9 @@ fn reply(status: StatusCode, bytes: Vec<u8>) -> Response<Vec<u8>> {
     builder.body(bytes).unwrap_or_default()
 }
 
-/// Answers one `avatar://` request. Blocking: run it off the main thread.
 pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = request.uri();
     let key = uri.path_and_query().map(|p| p.as_str()).unwrap_or("/");
-    // Only GitHub's avatar host, whatever a page asks for.
     if !key.starts_with('/') || key.starts_with("//") || key.contains("..") || key.contains('@') {
         return reply(StatusCode::BAD_REQUEST, vec![]);
     }
@@ -55,7 +48,6 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
             let _ = disk::write(&path, &bytes);
             reply(StatusCode::OK, bytes)
         }
-        // Offline: last week's picture beats none.
         None => match std::fs::read(&path) {
             Ok(bytes) => reply(StatusCode::OK, bytes),
             Err(_) => reply(StatusCode::BAD_GATEWAY, vec![]),
@@ -63,7 +55,6 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     }
 }
 
-/// Removes pictures nobody's been shown for a month.
 pub fn sweep(app: &AppHandle) {
     if let Some(dir) = disk::cache_folder(app, "avatars") {
         disk::sweep(&dir, SWEEP_AFTER);

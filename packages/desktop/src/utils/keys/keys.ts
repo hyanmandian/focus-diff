@@ -1,9 +1,5 @@
-// Keyboard behavior shared by the app's own widgets.
-
 import type { KeyboardEvent } from "react";
 
-/** Arrow keys, Home and End move between a tablist's tabs, choosing the one they land on (the
- *  WAI-ARIA tabs pattern); Tab then goes into the chosen panel. Put on the role="tablist". */
 export function tabKeys(e: KeyboardEvent<HTMLElement>) {
   const tabs = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]:not([disabled])')];
   const at = tabs.findIndex((tab) => tab === document.activeElement);

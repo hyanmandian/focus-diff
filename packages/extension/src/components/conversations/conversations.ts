@@ -8,22 +8,18 @@ import type { ThreadState } from "@/utils/provider/provider";
 
 export interface Conversation {
   path: string;
-  /** Line in the new version of the file, when known. */
   line: number | null;
   state: ThreadState;
 }
 
 export interface Conversations {
   list: Conversation[];
-  /** The one the reader last jumped to, 1-based; 0 before the first jump. */
   current: number;
 }
 
 interface ConversationActions {
   onStep: (direction: 1 | -1) => void;
-  /** Called as it opens, so other popovers can close. */
   onOpen: () => void;
-  /** Where focus goes when it closes and its toggle is gone. */
   fallback: HTMLElement;
 }
 
@@ -33,10 +29,6 @@ const STATE_LABEL = {
   resolved: "panelStateResolved",
 } as const;
 
-/**
- * The conversations button and its card: which file and line the reader is on, whether it waits on them, and arrows to
- * the previous and next one. The card stays open while they step through.
- */
 export const createConversations = (
   { host, focused }: PanelContext,
   { onStep, onOpen, fallback }: ConversationActions,
@@ -69,7 +61,6 @@ export const createConversations = (
     );
   };
   const next = step(1);
-  // With a single conversation there's nowhere to step to, only back to it.
   const goTo = h(
     "button",
     {
@@ -98,19 +89,16 @@ export const createConversations = (
     position,
     h("span", { className: "conversation-steps" }, step(-1), next, goTo),
   );
-  // Like the breakdown, the card follows its toggle and is positioned against the host.
   const element = h("div", { className: "navigation" }, toggle, popover);
 
   let source: Conversations = { current: 0, list: [] };
 
-  /** The conversation the reader is on (the first one while the jump to it lands). */
   const draw = () => {
     if (popover.hidden) return;
     const { current, list } = source;
     const target = list[current - 1] ?? list[0];
     if (!target) return;
     const name = target.path.slice(target.path.lastIndexOf("/") + 1);
-    // The name gives way to an ellipsis; the line number always shows.
     file.replaceChildren(
       h("span", { className: "conversation-name", textContent: name }),
       target.line ? h("span", { className: "conversation-line", textContent: `:${format(target.line)}` }) : "",
@@ -123,7 +111,6 @@ export const createConversations = (
     state.textContent = i18n.t(STATE_LABEL[target.state]);
     const single = list.length === 1;
     if (single !== popover.hasAttribute("data-single")) {
-      // The step arrows and Go to swap places; focus moves to whichever is left, instead of falling to the page.
       const had = focused();
       popover.toggleAttribute("data-single", single);
       if (had && popover.contains(had) && had.matches(".step, .go-to")) (single ? goTo : next).focus();
@@ -135,7 +122,6 @@ export const createConversations = (
     centreOver(popover, toggle, host);
   };
 
-  /** Only its toggle or Escape closes it. */
   const setOpen = (open: boolean) => {
     if (popover.hidden === !open) return;
     if (!open) returnFocus(popover, toggle, fallback, focused());
@@ -143,7 +129,6 @@ export const createConversations = (
     toggle.setAttribute("aria-expanded", String(open));
     if (open) {
       onOpen();
-      // Opening lands on a conversation straight away, so the card always has one to show.
       if (source.current === 0) onStep(1);
       draw();
       reposition();
@@ -154,17 +139,13 @@ export const createConversations = (
     if (source.list.length > 0) setOpen(!isOpen());
   });
 
-  /** `most` is how many conversations the pull request has in all, which sizes the count so it never shifts. */
   const render = (conversations: Conversations, most = conversations.list.length) => {
     const total = conversations.list.length;
-    // Without conversations it stays in place, disabled, so the bar keeps its shape; it stays focusable to explain why.
     toggle.setAttribute("aria-disabled", String(total === 0));
-    // The tooltip names the button, or says why it's disabled.
     toggle.dataset.tip = total === 0 ? i18n.t("panelNoComments") : i18n.t("panelComments");
     if (!total) setOpen(false);
     count.textContent = format(total);
     count.style.minWidth = `calc(${format(Math.max(most, total)).length}ch + 12px)`;
-    // The name stays put while it has focus; where a jump lands is said by the status message instead.
     const where = total ? i18n.t("panelCommentCount", total, [format(total)]) : i18n.t("panelNoComments");
     toggle.setAttribute("aria-label", `${i18n.t("panelComments")}, ${where}`);
     source = conversations;

@@ -16,8 +16,6 @@ import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Draft, PullRef, ReviewFile, Thread, ThreadComment } from "@/utils/review/review";
 import { SuggestionError } from "@/utils/suggestion/suggestion";
 
-// GitHub's side of comments, the conversation and commits are utils of their own (comments.ts,
-// conversation.ts, commit.ts, review.ts): here, what they answer.
 const gh = vi.hoisted(() => ({
   load: vi.fn<(ref: unknown) => Promise<unknown>>(),
   edit: vi.fn<(kind: string, id: string, body: string) => Promise<string>>(),
@@ -166,7 +164,6 @@ function pending(): Pending {
 
 type Setup = { details?: Details | null; files?: ReviewFile[] | null; kept?: () => unknown };
 
-/** The hook in a review window: its threads in a list of its own, what it says, Rust's kept copy. */
 function setup({ details = DETAILS, files = FILES, kept = () => null }: Setup = {}) {
   const state = { threads: THREADS };
   const say = vi.fn<(message: string) => void>();
@@ -267,7 +264,6 @@ describe("useConversation", () => {
     expect(api.url).toBe("https://github.com/acme/api/pull/42");
     expect(api.me).toBe("me");
     expect(api.branch).toBe("rename");
-    // Before the conversation loads: the details' latest comments.
     expect(api.people.map((p) => p.login)).toEqual(["mona", "hubot", "octocat", "grace", "ada"]);
     expect(api.people[0]).toEqual({ login: "mona", name: "Mona Lisa", avatarUrl: undefined });
     await waitFor(() => {
@@ -275,7 +271,6 @@ describe("useConversation", () => {
     });
     api = result.current.api;
     expect(api.people.map((p) => p.login)).toEqual(["mona", "hubot", "linus", "grace", "ada"]);
-    // A pending conversation is one of your pending comments, not a conversation.
     expect(api.thread("T1")?.comments).toHaveLength(2);
     expect(api.thread("T3")).toBeUndefined();
     expect(api.patchOf("src/app.ts")).toBe("@@ -1 +1 @@");
@@ -499,7 +494,6 @@ describe("useConversation", () => {
       ["T2", true],
       ["T3", false],
     ]);
-    // T2 was resolved already.
     expect(gh.resolve.mock.calls.map(([t, resolved]) => [t.id, resolved])).toEqual([["T1", true]]);
     expect(say).toHaveBeenCalledWith("2 suggestions committed");
     expect(reloadAll).toHaveBeenCalledOnce();

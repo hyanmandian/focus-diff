@@ -1,7 +1,3 @@
-// Viewed marks on their way to GitHub. What's marked in the app is what counts: each mark is kept
-// on disk and sent until GitHub takes it, through failures, sleep and restarts, the latest mark
-// per file winning. Sent as soon as it's made; after a failure, again in 1s, 2s, 4s… up to 30s.
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,34 +10,27 @@ use tauri::{AppHandle, Manager};
 use crate::github;
 use crate::sync::Locked;
 
-/// One file to mark viewed, or not, on a pull request (its node id).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Mark {
     pub pull: String,
     pub path: String,
     pub viewed: bool,
-    /// Times GitHub answered but didn't take it, to give up on one it never will.
     #[serde(default)]
     refused: u32,
 }
 
-/// A mark GitHub keeps refusing (the file left the pull request, the pull request is gone) is
-/// dropped after this many tries.
 const MOST_REFUSALS: u32 = 8;
 const LONGEST_WAIT: Duration = Duration::from_secs(30);
 
 enum Sent {
     Done,
-    /// GitHub couldn't be reached or is busy: try again later.
     Later,
-    /// GitHub answered no.
     Refused,
 }
 
 #[derive(Default)]
 struct Queue {
     marks: Vec<Mark>,
-    /// Something new to send: skip the wait.
     woken: bool,
 }
 
@@ -51,7 +40,6 @@ pub struct Outbox {
 }
 
 impl Outbox {
-    /// Reads what was left from last time and starts sending it.
     pub fn start(app: &AppHandle) -> Outbox {
         let file = app.path().app_config_dir().ok().map(|d| d.join("outbox.json"));
         let marks: Vec<Mark> = file.as_ref().and_then(|f| fs::read_to_string(f).ok()).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
@@ -62,7 +50,6 @@ impl Outbox {
         outbox
     }
 
-    /// Queues a mark, replacing any earlier one for the same file, and sends it now.
     pub fn add(&self, pull: String, path: String, viewed: bool) {
         let (lock, wake) = &*self.queue;
         let mut queue = lock.held();
@@ -73,8 +60,6 @@ impl Outbox {
         wake.notify_one();
     }
 
-    /// The marks still on their way for a pull request, by path: what GitHub says of these files
-    /// is older than what's been marked here.
     pub fn pending(&self, pull: &str) -> HashMap<String, bool> {
         let queue = self.queue.0.held();
         queue.marks.iter().filter(|m| m.pull == pull).map(|m| (m.path.clone(), m.viewed)).collect()
@@ -95,7 +80,6 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
         };
         let sent = send(&app.state::<github::Auth>(), &next);
         let mut q = lock.held();
-        // Only if it's still the latest mark for that file: a newer one made meanwhile stays.
         let still = q.marks.iter().position(|m| m.pull == next.pull && m.path == next.path && m.viewed == next.viewed);
         match sent {
             Sent::Done => {
@@ -105,12 +89,10 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
                 }
             }
             Sent::Refused => {
-                // Waits like a failure, so it isn't asked again at once.
                 failures += 1;
                 if let Some(i) = still {
                     q.marks[i].refused += 1;
                     let mark = q.marks.remove(i);
-                    // To the back, so one GitHub won't take doesn't hold up the rest.
                     if mark.refused < MOST_REFUSALS {
                         q.marks.push(mark);
                     }
@@ -133,14 +115,11 @@ fn send(auth: &github::Auth, mark: &Mark) -> Sent {
         "variables": { "id": mark.pull, "path": mark.path },
     })
     .to_string();
-    // As a page's write, so what the pages read next isn't from before it.
     match auth.request_for_page("POST", "/graphql", Some(&body), None) {
         Ok((200, text)) => {
             let reply: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
-            // A refusal still comes back as 200, with the field empty.
             if reply["data"][field].is_object() { Sent::Done } else { Sent::Refused }
         }
-        // Offline, signed out for now, rate limited or GitHub having trouble.
         Err(_) => Sent::Later,
         Ok((status, _)) if status == 401 || status == 403 || status == 429 || status >= 500 => Sent::Later,
         Ok(_) => Sent::Refused,

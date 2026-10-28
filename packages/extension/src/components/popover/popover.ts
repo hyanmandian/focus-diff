@@ -1,8 +1,5 @@
 const EDGE = 18;
 
-/**
- * Points a shown popover's arrow at the centre of the button that opened it, kept clear of the rounded corners.
- */
 const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
   const box = popover.getBoundingClientRect();
   const target = trigger.getBoundingClientRect();
@@ -12,10 +9,6 @@ const pointAt = (popover: HTMLElement, trigger: HTMLElement): void => {
 
 const SCREEN_MARGIN = 16;
 
-/**
- * Centres an absolutely positioned popover over the button that opened it, kept within `offsetParent` (the element it's
- * positioned against) and on screen, then points its arrow at the button.
- */
 export const centreOver = (popover: HTMLElement, trigger: HTMLElement, offsetParent: HTMLElement): void => {
   if (popover.hidden || !trigger.offsetWidth) return;
   const parent = offsetParent.getBoundingClientRect();
@@ -23,19 +16,15 @@ export const centreOver = (popover: HTMLElement, trigger: HTMLElement, offsetPar
   const width = popover.getBoundingClientRect().width;
   const ideal = target.left + target.width / 2 - width / 2;
   const start = Math.max(parent.left, SCREEN_MARGIN);
-  // The page's width without its scrollbar, which the panel's fixed position also leaves out.
   const screen = document.documentElement.clientWidth;
   const end = Math.min(parent.right, screen - SCREEN_MARGIN);
-  // A popover wider than the panel is only kept on screen.
   const [min, max] = end - start >= width ? [start, end - width] : [SCREEN_MARGIN, screen - SCREEN_MARGIN - width];
   const left = Math.min(Math.max(ideal, min), max);
-  // Unrounded, so a popover held against the panel's edge lines up with it exactly.
   popover.style.left = `${left - parent.left}px`;
   popover.style.right = "auto";
   pointAt(popover, trigger);
 };
 
-/** Focus inside a closing popover goes back to its toggle, or to `fallback` when the toggle is gone too. */
 export const returnFocus = (
   popover: HTMLElement,
   toggle: HTMLElement,

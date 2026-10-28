@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-/** The module as a web view with this user agent loads it. */
 function load(agent: string) {
   vi.resetModules();
   vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agent);

@@ -27,7 +27,6 @@ const options: Option[] = [
   { id: "py", name: "Python", matches: (path) => path.endsWith(".py") },
 ];
 
-/** A minute a file, whatever is in it. */
 const minutes = () => 1;
 
 describe("toggled", () => {

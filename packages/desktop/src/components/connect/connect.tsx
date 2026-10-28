@@ -1,6 +1,3 @@
-// Connecting GitHub: signing in with GitHub (device flow) when this build has it, the GitHub CLI's
-// login when gh is installed, or a pasted token. Used by the panel on first run and by settings.
-
 import { Check, Copy, ExternalLink, KeyRound, Loader2, Terminal } from "lucide-react";
 import { useState } from "react";
 
@@ -42,9 +39,7 @@ export function Connect({ auth, onConnected }: Props) {
       try {
         await navigator.clipboard.writeText(started.user_code);
         setCopied(true);
-      } catch {
-        // Typed from the screen instead.
-      }
+      } catch {}
       await bridge.openUrl(started.verification_uri);
       await bridge.authDeviceFinish(started);
     });
@@ -57,7 +52,6 @@ export function Connect({ auth, onConnected }: Props) {
     return (
       <div
         className="flex flex-col items-center gap-4 text-center"
-        // A live region around paragraphs and buttons, which an <output> can't hold.
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
         role="status"
         aria-live="polite"

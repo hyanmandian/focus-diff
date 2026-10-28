@@ -1,9 +1,3 @@
-/*
- * Every colour and font the bar reads, the --fd-* properties, and their defaults: Primer's light and dark values,
- * picked by the colour scheme the bar inherits from its page. Components read only these. A provider's theme fills in
- * --fd-provider-* from its site's own design tokens, which win over the defaults wherever the site has them; a theme of
- * the reader's own sets --fd-* itself, after this.
- */
 :host {
   --fd-bg: var(--fd-provider-bg, light-dark(#ffffff, #151b23));
   --fd-fg: var(--fd-provider-fg, light-dark(#1f2328, #f0f6fc));

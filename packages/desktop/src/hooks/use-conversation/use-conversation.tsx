@@ -1,8 +1,3 @@
-// What the review window's comments can do, wherever they're drawn (the Overview, or between a
-// diff's lines, which @pierre/diffs draws apart from the rest): edit and delete your own, react,
-// copy a link, apply suggestions (one, or a batch in one commit), reply into your pending review.
-// One context rather than props through the diff, which redraws its items only when they change.
-
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { published, type Pending } from "@/hooks/use-pending/use-pending";
@@ -38,31 +33,21 @@ import { SuggestionError } from "@/utils/suggestion/suggestion";
 import type { Person } from "@/utils/writing/writing";
 
 export type ConversationApi = {
-  /** "owner/name", for previews and completions. */
   repo: string;
-  /** The pull request on github.com. */
   url: string;
   me: string | null;
-  /** The pull request's people, first among those offered for an @mention. */
   people: Person[];
-  /** Whether you can commit suggestions to the pull request's branch, and its name. */
   canApplySuggestion: boolean;
   branch: string;
-  /** A conversation as it is now (edited, reacted to) though the diff drew it before. */
   thread: (id: string) => Thread | undefined;
-  /** A file's patch, for the lines a suggestion starts from. */
   patchOf: (path: string) => string | undefined;
-  /** A pending comment as it is now (GitHub's HTML for it arrives after the diff drew it). */
   draft: (key: string) => Draft | undefined;
-  /** Why GitHub refused a pending comment, if it did; whether it's still on its way. */
   draftError: (key: string) => string | undefined;
   draftSending: (key: string) => boolean;
   retryDrafts: () => void;
-  /** A reply that goes with your review rather than now. */
   replyLater: (thread: Thread, body: string) => void;
   editComment: (comment: ThreadComment, body: string) => Promise<void>;
   deleteComment: (comment: ThreadComment) => Promise<void>;
-  /** A conversation entry (a comment on the pull request, or a review's own text). */
   editEntry: (kind: "comment" | "review", id: string, body: string) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   editDescription: (body: string) => Promise<void>;
@@ -76,10 +61,8 @@ export type ConversationApi = {
 
 const Context = createContext<ConversationApi | null>(null);
 export const ConversationProvider = Context.Provider;
-/** Null outside a review window (and in tests): comments then only show. */
 export const useConversationApi = () => useContext(Context);
 
-/** Copies text, the page's way when it may, a hidden field's otherwise (an older web view). */
 export async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -90,7 +73,6 @@ export async function copyText(text: string) {
     field.style.opacity = "0";
     document.body.append(field);
     field.select();
-    // Deprecated, and the only way left when the clipboard API isn't there.
     // oxlint-disable-next-line typescript/no-deprecated
     document.execCommand("copy");
     field.remove();
@@ -111,9 +93,7 @@ type Options = {
   files: ReviewFile[] | null;
   me: string | null;
   pending: Pending;
-  /** Says something in the toolbar for a moment. */
   say: (message: string) => void;
-  /** After a commit: everything again, the files included. */
   reloadAll: () => void;
 };
 
@@ -137,13 +117,10 @@ export function useConversation({
       const fresh = await loadConversation(ref);
       setConversation(fresh);
       keepConversation(prId, fresh);
-    } catch {
-      // The details' latest comments stand in.
-    }
+    } catch {}
   }, [prId, ref]);
 
   useEffect(() => {
-    // What was kept shows until GitHub answers, unless GitHub answers first.
     let fresh = false;
     const fromDisk = async () => {
       const kept = await readKeptConversation(prId);
@@ -157,7 +134,6 @@ export function useConversation({
     void fromGitHub();
   }, [prId, reload]);
 
-  // Without your pending replies: those show as your pending comments.
   const byId = useMemo(() => new Map(published(threads).map((t) => [t.id, t])), [threads]);
   const patches = useMemo(() => new Map((files ?? []).map((f) => [f.path, f.patch])), [files]);
   const people = useMemo(() => {
@@ -251,7 +227,6 @@ export function useConversation({
         say(errorText(e));
         throw e;
       }
-      // Kept, so the next drawing shows it too.
       patchComment(subject, { reactions: after });
       setConversation((c) => {
         if (!c) return c;
@@ -292,7 +267,6 @@ export function useConversation({
         });
       } catch (e) {
         if (e instanceof StaleHead) {
-          // What's shown is behind the branch: it's brought up to date to try again on.
           reloadAll();
           throw new Error(t("review.branchMoved"), { cause: e });
         }
@@ -303,7 +277,6 @@ export function useConversation({
         throw new Error(errorText(e), { cause: e });
       }
       setBatch((list) => list.filter((i) => !items.some((x) => x.comment === i.comment)));
-      // Applied, so done with, as on GitHub: resolved here at once, there after.
       const applied = new Set(items.map((i) => i.thread));
       setThreads((list) => list.map((thread) => (applied.has(thread.id) ? { ...thread, resolved: true } : thread)));
       await Promise.all(

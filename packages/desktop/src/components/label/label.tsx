@@ -4,7 +4,6 @@ import { cn } from "@/utils/cn/cn";
 
 function Label({ className, ...props }: ComponentProps<"label">) {
   return (
-    // The control comes from whoever uses it: htmlFor, or one nested inside.
     // oxlint-disable-next-line jsx-a11y/label-has-associated-control
     <label
       data-slot="label"

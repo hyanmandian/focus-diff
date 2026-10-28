@@ -1,21 +1,10 @@
-/* The screens' own styles, on the tokens, utilities and base styles beside them (index.css imports them all). */
-
-/* The panel's surfaces, as a menu bar extra's window: one light tint over the system material (so it
-   shows, as in a popover), no card inside it; inset hairline separators split chrome from the list,
-   and the edge is only the inner highlight macOS menus have (inset, so nothing leaves the window,
-   whose shadow macOS draws). Text contrast is AA against a mid-gray material. Under Reduce
-   Transparency or Increase Contrast everything goes opaque, and Increase Contrast firms the edges. */
 html.panel {
   --panel-tint: color-mix(in oklch, var(--background) 50%, transparent);
   --panel-edge: oklch(0 0 0 / 0.09);
   --panel-separator: oklch(0 0 0 / 0.09);
-  --panel-fill: oklch(0 0 0 / 0.055); /* recessed track, chip knob, skeleton */
-  --panel-link: color-mix(
-    in oklch,
-    var(--primary) 80%,
-    black
-  ); /* the accent, deepened to stay AA on the tinted material */
-  --panel-raised: var(--background); /* the panes the queues and the list sit on, as the extension's */
+  --panel-fill: oklch(0 0 0 / 0.055);
+  --panel-link: color-mix(in oklch, var(--primary) 80%, black);
+  --panel-raised: var(--background);
 }
 html.panel.dark {
   --panel-tint: color-mix(in oklch, var(--background) 40%, transparent);
@@ -46,9 +35,6 @@ body,
   height: 100%;
 }
 
-/* Arrival: something new on a pull request, shown when the panel opens: the row's tint fades in
-   once and stays until it's clicked, beside its unread dot. Brief, as the HIG asks of motion seen
-   often; under Reduce Motion the tint is simply there. */
 @keyframes arrive-settle {
   from {
     background-color: color-mix(in oklch, var(--unread) 22%, transparent);
@@ -66,9 +52,6 @@ body,
   }
 }
 
-/* Diffs (@pierre/diffs, in shadow roots, themed through its variables): the system's monospace
-   without ligatures (so != reads as != and -> as ->), at the size Xcode and Terminal use it, and no
-   hatching on the empty side of a change. */
 :root {
   --diffs-font-family: var(--font-mono);
   --diffs-header-font-family: var(--font-sans);
@@ -78,7 +61,6 @@ body,
   --diffs-bg-buffer-override: transparent;
 }
 
-/* Mermaid diagrams in descriptions and comments (utils/diagrams/diagrams.ts). */
 figure.diagram {
   margin: 0.5rem 0;
 }
@@ -102,7 +84,6 @@ figure.diagram > details > summary {
   color: var(--muted-foreground);
 }
 
-/* A button GitHub drew as a picture in a link (utils/sanitize/sanitize.ts), as a push button. */
 div a[data-button] {
   display: inline-flex;
   align-items: center;
@@ -127,9 +108,6 @@ div a[data-button]:active {
   background: var(--fill-control-pressed);
 }
 
-/* Neighbours that are both on read as one shape, as in Focus Diff's extension: the corners between
-   them go square, the gap between them fills in, and a hairline divides them. Side by side (the
-   filter bar's chips, 4px apart) and one above the other (the panel's picked rows, touching). */
 [data-join="row"] > [aria-pressed="true"]:has(+ [aria-pressed="true"]) {
   border-start-end-radius: 0;
   border-end-end-radius: 0;
@@ -160,8 +138,6 @@ div a[data-button]:active {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
-/* Going through a queue in a review window (the desktop's entries/review.tsx): the page slides the way it went,
-   on to the next from the right, back from the left; the toolbar only cross-fades its title. */
 ::view-transition-group(page),
 ::view-transition-old(page),
 ::view-transition-new(page) {

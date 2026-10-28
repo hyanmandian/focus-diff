@@ -116,7 +116,6 @@ describe("createBreakdown", () => {
     popover.querySelector<HTMLElement>(".info")!.focus();
     render(() => ROWS, ["frontend"]);
     expect(document.activeElement).toBe(popover.querySelector(".info"));
-    // The same rows aren't drawn again.
     const before = rowOf("frontend");
     render(() => structuredClone(ROWS), ["frontend"]);
     expect(rowOf("frontend")).toBe(before);

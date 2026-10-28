@@ -8,9 +8,6 @@ import { review } from "@/locales/pt-BR/review";
 import { settings } from "@/locales/pt-BR/settings";
 import { setup } from "@/locales/pt-BR/setup";
 import { shared } from "@/locales/pt-BR/shared";
-// Brazilian Portuguese: the same keys as English (en/), checked by the compiler through
-// `Dictionary` and by i18n.test.ts for the placeholders. Its words follow the Focus Diff
-// extension's pt_BR and Apple's pt-BR conventions (sentence case, "Ajustes").
 import type { Dictionary } from "@/utils/i18n/i18n";
 
 export const ptBR: Dictionary = { common, config, diff, events, manage, panel, review, settings, setup, shared };

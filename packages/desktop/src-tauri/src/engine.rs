@@ -1,11 +1,3 @@
-//! Turns the person's queues into GitHub searches, and the pull requests found into items with
-//! events: what's new on each one since they last looked.
-//!
-//! Fetching is in two steps, to keep GitHub fast and cheap: every refresh runs a light search per
-//! queue (ids, last update, head commit, CI), and only the pull requests that changed since last
-//! time are fetched in full. The full ones are kept in a `Cache`, saved between launches, so the
-//! panel has something to show the moment it opens.
-
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
@@ -17,10 +9,6 @@ use serde_json::{Value, json};
 use crate::config::{Drafts, Kind, Queue, SkipIfI};
 use crate::i18n::tr;
 
-// MARK: GitHub data
-
-/// A GraphQL connection's nodes. GitHub can return nulls in them (things the token can't read)
-/// and, in a mixed search, empty objects: those are dropped rather than failing the whole page.
 #[derive(Clone, Debug, Serialize)]
 pub struct Nodes<T> {
     pub nodes: Vec<T>,
@@ -74,7 +62,6 @@ pub struct Review {
     pub state: String,
     pub submitted_at: Option<String>,
     pub url: String,
-    /// What the review said, if anything (not sent to the panel).
     #[serde(skip_serializing)]
     pub body: Option<String>,
 }
@@ -128,7 +115,6 @@ pub struct Removed {
     pub actor: Option<Login>,
 }
 
-/// A draft marked ready for review, and when.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Ready {
@@ -159,7 +145,6 @@ pub struct Repository {
     pub name_with_owner: String,
 }
 
-/// A user or a team asked to review (or something else GitHub may add, kept as its type name).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Reviewer {
@@ -181,7 +166,6 @@ pub struct Reviewer {
 #[serde(rename_all = "camelCase", default)]
 pub struct ReviewRequest {
     pub requested_reviewer: Option<Reviewer>,
-    /// On review request events: when it was asked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
 }
@@ -199,10 +183,8 @@ pub struct PullRequest {
     pub updated_at: String,
     pub merged_at: Option<String>,
     pub head_ref_oid: String,
-    /// The branches, to tell a stack: one pull request based on another's branch.
     pub head_ref_name: String,
     pub base_ref_name: String,
-    /// From a fork, whose branch names say nothing about this repository's.
     pub is_cross_repository: bool,
     pub mergeable: String,
     pub additions: i64,
@@ -226,13 +208,10 @@ pub struct PullRequest {
     pub thread_count: Count,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Nodes<Path>>,
-    /// Review and merged queues: everyone ever asked to review and when, and whether you're in the
-    /// teams asked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested: Option<Nodes<ReviewRequest>>,
 }
 
-/// What the panel shows of a pull request: the rest only feeds the rules here.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PanelPr<'a> {
@@ -258,7 +237,6 @@ struct PanelPr<'a> {
     labels: &'a Nodes<Name>,
     review_requests: &'a Nodes<ReviewRequest>,
     latest_opinionated_reviews: &'a Nodes<Review>,
-    /// Comments and review conversations.
     comments: u32,
 }
 
@@ -294,10 +272,6 @@ fn fragment(files: bool, requests: bool) -> String {
     f
 }
 
-/// What the light search reads: enough to tell whether a pull request changed. GitHub bumps
-/// `updatedAt` for pushes, comments, reviews, requests and labels, but not for CI or
-/// mergeability; those cost GitHub seconds to work out for a whole search, so they're only asked
-/// where they make events (your own pull requests). Elsewhere the periodic full fetch catches up.
 const LIGHT: &str = "id updatedAt";
 const LIGHT_WITH_CHECKS: &str = "id updatedAt headRefOid mergeable commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }";
 
@@ -312,14 +286,11 @@ struct Light {
 }
 
 impl Light {
-    /// Changes whenever anything this app shows changes (see LIGHT).
     fn fingerprint(&self) -> String {
         let ci = self.commits.nodes.first().and_then(|c| c.commit.status_check_rollup.as_ref()).map(|s| s.state.as_str()).unwrap_or("");
         format!("{}|{}|{}|{}", self.updated_at, self.head_ref_oid, self.mergeable, ci)
     }
 }
-
-// MARK: Dates
 
 fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let y = if m <= 2 { y - 1 } else { y };
@@ -341,7 +312,6 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
     (if m <= 2 { yoe + era * 400 + 1 } else { yoe + era * 400 }, m, d)
 }
 
-/// Milliseconds since the epoch of one of GitHub's timestamps ("2026-01-01T12:00:00Z"); 0 if none.
 pub fn time(iso: Option<&str>) -> i64 {
     let Some(s) = iso else { return 0 };
     let n = |a: usize, b: usize| s.get(a..b).and_then(|p| p.parse::<i64>().ok());
@@ -351,15 +321,10 @@ pub fn time(iso: Option<&str>) -> i64 {
     }
 }
 
-// MARK: Searches
-
 fn quote(s: &str) -> String {
     if s.chars().any(|c| c.is_whitespace() || c == '"') { format!("\"{}\"", s.replace('"', "")) } else { s.to_string() }
 }
 
-/// The GitHub search for a queue. What search can't express (paths, teams…) is filtered after.
-/// `orgs`: the person's organizations, where a merged queue with no repositories looks (merged
-/// pull requests anywhere on GitHub would be millions).
 pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String {
     let mut parts: Vec<String> = vec!["is:pr".into(), "archived:false".into()];
     match queue.kind {
@@ -374,21 +339,18 @@ pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String 
             }
         }
         Kind::Custom => {
-            // Open ones, unless the person's terms say which.
             static STATE: OnceLock<Regex> = OnceLock::new();
             if !STATE.get_or_init(|| Regex::new(r"(?i)\b(is:(open|closed|merged|unmerged)|state:)").unwrap()).is_match(&queue.query) {
                 parts.push("is:open".into());
             }
         }
     }
-    // The person's own search terms, on any queue, minus anything that would leave pull requests.
     static ISSUE: OnceLock<Regex> = OnceLock::new();
     let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").unwrap()).replace_all(&queue.query, "");
     let query = query.trim();
     if !query.is_empty() {
         parts.push(query.to_string());
     }
-    // Several repo:/user: qualifiers are ORed by GitHub.
     for repo in &queue.repos {
         parts.push(match repo.strip_suffix("/*") {
             Some(owner) => format!("user:{owner}"),
@@ -412,8 +374,6 @@ pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String 
     parts.join(" ")
 }
 
-// MARK: Fetching
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Failure {
     pub status: u16,
@@ -421,35 +381,27 @@ pub struct Failure {
 }
 
 impl Failure {
-    /// GitHub asking to slow down (its secondary rate limits, or the hourly one run out).
     pub fn rate_limited(&self) -> bool {
         let m = self.message.to_lowercase();
         self.status == 429 || m.contains("rate limit")
     }
 
-    /// GitHub refuses queries that would cost it too much: a smaller one may still go through.
     fn too_big(&self) -> bool {
         let m = self.message.to_lowercase();
         m.contains("resource limits") || m.contains("timeout") || m.contains("timed out")
     }
 }
 
-/// Runs a GraphQL query and returns its `data`. Partial data (some nulls, with errors) comes back
-/// as is; no data at all is a `Failure`.
 pub trait Gql: Sync {
     fn query(&self, query: &str, variables: Value) -> Result<Value, Failure>;
 }
 
-/// Light searches are cheap: whole queues, a hundred at a time, up to a few hundred.
 const PAGE: usize = 100;
 const OPEN_PAGES: usize = 3;
 const MERGED_PAGES: usize = 2;
-/// Full pull requests per request, and requests at once.
 const BATCH: usize = 10;
-/// GitHub's secondary rate limits are about bursts: full pull requests are costly to it.
 const PARALLEL: usize = 3;
 
-/// One page of a light search: (pull requests, next page's cursor).
 fn search_page(gql: &dyn Gql, q: &str, checks: bool, size: usize, after: Option<&str>) -> Result<(Vec<Light>, Option<String>), Failure> {
     let query = format!(
         "query($q: String!, $size: Int!, $after: String) {{ search(type: ISSUE, query: $q, first: $size, after: $after) {{ pageInfo {{ hasNextPage endCursor }} nodes {{ ... on PullRequest {{ {} }} }} }} }}",
@@ -490,8 +442,6 @@ fn search(gql: &dyn Gql, queue: &Queue, me: &str, now: i64, orgs: &[String]) -> 
     Ok(found)
 }
 
-/// Pull requests in full, by id. A batch GitHub finds too costly is split; one it can't read at
-/// all (deleted, or no longer visible to the token) is left out.
 fn details(gql: &dyn Gql, ids: &[String], me: &str, files: bool, requests: bool) -> Result<Vec<PullRequest>, Failure> {
     if ids.is_empty() {
         return Ok(vec![]);
@@ -506,7 +456,6 @@ fn details(gql: &dyn Gql, ids: &[String], me: &str, files: bool, requests: bool)
     match gql.query(&query, json!({ "login": me, "ids": ids })) {
         Ok(data) => {
             let nodes = data["nodes"].as_array().cloned().unwrap_or_default();
-            // Nulls come with GitHub's resource limits too: smaller batches may get through.
             if ids.len() > 1 && nodes.iter().any(Value::is_null) {
                 return split(gql);
             }
@@ -529,24 +478,18 @@ pub struct Cached {
 pub struct List {
     pub search: String,
     pub ids: Vec<String>,
-    /// When it was searched (ms): merged queues are searched less often.
     pub at: i64,
 }
 
-/// What GitHub said last time: each queue's search and the pull requests in full. Saved between
-/// launches (cache.json), for the signed-in login only.
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Cache {
-    /// What's cached changes shape with the app: an older cache starts over.
     #[serde(default)]
     pub version: u32,
     pub me: String,
     pub lists: HashMap<String, List>,
     pub prs: HashMap<String, Cached>,
-    /// When every pull request was last fetched in full (ms).
     #[serde(default)]
     pub full_at: i64,
-    /// The person's organizations, for merged queues with no repositories, and when they were read.
     #[serde(default)]
     pub orgs: Vec<String>,
     #[serde(default)]
@@ -555,7 +498,6 @@ pub struct Cache {
 
 const ORGS_EVERY: i64 = 24 * 3600 * 1000;
 
-/// The organizations the person belongs to (needs the read:org scope; none without it).
 fn organizations(gql: &dyn Gql) -> Result<Vec<String>, Failure> {
     let data = gql.query("query { viewer { organizations(first: 100) { nodes { login } } } }", json!({}))?;
     Ok(data["viewer"]["organizations"]["nodes"].as_array().map(|n| n.iter().filter_map(|o| o["login"].as_str().map(String::from)).collect()).unwrap_or_default())
@@ -564,22 +506,18 @@ fn organizations(gql: &dyn Gql) -> Result<Vec<String>, Failure> {
 pub const MERGED_EVERY: i64 = 5 * 60_000;
 pub const CACHE_VERSION: u32 = 3;
 
-/// Brings the cache up to date with GitHub. `force` searches merged queues again too; `full`
-/// fetches every pull request in full, changed or not (a periodic safety net for what GitHub
-/// doesn't count as an update, like team membership). Returns how many were fetched in full.
 pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force: bool, full: bool, now: i64) -> Result<usize, Failure> {
     if cache.me != me || cache.version != CACHE_VERSION {
         *cache = Cache { version: CACHE_VERSION, me: me.to_string(), ..Cache::default() };
     }
-    if queues.iter().any(|q| q.kind == Kind::Merged && q.repos.is_empty()) && now - cache.orgs_at > ORGS_EVERY {
-        // Kept as they were if GitHub can't say now.
-        if let Ok(orgs) = organizations(gql) {
-            cache.orgs = orgs;
-            cache.orgs_at = now;
-        }
+    if queues.iter().any(|q| q.kind == Kind::Merged && q.repos.is_empty())
+        && now - cache.orgs_at > ORGS_EVERY
+        && let Ok(orgs) = organizations(gql)
+    {
+        cache.orgs = orgs;
+        cache.orgs_at = now;
     }
     let orgs = cache.orgs.clone();
-    // 1. The light searches, all at once.
     let due: Vec<&Queue> = queues
         .iter()
         .copied()
@@ -600,7 +538,6 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     for (queue, result) in due.iter().zip(results) {
         let found = result?;
         for light in &found {
-            // In several queues, the fuller fingerprint wins, so it doesn't flip between the two.
             let fingerprint = light.fingerprint();
             if fresh.get(&light.id).is_none_or(|f| f.len() < fingerprint.len()) {
                 fresh.insert(light.id.clone(), fingerprint);
@@ -611,10 +548,7 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
     let wanted: HashSet<&str> = queues.iter().map(|q| q.id.as_str()).collect();
     cache.lists.retain(|id, _| wanted.contains(id.as_str()));
 
-    // 2. What each pull request needs: files for path filters (and merged queues, to show them),
-    //    review requests for merged queues that ask.
     let mut needs: HashMap<String, (bool, bool)> = HashMap::new();
-    // The full pass is for open pull requests: merged ones don't change in ways the rules read.
     let mut open: HashSet<&str> = HashSet::new();
     for queue in queues.iter().filter(|q| q.kind != Kind::Merged) {
         open.extend(cache.lists.get(&queue.id).map(|l| l.ids.iter().map(String::as_str).collect::<Vec<_>>()).unwrap_or_default());
@@ -629,7 +563,6 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
         }
     }
 
-    // 3. Fetch in full what changed, or isn't known well enough.
     let mut stale: HashMap<(bool, bool), Vec<String>> = HashMap::new();
     for (id, &(files, requests)) in &needs {
         let changed = match cache.prs.get(id) {
@@ -658,12 +591,9 @@ pub fn sync(gql: &dyn Gql, queues: &[&Queue], me: &str, cache: &mut Cache, force
         }
     }
 
-    // 4. Forget what no queue has any more.
     cache.prs.retain(|id, _| needs.contains_key(id));
     Ok(fetched)
 }
-
-// MARK: Reading a pull request
 
 pub const NEW: &str = "new";
 
@@ -673,7 +603,6 @@ pub struct Event {
     pub kind: &'static str,
     pub at: i64,
     pub who: Option<Actor>,
-    /// The start of what a comment or review said, for its notification.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 }
@@ -683,15 +612,10 @@ pub struct Item {
     pub queue_id: String,
     pub pr: Arc<PullRequest>,
     pub events: Vec<Event>,
-    /// How you left it (involved queues).
     pub status: Option<&'static str>,
-    /// Review queues: requested through these teams rather than you.
     pub via_teams: Option<Vec<String>>,
     pub ci: Option<String>,
-    /// CI went green again on the same commit since last time: worth a notification only.
     pub passed: bool,
-    /// Review queues: since when it's been waiting on you (ms), from the last time you (or your
-    /// team) were asked.
     pub waiting_since: Option<i64>,
 }
 
@@ -752,7 +676,6 @@ impl Serialize for Item {
     }
 }
 
-/// Each pull request's CI state last time, to tell when it passes again.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CiMemo {
     pub oid: String,
@@ -771,7 +694,6 @@ pub fn ci_state(pr: &PullRequest) -> Option<String> {
     pr.commits.nodes.first().and_then(|c| c.commit.status_check_rollup.as_ref()).map(|s| s.state.clone())
 }
 
-/// "@login" in a text, as a whole word, ignoring case.
 fn mentions(body: &str, me: &str) -> bool {
     if me.is_empty() {
         return false;
@@ -784,7 +706,6 @@ fn mentions(body: &str, me: &str) -> bool {
 struct Activity<'a> {
     any: bool,
     last: i64,
-    /// The last review that took a side; replying in a thread also makes a (commented) review.
     opinion: Option<&'a MyReview>,
     last_review: Option<&'a MyReview>,
 }
@@ -809,7 +730,6 @@ fn activity<'a>(pr: &'a PullRequest, me: &str) -> Activity<'a> {
     }
 }
 
-/// Who's asked to review: you directly, and the teams ("org/slug").
 fn requests(pr: &PullRequest, me: &str) -> (bool, Vec<String>) {
     let mut direct = false;
     let mut teams = Vec::new();
@@ -823,8 +743,6 @@ fn requests(pr: &PullRequest, me: &str) -> (bool, Vec<String>) {
     (direct, teams)
 }
 
-/// Whether your review was ever asked on it: you, or (unless only direct asks count) a team of
-/// yours, or one of the queue's teams.
 fn was_asked(pr: &PullRequest, me: &str, queue: &Queue) -> bool {
     pr.requested.as_ref().is_some_and(|r| {
         r.nodes.iter().filter_map(|n| n.requested_reviewer.as_ref()).any(|r| {
@@ -844,7 +762,6 @@ fn was_asked(pr: &PullRequest, me: &str, queue: &Queue) -> bool {
     })
 }
 
-/// When you were last asked to review: directly, or through one of these teams ("org/slug").
 fn asked_at(pr: &PullRequest, me: &str, teams: &[String]) -> Option<i64> {
     pr.requested.as_ref()?.nodes.iter().filter_map(|n| {
         let r = n.requested_reviewer.as_ref()?;
@@ -861,17 +778,12 @@ fn event(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&A
     Event { key: format!("{}:{kind}:{id}", pr.id), kind, at, who: who.cloned(), text: None }
 }
 
-/// The same, quoting what a comment or review said.
 fn said(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&Actor>, body: Option<&str>) -> Event {
     Event { text: snippet(body.unwrap_or("")), ..event(pr, kind, id, at, who) }
 }
 
-/// Characters of a comment a notification quotes.
 const SNIPPET: usize = 140;
 
-/// The start of a comment as plain words, for a notification: quotes of earlier comments, code
-/// blocks, hidden HTML comments and pictures say less than the words around them, so they go;
-/// links keep their text; runs of whitespace become one space. None when nothing's left.
 pub fn snippet(body: &str) -> Option<String> {
     static PATTERNS: OnceLock<[(Regex, &str); 7]> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
@@ -900,13 +812,10 @@ pub fn snippet(body: &str) -> Option<String> {
     Some(format!("{}…", cut.trim_end()))
 }
 
-/// When the pull request was last marked ready for review, if it ever was a draft.
 fn ready_at(pr: &PullRequest) -> Option<i64> {
     pr.ready.nodes.last().map(|r| time(r.created_at.as_deref())).filter(|t| *t > 0)
 }
 
-/// A queue's path filters, compiled. A pattern this side can't use (JavaScript-only syntax) is an
-/// error for the queue rather than a filter silently ignored.
 fn path_filters(queue: &Queue) -> Result<(Option<Regex>, Option<Regex>), String> {
     let compile = |p: &str| -> Result<Option<Regex>, String> {
         if p.is_empty() {
@@ -920,7 +829,6 @@ fn path_filters(queue: &Queue) -> Result<(Option<Regex>, Option<Regex>), String>
     Ok((compile(&queue.include_paths)?, compile(&queue.exclude_paths)?))
 }
 
-/// The items of one queue, from what its search found.
 pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci: &HashMap<String, CiMemo>) -> Result<Vec<Item>, String> {
     let (include, exclude) = path_filters(queue)?;
     let by_others = |c: &Comment| !is_bot(c.author.as_ref()) && login(c.author.as_ref()) != me && c.created_at.as_deref().is_some_and(|t| !t.is_empty());
@@ -947,7 +855,6 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
         let (direct, teams) = requests(pr, me);
         let ci = ci_state(pr);
         let pushed = time(pr.commits.nodes.first().and_then(|c| c.commit.committed_date.as_deref()));
-        // Entering the queue is an event of its own, per queue.
         let arrived = Event { key: format!("{}:{}:new", queue.id, pr.id), kind: NEW, at: time(Some(&pr.created_at)), who: pr.author.clone(), text: None };
         let item = |events: Vec<Event>| Item { queue_id: queue.id.clone(), pr: pr.clone(), events, status: None, via_teams: None, ci: ci.clone(), passed: false, waiting_since: None };
 
@@ -958,7 +865,6 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                     continue;
                 }
                 let asked = asked_at(pr, me, if direct { &[] } else { &via });
-                // Asked again after your last word on it: back for another look, reviewed or not.
                 let again = act.any && asked.is_some_and(|a| a > act.last);
                 if queue.hide_once_reviewed && act.any && !again {
                     continue;
@@ -966,14 +872,11 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 let waiting = asked.unwrap_or_else(|| time(Some(&pr.created_at)));
                 let mut events = vec![arrived];
                 if again {
-                    // Keyed like an updates queue's, so it's one notification in both.
                     events.push(event(pr, "rerequest", &act.last.to_string(), waiting, author));
                 }
-                // Made ready after you were asked: it waited on that, not on you.
                 if let Some(at) = ready_at(pr).filter(|at| *at > waiting && !pr.is_draft) {
                     events.push(event(pr, "ready", &at.to_string(), at, author));
                 }
-                // What others said while it's been waiting on you.
                 let since = waiting.max(act.last);
                 for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
                     if by_others(c) && time(c.created_at.as_deref()) > since {
@@ -996,7 +899,6 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 if queue.requested_only && !was_asked(pr, me, queue) {
                     continue;
                 }
-                // Passed on: you took yourself (or your team) off its review, here or on GitHub.
                 if pr.removed.nodes.iter().any(|e| e.actor.as_ref().is_some_and(|a| a.login == me)) {
                     continue;
                 }
@@ -1033,7 +935,6 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 items.push(Item { passed, ..item(events) });
             }
             Kind::Involved | Kind::Custom => {
-                // What happened since your last word on it.
                 let all_notes = notes(pr);
                 let mention_list: Vec<&Comment> = all_notes.iter().copied().chain(threads(pr).flatten()).filter(|c| by_others(c) && mentions(c.body.as_deref().unwrap_or(""), me)).collect();
                 if queue.kind == Kind::Involved && !act.any && mention_list.is_empty() {
@@ -1078,7 +979,6 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                             }
                         }
                     }
-                    // Still asked after reviewing: asked again.
                     if act.last_review.is_some() && direct {
                         events.push(event(pr, "rerequest", &since.to_string(), since, author));
                     }
@@ -1104,7 +1004,6 @@ pub struct Fresh<'a> {
     pub event: Event,
 }
 
-/// "owner/name", or all of an owner's with "owner/*".
 pub fn repo_matches(pattern: &str, repo: &str) -> bool {
     match pattern.strip_suffix("/*") {
         Some(owner) => repo.split_once('/').is_some_and(|(o, _)| o.eq_ignore_ascii_case(owner)),
@@ -1112,13 +1011,10 @@ pub fn repo_matches(pattern: &str, repo: &str) -> bool {
     }
 }
 
-/// Whether your latest review that took a side approved it.
 fn approved_by_me(pr: &PullRequest) -> bool {
     pr.mine.nodes.iter().rev().find(|r| r.state == "APPROVED" || r.state == "CHANGES_REQUESTED").is_some_and(|r| r.state == "APPROVED")
 }
 
-/// Whether a queue's notification settings leave this event out: a draft, a bot's doing, a pull
-/// request you approved, or one from a repository its notifications aren't for.
 fn left_out(queue: &Queue, item: &Item, event: &Event) -> bool {
     let repo = &item.pr.repository.name_with_owner;
     (queue.leaves_out("drafts") && item.pr.is_draft)
@@ -1127,10 +1023,6 @@ fn left_out(queue: &Queue, item: &Item, event: &Event) -> bool {
         || (!queue.notify_repos.is_empty() && !queue.notify_repos.iter().any(|p| repo_matches(p, repo)))
 }
 
-/// What to notify: events not there last time and not seen, of the kinds the queue asked for and
-/// not left out, each once even when a pull request is in several queues; plus CI passing again.
-/// Arriving in a queue and the reason it arrived are one notification: being asked again wins,
-/// and in a review queue a draft made ready does too (elsewhere arriving says more).
 pub fn fresh_events<'a>(items: &'a [Item], queues: &[&Queue], previous: &HashSet<String>, seen: &HashMap<String, bool>, now: i64) -> Vec<Fresh<'a>> {
     let by_id: HashMap<&str, &Queue> = queues.iter().map(|q| (q.id.as_str(), *q)).collect();
     let wants = |queue: &Queue, kind: &str| queue.notify.iter().any(|n| n == kind);
@@ -1176,7 +1068,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     const ME: &str = "me";
-    const T0: i64 = 1_767_225_600_000; // 2026-01-01T00:00:00Z
+    const T0: i64 = 1_767_225_600_000;
 
     fn t(minutes_ago: i64) -> String {
         let ms = T0 - minutes_ago * 60_000;
@@ -1277,7 +1169,6 @@ mod tests {
         let custom = search_for(&queue(Kind::Custom, json!({ "query": "is:issue label:bug" })), ME, T0, &[]);
         assert!(custom.starts_with("is:pr archived:false is:open") && custom.contains("label:bug") && !custom.contains("is:issue"), "{custom}");
         assert!(!search_for(&queue(Kind::Custom, json!({ "query": "is:merged author:ana" })), ME, T0, &[]).contains("is:open"));
-        // Search terms narrow any queue, not only a search.
         assert!(search_for(&queue(Kind::Review, json!({ "query": "label:urgent" })), ME, T0, &[]).contains("review-requested:me label:urgent"));
     }
 
@@ -1424,7 +1315,6 @@ mod tests {
         let mut all = items(&review, std::slice::from_ref(&a));
         all.extend(items(&custom, &[a]));
         let queues = [&review, &custom];
-        // One "new" per queue: entering each queue is its own event.
         assert_eq!(fresh_events(&all, &queues, &HashSet::new(), &HashMap::new(), T0).len(), 2);
         let keys: HashSet<String> = all.iter().flat_map(|i| i.events.iter().map(|e| e.key.clone())).collect();
         assert_eq!(fresh_events(&all, &queues, &keys, &HashMap::new(), T0).len(), 0);
@@ -1444,7 +1334,6 @@ mod tests {
         let long = snippet(&"word ".repeat(60)).unwrap();
         assert_eq!(long.chars().count(), SNIPPET);
         assert!(long.ends_with("word…"), "{long}");
-        // Cut by characters, not bytes.
         assert_eq!(snippet(&"é".repeat(200)).unwrap().chars().count(), SNIPPET);
     }
 
@@ -1456,15 +1345,12 @@ mod tests {
     fn asked_again_after_reviewing() {
         let direct = json!({ "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] });
         let reviewed = json!({ "nodes": [{ "state": "COMMENTED", "submittedAt": t(60), "commit": { "oid": "head" } }] });
-        // Asked, reviewed, asked again: back in the queue, asked again.
         let again = pr(json!({ "reviewRequests": direct, "mine": reviewed, "requested": { "nodes": [me_asked(120), me_asked(30)] } }));
         let found = items(&queue(Kind::Review, json!({})), std::slice::from_ref(&again));
         assert_eq!(kinds(&found), ["new", "rerequest"]);
         assert_eq!(found[0].waiting_since, Some(T0 - 30 * 60_000));
-        // Reviewed since the last ask: done with it.
         let done = pr(json!({ "reviewRequests": direct, "mine": reviewed, "requested": { "nodes": [me_asked(120)] } }));
         assert!(items(&queue(Kind::Review, json!({})), &[done]).is_empty());
-        // The same notification as an updates queue's, once.
         let involved = queue(Kind::Involved, json!({}));
         let review = queue(Kind::Review, json!({}));
         let mut all = items(&review, std::slice::from_ref(&again));
@@ -1488,20 +1374,16 @@ mod tests {
     fn drafts_made_ready() {
         let direct = json!({ "nodes": [{ "requestedReviewer": { "__typename": "User", "login": ME } }] });
         let ready = |minutes_ago: i64| json!({ "nodes": [{ "createdAt": t(minutes_ago) }] });
-        // Asked while a draft, then made ready: that's what's new, not arriving.
         let made_ready = pr(json!({ "reviewRequests": direct, "requested": { "nodes": [me_asked(120)] }, "ready": ready(10) }));
         let review = queue(Kind::Review, json!({ "notify": ["new", "ready"] }));
         let found = items(&review, std::slice::from_ref(&made_ready));
         assert_eq!(kinds(&found), ["new", "ready"]);
         let fresh = fresh_events(&found, &[&review], &HashSet::new(), &HashMap::new(), T0);
         assert_eq!(fresh.iter().map(|f| f.event.kind).collect::<Vec<_>>(), ["ready"]);
-        // Made ready before you were asked: only asked.
         let earlier = pr(json!({ "reviewRequests": direct, "requested": { "nodes": [me_asked(10)] }, "ready": ready(120) }));
         assert_eq!(kinds(&items(&review, &[earlier])), ["new"]);
-        // Still a draft (marked ready, then back to draft): nothing to say.
         let back = pr(json!({ "isDraft": true, "reviewRequests": direct, "requested": { "nodes": [me_asked(120)] }, "ready": ready(10) }));
         assert_eq!(kinds(&items(&queue(Kind::Review, json!({ "drafts": "show" })), &[back])), ["new"]);
-        // Where you took part: ready since your last word.
         let approved = json!({ "nodes": [{ "state": "COMMENTED", "submittedAt": t(60), "commit": { "oid": "head" } }] });
         let found = items(&queue(Kind::Involved, json!({})), &[pr(json!({ "mine": approved, "ready": ready(10) }))]);
         assert!(kinds(&found).contains(&"ready"));
@@ -1553,7 +1435,6 @@ mod tests {
         assert!(repo_matches("Acme/*", "acme/web") && repo_matches("acme/web", "ACME/web") && !repo_matches("acme/*", "acmeco/web"));
     }
 
-    /// Answers from a script, and records the variables of each call.
     struct Script {
         replies: Mutex<Vec<Result<Value, Failure>>>,
         calls: Mutex<Vec<Value>>,

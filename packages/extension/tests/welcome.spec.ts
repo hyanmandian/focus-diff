@@ -63,7 +63,6 @@ test.describe("welcome page", () => {
     await expect(files).toHaveCount(12);
     await expect.poll(stats).toMatch(/^9 files left to review \+910 lines added, −443 lines removed/u);
 
-    // A filter keeps its files and its numbers, on the scoreboard too. The others stay in place, set back: nothing moves.
     const layout = () =>
       demo.evaluate((element) => {
         const box = element.getBoundingClientRect();
@@ -84,7 +83,6 @@ test.describe("welcome page", () => {
     await expect.poll(stats).toMatch(/^2 files left to review \+150 lines added, −25 lines removed/u);
     await expect(bar.locator(".scoreboard.files-count .cell")).toHaveText(["", "2"]);
     await expect(bar.getByRole("status")).toContainText("Frontend: 3 of 12 files");
-    // The reader starts at the first file left to review; the next one skips the viewed file.
     await expect(files.first()).toHaveAttribute("aria-current", "true");
     const next = bar.locator(".next-file");
     await expect(next).toHaveAccessibleName("Next file to review, 2 left");
@@ -92,7 +90,6 @@ test.describe("welcome page", () => {
     await expect(files.nth(2)).toHaveAttribute("aria-current", "true");
     await expect(bar.getByRole("status")).toHaveText("web/src/checkout/cart.css. 2 files left to review.");
 
-    // Marking the last ones as viewed counts them off, down to Done; then the next filter with work is a click away.
     await demo.getByRole("button", { name: "Viewed web/src/checkout/cart.tsx" }).click();
     await demo.getByRole("button", { name: "Viewed web/src/checkout/cart.css" }).click();
     await expect(bar.locator(".done")).toBeVisible();
@@ -101,12 +98,10 @@ test.describe("welcome page", () => {
     await next.click();
     await expect(bar.getByRole("button", { name: /^Backend/u })).toHaveAttribute("aria-pressed", "true");
     expect(await layout()).toBe(before);
-    // Next file skips the files outside the filter.
     await next.click();
     await expect(files.filter({ hasText: "api/orders/migrations" })).toHaveAttribute("aria-current", "true");
     await expect(demo.locator(".demo-file:not([data-out])")).toHaveCount(3);
 
-    /** A card has no accessibility violations once it has faded in; Escape closes it, after any tooltip the pointer left. */
     const checkAndClose = async (card: string) => {
       const dialog = bar.getByRole("dialog", { name: card });
       await expect(dialog).toHaveCSS("opacity", "1");
@@ -117,7 +112,6 @@ test.describe("welcome page", () => {
       await expect(dialog).toBeHidden();
     };
 
-    // The breakdown lists every button with its numbers, from the same totals.
     await bar.getByRole("button", { name: /^All/u }).click();
     await bar.getByRole("button", { name: "Breakdown by filter" }).click();
     await expect(bar.locator(".row")).toHaveText([
@@ -127,7 +121,6 @@ test.describe("welcome page", () => {
     ]);
     await checkAndClose("Breakdown by filter");
 
-    // The conversations card lands on the first one, and its arrows step through the rest.
     await bar.getByRole("button", { name: /^Conversations,/u }).click();
     const talk = (path: string) => files.filter({ hasText: path }).locator(".demo-talk");
     await expect(talk("web/src/checkout/cart.tsx")).toHaveAttribute("data-current", "");

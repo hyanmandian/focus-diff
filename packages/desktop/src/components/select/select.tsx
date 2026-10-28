@@ -33,7 +33,6 @@ function SelectTrigger({
       {...props}
     >
       {children}
-      {/* A pop-up button's up-and-down chevrons: it shows one value of a list. */}
       <SelectPrimitive.Icon
         render={<ChevronsUpDownIcon className="pointer-events-none size-3.5 text-muted-foreground" />}
       />

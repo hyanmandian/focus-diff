@@ -16,7 +16,6 @@ describe("a person's picture", () => {
     setPlatform({ ...fakePlatform, mediaUrl: (kind, url) => `${kind}:${url}` });
     try {
       expect(avatar(github)).toBe("avatar:https://avatars.githubusercontent.com/u/11?v=4&s=48");
-      // Pictures from elsewhere aren't kept.
       expect(avatar("https://example.com/me.png")).toBe("https://example.com/me.png?s=48");
     } finally {
       setPlatform(fakePlatform);

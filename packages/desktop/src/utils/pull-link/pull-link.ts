@@ -1,7 +1,3 @@
-// Opens a pull request's review from its link (pasted in the panel, typed in Open Pull Request…,
-// or from a focusdiff:// link or the command line). The link itself is read by
-// @focus-diff/core/pull-link, which the browser extension reads links with too.
-
 import type { PullLink } from "@focus-diff/core/pull-link";
 
 import { bridge, graphql } from "@/utils/bridge/bridge";
@@ -17,8 +13,6 @@ type Found = {
   } | null;
 };
 
-/** Opens the pull request's review window, outside any queue (so no Next or Back). Throws when
- *  GitHub has no such pull request, or not one you can see. */
 export async function openPullLink(link: PullLink) {
   const data = await graphql<Found>(
     `
@@ -45,7 +39,6 @@ export async function openPullLink(link: PullLink) {
   await bridge.openReview({ ...pull, repository: { nameWithOwner: `${link.owner}/${link.repo}` } });
 }
 
-/** GitHub has no pull request at the link, or none you can see. */
 export class NoSuchPull extends Error {
   constructor() {
     super("No such pull request");

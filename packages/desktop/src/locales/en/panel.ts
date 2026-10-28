@@ -1,4 +1,3 @@
-// The panel under the tray icon.
 export const panel = {
   "empty.review": "Nothing waiting on your review.",
   "empty.involved": "Nothing new where you took part.",

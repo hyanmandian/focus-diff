@@ -1,10 +1,3 @@
-//! GitHub access. The token never reaches the web views: they ask for API calls by path, and this
-//! module makes them with the token from the system keychain (or from the GitHub CLI, if that's
-//! what the person chose). Only api.github.com is ever called with it.
-//!
-//! Signing in uses GitHub's device flow (no server of ours, no redirect): the app shows a code, the
-//! person enters it on github.com, and the app picks up the token.
-
 use std::collections::{HashMap, VecDeque};
 use std::io::Read;
 use std::process::Command;
@@ -19,27 +12,18 @@ use crate::sync::Locked;
 const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github";
 const API: &str = "https://api.github.com";
-/// Read pull requests, comment and review on them, and read team membership (for team review
-/// requests) and your profile (for your saved replies). Nothing to do with admin.
 const SCOPES: &str = "repo read:org read:user";
-/// The OAuth app's client id, set at build time. Without it the device flow is off and the app
-/// offers the GitHub CLI or a token instead.
 const CLIENT_ID: Option<&str> = option_env!("FOCUS_DIFF_GITHUB_CLIENT_ID");
 
 #[derive(Default)]
 pub struct Auth {
-    /// The token in use, kept in memory once read. Never serialized.
     token: Mutex<Option<String>>,
     source: Mutex<Option<Source>>,
-    /// Who the token belongs to, once GitHub said.
     login: Mutex<Option<String>>,
     etags: Mutex<Etags>,
     recent: Mutex<Recent>,
 }
 
-/// The pages' read requests answered in the last two minutes, kept whole: what the panel fetched
-/// ahead (a pull request under the pointer) the review window then gets at once, with no request.
-/// Any write clears it, so nothing shown is older than what the person just did.
 #[derive(Default)]
 struct Recent {
     entries: HashMap<String, (Instant, u16, String)>,
@@ -75,15 +59,12 @@ impl Recent {
     }
 }
 
-/// A GraphQL request that only reads: a query, not a mutation.
 fn is_query(body: Option<&str>) -> bool {
     body.and_then(|b| serde_json::from_str::<Value>(b).ok())
         .and_then(|v| v["query"].as_str().map(|q| q.trim_start().to_string()))
         .is_some_and(|q| q.starts_with("query") || q.starts_with('{'))
 }
 
-/// GET responses GitHub tagged, by path: asked again with the tag, GitHub answers 304 Not Modified
-/// without the body (faster, and free against the rate limit), and the kept body is used.
 #[derive(Default)]
 struct Etags {
     entries: HashMap<String, (String, String)>,
@@ -110,7 +91,6 @@ impl Etags {
         self.bytes += body.len();
         self.order.push_back(key.clone());
         self.entries.insert(key, (etag, body));
-        // The oldest go first.
         while self.bytes > Self::BUDGET {
             let Some(oldest) = self.order.pop_front() else { break };
             if let Some((_, body)) = self.entries.remove(&oldest) {
@@ -123,9 +103,7 @@ impl Etags {
 #[derive(Clone, Copy, PartialEq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Source {
-    /// From the device flow or a pasted token, kept in the keychain.
     Keychain,
-    /// Read from `gh auth token` each time it's needed.
     Gh,
 }
 
@@ -138,8 +116,6 @@ pub struct Status {
     pub gh_available: bool,
 }
 
-/// One client for the app's life, so connections to GitHub are kept open and reused instead of
-/// a new TLS handshake per request.
 pub(crate) fn agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
     AGENT.get_or_init(|| {
@@ -164,7 +140,6 @@ fn keychain() -> Result<keyring::Entry, String> {
     keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(|e| e.to_string())
 }
 
-/// Apps opened from the Finder don't get the shell's PATH, so look where package managers put gh.
 fn gh_path() -> Option<String> {
     let candidates = if cfg!(windows) {
         vec!["gh.exe".to_string(), r"C:\Program Files\GitHub CLI\gh.exe".to_string()]
@@ -199,7 +174,6 @@ fn gh_token() -> Result<String, String> {
 }
 
 impl Auth {
-    /// The token, from memory, the keychain or gh, in that order.
     fn token(&self) -> Result<String, String> {
         if let Some(token) = self.token.held().clone() {
             return Ok(token);
@@ -217,7 +191,6 @@ impl Auth {
         Ok(token)
     }
 
-    /// For git, which fetches a pull request's code for the AI (checkout.rs) from github.com.
     pub fn token_for_git(&self) -> Result<String, String> {
         self.token()
     }
@@ -230,8 +203,6 @@ impl Auth {
         self.recent.held().clear();
     }
 
-    /// Who's signed in: None when no one is (no token, or GitHub refused it); an error when GitHub
-    /// couldn't be reached to tell.
     pub fn login(&self) -> Result<Option<String>, String> {
         if let Some(login) = self.login.held().clone() {
             return Ok(Some(login));
@@ -268,7 +239,6 @@ impl Auth {
         Ok(())
     }
 
-    /// A pasted token (classic or fine-grained), checked against GitHub before it's kept.
     pub fn use_token(&self, token: &str) -> Result<(), String> {
         let token = token.trim();
         if token.is_empty() || token.chars().any(char::is_whitespace) {
@@ -285,17 +255,13 @@ impl Auth {
 
     pub fn sign_out(&self) -> Result<(), String> {
         if *self.source.held() != Some(Source::Gh) {
-            // Nothing stored is fine.
             let _ = keychain()?.delete_credential();
         }
         self.set_source(None);
         Ok(())
     }
 
-    /// A page's call: reads answered in the last two minutes come from memory; writes go through
-    /// and clear that memory.
     pub fn request_for_page(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
-        // Rendering Markdown (a comment's preview) changes nothing either.
         let read = method == "GET" || (method == "POST" && ((path == "/graphql" && is_query(body)) || path == "/markdown"));
         if !read {
             self.recent.held().clear();
@@ -312,12 +278,10 @@ impl Auth {
         Ok((status, text))
     }
 
-    /// Calls the REST or GraphQL API. Returns the status and body for the web view to read.
     pub fn request(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
         self.with_token(|token| self.call_tagged(token, method, path, body, accept))
     }
 
-    /// A GET whose answer is bytes, not text (a file at a commit, blobs.rs), up to `largest`.
     pub fn get_bytes(&self, path: &str, accept: &str, largest: usize) -> Result<(u16, Vec<u8>), String> {
         self.with_token(|token| call_bytes(token, path, accept, largest))
     }
@@ -325,22 +289,18 @@ impl Auth {
     fn with_token<T>(&self, call: impl Fn(&str) -> Result<(u16, T), String>) -> Result<(u16, T), String> {
         let (status, answer) = call(&self.token()?)?;
         if status == 401 && *self.source.held() == Some(Source::Gh) {
-            // gh may have been signed in again since: read its token once more.
             *self.token.held() = None;
             return call(&self.token()?);
         }
         Ok((status, answer))
     }
 
-    /// Where a GET that GitHub answers with a redirect leads (a job's log, a download), without
-    /// following it: the token goes to api.github.com only, never to where it points.
     pub fn redirect(&self, path: &str) -> Result<(u16, Option<String>), String> {
         let response = api(agent().get(api_url(path)?), &self.token()?, "application/vnd.github+json").config().max_redirects(0).build().call().map_err(unreachable)?;
         let location = response.headers().get("location").and_then(|v| v.to_str().ok()).map(String::from);
         Ok((response.status().as_u16(), location))
     }
 
-    /// `call`, with GET responses revalidated by their ETag.
     fn call_tagged(&self, token: &str, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
         if method != "GET" {
             return call(token, method, path, body, accept, None).map(|(status, text, _)| (status, text));
@@ -359,7 +319,6 @@ impl Auth {
     }
 }
 
-/// Only ever the API, whatever path a page sends: no other host, no scheme tricks.
 pub(crate) fn path_ok(path: &str) -> bool {
     path.starts_with('/') && !path.starts_with("//") && !path.contains('\\')
 }
@@ -412,7 +371,7 @@ fn call(token: &str, method: &str, path: &str, body: Option<&str>, accept: Optio
     response
         .into_body()
         .into_reader()
-        .take(64 * 1024 * 1024) // a sane ceiling for one response
+        .take(64 * 1024 * 1024)
         .read_to_string(&mut text)
         .map_err(|e| e.to_string())?;
     Ok((status, text, etag))
@@ -455,8 +414,6 @@ pub fn device_start() -> Result<DeviceCode, String> {
     })
 }
 
-/// Waits for the person to enter the code on github.com, then keeps the token in the keychain.
-/// Blocking: run it off the main thread.
 pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_in: u64) -> Result<(), String> {
     let client_id = CLIENT_ID.ok_or_else(|| tr!("Signing in with GitHub isn't set up in this build", "Entrar com o GitHub não está configurado nesta versão"))?;
     let deadline = Instant::now() + Duration::from_secs(expires_in);

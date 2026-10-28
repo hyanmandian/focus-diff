@@ -1,20 +1,10 @@
-// The person's setup: their queues and preferences, kept in config.json in the app's config folder.
-// Everything read from disk goes through `normalize`, so a hand-edited or older file can't break the
-// app: unknown fields are dropped, missing ones get defaults.
-
 import { isValidPattern } from "@focus-diff/core/filters";
 import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
 
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
 
-/** What makes a pull request belong to a queue. */
-export type QueueKind =
-  | "review" //    your review is requested (you, or a team of yours)
-  | "involved" //  you reviewed, commented or were mentioned; not yours
-  | "authored" //  yours
-  | "merged" //    merged lately, not yours, that you took no part in
-  | "custom"; //   a GitHub search of your own
+export type QueueKind = "review" | "involved" | "authored" | "merged" | "custom";
 
 export const EVENT_KINDS = [
   "new",
@@ -32,7 +22,6 @@ export const EVENT_KINDS = [
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
-/** What a queue's notifications can leave out: drafts, what bots do, pull requests you approved. */
 export const LEAVE_OUT = ["drafts", "bots", "approved"] as const;
 export type LeaveOut = (typeof LEAVE_OUT)[number];
 
@@ -45,64 +34,42 @@ export type Queue = {
   tone: Tone;
   enabled: boolean;
   kind: QueueKind;
-  /** "owner/name" or "owner/*". Empty: every repository you can see. */
   repos: string[];
-  /** review: team slugs ("org/team") whose requests count as yours. Empty: all your teams. */
   teams: string[];
-  /** review: only requests made to you, not to a team. */
   directOnly: boolean;
-  /** review: drop a pull request once you've reviewed or commented on it. */
   hideOnceReviewed: boolean;
-  /** involved: only pull requests with something new since your last word. */
   onlyNews: boolean;
   drafts: "show" | "hide" | "only";
   hideBots: boolean;
   excludeAuthors: string[];
   includeLabels: string[];
   excludeLabels: string[];
-  /** Regular expressions on file paths, like Focus Diff's filters. Empty: any file. */
   includePaths: string;
   excludePaths: string;
-  /** merged: how far back. */
   mergedDays: number;
-  /** merged: only those your review was asked on, directly or through a team (see `teams`). */
   requestedOnly: boolean;
-  /** merged: what you did that keeps a pull request out. */
   skipIfI: "approved" | "reviewed" | "tookPart";
-  /** Leave out pull requests one of these people approved. */
   skipApprovedBy: string[];
-  /** merged: leave out pull requests one of these people merged. */
   skipMergedBy: string[];
-  /** review: hours waiting on you before a pull request is called out as waiting long. 0: never. */
   staleHours: number;
-  /** custom: GitHub search qualifiers, e.g. "repo:acme/web label:urgent". */
   query: string;
-  /** What's worth a notification. */
   notify: EventKind[];
-  /** Right away, or kept for the next review time (right away when there's none coming). */
   notifyAt: "now" | "review";
-  /** What to leave out of its notifications. */
   notifyLeaveOut: LeaveOut[];
-  /** Notifications only from these repositories ("owner/name" or "owner/*"). Empty: all of the queue's. */
   notifyRepos: string[];
 };
 
-/** Which of the pull requests that fit a review time go first. */
 export const REVIEW_ORDERS = ["oldest", "quickest", "fill"] as const;
 export type ReviewOrder = (typeof REVIEW_ORDERS)[number];
 
-/** A time set aside to review, like weekdays at 15:00 for half an hour (review.rs runs it). */
 export type ReviewSession = {
   id: string;
   name: string;
   on: boolean;
-  /** Days of the week, 0 for Sunday. */
   days: number[];
-  /** "HH:MM", local time. */
   times: string[];
   minutes: number;
   order: ReviewOrder;
-  /** The queues it picks from, by id. Empty: every review queue. */
   queues: string[];
   drafts: boolean;
 };
@@ -110,13 +77,9 @@ export type ReviewSession = {
 export type ReviewTime = {
   enabled: boolean;
   sessions: ReviewSession[];
-  /** Pull requests you were asked to review again go first, when they fit. */
   againFirst: boolean;
-  /** A notification when the time's up, saying how far it got. */
   remindEnd: boolean;
-  /** With nothing to review, the time passes without a word. */
   skipEmpty: boolean;
-  /** While reviewing, every notification waits for the time to be up. */
   holdWhileReviewing: boolean;
 };
 
@@ -125,14 +88,11 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type Effort = (typeof EFFORTS)[number];
 
-/** Something to ask the AI about a pull request, offered as a button by it. */
 export type Prompt = { id: string; name: string; prompt: string };
 
-/** One thing an action does. Text and links can use {number} {title} {url} {repo} {author} {me};
- *  commands get them as environment variables instead (PR_NUMBER, PR_TITLE, …). */
 export type ActionStep =
   | { kind: "comment"; body: string }
-  | { kind: "request"; reviewers: string[] } // "username" or "org/team"
+  | { kind: "request"; reviewers: string[] }
   | { kind: "unrequestMe" }
   | { kind: "label"; labels: string[] }
   | { kind: "open"; url: string }
@@ -147,22 +107,16 @@ export const STEP_KINDS = [
   "run",
 ] as const satisfies ReadonlyArray<ActionStep["kind"]>;
 
-/** One of a menu action's choices: its own name and steps. */
 export type ActionChoice = { id: string; name: string; steps: ActionStep[] };
 
-/** A button of the person's own on a pull request: its steps run in order, stopping at a failure.
- *  With choices, it's a pull-down button instead ("Delegate" → each person), and a choice's steps
- *  run, not its own. */
 export type Action = {
   id: string;
   name: string;
-  /** Ask before running. */
   confirm: boolean;
   steps: ActionStep[];
   choices: ActionChoice[];
 };
 
-/** A menu action's choice, as an action of its own to run. */
 export const choiceAction = (action: Action, choice: ActionChoice): Action => ({
   id: choice.id,
   name: `${action.name} · ${choice.name}`,
@@ -171,9 +125,6 @@ export const choiceAction = (action: Action, choice: ActionChoice): Action => ({
   choices: [],
 });
 
-/** A part of a pull request to review on its own: the files whose paths match `include` and not
- *  `exclude` (regular expressions; empty matches all, or none). Like Focus Diff's filters.
- *  `repos`: "owner/name" or "owner/*" it's offered in. Empty: every repository. */
 export type DiffFilter = { id: string; name: string; include: string; exclude: string; repos: string[] };
 
 export type Config = {
@@ -182,26 +133,18 @@ export type Config = {
   pollSeconds: number;
   sound: boolean;
   theme: "system" | "light" | "dark";
-  /** The app's language: the Mac's, or one picked (utils/i18n/i18n.ts). */
   language: Language;
-  /** Optional: the coding agent CLI to ask, on the person's own subscription. */
   ai: {
     provider: AiProvider | null;
-    /** Empty: the CLI's own default. */
     model: string;
     effort: Effort | "";
-    /** The person's own review guidelines, added to every question. */
     instructions: string;
     prompts: Prompt[];
-    /** Let it read the pull request's whole project (checked out in the app's cache), not just the diff. */
     project: boolean;
-    /** The AI review: comments on the diff's lines, to add to your review or dismiss. */
     review: { auto: boolean; prompt: string };
   };
   actions: Action[];
-  /** The diff's filters, offered as chips in the review window. */
   filters: DiffFilter[];
-  /** Times set aside to review. */
   reviewTime: ReviewTime;
 };
 
@@ -234,9 +177,6 @@ const base = (): Omit<Queue, "id" | "name" | "kind" | "tone" | "notify" | "notif
   notifyRepos: [],
 });
 
-/** Starting points, offered when adding a queue. They're ordinary queues once added, named in
- *  the language in use then. Their names in the list: t(`config.queue.${kind}`) and
- *  t(`config.queue.${kind}.hint`). */
 export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
   review: {
     make: () => ({
@@ -302,9 +242,6 @@ export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
   },
 };
 
-/** What a queue shows, in the two choices Settings asks: open or lately merged pull requests, and
- *  what you have to do with them. Every kind of queue is one pair of them (merged ones only as
- *  asked of you or anyone's), so the presets are only these filled in. */
 export const STATES = ["open", "merged"] as const;
 type QueueState = (typeof STATES)[number];
 export const PARTS = ["review", "authored", "involved", "any"] as const;
@@ -316,10 +253,8 @@ export function sourceOf(queue: Queue): { state: QueueState; part: QueuePart } {
   return { state: "open", part: queue.kind };
 }
 
-/** Whether a pair can be: merged ones are asked of you, or anyone's. */
 export const canBe = (state: QueueState, part: QueuePart) => state === "open" || part === "review" || part === "any";
 
-/** The events that can happen to the pull requests of each kind of queue. */
 export const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
   review: ["new", "rerequest", "ready", "comment", "mention"],
   involved: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
@@ -328,7 +263,6 @@ export const KIND_EVENTS: Record<QueueKind, EventKind[]> = {
   custom: ["new", "commits", "reply", "mention", "comment", "rerequest", "ready"],
 };
 
-/** The queue showing another pair (one that can't be keeps its part as near as it can). */
 export function withSource(queue: Queue, state: QueueState, part: QueuePart): Queue {
   const p = canBe(state, part) ? part : "any";
   const kind: QueueKind = state === "merged" ? "merged" : p === "any" ? "custom" : p;
@@ -337,8 +271,6 @@ export function withSource(queue: Queue, state: QueueState, part: QueuePart): Qu
   return { ...queue, kind, notify };
 }
 
-/** The starting points the Add menu offers; any queue can still be made by hand from a custom one,
- *  whose source and filters are all there to choose (Merged too). */
 export const PRESETS = ["review", "involved", "authored"] as const satisfies ReadonlyArray<QueueKind>;
 
 export const defaultConfig = (): Config => ({
@@ -390,7 +322,6 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
 export const validTime = (v: string) => TIME.test(v);
 const toMinutes = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
 
-/** The next review time strictly after `after`, in this computer's time zone, looking a week ahead. */
 export function nextReviewTime(review: ReviewTime, after: Date): { session: ReviewSession; at: Date } | null {
   if (!review.enabled) return null;
   let best: { session: ReviewSession; at: Date } | null = null;
@@ -407,13 +338,9 @@ export function nextReviewTime(review: ReviewTime, after: Date): { session: Revi
   return best;
 }
 
-/** The recipes in the order Settings offers them. */
 const RECIPE_ORDER: RecipeId[] = ["stack", "tests", "generated", "area", "infra", "database", "docs"];
-/** A recipe filter's id: its name, but for the one that leaves generated files out. It stays the same
- *  in every language, since the review window remembers a filter by it. */
 const filterId = (name: PathFilterName) => (name === "generated" ? "no-generated" : name);
 
-/** The recipes in words, for Settings. */
 export const filterRecipes = (
   t: T,
 ): Array<{ title: string; description: string; filters: Array<Omit<DiffFilter, "id" | "repos">> }> =>
@@ -423,8 +350,6 @@ export const filterRecipes = (
     filters: RECIPES[id].map((name) => ({ name: t(`config.filter.${name}`), ...PATH_FILTERS[name] })),
   }));
 
-/** Fixed ids: until the person changes them, the defaults are made again each time the file is
- *  read, and the review window remembers a repository's filter by id. */
 function defaultFilters(): DiffFilter[] {
   const t = i18n();
   return [...RECIPES.stack, ...RECIPES.generated].map((name) => ({
@@ -437,8 +362,6 @@ function defaultFilters(): DiffFilter[] {
 
 export const REVIEW_PROMPT = `Review it like a careful senior engineer. Comment only on what matters: bugs, unhandled edge cases, callers or features this change breaks, security or data risks, performance traps, missing tests for risky logic. No praise, no style nitpicks, no comments on what's fine.`;
 
-/** The prompts' names are words of the app, in the language in use; what they ask stays in
- *  English, the AI's working language, and its answers go on GitHub as comments. */
 export function defaultPrompts(): Prompt[] {
   const t = i18n();
   return [
@@ -468,8 +391,6 @@ Be concrete and brief. Don't repeat the description back.`,
   ];
 }
 
-/** Starting points for actions, in words for Settings; what they make is named in the language in use. */
-/** A new action: a script, which can do anything a terminal can; more steps are added in it. */
 export const newAction = (t: T): Action => ({
   id: newId(),
   name: t("config.action.script.name"),
@@ -477,8 +398,6 @@ export const newAction = (t: T): Action => ({
   steps: [{ kind: "run", command: 'echo "$PR_URL"' }],
   choices: [],
 });
-
-// MARK: Reading what's on disk
 
 const isString = (v: unknown): v is string => typeof v === "string";
 const strings = (v: unknown, max = 200): string[] =>
@@ -496,7 +415,6 @@ const int = (v: unknown, fallback: number, min: number, max: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : fallback;
 
 const isLogin = (s: string) => /^[\w-]+(\[bot\])?$/u.test(s);
-/** "owner/name", or "owner/*" for all of an owner's repositories. */
 export const isRepoPattern = (s: string) => /^[\w.-]+\/(?:[\w.-]+|\*)$/u.test(s);
 
 const clipped = (v: unknown, max: number) => (isString(v) ? v.slice(0, max) : "");
@@ -646,7 +564,6 @@ function normalizeReviewTime(raw: unknown): ReviewTime {
         .filter((s): s is ReviewSession => s !== null)
         .slice(0, 10)
     : [];
-  // Two the same would edit as one.
   const ids = new Set<string>();
   for (const s of sessions) {
     if (ids.has(s.id)) s.id = newId();
@@ -668,7 +585,6 @@ export function normalize(r: unknown): Config {
   const queues = Array.isArray(r.queues)
     ? r.queues.map(normalizeQueue).filter((q): q is Queue => q !== null)
     : fallback.queues;
-  // Ids must be unique: they key what's been seen.
   const ids = new Set<string>();
   for (const q of queues) {
     if (ids.has(q.id)) q.id = newId();
@@ -728,7 +644,6 @@ export function normalize(r: unknown): Config {
 export async function loadConfig(): Promise<Config> {
   const text = await bridge.readFile("config");
   if (!text) {
-    // Saved right away: queue ids key what's been seen, so they must stay the same next launch.
     const config = defaultConfig();
     await saveConfig(config);
     return config;

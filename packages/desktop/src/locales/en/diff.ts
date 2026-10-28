@@ -1,12 +1,7 @@
-// The Diff's files (src/review: Diffs, FileTree, RichDiff, Rendered, Shortcuts): the file tree,
-// file menus and links, whitespace, pictures and large files, and the keyboard shortcuts sheet.
 export const diff = {
-  // The toolbar
   hideWhitespace: "Hide whitespace changes",
   hideWhitespaceTip: "Hide Whitespace Changes",
-  // The file tree
   folderViewed: "{viewed} of {total} viewed",
-  // A file's menu, and the code's contextual menu
   fileActions: "Actions for {path}",
   copyPath: "Copy Path",
   copyPermalink: "Copy Permalink",
@@ -18,14 +13,12 @@ export const diff = {
   noClipboard: "Couldn't reach the clipboard",
   showRendered: "Show Rendered",
   showSource: "Show Source",
-  // Files GitHub sends no patch for
   tooLarge: "Not shown: too large for GitHub's diff, or binary.",
   loadDiff: "Load Diff",
   binary: "Binary file: not shown.",
   renamedOnly: "Renamed without changes.",
   loading: "Loading…",
   loadFailed: "Couldn't load it: {error}",
-  // Pictures
   compare: "Compare",
   twoUp: "Side by Side",
   swipe: "Swipe",
@@ -36,7 +29,6 @@ export const diff = {
   deleted: "Deleted",
   swipePosition: "Where the swipe is",
   opacity: "How much of the new one shows",
-  // The keyboard shortcuts sheet
   shortcuts: "Keyboard Shortcuts",
   done: "Done",
   keysFiles: "Files",

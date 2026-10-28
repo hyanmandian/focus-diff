@@ -1,7 +1,3 @@
-// Whether the AI chosen in Settings can answer on this Mac: its app installed and signed in. Asked
-// before anything is sent to it, so a click on an AI button says what's missing and leads to
-// Settings, rather than failing after a wait. The answer is kept a minute (it runs the CLI).
-
 import { useEffect, useState } from "react";
 
 import { PROVIDERS } from "@/utils/ai/ai";
@@ -16,7 +12,6 @@ function statuses() {
   if (!asked || Date.now() - asked.at > 60_000) {
     const pending = bridge.aiStatuses();
     asked = { at: Date.now(), statuses: pending };
-    // A failed look isn't kept: the next one asks again.
     pending.catch(() => {
       asked = null;
     });
@@ -26,7 +21,6 @@ function statuses() {
 
 type Problem = { title: string; message: string };
 
-/** What stands between the chosen AI and an answer: nothing, or what to tell the person. */
 export const aiProblem = (config: Config): Promise<Problem | null> => problemWith(config.ai.provider);
 
 async function problemWith(provider: AiProvider | null): Promise<Problem | null> {
@@ -47,8 +41,6 @@ async function problemWith(provider: AiProvider | null): Promise<Problem | null>
   return null;
 }
 
-/** True when the AI can answer; otherwise says why in an alert whose default button opens its
- *  settings, and is false. */
 export async function ensureAi(config: Config): Promise<boolean> {
   const problem = await aiProblem(config);
   if (!problem) return true;
@@ -56,26 +48,19 @@ export async function ensureAi(config: Config): Promise<boolean> {
   return false;
 }
 
-/** Settings, on its AI pane. */
 export async function openAiSettings() {
   try {
     localStorage.setItem("settings-pane", "ai");
-  } catch {
-    /* opens where it was */
-  }
+  } catch {}
   await bridge.openSettings();
-  // Already open on another pane: told to show this one.
   void platform()
     .emitTo("settings", "settings-pane", "ai")
     .catch(() => {});
-  // Asked again once they're back, set up or not.
   asked = null;
 }
 
-/** `aiProblem`, kept current while the window is up (looked at again when it comes forward). */
 export function useAiProblem(config: Config | null) {
   const [problem, setProblem] = useState<Problem | null>(null);
-  // Only the chosen AI matters here, not the rest of the setup.
   const provider = config?.ai.provider ?? null;
   useEffect(() => {
     let live = true;

@@ -1,6 +1,3 @@
-// The person's own buttons on pull requests: each runs its steps in order, from the panel and the
-// review window. Commands ask for permission the first time they run (in Rust, not here).
-
 import { ArrowDown, ArrowUp, Plus, Trash2, X, Zap } from "lucide-react";
 import { useId } from "react";
 
@@ -38,7 +35,6 @@ import {
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
-/** Each kind of step as it starts, fresh each time. */
 const NEW_STEP: { [K in ActionStep["kind"]]: () => Extract<ActionStep, { kind: K }> } = {
   comment: () => ({ kind: "comment", body: "" }),
   request: () => ({ kind: "request", reviewers: [] }),
@@ -49,7 +45,6 @@ const NEW_STEP: { [K in ActionStep["kind"]]: () => Extract<ActionStep, { kind: K
 };
 const newStep = (kind: ActionStep["kind"]): ActionStep => NEW_STEP[kind]();
 
-// Called as a reviewer is added, so it reads the words then.
 const reviewerError = (v: string) => (/^[\w-]+(?:\/[\w.-]+)?$/u.test(v) ? null : i18n()("settings.reviewerError"));
 const PLACEHOLDERS = "{number} {title} {url} {repo} {author} {me}";
 
@@ -114,7 +109,6 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
         </p>
       </div>
     );
-  // What's left is a script.
   return (
     <div className="flex flex-col gap-1">
       <Label htmlFor={id} className="sr-only">
@@ -140,7 +134,6 @@ function StepEditor({ step, onChange }: { step: ActionStep; onChange: (step: Act
   );
 }
 
-/** An action's (or a choice's) steps, in order, each editable, movable and removable. */
 function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (steps: ActionStep[]) => void }) {
   const t = useT();
   const setStep = (index: number, step: ActionStep | null) => {
@@ -157,7 +150,6 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
       {steps.length > 0 ? (
         <ol className="contents">
           {steps.map((step, i) => (
-            // Steps have no ids of their own; by place, a field keeps its focus while it's typed in.
             // oxlint-disable-next-line react/no-array-index-key -- see above
             <li key={i} className="flex flex-col gap-2 px-3 py-3">
               <div className="flex items-center gap-2">
@@ -238,7 +230,6 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
   );
 }
 
-/** One of a menu action's choices: its name, then its steps, in a group of its own. */
 function ChoiceEditor({
   choice,
   index,
@@ -327,8 +318,6 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
     name: t("settings.newChoice", { number: action.choices.length + 1 }),
     steps,
   });
-  // A button's steps become the menu's first choice; back to a button, the first choice's steps
-  // stay (after asking, when that drops other choices).
   const showAs = async (as: string) => {
     if (as === "menu" && !menu)
       onChange({ ...action, choices: [newChoice(action.steps.length > 0 ? action.steps : undefined)], steps: [] });
@@ -347,7 +336,6 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
     )
       return;
     const choices = action.choices.filter((c) => c.id !== choice.id);
-    // The last choice gone: a button again, with nothing to do yet.
     onChange({ ...action, choices, steps: choices.length > 0 ? action.steps : [] });
   };
 
@@ -433,8 +421,6 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
   );
 }
 
-/** Small beside a group's heading, regular on its own in the empty pane. An action starts as a
- *  script, which can do anything; other steps are added in it. */
 function AddAction({
   config,
   onAdd,
@@ -460,8 +446,6 @@ function AddAction({
   );
 }
 
-/** "Comment, then ask for reviews": each step after the first is said in lower case, as part of
- *  the sentence. */
 const stepsSummary = (action: Action, t: T) =>
   action.choices.length > 0
     ? t("settings.menuOf", { choices: action.choices.map((c) => c.name).join(", ") })

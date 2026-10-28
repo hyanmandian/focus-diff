@@ -1,26 +1,16 @@
 import { moreIcon } from "@/components/icons/icons";
 import { h } from "@/utils/dom/dom";
 
-/** Something to do from a row's menu. */
 export interface MenuAction {
   label: string;
   run: () => void;
 }
 
-/** The gap between the button and its menu. */
 const GAP = 4;
-/** How close to the window's edge the menu may come. */
 const MARGIN = 8;
 
 let opened = 0;
 
-/**
- * A row's menu: a button with three dots that opens a short list of actions under it, or over it near the window's
- * bottom. It works like a native menu: the arrow keys, Home and End move between the actions, Enter or a click runs one,
- * and Escape, Tab, a click elsewhere or a scroll that moves its row closes it, which `onClose` hears of. The menu is drawn in the row, so it
- * goes with the row when the list is drawn again, and fixed to the window, so the list's scrolling pane doesn't cut it
- * off.
- */
 export const rowMenu = (label: string, actions: MenuAction[], onClose: () => void = () => {}): HTMLElement => {
   opened += 1;
   const id = `row-menu-${opened}`;
@@ -41,7 +31,6 @@ export const rowMenu = (label: string, actions: MenuAction[], onClose: () => voi
     const path = event.composedPath();
     if (!path.includes(menu) && !path.includes(button)) close(false);
   };
-  /** Where the button was as the menu opened: a scroll that moves it takes the menu away from its row. */
   let openedAt = 0;
   const scrolled = () => {
     if (button.getBoundingClientRect().top !== openedAt) close(false);
@@ -66,7 +55,6 @@ export const rowMenu = (label: string, actions: MenuAction[], onClose: () => voi
     });
     document.addEventListener("pointerdown", away, true);
     document.addEventListener("scroll", scrolled, true);
-    // Not scrolled to: fixed to the window, it's in sight already, and a scroll would close it.
     items.at(focus)?.focus({ preventScroll: true });
   };
 
@@ -94,11 +82,9 @@ export const rowMenu = (label: string, actions: MenuAction[], onClose: () => voi
       event.preventDefault();
       items[(target + items.length) % items.length]?.focus({ preventScroll: true });
     } else if (event.key === "Escape") {
-      // Only the menu closes, not the popup around it.
       event.preventDefault();
       close(true);
     } else if (event.key === "Tab") {
-      // Back on the button, Tab goes on from there.
       close(true);
     }
   });

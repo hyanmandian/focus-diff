@@ -47,7 +47,6 @@ const pattern = (label: string, value: string) =>
     ),
   );
 
-/** The page that opens on install: picking recipes, review time and trying the bar. */
 export const startWelcome = (): void => {
   const notify = toaster($("#toast"));
   let config: Config = normalize({});
@@ -87,7 +86,6 @@ export const startWelcome = (): void => {
     $(".recipe-title", item).textContent = message(recipe.title);
     $(".recipe-description", item).textContent = message(recipe.description);
     translate(item);
-    // The buttons it adds, by name; their patterns are folded below, for whoever wants to read them.
     $(".recipe-names", item).replaceChildren(
       ...recipe.filters.map((filter) => h("li", { textContent: message(filter.name) })),
     );
@@ -111,10 +109,6 @@ export const startWelcome = (): void => {
     return item;
   };
 
-  /**
-   * The button names what it does, Add or Remove, and its full name starts with those words. It's updated in place, so
-   * focus stays on it and it isn't read out again.
-   */
   function showState(item: HTMLElement, recipe: Recipe) {
     const added = isAdded(recipe);
     const button = $<HTMLButtonElement>(".recipe-toggle", item);
@@ -132,12 +126,7 @@ export const startWelcome = (): void => {
     if (focusedId) document.querySelector<HTMLElement>(`[data-recipe="${focusedId}"] .recipe-toggle`)?.focus();
   };
 
-  /**
-   * Review times to start from. Using one turns review time on, which asks for notifications first, from the click
-   * itself; taking it back leaves the reader's own review times as they are.
-   */
   let reviewTime: ReviewTimeSettings = normalizeReviewTime({});
-  /** The title and description of each of REVIEW_PRESETS. */
   const PRESET_NAMES: Record<string, [string, string]> = {
     twice: [i18n.t("presetTwiceTitle"), i18n.t("presetTwiceDescription")],
     every: [i18n.t("presetEveryTitle"), i18n.t("presetEveryDescription")],
@@ -263,8 +252,6 @@ export const startWelcome = (): void => {
     if (location.hash === "#recipes-h") $("#recipes-h").focus();
   });
 
-  // The demo is a bundle of its own, loaded once the page shows. It wears the reader's look for the bar from the start,
-  // and follows it as it changes in settings.
   void Promise.all([
     import("@/components/demo/demo"),
     import("@/utils/demo-sample/demo-sample"),

@@ -1,8 +1,5 @@
 import { createCn } from "cn/config";
 
-// Class merging (clsx + tailwind-merge), told about the platform's text styles (styles/tokens.css) so
-// `text-body` counts as a size: otherwise it reads as a colour and a `text-destructive` after it
-// would drop it.
 export const cn = createCn({
   extend: {
     classGroups: {

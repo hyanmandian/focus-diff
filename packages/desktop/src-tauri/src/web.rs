@@ -1,10 +1,3 @@
-//! Signing in to github.com itself, only to attach pictures and videos to comments the way
-//! github.com does: GitHub has no API for it, and its tokens can't do it. The person signs in on
-//! github.com's own page, in a window of its own that can't reach the app (no capability names it)
-//! and keeps nothing (a private web view); the app never sees a password. Once they're in, the
-//! session's cookies are kept in the system keychain, next to the token, and only ever sent to
-//! https://github.com.
-
 use std::io::Read;
 use std::sync::{Mutex, PoisonError};
 use std::thread;
@@ -21,13 +14,9 @@ pub const WINDOW: &str = "github-sign-in";
 pub const HOST: &str = "https://github.com";
 const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github.com session";
-/// Safari's: the sign-in window says it's Safari, and the requests made with its cookies say the
-/// same, so github.com sees one browser.
 pub const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15";
-/// How long the sign-in window waits for the person before it stops looking.
 const PATIENCE: Duration = Duration::from_secs(60 * 60);
 
-/// Who's signed in on github.com, and the cookies that say so.
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Session {
     pub login: String,
@@ -39,8 +28,6 @@ impl Session {
         self.cookies.iter().map(|(name, value)| format!("{name}={value}")).collect::<Vec<_>>().join("; ")
     }
 
-    /// What github.com set in an answer, kept so the next request carries it (its session cookie
-    /// changes as it goes, and its forms' tokens go with it). True when something changed.
     fn absorb(&mut self, set_cookies: &[String]) -> bool {
         let mut changed = false;
         for line in set_cookies {
@@ -73,7 +60,6 @@ impl Session {
     }
 }
 
-/// The session, read from the keychain once and kept in memory.
 #[derive(Default)]
 pub struct WebSession(Mutex<Option<Option<Session>>>);
 
@@ -110,15 +96,10 @@ impl WebSession {
     }
 }
 
-/// Tells every window who's signed in on github.com now (or that nobody is).
 pub fn announce(app: &AppHandle) {
     let _ = app.emit("web-session", app.state::<WebSession>().login());
 }
 
-// MARK: The sign-in window
-
-/// Where the sign-in window may go: github.com, the puzzles it may ask to be solved, and the
-/// accounts it lets you sign in with. Anything else stays out (a link to it opens in the browser).
 fn may_load(url: &Url) -> bool {
     if url.scheme() == "about" {
         return true;
@@ -141,11 +122,9 @@ pub fn sign_in(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(480.0, 720.0)
         .min_inner_size(400.0, 480.0)
         .center()
-        // Nothing kept on disk: the cookies the app needs go to the keychain, the rest goes away.
         .incognito(true)
         .user_agent(USER_AGENT)
         .on_navigation(may_load)
-        // A link meant for a new window opens in the browser; no window opens here.
         .on_new_window(move |url, _| {
             if url.scheme() == "https" {
                 let _ = opener.opener().open_url(url.as_str(), None::<&str>);
@@ -160,8 +139,6 @@ pub fn sign_in(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Looks at the window's cookies until github.com says the person is in, then keeps them and
-/// closes it. Off the main thread: reading cookies waits on it.
 fn wait_for_sign_in(app: &AppHandle) {
     let started = Instant::now();
     let github: Url = format!("{HOST}/").parse().expect("a valid address");
@@ -180,7 +157,6 @@ fn wait_for_sign_in(app: &AppHandle) {
     }
 }
 
-/// Forgets the session here. (github.com still lists it under your sessions until it ends.)
 pub fn sign_out(app: &AppHandle) {
     app.state::<WebSession>().forget();
     if let Some(window) = app.get_webview_window(WINDOW) {
@@ -189,18 +165,12 @@ pub fn sign_out(app: &AppHandle) {
     announce(app);
 }
 
-// MARK: Requests to github.com
-
-/// One answer from github.com.
 pub struct Answer {
     pub status: u16,
     pub location: Option<String>,
     pub body: String,
 }
 
-/// A request to github.com with the session's cookies, never anywhere else, and never following a
-/// redirect (one to the sign-in page is how an ended session shows). `body`: its content type
-/// and bytes. What github.com sets in its answer is kept in `session`.
 pub fn request(session: &mut Session, method: &str, path: &str, headers: &[(&str, &str)], body: Option<(&str, &[u8])>) -> Result<Answer, String> {
     if !crate::github::path_ok(path) {
         return Err("Bad request".into());
@@ -234,9 +204,6 @@ pub fn request(session: &mut Session, method: &str, path: &str, headers: &[(&str
     Ok(Answer { status, location, body: String::from_utf8_lossy(&bytes).into_owned() })
 }
 
-/// Where a github.com address of an attachment really is (a signed address on GitHub's content
-/// host), asked as the person signed in on github.com: private repositories' attachments are
-/// only theirs to see. None without a session, or when it isn't one.
 pub fn signed_address(app: &AppHandle, url: &str) -> Option<String> {
     let path = url.strip_prefix(HOST)?;
     if !path.starts_with("/user-attachments/") {

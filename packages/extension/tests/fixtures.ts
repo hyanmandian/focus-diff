@@ -11,9 +11,7 @@ const pullRequestHtml = readFileSync(path.resolve("tests/fixtures/pull-request.h
 const virtualizedHtml = readFileSync(path.resolve("tests/fixtures/pull-request-virtualized.html"), "utf8");
 
 export const PULL_REQUEST = "https://github.com/octo/web/pull/1/changes";
-/** GitHub's newer, virtualized diff view with its embedded data. */
 export const VIRTUALIZED_PULL_REQUEST = "https://github.com/octo/web/pull/2/changes";
-/** The classic view again, with a hundred times more lines in two of its files. */
 export const LARGE_PULL_REQUEST = "https://github.com/octo/web/pull/3/changes";
 const largeHtml = pullRequestHtml
   .replace("['web/src/book-card.tsx', 40, 10", "['web/src/book-card.tsx', 12040, 1510")
@@ -28,7 +26,6 @@ export const DEFAULT_CONFIG: Config = {
   repos: [],
 };
 
-/** Chrome picks its UI language, and so the extension's, from `--lang` everywhere but macOS. */
 export const CAN_SWITCH_LANGUAGE = process.platform !== "darwin";
 
 const pageFor = (url: string) =>
@@ -118,13 +115,11 @@ export const accessibilityViolations = async (page: Page, include?: string) => {
   );
 };
 
-/** Extension pages are checked in both themes, wide and at phone width. */
 export const PAGE_VIEWS = [
   ["light", 1280],
   ["dark", 390],
 ] as const;
 
-/** A page in a theme and width has no accessibility violations and doesn't scroll sideways, once `ready` is there. */
 export const expectSoundPage = async (
   page: Page,
   [colorScheme, width]: (typeof PAGE_VIEWS)[number],
@@ -133,9 +128,7 @@ export const expectSoundPage = async (
   await page.setViewportSize({ width, height: 900 });
   await page.emulateMedia({ colorScheme });
   await expect(ready).not.toHaveCount(0);
-  // Polled: right after the resize the page may still be laid out for the old width.
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-  // Contrast is checked as the page rests, not halfway through a fade, like the bar's as it comes in.
   await page.evaluate(() => {
     const roots: (Document | ShadowRoot)[] = [document];
     for (const root of roots)

@@ -1,7 +1,3 @@
-// Run before every unit test file (vite.config.ts, test.setupFiles): a clean page between tests,
-// a fake platform instead of the app (each test answers the commands it needs with mockCommands),
-// and what WebKit has that happy-dom doesn't.
-
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
@@ -12,7 +8,6 @@ setPlatform(fakePlatform);
 
 afterEach(async () => {
   cleanup();
-  // Unmounting removes event listeners asynchronously: let that finish before the mock goes.
   await new Promise((resolve) => {
     setTimeout(resolve, 0);
   });

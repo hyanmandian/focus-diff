@@ -7,7 +7,6 @@ import { pageBody } from "@/utils/page-body/page-body";
 
 import type { createPopupSettings as CreatePopupSettings } from "./options-popup-settings";
 
-// Imported once the browser can translate: its sections name things as they load.
 let createPopupSettings: typeof CreatePopupSettings;
 
 const type = (input: HTMLInputElement, text: string) => {

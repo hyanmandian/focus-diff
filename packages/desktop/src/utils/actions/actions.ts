@@ -1,14 +1,8 @@
-// Running the person's own actions on a pull request, step by step, stopping at the first one that
-// fails. GitHub steps go through the app's GitHub proxy; commands through Rust, which reads them
-// from the saved config itself and asks before running one for the first time.
-
 import { bridge, github, type ActionContext } from "@/utils/bridge/bridge";
 import type { Action, ActionStep } from "@/utils/config/config";
 import { errorText } from "@/utils/error/error";
 import { i18n } from "@/utils/i18n/i18n";
 
-/** {number} {title} {url} {repo} {author} {me} in text. In links (`encode`), values are encoded,
- *  except one that starts the link, like a bare {url}. */
 export function fill(template: string, pr: ActionContext, encode = false): string {
   return template.replaceAll(
     /\{(number|title|url|repo|author|me)\}/gu,
@@ -56,7 +50,6 @@ async function runStep(action: Action, index: number, step: ActionStep, pr: Acti
   return (await bridge.runAction(action, index, pr)) || null;
 }
 
-/** Runs every step; resolves to what to tell the person. */
 export async function runAction(action: Action, pr: ActionContext): Promise<string> {
   let said: string | null = null;
   for (const [index, step] of action.steps.entries()) {

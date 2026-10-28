@@ -1,11 +1,9 @@
-/* The sample pull request and its bar take their colours from the same theme, the --fd-* properties. */
 :host {
   display: block;
 }
 
 .demo {
   display: grid;
-  /* Never wider than the page gives it: on a narrow screen the bar's buttons scroll, as on a phone. */
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
@@ -23,7 +21,6 @@
     sans-serif;
 }
 
-/* The pull request's files, as a review site lists them; the bar hides those outside the filter. */
 .demo-files {
   display: grid;
   gap: 6px;
@@ -51,7 +48,6 @@
     "Liberation Mono",
     monospace;
 }
-/* Outside the filter: on a review site it's hidden; here it stays in place, set back and struck through, its colours muted. */
 .demo-file {
   transition: color 200ms ease-out;
 }
@@ -71,13 +67,11 @@
     transition: none;
   }
 }
-/* Where the bar took the reader. */
 .demo-file[aria-current="true"] {
   border-color: var(--fd-accent);
   box-shadow: 0 0 0 1px var(--fd-accent);
 }
 .demo-path {
-  /* On a narrow screen the path takes the row, and the rest goes below it. */
   flex: 1 0 min(100%, 26ch);
   min-width: 0;
   overflow-wrap: anywhere;
@@ -94,7 +88,6 @@
   border-radius: 999px;
   color: var(--fd-muted);
 }
-/* The conversation the bar took the reader to. */
 .demo-talk[data-current] {
   background: var(--fd-selected-bg);
   color: #ffffff;
@@ -162,9 +155,7 @@
   white-space: nowrap;
 }
 
-/* The bar, laid out in the demo instead of floating over the page. */
 .demo-bar {
-  /* The bar's popovers open above it, positioned against it as they are against the floating bar. */
   position: relative;
   z-index: 1;
   display: block;

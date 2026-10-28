@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 
-/** What's kept under a key, when it's still of the kind expected. */
 function stored<T>(key: string, fallback: T, valid: (value: unknown) => value is T): T {
   try {
     const text = localStorage.getItem(key);
@@ -13,9 +12,7 @@ function stored<T>(key: string, fallback: T, valid: (value: unknown) => value is
 function store(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Still works for this window.
-  }
+  } catch {}
 }
 const isUpdate = <T>(next: T | ((v: T) => T)): next is (v: T) => T => typeof next === "function";
 export function usePersisted<T>(key: string, fallback: T, valid: (value: unknown) => value is T) {

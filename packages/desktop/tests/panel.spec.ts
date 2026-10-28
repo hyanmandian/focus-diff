@@ -1,7 +1,3 @@
-// The panel under the tray icon, on the sample data: four pull requests wait on your review (three in
-// acme/web, two of them a stack, and one in acme/api), three are in Updates, two are yours and one
-// was merged.
-
 import { expect, test, type Page } from "@playwright/test";
 
 import { callsOf, recordCalls } from "./ipc";
@@ -11,14 +7,11 @@ const FLAKY = "Fix flaky date picker test in Safari";
 const INVOICES = "Move invoice exports to the background queue so large accounts don't time out";
 const REASONS = "Show why a promo code stopped applying";
 
-/** A pull request's row: the button that opens it. */
 const row = (page: Page, title: string) =>
   page.getByRole("button", {
     name: new RegExp(`^(Unread: )?${title.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")} #`, "u"),
   });
 
-/** Picks a row as a person does: the box shows under the pointer, and a click on it (with Shift for a
- *  run of rows) picks it. The box itself lets clicks through to the column it sits on. */
 async function pick(page: Page, title: string, modifiers: Array<"Shift"> = []) {
   await row(page, title).hover();
   await page.getByRole("checkbox", { name: `Select ${title}` }).click({ force: true, modifiers });
@@ -77,12 +70,10 @@ test("picks rows with their box, and a run of them with Shift", async ({ page })
   await expect(page.getByRole("checkbox", { name: `Select ${FLAKY}` })).toBeChecked();
   await expect(page.getByRole("status")).toHaveText("1 selected");
 
-  // From the one picked to the last row: all four.
   await pick(page, INVOICES, ["Shift"]);
   await expect(page.getByRole("status")).toHaveText("4 selected");
   await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(4);
 
-  // Clicking a picked one's box lets it go.
   await pick(page, PROMO);
   await expect(page.getByRole("checkbox", { name: `Select ${PROMO}` })).not.toBeChecked();
   await expect(page.getByRole("status")).toHaveText("3 selected");
@@ -135,7 +126,6 @@ test("asks for the review window when a row is clicked", async ({ page }) => {
   await expect.poll(() => callsOf(page, "open_review")).toHaveLength(1);
   const [call] = await callsOf(page, "open_review");
   expect(call?.args).toMatchObject({ id: "PR_1807", repo: "acme/web", number: 1807, queue: "review" });
-  // Opened, so no longer unread.
   await expect(row(page, PROMO)).toHaveAccessibleName(/^Checkout/u);
 });
 

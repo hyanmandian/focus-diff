@@ -23,7 +23,6 @@ const mount = (pullRequest: DemoPullRequest = SAMPLE_PULL_REQUEST, target = docu
   return { target, root, bar, shown, option, onSettings, setTheme, status, at, click };
 };
 
-/** Two files, one with a conversation; a docs filter; a filter that can't match (its pattern doesn't compile). */
 const SMALL: DemoPullRequest = {
   filters: [
     { id: "docs", name: "recipeStackFrontend", include: "\\.md$", exclude: "" },
@@ -75,7 +74,6 @@ describe("createDemo", () => {
     click(".next-file");
     expect(at()).toBe("b.ts");
     click(".next-file");
-    // Round again to the first.
     expect(at()).toBe("a.md");
     option("docs").click();
     root.querySelector<HTMLButtonElement>(".demo-file:not([data-out]) .demo-viewed")!.click();

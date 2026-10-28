@@ -3,8 +3,6 @@ import { CheckIcon } from "lucide-react";
 
 import { cn } from "@/utils/cn/cn";
 
-// A checkbox as AppKit draws it: the field's white with a 1px edge, the accent with a white check
-// when on, the focus ring for the keyboard. No hover.
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
   return (
     <CheckboxPrimitive.Root

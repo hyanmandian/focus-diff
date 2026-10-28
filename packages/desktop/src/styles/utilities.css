@@ -1,10 +1,3 @@
-/* Focus Diff's utilities and variants, for Tailwind v4: shadcn's state variants and keyframes, the
-   scroll-fade and shimmer utilities, AppKit's focus ring and the menu and popover materials. Needs Tailwind
-   (`@import "tailwindcss"` before it) and the tokens (tokens.css). */
-
-/* shadcn's Tailwind variants and keyframes (from the shadcn package's tailwind.css, MIT), kept here so
-   the shadcn CLI isn't a dependency of the app. Refresh with: npx shadcn@latest ... then copy dist/tailwind.css. */
-/* Custom variants */
 @custom-variant data-open {
   &:where([data-state="open"]),
   &:where([data-open]:not([data-open="false"])) {
@@ -46,18 +39,12 @@
   }
 }
 
-/* The keyboard focus ring as AppKit draws it: outside the control, following its corners, in the
-   accent at half strength (opaque with Increase Contrast). Fields show it whenever they're focused,
-   other controls only for the keyboard (Full Keyboard Access). Lists show focus as their row
-   highlight instead. */
 @utility focus-ring {
   &:focus-visible {
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: 0;
   }
 }
-/* A text field (input, textarea, a field made of several parts): a hairline edge that firms up under
-   the pointer, and while typing in it the accent edge with the focus ring around it. */
 @utility field {
   border: 1px solid var(--field-border);
   background-color: var(--field-bg);
@@ -82,8 +69,6 @@
   }
 }
 
-/* Menus and pop-up menus as AppKit draws them: a translucent material with a hairline edge and a
-   soft, deep shadow (components/select, dropdown-menu). They appear at once and fade out. */
 .mac-menu {
   border-radius: var(--radius-menu);
   background: var(--material-menu);

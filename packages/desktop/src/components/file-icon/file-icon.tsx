@@ -1,12 +1,7 @@
-// A file's language at a glance, as a small tile in the language's color (GitHub's linguist colors)
-// with its short name, the way Xcode marks files by kind. Pictures, locks and the like get a glyph.
-// No icon set to ship: what isn't known is a plain file.
-
 import { File, FileImage, Lock, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/utils/cn/cn";
 
-/** Short name, color, and whether the color is light enough to need dark text. */
 type Tile = [label: string, color: string];
 
 const BY_EXTENSION: Record<string, Tile> = {
@@ -93,7 +88,6 @@ function tileOf(path: string): Tile | LucideIcon {
   return (dot > 0 ? BY_EXTENSION[name.slice(dot + 1)] : undefined) ?? File;
 }
 
-/** Whether a tile's colour takes dark text: when white on it would be under WCAG's 4.5:1. */
 function takesDarkText(hex: string) {
   const channel = (at: number) => {
     const c = Number.parseInt(hex.slice(at, at + 2), 16) / 255;
@@ -106,7 +100,6 @@ export function FileIcon({ path, className }: { path: string; className?: string
   const tile = tileOf(path);
   if (!Array.isArray(tile)) {
     const Icon = tile;
-    // One of the three icons above, not a component made here.
     // oxlint-disable-next-line react/static-components
     return <Icon aria-hidden className={cn("mx-0.5 size-3.5 shrink-0 text-muted-foreground", className)} />;
   }

@@ -20,7 +20,6 @@ import {
 import { keysOf, oneOf } from "@/utils/record/record";
 import { inboxItem } from "@/utils/storage/storage";
 
-/** The events, grouped by whose pull request they happen on, the way the popup's tabs are. */
 const GROUPS: { list: string; events: EventKind[] }[] = [
   { list: "#events-reviewing", events: ["review-requested", "ready-for-review", "comment-reviewing"] },
   { list: "#events-mine", events: ["comment-mine", "approved", "changes-requested"] },
@@ -37,7 +36,6 @@ const EVENT_NAMES: Record<EventKind, string> = {
   mention: i18n.t("eventMention"),
 };
 
-/** The comment events read the same under their groups' headings; out of them, like in a list of controls, they don't. */
 const FULL_NAMES: Partial<Record<EventKind, string>> = {
   "comment-reviewing": i18n.t("eventCommentReviewingFull"),
   "comment-mine": i18n.t("eventCommentMineFull"),
@@ -50,12 +48,6 @@ const EXCEPTION_NAMES: Record<Exception, string> = {
   bots: i18n.t("exceptBots"),
 };
 
-/**
- * Settings' Notifications section: one switch to turn them on, which asks the browser for notifications; the
- * repositories they're for and the ones never; the events in two columns, by whose pull request they happen on, each
- * with what to skip and, if it differs, its own repositories; how often to look and when to keep quiet; and how they
- * show.
- */
 export const createNotifications = ({
   onChange,
   say,
@@ -77,19 +69,16 @@ export const createNotifications = ({
     grouped: $<HTMLInputElement>("#delivery-grouped"),
     sticky: $<HTMLInputElement>("#delivery-sticky"),
   };
-  /** Whether the reader has review times, for which an event can wait instead of showing at once. */
   let reviewTime = false;
 
   interval.append(
     ...INTERVALS.map((minutes) => new Option(i18n.t("notifyMinutes", minutes, [minutes]), String(minutes))),
   );
-  // Firefox can't keep a notification on screen.
   if (import.meta.env.FIREFOX)
     document.querySelectorAll<HTMLElement>(".chrome-only").forEach((row) => {
       row.hidden = true;
     });
 
-  // The repositories the reader has pull requests in, to pick from.
   void inboxItem.getValue().then((snapshot) => {
     const repos = [
       ...new Set([...(snapshot?.reviews ?? []), ...(snapshot?.mine ?? [])].map((pull) => pull.repo)),
@@ -118,7 +107,6 @@ export const createNotifications = ({
     return group;
   };
 
-  /** An event's own repositories, folded behind a button that says which apply. */
   const eventRepos = (kind: EventKind) => {
     const setting = settings.events[kind];
     const id = `event-${kind}-repos`;
@@ -148,7 +136,6 @@ export const createNotifications = ({
     return [button, panel];
   };
 
-  /** Right away, or kept for the reader's next review time: only offered while they have review times. */
   const whenChoice = (kind: EventKind) => {
     const setting = settings.events[kind];
     const group = segmented(
@@ -285,7 +272,6 @@ export const createNotifications = ({
       render();
     },
     value: (): NotifySettings => normalizeNotify(settings),
-    /** With review times on, each event can wait for the next one. */
     setReviewTime: (on: boolean) => {
       reviewTime = on;
       document.querySelectorAll<HTMLElement>(".event-when").forEach((group) => {
@@ -293,7 +279,6 @@ export const createNotifications = ({
       });
       $("#notify-when-hint").hidden = !on;
     },
-    /** Whether every repository typed reads as one; if not, says so at the field, unfolding an event's if need be. */
     check: (): boolean => {
       const wrong = pickers.wrong();
       const panel = wrong[0]?.input.closest<HTMLElement>(".event-repos");

@@ -1,6 +1,3 @@
-// The starting points the app offers (utils/config/config.ts): queues, filters, prompts and actions, named
-// in the language in use when they're made, then the person's own. Also the words of lib/ actions,
-// ai, review and estimate.
 export const config = {
   "queue.review": "Needs my review",
   "queue.review.hint": "Open pull requests waiting on your review, until you've reviewed or commented.",

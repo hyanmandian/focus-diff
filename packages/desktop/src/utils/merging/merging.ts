@@ -1,8 +1,3 @@
-// Merging a pull request, as GitHub's merge box does it: what stands in the way (reviews, checks,
-// conflicts, an out-of-date branch, branch protection), what can be done about it (update the
-// branch, merge when ready, the merge queue, bypassing as an admin), and the merge itself, with
-// its commit message and a guard against a head that moved since it was looked at.
-
 import { github, graphql } from "@/utils/bridge/bridge";
 import { fresh } from "@/utils/checks/checks";
 import type { Commit } from "@/utils/commits/commits";
@@ -12,7 +7,6 @@ import type { PullRef } from "@/utils/review/review";
 
 export type Method = Details["mergeMethods"][number];
 
-/** Where a pull request stands for merging; t(`manage.status.${status}`) says it. */
 export type MergeStatus =
   | "merged"
   | "closed"
@@ -25,7 +19,6 @@ export type MergeStatus =
   | "unstable"
   | "checking"
   | "ready";
-/** Why it can't be merged yet; t(`manage.reason.${reason}`). */
 export type Reason =
   | "approvals"
   | "changes"
@@ -40,9 +33,7 @@ export type MergeView = {
   status: MergeStatus;
   tone: "success" | "warning" | "destructive" | "muted" | "merged";
   reasons: Reason[];
-  /** Merge now, with the button. */
   canMerge: boolean;
-  /** Merge now despite what stands in the way, as an admin can (GitHub's "bypass rules"). */
   canBypass: boolean;
   canAutoMerge: boolean;
   canDisableAutoMerge: boolean;
@@ -54,13 +45,11 @@ export type MergeView = {
 type Input = {
   details: Pick<Details, "state" | "isDraft" | "mergeable" | "mergeStateStatus" | "reviewDecision" | "mergeMethods">;
   manage: Manage;
-  /** The checks: how many fail and how many still run, counting only the required ones when any are. */
   failing: number;
   pending: number;
   unresolved: number;
 };
 
-/** What the merge box shows and allows, from GitHub's mergeStateStatus and the rest. */
 export function mergeView({ details: d, manage: m, failing, pending, unresolved }: Input): MergeView {
   const write = canWrite(m);
   const open = d.state === "OPEN";
@@ -116,7 +105,6 @@ export function mergeView({ details: d, manage: m, failing, pending, unresolved 
           ? "muted"
           : "warning";
   const methods = d.mergeMethods.length > 0;
-  // With a merge queue, merging goes through it; only an admin can go around it.
   const mergeable = (status === "ready" || status === "unstable") && !m.isMergeQueueEnabled;
   return {
     status,
@@ -147,8 +135,6 @@ export function mergeView({ details: d, manage: m, failing, pending, unresolved 
   };
 }
 
-/** The commit message GitHub would write for a merge, as the repository's settings ask: the title
- *  and the body, both editable before merging. Rebasing keeps the commits' own. */
 export function defaultMessage(
   method: Method,
   m: Pick<Manage, "squashTitle" | "squashMessage" | "mergeTitle" | "mergeMessage" | "headOwner" | "body">,
@@ -179,8 +165,6 @@ export function defaultMessage(
   return { title: "", body: "" };
 }
 
-/** The parts of the details that merging changes, asked again past Rust's memory: after an action,
- *  or while GitHub works out whether it can be merged (UNKNOWN), without reloading the rest. */
 type MergeState = Pick<
   Details,
   "state" | "isDraft" | "mergeable" | "mergeStateStatus" | "reviewDecision" | "headRefOid" | "updatedAt"
@@ -196,11 +180,8 @@ export async function loadMergeState(ref: PullRef): Promise<MergeState> {
   return data.repository.pullRequest;
 }
 
-// MARK: Actions
-
 const base = (d: Pick<Details, "owner" | "repo" | "number">) => `/repos/${d.owner}/${d.repo}/pulls/${d.number}`;
 
-/** Merges, only if the head is still the one looked at (GitHub refuses otherwise, with 409). */
 export const mergePull = (
   d: Pick<Details, "owner" | "repo" | "number" | "headRefOid">,
   method: Method,
@@ -214,7 +195,6 @@ export const mergePull = (
 
 const METHOD = { merge: "MERGE", squash: "SQUASH", rebase: "REBASE" } as const;
 
-/** Merges by itself once what stands in the way is done (checks pass, reviews approve). */
 export const enableAutoMerge = (
   d: Pick<Details, "id" | "headRefOid">,
   method: Method,
@@ -257,7 +237,6 @@ export const enqueue = (d: Pick<Details, "id" | "headRefOid">) =>
 export const dequeue = (d: Pick<Details, "id">) =>
   graphql("mutation($id: ID!) { dequeuePullRequest(input: { id: $id }) { clientMutationId } }", { id: d.id });
 
-/** Brings the base's new commits into the branch, by a merge commit or by rebasing onto it. */
 export const updateBranch = (d: Pick<Details, "id" | "headRefOid">, how: "MERGE" | "REBASE") =>
   graphql(
     "mutation($id: ID!, $head: GitObjectID, $how: PullRequestBranchUpdateMethod) { updatePullRequestBranch(input: { pullRequestId: $id, expectedHeadOid: $head, updateMethod: $how }) { clientMutationId } }",
@@ -268,7 +247,6 @@ export const updateBranch = (d: Pick<Details, "id" | "headRefOid">, how: "MERGE"
     },
   );
 
-/** Deletes the head branch (after merging or closing); GitHub can restore it. */
 export const deleteBranch = (m: Pick<Manage, "headOwner" | "headRepo">, branch: string) =>
   github(
     "DELETE",

@@ -15,7 +15,6 @@ import {
 
 import type { ReviewState } from "./popup-review-time";
 
-/** Wednesday 7 October 2026, 10:00 local time. */
 const NOW = new Date(2026, 9, 7, 10, 0).getTime();
 
 const pull = (number: number, extra: Partial<RunPull> = {}): RunPull => ({
@@ -75,8 +74,6 @@ const sendMessage = () =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the browser's types end on the callback overload; the card uses the promise one.
   vi.spyOn(fakeBrowser.runtime, "sendMessage") as unknown as MockInstance<(message: Message) => Promise<unknown>>;
 
-/** A fresh module each time: the minutes picked and what was drawn are kept while the popup is open. */
-/** What the popup hands the review panel, each a mock; the avatar is an image named after its login. */
 const panelOptions = () => ({
   avatar: vi.fn<(login: string) => HTMLElement>((login) =>
     Object.assign(document.createElement("img"), { alt: login }),
@@ -113,7 +110,6 @@ const mount = async (initial: ReviewState, reply: unknown = true) => {
   return { card, sent, options, update, render, button, text };
 };
 
-/** Lets the card's promises settle. */
 const flush = async (turns = 5): Promise<void> => {
   await new Promise<void>((resolve) => {
     setTimeout(resolve, 0);
@@ -125,7 +121,6 @@ describe("renderReviewPanel", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
-    // happy-dom has no Option constructor.
     vi.stubGlobal("Option", function Option(text: string, value: string) {
       return Object.assign(document.createElement("option"), { text, value });
     });
@@ -376,7 +371,6 @@ describe("renderReviewPanel", () => {
       expect(like().value).toBe("a");
       expect(document.activeElement).toBe(like());
       expect(card.querySelector('.minutes [aria-pressed="true"]')?.textContent).toBe("60 min");
-      // Back to the defaults keeps the length picked.
       like().value = "";
       like().dispatchEvent(new Event("change"));
       expect(card.querySelector('.minutes [aria-pressed="true"]')?.textContent).toBe("60 min");

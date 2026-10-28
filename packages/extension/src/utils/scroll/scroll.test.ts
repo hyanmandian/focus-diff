@@ -9,7 +9,6 @@ let pageY = 0;
 let reducedMotion = false;
 const scrolls: ScrollToOptions[] = [];
 
-/** Runs the frames waiting, `ms` apart. */
 const tick = (ms = 16) => {
   now += ms;
   const waiting = frames;
@@ -38,7 +37,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Lets go of any element still held, so the next test starts clean.
   dispatchEvent(new Event("wheel"));
   vi.unstubAllGlobals();
   document.body.replaceChildren();
@@ -66,7 +64,6 @@ describe("waitFor", () => {
   });
 });
 
-/** An element at `top` in the page (so `top - scrollY` on screen), `height` tall. */
 const placed = (top: number, height = 100) => {
   const element = document.createElement("div");
   document.body.append(element);

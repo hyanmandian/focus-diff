@@ -9,17 +9,9 @@ import { asRecord, keysOf, oneOf } from "@/utils/record/record";
 import { PACES, type Pace } from "@/utils/review-time/review-time";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
 
-/**
- * Review time: times the reader sets aside to review, like every weekday at 15:00 for half an hour. When one comes,
- * the pull requests waiting for their review are estimated the way the bar estimates them, and the ones that fit in
- * the time are picked, at least one even if it takes longer, which is then said.
- */
-
-/** Which of the pull requests that fit go first, and so which are left out when not all of them do. */
 export type Order = "oldest" | "quickest" | "fill";
 export const ORDERS: Order[] = ["oldest", "quickest", "fill"];
 
-/** At set times of the day, or every few hours between two. */
 type Repeat = "times" | "every";
 
 export const MINUTE_PRESETS = [15, 30, 45, 60, 90] as const;
@@ -35,53 +27,37 @@ export interface ReviewSession {
   id: string;
   name: string;
   on: boolean;
-  /** Days of the week it's on, 0 for Sunday. */
   days: number[];
   repeat: Repeat;
-  /** `HH:MM`, for `times`. */
   times: string[];
-  /** Hours between two, from `from` up to `to`, for `every`. */
   every: number;
   from: string;
   to: string;
-  /** The time set aside. */
   minutes: number;
   order: Order;
-  /** The filters whose files count, by id; none counts every file. */
   filters: string[];
   repos: string[];
   excludeRepos: string[];
   drafts: boolean;
 }
 
-/** What Start opens: the first pull request, all of them in tabs, or nothing, for the popup's list. */
 export const OPENS = ["first", "all", "none"] as const;
 export type Opens = (typeof OPENS)[number];
 
 export interface ReviewTimeSettings {
   enabled: boolean;
   sessions: ReviewSession[];
-  /** How fast the reader reads a diff to start with, for every estimate, the bar's too. */
   pace: Pace;
-  /** Whether the estimates learn the reader's own pace from the files they review. */
   learn: boolean;
-  /** Minutes on top of each pull request's files: its description, and writing the review. */
   perPull: number;
-  /** Only the files not marked as viewed count, so a review half done takes half the time. */
   unviewedOnly: boolean;
-  /** Pull requests the reader was asked to review again come first. */
   againFirst: boolean;
-  /** The popup's review queue says how long each pull request takes, which reads each one's files once per push. */
   queueEstimates: boolean;
   opens: Opens;
-  /** Opening a pull request from review time turns its filters on in the bar. */
   applyFilters: boolean;
   snooze: number;
-  /** A notification when the time's up, saying how far it got. */
   remindEnd: boolean;
-  /** With nothing to review, the time passes without a word. */
   skipEmpty: boolean;
-  /** While reviewing, every notification waits for the time to be up. */
   holdWhileReviewing: boolean;
   sound: SoundSetting;
 }
@@ -164,7 +140,6 @@ export const normalizeReviewTime = (value: unknown): ReviewTimeSettings => {
   const sessions = (Array.isArray(raw.sessions) ? raw.sessions : [])
     .slice(0, MAX_SESSIONS)
     .map((each) => normalizeSession(each));
-  // Ids come from storage another device wrote; two the same would edit as one.
   const seen = new Set<string>();
   for (const session of sessions) {
     while (seen.has(session.id)) session.id = newId();
@@ -189,14 +164,12 @@ export const normalizeReviewTime = (value: unknown): ReviewTimeSettings => {
   };
 };
 
-/** Whether any review time is coming at all. */
 export const isScheduled = (settings: ReviewTimeSettings): boolean =>
   settings.enabled &&
   settings.sessions.some((session) => session.on && session.days.length > 0 && startsOf(session).length > 0);
 
 const toMinutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
 
-/** The minutes after midnight a session starts at, on a day it's on. */
 export const startsOf = (session: ReviewSession): number[] => {
   if (session.repeat === "times") return session.times.map(toMinutes);
   const starts: number[] = [];
@@ -209,7 +182,6 @@ export interface Occurrence {
   at: number;
 }
 
-/** The next review time strictly after `after`, looking a week ahead. */
 export const nextOccurrence = (settings: ReviewTimeSettings, after: number): Occurrence | null => {
   if (!settings.enabled) return null;
   let best: Occurrence | null = null;
@@ -228,41 +200,32 @@ export const nextOccurrence = (settings: ReviewTimeSettings, after: number): Occ
   return best;
 };
 
-/** A changed file as review time knows it: its path, line counts, and whether the reader marked it viewed. */
 export type PullFile = [path: string, additions: number, deletions: number, viewed: boolean];
 
-/** A pull request's files as last read, by its head commit, so a new push reads them again. */
 export interface FilesRecord {
   sha: string;
   files: PullFile[];
-  /** When they were read, for which are viewed. */
   readAt?: number;
 }
 
 export interface Estimate {
   minutes: number;
-  /** Files that count: in the session's filters and, if asked, not viewed yet. */
   files: number;
-  /** A rough guess, for a pull request whose files couldn't be read. */
   guessed?: boolean;
 }
 
-/** The session's filters that apply in a repository, as matchers; `null` counts every file. */
 const sessionFilters = (config: Config, repo: string, ids: string[]) =>
   filtersFor(config, repo).filter((filter) => ids.includes(filter.id));
 
 export const sessionMatchers = (config: Config, repo: string, ids: string[]): Matcher[] | null => {
   if (ids.length === 0) return null;
   const matchers = sessionFilters(config, repo, ids).flatMap((filter) => toMatcher(filter) ?? []);
-  // A repository none of the filters are for is reviewed whole.
   return matchers.length > 0 ? matchers : null;
 };
 
-/** The filter ids of a session that apply in a repository, to turn on in the bar. */
 export const sessionFilterIds = (config: Config, repo: string, ids: string[]): string[] =>
   sessionFilters(config, repo, ids).map((filter) => filter.id);
 
-/** A pull request's minutes: its files in the session's filters, at the reader's pace, and a moment for the pull request. */
 export const estimate = (
   files: PullFile[],
   matchers: Matcher[] | null,
@@ -280,10 +243,6 @@ export const estimate = (
   return { minutes: counted.length > 0 ? settings.perPull + reading : 0, files: counted.length };
 };
 
-/**
- * How long a whole pull request takes, from its files as last read, or `null` when they're from an older push or were
- * never read, or nothing's left to review.
- */
 export const pullMinutes = (
   pull: PullRequest,
   record: FilesRecord | undefined,
@@ -297,7 +256,6 @@ export const pullMinutes = (
 
 const among = (patterns: string[], repo: string) => patterns.some((pattern) => repoMatches(pattern, repo));
 
-/** The pull requests a session is for, before knowing how long they take. */
 export const candidates = (session: ReviewSession, pulls: PullRequest[]): PullRequest[] => {
   return pulls.filter(
     (pull) =>
@@ -314,12 +272,9 @@ export interface Planned {
 
 export interface Plan {
   picked: Planned[];
-  /** Waiting too, but they didn't fit. */
   left: Planned[];
-  /** Nothing in the session's filters, or nothing left unviewed. */
   nothing: PullRequest[];
   total: number;
-  /** How much longer than the time set aside the plan takes, when even the one picked doesn't fit. */
   overBy: number;
 }
 
@@ -327,10 +282,8 @@ const byAge = (a: Planned, b: Planned) =>
   (a.pull.createdAt || a.pull.updatedAt).localeCompare(b.pull.createdAt || b.pull.updatedAt);
 const bySize = (a: Planned, b: Planned) => a.estimate.minutes - b.estimate.minutes || byAge(a, b);
 
-/** The most minutes of review that fit in `budget`, and among those, the most pull requests: a small knapsack. */
 const bestFill = (items: Planned[], budget: number): Planned[] => {
   const size = (item: Planned) => Math.max(1, Math.ceil(item.estimate.minutes));
-  // best[m]: [minutes used, count, picks] within m minutes.
   let best: [number, number, Planned[]][] = Array.from({ length: budget + 1 }, () => [0, 0, []]);
   for (const item of items) {
     const next = best.map((cell) => cell);
@@ -346,11 +299,6 @@ const bestFill = (items: Planned[], budget: number): Planned[] => {
   return best[budget]![2];
 };
 
-/**
- * Picks what fits in `minutes`: in the session's order, each that still fits, or the combination that fills the time
- * best. With `againFirst`, pull requests the reader was asked to review again go first, when they fit. With none that
- * fits, the first in order is picked anyway, and the plan says by how much it runs over.
- */
 export const plan = (items: Planned[], minutes: number, order: Order, againFirst = false): Plan => {
   const counts = (item: Planned) => item.estimate.files > 0 || item.estimate.guessed === true;
   const nothing = items.filter((item) => !counts(item)).map((item) => item.pull);
@@ -378,7 +326,6 @@ export const plan = (items: Planned[], minutes: number, order: Order, againFirst
   return { picked, left, nothing, total, overBy: Math.max(0, Math.round(total) - minutes) };
 };
 
-/** A pull request picked for review time, as the popup lists it. */
 export interface RunPull {
   url: string;
   repo: string;
@@ -386,22 +333,17 @@ export interface RunPull {
   title: string;
   author: string;
   minutes: number;
-  /** `null` when its files couldn't be read, and the minutes are a guess. */
   files: number | null;
-  /** The reader was asked to review it again. */
   again?: boolean;
 }
 
-/** A review time offered, and once started, under way. */
 export interface ReviewRun {
-  /** The session it's from, or empty for one started from the popup. */
   session: string;
   name: string;
   minutes: number;
   offeredAt: number;
   startedAt: number | null;
   pulls: RunPull[];
-  /** Waiting too, but not picked: they didn't fit. */
   left: number;
   overBy: number;
   filters: string[];
@@ -419,12 +361,10 @@ export const runPulls = (picked: Planned[]): RunPull[] =>
     ...(pull.again ? { again: true } : {}),
   }));
 
-/** When a run's time is up: from its start, or for one only offered, when the offer lapses. */
 export const runEndsAt = (run: ReviewRun): number => (run.startedAt ?? run.offeredAt) + run.minutes * 60_000;
 
 export const minutesLeft = (run: ReviewRun): number => Math.max(0, Math.ceil((runEndsAt(run) - Date.now()) / 60_000));
 
-/** Review times to start from, offered on the welcome page: a session's settings and the names to show it by. */
 export interface ReviewPreset {
   id: string;
   session: Partial<ReviewSession>;
@@ -436,7 +376,6 @@ export const REVIEW_PRESETS: ReviewPreset[] = [
   { id: "end", session: { times: ["17:00"], minutes: 45, order: "fill" } },
 ];
 
-/** A preset as a session of the reader's own: its id says which, so the welcome page can tell it's on. */
 export const presetSession = (preset: ReviewPreset, name: string): ReviewSession => ({
   ...newSession(name),
   ...preset.session,

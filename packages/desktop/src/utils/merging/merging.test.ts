@@ -21,7 +21,6 @@ const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
-/** Rust answering each call with the same reply, keeping what was asked. */
 function rust(reply: unknown = ok({ data: {} })) {
   const calls: Call[] = [];
   mockCommands((cmd, args) => {
@@ -30,7 +29,6 @@ function rust(reply: unknown = ok({ data: {} })) {
   });
   return calls;
 }
-/** What each call sent: its method, path and body. */
 const sent = (calls: Call[]) =>
   calls.map((c) => [c.fields.method, c.fields.path, JSON.parse(String(c.fields.body)) as unknown]);
 

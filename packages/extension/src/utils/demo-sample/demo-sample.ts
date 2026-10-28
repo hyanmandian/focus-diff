@@ -1,7 +1,6 @@
 import type { ThreadState } from "@/utils/provider/provider";
 import { RECIPES } from "@/utils/recipes/recipes";
 
-/** A changed file of a made-up pull request, with the conversations on it. */
 export interface DemoFile {
   path: string;
   additions: number;
@@ -10,7 +9,6 @@ export interface DemoFile {
   conversations?: { line: number; state: ThreadState }[];
 }
 
-/** A filter as the settings keep it; `name` is a message key, read in the reader's language. */
 interface DemoFilter {
   id: string;
   name: string;
@@ -23,13 +21,11 @@ export interface DemoPullRequest {
   filters: DemoFilter[];
 }
 
-/** The filters the welcome page offers as examples, so the demo filters exactly the way they will. */
 const recipeFilter = (recipe: string, name: string, id: string): DemoFilter => {
   const filter = RECIPES.find((each) => each.id === recipe)?.filters.find((each) => each.name === name);
   return { id, name, include: filter?.include ?? "", exclude: filter?.exclude ?? "" };
 };
 
-/** A checkout feature across the stack: the code, a migration, and tests, docs, stories and a lock file only All shows. */
 export const SAMPLE_PULL_REQUEST: DemoPullRequest = {
   filters: [
     recipeFilter("stack", "recipeStackFrontend", "frontend"),

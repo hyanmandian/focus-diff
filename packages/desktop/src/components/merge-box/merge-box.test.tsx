@@ -25,10 +25,8 @@ const detail = () => screen.getByRole("heading").nextElementSibling?.textContent
 const button = (name: string | RegExp) => screen.getByRole("button", { name });
 const noButton = (name: string) => screen.queryByRole("button", { name });
 
-/** A command's named argument, as the page sent it. */
 const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
 
-/** Records the links opened in the browser. */
 function opened() {
   const urls: unknown[] = [];
   mockCommands((cmd, args) => {

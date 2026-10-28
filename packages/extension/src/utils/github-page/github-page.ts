@@ -11,12 +11,6 @@ import type {
 } from "@/utils/provider/provider";
 import { asText } from "@/utils/record/record";
 
-/**
- * Reads GitHub's pull request pages, in both of its diff views. The classic one draws every file and its conversations
- * up front; the newer one, shown to signed-in reviewers, draws files as they scroll into view and embeds the whole pull
- * request as data. A file's anchor is GitHub's digest of its path, as in `#diff-<digest>`.
- */
-
 const DIFF = '[role="region"][id^="diff-"], [data-tagsearch-path][id^="diff-"]';
 const TREE_ITEM = '[role="treeitem"]';
 const PAGE_LAYOUT = 'main, [role="main"], #diff-comparison-viewer-container, #files';
@@ -38,7 +32,6 @@ export const repository = (): string | null => {
   return owner ? `${owner}/${name}` : null;
 };
 
-/** The path without invisible marks, and of a renamed file, only the new path after the arrow. */
 const cleanPath = (value: string) =>
   value
     .replace(INVISIBLE, "")
@@ -83,7 +76,6 @@ const visibleStats = (header: Element): FileStats => {
   };
 };
 
-/** Stats survive GitHub unmounting a diff while scrolling. Only labelled stats are kept, and only for the current pull request. */
 const statsByPath = new Map<string, FileStats>();
 let statsPathname = "";
 const statsOf = (diff: Element, path: string): FileStats | null => {
@@ -100,7 +92,6 @@ const statsOf = (diff: Element, path: string): FileStats | null => {
   return labelled ?? visibleStats(header);
 };
 
-/** Paths are cached per element, but only once known, and only while the element keeps its id (GitHub reuses nodes). */
 const pathCache = new WeakMap<Element, { id: string; path: string }>();
 const cachedPathOf = (element: HTMLElement) => {
   const cached = pathCache.get(element);
@@ -110,7 +101,6 @@ const cachedPathOf = (element: HTMLElement) => {
   return path;
 };
 
-/** Whether a node GitHub just added is, or contains, a file diff. */
 export const containsDiff = (node: Node): boolean =>
   node instanceof Element && (node.matches(DIFF) || node.querySelector(DIFF) !== null);
 
@@ -132,7 +122,6 @@ export const diffs = (): Diff[] => {
   return [...byPath.values()];
 };
 
-/** A tree item's name: its row's first line of text, which keeps names with spaces whole. */
 const labelOf = (item: Element) =>
   (item.querySelector(":scope > div")?.textContent || item.getAttribute("aria-label") || "")
     .trim()
@@ -147,7 +136,6 @@ const folderPathOf = (item: Element | null | undefined): string => {
   return parts.join("/");
 };
 
-/** A file's path as the tree spells it out, for trees without `#diff-` links. */
 export const treePathOf = (item: Element): string => {
   const name = labelOf(item);
   const folder = folderPathOf(item.parentElement?.closest(TREE_ITEM));
@@ -185,7 +173,6 @@ const findLineCounters = (): [HTMLElement | null, HTMLElement | null] => {
     (element) => isLeaf(element) && ADDITIONS.test(textOf(element)) && !element.closest(`${DIFF}, [role="tree"]`),
   );
   if (!additions) return [null, null];
-  // Found in the page's body, so it has a parent and a grandparent.
   const near = additions.parentElement!.parentElement!;
   const deletions = [...near.querySelectorAll<HTMLElement>("span, div")].find(
     (element) => isLeaf(element) && DELETIONS.test(textOf(element)),
@@ -198,7 +185,6 @@ let scannedAt = 0;
 let firstScanAt = 0;
 let scannedPathname = "";
 
-/** GitHub's own counters. The full-page search runs at most every couple of seconds, and gives up on a page after a while. */
 export const pageCounters = (): PageCounters => {
   if (counters.files?.isConnected && counters.additions?.isConnected) return counters;
   const now = Date.now();
@@ -216,17 +202,14 @@ export const pageCounters = (): PageCounters => {
   return counters;
 };
 
-/** The number of changed files GitHub reports, which counts files it hasn't rendered yet. */
 export const reportedFileCount = (): number => {
   const text = pageCounters().files?.textContent ?? "";
   return Number(text.replaceAll(/[^\d]/gu, "")) || 0;
 };
 
-/** The classic view's checkbox, or the newer view's toggle button, found by its label rather than its styling. */
 const VIEWED = 'input.js-reviewed-checkbox, button[aria-pressed], [data-diff-header-wrapper] input[type="checkbox"]';
 const VIEWED_LABEL = /^(not )?viewed$/iu;
 
-/** Whether the reviewer marked a file as viewed on GitHub, or `null` when its toggle isn't rendered. */
 const viewed = (diff: Element): boolean | null => {
   for (const control of diff.querySelectorAll<HTMLElement>(VIEWED)) {
     if (control instanceof HTMLInputElement) {
@@ -242,10 +225,8 @@ const viewed = (diff: Element): boolean | null => {
   return null;
 };
 
-/** The newer diff view positions each file absolutely in a tall list and only renders the ones near the screen. */
 export const isVirtualized = (): boolean => document.querySelector("[data-index][data-path-digest]") !== null;
 
-/** For virtual-list.ts, in the page's world: the files hidden, as `count index:digest…`, with enough digest to check. */
 export const closeUp = (hidden: { index: number; anchor: string }[], count: number): void => {
   const value =
     hidden.length > 0
@@ -259,11 +240,9 @@ export const closeUp = (hidden: { index: number; anchor: string }[], count: numb
 
 export const diffAt = (anchor: string): HTMLElement | null => (anchor ? byId(`diff-${anchor}`) : null);
 
-/** The file tree's link to a file, which makes GitHub scroll to it and render it. */
 const treeLink = (anchor: string): HTMLAnchorElement | null =>
   anchor ? document.querySelector<HTMLAnchorElement>(`[role="treeitem"] a[href="#diff-${CSS.escape(anchor)}"]`) : null;
 
-/** Opens a file GitHub hasn't drawn: with its folder collapsed or the tree closed, its anchor still takes GitHub there. */
 export const reveal = (anchor: string): void => {
   const link = treeLink(anchor);
   if (link) link.click();
@@ -271,20 +250,17 @@ export const reveal = (anchor: string): void => {
   else location.hash = `diff-${anchor}`;
 };
 
-/** The file a click in the tree went to, by the anchor of its link. */
 export const treeAnchorAt = (target: EventTarget | null): string | null => {
   const link = target instanceof Element ? target.closest('[role="tree"] a[href^="#diff-"]') : null;
   return link?.getAttribute("href")?.slice("#diff-".length) || null;
 };
 
-/** Conversation markers beside the lines of a rendered diff in the newer view, top to bottom. */
 export const commentIndicators = (diff: Element): HTMLElement[] =>
   [...diff.querySelectorAll<HTMLElement>('[class*="CommentIndicator-module__commentIn"]')]
     .map((element) => ({ element, top: element.getBoundingClientRect().top }))
     .toSorted((a, b) => a.top - b.top)
     .map(({ element }) => element);
 
-/** Review conversations in the classic view; the class is a fallback for the custom element. */
 const THREAD = "review-thread-collapsible, .js-resolvable-timeline-thread-container";
 
 export interface Thread {
@@ -295,7 +271,6 @@ export interface Thread {
 
 const viewer = (): string | null => document.querySelector<HTMLMetaElement>('meta[name="user-login"]')?.content || null;
 
-/** A thread's comments, each wrapped in an element with its id, like `r3727922886`. */
 export const threadComments = (thread: HTMLElement): HTMLElement[] =>
   [...thread.querySelectorAll<HTMLElement>('[id^="r"]')].filter((element) => /^r\d+$/u.test(element.id));
 
@@ -308,16 +283,11 @@ const threadState = (thread: HTMLElement, login: string | null): ThreadState => 
   return author?.textContent?.trim() === login || reacted ? "answered" : "waiting";
 };
 
-/** The new-version line a classic thread hangs under: the last line number on the row above it. */
 const threadLine = (thread: HTMLElement): number | null => {
   const numbers = thread.closest("tr")?.previousElementSibling?.querySelectorAll("[data-line-number]");
   return Number([...(numbers ?? [])].at(-1)?.getAttribute("data-line-number")) || null;
 };
 
-/**
- * Newer view: the conversations open in a diff, read from the page. GitHub's data stops at page load, so this is how a
- * conversation started or answered since then is known.
- */
 export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
   const login = viewer();
   return [...diff.querySelectorAll<HTMLElement>("[data-marker-id]")].flatMap((element) => {
@@ -330,10 +300,6 @@ export const openThreads = (diff: HTMLElement): ThreadSummary[] => {
   });
 };
 
-/**
- * Newer view: whether a conversation from GitHub's data is gone from the page, like after its comment was deleted: its
- * line is drawn, without a marker. A line that isn't drawn, say in a collapsed file, tells nothing, so it counts as there.
- */
 export const threadRemoved = (diff: HTMLElement, line: string): boolean => {
   const side = line.startsWith("L") ? "left" : "right";
   const cell = diff.querySelector(`[data-line-number="${CSS.escape(line.slice(1))}"][data-diff-side="${side}"]`);
@@ -341,17 +307,14 @@ export const threadRemoved = (diff: HTMLElement, line: string): boolean => {
   return Boolean(row && !row.querySelector('[class*="CommentIndicator-module__commentIn"], [data-marker-id]'));
 };
 
-/** A conversation open in the newer view, found by its thread id. */
 export const threadById = (id: string): HTMLElement | null =>
   document.querySelector<HTMLElement>(`[data-marker-id="${CSS.escape(id)}"]`);
 
-/** The control that expands a collapsed classic thread, like a resolved one, or `null` when it's already open. */
 export const collapsedThreadToggle = (thread: HTMLElement): HTMLButtonElement | null => {
   const toggle = thread.querySelector<HTMLButtonElement>('button[aria-expanded="false"][data-target$=".button"]');
   return toggle?.closest(THREAD) === thread ? toggle : null;
 };
 
-/** Conversations inside a diff, in page order. */
 export const threads = (diff: HTMLElement): Thread[] => {
   const login = viewer();
   return [...diff.querySelectorAll<HTMLElement>(THREAD)]
@@ -359,35 +322,21 @@ export const threads = (diff: HTMLElement): Thread[] => {
     .map((element) => ({ element, state: threadState(element, login), line: threadLine(element) }));
 };
 
-/** Used when no file header says where GitHub's sticky bar ends. */
 const STICKY_FALLBACK_PX = 80;
 const FILE_HEADER = "[data-diff-header-wrapper], .file-header";
 
-/**
- * Where GitHub's sticky bar ends: each file's header sticks right below it, so its `top` says. A file brought to the
- * top lines up there, with nothing of it hidden behind the bar.
- */
 const stickyBarBottom = (): number => {
   const header = document.querySelector(FILE_HEADER);
   const top = header ? Number.parseFloat(getComputedStyle(header).top) : Number.NaN;
   return Number.isFinite(top) && top > 0 ? top : STICKY_FALLBACK_PX;
 };
 
-/** How much of the screen's top GitHub covers: its bar, and over something inside a file, the file's own header too. */
 export const coveredTop = (inside?: Element): number => {
   const header = inside?.closest(DIFF)?.querySelector<HTMLElement>(FILE_HEADER);
   return stickyBarBottom() + (header?.offsetHeight ?? 0);
 };
 
-/**
- * GitHub's newer diff view (shown to signed-in reviewers) embeds the whole pull request as JSON in
- * `script[data-target="react-app.embeddedData"]`: every changed file with its line counts and Viewed state, and every
- * review thread with its line. The diff list itself is virtualized, so this is the only complete picture of a large
- * pull request. The classic view has no such data; callers fall back to reading the DOM.
- */
-
 export interface PullRequestData {
-  /** A file's anchor is the SHA-256 of its path; a thread's comment is its first comment's id, which `#r<id>` opens. */
   files: FileSummary[];
 }
 
@@ -396,7 +345,6 @@ const EMBEDDED = 'script[data-target="react-app.embeddedData"]';
 type Json = Record<string, unknown>;
 const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null;
 
-/** Finds the object that holds `key`, wherever GitHub nests it. */
 const holderOf = (value: unknown, key: string, depth = 0): Json | null => {
   if (!isObject(value) || depth > 8) return null;
   if (key in value) return value;
@@ -412,7 +360,6 @@ const commentsOf = (detail: unknown): Json[] =>
     ? detail.commentsData.comments.filter(isObject)
     : [];
 
-/** Same rule as the classic view: answered when the reader wrote or reacted to the last comment. */
 const stateOf = (detail: unknown): ThreadState => {
   if (!isObject(detail)) return "waiting";
   if (detail.isResolved === true) return "resolved";
@@ -468,10 +415,6 @@ const parse = (text: string): PullRequestData | null => {
 
 const parsed = new WeakMap<Element, PullRequestData | null>();
 
-/**
- * The current pull request's embedded data, or `null` on the classic view. GitHub swaps the script element on
- * navigation, so each one is parsed once. A page can embed data for other apps too; the first with diffs wins.
- */
 export const pullRequestData = (): PullRequestData | null => {
   for (const script of document.querySelectorAll(EMBEDDED)) {
     let data = parsed.get(script);

@@ -1,4 +1,3 @@
-// What happens on a pull request (utils/copy/copy.ts has their colours), and where you stand on one.
 export const events = {
   "tag.new": "New",
   "tag.commits": "Commits",
@@ -26,7 +25,6 @@ export const events = {
   "long.ci-passed": "CI passed",
   "long.conflict": "Conflicts with the base branch",
 
-  // A queue's notifications, in Settings.
   "label.new": "Enters the queue",
   "label.commits": "New commits",
   "label.reply": "Replies to you",

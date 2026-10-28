@@ -2,7 +2,6 @@ import { newId } from "@/utils/filters/filters";
 import { PROVIDERS, type ProviderInfo } from "@/utils/providers/providers";
 import { isRecord } from "@/utils/record/record";
 
-/** The bar's colours a theme of the reader's own can change, each a `--fd-*` property of the bar. */
 export const THEME_COLORS = [
   "bg",
   "fg",
@@ -22,29 +21,23 @@ export const THEME_COLORS = [
 
 export type ThemeColor = (typeof THEME_COLORS)[number];
 
-/** A theme the reader made: a name and the colours they changed; the others follow the provider's theme. */
 export interface CustomTheme {
   id: string;
   name: string;
   colors: Partial<Record<ThemeColor, string>>;
 }
 
-/** The bar's look: which theme it wears, and the themes the reader made. */
 export interface Appearance {
-  /** `PROVIDER_THEME`, a provider's id, or the id of one of `themes`. */
   theme: string;
   themes: CustomTheme[];
 }
 
-/** The theme of the provider whose site the bar is on. */
 export const PROVIDER_THEME = "provider";
 
 export const DEFAULT_APPEARANCE: Appearance = { theme: PROVIDER_THEME, themes: [] };
 
-/** A hex colour, with or without alpha: `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`. */
 export const HEX_COLOR = /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/iu;
 
-/** A theme as it's kept or shared: a trimmed name and only valid colours, in lower case. */
 const normalizeTheme = (input: unknown, id: string = newId()): CustomTheme | null => {
   if (!isRecord(input) || typeof input.name !== "string" || !input.name.trim()) return null;
   const given = isRecord(input.colors) ? input.colors : {};
@@ -69,10 +62,8 @@ export const normalizeAppearance = (input: unknown): Appearance => {
   return { theme: typeof value.theme === "string" && seen.has(value.theme) ? value.theme : PROVIDER_THEME, themes };
 };
 
-/** What sharing a theme copies: its name and colours, without the id it has here. */
 export const shareTheme = ({ name, colors }: CustomTheme): string => JSON.stringify({ name, colors }, null, 2);
 
-/** Themes from what a teammate copied: one theme, or a list of them. Each gets a new id. */
 export const importThemes = (text: string): CustomTheme[] | null => {
   let json: unknown;
   try {
@@ -83,16 +74,11 @@ export const importThemes = (text: string): CustomTheme[] | null => {
   return (Array.isArray(json) ? json : [json]).flatMap((entry) => normalizeTheme(entry) ?? []);
 };
 
-/**
- * The provider whose theme the bar wears: the chosen one, or the one the bar is on, which is also what a theme of the
- * reader's own starts from. Pages that aren't a review site, like the welcome page, get the first provider's.
- */
 export const themeOf = (appearance: Appearance, current?: string): ProviderInfo =>
   PROVIDERS.find((provider) => provider.id === appearance.theme) ??
   PROVIDERS.find((provider) => provider.id === current) ??
   PROVIDERS[0]!;
 
-/** A reader's theme as CSS: only valid colours ever make it in. */
 export const customThemeCss = (theme: CustomTheme): string => {
   const lines = THEME_COLORS.flatMap((color) => {
     const value = theme.colors[color];
@@ -101,7 +87,6 @@ export const customThemeCss = (theme: CustomTheme): string => {
   return lines.length > 0 ? `:host {\n${lines.join("\n")}\n}` : "";
 };
 
-/** The CSS that styles the bar: the provider's theme, loaded if it isn't yet, then the reader's colours over it. */
 export const appearanceCss = async (appearance: Appearance, current?: string): Promise<string> => {
   const base = await themeOf(appearance, current).theme();
   const custom = appearance.themes.find((theme) => theme.id === appearance.theme);
@@ -109,10 +94,6 @@ export const appearanceCss = async (appearance: Appearance, current?: string): P
   return css ? `${base}\n${css}` : base;
 };
 
-/**
- * Restyles with `apply` as the look changes. A theme may still be loading when the next change comes; only the latest
- * change is applied.
- */
 export const createStyler = (apply: (css: string) => void, current?: string) => {
   let latest = 0;
   return async (appearance: Appearance): Promise<void> => {

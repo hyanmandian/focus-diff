@@ -36,7 +36,6 @@ const page = <T>(nodes: T[], next: string | null = null) => ({
   nodes,
 });
 
-/** A query as sent: its text, its variables and, of them, the cursor it asks after. */
 type Query = { query: string; variables: unknown; after: unknown };
 
 function readQuery(args: Args | undefined): Query {
@@ -50,7 +49,6 @@ function readQuery(args: Args | undefined): Query {
   return { query: String(sent.query), variables, after };
 }
 
-/** Answers GraphQL queries with `reply`, and keeps each query asked. */
 function graphql(reply: (q: Query) => unknown) {
   const asked: Query[] = [];
   mockCommands((cmd, args) => {
@@ -76,13 +74,11 @@ const longReview = {
 };
 const isReviewComments = (q: Query) => q.query.includes("node(id:");
 
-/** Two pages of comments, the description's fields on each. */
 const twoPages = (q: Query) =>
   q.after === null
     ? pull(page([{ __typename: "IssueComment", id: "c1", author: ana, ...said(1) }], "p2"), { body: "First" })
     : pull(page([{ __typename: "IssueComment", id: "c2", author: ana, ...said(2) }]), { body: "Second" });
 
-/** A review whose comments take three pages. */
 function longComments(q: Query) {
   if (!isReviewComments(q)) return pull(page([longReview]));
   return q.after === "c1"
@@ -90,10 +86,8 @@ function longComments(q: Query) {
     : { node: { comments: page([reviewComment("rc3")]) } };
 }
 
-/** A review with more comments that's gone by the time they're asked for. */
 const goneReview = (q: Query) => (isReviewComments(q) ? { node: null } : pull(page([longReview])));
 
-/** Rust's kept store, as a map; `fail` makes every call fail. */
 function kept(stored: Record<string, string> = {}, fail = false) {
   mockCommands((cmd, args) => {
     if (fail) throw new Error("disk");

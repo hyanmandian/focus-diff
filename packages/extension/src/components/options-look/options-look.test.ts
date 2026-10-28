@@ -8,7 +8,6 @@ import { pageBody } from "@/utils/page-body/page-body";
 
 import type { createLook as CreateLook } from "./options-look";
 
-/** The preview stands in for the demo: a bar wearing a couple of colours, as the page would read them. */
 const demo = vi.hoisted(() => ({
   shadow: true,
   setTheme: vi.fn<(css: string) => void>(),
@@ -57,7 +56,6 @@ describe("createLook", () => {
   beforeEach(async () => {
     ({ createLook } = await import("./options-look"));
     document.body.innerHTML = pageBody(page);
-    // happy-dom has no Option constructor.
     vi.stubGlobal("Option", function Option(text: string, value: string) {
       return Object.assign(document.createElement("option"), { textContent: text, value });
     });
@@ -77,7 +75,6 @@ describe("createLook", () => {
     expect(el("#theme-name").value).toBe("Night");
     expect(el(".color-hex", row("bg")).value).toBe("#000000");
     expect(el(".color-pick", row("fg")).value).toBe("#aabbcc");
-    // A colour left to the provider shows what it is.
     expect(el(".color-hex", row("fg")).placeholder).toBe("#ff000080");
     expect(el(".color-hex", row("bg")).placeholder).toBe("#102030");
     expect(el(".color-pick", row("muted")).value).not.toBe("#102030");
@@ -98,7 +95,6 @@ describe("createLook", () => {
     const hex = el(".color-hex", row("bg"));
     input(hex, "#123456 ");
     expect(el(".color-pick", row("bg")).value).toBe("#123456");
-    // The preview wears it.
     await vi.waitFor(() => {
       expect(demo.setTheme).toHaveBeenCalledWith(expect.stringContaining("#123456"));
     });
@@ -107,7 +103,6 @@ describe("createLook", () => {
     hex.dispatchEvent(new Event("blur"));
     expect(hex.getAttribute("aria-invalid")).toBe("true");
     expect(el(".color-error", row("bg")).textContent).not.toBe("");
-    // Fixed while marked wrong, it's right again at once.
     input(hex, "#fff");
     expect(hex.hasAttribute("aria-invalid")).toBe(false);
     input(hex, " ");
@@ -140,7 +135,6 @@ describe("createLook", () => {
     expect(themes().at(-1)).toBe("Day");
     input(el("#theme-name"), " ");
     expect(themes().at(-1)).toBe("Untitled theme");
-    // Drawn again, it's still untitled.
     $<HTMLSelectElement>("#theme").dispatchEvent(new Event("change"));
     expect(themes().at(-1)).toBe("Untitled theme");
     expect(look.check()).toBe(false);
@@ -157,7 +151,6 @@ describe("createLook", () => {
     input(el(".color-hex", row("accent")), "#12");
     expect(look.check()).toBe(false);
     expect(document.activeElement).toBe(el(".color-hex", row("accent")));
-    // Something in the list that isn't a colour row doesn't count.
     el("#colors").append(Object.assign(document.createElement("li"), { className: "color" }));
     input(el(".color-hex", row("accent")), "");
     expect(look.check()).toBe(true);
@@ -170,7 +163,6 @@ describe("createLook", () => {
     select.dispatchEvent(new Event("change"));
     expect(el("#theme-editor").hidden).toBe(true);
     expect(look.check()).toBe(true);
-    // Nothing to delete or copy then.
     $<HTMLButtonElement>("#theme-delete").click();
     $<HTMLButtonElement>("#theme-copy").click();
     expect(notify).not.toHaveBeenCalled();

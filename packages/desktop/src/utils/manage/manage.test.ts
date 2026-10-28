@@ -30,14 +30,12 @@ import { shelve, shelved } from "@/utils/shelf/shelf";
 
 type Request = { method: string; path: string; body: string };
 
-/** One of the arguments a command was sent with. */
 function sent(args: Args | undefined, key: string): unknown {
   if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
     return undefined;
   return args[key];
 }
 
-/** Answers GitHub with what `answer` gives (thrown: the call fails), and keeps each request. */
 function github(answer: (request: Request) => unknown) {
   const asked: Request[] = [];
   mockCommands(async (_cmd, args) => {
@@ -52,10 +50,8 @@ function github(answer: (request: Request) => unknown) {
   return asked;
 }
 
-/** GitHub's answer as Rust passes it on. */
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
-/** GitHub not answering yet: each request's answer, given when the test says. */
 function heldAnswers() {
   const answers: Array<{ resolve: (value: unknown) => void; reject: (reason: Error) => void }> = [];
   mockCommands(
@@ -67,13 +63,11 @@ function heldAnswers() {
   return answers;
 }
 
-/** What a request sent, as JSON. */
 const sentJson = (request: Request | undefined): unknown => JSON.parse(String(request?.body));
 
 const ref = { owner: "acme", repo: "app", number: 7 };
 const user = (login: string) => ({ __typename: "User" as const, login, avatarUrl: "" });
 
-/** GitHub's answer about a pull request, with `pr` changed. */
 const raw = (pr: Record<string, unknown> = {}, repo: Record<string, unknown> = {}) => ({
   data: {
     repository: {
@@ -448,7 +442,6 @@ describe("the hook", () => {
   });
 });
 
-/** A page of labels. */
 const page = (n: number, hasNextPage: boolean) => ({
   data: {
     repository: {

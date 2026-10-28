@@ -7,13 +7,8 @@ type Messages = Record<string, string | Record<string, string>>;
 const ENGLISH: Messages = en;
 const LOCALES: Record<string, Messages> = { en: ENGLISH, pt: ptBR };
 
-/** The messages for a language, by its first part; English for any other. */
 const messagesFor = (language: string): Messages => LOCALES[language.toLowerCase().split("-")[0]!] ?? ENGLISH;
 
-/**
- * The extension's messages for a web page, where there's no `browser.i18n`: what the demo reads through `#i18n` when it's
- * built for the site. It follows WXT's `i18n.t`: a number picks the plural form and fills $1, a list fills $1 to $9.
- */
 export const createWebI18n = (language: string) => {
   const messages = messagesFor(language);
   const t = (key: string, ...args: unknown[]): string => {
@@ -30,5 +25,4 @@ export const createWebI18n = (language: string) => {
   return { t };
 };
 
-/** @public Stands in for `#i18n` in the demo's build for web pages (vite.demo.config.ts). */
 export const i18n = createWebI18n(typeof navigator === "undefined" ? "en" : navigator.language);

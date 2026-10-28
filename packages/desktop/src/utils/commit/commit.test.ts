@@ -21,7 +21,6 @@ type Sent = Record<string, unknown>;
 const fields = (args: Args | undefined): Sent =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 
-/** GitHub as Rust passes it on: files read raw, and the commit mutation answered with `commit`. */
 function github(files: Record<string, string>, commit: { status: number; body: string }) {
   const sent: Sent[] = [];
   mockCommands((cmd, args) => {
@@ -34,7 +33,6 @@ function github(files: Record<string, string>, commit: { status: number; body: s
   return sent;
 }
 
-/** Files read, then the commit refused by Rust itself. */
 function offline() {
   mockCommands((_, args) =>
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's errors reach the page as strings

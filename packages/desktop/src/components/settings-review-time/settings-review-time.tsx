@@ -1,7 +1,3 @@
-// Review time: times set aside to review, like weekdays at 15:00 for half an hour. When one comes,
-// Focus Diff picks the pull requests that fit, says so with a sound of its own and counts the time
-// down in the menu bar. Rust runs them (src-tauri/src/review.rs); this edits them.
-
 import { LINES_PER_HOUR } from "@focus-diff/core/estimate";
 import { Plus, Timer, Trash2 } from "lucide-react";
 import { useId } from "react";
@@ -37,12 +33,9 @@ import {
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 
-/** The week from Monday, as most of the world starts it; 0 is Sunday. */
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
-/** "15:00" as the person's clock shows it, in the app's language. */
 const clock = (time: string, t: T) => t.clock(new Date(2024, 0, 1, Number(time.slice(0, 2)), Number(time.slice(3))));
 
-/** "Weekdays at 3:00 PM · 30 min", the way a review time reads in its row. */
 function summary(session: ReviewSession, t: T) {
   if (session.days.length === 0) return t("settings.noDays");
   const picked = session.days.join();
@@ -63,12 +56,9 @@ function summary(session: ReviewSession, t: T) {
     : t("settings.summaryNoTime", { days, minutes: session.minutes });
 }
 
-/** A day on its toggle: two letters in English ("Mo"); Portuguese needs three to tell segunda from
- *  sexta and quarta from quinta ("seg", "sex"), without the abbreviation's period. */
 const dayInitials = (day: number, t: T) =>
   t.locale === "en" ? t.weekday(day, "short").slice(0, 2) : t.weekday(day, "short").replace(/\.$/u, "");
 
-// Called as a time is added, so it reads the words then.
 const timeError = (v: string) => (validTime(v) ? null : i18n()("settings.timeError"));
 
 function SessionEditor({
@@ -172,7 +162,6 @@ function SessionEditor({
           <Select<ReviewOrder>
             value={session.order}
             onValueChange={(v) => {
-              // Never null: there's no empty choice in the list.
               set("order", v!);
             }}
           >
@@ -222,7 +211,6 @@ function SessionEditor({
   );
 }
 
-/** The next review time, as of now. */
 const nextFromNow = (review: ReviewTime) => nextReviewTime(review, new Date());
 
 export function ReviewTimePane({ config, onChange }: { config: Config; onChange: (c: Config) => void }) {

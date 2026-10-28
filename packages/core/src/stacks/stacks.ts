@@ -1,19 +1,10 @@
-/**
- * Stacks in a list of pull requests: ones built on one another, each based on the branch of the one below it (as
- * Graphite, ghstack or stacking by hand leave them). Told from the branches alone, so whatever made the stack, and only
- * from what's in the list: a stack's pull requests that aren't in it aren't known here.
- */
-
-/** A pull request as far as stacks go: its repository and its two branches. */
 export interface Stackable {
   repo: string;
   head: string;
   base: string;
-  /** From a fork, whose branch names say nothing about the repository's own. */
   fork?: boolean;
 }
 
-/** Where a pull request stands in its stack: which one (the same for all of its pull requests), and its place from the bottom, from 0. */
 export interface StackPlace {
   stack: string;
   index: number;
@@ -22,11 +13,6 @@ export interface StackPlace {
 
 const branch = (repo: string, name: string) => `${repo.toLowerCase()}:${name}`;
 
-/**
- * The list with each stack's pull requests together, bottom first, where its first one in the list stood; everything
- * else keeps its place. Where one branch has more than one pull request on it, each goes up in turn after the one it's
- * on, in the list's order.
- */
 export const groupStacks = <T extends Stackable>(list: readonly T[]): { list: T[]; places: Map<T, StackPlace> } => {
   const own = list.filter((pull) => !pull.fork && pull.head && pull.base);
   const byHead = new Map<string, T>();
@@ -43,7 +29,6 @@ export const groupStacks = <T extends Stackable>(list: readonly T[]): { list: T[
     above.set(under, [...(above.get(under) ?? []), pull]);
   }
 
-  // Each stack from its bottom, up through everything built on it.
   const places = new Map<T, StackPlace>();
   const stacks = new Map<T, T[]>();
   for (const bottom of own) {

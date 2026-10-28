@@ -1,20 +1,13 @@
 import { asRecord } from "@/utils/record/record";
 
-/**
- * Focus Diff's own sounds, made on the spot with the Web Audio API: no audio files, no libraries. Each is a few
- * oscillators shaped by envelopes, short and soft, so a notification is heard without startling anyone.
- */
-
 const SOUNDS = ["chime", "bowl", "marimba", "pop", "droplet"] as const;
 export type SoundId = (typeof SOUNDS)[number];
 
-/** One of ours, the system's own notification sound, or none at all. */
 export type SoundChoice = SoundId | "system" | "none";
 export const SOUND_CHOICES: SoundChoice[] = [...SOUNDS, "system", "none"];
 
 export interface SoundSetting {
   id: SoundChoice;
-  /** 0 to 100. */
   volume: number;
 }
 
@@ -28,17 +21,13 @@ export const normalizeSound = (value: unknown, fallback: SoundSetting): SoundSet
 };
 
 interface Partial {
-  /** A multiple of the note's frequency. */
   ratio: number;
   gain: number;
-  /** Seconds to fade to silence. */
   decay: number;
   type?: OscillatorType;
-  /** Hz off the exact ratio, for a slow shimmer against a twin. */
   detune?: number;
 }
 
-/** One struck note: its partials start together with a quick attack and fade each at their own pace. */
 const strike = (
   context: BaseAudioContext,
   out: AudioNode,
@@ -64,7 +53,6 @@ const strike = (
   return end;
 };
 
-/** A note whose pitch glides, like a bubble's or a drop's. */
 const glide = (
   context: BaseAudioContext,
   out: AudioNode,
@@ -87,7 +75,6 @@ const glide = (
   return at + length + 0.02;
 };
 
-/** A soft echo after the sound, filtered darker each time round, so it rings in a room instead of in a box. */
 const room = (context: BaseAudioContext, out: AudioNode) => {
   const input = context.createGain();
   const delay = context.createDelay(1);
@@ -106,7 +93,6 @@ const room = (context: BaseAudioContext, out: AudioNode) => {
 };
 
 const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: number) => number> = {
-  /** Two bell-like notes a fifth apart, rising: something new. */
   chime: (context, out, at) => {
     const bell: Partial[] = [
       { ratio: 1, gain: 0.5, decay: 1.1 },
@@ -117,7 +103,6 @@ const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: nu
     strike(context, wet, 1046.5, at, bell);
     return strike(context, wet, 1568, at + 0.13, bell) + 0.5;
   },
-  /** A singing bowl: inharmonic partials, each beating slowly against a twin. Time to focus. */
   bowl: (context, out, at) => {
     const partials: Partial[] = [
       { ratio: 1, gain: 0.32, decay: 3.2 },
@@ -129,7 +114,6 @@ const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: nu
     ];
     return strike(context, out, 392, at, partials, 0.012);
   },
-  /** Three wooden notes up a major chord. */
   marimba: (context, out, at) => {
     const bar: Partial[] = [
       { ratio: 1, gain: 0.42, decay: 0.55 },
@@ -143,12 +127,10 @@ const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: nu
     });
     return end + 0.4;
   },
-  /** Two quick bubbles, the second higher. */
   pop: (context, out, at) => {
     glide(context, out, 380, 1100, at, 0.09, 0.8);
     return glide(context, out, 520, 1500, at + 0.1, 0.09, 0.65);
   },
-  /** A drop into still water, and its smaller echo. */
   droplet: (context, out, at) => {
     const wet = room(context, out);
     glide(context, wet, 1100, 2300, at, 0.16, 1);
@@ -156,12 +138,9 @@ const SYNTHS: Record<SoundId, (context: BaseAudioContext, out: AudioNode, at: nu
   },
 };
 
-/** Plays a sound at `volume`, 0 to 100, and says when it's over, in the context's time. */
 export const playSound = (context: BaseAudioContext, sound: SoundId, volume: number): number => {
   const master = context.createGain();
-  // Loudness isn't linear in gain: a curve makes the slider's middle sound like the middle.
   master.gain.value = (Math.min(100, Math.max(0, volume)) / 100) ** 1.6;
-  // A gentle limiter, so no sound clips at full volume however its notes add up.
   const limiter = context.createDynamicsCompressor();
   limiter.threshold.value = -6;
   limiter.ratio.value = 12;

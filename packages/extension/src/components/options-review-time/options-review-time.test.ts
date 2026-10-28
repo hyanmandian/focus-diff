@@ -12,7 +12,6 @@ import {
 } from "@/utils/review-sessions/review-sessions";
 import { learnedItem } from "@/utils/storage/storage";
 
-// Its names are read in the reader's language as it loads, once the fake browser speaks it.
 const load = () => import("./options-review-time");
 
 // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the element the selector finds.
@@ -34,7 +33,6 @@ const settle = () =>
   });
 const pressed = (root: ParentNode) => all('[aria-pressed="true"]', root).map((chip) => chip.textContent);
 
-/** A Wednesday, 10:00 local. */
 const NOW = new Date(2026, 9, 21, 10).getTime();
 
 const session = (extra: Partial<ReviewSession> = {}): ReviewSession => ({ ...newSession(), id: "a", ...extra });
@@ -66,7 +64,6 @@ const expand = (index = 0) => {
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
   document.body.innerHTML = /<body>([\s\S]*)<script/u.exec(page)![1]!;
-  // happy-dom has no Option constructor.
   vi.stubGlobal("Option", function makeOption(label: string, value: string) {
     const option = document.createElement("option");
     option.textContent = label;
@@ -74,7 +71,6 @@ beforeEach(() => {
     return option;
   });
   Object.assign(fakeBrowser.runtime, { getManifest: () => ({ optional_permissions: ["notifications"] }) });
-  // The callback overloads hide the promise ones from vi.spyOn.
   Object.assign(fakeBrowser.permissions, {
     contains: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
     request: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),

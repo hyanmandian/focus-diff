@@ -12,7 +12,6 @@ describe("Avatar", () => {
       </Avatar>,
     );
     expect(screen.getByText("OC")).toBeTruthy();
-    // A picture that hasn't loaded isn't shown.
     expect(screen.queryByRole("img")).toBeNull();
   });
 });

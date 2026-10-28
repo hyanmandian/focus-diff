@@ -137,11 +137,9 @@ describe("createFilters", () => {
     expect(document.activeElement).toBe(chip("tests"));
     expect(press(chip("tests"), "a")).toBe(false);
     expect(document.activeElement).toBe(chip("tests"));
-    // The focused chip keeps the tab stop as the counts update.
     render(LIST, ["all"]);
     expect(chip("tests").tabIndex).toBe(0);
     expect(chip("all").tabIndex).toBe(-1);
-    // Keys from outside the chips aren't the toolbar's.
     chip("tests").blur();
     expect(press(toolbar, "ArrowRight")).toBe(false);
   });
@@ -157,7 +155,6 @@ describe("createFilters", () => {
 
   it("slides the highlight to the one pressed chip, and combines it when several are", () => {
     const { render, chip, toolbar, indicator } = mount();
-    // Chips not laid out yet leave the highlight alone.
     render(LIST, ["all"]);
     expect(indicator.style.width).toBe("");
     box(chip("all"), { offsetLeft: 0, offsetWidth: 60, offsetTop: 4, offsetHeight: 28 });
@@ -205,7 +202,6 @@ describe("createFilters", () => {
     toolbar.scrollLeft = 0;
     render(LIST, ["frontend"]);
     expect(scrollTo).not.toHaveBeenCalled();
-    // Nothing pressed, nothing to reveal.
     render(LIST, []);
     expect(scrollTo).not.toHaveBeenCalled();
   });

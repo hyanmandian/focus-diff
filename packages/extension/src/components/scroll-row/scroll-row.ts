@@ -1,20 +1,12 @@
 import { chevronIcon } from "@/components/icons/icons";
 import { h, wheelScrollsSideways } from "@/utils/dom/dom";
 
-/** How far in from either side a row of chips fades out while there's more to scroll to, under an arrow (scroll-row.css). */
 export const FADE = 56;
 
 export const scrollBehavior = (): ScrollBehavior =>
   matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
 
-/**
- * A row of chips that scrolls sideways when there are more than fit: each side with more fades out under an arrow that
- * scrolls to it, and the mouse wheel scrolls it too, for a mouse without a sideways wheel. The bar's filters and the
- * popup's repositories use it.
- */
 export const scrollRow = (element: HTMLElement, signal?: AbortSignal) => {
-  // The arrows are for the mouse alone: the keyboard reaches every chip, and a screen reader reads them all, so they
-  // stay out of the tab order and the accessibility tree.
   const arrow = (direction: 1 | -1) =>
     h(
       "span",

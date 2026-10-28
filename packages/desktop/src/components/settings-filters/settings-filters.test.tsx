@@ -18,7 +18,6 @@ const filter = (id: string, name: string, more: Partial<DiffFilter> = {}): DiffF
   ...more,
 });
 
-/** The pane over a config it keeps, as the settings window does; `changes` sees each one. */
 function setup(filters: DiffFilter[], changes = vi.fn<(c: Config) => void>()) {
   function Harness() {
     const [config, setConfig] = useState<Config>({ ...defaultConfig(), filters });
@@ -36,7 +35,6 @@ function setup(filters: DiffFilter[], changes = vi.fn<(c: Config) => void>()) {
   return { changes, last: () => changes.mock.lastCall![0].filters };
 }
 
-/** Answers the native "Remove?" alert. */
 function confirmWith(answer: boolean) {
   const asked = vi.fn<(args: unknown) => void>();
   mockCommands((cmd, args) => {
@@ -176,7 +174,6 @@ describe("Sharing filters", () => {
     expect(screen.getByRole("status").textContent).toBe("Added 1 filter.");
     expect(field).toHaveProperty("value", "");
 
-    // The same again: nothing new.
     fireEvent.change(field, { target: { value: theirs } });
     expect(screen.queryByRole("status")).toBeNull();
     await userEvent.click(button);
@@ -218,8 +215,6 @@ describe("Sharing filters", () => {
 });
 
 describe("re-rendering", () => {
-  // The React Compiler keeps each part until what it's made from changes; rendered again, or in
-  // another language and back, the pane shows what it did.
   it("shows the same pane when rendered again, and after a trip through another language", () => {
     const config = { ...defaultConfig(), filters: [filter("a", "Code", { repos: ["acme/web"] }), filter("b", "Docs")] };
     const onChange = vi.fn<(c: Config) => void>();

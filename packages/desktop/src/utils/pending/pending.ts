@@ -1,14 +1,9 @@
-// Your pending review, as GitHub keeps it: the comments written during a review live there (so
-// github.com shows them too, and a review started on the site carries on here), while the window
-// shows them at once from what's on their way (src-tauri/src/drafts.rs) and what was last seen.
-
 import { bridge, graphql, type DraftChange, type DraftsState } from "@/utils/bridge/bridge";
 import { mutate } from "@/utils/comments/comments";
 import type { Details } from "@/utils/details/details";
 import { i18n } from "@/utils/i18n/i18n";
 import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
-/** One of your pending review's comments, as GitHub has it. */
 export type PendingComment = {
   id: string;
   body: string;
@@ -17,7 +12,6 @@ export type PendingComment = {
   line: number;
   startLine: number | null;
   file: boolean;
-  /** The comment it answers, for a reply to a conversation. */
   replyTo: string | null;
 };
 export type PendingReview = { id: string; comments: PendingComment[] };
@@ -47,7 +41,6 @@ const toPending = (c: RawComment): PendingComment => ({
   replyTo: c.replyTo?.id ?? null,
 });
 
-/** Your pending review on this pull request, if you have one (GitHub allows one at a time). */
 export async function loadPending(d: PullRef): Promise<PendingReview | null> {
   type Page = { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawComment[] };
   type Raw = {
@@ -66,7 +59,6 @@ export async function loadPending(d: PullRef): Promise<PendingReview | null> {
   const review = data.repository.pullRequest.reviews.nodes.find((r) => r.viewerDidAuthor);
   if (!review) return null;
   const comments = review.comments.nodes.map(toPending);
-  // More than a hundred: the rest, a hundred a page.
   let cursor = review.comments.pageInfo.hasNextPage ? review.comments.pageInfo.endCursor : null;
   for (let page = 0; cursor && page < 50; page++) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- each page starts after the last one's cursor
@@ -81,10 +73,6 @@ export async function loadPending(d: PullRef): Promise<PendingReview | null> {
   return { id: review.id, comments };
 }
 
-/** What the window shows as your pending comments: GitHub's (when it's been asked), with what's
- *  still on its way on top (the newest text wins, removed ones gone), else the copy kept from last
- *  time. Keys stay as the window made them, so nothing redraws when GitHub gives a comment its id.
- *  `threads`: the conversations, to know which side a comment is on and what a reply answers. */
 export function mergeDrafts(
   kept: Draft[],
   github: PendingReview | null,
@@ -99,7 +87,6 @@ export function mergeDrafts(
     drafts = github.comments.map((c): Draft => {
       const key = keyOf.get(c.id) ?? c.id;
       const answers = c.replyTo ? threadOf.get(c.replyTo) : undefined;
-      // GitHub doesn't say a comment's side, its conversation does; one written here, the window knew.
       const side = keptBy.get(key)?.side ?? threadOf.get(c.id)?.side ?? answers?.side ?? "additions";
       return {
         key,
@@ -134,7 +121,6 @@ export function mergeDrafts(
       ...(put.replyTo ? { replyTo: put.replyTo } : {}),
       ...(put.id || state.ids[put.key] ? { id: put.id ?? state.ids[put.key] } : {}),
     };
-    // GitHub's HTML is of the old text; until it has the new, the text shows as written.
     if (at >= 0)
       drafts = drafts.map((d, i) =>
         i === at ? { ...next, ...(d.body === put.body && d.html ? { html: d.html } : {}) } : d,
@@ -144,15 +130,12 @@ export function mergeDrafts(
   return drafts;
 }
 
-/** The changes a kept list has that are on neither GitHub nor their way there: comments written
- *  before pending reviews lived on GitHub, or whose sending was lost. They're sent again. */
 export function unsent(kept: Draft[], github: PendingReview | null, state: DraftsState): Draft[] {
   const queued = new Set(state.jobs.map((j) => j.change.key));
   const onGitHub = new Set(github?.comments.map((c) => c.id) ?? []);
   return kept.filter((d) => !queued.has(d.key) && !d.id && !state.ids[d.key] && !onGitHub.has(d.key));
 }
 
-/** A draft as its change on the way to GitHub. */
 export const toPut = (pull: string, d: Draft): Extract<DraftChange, { op: "put" }> => ({
   op: "put",
   key: d.key,
@@ -168,8 +151,6 @@ export const toPut = (pull: string, d: Draft): Extract<DraftChange, { op: "put" 
   ...(d.replyTo ? { replyTo: d.replyTo } : {}),
 });
 
-/** Sends the review: every pending comment reaches GitHub first (Rust says when, or what it
- *  refused), then the review that holds them is submitted. With none, a review is made outright. */
 export async function submitPending(
   d: Pick<Details, "id" | "owner" | "repo" | "number">,
   event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
@@ -201,7 +182,6 @@ export async function submitPending(
   await bridge.draftsForget(d.id);
 }
 
-/** Throws the pending review away, here and on GitHub. */
 export async function discardPending(d: Pick<Details, "id" | "owner" | "repo" | "number">) {
   await bridge.draftsForget(d.id);
   const review = await loadPending(d);

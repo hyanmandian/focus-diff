@@ -3,13 +3,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
 
-/** A picture with a dark version, a second `media` one, and a fallback. */
 const picture = (media: string) =>
   sanitize(
     `<picture><source media="(prefers-color-scheme: dark)" srcset="https://github.com/d.png 1x"><source ${media} srcset="https://github.com/l.png"><img src="https://github.com/x.png"></picture>`,
   );
 
-/** The picture in some HTML, on the page. */
 const imgIn = (html: string) => {
   const div = document.createElement("div");
   div.innerHTML = html;
@@ -77,7 +75,6 @@ describe("media", () => {
     document.documentElement.classList.add("dark");
     expect(picture("")).toContain('data-original="https://github.com/d.png"');
     document.documentElement.classList.remove("dark");
-    // No version for the theme: the picture as it was.
     expect(picture("")).toContain('data-original="https://github.com/x.png"');
     expect(sanitize('<picture><source srcset="https://github.com/l.png"></picture>')).toBe("");
   });

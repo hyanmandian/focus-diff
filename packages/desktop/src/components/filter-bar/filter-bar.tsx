@@ -1,7 +1,3 @@
-// Focus Diff's bar, floating over the diff: the next file to review, the filters as chips (several
-// on at once; none is All), the lines in view with the time left to review them, a breakdown of
-// what each filter holds and, last, the comments to step through (as the extension's bar).
-
 import type { Estimator, Learned } from "@focus-diff/core/estimate";
 import { inFilter } from "@focus-diff/core/filters";
 import { ChartBarStacked, Check, ChevronsDown, CircleCheck, Clock, FileText, Info } from "lucide-react";
@@ -19,18 +15,14 @@ import { useT, type T } from "@/utils/i18n/i18n";
 import { shortcut } from "@/utils/os/os";
 import type { ReviewFile } from "@/utils/review/review";
 
-/** A filter shortcut as the platform writes it: ⌥⇧J, or Alt+Shift+J. */
 export const chord = (key: string) => shortcut(key, ["alt", "shift"]);
 
-/** What's left to review: files in the chosen filters, or else the next filter that has some. */
 export type Next = { left: number; nextFilter?: { id: string; name: string; left: number } };
 
 type Props = {
   files: ReviewFile[];
-  /** The filters this repository gets, in order. */
   filters: DiffFilter[];
   chosen: string[];
-  /** What the chosen filters hold. */
   shown: Totals;
   next: Next;
   isViewed: (f: ReviewFile) => boolean;
@@ -38,7 +30,6 @@ type Props = {
   learned: Learned | null;
   onToggle: (id: string) => void;
   onNextFile: () => void;
-  /** The comments' button (comment-nav.tsx), after a divider at the end. */
   children?: ReactNode;
 };
 
@@ -54,7 +45,6 @@ const timeHint = (learned: Learned | null, t: T) => {
   return files ? t("review.paceHint", { hint: estimateHint(t), count: files }) : estimateHint(t);
 };
 
-/** A five-square diffstat, as GitHub draws one: the share of added and removed lines. */
 function Diffstat({ additions, deletions }: { additions: number; deletions: number }) {
   const total = additions + deletions;
   const added = total ? Math.round((additions / total) * 5) : 0;
@@ -74,8 +64,6 @@ function Diffstat({ additions, deletions }: { additions: number; deletions: numb
   );
 }
 
-/** How the pull request splits across the filters: files viewed, lines and time left for each.
- *  Rows turn their filter on and off, like the chips. */
 function Breakdown({
   files,
   filters,
@@ -98,8 +86,6 @@ function Breakdown({
       ),
     })),
   ];
-  // As the extension's: no title (the button says what it is), the columns over hairline-split rows,
-  // the time column explained by the (i) beside it.
   return (
     <div
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a grid of rows (subgrid), which a <fieldset> doesn't lay out reliably in WebKit.
@@ -135,7 +121,6 @@ function Breakdown({
       {rows.map(({ id, name, sums }, i) => {
         const selected = id ? chosen.includes(id) : chosen.length === 0;
         const complete = sums.files > 0 && sums.viewed === sums.files;
-        // A filter with nothing in this pull request can't be turned on.
         const empty = sums.files === 0 && !selected;
         const left = sums.minutesLeft === 0 ? "" : t.duration(sums.minutesLeft);
         return (
@@ -157,7 +142,6 @@ function Breakdown({
               if (!empty) onToggle(id);
             }}
             className={cn(
-              // Rows apart on a hairline that gives way under the pointer.
               "peer relative col-span-full grid min-h-9 cursor-default grid-cols-subgrid items-center rounded-[6px] px-2 text-left focus-ring-inset transition-colors duration-100 outline-none hover:bg-foreground/6",
               i > 0 &&
                 "before:absolute before:inset-x-2 before:-top-px before:border-t before:border-border/60 hover:before:border-transparent [.peer:hover+&]:before:border-transparent",
@@ -214,7 +198,6 @@ export function FilterBar({
           onToggle(id);
         }}
         className={cn(
-          // Toggle buttons: the ones on in the accent, no highlight under the pointer.
           "flex h-8 shrink-0 cursor-default items-center gap-1.5 rounded-[8px] pr-2 pl-3 text-body font-medium focus-ring transition-colors duration-150 outline-none",
           pressed ? "bg-primary text-primary-foreground" : "hover:bg-foreground/6 active:bg-fill",
           count === 0 && !pressed && "text-muted-foreground",
@@ -239,7 +222,6 @@ export function FilterBar({
       role="group"
       aria-label={t("review.reviewOnePart")}
       aria-keyshortcuts={filters.length > 0 ? "Alt+Shift+. Alt+Shift+," : undefined}
-      // Floats over the code on the system's menu material (opaque with Reduce Transparency).
       className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] [scrollbar-width:none] items-center gap-1 overflow-x-auto rounded-[12px] border border-border bg-popover p-1.5 shadow-(--shadow-menu)"
     >
       <Tooltip>
@@ -267,14 +249,12 @@ export function FilterBar({
       {filters.length > 0 ? (
         <>
           <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
-          {/* Neighbours both on read as one pill, as in the extension (index.css). */}
           <span data-join="row" className="flex shrink-0 items-center gap-1">
             {chip("", t("review.all"), files.length)}
             {filters.map((f) => chip(f.id, f.name, files.filter((x) => inFilter(f, x.path)).length))}
           </span>
         </>
       ) : null}
-      {/* The files left, the lines they change and the time they take, each after its icon. */}
       <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
       <span className="flex shrink-0 items-center gap-3.5 px-1 text-body font-medium whitespace-nowrap text-muted-foreground tabular-nums">
         <span className="flex items-center gap-1.5">

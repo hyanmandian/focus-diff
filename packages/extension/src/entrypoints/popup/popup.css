@@ -1,18 +1,9 @@
-/*
- * A narrow window off the toolbar, in the bar's own theme (components/theme.css, with the reader's own colours over it,
- * which popup.ts loads): the name and settings on top, the two lists as the bar's filter strip, and the pull requests on
- * one raised pane, what changed since the reader last looked first. Each opens on its files.
- */
 :root {
-  /* Light or dark with the system, as the bar is with its page. */
   color-scheme: light dark;
-  /* The shared pages' names global.css still draws with here, pointed at the bar's colours: the page behind, selected
-     text, the scrollbar and focus rings. */
   --bg: var(--fd-canvas);
   --fg: var(--fd-fg);
   --line-strong: var(--fd-border);
   --focus: var(--fd-focus);
-  /* The bar's raised surface, with a shadow sized to a small window. */
   --raised-shadow: 0 1px 2px light-dark(#1f232814, #01040966), 0 8px 24px light-dark(#25292e1f, #01040999);
 }
 
@@ -22,10 +13,8 @@ body {
 }
 body {
   display: grid;
-  /* One column, never wider than the window, whatever is in it. */
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto 1fr auto;
-  /* The browser sizes the popup to its page, so the width is set, not capped by the viewport, which starts out narrow. */
   width: 380px;
   min-height: 260px;
   max-height: 600px;
@@ -33,7 +22,6 @@ body {
   color: var(--fd-fg);
   font: 14px/1.5 var(--fd-font);
 }
-/* With both lists the reader can add, four tabs need a little more room than the window has. */
 body:has(.tabs[data-count="4"]) {
   width: 440px;
 }
@@ -75,7 +63,6 @@ body:has(.tabs[data-count="4"]) {
   color: var(--fd-fg);
 }
 
-/* The lists, drawn like the bar's filters: the selected one on a pill that slides over to another. */
 .tabs {
   position: relative;
   display: grid;
@@ -133,7 +120,6 @@ body:has(.tabs[data-count="4"]) {
 .tab[hidden] {
   display: none;
 }
-/* With the lists the reader added, each tab takes the room its name needs, a little closer. */
 .tabs:not([data-count="2"]) {
   grid-auto-columns: auto;
 }
@@ -155,10 +141,6 @@ body:has(.tabs[data-count="4"]) {
   color: var(--fd-selected-fg);
 }
 
-/*
- * The lists sit on the bar's raised surface, rounded on a border with a shadow, and scroll inside it, so its corners
- * always show. The repository chips stay at its top, and each repository's name stays up while its rows scroll by.
- */
 main {
   display: flex;
   flex-direction: column;
@@ -193,7 +175,6 @@ main {
   display: none;
 }
 
-/* The repositories as the bar's filter chips, on its scrolling row (components/scroll-row.css). */
 .filter-slot {
   padding: 6px;
   border-bottom: 1px solid var(--fd-border-muted);
@@ -238,12 +219,10 @@ main {
   outline-offset: -2px;
 }
 
-/* With one repository on screen there's no heading; the rows keep a little air from the edge above. */
 .group.untitled {
   padding-top: 4px;
 }
 
-/* A repository's pull requests under its name; repositories apart on a hairline. */
 .group + .group {
   margin-top: 4px;
   padding-top: 4px;
@@ -252,7 +231,6 @@ main {
 .group-title {
   position: sticky;
   top: 0;
-  /* Over the rows' checkboxes as they scroll under it. */
   z-index: 2;
   display: flex;
   align-items: center;
@@ -346,7 +324,6 @@ a.pull:focus-visible {
 .unread .pull-title {
   font-weight: 650;
 }
-/* What changed since the reader last looked: a dot at the row's edge, level with the title. */
 .unread::before {
   content: "";
   position: absolute;
@@ -360,7 +337,6 @@ a.pull:focus-visible {
 .draft .pull-title {
   color: var(--fd-muted);
 }
-/* Under the title: the number and who opened it, giving way with an ellipsis before the number does. */
 .pull-line {
   display: flex;
   align-items: center;
@@ -380,7 +356,6 @@ a.pull:focus-visible {
   flex: none;
   font-variant-numeric: tabular-nums;
 }
-/* Its place in a stack, from the bottom. */
 .pull-stack {
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -392,7 +367,6 @@ a.pull:focus-visible {
 }
 .pull-meta > * + *::before {
   content: "·";
-  /* A separator to see, not to hear. */
   content: "·" / "";
   margin: 0 6px;
 }
@@ -405,7 +379,6 @@ a.pull:focus-visible {
   font-size: 11px;
   line-height: 16px;
 }
-/* When and how much talk, on the right: the time level with the title, the comments under it. */
 .pull-again {
   border-color: color-mix(in srgb, var(--fd-accent) 55%, transparent);
   color: var(--fd-accent);
@@ -434,10 +407,6 @@ a.pull:focus-visible {
   gap: 4px;
 }
 
-/*
- * Marking done: over a row's picture, a checkbox shows on hover, on the focused row, and on every row once one is
- * picked; a picked row takes a tint of the selection colour. A row already done has a button there to take it back.
- */
 .row {
   position: relative;
 }
@@ -473,7 +442,6 @@ a.pull:focus-visible {
   background: color-mix(in srgb, var(--fd-selected-bg) 16%, transparent);
 }
 
-/* A stack's rows joined by a line through their pictures, from the one below up. */
 .row.stack-up::before,
 .row.stack-down::after {
   content: "";
@@ -492,7 +460,6 @@ a.pull:focus-visible {
   bottom: 0;
 }
 
-/* A row's menu: its button shows on hover and on the focused row, where the comments were, and its actions under it. */
 .row-menu {
   position: absolute;
   z-index: 1;
@@ -594,13 +561,11 @@ a.pull:focus-visible {
   display: none;
 }
 
-/* The ones done, folded at the end of the list. */
 .done-section {
   margin-top: 4px;
   padding-top: 4px;
   border-top: 1px solid var(--fd-border-muted);
 }
-/* With nothing above it to set it apart from, the first starts the list. */
 .groups > .done-section:first-child {
   margin-top: 0;
   border-top: 0;
@@ -706,7 +671,6 @@ a.pull:focus-visible {
   text-decoration: underline;
 }
 
-/* A problem with lists to show sits above them, on the pane's top; without any, it takes their place. */
 .notice {
   display: flex;
   flex: none;
@@ -798,7 +762,6 @@ a.pull:focus-visible {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* While something is picked, or just marked: how many, and what to do. */
 .selection:not([hidden]) {
   display: flex;
   flex: 1;
@@ -831,15 +794,10 @@ a.pull:focus-visible {
   color: var(--fd-fg);
 }
 
-/*
- * Review time: a card of its own over the lists, while one is offered or under way. A head with the clock, how far
- * along, and what to do, over the pull requests picked, each with its estimate on the right.
- */
 .head-actions {
   display: flex;
   gap: 2px;
 }
-/* Updates kept for review time, counted on the clock. */
 #review-now {
   position: relative;
 }
@@ -988,7 +946,6 @@ a.pull:focus-visible {
   padding: 0 8px;
   border: 1px solid var(--fd-border-muted);
 }
-/* Nothing slides between these, so the picked one carries its own background. */
 .minutes .chip[aria-pressed="true"],
 .minutes .chip[aria-pressed="true"]:hover {
   border-color: transparent;

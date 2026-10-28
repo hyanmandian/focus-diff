@@ -20,7 +20,6 @@ const fields = (args: Args | undefined): Record<string, unknown> =>
   args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
 
-/** Rust: GitHub calls answered with the next reply in turn, everything else with nothing. */
 function rust(...replies: unknown[]) {
   const calls: Call[] = [];
   let next = 0;
@@ -30,7 +29,6 @@ function rust(...replies: unknown[]) {
   });
   return calls;
 }
-/** Each call by name: Rust's command, a GraphQL mutation's name, or "query". */
 const named = (calls: Call[]) =>
   calls.map((c) =>
     c.cmd === "github" ? (/mutation[^{]*\{ (\w+)/u.exec(String(c.fields.body))?.[1] ?? "query") : c.cmd,

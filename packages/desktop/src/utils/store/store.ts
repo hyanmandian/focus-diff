@@ -1,7 +1,3 @@
-// The panel's view of the app's live state. The queues are refreshed, compared and notified about
-// on the Rust side (src-tauri/src/watch.rs), which keeps going with the panel closed; this follows
-// its snapshots and passes clicks back. React reads it through useStore (useSyncExternalStore).
-
 import { useSyncExternalStore } from "react";
 
 import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
@@ -10,7 +6,6 @@ import type { Item } from "@/utils/engine/engine";
 
 export type Status = { phase: "idle" | "loading" | "error"; error?: string; updatedAt: number };
 
-/** A pull request picked for review time (`RunPull` in review.rs). */
 export type RunPull = {
   id: string;
   title: string;
@@ -21,7 +16,6 @@ export type RunPull = {
   again: boolean;
 };
 
-/** The review time under way (`Run` in review.rs), and when its time is up (ms). */
 export type ReviewRun = {
   run: {
     session: string;
@@ -35,7 +29,6 @@ export type ReviewRun = {
   endsAt: number;
 };
 
-/** What Rust sends: see `State::snapshot` in watch.rs. */
 type Live = {
   ready: boolean;
   signedIn: boolean;
@@ -49,10 +42,8 @@ type Live = {
 };
 
 export type Snapshot = Omit<Live, "arrivals"> & {
-  /** For connecting GitHub, when no one is signed in. */
   auth: AuthStatus | null;
   config: Config | null;
-  /** PR ids with something new to call out, until the panel shows them. */
   arrivals: Set<string>;
 };
 
@@ -85,7 +76,6 @@ export const useStore = () => useSyncExternalStore(subscribe, () => snapshot);
 
 async function follow(live: Live) {
   set({ ...live, arrivals: new Set(live.arrivals) });
-  // Connecting GitHub needs to know what's possible on this computer.
   if (live.ready && !live.signedIn && !snapshot.auth) set({ auth: await bridge.authStatus() });
   if (live.signedIn && snapshot.auth && !snapshot.auth.signed_in) set({ auth: null });
 }
@@ -94,7 +84,6 @@ export const isUnread = (item: Item, seen = snapshot.seen) => item.events.some((
 
 export const refresh = (force = false) => bridge.refresh(force);
 
-/** Clicking a card counts as having looked at it. Shown at once, saved by Rust. */
 export function markSeen(item: Item) {
   const seen = { ...snapshot.seen };
   for (const e of item.events) seen[e.key] = true;
@@ -111,7 +100,6 @@ export function markQueueSeen(queueId: string) {
   void bridge.markQueueSeen(queueId);
 }
 
-/** Takes a PR off a queue by hand (merged: seen; others: ignored), until it leaves the search. */
 export function dismiss(item: Item) {
   set({
     items: {
@@ -122,7 +110,6 @@ export function dismiss(item: Item) {
   void bridge.dismiss(item.queueId, item.pr.id);
 }
 
-/** Undo for `dismiss`: back on its queue, where it was in the list's order. */
 export function restore(item: Item) {
   const list = snapshot.items[item.queueId] ?? [];
   if (!list.some((i) => i.pr.id === item.pr.id)) set({ items: { ...snapshot.items, [item.queueId]: [...list, item] } });
@@ -154,6 +141,5 @@ export async function start() {
   const [config, live] = await Promise.all([loadConfig(), bridge.snapshot<Live>()]);
   set({ config });
   if (!followed) await follow(live);
-  // When the panel had its queues to show, for measuring how fast it opens.
   performance.mark("ready");
 }

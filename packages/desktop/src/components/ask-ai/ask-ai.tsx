@@ -1,6 +1,3 @@
-// Asking the person's AI about a pull request: their saved prompts as buttons, or a question of
-// their own. Shown only when they've chosen an AI in Settings.
-
 import { ArrowUp, Loader2, Sparkles, Square } from "lucide-react";
 import { useId, useState, type SubmitEvent } from "react";
 
@@ -34,7 +31,6 @@ export function AskAi({ config, details }: { config: Config; details: Details })
 
   const askNow = async (asked: string, prompt: string) => {
     const id = newRun();
-    // Asked from a click or the form, never while drawing.
     // oxlint-disable-next-line react/purity
     setState({ phase: "busy", asked, run: id, at: Date.now() });
     try {
@@ -48,7 +44,6 @@ export function AskAi({ config, details }: { config: Config; details: Details })
     if (await ensureAi(config)) await askNow(asked, prompt);
   };
   const send = async (q: string) => {
-    // Kept in the field when the AI can't take it, to send once it's set up.
     if (!(await ensureAi(config))) return;
     setQuestion("");
     await askNow(q, q);
@@ -77,7 +72,6 @@ export function AskAi({ config, details }: { config: Config; details: Details })
           </Button>
         ) : null}
       </div>
-      {/* Said before anything's asked, with the way to fix it: asking would only end in the same alert. */}
       {problem ? (
         <p className="flex flex-wrap items-center gap-x-2 text-callout text-muted-foreground">
           {t("shared.aiNotReady", { provider: PROVIDERS[provider].name })}

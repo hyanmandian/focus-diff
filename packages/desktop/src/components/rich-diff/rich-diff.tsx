@@ -1,7 +1,3 @@
-// What a patch can't show, for the files GitHub sends none for: pictures, compared the ways GitHub
-// does (side by side, a swipe between them, one faded over the other), and files too large for
-// its diff, offered to load from both versions. A file renamed without changes says so.
-
 import { FileWarning, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -22,7 +18,6 @@ const IMAGE_TYPES: Record<string, string> = {
   avif: "image/avif",
   bmp: "image/bmp",
   ico: "image/x-icon",
-  // Shown in an <img>, where an SVG's scripts never run.
   svg: "image/svg+xml",
 };
 
@@ -32,8 +27,6 @@ export const isImage = (path: string) => extension(path) in IMAGE_TYPES;
 const dir = (p: string) => p.slice(0, p.lastIndexOf("/") + 1);
 const base = (p: string) => p.slice(p.lastIndexOf("/") + 1);
 
-/** What a renamed file was called, for "old → new": the old name alone when only the name changed
- *  (or `short`, in the tree, where the folders say where it is), the old path when it moved. */
 export function renamed(file: Pick<ReviewFile, "path" | "previousPath">, short = false) {
   if (!file.previousPath || file.previousPath === file.path) return null;
   if (dir(file.previousPath) === dir(file.path)) return base(file.previousPath);
@@ -55,10 +48,7 @@ function storedMode(): Mode {
 
 type Picture = { url: string; bytes: number };
 
-/** A picture at a commit, as a URL the page can show; let go when it's no longer shown. Null when
- *  there's none on that side (added, or deleted). */
 function usePicture(source: Source | null, file: ReviewFile, side: "old" | "new"): Picture | null | "loading" | Error {
-  // What was loaded, and for which file: anything else is still loading.
   const [loaded, setLoaded] = useState<{ source: Source; file: ReviewFile; picture: Picture | null | Error } | null>(
     null,
   );
@@ -90,7 +80,6 @@ function usePicture(source: Source | null, file: ReviewFile, side: "old" | "new"
 const bytesText = (n: number) =>
   n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 
-// Transparent parts show over a checkerboard, as in Preview, in either appearance.
 const CHECKERS =
   "bg-[length:16px_16px] bg-[conic-gradient(var(--fill-control)_25%,transparent_0_50%,var(--fill-control)_0_75%,transparent_0)]";
 
@@ -152,7 +141,6 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
   const old = before;
   const fresh = after;
   if (!old || !fresh) {
-    // Only one side: added or deleted.
     const only = old ?? fresh;
     return only ? (
       <Figure label={old ? t("diff.deleted") : t("diff.added")} picture={only} tone={old ? "old" : "new"} />
@@ -162,16 +150,13 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
     setMode(next);
     try {
       localStorage.setItem(MODE, next);
-    } catch {
-      // Still works for this window.
-    }
+    } catch {}
   };
   return (
     <div className="flex flex-col items-center gap-3">
       <ToggleGroup
         value={[mode]}
         onValueChange={(v: string[]) => {
-          // Empty when the one pressed is pressed again: it stays.
           const next = MODES.find((m) => m === v[0]);
           if (next) choose(next);
         }}
@@ -190,7 +175,6 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
         </div>
       ) : (
         <>
-          {/* Both in one box: the new one over the old, cut off at the slider (swipe) or faded by it. */}
           <div
             className={cn("relative grid max-w-full place-items-center overflow-hidden rounded-md border", CHECKERS)}
           >
@@ -234,8 +218,6 @@ export function ImageDiff({ file, source }: { file: ReviewFile; source: Source |
   );
 }
 
-/** A file GitHub sends no diff for, as a card after the others: its name, Viewed, and what can be
- *  shown of it. `onLoad`: shows its diff from both versions, in the list with the rest. */
 export function NoPatchFile({
   file,
   source,

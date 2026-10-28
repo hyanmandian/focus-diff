@@ -23,7 +23,6 @@ const CODE: DeviceCode = {
   expires_in: 900,
 };
 
-/** Answers the commands; a command given a promise waits for it. */
 function rust(answers: Record<string, unknown>) {
   const calls: Array<[string, unknown]> = [];
   mockCommands((cmd, args) => {
@@ -37,7 +36,6 @@ function rust(answers: Record<string, unknown>) {
 
 const NOTHING = () => {};
 
-/** A promise to settle by hand. */
 function deferred<T = void>() {
   let resolve: (value: T) => void = NOTHING;
   let reject: (e: unknown) => void = NOTHING;
@@ -70,7 +68,6 @@ describe("Connect", () => {
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     const onConnected = vi.fn<() => void>();
     render(<Connect auth={auth({ device_flow: true, gh_available: true })} onConnected={onConnected} />);
-    // The token is behind a button when there are other ways.
     expect(screen.queryByLabelText("Personal access token")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Sign in with GitHub" }));
     const status = await screen.findByRole("status");
@@ -81,7 +78,6 @@ describe("Connect", () => {
       expect(calls.map(([cmd]) => cmd)).toContain("auth_device_finish");
     });
     expect(calls).toContainEqual(["open_url", { url: CODE.verification_uri }]);
-    // Copied already: the button says so.
     expect(screen.getByRole("button", { name: "Copy code" }).querySelector(".lucide-check")).not.toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: /Open github\.com\/login\/device/u }));
@@ -118,7 +114,6 @@ describe("Connect", () => {
     render(<Connect auth={auth({ gh_available: true })} onConnected={onConnected} />);
     const gh = screen.getByRole<HTMLButtonElement>("button", { name: "Use the GitHub CLI's login" });
     await userEvent.click(gh);
-    // Busy: every way waits.
     expect(gh.disabled).toBe(true);
     expect(gh.querySelector(".animate-spin")).not.toBeNull();
     used.resolve();

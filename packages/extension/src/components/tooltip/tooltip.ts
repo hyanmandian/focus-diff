@@ -2,18 +2,11 @@ import type { PanelContext } from "@/components/panel/panel";
 import { h } from "@/utils/dom/dom";
 
 const DELAY_MS = 350;
-/** Long enough to move the pointer onto the tooltip, which keeps it open. */
 const LINGER_MS = 120;
 const GAP = 10;
 const SCREEN_MARGIN = 8;
-/** Keeps the arrow clear of the tooltip's rounded corners. */
 const ARROW_EDGE = 14;
 
-/**
- * One tooltip for the whole panel: anything with a `data-tip` shows it above itself on hover, and on keyboard focus;
- * `data-tip-instant` skips the delay, for an (i) whose only job is the tooltip. The pointer can move onto the tooltip
- * to read it. Controls carry the same words as their accessible name or description, so screen readers skip it.
- */
 const targetOf = (event: Event) =>
   event.target instanceof Element ? event.target.closest<HTMLElement>("[data-tip]") : null;
 
@@ -34,7 +27,6 @@ export const createTooltip = ({ signal }: Pick<PanelContext, "signal">, within: 
     );
     tip.style.left = `${left}px`;
     tip.style.top = `${box.top - height - GAP}px`;
-    // The arrow points at the control's centre, even when the tooltip is held on screen.
     const arrow = Math.min(Math.max(box.left + box.width / 2 - left, ARROW_EDGE), width - ARROW_EDGE);
     tip.style.setProperty("--fd-tip-arrow-x", `${arrow}px`);
   };
@@ -108,7 +100,6 @@ export const createTooltip = ({ signal }: Pick<PanelContext, "signal">, within: 
     },
     { signal },
   );
-  // An (i) works as a toggletip too: clicking or tapping it shows or hides its tooltip, for touch and switch users.
   within.addEventListener(
     "click",
     (event) => {
@@ -123,7 +114,6 @@ export const createTooltip = ({ signal }: Pick<PanelContext, "signal">, within: 
   return {
     hide,
     isVisible: () => !tip.hidden,
-    /** Keeps an open tooltip in step with its control, whose text or place may have changed. */
     refresh: () => {
       if (current && !tip.hidden) show(current);
     },

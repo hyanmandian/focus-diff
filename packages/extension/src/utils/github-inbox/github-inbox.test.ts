@@ -35,7 +35,6 @@ const pull = {
   headSha: "311897b5",
 };
 
-/** A notifications inbox item as GitHub draws it, trimmed to what's read. */
 const notification = ({
   id = "NT_1",
   href = "https://github.com/octo/web/pull/12#issuecomment-34",
@@ -116,7 +115,6 @@ describe("searchFor", () => {
   });
 });
 
-/** A hovercard as GitHub draws it, trimmed to its branches. */
 const hovercard = (head: string) => `
   <div class="Popover-message">
     <a class="Link--primary" href="/octo/web/pull/12">Cache the book covers</a>
@@ -149,7 +147,6 @@ describe("parseHovercard", () => {
     expect(parseHovercard("")).toBeNull();
     expect(parseHovercard('<span class="commit-ref base-ref">main</span>')).toBeNull();
     expect(parseHovercard('<span class="commit-ref head-ref">add-covers</span>')).toBeNull();
-    // Cut off before its branch closes.
     expect(parseHovercard('<span class="commit-ref base-ref">main</span><span class="commit-ref">add')).toBeNull();
   });
 });
@@ -214,7 +211,6 @@ describe("parseDetail", () => {
   });
 
   it("reads what a review did", () => {
-    // A bare approval says nothing, and the next event's words aren't its.
     expect(parseDetail(page, "pullrequestreview-9", "")).toEqual({
       actor: "grace",
       bot: false,
@@ -373,11 +369,7 @@ describe("fetching from GitHub", () => {
     JSON.stringify({
       payload: {
         route: {
-          results: [
-            { ...pull, permalink: `https://github.com/octo/web/pull/${page}`, number: page },
-            // Moved up a page between two reads.
-            pull,
-          ],
+          results: [{ ...pull, permalink: `https://github.com/octo/web/pull/${page}`, number: page }, pull],
           pageInfo: { totalPages },
         },
       },

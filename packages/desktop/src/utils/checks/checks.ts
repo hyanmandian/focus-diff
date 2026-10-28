@@ -1,7 +1,3 @@
-// A pull request's checks in full, as GitHub's checks list has them: grouped by how they went, each
-// with its summary, its annotations on lines and its steps, a GitHub Actions job's log (fetched by
-// Rust, logs.rs, and only its end when it's long), and re-running or approving workflow runs.
-
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { github, graphql } from "@/utils/bridge/bridge";
@@ -11,21 +7,16 @@ import type { PullRef } from "@/utils/review/review";
 export type CheckState = "failure" | "pending" | "neutral" | "success";
 export type CheckItem = {
   id: string;
-  /** A check run (an app's, such as GitHub Actions) or a commit status (an older kind, from CI services). */
   kind: "run" | "status";
   name: string;
-  /** The workflow a GitHub Actions job is from. */
   workflow: string | null;
   state: CheckState;
-  /** GitHub's own word for how it went: "cancelled", "timed_out", "queued"... lowercase. */
   detail: string;
-  /** What it says of itself, in one line. */
   description: string | null;
   url: string | null;
   required: boolean;
   startedAt: string | null;
   completedAt: string | null;
-  /** A GitHub Actions job: its id (for its log and re-running it) and its run's. */
   job: number | null;
   run: number | null;
 };
@@ -83,7 +74,6 @@ type Raw = {
 
 const FAILED = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"]);
 
-/** How a finished check run or step went, by GitHub's conclusion. */
 const concluded = (conclusion: string): CheckState =>
   conclusion === "SUCCESS" ? "success" : FAILED.has(conclusion) ? "failure" : "neutral";
 
@@ -102,7 +92,6 @@ export function checkState(node: {
   return node.status === "COMPLETED" ? concluded(node.conclusion ?? "") : "pending";
 }
 
-/** One check as the list shows it. */
 export function toCheck(node: RawNode): CheckItem {
   const state = checkState(node);
   if (node.__typename === "StatusContext") {
@@ -141,11 +130,8 @@ export function toCheck(node: RawNode): CheckItem {
   };
 }
 
-/** A query asked again for sure: Rust answers the same query from memory for two minutes
- *  (github.rs), which a poll for what changed must get past. */
 export const fresh = (query: string) => `${query}\n# ${Date.now()}`;
 
-/** Every check on the head commit, 100 a page. `again`: past Rust's memory of the last answer. */
 export async function loadChecks(ref: PullRef, again = false): Promise<{ head: string | null; checks: CheckItem[] }> {
   const checks: CheckItem[] = [];
   let head: string | null = null;
@@ -176,8 +162,6 @@ export async function loadChecks(ref: PullRef, again = false): Promise<{ head: s
 type Group = { state: CheckState; checks: CheckItem[] };
 const ORDER: CheckState[] = ["failure", "pending", "neutral", "success"];
 
-/** The checks grouped as GitHub groups them: failing, then in progress, skipped, successful; each
- *  group required first, then by name. Empty groups are left out. */
 export function groupChecks(checks: CheckItem[]): Group[] {
   return ORDER.map((state) => ({
     state,
@@ -187,22 +171,17 @@ export function groupChecks(checks: CheckItem[]): Group[] {
   })).filter((g) => g.checks.length);
 }
 
-/** How many of each, for the summary line. */
 export function countChecks(checks: CheckItem[]): Record<CheckState, number> {
   const count = (state: CheckState) => checks.filter((c) => c.state === state).length;
   return { failure: count("failure"), pending: count("pending"), neutral: count("neutral"), success: count("success") };
 }
 
-/** The workflow runs that have failed jobs, each once: what "Re-run failed jobs" re-runs. */
 export const failedRuns = (checks: CheckItem[]) => [
   ...new Set(checks.filter((c) => c.state === "failure" && c.run).map((c) => c.run!)),
 ];
-/** Every workflow run with a job here. */
 export const allRuns = (checks: CheckItem[]) => [
   ...new Set(checks.filter((c) => c.run && c.state !== "pending").map((c) => c.run!)),
 ];
-
-// MARK: One check, opened
 
 export type Annotation = {
   path: string;
@@ -214,15 +193,12 @@ export type Annotation = {
 export type Step = { number: number; name: string; state: CheckState };
 export type CheckDetail = { summary: string | null; text: string | null; annotations: Annotation[]; steps: Step[] };
 
-/** Trimmed text, or null when there's none. */
 function nonBlank(text: string | null | undefined) {
   const trimmed = text?.trim();
   if (!trimmed) return null;
   return trimmed;
 }
 
-/** What a check run says beyond its name: its summary, annotations (the lines it complains about)
- *  and, for an Actions job, its steps. */
 export async function loadCheckDetail(id: string): Promise<CheckDetail> {
   type R = {
     node: null | {
@@ -295,15 +271,11 @@ export async function loadCheckDetail(id: string): Promise<CheckDetail> {
 
 type Log = { text: string; truncated: boolean };
 
-/** A GitHub Actions job's log, through Rust (logs.rs): only its last part when it's long. `done`:
- *  the job has finished, so its log won't change and can be kept. */
 export const loadLog = (ref: PullRef, job: number, done: boolean) =>
   invoke<Log>("job_log", { owner: ref.owner, repo: ref.repo, job, done });
 
 export type LogLine = { text: string; kind: "group" | "error" | "warning" | "command" | "plain" };
 
-/** A log as it reads: without the timestamps and terminal colours, GitHub's markers turned into
- *  kinds (a group's title, an error, a warning, a command run), empty group ends dropped. */
 export function parseLog(text: string): LogLine[] {
   const lines: LogLine[] = [];
   for (const raw of text.split(/\r?\n/u)) {
@@ -333,8 +305,6 @@ export function parseLog(text: string): LogLine[] {
   return lines;
 }
 
-// MARK: Re-running
-
 const actions = (ref: PullRef) => `/repos/${ref.owner}/${ref.repo}/actions`;
 export const rerunFailed = (ref: PullRef, run: number) =>
   github("POST", `${actions(ref)}/runs/${run}/rerun-failed-jobs`, {});
@@ -342,15 +312,12 @@ export const rerunAll = (ref: PullRef, run: number) => github("POST", `${actions
 export const rerunJob = (ref: PullRef, job: number) => github("POST", `${actions(ref)}/jobs/${job}/rerun`, {});
 export const approveRun = (ref: PullRef, run: number) => github("POST", `${actions(ref)}/runs/${run}/approve`, {});
 
-/** Workflow runs from a fork waiting for someone with write access to let them run. */
 export async function awaitingApproval(ref: PullRef, head: string): Promise<Array<{ id: number; name: string }>> {
   type R = { workflow_runs: Array<{ id: number; name: string | null; display_title: string }> };
   const data = await github<R>("GET", `${actions(ref)}/runs?head_sha=${head}&status=action_required&per_page=20`);
   return data.workflow_runs.map((r) => ({ id: r.id, name: r.name ?? r.display_title }));
 }
 
-/** The checks as a hook: what the details had at once, all of them after, asked again every few
- *  seconds while any is running and the window is in front. `after(head)` on each load. */
 export function useChecks(ref: PullRef, head: string | undefined, initial: CheckItem[] | null) {
   const [checks, setChecks] = useState<CheckItem[] | null>(initial);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -363,9 +330,7 @@ export function useChecks(ref: PullRef, head: string | undefined, initial: Check
         if (mine !== latest.current) return;
         setChecks(result.checks);
         setLoadedFor(result.head);
-      } catch {
-        // What's shown stands; the next poll tries again.
-      }
+      } catch {}
     },
     [ref],
   );

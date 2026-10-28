@@ -1,12 +1,5 @@
-// Which operating system the page runs on, for what differs between them: the tokens
-// (styles/tokens.css) follow <html data-platform>, and the few behaviours
-// tokens can't say (shortcut glyphs) come from here.
-// Set as soon as this loads (utils/theme/theme.ts brings it into every page), before anything is drawn.
-
 export type Os = "macos" | "windows" | "linux";
 
-// The web view reports the system it's part of: WKWebView says Macintosh, WebView2 Windows,
-// WebKitGTK Linux. Anything else is treated as the Mac, the default token set.
 const agent = navigator.userAgent;
 export const os: Os = agent.includes("Windows")
   ? "windows"
@@ -15,33 +8,24 @@ export const os: Os = agent.includes("Windows")
     : "macos";
 export const isMac = os === "macos";
 
-/** A shortcut as the system writes it: ⌘↩ on the Mac, Ctrl+Enter elsewhere. `mods` in the Mac's
- *  order (⌃⌥⇧⌘). */
 export function shortcut(key: string, mods: Array<"ctrl" | "alt" | "shift" | "cmd"> = []) {
   if (isMac) return mods.map((m) => ({ ctrl: "⌃", alt: "⌥", shift: "⇧", cmd: "⌘" })[m]).join("") + key;
   return [...mods.map((m) => ({ ctrl: "Ctrl", alt: "Alt", shift: "Shift", cmd: "Ctrl" })[m]), key].join("+");
 }
 
-/** A shortcut written with the Mac's glyphs (⌥⇧J, ⌘↩) as this system writes it: as is on the Mac,
- *  Alt+Shift+J and Ctrl+Enter elsewhere. */
 export function written(keys: string) {
   if (isMac) return keys;
   const names: Record<string, string> = { "⌃": "Ctrl", "⌥": "Alt", "⇧": "Shift", "⌘": "Ctrl" };
-  // The glyphs lead, the key follows (one character, or ↩).
   const key = keys.replace(/^[⌃⌥⇧⌘]+/u, "");
   const mods = Array.from(keys.slice(0, keys.length - key.length).matchAll(/./gu), (m) => names[m[0]]);
   return [...mods, key.replace("↩", "Enter")].join("+");
 }
 
-/** Whether a key event holds the system's command key: ⌘ on the Mac, Ctrl elsewhere (where the
- *  Windows and Super keys belong to the system). */
 export const primary = (e: Pick<KeyboardEvent, "metaKey" | "ctrlKey">) => (isMac ? e.metaKey : e.ctrlKey);
 
 const root = document.documentElement;
 root.dataset.platform = os;
 
-// A window that isn't the key one draws its selection and accent controls in gray, as AppKit's do
-// (styles/tokens.css, [data-window-inactive]). The web view's own focus follows the window's.
 const follow = () => {
   root.toggleAttribute("data-window-inactive", !document.hasFocus());
 };

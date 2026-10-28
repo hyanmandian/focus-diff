@@ -1,6 +1,3 @@
-/* One row that never wraps: the bar grows with its chips up to the page's width, then the chips scroll sideways. The side
-   with more fades out under an arrow that scrolls to it, for a mouse without a sideways wheel. The negative margin and
-   padding keep focus rings clear of the scroll edge. */
 .filter-row {
   position: relative;
   display: flex;
@@ -21,7 +18,6 @@
   overscroll-behavior-x: contain;
   scrollbar-width: none;
   isolation: isolate;
-  /* Clear under the arrow, then fading in past it. */
   mask-image: linear-gradient(
     to right,
     transparent calc(var(--fade-start) / 2),
@@ -70,8 +66,6 @@
   pointer-events: auto;
 }
 
-/* The picked chip's background: a highlight as wide as every chip together, so it scrolls along with them, clipped to
-   the one picked and sliding from chip to chip. The script sets its width. */
 .indicator {
   position: absolute;
   top: 0;
@@ -84,7 +78,6 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .indicator.ready {
-    /* The bar has its own easing; the popup the page's. */
     transition: clip-path 260ms var(--fd-ease, var(--ease));
   }
 }

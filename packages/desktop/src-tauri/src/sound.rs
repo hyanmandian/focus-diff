@@ -8,14 +8,14 @@ use tauri::{AppHandle, Runtime};
 pub const OWN: bool = cfg!(target_os = "macos");
 
 // Only the Mac plays its own sound (OWN); the bowl stays tested everywhere.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 const RATE: u32 = 22_050;
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 const SECONDS: f32 = 2.6;
 
 /// The bowl as a WAV file: 16-bit mono. Each partial is (ratio to the note, gain, seconds to fade
 /// out, Hz off the ratio); the twin a little off the note beats against it, as a real bowl shimmers.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(any(target_os = "macos", test))]
 pub fn bowl() -> Vec<u8> {
     const NOTE: f32 = 432.0;
     const PARTIALS: [(f32, f32, f32, f32); 4] = [(1.0, 0.5, 2.4, 0.0), (1.0, 0.28, 2.6, 1.3), (2.76, 0.2, 1.3, 0.0), (5.4, 0.07, 0.6, 0.0)];

@@ -28,7 +28,7 @@ pub struct ReviewItems<R: Runtime> {
 }
 
 /// The menu bar in the language in use; `items`: its review commands, by id. Only the Mac has one.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(target_os = "macos")]
 pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<(Menu<R>, ReviewItems<R>)> {
     let (menu, items) = make(app)?;
     Ok((menu, ReviewItems { items: Mutex::new(items), state: Mutex::new(HashMap::new()) }))

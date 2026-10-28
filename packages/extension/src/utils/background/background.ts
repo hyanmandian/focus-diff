@@ -9,6 +9,7 @@ import {
   isDone,
   isIgnored,
   isQuiet,
+  isWatching,
   markAgain,
   pruneDone,
   pruneIgnored,
@@ -279,9 +280,9 @@ const refreshLists = async () => {
 /** Looks at GitHub every few minutes while notifications are on. Turned off, it forgets what it saw, so turning them back on doesn't bring up everything since. */
 const schedule = async () => {
   const settings = await loadNotify();
+  if (!isWatching(settings)) await inboxMemoryItem.setValue(null);
   if (!settings.enabled) {
     await browser.alarms.clear(ALARM);
-    await inboxMemoryItem.setValue(null);
     await updateBadge(settings, null);
     return;
   }

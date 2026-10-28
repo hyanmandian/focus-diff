@@ -5,9 +5,16 @@ import { fakeBrowser } from "wxt/testing/fake-browser";
 import type { play } from "@/utils/background-sound/background-sound";
 import { samplePull } from "@/utils/github-sample-pull/github-sample-pull";
 import type { checkInbox, CheckResult } from "@/utils/inbox-check/inbox-check";
-import { DEFAULT_NOTIFY, type InboxEvent, type InboxSnapshot, type NotifySettings } from "@/utils/inbox/inbox";
+import {
+  DEFAULT_NOTIFY,
+  EVENT_KINDS,
+  type InboxEvent,
+  type InboxSnapshot,
+  type NotifySettings,
+} from "@/utils/inbox/inbox";
 import type { Message } from "@/utils/messages/messages";
 import type { readBranches } from "@/utils/pull-branches/pull-branches";
+import { recordOf } from "@/utils/record/record";
 import type {
   endRun,
   hold,
@@ -271,6 +278,19 @@ describe("scheduling the looks", () => {
     expect(await fakeBrowser.alarms.get("inbox")).toBeUndefined();
     expect(await inboxMemoryItem.getValue()).toBeNull();
     expect((await badge()).text).toBe("");
+  });
+
+  it("forgets what it saw while on but told of nothing, so turning an event on doesn't bring up everything since", async () => {
+    await notifyItem.setValue(enabled());
+    await settle();
+    await inboxMemoryItem.setValue({ threads: { a: "b" }, reviews: [] });
+    const events = recordOf(EVENT_KINDS, (kind) => ({ ...DEFAULT_NOTIFY.events[kind], on: false }));
+    // Told of nothing, a look reads only the lists, and leaves what was seen as it was.
+    mocks.checkInbox.mockResolvedValue(result({ memory: null }));
+    await notifyItem.setValue(enabled({ events }));
+    await settle();
+    expect(await inboxMemoryItem.getValue()).toBeNull();
+    expect((await fakeBrowser.alarms.get("inbox"))?.periodInMinutes).toBe(2);
   });
 
   it("looks on its alarm, and leaves the others to review time", async () => {

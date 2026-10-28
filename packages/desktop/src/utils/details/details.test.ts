@@ -179,6 +179,7 @@ describe("loadDetails", () => {
       { __typename: "CheckRun", name: "neutral", status: "COMPLETED", conclusion: "NEUTRAL", detailsUrl: null },
       { __typename: "CheckRun", name: "test", status: "COMPLETED", conclusion: "FAILURE", detailsUrl: null },
       { __typename: "CheckRun", name: "none", status: "COMPLETED", conclusion: null, detailsUrl: null },
+      { __typename: "CheckRun", name: "stopped", status: "COMPLETED", conclusion: "CANCELLED", detailsUrl: null },
       { __typename: "CheckRun", name: "build", status: "IN_PROGRESS", conclusion: null, detailsUrl: null },
       { __typename: "StatusContext", context: "ci/ok", state: "SUCCESS", targetUrl: "t" },
       { __typename: "StatusContext", context: "ci/wait", state: "PENDING", targetUrl: null },
@@ -190,13 +191,14 @@ describe("loadDetails", () => {
     const { checks } = await loadDetails("acme/shop", 7);
     expect(checks).toEqual([
       { name: "test", state: "failure", url: null },
-      { name: "none", state: "failure", url: null },
       { name: "ci/bad", state: "failure", url: null },
       { name: "build", state: "pending", url: null },
       { name: "ci/wait", state: "pending", url: null },
       { name: "ci/expected", state: "pending", url: null },
       { name: "skip", state: "neutral", url: null },
       { name: "neutral", state: "neutral", url: null },
+      { name: "none", state: "neutral", url: null },
+      { name: "stopped", state: "neutral", url: null },
       { name: "lint", state: "success", url: "l" },
       { name: "ci/ok", state: "success", url: "t" },
       { name: "Check", state: "success", url: null },

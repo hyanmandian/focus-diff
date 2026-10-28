@@ -87,15 +87,25 @@ const FAILED = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAIL
 const concluded = (conclusion: string): CheckState =>
   conclusion === "SUCCESS" ? "success" : FAILED.has(conclusion) ? "failure" : "neutral";
 
+export function checkState(node: {
+  __typename?: string | null;
+  status?: string | null;
+  conclusion?: string | null;
+  state?: string | null;
+}): CheckState {
+  if (node.__typename === "StatusContext")
+    return node.state === "SUCCESS"
+      ? "success"
+      : node.state === "PENDING" || node.state === "EXPECTED"
+        ? "pending"
+        : "failure";
+  return node.status === "COMPLETED" ? concluded(node.conclusion ?? "") : "pending";
+}
+
 /** One check as the list shows it. */
 export function toCheck(node: RawNode): CheckItem {
+  const state = checkState(node);
   if (node.__typename === "StatusContext") {
-    const state: CheckState =
-      node.state === "SUCCESS"
-        ? "success"
-        : node.state === "PENDING" || node.state === "EXPECTED"
-          ? "pending"
-          : "failure";
     return {
       id: node.id,
       kind: "status",
@@ -113,8 +123,6 @@ export function toCheck(node: RawNode): CheckItem {
     };
   }
   const done = node.status === "COMPLETED";
-  const conclusion = node.conclusion ?? "";
-  const state = done ? concluded(conclusion) : "pending";
   const actions = node.checkSuite?.app?.slug === "github-actions";
   return {
     id: node.id,
@@ -122,7 +130,7 @@ export function toCheck(node: RawNode): CheckItem {
     name: node.name ?? "",
     workflow: node.checkSuite?.workflowRun?.workflow.name ?? null,
     state,
-    detail: (done ? conclusion : (node.status ?? "")).toLowerCase(),
+    detail: ((done ? node.conclusion : node.status) ?? "").toLowerCase(),
     description: node.title ?? null,
     url: node.detailsUrl ?? null,
     required: node.isRequired,

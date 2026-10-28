@@ -386,9 +386,14 @@ export const startBackground = (): void => {
       // The popup is opening: a review time whose alarm was lost, like over a restart, is put right first.
       void recoverReviewTime()
         .then(refreshLists)
-        .then(() => {
-          sendResponse(true);
-        });
+        .then(
+          () => {
+            sendResponse(true);
+          },
+          () => {
+            sendResponse(false);
+          },
+        );
       // oxlint-disable-next-line typescript/strict-void-return -- true keeps the channel open for sendResponse, as the browser asks.
       return true;
     }

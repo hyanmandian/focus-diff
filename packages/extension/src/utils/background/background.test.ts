@@ -680,6 +680,13 @@ describe("the popup's refresh", () => {
     expect(mocks.checkInbox).toHaveBeenCalledTimes(2);
   });
 
+  it("answers false when reading the lists fails", async () => {
+    mocks.checkInbox.mockRejectedValue(new Error("storage"));
+    const { kept, answers } = await message({ type: "inbox-refresh" });
+    expect(kept).toBe(true);
+    expect(answers).toEqual([false]);
+  });
+
   it("reads them when there are none, and waits for a look already running", async () => {
     await message({ type: "inbox-refresh" });
     expect(mocks.checkInbox).toHaveBeenCalledTimes(1);

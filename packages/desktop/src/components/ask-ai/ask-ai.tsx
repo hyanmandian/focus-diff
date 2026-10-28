@@ -32,8 +32,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   if (!provider) return null;
   const busy = state.phase === "busy";
 
-  const run = async (asked: string, prompt: string) => {
-    if (!(await ensureAi(config))) return;
+  const askNow = async (asked: string, prompt: string) => {
     const id = newRun();
     // Asked from a click or the form, never while drawing.
     // oxlint-disable-next-line react/purity
@@ -45,11 +44,14 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       setState({ phase: "error", asked, text: errorText(e) });
     }
   };
+  const run = async (asked: string, prompt: string) => {
+    if (await ensureAi(config)) await askNow(asked, prompt);
+  };
   const send = async (q: string) => {
     // Kept in the field when the AI can't take it, to send once it's set up.
     if (!(await ensureAi(config))) return;
     setQuestion("");
-    await run(q, q);
+    await askNow(q, q);
   };
   const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();

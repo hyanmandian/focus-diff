@@ -77,6 +77,22 @@ fn ask<R: tauri::Runtime>(app: &tauri::AppHandle<R>, name: &str, command: &str) 
         .blocking_show()
 }
 
+fn shell(command: &str) -> Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut shell = Command::new("cmd");
+        shell.raw_arg("/S /C").raw_arg(format!("\"{command}\""));
+        shell
+    }
+    #[cfg(not(windows))]
+    {
+        let mut shell = Command::new("/bin/sh");
+        shell.arg("-c").arg(command);
+        shell
+    }
+}
+
 /// Runs step `step` of action `action`. Blocking: call it off the main thread.
 pub fn run<R: tauri::Runtime>(app: &tauri::AppHandle<R>, config: PathBuf, trusted: PathBuf, action: &str, name: &str, step: usize, pr: Context) -> Result<String, String> {
     pr.check()?;
@@ -91,15 +107,7 @@ pub fn run<R: tauri::Runtime>(app: &tauri::AppHandle<R>, config: PathBuf, truste
         fs::write(&trusted, json).map_err(|e| e.to_string())?;
     }
 
-    let mut shell = if cfg!(windows) {
-        let mut c = Command::new("cmd");
-        c.arg("/C").arg(&command);
-        c
-    } else {
-        let mut c = Command::new("/bin/sh");
-        c.arg("-c").arg(&command);
-        c
-    };
+    let mut shell = shell(&command);
     shell
         .env("PATH", ai::search_path())
         .env("PR_NUMBER", pr.number.to_string())
@@ -138,6 +146,12 @@ mod tests {
         fs::write(&config, r#"{"actions":[{"id":"a1","steps":[],"choices":[{"id":"c1","steps":[{"kind":"run","command":"echo dana"}]}]}]}"#).unwrap();
         assert_eq!(command_of(&config, "c1", 0).as_deref(), Ok("echo dana"));
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn runs_the_command_as_written() {
+        let output = shell(r#"echo "a b""#).output().unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), if cfg!(windows) { r#""a b""# } else { "a b" });
     }
 
     #[test]

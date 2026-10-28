@@ -1707,7 +1707,8 @@ describe("Review", () => {
       // Not as ⌥E (a typed character) or once typing.
       press("e", { altKey: true });
       expect(h.queue.go).toHaveBeenCalledTimes(2);
-      const modal = document.body.append(document.createElement("div"));
+      const modal = document.createElement("div");
+      document.body.append(modal);
       modal.setAttribute("aria-modal", "true");
       press("e");
       press("?");

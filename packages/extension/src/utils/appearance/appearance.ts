@@ -66,8 +66,7 @@ export const normalizeAppearance = (input: unknown): Appearance => {
     if (theme) seen.add(id);
     return theme ? [theme] : [];
   });
-  const known = typeof value.theme === "string" && (seen.has(value.theme) || value.theme === PROVIDER_THEME);
-  return { theme: known && typeof value.theme === "string" ? value.theme : PROVIDER_THEME, themes };
+  return { theme: typeof value.theme === "string" && seen.has(value.theme) ? value.theme : PROVIDER_THEME, themes };
 };
 
 /** What sharing a theme copies: its name and colours, without the id it has here. */

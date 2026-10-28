@@ -205,7 +205,6 @@ const EXCLUDES: Record<Exception, (event: InboxEvent) => boolean> = {
   approved: (event) => event.approvedByMe,
   bots: (event) => event.bot,
 };
-const excludes = (exception: Exception, event: InboxEvent) => EXCLUDES[exception](event);
 
 /** Whether the reader wants this kind of event in this repository, before knowing who did it. */
 export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: string): boolean => {
@@ -219,7 +218,7 @@ export const mayNotify = (settings: NotifySettings, kind: EventKind, repo: strin
 /** Whether the reader wants to be told about this event. */
 export const wants = (settings: NotifySettings, event: InboxEvent): boolean =>
   mayNotify(settings, event.kind, event.repo) &&
-  !settings.events[event.kind].except.some((exception) => excludes(exception, event));
+  !settings.events[event.kind].except.some((exception) => EXCLUDES[exception](event));
 
 /** Whether working an event out takes a look at its pull request's page, to know if the reader approved it. */
 export const needsDetail = (settings: NotifySettings, kind: EventKind, repo: string): boolean =>
@@ -277,12 +276,7 @@ export const reviewListEvents = (previous: PullRequest[] | null, current: PullRe
 
 /** Threads with an event since the last look. Nothing is new on the first look, which only remembers where things stand. */
 export const freshActivity = (previous: Record<string, string> | null, current: Activity[]): Activity[] =>
-  previous
-    ? current.filter(
-        (activity) =>
-          previous[activity.thread] !== activity.updatedAt && activity.updatedAt > (previous[activity.thread] ?? ""),
-      )
-    : [];
+  previous ? current.filter((activity) => activity.updatedAt > (previous[activity.thread] ?? "")) : [];
 
 /** What a thread's latest event was, for the reader: a comment or review on their own pull request, or on one they review. */
 export const activityKind = (activity: Activity, review: Detail["review"]): EventKind | null => {

@@ -101,8 +101,8 @@ const release = async (events: HeldEvent[]) => {
 };
 
 /** The next review time's alarm, or none; with none to come, what was kept for one shows now. */
-export const scheduleReviewTime = async (settings?: ReviewTimeSettings): Promise<void> => {
-  const [current, skipUntil] = await Promise.all([settings ?? loadReviewTime(), reviewSkipItem.getValue()]);
+export const scheduleReviewTime = async (): Promise<void> => {
+  const [current, skipUntil] = await Promise.all([loadReviewTime(), reviewSkipItem.getValue()]);
   const next = nextOccurrence(current, Math.max(Date.now(), skipUntil - 1));
   const name = next ? `${NEXT_ALARM}${next.session.id}` : "";
   const stale = (await browser.alarms.getAll()).filter(

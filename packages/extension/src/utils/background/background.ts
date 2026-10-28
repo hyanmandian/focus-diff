@@ -102,8 +102,7 @@ const updateBadge = async (settings: NotifySettings, snapshot: InboxSnapshot | n
 };
 
 /** The badge again, as the reader's marks change what it counts. */
-const recount = () =>
-  void Promise.all([loadNotify(), inboxItem.getValue()]).then(([notify, inbox]) => updateBadge(notify, inbox));
+const recount = async () => updateBadge(await loadNotify(), await inboxItem.getValue());
 
 const TITLES: Record<InboxEvent["kind"], (actor: string, event: InboxEvent) => string> = {
   "review-requested": (actor, event) =>
@@ -270,8 +269,6 @@ const look = (full: boolean): Promise<void> =>
     running = null;
   }));
 
-const refresh = () => look(true);
-
 /** The lists read this recently are fresh enough for the popup to show without reading them again. */
 const FRESH_MS = 30_000;
 const refreshLists = async () => {
@@ -293,14 +290,12 @@ const schedule = async () => {
   const alarm = await browser.alarms.get(ALARM);
   if (alarm?.periodInMinutes !== settings.interval)
     await browser.alarms.create(ALARM, { periodInMinutes: settings.interval });
-  await refresh();
+  await look(true);
 };
 
 const openLink = async (id: string) => {
   if (await onReviewNotification(id)) return;
-  // A copy: with nothing stored, the item hands out its one fallback object, which mustn't fill up.
-  const links = { ...(await notificationLinksItem.getValue()) };
-  const url = links[id];
+  const url = (await notificationLinksItem.getValue())[id];
   if (url) await browser.tabs.create({ url });
   await browser.notifications?.clear(id);
 };
@@ -316,7 +311,7 @@ const listenToNotifications = () => {
 };
 
 const onAlarm = async (alarm: Browser.alarms.Alarm) => {
-  if (alarm.name === ALARM) void refresh();
+  if (alarm.name === ALARM) void look(true);
   else await onReviewAlarm(alarm);
 };
 
@@ -344,8 +339,8 @@ const reviewTimeAction = (message: Message): (() => Promise<boolean | void>) | n
 /** The background: checks GitHub on its alarms, sends notifications, keeps the badge and runs review time. */
 export const startBackground = (): void => {
   initReviewTime({
-    refreshLists: () => refreshLists(),
-    updateBadge: async () => updateBadge(await loadNotify(), await inboxItem.getValue()),
+    refreshLists,
+    updateBadge: recount,
     // Kept while the reader reviewed: shown once the time's up, unless that's in quiet hours.
     release: async (events) => {
       const settings = await loadNotify();
@@ -370,14 +365,14 @@ export const startBackground = (): void => {
   notifyItem.watch(() => void schedule());
   reviewTimeItem.watch(() => void scheduleReviewTime());
   reviewSkipItem.watch(() => void scheduleReviewTime());
-  doneItem.watch(recount);
-  ignoredItem.watch(recount);
+  doneItem.watch(() => void recount());
+  ignoredItem.watch(() => void recount());
   // Leaving out the reviews asked of the reader's teams takes reading the lists again, to tell which those are, and so
   // does a list just added to the popup, to have it there.
   popupItem.watch((next, previous) => {
     const added = (list: "updates" | "merged") => next?.[list] && !previous?.[list];
     if ((!next?.teams && previous?.teams) || added("updates") || added("merged")) void look(false);
-    else void loadNotify().then(async (settings) => updateBadge(settings, await inboxItem.getValue()));
+    else void recount();
   });
   browser.alarms.onAlarm.addListener((alarm) => void onAlarm(alarm));
   listenToNotifications();
@@ -404,7 +399,7 @@ export const startBackground = (): void => {
     // Answered once done, so the popup can say so; a failure answers too, with false.
     const reviewTime = reviewTimeAction(message);
     if (reviewTime) {
-      void Promise.resolve(reviewTime()).then(
+      void reviewTime().then(
         (answer) => {
           sendResponse(answer ?? true);
         },

@@ -305,7 +305,7 @@ describe("Setup", () => {
 
   it("shows it's saving until it's done", async () => {
     const saving = later<undefined>();
-    answer({ write: () => saving.promise });
+    const { sent } = answer({ write: () => saving.promise });
     const user = userEvent.setup();
     render(<Setup />);
     await screen.findByText("@octocat");
@@ -314,6 +314,8 @@ describe("Setup", () => {
     const open = screen.getByRole("button", { name: "Open Focus Diff" });
     await user.click(open);
     expect(open.hasAttribute("disabled")).toBe(true);
+    enter(screen.getByRole("heading", { level: 1 }));
+    expect(sent("write_file")).toHaveLength(1);
     await act(async () => {
       saving.settle(undefined);
       await Promise.resolve();

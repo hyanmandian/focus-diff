@@ -139,6 +139,7 @@ export function Setup() {
   };
 
   const finish = async () => {
+    if (saving) return;
     setSaving(true);
     await saveConfig(finalConfig());
     await bridge.openPanel();

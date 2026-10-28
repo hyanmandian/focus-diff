@@ -6,7 +6,7 @@
  */
 
 /** The longest still moment counted as reading: time to think a tricky change through, short of leaving the desk. */
-export const STILL_LIMIT_MS = 90_000;
+const STILL_LIMIT_MS = 90_000;
 
 /** The time spent on files between two moments of activity `gap` apart. */
 export const creditFor = (gap: number): number => Math.max(0, Math.min(gap, STILL_LIMIT_MS));

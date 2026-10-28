@@ -24,6 +24,7 @@ import {
 } from "@/utils/conversation/conversation";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { i18n } from "@/utils/i18n/i18n";
 import {
   setResolved,
@@ -95,8 +96,6 @@ export async function copyText(text: string) {
     field.remove();
   }
 }
-
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 const confirmDelete = () => {
   const t = i18n();
@@ -201,7 +200,7 @@ export function useConversation({
     try {
       await removeOnGitHub(kind, id);
     } catch (e) {
-      say(message(e));
+      say(errorText(e));
       return;
     }
     removed();
@@ -249,7 +248,7 @@ export function useConversation({
       try {
         await reactOnGitHub(subject, content, on);
       } catch (e) {
-        say(message(e));
+        say(errorText(e));
         throw e;
       }
       // Kept, so the next drawing shows it too.
@@ -301,7 +300,7 @@ export function useConversation({
           throw new Error(t(e.reason === "overlap" ? "review.suggestionsOverlap" : "review.suggestionOutside"), {
             cause: e,
           });
-        throw new Error(message(e), { cause: e });
+        throw new Error(errorText(e), { cause: e });
       }
       setBatch((list) => list.filter((i) => !items.some((x) => x.comment === i.comment)));
       // Applied, so done with, as on GitHub: resolved here at once, there after.

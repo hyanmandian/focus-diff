@@ -13,6 +13,7 @@ import { ask, newRun, PROVIDERS } from "@/utils/ai/ai";
 import { bridge } from "@/utils/bridge/bridge";
 import type { Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 
 type State =
@@ -41,7 +42,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       const answer = await ask(config, details, prompt, id);
       setState({ phase: "done", asked, text: answer.text, note: answer.note });
     } catch (e) {
-      setState({ phase: "error", asked, text: typeof e === "string" ? e : e instanceof Error ? e.message : String(e) });
+      setState({ phase: "error", asked, text: errorText(e) });
     }
   };
   const send = async (q: string) => {

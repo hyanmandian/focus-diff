@@ -19,6 +19,7 @@ import { runAction } from "@/utils/actions/actions";
 import { bridge, type ActionContext } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { choiceAction, type Action } from "@/utils/config/config";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 
 type Result = (message: string, ok: boolean) => void;
@@ -48,7 +49,7 @@ function useRun(action: Action, pr: ActionContext, onResult: Result) {
     try {
       onResult(await runAction(action, pr), true);
     } catch (e) {
-      onResult(e instanceof Error ? e.message : String(e), false);
+      onResult(errorText(e), false);
     } finally {
       setBusy(false);
     }

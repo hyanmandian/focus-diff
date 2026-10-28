@@ -35,6 +35,7 @@ import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/os/os";
@@ -91,7 +92,7 @@ export function Composer({
     try {
       await action(body.trim());
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -251,7 +252,7 @@ export function ThreadView({
     try {
       await onResolve(!thread.resolved);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -532,7 +533,7 @@ export function NewComment({
   }, [turns]);
 
   const fail = (e: unknown) => {
-    setError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+    setError(errorText(e));
   };
 
   const comment = async (now: boolean) => {

@@ -31,6 +31,7 @@ import { firstName } from "@/utils/copy/copy";
 import type { Details, Entry } from "@/utils/details/details";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread } from "@/utils/review/review";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
@@ -672,7 +673,7 @@ export function Overview({
               className="self-start text-muted-foreground"
               onClick={() =>
                 void pull.loadOlder().catch((e: unknown) => {
-                  say(e instanceof Error ? e.message : String(e));
+                  say(errorText(e));
                 })
               }
             >

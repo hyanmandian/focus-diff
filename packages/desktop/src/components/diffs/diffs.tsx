@@ -38,6 +38,7 @@ import type { Exchange, Finding } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
+import { errorText } from "@/utils/error/error";
 import { labelExpandButtons } from "@/utils/expand-buttons/expand-buttons";
 import { i18n, useT, type T } from "@/utils/i18n/i18n";
 import { diffLink, permalink } from "@/utils/permalink/permalink";
@@ -472,10 +473,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       );
       setLoaded((m) => new Map(m).set(file.path, { state: "done", diff }));
     } catch (e) {
-      const message =
-        e instanceof BinaryFile
-          ? t("diff.binary")
-          : t("diff.loadFailed", { error: e instanceof Error ? e.message : String(e) });
+      const message = e instanceof BinaryFile ? t("diff.binary") : t("diff.loadFailed", { error: errorText(e) });
       setLoaded((m) => new Map(m).set(file.path, { state: "error", message, binary: e instanceof BinaryFile }));
     }
   };
@@ -503,7 +501,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       const sha = old ? await from.base() : from.head;
       await copy(permalink(to, sha, old ? (file?.previousPath ?? path) : path, lines), t("diff.linkCopied"));
     } catch (e) {
-      props.onSay(e instanceof Error ? e.message : String(e));
+      props.onSay(errorText(e));
     }
   };
   const copyDiffLink = async (

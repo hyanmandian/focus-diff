@@ -72,6 +72,7 @@ import { loadConfig, type Config } from "@/utils/config/config";
 import { mergeBase, type Source } from "@/utils/contents/contents";
 import { firstName } from "@/utils/copy/copy";
 import { comment, leaveReview, loadDetails, type Details } from "@/utils/details/details";
+import { errorText } from "@/utils/error/error";
 import { learnFiles, useLearned } from "@/utils/estimate/estimate";
 import {
   filtersFor,
@@ -223,7 +224,7 @@ function SubmitReview({
       setOpen(false);
       onSubmitted();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -244,7 +245,7 @@ function SubmitReview({
       await onDiscard();
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -559,7 +560,7 @@ export function Review({ target }: { target: Target }) {
       const [states, queued] = await Promise.all([onGitHub, bridge.queuedViewed(prId).catch(() => ({}))]);
       if (states) followGitHub(f, states, queued);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   }, [prId, repo, number, ref, followGitHub]);
 
@@ -608,7 +609,7 @@ export function Review({ target }: { target: Target }) {
       try {
         setReviewed({ head: details.headRefOid, review: await aiReview(ai, details, files) });
       } catch (e) {
-        setReviewError(typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+        setReviewError(errorText(e));
       } finally {
         setReviewing(null);
       }
@@ -940,7 +941,7 @@ export function Review({ target }: { target: Target }) {
       say(i18n()("review.left"));
       void bridge.refresh(true);
     } catch (e) {
-      say(e instanceof Error ? e.message : String(e));
+      say(errorText(e));
     }
   };
 

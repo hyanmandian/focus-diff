@@ -44,6 +44,7 @@ import {
   type LogLine,
 } from "@/utils/checks/checks";
 import { cn } from "@/utils/cn/cn";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import { canWrite } from "@/utils/manage/manage";
 import type { PullRef } from "@/utils/review/review";
@@ -177,7 +178,7 @@ function Opened({
       const got = await loadLog(pr, job, done);
       setLog({ lines: parseLog(got.text), truncated: got.truncated });
     } catch (e) {
-      setLogError(e instanceof Error ? e.message : String(e));
+      setLogError(errorText(e));
     } finally {
       setLogLoading(false);
     }
@@ -187,7 +188,7 @@ function Opened({
       await rerunJob(pr, job);
       say(t("manage.rerunning"));
     } catch (e) {
-      say(e instanceof Error ? e.message : String(e));
+      say(errorText(e));
     }
   };
   const failedSteps = detail?.steps.filter((s) => s.state === "failure") ?? [];

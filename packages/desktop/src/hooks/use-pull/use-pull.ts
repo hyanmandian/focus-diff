@@ -20,6 +20,7 @@ import {
 import { sinceReview, useCommits, type Range } from "@/utils/commits/commits";
 import type { Details } from "@/utils/details/details";
 import { markReady } from "@/utils/details/details";
+import { errorText } from "@/utils/error/error";
 import { i18n } from "@/utils/i18n/i18n";
 import { canWrite, closePull, convertToDraft, reopenPull, useManage } from "@/utils/manage/manage";
 import {
@@ -48,8 +49,6 @@ type Options = {
   /** Loads everything again: for a head that moved under an action. */
   reloadAll: () => void;
 };
-
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** The checks the details came with, as the full list's items, until it arrives. */
 const fromDetails = (d: Details | null): CheckItem[] | null =>
@@ -199,7 +198,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
       if (e instanceof GitHubError && e.status === 409) {
         say(i18n()("manage.headMoved"));
         reloadAll();
-      } else say(message(e));
+      } else say(errorText(e));
     } finally {
       setBusy(null);
       void revalidate();

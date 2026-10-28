@@ -26,6 +26,7 @@ import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Details } from "@/utils/details/details";
 import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import {
   addAssignees,
@@ -120,7 +121,7 @@ function useChange(pull: Pull, onError: Props["onError"]) {
     try {
       await call();
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      onError(errorText(e));
     } finally {
       void pull.reloadManage();
     }

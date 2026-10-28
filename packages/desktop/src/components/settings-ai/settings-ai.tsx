@@ -89,7 +89,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
     setAi(provider === ai.provider ? {} : { provider, model: "", effort: "" });
   };
   useEffect(() => {
-    if (!selected) return () => {};
+    if (!selected) return;
     const ask = async () => {
       let models: string[] = [];
       try {
@@ -100,7 +100,6 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
       setOffered({ provider: selected, models });
     };
     void ask();
-    return () => {};
   }, [selected]);
   const models = offered && offered.provider === selected ? offered.models : [];
   const setPrompts = (prompts: Prompt[]) => {

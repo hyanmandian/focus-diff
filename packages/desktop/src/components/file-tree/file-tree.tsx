@@ -66,7 +66,7 @@ export function FileTree({
   const loading = files === null;
   useLayoutEffect(() => {
     const el = box.current;
-    if (loading || !el) return () => {};
+    if (loading || !el) return;
     const observer = new ResizeObserver(() => {
       setHeight(el.clientHeight);
     });

@@ -160,7 +160,6 @@ describe("LinkRow", () => {
         label="Needs review"
         description="Open, asked of you"
         muted
-        aria-label="Open Needs review"
         control={
           <button type="button" onClick={control}>
             Toggle
@@ -169,7 +168,7 @@ describe("LinkRow", () => {
         onOpen={onOpen}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Open Needs review" }));
+    await userEvent.click(screen.getByRole("button", { name: /Needs review/u }));
     expect(onOpen).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByRole("button", { name: "Toggle" }));
     expect(control).toHaveBeenCalledOnce();
@@ -324,7 +323,7 @@ describe("re-rendering", () => {
     );
     const same = rows();
     const group = (way: typeof back, inner: React.ReactNode) => (
-      <Pane title="Detail" back={way} tools={tools} hero="filters" className="pane">
+      <Pane title="Detail" back={way} tools={tools} hero="filters">
         <Intro>Lead-in</Intro>
         <Group title="Group" footer="Footnote">
           {inner}

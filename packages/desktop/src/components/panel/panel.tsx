@@ -356,7 +356,7 @@ export function Panel() {
   });
   // Again for each list put on screen: another queue, another repository's chips.
   useEffect(() => {
-    if (!shown || !ready) return () => {};
+    if (!shown || !ready) return;
     const timer = setTimeout(() => {
       // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the queue and repository aren't read here: a new list on screen is what starts the wait again
       void prefetchSome(topRef.current);

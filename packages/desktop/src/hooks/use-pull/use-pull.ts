@@ -104,7 +104,7 @@ export function usePull({ prId, ref, details, setDetails, threads, say, reloadAl
     };
     // The details changing is the cue to ask once more, while GitHub still doesn't know.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [unknown, revalidate, details?.updatedAt]);
+  }, [unknown, revalidate, details]);
   // Checks finishing changes what stands in the way of merging.
   const wasRunning = useRef(checks.running);
   useEffect(() => {

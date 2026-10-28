@@ -333,6 +333,14 @@ describe("usePull", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("asks again while GitHub still doesn't know, though nothing else changed", async () => {
+    vi.useFakeTimers();
+    u.loadMergeState.mockImplementation(() => Promise.resolve({ mergeable: "UNKNOWN", updatedAt: DETAILS.updatedAt }));
+    setup({ ...DETAILS, mergeable: "UNKNOWN" });
+    await wait2500(8);
+    expect(u.loadMergeState).toHaveBeenCalledTimes(6);
+  });
+
   it("starts the count over once it's known, and stops waiting when it goes", async () => {
     vi.useFakeTimers();
     const { result } = setup({ ...DETAILS, mergeStateStatus: "UNKNOWN" });

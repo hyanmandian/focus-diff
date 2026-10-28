@@ -558,7 +558,7 @@ const ISSUE_ICON = {
   NOT_PLANNED: { icon: CircleSlash, className: "text-muted-foreground" },
 } as const;
 
-function Development({ pull }: { pull: Pull }) {
+function Development({ pull, pr }: { pull: Pull; pr: PullRef }) {
   const t = useT();
   const issues = pull.manage?.issues ?? [];
   if (issues.length === 0) return null;
@@ -586,8 +586,7 @@ function Development({ pull }: { pull: Pull }) {
                 <span className="min-w-0">
                   <span className="line-clamp-2">{issue.title}</span>
                   <span className="text-subheadline text-muted-foreground tabular-nums">
-                    {issue.repo === `${pull.manage?.headOwner}/${pull.manage?.headRepo}` ? "" : issue.repo}#
-                    {issue.number}
+                    {issue.repo === `${pr.owner}/${pr.repo}` ? "" : issue.repo}#{issue.number}
                   </span>
                 </span>
               </button>
@@ -659,7 +658,7 @@ export function Sidebar(props: Props) {
       <Assignees {...props} />
       <Labels {...props} />
       <MilestoneSection {...props} />
-      <Development pull={props.pull} />
+      <Development pull={props.pull} pr={props.pr} />
       <Deployments pull={props.pull} />
     </>
   );

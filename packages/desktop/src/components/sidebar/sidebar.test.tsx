@@ -443,6 +443,26 @@ describe("Development and deployments", () => {
     expect(calls).toEqual(["open https://github.com/acme/shop/issues/1"]);
   });
 
+  it("leaves the pull request's own repository off its issues when it comes from a fork", () => {
+    sidebar({
+      manage: {
+        headOwner: "ana",
+        issues: [
+          {
+            id: "I1",
+            number: 1,
+            title: "Issue 1",
+            url: "https://github.com/acme/shop/issues/1",
+            repo: "acme/shop",
+            state: "OPEN",
+            stateReason: null,
+          },
+        ],
+      },
+    });
+    expect(items("Development")).toEqual(["Issue 1#1"]);
+  });
+
   it("shows the latest deployment per environment, with a link where there's one", async () => {
     const calls = github();
     const deployment = (

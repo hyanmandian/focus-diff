@@ -461,6 +461,14 @@ describe("checking before saving", () => {
     expect($("#session-a-times-error").textContent).toBe("");
   });
 
+  it("keeps a card unfolded for a fix unfolded when drawn again", async () => {
+    const { reviewTime } = await setUp({ sessions: [session({ times: [] })] });
+    expect(reviewTime.check()).toBe(false);
+    reviewTime.redraw();
+    expect($(".session-body", card()).hidden).toBe(false);
+    expect($(".session-expand", card()).getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("asks for a day, focusing the first", async () => {
     const { reviewTime } = await setUp({ sessions: [session({ days: [] })] });
     expect(reviewTime.check()).toBe(false);

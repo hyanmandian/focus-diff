@@ -241,6 +241,7 @@ export const createReviewTime = ({
   /** Checks for every field that can be wrong, to run on save. */
   let checks: (() => boolean)[] = [];
   const open = new Set<string>();
+  const openers = new WeakMap<Element, (value: boolean) => void>();
   const toggle = $<HTMLInputElement>("#review-on");
   const body = $("#review-body");
   const permission = $("#review-permission");
@@ -572,6 +573,7 @@ export const createReviewTime = ({
     syncLabels();
     summary.textContent = sessionSummary(session);
     setOpen(open.has(session.id));
+    openers.set(card, setOpen);
     if (focus)
       requestAnimationFrame(() => {
         name.focus();
@@ -706,10 +708,8 @@ export const createReviewTime = ({
       if (!ok) {
         for (const card of sessions.querySelectorAll<HTMLElement>(".session")) {
           const sessionBody = $(".session-body", card);
-          if (sessionBody.hidden && (shownError(card) || card.querySelector('[aria-invalid="true"]'))) {
-            sessionBody.hidden = false;
-            card.querySelector(".session-expand")?.setAttribute("aria-expanded", "true");
-          }
+          if (sessionBody.hidden && (shownError(card) || card.querySelector('[aria-invalid="true"]')))
+            openers.get(card)!(true);
         }
       }
       return ok;

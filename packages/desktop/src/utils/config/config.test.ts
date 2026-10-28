@@ -6,6 +6,7 @@ import {
   defaultConfig,
   filterRecipes,
   isRepoPattern,
+  keepValidPatterns,
   loadConfig,
   newAction,
   nextReviewTime,
@@ -141,6 +142,21 @@ describe("patterns", () => {
     expect(isRepoPattern("acme/*")).toBe(true);
     expect(isRepoPattern("acme")).toBe(false);
     expect(isRepoPattern("acme/*/x")).toBe(false);
+  });
+
+  it("keeps the last good pattern while one is half typed", () => {
+    const last = defaultConfig();
+    last.queues[0]!.includePaths = "^src/";
+    last.filters[0]!.exclude = "test";
+    const next = structuredClone(last);
+    next.queues[0]!.includePaths = "^src/(";
+    next.queues[0]!.excludePaths = "\\.md$";
+    next.filters[0]!.exclude = "[";
+    next.filters.push({ id: "new", name: "New", include: "(", exclude: "", repos: [] });
+    const kept = keepValidPatterns(next, last);
+    expect(kept.queues[0]).toMatchObject({ includePaths: "^src/", excludePaths: "\\.md$" });
+    expect(kept.filters[0]!.exclude).toBe("test");
+    expect(kept.filters.at(-1)!.include).toBe("");
   });
 });
 

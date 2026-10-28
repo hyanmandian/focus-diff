@@ -43,10 +43,12 @@ describe("checkInbox", () => {
     expect(github.notifications).not.toHaveBeenCalled();
   });
 
-  it("reads the lists the reader added to the popup, and leaves out one that fails without failing the look", async () => {
+  it("reads the lists the reader added to the popup, leaving reviews out of the updates, and leaves out one that fails without failing the look", async () => {
     const github = source({ reviews: [pull(1)] });
     vi.mocked(github.pulls).mockImplementation((list) =>
-      list === "merged" ? Promise.reject(new InboxError("unreadable")) : Promise.resolve([pull(2)]),
+      list === "merged"
+        ? Promise.reject(new InboxError("unreadable"))
+        : Promise.resolve(list === "updates" ? [pull(1), pull(2)] : [pull(1)]),
     );
     const off = { ...on({}), enabled: false };
     const result = await checkInbox(github, off, null, { updates: true, merged: true });
@@ -62,6 +64,9 @@ describe("checkInbox", () => {
       "reviews",
       "authored",
     ]);
+    vi.mocked(github.pulls).mockResolvedValue([pull(3)]);
+    const merged = await checkInbox(github, off, null, { merged: true });
+    expect(merged.snapshot).toMatchObject({ merged: [pull(3)] });
   });
 
   it("remembers where things stand on the first look, without telling", async () => {

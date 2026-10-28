@@ -658,4 +658,24 @@ export async function loadConfig(): Promise<Config> {
   }
 }
 
+const validOr = (value: string, prior = "") => (isValidPattern(value) ? value : prior);
+
+export function keepValidPatterns(next: Config, last: Pick<Config, "queues" | "filters">): Config {
+  return {
+    ...next,
+    queues: next.queues.map((q) => {
+      const prior = last.queues.find((p) => p.id === q.id);
+      return {
+        ...q,
+        includePaths: validOr(q.includePaths, prior?.includePaths),
+        excludePaths: validOr(q.excludePaths, prior?.excludePaths),
+      };
+    }),
+    filters: next.filters.map((f) => {
+      const prior = last.filters.find((p) => p.id === f.id);
+      return { ...f, include: validOr(f.include, prior?.include), exclude: validOr(f.exclude, prior?.exclude) };
+    }),
+  };
+}
+
 export const saveConfig = (config: Config) => bridge.writeFile("config", JSON.stringify(normalize(config), null, 2));

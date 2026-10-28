@@ -77,16 +77,10 @@ export const checkInbox = async (
   }: { skipTeams?: boolean; updates?: boolean; merged?: boolean } = {},
 ): Promise<CheckResult> => {
   const checkedAt = Date.now();
-  const extra = (list: "updates" | "merged", wanted: boolean) =>
-    wanted
-      ? source.pulls(list).then(
-          (pulls) => ({ [list]: pulls }),
-          () => ({}),
-        )
-      : Promise.resolve({});
+  const extra = (list: "updates" | "merged", wanted: boolean) => (wanted ? source.pulls(list).catch(() => null) : null);
   try {
     const watching = isWatching(settings);
-    const [listed, mine, inbox, added] = await Promise.all([
+    const [listed, mine, inbox, [watched, gone]] = await Promise.all([
       source.pulls("reviews"),
       source.pulls("authored"),
       watching ? source.notifications() : null,
@@ -101,7 +95,16 @@ export const checkInbox = async (
           )
         : listed;
     const me = inbox?.me ?? "";
-    const snapshot: InboxSnapshot = { me, reviews, mine, ...added[0], ...added[1], checkedAt, problem: null };
+    const asked = new Set(reviews.map((pull) => pull.url));
+    const snapshot: InboxSnapshot = {
+      me,
+      reviews,
+      mine,
+      ...(watched ? { updates: watched.filter((pull) => !asked.has(pull.url)) } : {}),
+      ...(gone ? { merged: gone } : {}),
+      checkedAt,
+      problem: null,
+    };
     if (!watching || !inbox) return { snapshot, memory: null, events: [] };
 
     let budget = DETAIL_LIMIT;

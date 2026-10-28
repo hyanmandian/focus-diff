@@ -35,7 +35,15 @@ import { useWebSession } from "@/utils/attachments/attachments";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
-import { loadConfig, PRESETS, saveConfig, TEMPLATES, type Config, type Queue } from "@/utils/config/config";
+import {
+  keepValidPatterns,
+  loadConfig,
+  PRESETS,
+  saveConfig,
+  TEMPLATES,
+  type Config,
+  type Queue,
+} from "@/utils/config/config";
 import { confirmRemove } from "@/utils/confirm/confirm";
 import { interval, POLL_SECONDS } from "@/utils/copy/copy";
 import { LANGUAGES, setLanguage, translator, useT, type Language, type T } from "@/utils/i18n/i18n";
@@ -44,22 +52,34 @@ import { platform } from "@/utils/platform/platform";
 import { PANE_META, type PaneId } from "@/utils/settings-panes/settings-panes";
 import { useTheme } from "@/utils/theme/theme";
 
+function persist(saved: { current: Pick<Config, "queues" | "filters"> }, next: Config) {
+  const valid = keepValidPatterns(next, saved.current);
+  saved.current = valid;
+  return saveConfig(valid);
+}
+
 function useConfig() {
   const [config, setConfig] = useState<Config | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pending = useRef(false);
   const unsaved = useRef<Config | null>(null);
+  const saved = useRef<Pick<Config, "queues" | "filters">>({ queues: [], filters: [] });
   useEffect(() => {
-    void loadConfig().then(setConfig);
+    const load = () =>
+      void loadConfig().then((loaded) => {
+        saved.current = loaded;
+        setConfig(loaded);
+      });
+    load();
     const flush = () => {
       if (!unsaved.current) return;
       clearTimeout(timer.current);
-      void saveConfig(unsaved.current);
+      void persist(saved, unsaved.current);
       unsaved.current = null;
     };
     window.addEventListener("pagehide", flush);
     const off = bridge.on<string>("file-changed", (name) => {
-      if (name === "config" && !pending.current) void loadConfig().then(setConfig);
+      if (name === "config" && !pending.current) load();
     });
     return () => {
       window.removeEventListener("pagehide", flush);
@@ -73,7 +93,7 @@ function useConfig() {
     unsaved.current = next;
     timer.current = setTimeout(() => {
       unsaved.current = null;
-      void saveConfig(next).finally(() => {
+      void persist(saved, next).finally(() => {
         pending.current = false;
       });
     }, 350);

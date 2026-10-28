@@ -579,6 +579,12 @@ impl Worker {
                 }
             }
         }
+        let reviewing: HashSet<String> = queues.iter().filter(|q| q.kind == Kind::Review).flat_map(|q| items.iter().filter(|(id, _)| *id == q.id).flat_map(|(_, i)| i.iter().map(|i| i.pr.id.clone()))).collect();
+        for (id, list) in &mut items {
+            if queues.iter().any(|q| q.id == *id && q.kind == Kind::Involved) {
+                list.retain(|i| !reviewing.contains(&i.pr.id));
+            }
+        }
         let all: Vec<Item> = items.iter().flat_map(|(_, i)| i.iter().cloned()).collect();
         let keys: HashSet<String> = all.iter().flat_map(|i| i.events.iter().map(|e| e.key.clone())).collect();
         let searches: HashMap<String, String> = queues.iter().filter_map(|q| state.cache.lists.get(&q.id).map(|l| (q.id.clone(), search_key(&l.search)))).collect();

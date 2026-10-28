@@ -13,7 +13,7 @@ type Found = {
   } | null;
 };
 
-export async function openPullLink(link: PullLink) {
+export async function openPullLink(link: PullLink, wanted = () => true) {
   const data = await graphql<Found>(
     `
       query ($owner: String!, $name: String!, $number: Int!) {
@@ -36,6 +36,7 @@ export async function openPullLink(link: PullLink) {
   );
   const pull = data.repository?.pullRequest;
   if (!pull) throw new NoSuchPull();
+  if (!wanted()) return;
   await bridge.openReview({ ...pull, repository: { nameWithOwner: `${link.owner}/${link.repo}` } });
 }
 

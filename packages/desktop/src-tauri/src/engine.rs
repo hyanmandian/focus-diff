@@ -426,17 +426,27 @@ fn search_page(gql: &dyn Gql, q: &str, checks: bool, size: usize, after: Option<
     Ok((prs, next))
 }
 
+fn changes_search(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String {
+    search_for(queue, me, now, orgs).replace(&format!("review-requested:{me}"), &format!("reviewed-by:{me} -author:{me} review:changes_requested"))
+}
+
 fn search(gql: &dyn Gql, queue: &Queue, me: &str, now: i64, orgs: &[String]) -> Result<Vec<Light>, Failure> {
-    let q = search_for(queue, me, now, orgs);
+    let mut searches = vec![search_for(queue, me, now, orgs)];
+    if queue.kind == Kind::Review {
+        searches.push(changes_search(queue, me, now, orgs));
+    }
     let pages = if queue.kind == Kind::Merged { MERGED_PAGES } else { OPEN_PAGES };
-    let mut found = Vec::new();
-    let mut after: Option<String> = None;
-    for _ in 0..pages {
-        let (prs, next) = search_page(gql, &q, queue.kind == Kind::Authored, PAGE, after.as_deref())?;
-        found.extend(prs);
-        match next {
-            Some(cursor) => after = Some(cursor),
-            None => break,
+    let mut found: Vec<Light> = Vec::new();
+    let mut ids = HashSet::new();
+    for q in &searches {
+        let mut after: Option<String> = None;
+        for _ in 0..pages {
+            let (prs, next) = search_page(gql, q, queue.kind == Kind::Authored, PAGE, after.as_deref())?;
+            found.extend(prs.into_iter().filter(|p| ids.insert(p.id.clone())));
+            match next {
+                Some(cursor) => after = Some(cursor),
+                None => break,
+            }
         }
     }
     Ok(found)
@@ -730,6 +740,10 @@ fn activity<'a>(pr: &'a PullRequest, me: &str) -> Activity<'a> {
     }
 }
 
+fn changed_since_my_changes(pr: &PullRequest, act: &Activity) -> bool {
+    act.opinion.is_some_and(|o| o.state == "CHANGES_REQUESTED" && o.commit.as_ref().is_some_and(|c| !c.oid.is_empty() && c.oid != pr.head_ref_oid))
+}
+
 fn requests(pr: &PullRequest, me: &str) -> (bool, Vec<String>) {
     let mut direct = false;
     let mut teams = Vec::new();
@@ -861,18 +875,22 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
         match queue.kind {
             Kind::Review => {
                 let via: Vec<String> = teams.into_iter().filter(|t| queue.teams.is_empty() || queue.teams.contains(t)).collect();
-                if !(direct || (!queue.direct_only && !via.is_empty())) {
+                let asked_now = direct || (!queue.direct_only && !via.is_empty());
+                let changed = changed_since_my_changes(pr, &act);
+                if !asked_now && !changed {
                     continue;
                 }
-                let asked = asked_at(pr, me, if direct { &[] } else { &via });
+                let asked = if asked_now { asked_at(pr, me, if direct { &[] } else { &via }) } else { None };
                 let again = act.any && asked.is_some_and(|a| a > act.last);
-                if queue.hide_once_reviewed && act.any && !again {
+                if queue.hide_once_reviewed && act.any && !again && !changed {
                     continue;
                 }
-                let waiting = asked.unwrap_or_else(|| time(Some(&pr.created_at)));
+                let waiting = asked.unwrap_or_else(|| if changed { pushed.max(act.last) } else { time(Some(&pr.created_at)) });
                 let mut events = vec![arrived];
                 if again {
                     events.push(event(pr, "rerequest", &act.last.to_string(), waiting, author));
+                } else if changed {
+                    events.push(event(pr, "commits", &pr.head_ref_oid, waiting, author));
                 }
                 if let Some(at) = ready_at(pr).filter(|at| *at > waiting && !pr.is_draft) {
                     events.push(event(pr, "ready", &at.to_string(), at, author));
@@ -1025,7 +1043,7 @@ fn left_out(queue: &Queue, item: &Item, event: &Event) -> bool {
 
 pub fn fresh_events<'a>(items: &'a [Item], queues: &[&Queue], previous: &HashSet<String>, seen: &HashMap<String, bool>, now: i64) -> Vec<Fresh<'a>> {
     let by_id: HashMap<&str, &Queue> = queues.iter().map(|q| (q.id.as_str(), *q)).collect();
-    let wants = |queue: &Queue, kind: &str| queue.notify.iter().any(|n| n == kind);
+    let wants = |queue: &Queue, kind: &str| queue.notify.iter().any(|n| n == kind || (queue.kind == Kind::Review && kind == "commits" && n == "rerequest"));
     let mut out = Vec::new();
     let mut taken = HashSet::new();
     for item in items {
@@ -1039,7 +1057,7 @@ pub fn fresh_events<'a>(items: &'a [Item], queues: &[&Queue], previous: &HashSet
         let ready_wins = queue.kind == Kind::Review;
         for e in &fresh {
             let shadowed = match e.kind {
-                NEW => has("rerequest") || (ready_wins && has("ready")),
+                NEW => has("rerequest") || (ready_wins && (has("ready") || item.events.iter().any(|e| e.kind == "commits"))),
                 "ready" => has("rerequest") || (!ready_wins && has(NEW)),
                 _ => false,
             };
@@ -1194,6 +1212,30 @@ mod tests {
             pr(json!({ "reviewRequests": direct, "files": { "nodes": [{ "path": "docs/a.md" }] } })),
         ];
         assert_eq!(items(&queue(Kind::Review, json!({ "excludeAuthors": ["noisy"], "includePaths": "\\.tsx?$" })), &prs).len(), 0);
+    }
+
+    #[test]
+    fn review_also_looks_for_my_requested_changes() {
+        let light = |id: &str| json!({ "id": id, "updatedAt": t(1), "headRefOid": "h", "mergeable": "MERGEABLE" });
+        let script = Script { replies: Mutex::new(vec![page(json!([light("A"), light("B")])), page(json!([light("B"), light("C")]))]), calls: Mutex::new(vec![]) };
+        let found = search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap();
+        assert_eq!(found.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(), ["A", "B", "C"]);
+        let asked: Vec<String> = script.calls.held().iter().map(|v| v["q"].as_str().unwrap().to_string()).collect();
+        assert!(asked[0].contains("review-requested:me"), "{}", asked[0]);
+        assert!(asked[1].contains("reviewed-by:me -author:me review:changes_requested") && !asked[1].contains("review-requested"), "{}", asked[1]);
+    }
+
+    #[test]
+    fn changes_i_asked_for_come_back_to_review_once_pushed() {
+        let changes = |oid: &str| json!({ "nodes": [{ "state": "CHANGES_REQUESTED", "submittedAt": t(120), "commit": { "oid": oid } }] });
+        let review = queue(Kind::Review, json!({ "hideOnceReviewed": true }));
+        assert!(items(&review, &[pr(json!({ "mine": changes("head") }))]).is_empty(), "nothing new pushed yet");
+        let fixed = items(&review, &[pr(json!({ "mine": changes("old"), "commits": { "nodes": [{ "commit": { "committedDate": t(30) } }] } }))]);
+        assert_eq!(kinds(&fixed), ["commits", "new"]);
+        assert_eq!(fixed[0].waiting_since, Some(T0 - 30 * 60_000));
+        let queues = [&review];
+        let fresh = fresh_events(&fixed, &queues, &HashSet::new(), &HashMap::new(), T0);
+        assert_eq!(fresh.iter().map(|f| f.event.kind).collect::<Vec<_>>(), ["commits"]);
     }
 
     #[test]
@@ -1462,7 +1504,7 @@ mod tests {
             ]),
             calls: Mutex::new(vec![]),
         };
-        let found = search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap();
+        let found = search(&script, &queue(Kind::Custom, json!({})), ME, T0, &[]).unwrap();
         assert_eq!(found.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(), ["PR_A"]);
         let sizes: Vec<u64> = script.calls.held().iter().map(|v| v["size"].as_u64().unwrap()).collect();
         assert_eq!(sizes, [100, 50, 25]);

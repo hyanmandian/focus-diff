@@ -1,5 +1,5 @@
 import { parsePullLink } from "@focus-diff/core/pull-link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/button/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/dialog/dialog";
@@ -8,11 +8,11 @@ import { errorText } from "@/utils/error/error";
 import { useT, type T } from "@/utils/i18n/i18n";
 import { NoSuchPull, openPullLink } from "@/utils/pull-link/pull-link";
 
-export async function openLink(text: string, t: T): Promise<string | null> {
+export async function openLink(text: string, t: T, wanted = () => true): Promise<string | null> {
   const link = parsePullLink(text);
   if (!link) return t("panel.notAPullLink");
   try {
-    await openPullLink(link);
+    await openPullLink(link, wanted);
     return null;
   } catch (e) {
     return e instanceof NoSuchPull ? t("panel.noSuchPull") : errorText(e);
@@ -30,15 +30,28 @@ export function OpenLink({
   const [text, setText] = useState(initial?.text ?? "");
   const [error, setError] = useState(initial?.error ?? null);
   const [busy, setBusy] = useState(false);
+  const attempt = useRef(0);
+  useEffect(
+    () => () => {
+      attempt.current++;
+    },
+    [],
+  );
+  const close = () => {
+    attempt.current++;
+    onClose();
+  };
   const submit = async () => {
+    const mine = ++attempt.current;
     setBusy(true);
-    const why = await openLink(text, t);
+    const why = await openLink(text, t, () => attempt.current === mine);
+    if (attempt.current !== mine) return;
     setBusy(false);
     setError(why);
     if (!why) onClose();
   };
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open onOpenChange={close}>
       <DialogContent>
         <DialogTitle>{t("panel.openPullTitle")}</DialogTitle>
         <DialogDescription>{t("panel.openPullHint")}</DialogDescription>
@@ -71,7 +84,7 @@ export function OpenLink({
             ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={close}>
               {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={busy || !text.trim()}>

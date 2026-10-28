@@ -48,4 +48,32 @@ describe("OpenLink", () => {
       expect(onClose).toHaveBeenCalled();
     });
   });
+
+  it("opens nothing once cancelled while the link is looked up", async () => {
+    let answer: (reply: unknown) => void = () => {};
+    const opened = vi.fn<() => void>();
+    mockCommands((cmd) => {
+      if (cmd === "open_review") opened();
+      if (cmd !== "github") return null;
+      return new Promise((resolve) => {
+        answer = resolve;
+      });
+    });
+    const onClose = vi.fn<() => void>();
+    render(<OpenLink onClose={onClose} initial={{ text: "github.com/acme/web/pull/1", error: "" }} />);
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledOnce();
+    answer({
+      status: 200,
+      body: JSON.stringify({
+        data: { repository: { pullRequest: { id: "PR_1", number: 1, title: "One", author: null } } },
+      }),
+    });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(opened).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });

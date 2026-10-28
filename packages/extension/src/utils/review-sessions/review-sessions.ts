@@ -4,7 +4,7 @@ import { repoMatches } from "@focus-diff/core/repos";
 
 import { filtersFor, newId, type Config } from "@/utils/filters/filters";
 import type { PullRequest } from "@/utils/github-inbox/github-inbox";
-import { repoList } from "@/utils/inbox/inbox";
+import { isTime, repoList } from "@/utils/inbox/inbox";
 import { asRecord, keysOf, oneOf } from "@/utils/record/record";
 import { PACES, type Pace } from "@/utils/review-time/review-time";
 import { normalizeSound, type SoundSetting } from "@/utils/sound/sound";
@@ -86,7 +86,6 @@ export interface ReviewTimeSettings {
   sound: SoundSetting;
 }
 
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
 const WEEKDAYS = [1, 2, 3, 4, 5];
 
 export const newSession = (name = ""): ReviewSession => ({
@@ -125,7 +124,7 @@ export const DEFAULT_REVIEW_TIME: ReviewTimeSettings = {
   sound: { id: "bowl", volume: 70 },
 };
 
-const time = (value: unknown, fallback: string) => (typeof value === "string" && TIME.test(value) ? value : fallback);
+const time = (value: unknown, fallback: string) => (isTime(value) ? value : fallback);
 const flag = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
 
 const normalizeSession = (value: unknown): ReviewSession => {
@@ -134,9 +133,7 @@ const normalizeSession = (value: unknown): ReviewSession => {
   const days = Array.isArray(raw.days)
     ? raw.days.filter((day): day is number => typeof day === "number" && Number.isInteger(day) && day >= 0 && day <= 6)
     : base.days;
-  const times = Array.isArray(raw.times)
-    ? raw.times.filter((each): each is string => typeof each === "string" && TIME.test(each))
-    : base.times;
+  const times = Array.isArray(raw.times) ? raw.times.filter(isTime) : base.times;
   const minutes = Number(raw.minutes);
   return {
     id: typeof raw.id === "string" && raw.id ? raw.id : base.id,

@@ -113,6 +113,7 @@ export const splitRepos = (text: string): string[] => [...new Set(text.split(/[\
 export const invalidRepos = (repos: string[]): string[] => repos.filter((repo) => !REPO_PATTERN.test(repo));
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/u;
+export const isTime = (value: unknown): value is string => typeof value === "string" && TIME.test(value);
 export const repoList = (value: unknown): string[] =>
   Array.isArray(value) ? splitRepos(value.filter((repo) => typeof repo === "string").join(" ")) : [];
 
@@ -139,8 +140,8 @@ export const normalizeNotify = (value: unknown): NotifySettings => {
     interval: INTERVALS.find((interval) => interval === raw.interval) ?? DEFAULT_NOTIFY.interval,
     quiet: {
       on: quiet.on === true,
-      from: typeof quiet.from === "string" && TIME.test(quiet.from) ? quiet.from : defaults.from,
-      to: typeof quiet.to === "string" && TIME.test(quiet.to) ? quiet.to : defaults.to,
+      from: isTime(quiet.from) ? quiet.from : defaults.from,
+      to: isTime(quiet.to) ? quiet.to : defaults.to,
       weekends: quiet.weekends === undefined ? defaults.weekends : quiet.weekends === true,
     },
     delivery: {

@@ -1,2 +1,7 @@
 # Known advisories in development dependencies that can't affect the extension, each with why and until when. On that
 # date the scan fails again, so each one gets looked at again rather than forgotten.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-01-31
+reason = "deepmerge <= 4.3.1, no fixed version yet. It reaches us only through web-ext -> addons-linter, which merges its own bundled manifest schemas with it when `web-ext lint` checks the Firefox build; nothing of it ships in the extension or the desktop app."

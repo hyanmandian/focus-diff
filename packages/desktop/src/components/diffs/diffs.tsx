@@ -204,7 +204,10 @@ class Cache {
   }
 }
 
-type Loaded = { state: "loading" } | { state: "error"; message: string } | { state: "done"; diff: FileDiffMetadata };
+type Loaded =
+  | { state: "loading" }
+  | { state: "error"; message: string; binary: boolean }
+  | { state: "done"; diff: FileDiffMetadata };
 
 export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
   const t = useT();
@@ -473,7 +476,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
         e instanceof BinaryFile
           ? t("diff.binary")
           : t("diff.loadFailed", { error: e instanceof Error ? e.message : String(e) });
-      setLoaded((m) => new Map(m).set(file.path, { state: "error", message }));
+      setLoaded((m) => new Map(m).set(file.path, { state: "error", message, binary: e instanceof BinaryFile }));
     }
   };
 
@@ -796,7 +799,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                         onViewed={(v) => {
                           props.onViewed(f, v);
                         }}
-                        onLoad={() => void loadFile(f)}
+                        onLoad={load?.state === "error" && load.binary ? undefined : () => void loadFile(f)}
                       />
                     );
                   })}

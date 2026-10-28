@@ -226,7 +226,7 @@ vi.mock("@/components/rich-diff/rich-diff", () => ({
     loading: boolean;
     error: string | null;
     onViewed: (viewed: boolean) => void;
-    onLoad: () => void;
+    onLoad?: () => void;
   }) => (
     <div id={`file-${file.path}`}>
       <p>
@@ -235,9 +235,11 @@ vi.mock("@/components/rich-diff/rich-diff", () => ({
         {loading ? " · loading" : ""}
         {error ? ` · ${error}` : ""}
       </p>
-      <button type="button" onClick={onLoad}>
-        Load {file.path}
-      </button>
+      {onLoad ? (
+        <button type="button" onClick={onLoad}>
+          Load {file.path}
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => {
@@ -923,20 +925,21 @@ describe("Diffs", () => {
       const loading = deferred<{ oldText: string | null; newText: string | null }>();
       vi.mocked(bothVersions)
         .mockReturnValueOnce(loading.promise)
-        .mockRejectedValueOnce(new Error("Not Found"))
-        .mockRejectedValueOnce("offline");
+        .mockRejectedValueOnce("offline")
+        .mockRejectedValueOnce(new BinaryFile());
       draw({ files: [BIG] });
       await user.click(screen.getByRole("button", { name: "Load data/big.json" }));
       expect(screen.getByText("No patch for data/big.json · loading")).toBeTruthy();
       await act(async () => {
-        loading.reject(new BinaryFile());
+        loading.reject(new Error("Not Found"));
         await loading.promise.catch(() => {});
       });
-      expect(screen.getByText("No patch for data/big.json · Binary file: not shown.")).toBeTruthy();
-      await user.click(screen.getByRole("button", { name: "Load data/big.json" }));
-      expect(await screen.findByText("No patch for data/big.json · Couldn't load it: Not Found")).toBeTruthy();
+      expect(screen.getByText("No patch for data/big.json · Couldn't load it: Not Found")).toBeTruthy();
       await user.click(screen.getByRole("button", { name: "Load data/big.json" }));
       expect(await screen.findByText("No patch for data/big.json · Couldn't load it: offline")).toBeTruthy();
+      await user.click(screen.getByRole("button", { name: "Load data/big.json" }));
+      expect(await screen.findByText("No patch for data/big.json · Binary file: not shown.")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Load data/big.json" })).toBeNull();
     });
 
     it("can't be loaded before the pull request's head is known", async () => {

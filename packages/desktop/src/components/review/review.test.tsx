@@ -1707,8 +1707,7 @@ describe("Review", () => {
       // Not as ⌥E (a typed character) or once typing.
       press("e", { altKey: true });
       expect(h.queue.go).toHaveBeenCalledTimes(2);
-      // Nor behind a picture shown large (or any other modal).
-      const modal = document.body.appendChild(document.createElement("div"));
+      const modal = document.body.append(document.createElement("div"));
       modal.setAttribute("aria-modal", "true");
       press("e");
       press("?");

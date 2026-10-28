@@ -1847,6 +1847,15 @@ describe("Review", () => {
       expect(h.overview!.hasFile("nope")).toBe(false);
     });
 
+    it("counts a comment as posted though catching up after it fails", async () => {
+      await openReview();
+      vi.mocked(loadThreads).mockRejectedValue(new Error("offline"));
+      await expect(
+        act(() => diffs().onCommentNow({ path: "src/cart.ts", side: "additions", line: 2, body: "Now" })),
+      ).resolves.toBeUndefined();
+      await expect(act(() => diffs().onReply(thread("T1", "src/cart.ts", 1), "Done"))).resolves.toBeUndefined();
+    });
+
     it("answers, resolves and comments from the Diff", async () => {
       await openReview();
       const t = thread("T1", "src/cart.ts", 1);

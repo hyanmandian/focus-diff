@@ -674,10 +674,12 @@ export function Review({ target }: { target: Target }) {
   const changed = useCallback(async () => {
     void bridge.refresh(true);
     void reloadConversation();
-    const [th, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
-    setThreads(th);
-    setDetails(d);
-    if (last.current) last.current = { ...last.current, details: d, threads: th };
+    try {
+      const [th, d] = await Promise.all([loadThreads(ref), loadDetails(repo, number)]);
+      setThreads(th);
+      setDetails(d);
+      if (last.current) last.current = { ...last.current, details: d, threads: th };
+    } catch {}
   }, [ref, repo, number, reloadConversation]);
 
   // Pushed to while it's open: said, with a way to show it (the diff doesn't change under you).

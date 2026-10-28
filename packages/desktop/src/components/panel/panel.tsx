@@ -312,7 +312,8 @@ export function Panel() {
       list.filter((i) => i.pr.repository.nameWithOwner === b).length -
         list.filter((i) => i.pr.repository.nameWithOwner === a).length || a.localeCompare(b),
   );
-  const narrowed = repo && repos.includes(repo) ? list.filter((i) => i.pr.repository.nameWithOwner === repo) : list;
+  const shownRepo = repo && repos.includes(repo) ? repo : "";
+  const narrowed = shownRepo ? list.filter((i) => i.pr.repository.nameWithOwner === shownRepo) : list;
   const { groups, drafts, stacks } = arrange(narrowed, unread);
   const inOrder = [...groups.flatMap((g) => g.items), ...(draftsOpen ? drafts : [])];
   // For shift-click: picking happens after the render that showed the rows.
@@ -553,10 +554,7 @@ export function Panel() {
                     aria-label={t("panel.repositories")}
                     className="relative isolate flex shrink-0 [scrollbar-width:none] gap-0.5 overflow-x-auto border-b border-(--panel-separator) p-1.5"
                   >
-                    <SlidingPill
-                      selected={(repo && repos.includes(repo) ? repo : "") || "all"}
-                      className="rounded-[8px] bg-primary"
-                    />
+                    <SlidingPill selected={shownRepo || "all"} className="rounded-[8px] bg-primary" />
                     {[
                       ["", t("panel.all"), list.length] as const,
                       ...repos.map(
@@ -568,7 +566,7 @@ export function Panel() {
                           ] as const,
                       ),
                     ].map(([value, label, n]) => {
-                      const pressed = (repo && repos.includes(repo) ? repo : "") === value;
+                      const pressed = shownRepo === value;
                       return (
                         <button
                           key={value || "all"}

@@ -303,11 +303,15 @@ struct Answer {
     project: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    usage: Option<ai::Usage>,
+    resumed: bool,
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, effort: Option<String>, prompt: String, input: String, project: Option<Project>, schema: Option<String>, run: Option<String>) -> Result<Answer, String> {
+async fn ai_ask(app: AppHandle, window: tauri::WebviewWindow, provider: ai::Provider, model: Option<String>, effort: Option<String>, system: String, material: String, task: String, recap: Option<String>, project: Option<Project>, schema: Option<String>, session: bool, own_settings: bool, run: Option<String>) -> Result<Answer, String> {
+    let label = window.label().to_string();
     tauri::async_runtime::spawn_blocking(move || {
         let run = run.filter(|r| r.len() <= 64 && r.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'));
         let cancel = run.as_deref().map(ai::start_run);
@@ -320,24 +324,33 @@ async fn ai_ask(app: AppHandle, provider: ai::Provider, model: Option<String>, e
             },
         };
         let stopped = cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed));
-        let text = if stopped {
+        let reply = if stopped {
             Err(i18n::tr!("Stopped", "Interrompido"))
         } else {
             ai::ask(ai::Question {
                 provider,
                 model: model.as_deref(),
                 effort: effort.as_deref(),
-                prompt: &prompt,
-                input: &input,
+                system: &system,
+                material: &material,
+                task: &task,
+                recap: recap.as_deref().unwrap_or_default(),
                 project: folder.as_deref(),
                 schema: schema.as_deref(),
+                session: session.then_some(label.as_str()),
+                own_settings,
                 cancel: cancel.as_deref(),
             })
         };
         if let Some(run) = &run {
             ai::end_run(run);
         }
-        Ok(Answer { text: text?, project: folder.is_some(), note })
+        let reply = reply?;
+        if cfg!(any(debug_assertions, feature = "devctl"))
+            && let Some(usage) = &reply.usage {
+                eprintln!("[{label}] AI usage{}: {usage:?}", if reply.resumed { " (same conversation)" } else { "" });
+            }
+        Ok(Answer { text: reply.text, project: folder.is_some(), note, usage: reply.usage, resumed: reply.resumed })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1265,6 +1278,7 @@ pub fn run() {
                 let app = window.app_handle();
                 let label = window.label().to_string();
                 menu::forget(app, &label);
+                ai::close(&label);
                 let reviews = app.state::<Reviews>();
                 reviews.open.held().retain(|_, l| *l != label);
                 reviews.ready.held().remove(&label);

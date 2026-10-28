@@ -313,6 +313,9 @@ export const settings: Dictionary["settings"] = {
   project: "Ler o projeto inteiro, não só o diff",
   projectHint:
     "Assim ele vê onde o código alterado é usado e o que pode quebrar, e segue as regras do próprio repositório (CLAUDE.md, AGENTS.md, regras do Cursor). O código do pull request é baixado para o cache deste computador, com o seu login do GitHub; os hooks e servidores MCP dele nunca rodam. Mais lento, e gasta mais do seu plano.",
+  ownSettings: "Usar minhas configurações do Claude Code",
+  ownSettingsHint:
+    "Desligado: as perguntas deixam de fora o seu CLAUDE.md, skills e plugins, e cada uma gasta menos do seu plano. Ligado: as suas próprias regras vão junto. Hooks e servidores MCP nunca rodam, em nenhum dos casos.",
   autoReview: "Revisão da IA quando um pull request abre",
   autoReviewHint:
     "Os comentários dela aparecem nas linhas do diff, para você adicionar à sua revisão ou dispensar. Desligado: um botão “Revisão da IA” na janela de revisão.",

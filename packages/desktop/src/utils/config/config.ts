@@ -141,6 +141,7 @@ export type Config = {
     instructions: string;
     prompts: Prompt[];
     project: boolean;
+    ownSettings: boolean;
     review: { auto: boolean; prompt: string };
   };
   actions: Action[];
@@ -287,6 +288,7 @@ export const defaultConfig = (): Config => ({
     instructions: "",
     prompts: defaultPrompts(),
     project: true,
+    ownSettings: false,
     review: { auto: false, prompt: REVIEW_PROMPT },
   },
   actions: [],
@@ -621,6 +623,7 @@ export function normalize(r: unknown): Config {
               .slice(0, 12)
           : defaultPrompts(),
         project: bool(ai.project, true),
+        ownSettings: bool(ai.ownSettings, false),
         review: (() => {
           const review = isRecord(ai.review) ? ai.review : {};
           return {

@@ -334,6 +334,7 @@ describe("queues and the AI on disk", () => {
         effort: "high",
         instructions: "Be brief.",
         project: false,
+        ownSettings: true,
         review: { auto: true, prompt: "Only bugs." },
       },
     });
@@ -343,11 +344,12 @@ describe("queues and the AI on disk", () => {
       effort: "high",
       instructions: "Be brief.",
       project: false,
+      ownSettings: true,
       review: { auto: true, prompt: "Only bugs." },
     });
     const blank = normalize({ ai: { review: { prompt: "  " } } }).ai;
     expect(blank.review).toEqual({ auto: false, prompt: defaultConfig().ai.review.prompt });
-    expect(blank).toMatchObject({ model: "", instructions: "" });
+    expect(blank).toMatchObject({ model: "", instructions: "", ownSettings: false });
   });
 
   it("gives a review time without an id one, and drops what isn't one", () => {

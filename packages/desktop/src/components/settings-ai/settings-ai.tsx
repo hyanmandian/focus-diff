@@ -54,6 +54,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
   const effortId = useId();
   const guidelinesId = useId();
   const projectId = useId();
+  const ownSettingsId = useId();
   const autoId = useId();
   const reviewPromptId = useId();
   const [offered, setOffered] = useState<{ provider: AiProvider; models: string[] } | null>(null);
@@ -249,6 +250,22 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                 }}
               />
             </Row>
+            {selected === "claude" ? (
+              <Row
+                label={t("settings.ownSettings")}
+                htmlFor={ownSettingsId}
+                description={t("settings.ownSettingsHint")}
+              >
+                <Switch
+                  id={ownSettingsId}
+                  size="sm"
+                  checked={ai.ownSettings}
+                  onCheckedChange={(ownSettings) => {
+                    setAi({ ownSettings });
+                  }}
+                />
+              </Row>
+            ) : null}
           </Group>
 
           <Group>

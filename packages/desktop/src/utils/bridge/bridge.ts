@@ -29,7 +29,16 @@ export type AiStatus = {
   login_command: string;
 };
 
-export type AiAnswer = { text: string; project: boolean; note?: string };
+export type AiUsage = {
+  input: number;
+  cacheCreated: number;
+  cacheRead: number;
+  output: number;
+  cost: number;
+  ms: number;
+};
+
+export type AiAnswer = { text: string; project: boolean; note?: string; usage?: AiUsage; resumed?: boolean };
 
 export type ActionContext = { number: number; repo: string; title: string; url: string; author: string; me: string };
 
@@ -123,10 +132,14 @@ export const bridge = {
     provider: AiStatus["provider"];
     model: string;
     effort: string;
-    prompt: string;
-    input: string;
+    system: string;
+    material: string;
+    task: string;
+    recap: string;
     project: { repo: string; number: number; head: string } | null;
     schema: string | null;
+    session: boolean;
+    ownSettings: boolean;
     run?: string;
   }) => invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null, run: q.run ?? null }),
   aiCancel: (run: string) => invoke<void>("ai_cancel", { run }),

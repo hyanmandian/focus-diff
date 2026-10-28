@@ -268,6 +268,7 @@ export const createNotifications = ({
   ).forEach(([input, key]) => {
     input.addEventListener("change", () => {
       if (input.value) settings.quiet[key] = input.value;
+      else input.value = settings.quiet[key];
       onChange();
     });
   });

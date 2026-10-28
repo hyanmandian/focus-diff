@@ -335,6 +335,7 @@ describe("when", () => {
     pick($("#session-a-every"), "3");
     pick($("#session-a-from"), "08:00");
     pick($("#session-a-to"), "");
+    expect($("#session-a-to").value).toBe("18:00");
     expect(reviewTime.value().sessions[0]).toMatchObject({ repeat: "every", every: 3, from: "08:00", to: "18:00" });
     expect($(".session-summary", card()).textContent).toBe("Weekdays every 3 hours from 8:00 AM to 6:00 PM · 30 min");
   });

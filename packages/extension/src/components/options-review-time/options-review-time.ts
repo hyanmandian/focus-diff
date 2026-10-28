@@ -355,6 +355,7 @@ export const createReviewTime = ({
       const input = h("input", { type: "time", id: `session-${session.id}-${key}`, value: session[key] });
       input.addEventListener("change", () => {
         if (input.value) session[key] = input.value;
+        else input.value = session[key];
         refresh();
       });
       return [h("label", { htmlFor: input.id, textContent: label }), input];

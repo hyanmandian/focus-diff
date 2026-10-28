@@ -1707,6 +1707,14 @@ describe("Review", () => {
       // Not as ⌥E (a typed character) or once typing.
       press("e", { altKey: true });
       expect(h.queue.go).toHaveBeenCalledTimes(2);
+      // Nor behind a picture shown large (or any other modal).
+      const modal = document.body.appendChild(document.createElement("div"));
+      modal.setAttribute("aria-modal", "true");
+      press("e");
+      press("?");
+      modal.remove();
+      expect(h.queue.go).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("dialog")).toBeNull();
     });
 
     it("has no Mark Done when not opened from a queue, and calls an unknown queue this queue", async () => {

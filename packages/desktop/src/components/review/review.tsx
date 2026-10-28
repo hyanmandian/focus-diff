@@ -844,7 +844,7 @@ export function Review({ target }: { target: Target }) {
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || typing(e.target)) return;
+      if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
       // ⌘] on to the next pull request of the queue and ⌘[ back, as forward and back in Safari
       // (Ctrl elsewhere).
       if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {

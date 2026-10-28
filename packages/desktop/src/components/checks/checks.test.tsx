@@ -109,6 +109,7 @@ describe("Checks", () => {
     checks({ pull: { checks: fakeChecks({ checks: [failing, running, skipped, passed], running: true }) } });
     const section = screen.getByRole("region", { name: "Checks" });
     expect(section.textContent).toContain("1 failing, 1 running, 1 skipped, and 1 passed");
+    expect(screen.getByRole("heading", { level: 2 }).querySelector("button")).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "Failing 1",
       "In progress 1",

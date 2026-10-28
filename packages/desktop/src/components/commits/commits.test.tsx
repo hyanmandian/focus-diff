@@ -66,6 +66,7 @@ describe("CommitsSection", () => {
     ];
     render(<CommitsSection pull={withList(list({ forcePushes: pushes, reviewed: "oid3" }))} onOpen={onOpen} />);
     const section = screen.getByRole("region", { name: "Commits 4" });
+    expect(screen.getByRole("heading", { level: 2 }).querySelector("button")).toBeTruthy();
     expect(section.textContent).toContain("force-pushed 2 times");
     await userEvent.click(screen.getByRole("button", { name: /Commits/u }));
     const items = within(screen.getByRole("list")).getAllByRole("listitem");

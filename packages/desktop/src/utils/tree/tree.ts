@@ -2,8 +2,8 @@
 // list view. A folder holding only one folder reads as one row ("src/checkout"), as GitHub's tree
 // does, so deep paths don't push names off the edge. Folders come first, then files, each by name.
 
-export type TreeFolder<F> = { kind: "folder"; path: string; name: string; children: Array<TreeNode<F>>; files: F[] };
-export type TreeLeaf<F> = { kind: "file"; path: string; name: string; file: F };
+type TreeFolder<F> = { kind: "folder"; path: string; name: string; children: Array<TreeNode<F>>; files: F[] };
+type TreeLeaf<F> = { kind: "file"; path: string; name: string; file: F };
 export type TreeNode<F> = TreeFolder<F> | TreeLeaf<F>;
 
 /** A row of the outline as shown: the node and how deep it is. */
@@ -88,7 +88,7 @@ export function foldersOf(path: string): string[] {
 /** What a key does in the outline, as NSOutlineView does it: ↑ and ↓ move, → opens a folder (or
  *  goes into an open one), ← closes it (or goes to the folder a row is in), Home and End go to the
  *  ends. `at`: the row with the focus. */
-export type OutlineAction = { focus: number } | { expand: string } | { collapse: string } | null;
+type OutlineAction = { focus: number } | { expand: string } | { collapse: string } | null;
 
 export function outlineKey<F>(
   rows: Array<TreeRow<F>>,

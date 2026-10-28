@@ -306,7 +306,7 @@ export const TEMPLATES: Record<QueueKind, { make: () => Queue }> = {
  *  what you have to do with them. Every kind of queue is one pair of them (merged ones only as
  *  asked of you or anyone's), so the presets are only these filled in. */
 export const STATES = ["open", "merged"] as const;
-export type QueueState = (typeof STATES)[number];
+type QueueState = (typeof STATES)[number];
 export const PARTS = ["review", "authored", "involved", "any"] as const;
 export type QueuePart = (typeof PARTS)[number];
 
@@ -351,7 +351,7 @@ export const defaultConfig = (): Config => ({
   reviewTime: defaultReviewTime(),
 });
 
-export const defaultReviewTime = (): ReviewTime => ({
+const defaultReviewTime = (): ReviewTime => ({
   enabled: false,
   sessions: [],
   againFirst: true,
@@ -414,7 +414,7 @@ export const filterRecipes = (
 
 /** Fixed ids: until the person changes them, the defaults are made again each time the file is
  *  read, and the review window remembers a repository's filter by id. */
-export function defaultFilters(): DiffFilter[] {
+function defaultFilters(): DiffFilter[] {
   const t = i18n();
   return [...RECIPES.stack, ...RECIPES.generated].map((name) => ({
     id: filterId(name),

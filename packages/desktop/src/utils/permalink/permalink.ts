@@ -5,7 +5,7 @@
 // path), with R for the new side's lines and L for the old's.
 
 type Side = "additions" | "deletions";
-export type Repo = { owner: string; repo: string };
+type Repo = { owner: string; repo: string };
 
 const segments = (path: string) =>
   path

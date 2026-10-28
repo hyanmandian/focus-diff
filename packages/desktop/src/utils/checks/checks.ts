@@ -165,7 +165,7 @@ export async function loadChecks(ref: PullRef, again = false): Promise<{ head: s
   return { head, checks };
 }
 
-export type Group = { state: CheckState; checks: CheckItem[] };
+type Group = { state: CheckState; checks: CheckItem[] };
 const ORDER: CheckState[] = ["failure", "pending", "neutral", "success"];
 
 /** The checks grouped as GitHub groups them: failing, then in progress, skipped, successful; each
@@ -285,7 +285,7 @@ export async function loadCheckDetail(id: string): Promise<CheckDetail> {
   };
 }
 
-export type Log = { text: string; truncated: boolean };
+type Log = { text: string; truncated: boolean };
 
 /** A GitHub Actions job's log, through Rust (logs.rs): only its last part when it's long. `done`:
  *  the job has finished, so its log won't change and can be kept. */

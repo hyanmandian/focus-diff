@@ -7,7 +7,7 @@ import type { SelectedLineRange } from "@pierre/diffs";
 
 type Side = "additions" | "deletions";
 
-export type LineRange = { side: Side; line: number; startSide?: Side; startLine?: number };
+type LineRange = { side: Side; line: number; startSide?: Side; startLine?: number };
 
 export function lineRange(range: SelectedLineRange): LineRange {
   const a = { side: range.side ?? range.endSide ?? "additions", line: range.start };

@@ -28,7 +28,7 @@ export const toggled = (ids: string[], id: string): string[] =>
 export const inAny = (chosen: DiffFilter[], path: string) =>
   chosen.length === 0 || chosen.some((f) => inFilter(f, path));
 
-export type FileLike = { path: string; additions: number; deletions: number };
+type FileLike = { path: string; additions: number; deletions: number };
 
 /** What a set of files holds: how many, how many viewed, their lines, the minutes they take and
  *  the minutes left for those not viewed yet. */

@@ -22,7 +22,7 @@ export type DeviceCode = {
 };
 
 /** "pace": what the review time estimate has learned of the reader (estimate.ts). */
-export type StoredFile = "config" | "pace";
+type StoredFile = "config" | "pace";
 
 export type AiStatus = {
   provider: "claude" | "cursor";
@@ -58,7 +58,7 @@ export type DraftChange = ({ op: "put" } & DraftPut) | { op: "remove"; key: stri
 export type DraftsState = { jobs: Array<{ change: DraftChange; error: string | null }>; ids: Record<string, string> };
 
 /** A picture or video on github.com, for a comment (src-tauri/src/uploads.rs). */
-export type Uploaded = { href: string; kind: "image" | "video" };
+type Uploaded = { href: string; kind: "image" | "video" };
 /** Why it wasn't uploaded: nobody signed in on github.com, the session ended, or GitHub's words. */
 export type UploadError = { kind: "not_signed_in" } | { kind: "session_expired" } | { kind: "failed"; message: string };
 

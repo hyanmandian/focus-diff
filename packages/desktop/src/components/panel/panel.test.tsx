@@ -10,7 +10,6 @@ import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 import { start, type ReviewRun, type Status } from "@/utils/store/store";
 
-// The Mac's keys unless a test picks another system.
 const platform = vi.hoisted(() => ({ mac: true }));
 vi.mock("@/utils/os/os", async (importOriginal) => {
   const real = await importOriginal<Record<string, unknown>>();

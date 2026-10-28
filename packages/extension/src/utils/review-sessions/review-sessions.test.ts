@@ -21,7 +21,6 @@ import {
   runPulls,
   sessionFilterIds,
   sessionMatchers,
-  sessionsAt,
   startsOf,
   type Planned,
   type PullFile,
@@ -143,13 +142,6 @@ describe("schedule", () => {
     expect(isScheduled(settings({ on: false }))).toBe(false);
     expect(isScheduled(settings({ days: [] }))).toBe(false);
     expect(isScheduled(settings({ times: [] }))).toBe(false);
-  });
-
-  it("knows which sessions are due at a minute", () => {
-    const value = settings({ repeat: "every", every: 1, from: "09:00", to: "12:00" });
-    expect(sessionsAt(value, at(9, 11))).toHaveLength(1);
-    expect(sessionsAt(value, at(9, 11, 30))).toHaveLength(0);
-    expect(sessionsAt(value, at(10, 11))).toHaveLength(0);
   });
 });
 

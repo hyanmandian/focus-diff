@@ -142,7 +142,7 @@ const normalizeSession = (value: unknown): ReviewSession => {
     days: [...new Set(days)].toSorted((a, b) => a - b),
     repeat: oneOf(["times", "every"] as const, raw.repeat, base.repeat),
     times: [...new Set(times)].toSorted().slice(0, MAX_TIMES),
-    every: oneOf(EVERY_HOURS, raw.every, 2),
+    every: oneOf(EVERY_HOURS, raw.every, base.every),
     from: time(raw.from, base.from),
     to: time(raw.to, base.to),
     minutes: Number.isFinite(minutes)
@@ -228,15 +228,6 @@ export const nextOccurrence = (settings: ReviewTimeSettings, after: number): Occ
   return best;
 };
 
-/** The sessions due at `at`, to the minute: two set for the same time come as one. */
-export const sessionsAt = (settings: ReviewTimeSettings, at: number): ReviewSession[] => {
-  const day = new Date(at);
-  const minute = day.getHours() * 60 + day.getMinutes();
-  return settings.sessions.filter(
-    (session) => session.on && session.days.includes(day.getDay()) && startsOf(session).includes(minute),
-  );
-};
-
 /** A changed file as review time knows it: its path, line counts, and whether the reader marked it viewed. */
 export type PullFile = [path: string, additions: number, deletions: number, viewed: boolean];
 
@@ -257,20 +248,19 @@ export interface Estimate {
 }
 
 /** The session's filters that apply in a repository, as matchers; `null` counts every file. */
+const sessionFilters = (config: Config, repo: string, ids: string[]) =>
+  filtersFor(config, repo).filter((filter) => ids.includes(filter.id));
+
 export const sessionMatchers = (config: Config, repo: string, ids: string[]): Matcher[] | null => {
   if (ids.length === 0) return null;
-  const matchers = filtersFor(config, repo)
-    .filter((filter) => ids.includes(filter.id))
-    .flatMap((filter) => toMatcher(filter) ?? []);
+  const matchers = sessionFilters(config, repo, ids).flatMap((filter) => toMatcher(filter) ?? []);
   // A repository none of the filters are for is reviewed whole.
   return matchers.length > 0 ? matchers : null;
 };
 
 /** The filter ids of a session that apply in a repository, to turn on in the bar. */
 export const sessionFilterIds = (config: Config, repo: string, ids: string[]): string[] =>
-  filtersFor(config, repo)
-    .filter((filter) => ids.includes(filter.id))
-    .map((filter) => filter.id);
+  sessionFilters(config, repo, ids).map((filter) => filter.id);
 
 /** A pull request's minutes: its files in the session's filters, at the reader's pace, and a moment for the pull request. */
 export const estimate = (

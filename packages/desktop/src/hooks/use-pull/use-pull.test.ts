@@ -314,14 +314,16 @@ describe("usePull", () => {
 
   it("asks GitHub again for what merging changes, and the panel too", async () => {
     u.loadMergeState.mockResolvedValue({ mergeStateStatus: "BEHIND" });
-    const { result } = setup();
-    await act(() => result.current.pull.revalidate());
+    const { result } = setup({ ...DETAILS, isDraft: true });
+    await act(() => result.current.pull.actions.ready());
+    await settle();
     expect(result.current.details?.mergeStateStatus).toBe("BEHIND");
     expect(u.reloadManage).toHaveBeenCalledWith(true);
     expect(ipc).toContainEqual(["refresh", { force: true }]);
 
     u.loadMergeState.mockRejectedValue(new Error("offline"));
-    await act(() => result.current.pull.revalidate());
+    await act(() => result.current.pull.actions.draft());
+    await settle();
     expect(result.current.details?.mergeStateStatus).toBe("BEHIND");
   });
 
@@ -623,8 +625,8 @@ describe("usePull", () => {
 
   it("changes nothing once the details are gone", async () => {
     const { result } = setup();
-    const { actions, revalidate } = result.current.pull;
-    for (const action of [actions.ready, actions.draft, actions.close, actions.reopen, revalidate]) {
+    const { actions } = result.current.pull;
+    for (const action of [actions.ready, actions.draft, actions.close, actions.reopen]) {
       act(() => {
         result.current.setDetails(null);
         void action();

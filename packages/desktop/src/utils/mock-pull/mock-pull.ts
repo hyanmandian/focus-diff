@@ -184,7 +184,6 @@ export function fakePull(extra: Partial<Pull> = {}): Pull {
     unresolved: 0,
     allowed: {},
     menu: {},
-    revalidate: vi.fn<Pull["revalidate"]>(resolved),
     ...extra,
   };
 }

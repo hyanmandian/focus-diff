@@ -91,12 +91,27 @@ pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -
         git(&dir, &["checkout", "-q", "--force", "--detach", head], token).or_else(|_| git(&dir, &["checkout", "-q", "--force", "--detach", "FETCH_HEAD"], token))?;
     }
     git(&dir, &["clean", "-ffdxq"], token)?;
-    for file in UNTRUSTED {
-        let _ = std::fs::remove_file(dir.join(file));
-    }
+    remove_untrusted(&dir);
     // Used now: kept from the next sweep.
     let _ = std::fs::File::open(&dir).and_then(|f| f.set_modified(SystemTime::now()));
     Ok(dir)
+}
+
+fn remove_untrusted(dir: &Path) {
+    for file in UNTRUSTED {
+        let mut at = dir.to_path_buf();
+        for part in Path::new(file).components() {
+            at.push(part);
+            match std::fs::symlink_metadata(&at) {
+                Ok(meta) if meta.is_dir() => {}
+                Ok(_) => {
+                    let _ = std::fs::remove_file(&at).or_else(|_| std::fs::remove_dir(&at));
+                    break;
+                }
+                Err(_) => break,
+            }
+        }
+    }
 }
 
 /// Removes checkouts not used for two weeks.
@@ -124,6 +139,27 @@ mod tests {
         assert_eq!(base64(b"x-access-token:abc"), "eC1hY2Nlc3MtdG9rZW46YWJj");
         assert_eq!(base64(b"ab"), "YWI=");
         assert_eq!(base64(b"a"), "YQ==");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn removes_agent_settings_without_following_links() {
+        let root = std::env::temp_dir().join(format!("fd-untrusted-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (repo, outside) = (root.join("repo"), root.join("outside"));
+        std::fs::create_dir_all(repo.join(".cursor")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("settings.json"), "mine").unwrap();
+        std::fs::write(repo.join(".mcp.json"), "{}").unwrap();
+        std::fs::write(repo.join(".cursor/mcp.json"), "{}").unwrap();
+        std::os::unix::fs::symlink(&outside, repo.join(".claude")).unwrap();
+        remove_untrusted(&repo);
+        assert_eq!(std::fs::read_to_string(outside.join("settings.json")).unwrap(), "mine");
+        assert!(!repo.join(".mcp.json").exists());
+        assert!(!repo.join(".cursor/mcp.json").exists());
+        assert!(repo.join(".cursor").is_dir());
+        assert!(std::fs::symlink_metadata(repo.join(".claude")).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

@@ -308,6 +308,20 @@ describe("ThreadView", () => {
     expect(screen.getByRole("button", { name: "Resolve" })).toHaveProperty("disabled", false);
   });
 
+  it("says why it couldn't resolve", async () => {
+    const user = userEvent.setup();
+    const onResolve = vi.fn<(resolved: boolean) => Promise<void>>(() => Promise.reject(new Error("Not allowed")));
+    render(
+      withApi(
+        apiFor(),
+        <ThreadView thread={conversation()} onReply={vi.fn<(body: string) => Promise<void>>()} onResolve={onResolve} />,
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Resolve" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Not allowed");
+    expect(screen.getByRole("button", { name: "Resolve" })).toHaveProperty("disabled", false);
+  });
+
   it("replies now, or with your review", async () => {
     const user = userEvent.setup();
     const api = apiFor();
@@ -339,6 +353,20 @@ describe("ThreadView", () => {
     threadView(conversation(), null);
     await user.click(screen.getByRole("button", { name: "Reply" }));
     expect(screen.queryByRole("button", { name: "Add to Review" })).toBeNull();
+  });
+
+  it("adds a quote to the reply being written", async () => {
+    const user = userEvent.setup();
+    threadView(conversation({ comments: [said(1, { body: "Use a map" }), said(2, { body: "Or a set" })] }));
+    const [first, second] = screen.getAllByRole("button", { name: "More for this comment" });
+    await user.click(screen.getByRole("button", { name: "Reply" }));
+    await user.click(first!);
+    await user.click(screen.getByRole("menuitem", { name: "Quote Reply" }));
+    expect(box("Reply").value).toBe("> Use a map\n\n");
+    await user.type(box("Reply"), "Agreed");
+    await user.click(second!);
+    await user.click(screen.getByRole("menuitem", { name: "Quote Reply" }));
+    expect(box("Reply").value).toBe("> Use a map\n\nAgreed\n\n> Or a set\n\n");
   });
 
   it("quotes, edits and deletes a comment from its menu", async () => {

@@ -74,6 +74,11 @@ export function Composer({
 }) {
   const t = useT();
   const [body, setBody] = useState(initial);
+  const [added, setAdded] = useState(initial);
+  if (initial !== added) {
+    setAdded(initial);
+    setBody(body.trim() ? `${body.trimEnd()}\n\n${initial}` : initial);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (action: (body: string) => Promise<void> | void) => {
@@ -239,10 +244,14 @@ export function ThreadView({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
   const [whole, setWhole] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const toggle = async () => {
     setBusy(true);
+    setError(null);
     try {
       await onResolve(!thread.resolved);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -300,6 +309,11 @@ export function ThreadView({
         )}
       </div>
       <div className="mt-3 border-t pt-3">
+        {error ? (
+          <p className="mb-2 text-callout text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
         {replying === null ? (
           <div className="flex items-center gap-2">
             <Button

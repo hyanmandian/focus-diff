@@ -254,7 +254,6 @@ function AddComment({
   const [open, setOpen] = useState(false);
   return open || quoted !== null ? (
     <Composer
-      key={quoted ?? ""}
       placeholder={t("review.commentOnPull")}
       submitLabel={t("review.comment")}
       initial={quoted ?? ""}

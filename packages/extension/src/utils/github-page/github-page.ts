@@ -202,11 +202,13 @@ let scannedPathname = "";
 export const pageCounters = (): PageCounters => {
   if (counters.files?.isConnected && counters.additions?.isConnected) return counters;
   const now = Date.now();
-  if (scannedPathname !== location.pathname) {
+  const lost = [counters.files, counters.additions].some((counter) => counter && !counter.isConnected);
+  if (scannedPathname === location.pathname) {
+    if (lost) firstScanAt = now;
+    if (now - scannedAt < COUNTER_RESCAN_MS || now - firstScanAt > COUNTER_GIVE_UP_MS) return counters;
+  } else {
     scannedPathname = location.pathname;
     firstScanAt = now;
-  } else if (now - scannedAt < COUNTER_RESCAN_MS || now - firstScanAt > COUNTER_GIVE_UP_MS) {
-    return counters;
   }
   scannedAt = now;
   const [additions, deletions] = findLineCounters();

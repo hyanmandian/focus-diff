@@ -129,7 +129,8 @@ export const createLook = ({ onChange, notify }: LookOptions) => {
     if (hex.value && HEX_COLOR.test(hex.value)) pick.value = pickerValue(hex.value);
 
     const check = () => {
-      const valid = !hex.value || HEX_COLOR.test(hex.value);
+      const value = hex.value.trim();
+      const valid = !value || HEX_COLOR.test(value);
       error.textContent = valid ? "" : i18n.t("errorColor");
       if (valid) hex.removeAttribute("aria-invalid");
       else hex.setAttribute("aria-invalid", "true");

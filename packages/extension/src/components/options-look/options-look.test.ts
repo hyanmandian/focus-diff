@@ -124,6 +124,16 @@ describe("createLook", () => {
     expect(look.value().themes[0]?.colors).toEqual({ muted: "#00ff00" });
   });
 
+  it("passes a colour typed with spaces around it, as the preview wears it", async () => {
+    const { look } = await setUp();
+    const hex = el(".color-hex", row("bg"));
+    input(hex, " #123456 ");
+    hex.dispatchEvent(new Event("blur"));
+    expect(hex.hasAttribute("aria-invalid")).toBe(false);
+    expect(look.check()).toBe(true);
+    expect(look.value().themes[0]?.colors).toMatchObject({ bg: "#123456" });
+  });
+
   it("renames a theme in the list as it's typed, untitled when empty", async () => {
     const { look } = await setUp();
     input(el("#theme-name"), "Day");

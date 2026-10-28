@@ -91,6 +91,7 @@ export function Setup() {
   const [config, setConfig] = useState<Config | null>(null);
   const [kinds, setKinds] = useState<Set<QueueKind>>(new Set());
   const [repos, setRepos] = useState<string[]>([]);
+  const [startRepos, setStartRepos] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
   const [saving, setSaving] = useState(false);
   const t = useT();
@@ -103,7 +104,10 @@ export function Setup() {
       setConfig(c);
       setKinds(new Set(c.queues.filter((q) => q.enabled).map((q) => q.kind)));
       const shared = c.queues[0]?.repos ?? [];
-      if (c.queues.every((q) => q.repos.join() === shared.join())) setRepos(shared);
+      if (c.queues.every((q) => q.repos.join() === shared.join())) {
+        setRepos(shared);
+        setStartRepos(shared);
+      }
     })();
     void bridge.aiStatuses().then(setStatuses);
   }, []);
@@ -128,7 +132,8 @@ export function Setup() {
       if (!kinds.has(kind)) continue;
       const had = config.queues.filter((q) => q.kind === kind);
       if (had.length === 0) queues.push({ ...TEMPLATES[kind].make(), repos });
-      for (const q of had) queues.push({ ...q, enabled: true, repos });
+      for (const q of had)
+        queues.push({ ...q, enabled: true, repos: repos.join() === startRepos.join() ? q.repos : repos });
     }
     return { ...config, queues: [...queues, ...config.queues.filter((q) => q.kind === "custom")] };
   };

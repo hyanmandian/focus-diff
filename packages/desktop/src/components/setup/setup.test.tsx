@@ -331,6 +331,22 @@ describe("Setup", () => {
     expect(screen.queryByText("acme/web")).toBeNull();
   });
 
+  it("keeps each queue's own repositories when they differed and none were given", async () => {
+    const config = defaultConfig();
+    config.queues[0]!.repos = ["acme/web"];
+    const { saved, sent } = answer({ config });
+    const user = userEvent.setup();
+    render(<Setup />);
+    await screen.findByText("@octocat");
+    await toAi(user);
+    await next(user);
+    await user.click(screen.getByRole("button", { name: "Open Focus Diff" }));
+    await waitFor(() => {
+      expect(sent(CLOSE_WINDOW)).toHaveLength(1);
+    });
+    expect(saved().queues.map((q) => q.repos)).toEqual([["acme/web"], [], []]);
+  });
+
   it("starts with the repositories every queue shares", async () => {
     const config = defaultConfig();
     config.queues = config.queues.map((q) => ({ ...q, repos: ["acme/web"] }));

@@ -232,6 +232,20 @@ describe("startOptions", () => {
     expect($("#try-result").textContent).toBe(i18n.t("tryOnlyAll", [i18n.t("filterAll")]));
   });
 
+  it("offers review times the filters as they're named, renamed and removed", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await reviewTimeItem.setValue(normalizeReviewTime({ enabled: true, sessions: [{ id: "s" }] }));
+    await open();
+    const chips = () => all("#sessions .skip-chip").map((chip) => chip.textContent);
+    expect(chips()).toContain("Tests");
+    type($(".f-name", filterRows()[1]), "Specs");
+    vi.advanceTimersByTime(400);
+    expect(chips()).toContain("Specs");
+    expect(chips()).not.toContain("Tests");
+    find<HTMLButtonElement>(".remove-filter", filterRows()[1]).click();
+    expect(chips()).not.toContain("Specs");
+  });
+
   describe("saving", () => {
     it("saves everything, says so, and lowers the save bar a moment later", async () => {
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

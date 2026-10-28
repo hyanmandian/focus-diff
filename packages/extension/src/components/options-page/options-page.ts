@@ -178,7 +178,7 @@ export const startOptions = (): void => {
           showFilterProblems(row, filter);
           if (key === "name") label(row, filter);
           setDirty();
-          updateTryWhileTyping();
+          filtersChangedWhileTyping();
         });
       }
       $(".remove-filter", row).addEventListener("click", () => {
@@ -190,7 +190,7 @@ export const startOptions = (): void => {
         (neighbour ? $(".f-name", neighbour) : addButton).focus();
         syncEmpty();
         setDirty();
-        updateTry();
+        filtersChanged();
       });
       label(row, filter);
       showFilterProblems(row, filter);
@@ -241,7 +241,7 @@ export const startOptions = (): void => {
       syncLabel();
       if (input.hasAttribute("aria-invalid")) check(false);
       setDirty();
-      updateTryWhileTyping();
+      filtersChangedWhileTyping();
     });
     input.addEventListener("blur", () => {
       check(false);
@@ -252,7 +252,7 @@ export const startOptions = (): void => {
       syncRepos();
       $("#add-repo").focus();
       setDirty();
-      updateTry();
+      filtersChanged();
     });
 
     syncLabel();
@@ -297,6 +297,16 @@ export const startOptions = (): void => {
   const updateTryWhileTyping = () => {
     clearTimeout(typing);
     typing = window.setTimeout(updateTry, TYPING_PAUSE_MS);
+  };
+
+  const filtersChanged = () => {
+    updateTry();
+    reviewTime.redraw();
+  };
+  let editing = 0;
+  const filtersChangedWhileTyping = () => {
+    clearTimeout(editing);
+    editing = window.setTimeout(filtersChanged, TYPING_PAUSE_MS);
   };
 
   const save = async () => {
@@ -455,9 +465,7 @@ export const startOptions = (): void => {
       renderRepo(entry, false);
     });
     syncRepos();
-    updateTry();
-    // Review times pick from the filters.
-    reviewTime.redraw();
+    filtersChanged();
   };
 
   // Another tab, the welcome page or another device changed the filters: follow along unless there are unsaved edits here.

@@ -405,6 +405,7 @@ pub(crate) fn show_notification(app: &AppHandle, title: String, body: String, so
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = url;
         let builder = app.notification().builder().title(title).body(body);
         let builder = if sound { builder.sound("default") } else { builder };
         let _ = builder.show();

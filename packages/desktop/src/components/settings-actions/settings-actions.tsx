@@ -21,6 +21,7 @@ import {
   SwitchRow,
   TWO_LINE_ITEM,
   useDetail,
+  moved,
 } from "@/components/settings-form/settings-form";
 import { TagInput } from "@/components/tag-input/tag-input";
 import { Textarea } from "@/components/textarea/textarea";
@@ -149,9 +150,7 @@ function StepsEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (step
     onChange(next);
   };
   const move = (index: number, by: number) => {
-    const next = [...steps];
-    next.splice(index + by, 0, ...next.splice(index, 1));
-    onChange(next);
+    onChange(moved(steps, index, by));
   };
   return (
     <>
@@ -402,9 +401,7 @@ function ActionEditor({ action, onChange }: { action: Action; onChange: (action:
                 setChoices(action.choices.map((c) => (c.id === next.id ? next : c)));
               }}
               onMove={(by) => {
-                const choices = [...action.choices];
-                choices.splice(i + by, 0, ...choices.splice(i, 1));
-                setChoices(choices);
+                setChoices(moved(action.choices, i, by));
               }}
               onRemove={() => {
                 void removeChoice(choice);

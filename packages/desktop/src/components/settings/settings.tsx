@@ -30,6 +30,7 @@ import {
   TONE_FILL,
   TWO_LINE_ITEM,
   useDetail,
+  moved,
 } from "@/components/settings-form/settings-form";
 import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
 import { Switch } from "@/components/switch/switch";
@@ -121,11 +122,7 @@ function Queues({ config, onChange }: { config: Config; onChange: (c: Config) =>
     setQueues(config.queues.map((q) => (q.id === queue.id ? queue : q)));
   };
   const move = (index: number, by: number) => {
-    const queues = [...config.queues];
-    // The buttons only move what's there: the first can't go up, the last can't go down.
-    const [queue] = queues.splice(index, 1);
-    queues.splice(index + by, 0, queue!);
-    setQueues(queues);
+    setQueues(moved(config.queues, index, by));
   };
 
   if (selected) {

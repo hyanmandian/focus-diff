@@ -333,3 +333,9 @@ export function radioKeys(e: React.KeyboardEvent<HTMLElement>) {
   next?.focus();
   next?.click();
 }
+
+export function moved<T>(list: T[], index: number, by: number): T[] {
+  const next = [...list];
+  next.splice(index + by, 0, ...next.splice(index, 1));
+  return next;
+}

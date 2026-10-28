@@ -8,7 +8,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/button/button";
 import { Input } from "@/components/input/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
-import { Group, Intro, Pane, radioKeys, Row } from "@/components/settings-form/settings-form";
+import { Group, Intro, moved, Pane, radioKeys, Row } from "@/components/settings-form/settings-form";
 import { Switch } from "@/components/switch/switch";
 import { Textarea } from "@/components/textarea/textarea";
 import { PROVIDERS } from "@/utils/ai/ai";
@@ -110,9 +110,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
     setPrompts(ai.prompts.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
   const movePrompt = (index: number, by: number) => {
-    const prompts = [...ai.prompts];
-    prompts.splice(index + by, 0, ...prompts.splice(index, 1));
-    setPrompts(prompts);
+    setPrompts(moved(ai.prompts, index, by));
   };
   const removePrompt = async (prompt: Prompt) => {
     if (await confirmRemove(t("settings.removePromptConfirm", { name: prompt.name })))

@@ -552,8 +552,9 @@ fn review_builder<'a>(app: &'a AppHandle, label: &str, url: String, title: &str)
 fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
     if let Ok(Some(monitor)) = app.primary_monitor() {
         let area = monitor.work_area();
-        let _ = window.set_position(area.position);
-        let _ = window.set_size(area.size);
+        let scale = monitor.scale_factor();
+        let _ = window.set_position(area.position.to_logical::<f64>(scale));
+        let _ = window.set_size(area.size.to_logical::<f64>(scale));
     }
 }
 

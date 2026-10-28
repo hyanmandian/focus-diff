@@ -60,7 +60,10 @@ pub fn open(app: &AppHandle, app_link: &str) {
         if let Some(link) = parse(&text)
             && let Some(found) = find(&app, &link)
         {
-            let _ = crate::open_review(app.clone(), found.id, format!("{}/{}", link.owner, link.repo), link.number, found.title, vec![], None, None);
+            let main = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = crate::open_review(main, found.id, format!("{}/{}", link.owner, link.repo), link.number, found.title, vec![], None, None);
+            });
             return;
         }
         if app.get_webview_window(crate::PANEL).is_some() {

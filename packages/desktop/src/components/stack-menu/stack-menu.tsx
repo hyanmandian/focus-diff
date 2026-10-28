@@ -26,6 +26,22 @@ const STANDING = {
   REVIEW_REQUIRED: "text-muted-foreground",
 } as const;
 
+export function Standing({ pull, className }: { pull: StackPull; className?: string }) {
+  const t = useT();
+  const standing = pull.decision ?? "REVIEW_REQUIRED";
+  return (
+    <span
+      className={cn(
+        "shrink-0 text-subheadline",
+        pull.isDraft ? "text-muted-foreground" : STANDING[standing],
+        className,
+      )}
+    >
+      {pull.isDraft ? t("review.stackDraft") : t(`review.stackStanding.${standing}`)}
+    </span>
+  );
+}
+
 export function StackMenu({
   stack,
   className,
@@ -75,16 +91,7 @@ export function StackMenu({
                 <span className="min-w-0 flex-1 truncate">
                   <span className="text-muted-foreground tabular-nums">#{pull.number}</span> {pull.title}
                 </span>
-                <span
-                  className={cn(
-                    "shrink-0 text-subheadline",
-                    pull.isDraft ? "text-muted-foreground" : STANDING[pull.decision ?? "REVIEW_REQUIRED"],
-                  )}
-                >
-                  {pull.isDraft
-                    ? t("review.stackDraft")
-                    : t(`review.stackStanding.${pull.decision ?? "REVIEW_REQUIRED"}`)}
-                </span>
+                <Standing pull={pull} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

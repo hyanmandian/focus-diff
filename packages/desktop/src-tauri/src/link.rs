@@ -173,6 +173,7 @@ fn send(link: &PullLink) -> i32 {
 
 /// Where `focus-diff` goes on the command line: the first of these the person can write to. All
 /// are on a Mac's usual PATH but the last, which shells add when it exists.
+#[cfg(unix)]
 fn bins() -> Vec<std::path::PathBuf> {
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default();
     vec!["/opt/homebrew/bin".into(), "/usr/local/bin".into(), home.join(".local/bin")]
@@ -180,6 +181,7 @@ fn bins() -> Vec<std::path::PathBuf> {
 
 /// Links `focus-diff` in the first of `dirs` that takes it to `program`: an earlier link of its own
 /// is replaced, anything else by that name is left alone. The last folder is made if it's missing.
+#[cfg(unix)]
 pub fn install_into(program: &std::path::Path, dirs: &[std::path::PathBuf]) -> Result<std::path::PathBuf, String> {
     for (at, dir) in dirs.iter().enumerate() {
         if at == dirs.len() - 1 {
@@ -195,7 +197,6 @@ pub fn install_into(program: &std::path::Path, dirs: &[std::path::PathBuf]) -> R
             Ok(_) => continue,
             Err(_) => {}
         }
-        #[cfg(unix)]
         if std::os::unix::fs::symlink(program, &target).is_ok() {
             return Ok(target);
         }
@@ -205,14 +206,24 @@ pub fn install_into(program: &std::path::Path, dirs: &[std::path::PathBuf]) -> R
 
 /// Settings' Install: `focus-diff` on the command line, a link to this app's own program.
 pub fn install() -> Result<String, String> {
-    let program = std::env::current_exe().map_err(|e| e.to_string())?;
-    install_into(&program, &bins()).map(|path| path.display().to_string())
+    #[cfg(unix)]
+    {
+        let program = std::env::current_exe().map_err(|e| e.to_string())?;
+        install_into(&program, &bins()).map(|path| path.display().to_string())
+    }
+    #[cfg(not(unix))]
+    Err(crate::i18n::tr!("The command line can't be installed on Windows yet", "A linha de comando ainda não pode ser instalada no Windows"))
 }
 
 /// Where `focus-diff` is linked to this app, if it is.
 pub fn installed() -> Option<String> {
-    let program = std::env::current_exe().ok()?;
-    bins().into_iter().map(|dir| dir.join("focus-diff")).find(|target| std::fs::read_link(target).is_ok_and(|to| to == program)).map(|target| target.display().to_string())
+    #[cfg(unix)]
+    {
+        let program = std::env::current_exe().ok()?;
+        bins().into_iter().map(|dir| dir.join("focus-diff")).find(|target| std::fs::read_link(target).is_ok_and(|to| to == program)).map(|target| target.display().to_string())
+    }
+    #[cfg(not(unix))]
+    None
 }
 
 #[cfg(test)]
@@ -220,6 +231,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn installs_where_it_can_without_touching_other_files() {
         let root = std::env::temp_dir().join(format!("focus-diff-install-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);

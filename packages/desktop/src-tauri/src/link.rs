@@ -10,6 +10,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter, Manager, Url};
+use crate::sync::Locked;
 
 /// The scheme registered for the app (Info.plist).
 pub const SCHEME: &str = "focusdiff";
@@ -82,7 +83,7 @@ pub fn open(app: &AppHandle, app_link: &str) {
         if app.get_webview_window(crate::PANEL).is_some() {
             let _ = app.emit_to(crate::PANEL, "open-link", text);
         } else {
-            *app.state::<Waiting>().0.lock().unwrap() = Some(text);
+            *app.state::<Waiting>().0.held() = Some(text);
         }
         crate::show_panel(&app);
     });
@@ -189,8 +190,11 @@ pub fn install_into(program: &std::path::Path, dirs: &[std::path::PathBuf]) -> R
         }
         let target = dir.join("focus-diff");
         match std::fs::symlink_metadata(&target) {
+            // An earlier link of ours (to a focus-diff program, from any copy of the app) is
+            // replaced; one to something else is left alone.
             Ok(meta) if meta.file_type().is_symlink() => {
-                if std::fs::remove_file(&target).is_err() {
+                let ours = std::fs::read_link(&target).is_ok_and(|to| to.file_name().is_some_and(|name| name == "focus-diff"));
+                if !ours || std::fs::remove_file(&target).is_err() {
                     continue;
                 }
             }
@@ -239,7 +243,8 @@ mod tests {
         std::fs::create_dir_all(&taken).unwrap();
         std::fs::create_dir_all(&ours).unwrap();
         std::fs::write(taken.join("focus-diff"), "someone else's").unwrap();
-        let program = root.join("program");
+        std::fs::create_dir_all(root.join("app")).unwrap();
+        let program = root.join("app/focus-diff");
         std::fs::write(&program, "").unwrap();
         // A real file is left alone; the next folder takes it.
         assert_eq!(install_into(&program, &[taken.clone(), ours.clone()]).unwrap(), ours.join("focus-diff"));
@@ -247,6 +252,12 @@ mod tests {
         // An earlier link is replaced.
         assert_eq!(install_into(&program, std::slice::from_ref(&ours)).unwrap(), ours.join("focus-diff"));
         assert_eq!(std::fs::read_link(ours.join("focus-diff")).unwrap(), program);
+        // A link by that name to another program is left alone, as a file is.
+        let other = root.join("other");
+        std::fs::create_dir_all(&other).unwrap();
+        std::os::unix::fs::symlink(root.join("app/elsewhere"), other.join("focus-diff")).unwrap();
+        assert!(install_into(&program, std::slice::from_ref(&other)).is_err());
+        assert_eq!(std::fs::read_link(other.join("focus-diff")).unwrap(), root.join("app/elsewhere"));
         // The last folder is made when missing; none taking it is an error.
         assert_eq!(install_into(&program, &[taken.clone(), made.clone()]).unwrap(), made.join("focus-diff"));
         assert!(install_into(&program, std::slice::from_ref(&taken)).is_err());

@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use serde_json::Value;
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github";
@@ -200,19 +201,19 @@ fn gh_token() -> Result<String, String> {
 impl Auth {
     /// The token, from memory, the keychain or gh, in that order.
     fn token(&self) -> Result<String, String> {
-        if let Some(token) = self.token.lock().unwrap().clone() {
+        if let Some(token) = self.token.held().clone() {
             return Ok(token);
         }
-        let source = *self.source.lock().unwrap();
+        let source = *self.source.held();
         let token = match source {
             Some(Source::Gh) => gh_token()?,
             _ => {
                 let token = keychain()?.get_password().map_err(|_| tr!("Not signed in to GitHub", "Você não está conectado ao GitHub"))?;
-                *self.source.lock().unwrap() = Some(Source::Keychain);
+                *self.source.held() = Some(Source::Keychain);
                 token
             }
         };
-        *self.token.lock().unwrap() = Some(token.clone());
+        *self.token.held() = Some(token.clone());
         Ok(token)
     }
 
@@ -222,17 +223,17 @@ impl Auth {
     }
 
     pub fn set_source(&self, source: Option<Source>) {
-        *self.source.lock().unwrap() = source;
-        *self.token.lock().unwrap() = None;
-        *self.login.lock().unwrap() = None;
-        *self.etags.lock().unwrap() = Etags::default();
-        self.recent.lock().unwrap().clear();
+        *self.source.held() = source;
+        *self.token.held() = None;
+        *self.login.held() = None;
+        *self.etags.held() = Etags::default();
+        self.recent.held().clear();
     }
 
     /// Who's signed in: None when no one is (no token, or GitHub refused it); an error when GitHub
     /// couldn't be reached to tell.
     pub fn login(&self) -> Result<Option<String>, String> {
-        if let Some(login) = self.login.lock().unwrap().clone() {
+        if let Some(login) = self.login.held().clone() {
             return Ok(Some(login));
         }
         if self.token().is_err() {
@@ -242,7 +243,7 @@ impl Auth {
         match status {
             200 => {
                 let login = serde_json::from_str::<Value>(&body).ok().and_then(|v| v["login"].as_str().map(String::from));
-                login.clone_into(&mut self.login.lock().unwrap());
+                login.clone_into(&mut self.login.held());
                 Ok(login)
             }
             401 => Ok(None),
@@ -254,7 +255,7 @@ impl Auth {
         let login = self.login().ok().flatten();
         Status {
             signed_in: login.is_some(),
-            source: if login.is_some() { *self.source.lock().unwrap() } else { None },
+            source: if login.is_some() { *self.source.held() } else { None },
             login,
             device_flow: CLIENT_ID.is_some(),
             gh_available: gh_path().is_some(),
@@ -283,7 +284,7 @@ impl Auth {
     }
 
     pub fn sign_out(&self) -> Result<(), String> {
-        if *self.source.lock().unwrap() != Some(Source::Gh) {
+        if *self.source.held() != Some(Source::Gh) {
             // Nothing stored is fine.
             let _ = keychain()?.delete_credential();
         }
@@ -297,16 +298,16 @@ impl Auth {
         // Rendering Markdown (a comment's preview) changes nothing either.
         let read = method == "GET" || (method == "POST" && ((path == "/graphql" && is_query(body)) || path == "/markdown"));
         if !read {
-            self.recent.lock().unwrap().clear();
+            self.recent.held().clear();
             return self.request(method, path, body, accept);
         }
         let key = format!("{method} {path} {} {}", accept.unwrap_or(""), body.unwrap_or(""));
-        if let Some(hit) = self.recent.lock().unwrap().get(&key) {
+        if let Some(hit) = self.recent.held().get(&key) {
             return Ok(hit);
         }
         let (status, text) = self.request(method, path, body, accept)?;
         if status == 200 {
-            self.recent.lock().unwrap().put(key, status, text.clone());
+            self.recent.held().put(key, status, text.clone());
         }
         Ok((status, text))
     }
@@ -323,9 +324,9 @@ impl Auth {
 
     fn with_token<T>(&self, call: impl Fn(&str) -> Result<(u16, T), String>) -> Result<(u16, T), String> {
         let (status, answer) = call(&self.token()?)?;
-        if status == 401 && *self.source.lock().unwrap() == Some(Source::Gh) {
+        if status == 401 && *self.source.held() == Some(Source::Gh) {
             // gh may have been signed in again since: read its token once more.
-            *self.token.lock().unwrap() = None;
+            *self.token.held() = None;
             return call(&self.token()?);
         }
         Ok((status, answer))
@@ -345,14 +346,14 @@ impl Auth {
             return call(token, method, path, body, accept, None).map(|(status, text, _)| (status, text));
         }
         let key = format!("{}\n{path}", accept.unwrap_or(""));
-        let known = self.etags.lock().unwrap().get(&key).cloned();
+        let known = self.etags.held().get(&key).cloned();
         let (status, text, etag) = call(token, method, path, None, accept, known.as_ref().map(|(etag, _)| etag.as_str()))?;
         if status == 304
             && let Some((_, body)) = known {
                 return Ok((200, body));
             }
         if let (200, Some(etag)) = (status, etag) {
-            self.etags.lock().unwrap().put(key, etag, text.clone());
+            self.etags.held().put(key, etag, text.clone());
         }
         Ok((status, text))
     }

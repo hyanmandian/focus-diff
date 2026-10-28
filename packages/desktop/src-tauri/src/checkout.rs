@@ -12,9 +12,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use crate::ai::run_with_limit;
+use crate::sync::Locked;
 
 const LIMIT: Duration = Duration::from_secs(300);
 const KEEP: Duration = Duration::from_secs(14 * 24 * 3600);
@@ -65,7 +66,7 @@ fn git(dir: &Path, args: &[&str], token: &str) -> Result<String, String> {
 /// One git operation at a time per repository.
 fn lock(key: &str) -> Arc<Mutex<()>> {
     static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
-    LOCKS.get_or_init(Default::default).lock().unwrap().entry(key.to_string()).or_default().clone()
+    LOCKS.get_or_init(Default::default).held().entry(key.to_string()).or_default().clone()
 }
 
 /// The pull request's head commit checked out under `cache/repos/owner/name`. Blocking.
@@ -76,7 +77,7 @@ pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -
     }
     let dir = cache.join("repos").join(owner).join(name);
     let guard = lock(repo);
-    let _held = guard.lock().unwrap();
+    let _held = guard.held();
     if !dir.join(".git").is_dir() {
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         git(&dir, &["init", "-q"], token)?;
@@ -91,9 +92,20 @@ pub fn prepare(cache: &Path, token: &str, repo: &str, number: u64, head: &str) -
     }
     git(&dir, &["clean", "-ffdxq"], token)?;
     remove_untrusted(&dir);
-    // Used now: kept from the next sweep.
-    let _ = std::fs::File::open(&dir).and_then(|f| f.set_modified(SystemTime::now()));
+    // Used now: kept from the next sweep. A file of its own in .git (which `git clean` leaves),
+    // since a folder's time can't be set on Windows.
+    let _ = std::fs::write(used_mark(&dir), "");
     Ok(dir)
+}
+
+/// The file whose time says when a checkout was last used.
+fn used_mark(dir: &Path) -> std::path::PathBuf {
+    dir.join(".git").join("focus-diff-used")
+}
+
+/// How long since a checkout was used: its mark's age, or the folder's for one made before marks.
+fn unused_for(dir: &Path) -> Option<Duration> {
+    crate::disk::age(&used_mark(dir)).or_else(|| crate::disk::age(dir))
 }
 
 fn remove_untrusted(dir: &Path) {
@@ -119,9 +131,9 @@ pub fn sweep(cache: &Path) {
     for owner in owners.flatten() {
         let Ok(repos) = std::fs::read_dir(owner.path()) else { continue };
         for repo in repos.flatten() {
-            if crate::disk::age(&repo.path()).is_some_and(|age| age > KEEP) {
+            if unused_for(&repo.path()).is_some_and(|age| age > KEEP) {
                 let guard = lock(&format!("{}/{}", owner.file_name().to_string_lossy(), repo.file_name().to_string_lossy()));
-                let _held = guard.lock().unwrap();
+                let _held = guard.held();
                 let _ = std::fs::remove_dir_all(repo.path());
             }
         }
@@ -131,6 +143,19 @@ pub fn sweep(cache: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_checkout_counts_as_used_from_its_mark() {
+        let dir = std::env::temp_dir().join(format!("focus-diff-checkout-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".git")).unwrap();
+        let old = std::time::SystemTime::now() - Duration::from_secs(30 * 24 * 3600);
+        std::fs::File::open(&dir).unwrap().set_modified(old).unwrap();
+        assert!(unused_for(&dir).unwrap() > KEEP, "no mark yet: the folder's age");
+        std::fs::write(used_mark(&dir), "").unwrap();
+        assert!(unused_for(&dir).unwrap() < Duration::from_secs(60), "marked just now");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn encodes_base64() {

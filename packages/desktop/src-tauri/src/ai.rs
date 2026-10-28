@@ -22,6 +22,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 const TIME_LIMIT: Duration = Duration::from_secs(180);
 /// Reading around a project takes longer than reading a diff.
@@ -236,17 +237,17 @@ fn running() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
 /// A question's stop flag, kept while it's answered.
 pub fn start_run(id: &str) -> Arc<AtomicBool> {
     let flag = Arc::new(AtomicBool::new(false));
-    running().lock().unwrap().insert(id.to_string(), flag.clone());
+    running().held().insert(id.to_string(), flag.clone());
     flag
 }
 
 pub fn end_run(id: &str) {
-    running().lock().unwrap().remove(id);
+    running().held().remove(id);
 }
 
 /// Stops a question being answered (the window's Stop).
 pub fn cancel(id: &str) {
-    if let Some(flag) = running().lock().unwrap().get(id) {
+    if let Some(flag) = running().held().get(id) {
         flag.store(true, Ordering::Relaxed);
     }
 }

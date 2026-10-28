@@ -31,6 +31,7 @@ mod menu;
 mod outbox;
 mod review;
 mod sound;
+mod sync;
 mod tray;
 mod update;
 mod uploads;
@@ -51,6 +52,7 @@ use tauri::{
     AppHandle, Emitter, Manager, Rect, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri::utils::config::WindowEffectsConfig;
+use sync::Locked;
 // The window materials: the Mac's and Windows' (Linux has none to ask for).
 #[cfg(any(target_os = "macos", windows))]
 use tauri::window::Effect;
@@ -454,7 +456,7 @@ pub(crate) fn update_tray(app: &AppHandle, count: u32, animate: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] {count} waiting, animate {animate}");
     }
-    if let Some(icon) = app.state::<Tray>().0.lock().unwrap().as_ref() {
+    if let Some(icon) = app.state::<Tray>().0.held().as_ref() {
         tray::update(app, icon, count, animate);
     }
 }
@@ -464,7 +466,7 @@ pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] countdown {minutes:?}");
     }
-    if let Some(icon) = app.state::<Tray>().0.lock().unwrap().as_ref() {
+    if let Some(icon) = app.state::<Tray>().0.held().as_ref() {
         tray::countdown(icon, minutes);
     }
 }
@@ -478,7 +480,7 @@ fn apply_language(app: &AppHandle, config: &str) {
         return;
     }
     menu::relocalize(app);
-    if let Some(icon) = app.state::<Tray>().0.lock().unwrap().as_ref() {
+    if let Some(icon) = app.state::<Tray>().0.held().as_ref() {
         tray::relocalize(icon);
     }
     if let Some(window) = app.get_webview_window(SETTINGS) {
@@ -547,7 +549,7 @@ fn open_setup(app: AppHandle) -> Result<(), String> {
 /// Where the tray icon is, to show the panel by it. Linux doesn't say where its tray icon is, so
 /// there it's the top right corner of the main screen, where GNOME and KDE put theirs.
 pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
-    let rect = app.try_state::<Tray>().and_then(|tray| tray.0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten()));
+    let rect = app.try_state::<Tray>().and_then(|tray| tray.0.held().as_ref().and_then(|t| t.rect().ok().flatten()));
     rect.unwrap_or_else(|| {
         let (x, y) = app.primary_monitor().ok().flatten().map_or((0, 0), |m| (m.position().x + m.size().width as i32, m.position().y));
         Rect { position: tauri::PhysicalPosition::new(x, y).into(), size: tauri::PhysicalSize::new(1, 1).into() }
@@ -583,7 +585,7 @@ fn cli_installed() -> Option<String> {
 /// A pull request link sent from outside (link.rs) before the panel was there to take it.
 #[tauri::command]
 fn take_link(waiting: State<'_, link::Waiting>) -> Option<String> {
-    waiting.0.lock().unwrap().take()
+    waiting.0.held().take()
 }
 
 /// Review windows: which pull request each shows, and the one made ahead of time, loaded and
@@ -611,7 +613,7 @@ async fn kept_write(app: AppHandle, id: String, contents: String) -> Result<(), 
 /// A spare's page saying it's ready to be told which pull request to show.
 #[tauri::command]
 fn spare_ready(app: AppHandle, window: tauri::WebviewWindow) {
-    app.state::<Reviews>().ready.lock().unwrap().insert(window.label().to_string());
+    app.state::<Reviews>().ready.held().insert(window.label().to_string());
 }
 
 static REVIEW_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -635,14 +637,14 @@ fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
 /// Makes the spare review window, hidden, if there isn't one. Main thread.
 fn prepare_spare(app: &AppHandle) {
     let reviews = app.state::<Reviews>();
-    if reviews.spare.lock().unwrap().is_some() {
+    if reviews.spare.held().is_some() {
         return;
     }
     let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
     if let Ok(window) = review_builder(app, &label, "review.html".into(), "Focus Diff").visible(false).build() {
         native_toolbar(&window);
         fill_screen(app, &window);
-        *reviews.spare.lock().unwrap() = Some(label);
+        *reviews.spare.held() = Some(label);
     }
 }
 
@@ -657,7 +659,7 @@ fn prepare_spare_soon(app: &AppHandle) {
 }
 
 fn drop_spare(app: &AppHandle) {
-    if let Some(label) = app.state::<Reviews>().spare.lock().unwrap().take()
+    if let Some(label) = app.state::<Reviews>().spare.held().take()
         && let Some(window) = app.get_webview_window(&label) {
             let _ = window.destroy();
         }
@@ -670,7 +672,7 @@ pub(crate) fn update_presence(app: &AppHandle) {
     let _ = app;
     #[cfg(target_os = "macos")]
     {
-        let spare = app.state::<Reviews>().spare.lock().unwrap().clone();
+        let spare = app.state::<Reviews>().spare.held().clone();
         let windowed = app.webview_windows().into_iter().any(|(label, w)| label != PANEL && Some(&label) != spare.as_ref() && w.is_visible().unwrap_or(false));
         let _ = app.set_activation_policy(if windowed { tauri::ActivationPolicy::Regular } else { tauri::ActivationPolicy::Accessory });
     }
@@ -703,15 +705,15 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
         return Err("Bad pull request".into());
     }
     let reviews = app.state::<Reviews>();
-    let existing = reviews.open.lock().unwrap().get(&id).cloned();
+    let existing = reviews.open.held().get(&id).cloned();
     if let Some(window) = existing.and_then(|label| app.get_webview_window(&label)) {
         return bring_back(&app, &window);
     }
     let target = ReviewTarget { id: id.clone(), repo: repo.clone(), number, teams: teams.clone(), queue: queue.clone() };
     // Only a spare that's listening; one still loading stays for the next click.
     let spare = {
-        let mut spare = reviews.spare.lock().unwrap();
-        let ready = spare.as_ref().is_some_and(|label| reviews.ready.lock().unwrap().remove(label));
+        let mut spare = reviews.spare.held();
+        let ready = spare.as_ref().is_some_and(|label| reviews.ready.held().remove(label));
         if ready { spare.take() } else { None }
     }
     .and_then(|label| app.get_webview_window(&label));
@@ -732,7 +734,7 @@ fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: Str
             window
         }
     };
-    reviews.open.lock().unwrap().insert(id, window.label().to_string());
+    reviews.open.held().insert(id, window.label().to_string());
     show_growing(&app, &window, from).map_err(|e| e.to_string())?;
     update_presence(&app);
     // The next one ready too, while the panel's in use.
@@ -761,12 +763,12 @@ fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo:
         return Err("Bad pull request".into());
     }
     let reviews = app.state::<Reviews>();
-    let elsewhere = reviews.open.lock().unwrap().get(&id).cloned().filter(|label| label != window.label());
+    let elsewhere = reviews.open.held().get(&id).cloned().filter(|label| label != window.label());
     if let Some(other) = elsewhere.and_then(|label| app.get_webview_window(&label)) {
         return bring_back(&app, &other);
     }
     {
-        let mut open = reviews.open.lock().unwrap();
+        let mut open = reviews.open.held();
         open.retain(|_, label| label != window.label());
         open.insert(id.clone(), window.label().to_string());
     }
@@ -1374,7 +1376,7 @@ pub fn run() {
             }
 
             let icon = create_tray(&handle)?;
-            *app.state::<Tray>().0.lock().unwrap() = Some(icon);
+            *app.state::<Tray>().0.held() = Some(icon);
             app.manage(watch::Watch::start(&handle));
             app.manage(outbox::Outbox::start(&handle));
             app.manage(drafts::Drafts::start(&handle));
@@ -1411,9 +1413,9 @@ pub fn run() {
                 let label = window.label().to_string();
                 menu::forget(app, &label);
                 let reviews = app.state::<Reviews>();
-                reviews.open.lock().unwrap().retain(|_, l| *l != label);
-                reviews.ready.lock().unwrap().remove(&label);
-                reviews.spare.lock().unwrap().take_if(|spare| *spare == label);
+                reviews.open.held().retain(|_, l| *l != label);
+                reviews.ready.held().remove(&label);
+                reviews.spare.held().take_if(|spare| *spare == label);
                 update_presence(app);
             }
         })

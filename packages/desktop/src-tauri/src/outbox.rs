@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::github;
+use crate::sync::Locked;
 
 /// One file to mark viewed, or not, on a pull request (its node id).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -64,7 +65,7 @@ impl Outbox {
     /// Queues a mark, replacing any earlier one for the same file, and sends it now.
     pub fn add(&self, pull: String, path: String, viewed: bool) {
         let (lock, wake) = &*self.queue;
-        let mut queue = lock.lock().unwrap();
+        let mut queue = lock.held();
         queue.marks.retain(|m| !(m.pull == pull && m.path == path));
         queue.marks.push(Mark { pull, path, viewed, refused: 0 });
         queue.woken = true;
@@ -75,7 +76,7 @@ impl Outbox {
     /// The marks still on their way for a pull request, by path: what GitHub says of these files
     /// is older than what's been marked here.
     pub fn pending(&self, pull: &str) -> HashMap<String, bool> {
-        let queue = self.queue.0.lock().unwrap();
+        let queue = self.queue.0.held();
         queue.marks.iter().filter(|m| m.pull == pull).map(|m| (m.path.clone(), m.viewed)).collect()
     }
 }
@@ -85,7 +86,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
     let mut failures = 0u32;
     loop {
         let next = {
-            let mut q = lock.lock().unwrap();
+            let mut q = lock.held();
             while q.marks.is_empty() {
                 q = wake.wait(q).unwrap();
             }
@@ -93,7 +94,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
             q.marks[0].clone()
         };
         let sent = send(&app.state::<github::Auth>(), &next);
-        let mut q = lock.lock().unwrap();
+        let mut q = lock.held();
         // Only if it's still the latest mark for that file: a newer one made meanwhile stays.
         let still = q.marks.iter().position(|m| m.pull == next.pull && m.path == next.path && m.viewed == next.viewed);
         match sent {

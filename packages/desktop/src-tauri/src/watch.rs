@@ -19,6 +19,7 @@ use crate::engine::{self, Cache, CiMemo, Failure, Gql, Item};
 use crate::review::{self, Candidate, Run};
 use crate::i18n::tr;
 use crate::{github, sound};
+use crate::sync::Locked;
 
 /// Every pull request in full again this often, changed or not: a safety net for what GitHub
 /// doesn't count as an update.
@@ -315,7 +316,7 @@ impl Watch {
         std::thread::spawn(move || {
             let worker = Worker { app, state };
             worker.boot();
-            let rhythm = |worker: &Worker| Duration::from_secs(worker.state.lock().unwrap().config.as_ref().map_or(60, |c| c.poll_seconds));
+            let rhythm = |worker: &Worker| Duration::from_secs(worker.state.held().config.as_ref().map_or(60, |c| c.poll_seconds));
             let mut next = Instant::now() + rhythm(&worker);
             loop {
                 let first = match receiver.recv_timeout(next.saturating_duration_since(Instant::now())) {
@@ -367,14 +368,14 @@ impl Watch {
     }
 
     pub fn snapshot(&self) -> Value {
-        self.state.lock().unwrap().snapshot()
+        self.state.held().snapshot()
     }
 
     /// Runs `change` on the state, then saves, updates the tray and tells the panel.
     fn change(&self, app: &AppHandle, change: impl FnOnce(&mut State)) {
         let worker = Worker { app: app.clone(), state: self.state.clone() };
         {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.held();
             change(&mut state);
             worker.save_state(&state);
             worker.update_tray(&mut state, false);
@@ -461,7 +462,7 @@ impl Watch {
     /// the next refresh finds them new.
     #[cfg(any(debug_assertions, feature = "devctl"))]
     pub fn forget(&self, n: usize) -> Vec<String> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.held();
         let picked: Vec<(String, Vec<String>)> = state
             .items
             .iter()
@@ -484,7 +485,7 @@ impl Watch {
     }
 
     pub fn clear_arrival(&self, app: &AppHandle, pr_id: &str) {
-        let removed = self.state.lock().unwrap().arrivals.remove(pr_id);
+        let removed = self.state.held().arrivals.remove(pr_id);
         if removed {
             Worker { app: app.clone(), state: self.state.clone() }.publish();
         }
@@ -509,7 +510,7 @@ impl Worker {
     /// then who's signed in, then GitHub.
     fn boot(&self) {
         {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.held();
             state.persisted = read(config_dir(&self.app).map(|d| d.join("state.json"))).unwrap_or_default();
             state.config = read_config(&self.app);
             if let Some(cache) = read::<Cache>(cache_file(&self.app)).filter(|c| c.version == engine::CACHE_VERSION) {
@@ -531,7 +532,7 @@ impl Worker {
         let auth = self.app.state::<github::Auth>();
         match auth.login() {
             Ok(login) => {
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.held();
                 state.auth_unknown = false;
                 if state.me != login {
                     state.me = login;
@@ -543,7 +544,7 @@ impl Worker {
             }
             // Offline: keep last launch's account and try again on the next refresh.
             Err(message) => {
-                let mut state = self.state.lock().unwrap();
+                let mut state = self.state.held();
                 state.auth_unknown = true;
                 state.status = Status { phase: "error", error: Some(message), updated_at: state.status.updated_at };
             }
@@ -552,7 +553,7 @@ impl Worker {
     }
 
     fn reload_config(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.held();
         state.config = read_config(&self.app);
         // The new rules on what's known already, before GitHub answers.
         self.apply(&mut state);
@@ -561,12 +562,12 @@ impl Worker {
     }
 
     fn refresh(&self, force: bool) {
-        let auth_unknown = self.state.lock().unwrap().auth_unknown;
+        let auth_unknown = self.state.held().auth_unknown;
         if auth_unknown {
             self.check_auth();
         }
         let (config, me, mut cache, full) = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.held();
             let (Some(config), Some(me)) = (state.config.clone(), state.me.clone()) else { return };
             if state.auth_unknown || now() < state.retry_at {
                 return;
@@ -590,7 +591,7 @@ impl Worker {
             eprintln!("[watch] refresh (force {force}, full {full}) in {:?}: {fetched} fetched in full, {} known", started.elapsed(), cache.prs.len());
         }
 
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.held();
         state.cache = cache;
         match result {
             Ok(_) => {
@@ -759,15 +760,15 @@ impl Worker {
     /// the tray counts down. What was kept for review times that won't come any more shows now.
     fn review_tick(&self) {
         let now = now();
-        let over = self.state.lock().unwrap().persisted.run.as_ref().is_some_and(|r| now >= r.ends_at());
+        let over = self.state.held().persisted.run.as_ref().is_some_and(|r| now >= r.ends_at());
         if over {
             // How far it got, from the queues as they are now.
             self.refresh(true);
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.held();
             self.end_run(&mut state, true);
         }
         let due = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.held();
             let Some(config) = state.config.clone() else { return };
             if !review::is_scheduled(&config.review_time) && state.persisted.run.is_none() && state.persisted.held.iter().any(|h| h.until == Until::Review) {
                 let waiting = take_held(&mut state, Until::Review);
@@ -783,10 +784,10 @@ impl Worker {
         if let Some(session) = due {
             // What's waiting as it stands now, not as of the last refresh.
             self.refresh(true);
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.held();
             self.start_run(&mut state, &session, now);
         }
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.held();
         self.update_countdown(&mut state, now);
         drop(state);
         if over || started {
@@ -850,7 +851,7 @@ impl Worker {
     }
 
     fn end_review(&self) {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.held();
         self.end_run(&mut state, false);
         self.update_countdown(&mut state, now());
         drop(state);
@@ -882,7 +883,7 @@ impl Worker {
     /// The panel, when it's open, gets the new state. Nothing is serialized when it's closed.
     fn publish(&self) {
         if self.app.get_webview_window(crate::PANEL).is_some() {
-            let snapshot = self.state.lock().unwrap().snapshot();
+            let snapshot = self.state.held().snapshot();
             let _ = self.app.emit_to(crate::PANEL, "snapshot", snapshot);
         }
     }

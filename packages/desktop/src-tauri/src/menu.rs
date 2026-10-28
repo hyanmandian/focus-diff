@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, Theme};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 /// The commands that act on the review in front.
 const REVIEW: &[&str] = &[
@@ -40,7 +41,7 @@ pub fn relocalize(app: &AppHandle) {
     // Where there's no menu bar, the tray icon's menu is the one to say again.
     #[cfg(not(target_os = "macos"))]
     if let (Some(tray), Ok(menu)) = (app.try_state::<crate::Tray>(), crate::tray_menu(app))
-        && let Some(icon) = tray.0.lock().unwrap().as_ref()
+        && let Some(icon) = tray.0.held().as_ref()
     {
         let _ = icon.set_menu(Some(menu));
     }
@@ -49,7 +50,7 @@ pub fn relocalize(app: &AppHandle) {
     if app.set_menu(menu).is_err() {
         return;
     }
-    *review.items.lock().unwrap() = items;
+    *review.items.held() = items;
     if let Some((label, _)) = app.webview_windows().into_iter().find(|(_, w)| w.is_focused().unwrap_or(false)) {
         focused(app, &label);
     } else {
@@ -163,9 +164,9 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
 /// A window came to the front: the review commands follow it.
 pub fn focused(app: &AppHandle, label: &str) {
     let Some(review) = app.try_state::<ReviewItems>() else { return };
-    let state = review.state.lock().unwrap();
+    let state = review.state.held();
     let mine = label.starts_with("review-").then(|| state.get(label)).map(|s| s.cloned().unwrap_or_default());
-    for (id, item) in review.items.lock().unwrap().iter() {
+    for (id, item) in review.items.held().iter() {
         // A review that hasn't said yet: everything on until it does.
         let _ = item.set_enabled(mine.as_ref().is_some_and(|s| s.get(*id).copied().unwrap_or(true)));
     }
@@ -177,7 +178,7 @@ pub fn menu_state(app: AppHandle, window: tauri::WebviewWindow, items: HashMap<S
     let label = window.label().to_string();
     // No menu bar (and so nothing to keep) where the app has none: Windows and Linux.
     let Some(review) = app.try_state::<ReviewItems>() else { return };
-    review.state.lock().unwrap().insert(label.clone(), items);
+    review.state.held().insert(label.clone(), items);
     if window.is_focused().unwrap_or(false) {
         focused(&app, &label);
     }
@@ -185,7 +186,7 @@ pub fn menu_state(app: AppHandle, window: tauri::WebviewWindow, items: HashMap<S
 
 pub fn forget(app: &AppHandle, label: &str) {
     if let Some(review) = app.try_state::<ReviewItems>() {
-        review.state.lock().unwrap().remove(label);
+        review.state.held().remove(label);
     }
 }
 

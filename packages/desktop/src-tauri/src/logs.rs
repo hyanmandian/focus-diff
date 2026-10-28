@@ -12,6 +12,7 @@ use serde::Serialize;
 
 use crate::github::{self, name_ok, Auth};
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 /// The most of a log kept: its last megabyte.
 const TAIL: usize = 1024 * 1024;
@@ -35,11 +36,11 @@ impl Logs {
     const MOST: usize = 12;
 
     fn get(&self, job: u64) -> Option<Log> {
-        self.kept.lock().unwrap().0.get(&job).cloned()
+        self.kept.held().0.get(&job).cloned()
     }
 
     fn put(&self, job: u64, log: Log) {
-        let mut kept = self.kept.lock().unwrap();
+        let mut kept = self.kept.held();
         let (map, order) = &mut *kept;
         if map.insert(job, log).is_none() {
             order.push_back(job);

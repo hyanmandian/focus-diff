@@ -11,6 +11,7 @@ use objc2::{define_class, ClassType, MainThreadOnly};
 use objc2_app_kit::{NSPanel, NSResponder, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask};
 use objc2_foundation::NSObject;
 use std::sync::Mutex;
+use crate::sync::Locked;
 
 define_class!(
     #[unsafe(super(NSPanel, NSWindow, NSResponder, NSObject))]
@@ -59,7 +60,7 @@ pub unsafe fn make(window: &NSWindow) {
     // SAFETY: as above. objc2's set_class insists on equal sizes, which tao's extra state rules
     // out, so the runtime's own call.
     unsafe { objc2::ffi::object_setClass(object as *const AnyObject as *mut AnyObject, Floating::class()) };
-    *ORIGINAL.lock().unwrap() = Some(original);
+    *ORIGINAL.held() = Some(original);
     window.setStyleMask(window.styleMask() | NSWindowStyleMask::NonactivatingPanel);
     // SAFETY: it's an NSPanel now.
     let panel = unsafe { &*(window as *const NSWindow as *const NSPanel) };
@@ -83,7 +84,7 @@ pub unsafe fn unmake(window: &NSWindow) {
     if object.class() != Floating::class() {
         return;
     }
-    if let Some(original) = ORIGINAL.lock().unwrap().take() {
+    if let Some(original) = ORIGINAL.held().take() {
         // SAFETY: the class it had before `make`, so tao's own dealloc frees its state.
         unsafe { objc2::ffi::object_setClass(object as *const AnyObject as *mut AnyObject, original) };
     }

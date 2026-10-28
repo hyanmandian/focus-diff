@@ -14,6 +14,7 @@ use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::time::Duration;
 
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Rect};
+use crate::sync::Locked;
 
 pub fn start(app: &AppHandle) {
     let Ok(path) = std::env::var("FOCUS_DIFF_DEVCTL") else { return };
@@ -117,7 +118,7 @@ fn run(app: &AppHandle, command: &str) {
             .map_err(|e| e.to_string())
         }
         (Some("tray"), _, _) => {
-            let rect = app.state::<crate::Tray>().0.lock().unwrap().as_ref().and_then(|t| t.rect().ok().flatten());
+            let rect = app.state::<crate::Tray>().0.held().as_ref().and_then(|t| t.rect().ok().flatten());
             eprintln!("[devctl] tray: {rect:?}");
             Ok(())
         }

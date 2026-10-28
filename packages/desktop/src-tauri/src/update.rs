@@ -9,6 +9,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 const FIRST_CHECK: Duration = Duration::from_secs(30);
 const EVERY: Duration = Duration::from_secs(6 * 3600);
@@ -36,7 +37,7 @@ pub async fn check(app: &AppHandle) -> Result<Option<String>, String> {
         }
     };
     let version = update.as_ref().map(|u| u.version.clone());
-    *app.state::<Pending>().0.lock().unwrap() = update;
+    *app.state::<Pending>().0.held() = update;
     if let Some(version) = &version {
         let _ = app.emit("update-available", version);
     }
@@ -44,12 +45,12 @@ pub async fn check(app: &AppHandle) -> Result<Option<String>, String> {
 }
 
 pub fn offered(app: &AppHandle) -> Option<String> {
-    app.state::<Pending>().0.lock().unwrap().as_ref().map(|u| u.version.clone())
+    app.state::<Pending>().0.held().as_ref().map(|u| u.version.clone())
 }
 
 /// Downloads and installs the version on offer, then restarts into it.
 pub async fn install(app: &AppHandle) -> Result<(), String> {
-    let update = app.state::<Pending>().0.lock().unwrap().take().ok_or_else(|| tr!("No update to install", "Não há atualização para instalar"))?;
+    let update = app.state::<Pending>().0.held().take().ok_or_else(|| tr!("No update to install", "Não há atualização para instalar"))?;
     update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
     app.restart();
 }

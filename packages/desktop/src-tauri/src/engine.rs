@@ -1170,6 +1170,7 @@ pub fn fresh_events<'a>(items: &'a [Item], queues: &[&Queue], previous: &HashSet
 
 #[cfg(test)]
 mod tests {
+    use crate::sync::Locked;
     use super::*;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1560,8 +1561,8 @@ mod tests {
 
     impl Gql for Script {
         fn query(&self, _query: &str, variables: Value) -> Result<Value, Failure> {
-            self.calls.lock().unwrap().push(variables);
-            self.replies.lock().unwrap().remove(0)
+            self.calls.held().push(variables);
+            self.replies.held().remove(0)
         }
     }
 
@@ -1582,7 +1583,7 @@ mod tests {
         };
         let found = search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap();
         assert_eq!(found.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(), ["PR_A"]);
-        let sizes: Vec<u64> = script.calls.lock().unwrap().iter().map(|v| v["size"].as_u64().unwrap()).collect();
+        let sizes: Vec<u64> = script.calls.held().iter().map(|v| v["size"].as_u64().unwrap()).collect();
         assert_eq!(sizes, [100, 50, 25]);
 
         let script = Script { replies: Mutex::new(vec![Err(Failure { status: 401, message: "Bad credentials".into() })]), calls: Mutex::new(vec![]) };
@@ -1602,12 +1603,12 @@ mod tests {
 
         let second = Script { replies: Mutex::new(vec![page(json!([light("A", "1"), light("B", "2")])), Ok(json!({ "nodes": [full("B")] }))]), calls: Mutex::new(vec![]) };
         sync(&second, &[&q], ME, &mut cache, false, false, T0).unwrap();
-        let calls = second.calls.lock().unwrap();
+        let calls = second.calls.held();
         assert_eq!(calls[1]["ids"], json!(["B"]));
 
         let third = Script { replies: Mutex::new(vec![page(json!([light("A", "1")]))]), calls: Mutex::new(vec![]) };
         sync(&third, &[&q], ME, &mut cache, false, false, T0).unwrap();
-        assert_eq!(third.calls.lock().unwrap().len(), 1, "nothing changed: no second request");
+        assert_eq!(third.calls.held().len(), 1, "nothing changed: no second request");
         assert_eq!(cache.prs.keys().collect::<Vec<_>>(), ["A"], "B left the queue and the cache");
     }
 }

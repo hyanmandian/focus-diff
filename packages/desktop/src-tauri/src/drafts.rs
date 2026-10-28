@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::github;
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 const LONGEST_WAIT: Duration = Duration::from_secs(30);
 /// How long submitting the review waits for its comments to reach GitHub.
@@ -223,7 +224,7 @@ impl Drafts {
 
     fn change(&self, f: impl FnOnce(&mut Queue)) {
         let (lock, wake, _) = &*self.queue;
-        let mut queue = lock.lock().unwrap();
+        let mut queue = lock.held();
         f(&mut queue);
         queue.woken = true;
         crate::disk::save_json(self.file.as_deref(), &queue.saved);
@@ -247,7 +248,7 @@ impl Drafts {
     }
 
     pub fn pending(&self, pull: &str) -> Pending {
-        self.queue.0.lock().unwrap().pending(pull)
+        self.queue.0.held().pending(pull)
     }
 
     /// Waits until every change to a pull request's comments is on GitHub, to submit the review
@@ -256,7 +257,7 @@ impl Drafts {
     pub fn flush(&self, pull: &str) -> Result<(), String> {
         let (lock, wake, done) = &*self.queue;
         let deadline = Instant::now() + FLUSH_FOR;
-        let mut queue = lock.lock().unwrap();
+        let mut queue = lock.held();
         let unreachable = queue.unreachable;
         loop {
             let jobs: Vec<&Job> = queue.saved.jobs.iter().filter(|j| j.change.pull() == pull).collect();
@@ -285,7 +286,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&
     let mut failures = 0u32;
     loop {
         let (job, synced) = {
-            let mut q = lock.lock().unwrap();
+            let mut q = lock.held();
             loop {
                 if let Some(job) = q.next() {
                     q.woken = false;
@@ -296,7 +297,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&
             }
         };
         let sent = send(&app.state::<github::Auth>(), &job, synced);
-        let mut q = lock.lock().unwrap();
+        let mut q = lock.held();
         failures = if matches!(sent, Sent::Later(_)) { failures + 1 } else { 0 };
         q.settle(&job, &sent);
         crate::disk::save_json(file, &q.saved);

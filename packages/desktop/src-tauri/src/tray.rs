@@ -16,6 +16,7 @@ use tauri::tray::TrayIcon;
 use tauri::{AppHandle};
 
 use crate::i18n::tr;
+use crate::sync::Locked;
 
 const SIZE: u32 = 36; // 18pt at 2x, the menu bar's icon size
 const SUPERSAMPLE: u32 = 4;
@@ -187,7 +188,7 @@ fn tooltip(count: u32) -> String {
         1 => tr!("1 pull request waiting on you", "1 pull request esperando por você"),
         n => tr!("{n} pull requests waiting on you", "{n} pull requests esperando por você"),
     };
-    match *COUNTDOWN.lock().unwrap() {
+    match *COUNTDOWN.held() {
         Some(minutes) => {
             let left = left(minutes);
             tr!("Focus Diff: review time, {left} left · {waiting}", "Focus Diff: review time, faltam {left} · {waiting}")
@@ -199,7 +200,7 @@ fn tooltip(count: u32) -> String {
 /// The countdown beside the icon, as text (only the Mac's menu bar shows text beside an icon).
 #[cfg(target_os = "macos")]
 fn title() -> Option<String> {
-    COUNTDOWN.lock().unwrap().map(left)
+    COUNTDOWN.held().map(left)
 }
 
 static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -207,7 +208,7 @@ static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::
 /// Shows (or, with None, takes away) review time's countdown beside the icon. Windows has no text
 /// beside a tray icon, so there it's in the tooltip only.
 pub fn countdown(tray: &TrayIcon, minutes: Option<i64>) {
-    *COUNTDOWN.lock().unwrap() = minutes;
+    *COUNTDOWN.held() = minutes;
     relocalize(tray);
 }
 

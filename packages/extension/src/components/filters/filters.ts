@@ -1,6 +1,6 @@
 import { i18n } from "#i18n";
 import type { PanelContext } from "@/components/panel/panel";
-import { FADE, scrollBehavior, scrollRow } from "@/components/scroll-row/scroll-row";
+import { FADE, placeIndicator, scrollBehavior, scrollRow } from "@/components/scroll-row/scroll-row";
 import { h } from "@/utils/dom/dom";
 import { formatNumber as format } from "@/utils/format/format";
 
@@ -37,13 +37,8 @@ export const createFilters = ({ focused, signal }: PanelContext, onToggle: (id: 
     const target = pressed[0];
     if (pressed.length !== 1 || !target?.offsetWidth) return;
     // Only chips are pressed, so with one pressed there's a last chip.
-    const last = options().at(-1)!;
     // The indicator spans every chip, not just the visible part of the row, so it scrolls along with them.
-    const width = last.offsetLeft + last.offsetWidth;
-    indicator.style.width = `${width}px`;
-    const right = width - target.offsetLeft - target.offsetWidth;
-    const bottom = indicator.offsetHeight - target.offsetTop - target.offsetHeight;
-    indicator.style.clipPath = `inset(${target.offsetTop}px ${right}px ${bottom}px ${target.offsetLeft}px round 8px)`;
+    placeIndicator(indicator, target, options().at(-1)!);
     if (!indicator.classList.contains("ready"))
       requestAnimationFrame(() => {
         indicator.classList.add("ready");

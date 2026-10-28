@@ -15,7 +15,7 @@ import {
 } from "@/components/icons/icons";
 import { renderReviewPanel } from "@/components/popup-review-time/popup-review-time";
 import { rowMenu } from "@/components/row-menu/row-menu";
-import { FADE, scrollRow } from "@/components/scroll-row/scroll-row";
+import { FADE, placeIndicator, scrollRow } from "@/components/scroll-row/scroll-row";
 import { customThemeCss, normalizeAppearance, type Appearance } from "@/utils/appearance/appearance";
 import { h } from "@/utils/dom/dom";
 import { $, reveal, translateDocument } from "@/utils/extension-page/extension-page";
@@ -520,11 +520,7 @@ export const startPopup = (): void => {
       const pressed = chips.querySelector<HTMLElement>('[aria-pressed="true"]');
       const last = chips.querySelector<HTMLElement>(".chip:last-child");
       if (!pressed?.offsetWidth || !last) return;
-      const width = last.offsetLeft + last.offsetWidth;
-      highlight.style.width = `${width}px`;
-      const right = width - pressed.offsetLeft - pressed.offsetWidth;
-      const bottom = highlight.offsetHeight - pressed.offsetTop - pressed.offsetHeight;
-      highlight.style.clipPath = `inset(${pressed.offsetTop}px ${right}px ${bottom}px ${pressed.offsetLeft}px round 8px)`;
+      placeIndicator(highlight, pressed, last);
       highlightAt[list] = { clip: highlight.style.clipPath, width: highlight.style.width };
     };
     // The bar's row: arrows and a fade at a side with more chips, and the wheel scrolling it sideways.

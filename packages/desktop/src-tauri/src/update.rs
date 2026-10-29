@@ -21,7 +21,7 @@ pub async fn check(app: &AppHandle) -> Result<Option<String>, String> {
         Ok(update) => update,
         Err(Error::ReleaseNotFound | Error::TargetNotFound(_) | Error::TargetsNotFound(..)) => None,
         Err(e) => {
-            eprintln!("Checking for updates failed: {e}");
+            crate::diagnostics::write("update", &format!("checking for updates failed: {e}"));
             return Err(match e {
                 Error::Reqwest(_) | Error::Network(_) => tr!("Couldn't reach the update server. Check your connection and try again.", "Não foi possível falar com o servidor de atualizações. Verifique sua conexão e tente de novo."),
                 _ => tr!("The update server's answer couldn't be read. Try again later.", "Não foi possível ler a resposta do servidor de atualizações. Tente de novo mais tarde."),

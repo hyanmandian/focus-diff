@@ -14,8 +14,16 @@ const signedIn: AuthStatus = {
   login: "octocat",
   device_flow: true,
   gh_available: false,
+  gh_signed_in: false,
 };
-const signedOut: AuthStatus = { signed_in: false, source: null, login: null, device_flow: true, gh_available: false };
+const signedOut: AuthStatus = {
+  signed_in: false,
+  source: null,
+  login: null,
+  device_flow: true,
+  gh_available: false,
+  gh_signed_in: false,
+};
 
 type Answers = {
   config?: Config;

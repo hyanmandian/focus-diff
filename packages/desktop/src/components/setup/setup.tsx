@@ -13,6 +13,7 @@ import { bridge, type AiStatus, type AuthStatus } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
+  defaultConfig,
   isRepoPattern,
   loadConfig,
   saveConfig,
@@ -88,13 +89,30 @@ export function Setup() {
   const [startRepos, setStartRepos] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const t = useT();
   useTheme(config?.theme);
 
   useEffect(() => {
-    void bridge.authStatus().then(setAuth);
+    void bridge
+      .authStatus()
+      .then(setAuth)
+      .catch((error: unknown) => {
+        console.error("Setup couldn't check GitHub", error);
+        setAuth({
+          signed_in: false,
+          source: null,
+          login: null,
+          device_flow: false,
+          gh_available: false,
+          gh_signed_in: false,
+        });
+      });
     void (async () => {
-      const c = await loadConfig();
+      const c = await loadConfig({ create: false }).catch((error: unknown) => {
+        console.error("Setup couldn't read the settings", error);
+        return defaultConfig();
+      });
       setConfig(c);
       setKinds(new Set(c.queues.filter((q) => q.enabled).map((q) => q.kind)));
       const shared = c.queues[0]?.repos ?? [];
@@ -103,7 +121,13 @@ export function Setup() {
         setStartRepos(shared);
       }
     })();
-    void bridge.aiStatuses().then(setStatuses);
+    void bridge
+      .aiStatuses()
+      .then(setStatuses)
+      .catch((error: unknown) => {
+        console.error("Setup couldn't check the AI tools", error);
+        setStatuses([]);
+      });
   }, []);
 
   if (!config)
@@ -133,13 +157,20 @@ export function Setup() {
   const finish = async () => {
     if (saving) return;
     setSaving(true);
-    await saveConfig(finalConfig());
-    await bridge.openPanel();
-    await platform().closeWindow();
+    setFailed(null);
+    try {
+      await saveConfig(finalConfig());
+      await bridge.openPanel();
+      await platform().closeWindow();
+    } catch (error) {
+      console.error("Setup couldn't finish", error);
+      setFailed(error instanceof Error ? error.message : String(error));
+      setSaving(false);
+    }
   };
 
   const at = STEPS[step];
-  const canContinue = at === "github" ? Boolean(auth?.signed_in) : at === "queues" ? kinds.size > 0 : true;
+  const canContinue = at === "queues" ? kinds.size > 0 : true;
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (
       e.key !== "Enter" ||
@@ -388,6 +419,15 @@ export function Setup() {
       </main>
 
       <footer className="flex h-14 shrink-0 items-center gap-2 border-t px-5">
+        {failed ? (
+          <p className="truncate text-callout text-destructive" role="alert">
+            {t("setup.finishFailed", { error: failed })}
+          </p>
+        ) : (
+          <Button variant="link" className="px-0 text-callout" onClick={() => void bridge.reportProblem()}>
+            {t("setup.trouble")}
+          </Button>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {at === "ai" && !config.ai.provider ? (
             <span className="text-callout text-muted-foreground">{t("setup.laterAi")}</span>
@@ -411,7 +451,7 @@ export function Setup() {
               }}
               disabled={!canContinue}
             >
-              {t("setup.continue")}
+              {at === "github" && !auth?.signed_in ? t("setup.later") : t("setup.continue")}
             </Button>
           ) : (
             <Button onClick={() => void finish()} disabled={saving}>

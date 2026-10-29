@@ -32,7 +32,7 @@ pub fn prepare() {
     SYMBOL.get_or_init(|| {
         #[cfg(target_os = "macos")]
         {
-            (0..=STEPS).map(|i| symbol::render(15.0 + 2.0 * i as f64 / STEPS as f64)).collect()
+            (0..=STEPS).map(|i| symbol::render(13.0 + 1.5 * i as f64 / STEPS as f64)).collect()
         }
         #[cfg(not(target_os = "macos"))]
         None
@@ -98,11 +98,11 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
                 for s in 0..SUPERSAMPLE * SUPERSAMPLE {
                     let x = (px + ((s % SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
                     let y = (py + ((s / SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
-                    hits += ((x - 15.0).powi(2) + (y - 3.0).powi(2) <= r * r) as u32;
+                    hits += ((x - 14.3).powi(2) + (y - 3.7).powi(2) <= r * r) as u32;
                 }
                 hits as f32 / (SUPERSAMPLE * SUPERSAMPLE) as f32
             };
-            (cover(2.6) * 255.0).max(a as f32 * (1.0 - cover(4.1))) as u8
+            (cover(2.4) * 255.0).max(a as f32 * (1.0 - cover(3.8))) as u8
         } else {
             a
         };

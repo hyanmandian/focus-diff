@@ -66,7 +66,7 @@ fn clicked(app: &AppHandle, identifier: &str) {
 
 pub fn start(app: &AppHandle) {
     if !bundled() {
-        eprintln!("[notify] not in an app bundle: notifications are off");
+        crate::diagnostics::write("notify", "not in an app bundle: notifications are off");
         return;
     }
     let _ = APP.set(app.clone());
@@ -78,7 +78,7 @@ pub fn start(app: &AppHandle) {
         if !granted.as_bool() {
             // SAFETY: the system passes a valid NSError or null, alive for the call.
             let why = unsafe { error.as_ref() }.map(|e| e.localizedDescription().to_string()).unwrap_or_else(|| "turned off in System Settings".into());
-            eprintln!("[notify] notifications aren't allowed: {why}");
+            crate::diagnostics::write("notify", &format!("notifications aren't allowed: {why}"));
         }
     });
     center.requestAuthorizationWithOptions_completionHandler(UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound, &done);
@@ -100,7 +100,7 @@ pub fn show(title: &str, body: &str, sound: bool, url: Option<&str>) {
     let done = RcBlock::new(|error: *mut NSError| {
         // SAFETY: the system passes a valid NSError or null, alive for the call.
         if let Some(e) = unsafe { error.as_ref() } {
-            eprintln!("[notify] not shown: {}", e.localizedDescription());
+            crate::diagnostics::write("notify", &format!("not shown: {}", e.localizedDescription()));
         }
     });
     UNUserNotificationCenter::currentNotificationCenter().addNotificationRequest_withCompletionHandler(&request, Some(&done));

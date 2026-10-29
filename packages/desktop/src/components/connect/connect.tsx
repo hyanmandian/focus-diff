@@ -9,9 +9,12 @@ import { i18n, useT } from "@/utils/i18n/i18n";
 
 type Props = { auth: AuthStatus | null; onConnected: () => void };
 
+export const NEW_TOKEN = "https://github.com/settings/tokens/new?scopes=repo,read:org&description=Focus%20Diff";
+
 export function Connect({ auth, onConnected }: Props) {
   const [code, setCode] = useState<DeviceCode | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedCommand, setCopiedCommand] = useState(false);
   const [busy, setBusy] = useState<"device" | "gh" | "token" | null>(null);
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(!auth?.device_flow && !auth?.gh_available);
@@ -86,6 +89,26 @@ export function Connect({ auth, onConnected }: Props) {
           {t("shared.connectSignIn")}
         </Button>
       ) : null}
+      {auth?.gh_available && !auth.gh_signed_in ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-callout text-muted-foreground">{t("shared.connectGhSignedOut")}</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-md bg-muted px-3 py-1.5 font-mono text-callout">gh auth login</code>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t("shared.connectCopyCommand")}
+              onClick={() => {
+                void navigator.clipboard.writeText("gh auth login").then(() => {
+                  setCopiedCommand(true);
+                });
+              }}
+            >
+              {copiedCommand ? <Check /> : <Copy />}
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {auth?.gh_available ? (
         <Button
           size="lg"
@@ -120,7 +143,10 @@ export function Connect({ auth, onConnected }: Props) {
           <p className="text-callout text-muted-foreground">
             {t("shared.connectTokenNeedsBefore")} <code>repo</code> {t("shared.connectTokenNeedsAnd")}{" "}
             <code>read:org</code>
-            {t("shared.connectTokenNeedsAfter")}
+            {t("shared.connectTokenNeedsAfter")}{" "}
+            <Button variant="link" className="h-auto p-0 text-callout" onClick={() => void bridge.openUrl(NEW_TOKEN)}>
+              {t("shared.connectCreateToken")} <ExternalLink />
+            </Button>
           </p>
           <Button type="submit" variant="outline" disabled={!token.trim() || busy !== null}>
             {busy === "token" ? <Loader2 className="animate-spin" /> : <KeyRound />}

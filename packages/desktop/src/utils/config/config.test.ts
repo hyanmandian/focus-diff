@@ -428,6 +428,13 @@ describe("the settings file", () => {
     expect(JSON.parse(written[0]!)).toEqual(config);
   });
 
+  it("leaves the file unwritten when asked to, so setup can be left halfway", async () => {
+    const written = disk(null);
+    const config = await loadConfig({ create: false });
+    expect(config.queues.map((q) => q.kind)).toEqual(["review", "involved", "authored"]);
+    expect(written).toEqual([]);
+  });
+
   it("reads the file through normalize", async () => {
     const written = disk(JSON.stringify({ pollSeconds: 120, theme: "dark" }));
     await expect(loadConfig()).resolves.toMatchObject({ pollSeconds: 120, theme: "dark" });

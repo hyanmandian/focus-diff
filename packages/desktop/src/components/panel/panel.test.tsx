@@ -139,7 +139,14 @@ async function setup(
         return update;
       }
       case "auth_status": {
-        return { signed_in: false, source: null, login: null, device_flow: true, gh_available: true };
+        return {
+          signed_in: false,
+          source: null,
+          login: null,
+          device_flow: true,
+          gh_available: true,
+          gh_signed_in: true,
+        };
       }
       case "take_link": {
         if (waiting === "refused") throw new Error("no such command");

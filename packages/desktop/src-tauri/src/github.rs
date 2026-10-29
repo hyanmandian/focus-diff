@@ -100,7 +100,7 @@ impl Etags {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Source {
     Keychain,
@@ -114,6 +114,7 @@ pub struct Status {
     pub login: Option<String>,
     pub device_flow: bool,
     pub gh_available: bool,
+    pub gh_signed_in: bool,
 }
 
 pub(crate) fn agent() -> &'static ureq::Agent {
@@ -152,22 +153,23 @@ fn gh_path() -> Option<String> {
         ]
     };
     candidates.into_iter().find(|p| {
-        Command::new(p)
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        crate::ai::run_with_limit(Command::new(p).arg("--version"), None, Duration::from_secs(10)).is_ok_and(|o| o.status_ok)
     })
 }
 
 fn gh_token() -> Result<String, String> {
     let gh = gh_path().ok_or_else(|| tr!("The GitHub CLI isn't installed", "O GitHub CLI não está instalado"))?;
-    let output = Command::new(gh)
-        .args(["auth", "token", "--hostname", "github.com"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if !output.status.success() || token.is_empty() {
+    gh_token_from(&gh)
+}
+
+fn gh_token_from(gh: &str) -> Result<String, String> {
+    let output = crate::ai::run_with_limit(Command::new(gh).args(["auth", "token", "--hostname", "github.com"]), None, Duration::from_secs(20)).map_err(|e| {
+        crate::diagnostics::write("auth", &format!("gh auth token: {e}"));
+        tr!("The GitHub CLI didn't answer. Try again, or use a token.", "O GitHub CLI não respondeu. Tente de novo ou use um token.")
+    })?;
+    let token = output.stdout.trim().to_string();
+    if !output.status_ok || token.is_empty() {
+        crate::diagnostics::write("auth", "gh auth token answered without a token");
         return Err(tr!("The GitHub CLI isn't signed in: run `gh auth login`", "O GitHub CLI não está conectado: rode `gh auth login`"));
     }
     Ok(token)
@@ -224,12 +226,19 @@ impl Auth {
 
     pub fn status(&self) -> Status {
         let login = self.login().ok().flatten();
+        let gh = gh_path();
+        let gh_signed_in = match (&gh, &login) {
+            (Some(gh), None) => gh_token_from(gh).is_ok(),
+            (Some(_), Some(_)) => *self.source.held() == Some(Source::Gh),
+            (None, _) => false,
+        };
         Status {
             signed_in: login.is_some(),
             source: if login.is_some() { *self.source.held() } else { None },
             login,
             device_flow: CLIENT_ID.is_some(),
-            gh_available: gh_path().is_some(),
+            gh_available: gh.is_some(),
+            gh_signed_in,
         }
     }
 

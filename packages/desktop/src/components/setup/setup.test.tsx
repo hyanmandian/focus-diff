@@ -29,6 +29,7 @@ const signedIn: AuthStatus = {
   login: "octocat",
   device_flow: false,
   gh_available: true,
+  gh_signed_in: true,
 };
 const signedOut: AuthStatus = { ...signedIn, signed_in: false, source: null, login: null };
 
@@ -131,21 +132,43 @@ describe("Setup", () => {
     expect(screen.getByRole("listitem", { current: "step" }).textContent).toBe("GitHub");
   });
 
-  it("asks to connect GitHub first, and goes on once it is", async () => {
+  it("asks to connect GitHub, lets it wait for later, and says who once it is", async () => {
     let auth = signedOut;
     answer({ auth: () => Promise.resolve(auth) });
     const user = userEvent.setup();
     render(<Setup />);
     const useGh = await screen.findByRole("button", { name: "Use the GitHub CLI's login" });
-    expect(screen.getByRole("button", { name: "Continue" }).hasAttribute("disabled")).toBe(true);
-
-    enter(screen.getByRole("heading", { level: 1 }));
-    expect(screen.getByRole("heading", { name: "Your reviews, without opening GitHub" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in later" }).hasAttribute("disabled")).toBe(false);
 
     auth = signedIn;
     await user.click(useGh);
     expect(await screen.findByText("@octocat")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("goes on without GitHub when it's left for later", async () => {
+    const { sent } = answer({ auth: () => Promise.resolve(signedOut) });
+    const user = userEvent.setup();
+    render(<Setup />);
+    await user.click(await screen.findByRole("button", { name: "Sign in later" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What should it watch?");
+    for (const box of screen.getAllByRole("checkbox"))
+      if (box.getAttribute("aria-checked") === "true") await user.click(box);
+    enter(screen.getByRole("heading", { level: 1 }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What should it watch?");
+    expect(sent("write_file")).toEqual([]);
+  });
+
+  it("still opens when it can't check GitHub, the settings or the AI tools", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    answer({
+      auth: () => Promise.reject(new Error("gh hung")),
+      read: () => Promise.reject(new Error("no disk")),
+      statuses: () => Promise.reject(new Error("no ai")),
+    });
+    render(<Setup />);
+    expect(await screen.findByLabelText("Personal access token")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in later" })).toBeTruthy();
   });
 
   it("shows it's checking GitHub until it hears back", async () => {
@@ -219,6 +242,42 @@ describe("Setup", () => {
     ]);
     expect(final.queues[0]!.id).toBe(config.queues[0]!.id);
     expect(final).toMatchObject({ sound: true, pollSeconds: 300, ai: { provider: "claude" } });
+  });
+
+  it("says why it couldn't finish and lets you try again", async () => {
+    const failures: unknown[] = [new Error("disk full"), "no room"];
+    const { sent } = answer({
+      write: () => (failures.length > 0 ? Promise.reject(failures.shift()) : Promise.resolve()),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<Setup />);
+    await screen.findByText("@octocat");
+    await toAi(user);
+    await next(user);
+    const open = screen.getByRole("button", { name: "Open Focus Diff" });
+
+    await user.click(open);
+    expect((await screen.findByRole("alert")).textContent).toBe("Couldn't finish: disk full");
+    expect(open.hasAttribute("disabled")).toBe(false);
+    await user.click(open);
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toBe("Couldn't finish: no room");
+    });
+    await user.click(open);
+
+    await waitFor(() => {
+      expect(sent(CLOSE_WINDOW)).toHaveLength(1);
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("offers to report a problem from any step", async () => {
+    const { sent } = answer({ auth: () => Promise.resolve(signedOut) });
+    const user = userEvent.setup();
+    render(<Setup />);
+    await user.click(await screen.findByRole("button", { name: "Having trouble? Report a problem" }));
+    expect(sent("report_problem")).toHaveLength(1);
   });
 
   it("keeps the model when the same agent is picked again", async () => {

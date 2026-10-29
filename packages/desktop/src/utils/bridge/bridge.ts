@@ -9,6 +9,7 @@ export type AuthStatus = {
   login: string | null;
   device_flow: boolean;
   gh_available: boolean;
+  gh_signed_in: boolean;
 };
 
 export type DeviceCode = {
@@ -163,6 +164,7 @@ export const bridge = {
   openSettings: () => invoke<void>("open_settings"),
   openSetup: () => invoke<void>("open_setup"),
   openPanel: () => invoke<void>("open_panel"),
+  reportProblem: () => invoke<void>("report_problem"),
   takeLink: () => invoke<string | null>("take_link"),
   installCli: () => invoke<string>("install_cli"),
   cliInstalled: () => invoke<string | null>("cli_installed"),

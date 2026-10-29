@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { Connect } from "@/components/connect/connect";
+import { Connect, NEW_TOKEN } from "@/components/connect/connect";
 import type { AuthStatus, DeviceCode } from "@/utils/bridge/bridge";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
@@ -12,6 +12,7 @@ const auth = (over: Partial<AuthStatus> = {}): AuthStatus => ({
   login: null,
   device_flow: false,
   gh_available: false,
+  gh_signed_in: false,
   ...over,
 });
 
@@ -67,7 +68,9 @@ describe("Connect", () => {
     const calls = rust({ auth_device_start: CODE, open_url: null, auth_device_finish: finished.promise });
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     const onConnected = vi.fn<() => void>();
-    render(<Connect auth={auth({ device_flow: true, gh_available: true })} onConnected={onConnected} />);
+    render(
+      <Connect auth={auth({ device_flow: true, gh_available: true, gh_signed_in: true })} onConnected={onConnected} />,
+    );
     expect(screen.queryByLabelText("Personal access token")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Sign in with GitHub" }));
     const status = await screen.findByRole("status");
@@ -111,7 +114,7 @@ describe("Connect", () => {
     const used = deferred();
     rust({ auth_use_gh: used.promise });
     const onConnected = vi.fn<() => void>();
-    render(<Connect auth={auth({ gh_available: true })} onConnected={onConnected} />);
+    render(<Connect auth={auth({ gh_available: true, gh_signed_in: true })} onConnected={onConnected} />);
     const gh = screen.getByRole<HTMLButtonElement>("button", { name: "Use the GitHub CLI's login" });
     await userEvent.click(gh);
     expect(gh.disabled).toBe(true);
@@ -125,7 +128,7 @@ describe("Connect", () => {
 
   it("says what went wrong", async () => {
     rust({ auth_use_gh: new Error("gh isn't signed in") });
-    render(<Connect auth={auth({ gh_available: true })} onConnected={() => {}} />);
+    render(<Connect auth={auth({ gh_available: true, gh_signed_in: true })} onConnected={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Use the GitHub CLI's login" }));
     expect((await screen.findByRole("alert")).textContent).toBe("gh isn't signed in");
   });
@@ -133,7 +136,7 @@ describe("Connect", () => {
   it("falls back to a general message for an error with no words", async () => {
     const token = deferred();
     rust({ auth_use_token: token.promise });
-    render(<Connect auth={auth({ gh_available: true })} onConnected={() => {}} />);
+    render(<Connect auth={auth({ gh_available: true, gh_signed_in: true })} onConnected={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Use a personal access token instead" }));
     await userEvent.type(screen.getByLabelText("Personal access token"), "ghp_x");
     await userEvent.click(screen.getByRole("button", { name: "Use this token" }));
@@ -151,5 +154,23 @@ describe("Connect", () => {
     expect(signIn.querySelector(".animate-spin")).not.toBeNull();
     started.reject(new Error("offline"));
     expect((await screen.findByRole("alert")).textContent).toBe("offline");
+  });
+  it("says when the GitHub CLI is there but signed out, with the command to copy", async () => {
+    rust({});
+    const user = userEvent.setup();
+    render(<Connect auth={auth({ gh_available: true })} onConnected={() => {}} />);
+    expect(screen.getByText(/installed but not signed in/u)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Copy the command" }));
+    expect(await navigator.clipboard.readText()).toBe("gh auth login");
+    expect(screen.getByRole("button", { name: "Use the GitHub CLI's login" })).toBeTruthy();
+  });
+
+  it("opens GitHub's page for a new token with the scopes it needs", async () => {
+    const calls = rust({});
+    const user = userEvent.setup();
+    render(<Connect auth={auth()} onConnected={() => {}} />);
+    await user.click(screen.getByRole("button", { name: /Create a token on GitHub/u }));
+    expect(calls).toContainEqual(["open_url", { url: NEW_TOKEN }]);
+    expect(NEW_TOKEN).toContain("scopes=repo,read:org");
   });
 });

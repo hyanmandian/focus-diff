@@ -182,6 +182,7 @@ describe("bridge", () => {
     ["openSettings", () => bridge.openSettings(), "open_settings", {}],
     ["openSetup", () => bridge.openSetup(), "open_setup", {}],
     ["openPanel", () => bridge.openPanel(), "open_panel", {}],
+    ["reportProblem", () => bridge.reportProblem(), "report_problem", {}],
     [
       "openReview",
       () => bridge.openReview(pr),

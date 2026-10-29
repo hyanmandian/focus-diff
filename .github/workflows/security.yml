@@ -49,6 +49,7 @@ jobs:
           scan-args: |
             --config=osv-scanner.toml
             --lockfile=package-lock.json
+            --lockfile=packages/desktop/src-tauri/Cargo.lock
 
   dependency-review:
     name: Review new dependencies

@@ -50,6 +50,8 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          cache: 'false'
 
       - name: Typecheck, lint, format, duplication, dependencies, lockfile and unused code
         run: npm run check
@@ -134,6 +136,8 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          cache: 'false'
 
       - name: Format, lint and typecheck
         run: npx vp check
@@ -149,10 +153,16 @@ jobs:
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Build the app
+        run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg --no-sign
+
+      - name: Sign the updater's archive
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg
+        run: |
+          for file in src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz; do
+            npx tauri signer sign "$file" > /dev/null
+          done
 
       - name: Gather the files
         env:
@@ -202,16 +212,25 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          cache: 'false'
 
       - name: Rust tests
         working-directory: packages/desktop/src-tauri
         run: cargo test --locked
 
       - name: Build the app
+        run: npm run tauri build -- --no-sign
+
+      - name: Sign the updater's files
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri build
+        run: |
+          for file in src-tauri/target/release/bundle/nsis/*-setup.exe src-tauri/target/release/bundle/appimage/*.AppImage; do
+            [ -e "$file" ] && npx tauri signer sign "$file" > /dev/null
+          done
+          true
 
       - name: Gather the files
         env:

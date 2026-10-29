@@ -159,7 +159,7 @@ jobs:
         working-directory: packages/desktop/src-tauri/target/release/bundle/deb
         run: |
           cp ./*.deb focus-diff.deb
-          docker run --rm -v "$PWD:/deb:ro" ubuntu:24.04 bash -c '
+          docker run --rm -v "$PWD:/deb:ro" ubuntu:24.04@sha256:24737cef17f4e22b1977df7d9a05e77c4e28b7da5b8911f8d8ccda136bf3573c bash -c '
             set -e
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -qq

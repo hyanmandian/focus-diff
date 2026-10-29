@@ -64,36 +64,97 @@ struct LoginEnv {
     claude_config_dir: Option<String>,
 }
 
+#[cfg_attr(windows, allow(dead_code))]
+const MARK: &str = "__focus_diff_env__";
+
+#[cfg_attr(windows, allow(dead_code))]
+fn shell_env(output: &str) -> HashMap<String, String> {
+    let Some((_, after)) = output.rsplit_once(MARK) else { return HashMap::new() };
+    after.lines().filter_map(|line| line.split_once('=')).map(|(k, v)| (k.to_string(), v.to_string())).collect()
+}
+
+#[cfg(unix)]
+fn from_shell() -> HashMap<String, String> {
+    let shell = std::env::var("SHELL").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| if cfg!(target_os = "macos") { "/bin/zsh".into() } else { "/bin/sh".into() });
+    let script = format!("echo {MARK}; /usr/bin/env");
+    for flags in ["-ilc", "-lc"] {
+        if let Ok(output) = run_with_limit(Command::new(&shell).args([flags, &script]).env("TERM", "dumb"), None, Duration::from_secs(10)) {
+            let found = shell_env(&output.stdout);
+            if found.contains_key("PATH") {
+                return found;
+            }
+        }
+    }
+    HashMap::new()
+}
+
+#[cfg(windows)]
+fn from_registry() -> Option<String> {
+    let script = "[Environment]::GetEnvironmentVariable('Path','User'); [Environment]::GetEnvironmentVariable('Path','Machine')";
+    let output = run_with_limit(Command::new("powershell").args(["-NoProfile", "-NonInteractive", "-Command", script]), None, Duration::from_secs(10)).ok()?;
+    let joined = output.stdout.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join(";");
+    output.status_ok.then_some(joined).filter(|p| !p.is_empty())
+}
+
+fn versions(root: &Path, inner: &str) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(root) else { return vec![] };
+    let mut found: Vec<PathBuf> = entries.filter_map(Result::ok).map(|e| e.path().join(inner)).filter(|p| p.is_dir()).collect();
+    found.sort();
+    found.reverse();
+    found
+}
+
+fn known_dirs(home: &Path) -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = [".local/bin", ".claude/local", ".npm-global/bin", ".bun/bin", ".volta/bin", ".yarn/bin", ".asdf/shims", ".local/share/mise/shims", ".local/share/pnpm", "Library/pnpm", ".cargo/bin"]
+        .iter()
+        .map(|d| home.join(d))
+        .collect();
+    dirs.extend(versions(&home.join(".nvm/versions/node"), "bin"));
+    dirs.extend(versions(&home.join(".local/share/fnm/node-versions"), "installation/bin"));
+    dirs.extend(versions(&home.join("Library/Application Support/fnm/node-versions"), "installation/bin"));
+    if cfg!(windows) {
+        for (var, inner) in [("APPDATA", "npm"), ("LOCALAPPDATA", "cursor-agent"), ("LOCALAPPDATA", "Programs\\cursor-agent"), ("LOCALAPPDATA", "Volta\\bin"), ("LOCALAPPDATA", "pnpm")] {
+            if let Some(base) = std::env::var_os(var) {
+                dirs.push(PathBuf::from(base).join(inner));
+            }
+        }
+    } else {
+        dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    }
+    dirs
+}
+
 fn login_env() -> &'static LoginEnv {
     static ENV: OnceLock<LoginEnv> = OnceLock::new();
     ENV.get_or_init(|| {
-        #[cfg_attr(windows, allow(unused_mut))]
-        let mut path = std::env::var("PATH").unwrap_or_default();
+        let own = std::env::var("PATH").unwrap_or_default();
         #[cfg_attr(windows, allow(unused_mut))]
         let mut claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok().filter(|d| !d.is_empty());
+        let mut parts: Vec<PathBuf> = Vec::new();
         #[cfg(unix)]
         {
-            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-            if let Ok(output) = run_with_limit(Command::new(shell).args(["-l", "-c", "printf '%s\\n%s' \"$PATH\" \"${CLAUDE_CONFIG_DIR-}\""]), None, Duration::from_secs(5))
-                && output.status_ok {
-                    let mut lines = output.stdout.lines();
-                    if let Some(shell_path) = lines.next().map(str::trim).filter(|p| !p.is_empty()) {
-                        path = format!("{shell_path}:{path}");
-                    }
-                    if let Some(dir) = lines.next().map(str::trim).filter(|d| !d.is_empty() && Path::new(d).is_dir()) {
-                        claude_config_dir = Some(dir.to_string());
-                    }
-                }
-            if let Some(home) = std::env::var_os("HOME") {
-                let home = PathBuf::from(home);
-                for dir in [".local/bin", ".claude/local", ".npm-global/bin", ".bun/bin", ".cargo/bin"] {
-                    path.push(':');
-                    path.push_str(&home.join(dir).to_string_lossy());
-                }
+            let shell = from_shell();
+            if let Some(path) = shell.get("PATH") {
+                parts.extend(std::env::split_paths(path));
             }
-            path.push_str(":/opt/homebrew/bin:/usr/local/bin");
+            if let Some(dir) = shell.get("CLAUDE_CONFIG_DIR").filter(|d| !d.is_empty() && Path::new(d).is_dir()) {
+                claude_config_dir = Some(dir.clone());
+            }
+            crate::diagnostics::write("ai", if shell.contains_key("PATH") { "read the PATH from the login shell" } else { "couldn't read the login shell's PATH" });
         }
-        let default = std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".claude"));
+        #[cfg(windows)]
+        if let Some(path) = from_registry() {
+            parts.extend(std::env::split_paths(&path));
+        }
+        parts.extend(std::env::split_paths(&own));
+        let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
+        if let Some(home) = &home {
+            parts.extend(known_dirs(home));
+        }
+        let mut seen = std::collections::HashSet::new();
+        parts.retain(|p| !p.as_os_str().is_empty() && seen.insert(p.clone()));
+        let path = std::env::join_paths(&parts).map(|p| p.to_string_lossy().into_owned()).unwrap_or(own);
+        let default = home.map(|h| h.join(".claude"));
         let claude_config_dir = claude_config_dir.filter(|d| default.as_deref() != Some(Path::new(d.trim_end_matches('/'))));
         LoginEnv { path, claude_config_dir }
     })
@@ -235,6 +296,7 @@ pub fn cancel(id: &str) {
 
 pub fn status(provider: Provider) -> Status {
     let Some(binary) = find(provider) else {
+        crate::diagnostics::write("ai", &format!("{provider:?}: not found"));
         return Status { provider, installed: false, signed_in: false, version: None, login_command: provider.login_command() };
     };
     let version = run_with_limit(command(&binary).arg("--version"), None, Duration::from_secs(10))
@@ -255,6 +317,7 @@ pub fn status(provider: Provider) -> Status {
                 && !text.contains("unable to fetch user details")
         })
         .unwrap_or(false);
+    crate::diagnostics::write("ai", &format!("{provider:?}: found, {}", if signed_in { "signed in" } else { "not signed in" }));
     Status { provider, installed: true, signed_in, version, login_command: provider.login_command() }
 }
 
@@ -732,6 +795,27 @@ mod tests {
     fn finds_json_in_prose() {
         assert_eq!(json_object("Sure:\n```json\n{\"findings\": []}\n```").as_deref(), Some("{\"findings\":[]}"));
         assert_eq!(json_object("no json here"), None);
+    }
+
+    #[test]
+    fn reads_the_environment_a_shell_prints() {
+        let said = shell_env("Welcome!\n__focus_diff_env__\nPATH=/a:/b\nCLAUDE_CONFIG_DIR=/c\nnoise");
+        assert_eq!(said.get("PATH").map(String::as_str), Some("/a:/b"));
+        assert_eq!(said.get("CLAUDE_CONFIG_DIR").map(String::as_str), Some("/c"));
+        assert!(shell_env("PATH=/x").is_empty());
+    }
+
+    #[test]
+    fn looks_where_node_version_managers_install() {
+        let home = std::env::temp_dir().join(format!("fd-home-{}", std::process::id()));
+        for version in ["v20.1.0", "v22.3.0"] {
+            std::fs::create_dir_all(home.join(".nvm/versions/node").join(version).join("bin")).unwrap();
+        }
+        let dirs = known_dirs(&home);
+        let nvm: Vec<_> = dirs.iter().filter(|d| d.starts_with(home.join(".nvm"))).collect();
+        assert_eq!(nvm, [&home.join(".nvm/versions/node/v22.3.0/bin"), &home.join(".nvm/versions/node/v20.1.0/bin")]);
+        assert!(dirs.contains(&home.join(".local/bin")));
+        let _ = std::fs::remove_dir_all(home);
     }
 
     #[test]

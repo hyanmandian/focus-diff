@@ -1,0 +1,286 @@
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Ubuntu, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-unread: var(--unread);
+  --color-selected: var(--selected);
+  --color-selected-foreground: var(--selected-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-violet: var(--violet);
+  --color-link: var(--link);
+  --color-separator: var(--separator);
+  --color-fill: var(--fill-control);
+  --text-large-title: var(--type-large-title);
+  --text-large-title--line-height: var(--type-large-title-leading);
+  --text-title1: var(--type-title1);
+  --text-title1--line-height: var(--type-title1-leading);
+  --text-title2: var(--type-title2);
+  --text-title2--line-height: var(--type-title2-leading);
+  --text-title3: var(--type-title3);
+  --text-title3--line-height: var(--type-title3-leading);
+  --text-headline: var(--type-headline);
+  --text-headline--line-height: var(--type-headline-leading);
+  --text-body: var(--type-body);
+  --text-body--line-height: var(--type-body-leading);
+  --text-callout: var(--type-callout);
+  --text-callout--line-height: var(--type-callout-leading);
+  --text-subheadline: var(--type-subheadline);
+  --text-subheadline--line-height: var(--type-subheadline-leading);
+  --text-footnote: var(--type-footnote);
+  --text-footnote--line-height: var(--type-footnote-leading);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+  --type-large-title: 26px;
+  --type-large-title-leading: 32px;
+  --type-title1: 22px;
+  --type-title1-leading: 26px;
+  --type-title2: 17px;
+  --type-title2-leading: 22px;
+  --type-title3: 15px;
+  --type-title3-leading: 20px;
+  --type-headline: 13px;
+  --type-headline-leading: 16px;
+  --type-body: 13px;
+  --type-body-leading: 16px;
+  --type-callout: 12px;
+  --type-callout-leading: 15px;
+  --type-subheadline: 11px;
+  --type-subheadline-leading: 14px;
+  --type-footnote: 10px;
+  --type-footnote-leading: 13px;
+  --type-reading-leading: 19px;
+  --type-code: 12px;
+  --type-code-leading: 18px;
+
+  --control-h-sm: 24px;
+  --control-h: 28px;
+  --control-h-lg: 32px;
+  --field-h: 28px;
+  --toolbar-h: 52px;
+  --toolbar-item-h: 28px;
+  --traffic-lights-inset: 91px;
+  --menu-item-h: 28px;
+  --menu-pad: 5px;
+  --row-h-sm: 24px;
+  --row-h: 32px;
+
+  --radius-control-sm: 6px;
+  --radius-control: 7px;
+  --radius-capsule: 9999px;
+  --radius-field: 7px;
+  --radius-checkbox: 4px;
+  --radius-menu: 12px;
+  --radius-menu-item: 6px;
+  --radius-popover: 16px;
+  --radius-tooltip: 5px;
+  --radius-row: 6px;
+  --radius-group: 10px;
+
+  --accent: #007aff;
+  --accent-foreground: #fff;
+  --label: rgb(0 0 0 / 0.847);
+  --label-secondary: rgb(0 0 0 / 0.498);
+  --label-tertiary: rgb(0 0 0 / 0.26);
+  --link: #0068da;
+  --separator: rgb(0 0 0 / 0.098);
+  --separator-strong: rgb(0 0 0 / 0.247);
+  --window-bg: #fff;
+  --under-page-bg: #f6f6f6;
+  --content-bg: #fff;
+  --group-bg: #fff;
+  --field-bg: #fff;
+  --field-border: rgb(0 0 0 / 0.1);
+  --field-border-hover: rgb(0 0 0 / 0.2);
+  --field-shadow: 0 1px 1px rgb(0 0 0 / 0.04);
+  --fill-control: rgb(0 0 0 / 0.06);
+  --fill-control-hover: rgb(0 0 0 / 0.09);
+  --fill-control-pressed: rgb(0 0 0 / 0.13);
+  --fill-tertiary: rgb(0 0 0 / 0.047);
+  --fill-quaternary: rgb(0 0 0 / 0.027);
+  --selection-bg: #0064e1;
+  --selection-fg: #fff;
+  --selection-bg-inactive: #dcdcdc;
+  --selection-fg-inactive: rgb(0 0 0 / 0.847);
+  --text-selection-bg: rgb(128 188 254 / 0.6);
+  --text-selection-bg-inactive: #dcdcdc;
+  --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent);
+  --focus-ring-width: 3px;
+  --segment-selected-bg: color-mix(in oklab, var(--accent), black 14%);
+  --segment-selected-fg: #fff;
+  --toolbar-segment-bg: #fff;
+  --switch-off: rgb(0 0 0 / 0.09);
+  --material-menu: rgb(246 246 246 / 0.8);
+  --material-blur: blur(30px) saturate(1.8);
+  --shadow-menu: 0 0 0 0.5px rgb(0 0 0 / 0.14), 0 2px 6px rgb(0 0 0 / 0.08), 0 12px 32px rgb(0 0 0 / 0.16);
+  --shadow-knob: 0 1px 2px rgb(0 0 0 / 0.2), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+
+  --red: #ff383c;
+  --red-ic: #e9152d;
+  --orange: #ff8d28;
+  --orange-ic: #c55300;
+  --green: #34c759;
+  --green-ic: #008932;
+  --blue: #0088ff;
+  --indigo: #6155f5;
+  --purple: #cb30e0;
+  --purple-ic: #b02fc2;
+  --gray: #8e8e93;
+
+  --duration-fast: 100ms;
+  --duration: 150ms;
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.dark {
+  --label: rgb(255 255 255 / 0.847);
+  --label-secondary: rgb(255 255 255 / 0.55);
+  --label-tertiary: rgb(255 255 255 / 0.247);
+  --link: #419cff;
+  --separator: rgb(255 255 255 / 0.098);
+  --separator-strong: rgb(255 255 255 / 0.247);
+  --window-bg: #1e1e1e;
+  --under-page-bg: #282828;
+  --content-bg: #1e1e1e;
+  --group-bg: #282828;
+  --field-bg: rgb(255 255 255 / 0.055);
+  --field-border: rgb(255 255 255 / 0.08);
+  --field-border-hover: rgb(255 255 255 / 0.16);
+  --field-shadow: none;
+  --fill-control: rgb(255 255 255 / 0.1);
+  --fill-control-hover: rgb(255 255 255 / 0.14);
+  --fill-control-pressed: rgb(255 255 255 / 0.2);
+  --fill-tertiary: rgb(255 255 255 / 0.047);
+  --fill-quaternary: rgb(255 255 255 / 0.027);
+  --selection-bg: #0059d1;
+  --selection-bg-inactive: #464646;
+  --selection-fg-inactive: rgb(255 255 255 / 0.847);
+  --text-selection-bg: rgb(63 99 139 / 0.8);
+  --text-selection-bg-inactive: #464646;
+  --toolbar-segment-bg: rgb(255 255 255 / 0.16);
+  --switch-off: rgb(255 255 255 / 0.14);
+  --material-menu: rgb(55 55 55 / 0.8);
+  --shadow-menu: inset 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.7), 0 12px 32px rgb(0 0 0 / 0.45);
+  --red: #ff4245;
+  --red-ic: #ff6165;
+  --orange: #ff9230;
+  --orange-ic: #ffa056;
+  --green: #30d158;
+  --green-ic: #4ad968;
+  --blue: #0091ff;
+  --indigo: #6d7cff;
+  --purple: #db34f2;
+  --purple-ic: #ea8dff;
+  --gray: #98989d;
+}
+
+@supports (color: -apple-system-label) {
+  :root[data-platform="macos"] {
+    --accent: -apple-system-control-accent;
+    --label: -apple-system-label;
+    --label-secondary: -apple-system-secondary-label;
+    --label-tertiary: -apple-system-tertiary-label;
+    --separator: -apple-system-separator;
+    --separator-strong: -apple-system-container-border;
+    --window-bg: -apple-system-control-background;
+    --content-bg: -apple-system-control-background;
+    --selection-bg: -apple-system-selected-content-background;
+    --selection-fg: -apple-system-alternate-selected-text;
+    --selection-bg-inactive: -apple-system-unemphasized-selected-content-background;
+    --text-selection-bg: -apple-system-selected-text-background;
+    --text-selection-bg-inactive: -apple-system-unemphasized-selected-text-background;
+    --red: -apple-system-red;
+    --orange: -apple-system-orange;
+    --green: -apple-system-green;
+    --blue: -apple-system-blue;
+    --purple: -apple-system-purple;
+    --gray: -apple-system-gray;
+  }
+  :root[data-platform="macos"]:not(.dark) {
+    --field-bg: -apple-system-text-background;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --field-border: var(--separator-strong);
+    --fill-control: color-mix(in srgb, var(--label) 14%, transparent);
+    --separator: color-mix(in srgb, var(--label) 30%, transparent);
+    --focus-ring: var(--accent);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-menu: var(--popover);
+    --material-blur: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration: 0ms;
+  }
+}
+
+:root[data-window-inactive] {
+  --selection-bg: var(--selection-bg-inactive);
+  --selection-fg: var(--selection-fg-inactive);
+  --segment-selected-bg: var(--fill-control-pressed);
+  --segment-selected-fg: var(--label);
+}
+
+:root {
+  --background: var(--window-bg);
+  --foreground: var(--label);
+  --card: var(--group-bg);
+  --card-foreground: var(--label);
+  --popover: #f6f6f6;
+  --popover-foreground: var(--label);
+  --primary: color-mix(in oklab, var(--accent), black 14%);
+  --primary-foreground: var(--accent-foreground);
+  --unread: var(--accent);
+  --selected: var(--segment-selected-bg);
+  --selected-foreground: var(--segment-selected-fg);
+  --success: color-mix(in oklab, var(--green-ic), black 12%);
+  --warning: var(--orange-ic);
+  --violet: var(--purple-ic);
+  --destructive: color-mix(in oklab, var(--red-ic), black 10%);
+  --secondary: var(--fill-control);
+  --secondary-foreground: var(--label);
+  --muted: var(--fill-control);
+  --muted-foreground: color-mix(in srgb, var(--label) 74%, transparent);
+  --border: var(--separator);
+  --input: var(--field-border);
+  --ring: var(--accent);
+  --radius: 0.625rem;
+}
+.dark {
+  --popover: #373737;
+  --unread: color-mix(in oklab, var(--accent), white 28%);
+  --success: var(--green-ic);
+  --destructive: color-mix(in oklab, var(--red-ic), white 18%);
+}

@@ -1,0 +1,42 @@
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+body {
+  font-size: var(--type-body);
+  line-height: var(--type-body-leading);
+}
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
+}
+.selectable a[href] {
+  cursor: pointer;
+}
+::selection {
+  background: var(--text-selection-bg);
+}
+:root[data-window-inactive] ::selection {
+  background: var(--text-selection-bg-inactive);
+}

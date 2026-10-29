@@ -1,0 +1,37 @@
+{
+  "name": "@focus-diff/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Focus Diff's logic shared by the browser extension and the desktop app: pure TypeScript, no runtime dependencies.",
+  "license": "MIT",
+  "author": "Hyan Mandian",
+  "type": "module",
+  "exports": {
+    "./active-time": "./src/active-time/active-time.ts",
+    "./duration": "./src/duration/duration.ts",
+    "./estimate": "./src/estimate/estimate.ts",
+    "./filters": "./src/filters/filters.ts",
+    "./recipes": "./src/recipes/recipes.ts",
+    "./pull-link": "./src/pull-link/pull-link.ts",
+    "./repos": "./src/repos/repos.ts",
+    "./stacks": "./src/stacks/stacks.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit && oxlint && oxfmt --check && vitest run --coverage",
+    "fmt": "oxfmt",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.5",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

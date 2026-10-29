@@ -13,10 +13,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Check, test and build
+  extension:
+    name: Extension — check, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/extension
 
     steps:
       - name: Checkout code
@@ -46,14 +49,151 @@ jobs:
         run: npm run zip && npm run zip:firefox && npm run zip:safari
 
       - name: Upload the zips
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: extension
-          path: .output/*.zip
+          path: packages/extension/.output/*.zip
+          include-hidden-files: true
+          if-no-files-found: error
 
       - name: Upload the Playwright traces
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-traces
-          path: test-results/
+          path: packages/extension/test-results/
+
+  desktop:
+    name: Desktop — check, test and end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Format, lint and typecheck
+        run: npx vp check
+
+      - name: Unit tests, at full coverage
+        run: npx vp test --coverage
+
+      - name: Install the browsers for the end-to-end tests
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Upload the Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-playwright-traces
+          path: packages/desktop/test-results/
+
+  desktop-rust:
+    name: Desktop — Rust lint and tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/desktop/src-tauri
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install what Tauri needs on Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/linux-deps
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --locked
+
+  desktop-bundle:
+    name: Desktop — installers and a first launch (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install what Tauri needs on Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/linux-deps
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build the installers
+        run: npm run tauri build -- --no-sign
+
+      - name: Install the .deb and check the app stays up (Linux)
+        if: runner.os == 'Linux'
+        working-directory: packages/desktop/src-tauri/target/release/bundle/deb
+        run: |
+          cp ./*.deb focus-diff.deb
+          docker run --rm -v "$PWD:/deb:ro" ubuntu:24.04@sha256:24737cef17f4e22b1977df7d9a05e77c4e28b7da5b8911f8d8ccda136bf3573c bash -c '
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq /deb/focus-diff.deb xvfb dbus-x11 > /dev/null
+            Xvfb :99 -screen 0 1440x900x24 > /dev/null 2>&1 &
+            export DISPLAY=:99
+            eval "$(dbus-launch --sh-syntax)"
+            focus-diff > /tmp/launch.log 2>&1 &
+            pid=$!
+            sleep 20
+            alive=0
+            if kill -0 "$pid" 2> /dev/null; then alive=1; fi
+            cat /tmp/launch.log
+            if [ "$alive" -ne 1 ]; then echo "The app quit at start"; exit 1; fi
+          '
+
+      - name: Start the app and check it stays up (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: packages/desktop/src-tauri/target/release
+        run: |
+          $app = Start-Process -FilePath .\focus-diff.exe -PassThru -RedirectStandardError launch.log
+          Start-Sleep -Seconds 20
+          if ($app.HasExited) { Get-Content launch.log; throw "The app quit at start (exit code $($app.ExitCode))" }
+          Stop-Process -Id $app.Id
+          Get-Content launch.log
+
+      - name: Upload the installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-${{ runner.os }}
+          path: |
+            packages/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            packages/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            packages/desktop/src-tauri/target/release/bundle/deb/*.deb
+            packages/desktop/src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error

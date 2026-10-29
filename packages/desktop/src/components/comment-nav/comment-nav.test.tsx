@@ -1,0 +1,86 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+import { CommentNav, type CommentStop } from "@/components/comment-nav/comment-nav";
+import { TooltipProvider } from "@/components/tooltip/tooltip";
+
+const STOPS: CommentStop[] = [
+  { path: "src/cart.ts", line: 3, kind: "ai" },
+  { path: "src/cart.ts", line: 9, kind: "pending" },
+  { path: "src/deep/promo.ts", line: 12, kind: "conversation" },
+];
+
+function Stepping({ stops, from = -1 }: { stops: CommentStop[]; from?: number }) {
+  const [stop, setStop] = useState(from);
+  return (
+    <CommentNav
+      stops={stops}
+      stop={stop}
+      onStep={(by) => {
+        setStop((s) => (s + by + stops.length) % stops.length);
+      }}
+    />
+  );
+}
+const show = (stops: CommentStop[], from?: number) =>
+  render(
+    <TooltipProvider>
+      <Stepping stops={stops} from={from} />
+    </TooltipProvider>,
+  );
+const button = (name: string) => screen.getByRole("button", { name });
+
+describe("CommentNav", () => {
+  it("opens on the first comment, says which and what it is, and steps both ways", async () => {
+    show(STOPS);
+    await userEvent.click(button("Comments, 3 comments"));
+    const card = await screen.findByRole("dialog", { name: "Comments" });
+    expect(card.textContent).toContain("cart.ts:3");
+    expect(card.textContent).toContain("AI comment");
+    expect(screen.getByText("Comment 1 of 3").parentElement?.textContent).toBe("1/3Comment 1 of 3");
+    await userEvent.click(button("Next comment"));
+    expect(card.textContent).toContain("Your pending comment");
+    await userEvent.click(button("Next comment"));
+    expect(screen.getByTitle("src/deep/promo.ts").textContent).toBe("promo.ts:12");
+    expect(card.textContent).toContain("Open conversation");
+    await userEvent.click(button("Previous comment"));
+    expect(screen.getByText("Comment 2 of 3")).toBeTruthy();
+  });
+
+  it("opens where it already is, without stepping", async () => {
+    const onStep = vi.fn<(by: 1 | -1) => void>();
+    render(
+      <TooltipProvider>
+        <CommentNav stops={STOPS} stop={1} onStep={onStep} />
+      </TooltipProvider>,
+    );
+    await userEvent.click(button("Comments, 3 comments"));
+    expect(await screen.findByText("Comment 2 of 3")).toBeTruthy();
+    expect(onStep).not.toHaveBeenCalled();
+    await userEvent.click(button("Comments, 3 comments"));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+  });
+
+  it("counts from the first again when the comments it was on are gone", async () => {
+    render(
+      <TooltipProvider>
+        <CommentNav stops={STOPS.slice(0, 1)} stop={2} onStep={() => {}} />
+      </TooltipProvider>,
+    );
+    await userEvent.click(button("Comments, 1 comment"));
+    expect((await screen.findByText("Comment 1 of 1")).parentElement?.textContent).toBe("1/1Comment 1 of 1");
+  });
+
+  it("stays in place without comments, and doesn't open", async () => {
+    show([]);
+    const toggle = button("Comments, No open comments");
+    expect(toggle.getAttribute("aria-disabled")).toBe("true");
+    expect(toggle.textContent).toBe("0");
+    await userEvent.click(toggle);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

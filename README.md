@@ -1,14 +1,14 @@
 <div align="center">
-  <img src="store/logo/focus-diff-1024.png" width="112" alt="">
+  <img src="packages/extension/store/logo/focus-diff-1024.png" width="112" alt="">
   <h1>Focus Diff</h1>
-  <p><strong>Review what matters.</strong><br>Filter GitHub pull request diffs down to the files you need to review.</p>
+  <p><strong>Review what matters.</strong><br>A browser extension and a desktop app for reviewing GitHub pull requests.</p>
   <p>
     <a href="https://github.com/hyanmandian/focus-diff/releases/latest"><img src="https://img.shields.io/github/v/release/hyanmandian/focus-diff?label=version&color=2ea043" alt="Latest version"></a>
     <a href="https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil"><img src="https://img.shields.io/chrome-web-store/v/nnocnopcbjipboglgbnmocfaplhlkfil?label=Chrome%20Web%20Store&color=2ea043" alt="Focus Diff on the Chrome Web Store"></a>
     <a href="https://addons.mozilla.org/firefox/addon/focus-diff/"><img src="https://img.shields.io/amo/v/focus-diff?label=Firefox%20Add-ons&color=2ea043" alt="Focus Diff on Firefox Add-ons"></a>
     <a href="https://focus-diff.com"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Ffocus-diff.com%2Fbadges%2Finstalls.json" alt="Installs: Chrome Web Store and Firefox Add-ons users plus release downloads"></a>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/hyanmandian/focus-diff" alt="MIT license"></a>
-    <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="Zero runtime dependencies">
+    <img src="https://img.shields.io/badge/extension%20dependencies-0-brightgreen" alt="The browser extension has no runtime dependencies">
     <img src="https://img.shields.io/badge/TypeScript-strict-3178c6" alt="TypeScript">
     <img src="https://img.shields.io/badge/Chrome%20%C2%B7%20Edge%20%C2%B7%20Firefox%20%C2%B7%20Safari-supported-2ea043" alt="Works on Chrome, Edge, Firefox and Safari">
     <br>
@@ -18,13 +18,15 @@
   </p>
 </div>
 
-<img src="store/screenshots/readme.png" alt="A GitHub pull request with 83 changed files, narrowed by the Focus Diff bar to its 56 frontend files: Files changed shows 56/83, and the bar shows 56 files to review, +2,010 and −545 lines, and about 2 hours 20 minutes of review">
+<img src="packages/extension/store/screenshots/readme.png" alt="A GitHub pull request with 83 changed files, narrowed by the Focus Diff bar to its 56 frontend files: Files changed shows 56/83, and the bar shows 56 files to review, +2,010 and −545 lines, and about 2 hours 20 minutes of review">
 
-## Why
+## The browser extension
+
+### Why
 
 Large pull requests mix the code you need to read with tests, stories, generated files and docs. Focus Diff adds a small bar to the **Files changed** page: pick a filter and only the matching files stay on screen. The file tree, the **Files changed** counter and the **+/−** totals follow along, so you see the real size of your review before you start.
 
-## Features
+### Features
 
 - **Your own filters.** Each filter is a button with an _Include_ regex and an optional _Exclude_ regex, tested against the full file path. **All** is always there.
 - **Everywhere or per repository.** Keep filters for every pull request, and add extra ones for `owner/name` or a whole `owner/*`.
@@ -41,7 +43,7 @@ Large pull requests mix the code you need to read with tests, stories, generated
 - **Ready for more sites.** It works on GitHub. Everything that reads the page lives in one adapter per site, so others can follow: see [adding a site](CONTRIBUTING.md#adding-a-site).
 - **Private.** No tracking, and nothing sent anywhere but GitHub. Your pull requests are read from github.com with the session already in your browser, only when you open the popup or turn notifications on. Filters stay in your browser profile. See the [privacy policy](PRIVACY.md).
 
-## Getting started
+### Getting started
 
 Focus Diff starts empty, so your filters fit the way you review. Right after installing, a welcome page explains how it works and offers examples you can add with one click:
 
@@ -55,7 +57,7 @@ Focus Diff starts empty, so your filters fit the way you review. Right after ins
 
 They're regular filters, so you can rename or tweak them later. The welcome page is always one click away from the settings.
 
-## Keyboard shortcuts
+### Keyboard shortcuts
 
 | Shortcut                                     | Action              |
 | -------------------------------------------- | ------------------- |
@@ -66,7 +68,7 @@ They're regular filters, so you can rename or tweak them later. The welcome page
 
 On a Mac, <kbd>Alt</kbd> is <kbd>Option</kbd>. Change them at `chrome://extensions/shortcuts`, or in Firefox under `about:addons` → gear → _Manage Extension Shortcuts_.
 
-## Install
+### Install
 
 **Chrome, Edge, Brave, Arc and other Chromium browsers:** add it from the [Chrome Web Store](https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil).
 
@@ -78,7 +80,15 @@ Every [release](https://github.com/hyanmandian/focus-diff/releases/latest) also 
 - **Safari (Mac with Xcode):** unzip `focus-diff-safari.zip`, run `xcrun safari-web-extension-converter focus-diff-safari --app-name "Focus Diff" --macos-only` and click **Run** in Xcode. In Safari, turn on **Settings › Advanced › Show features for web developers**, then **Develop › Allow Unsigned Extensions**, and enable Focus Diff in **Settings › Extensions**.
 - **Chromium, without the store:** unzip `focus-diff-chromium.zip`, open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder. It won't update itself.
 
-To build from source instead, run `npm install` and `npm run build` (or `build:firefox`, `build:safari`); the builds land in `.output/`.
+To build from source instead, run `npm install`, then `npm run build` (or `build:firefox`, `build:safari`) in `packages/extension`; the builds land in `packages/extension/.output/`.
+
+## The desktop app: Mac, Windows and Linux
+
+The desktop app lives in the menu bar (the system tray on Windows and Linux): your review queues at a glance, and every pull request opens in its own window to review it whole (overview, diff, conversations, checks, merging), without github.com. Download it from the [`desktop-latest` release](https://github.com/hyanmandian/focus-diff/releases/tag/desktop-latest) or [focus-diff.com](https://focus-diff.com/desktop.html); after that, the panel offers each new version with an Update button (the `.deb` and `.rpm` update by installing the new package).
+
+- **Mac:** `Focus-Diff.dmg`, drag it to Applications and open it. It isn't signed with an Apple Developer ID yet, so the first time macOS stops it: open it, then go to **System Settings › Privacy & Security** and click **Open Anyway** (on macOS 14 and earlier, right-click it and choose **Open**).
+- **Windows:** `Focus-Diff-Setup.exe`, installed for your user (no administrator needed). It isn't code-signed yet, so SmartScreen may warn you the first time: choose **More info › Run anyway**.
+- **Linux:** `Focus-Diff.AppImage` (make it executable and run it), or `Focus-Diff.deb` / `Focus-Diff.rpm`. The tray icon needs a desktop with tray support (KDE, or GNOME with the AppIndicator extension); its menu opens the panel.
 
 ## Contributing
 

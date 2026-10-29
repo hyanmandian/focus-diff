@@ -1,0 +1,33 @@
+.scoreboard {
+  display: inline-flex;
+  gap: 2px;
+  perspective: 120px;
+  color: var(--fd-cell, var(--fd-muted));
+}
+.cell {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 1.5ch;
+  height: 18px;
+  border-radius: 3px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  font: 700 12px/1 var(--fd-mono);
+}
+.cell:not(:empty) {
+  background: var(--fd-cell, var(--fd-muted));
+  color: var(--fd-bg);
+}
+.cell.separator {
+  width: 0.75ch;
+  background: none;
+  color: inherit;
+}
+@media (forced-colors: active) {
+  .cell {
+    border: 1px solid CanvasText;
+  }
+  .cell.separator {
+    border: 0;
+  }
+}

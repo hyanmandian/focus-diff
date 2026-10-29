@@ -1,0 +1,1006 @@
+// @vitest-environment happy-dom
+import { normalizeLearned } from "@focus-diff/core/estimate";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeBrowser } from "wxt/testing/fake-browser";
+
+import { renderReviewPanel } from "@/components/popup-review-time/popup-review-time";
+import html from "@/entrypoints/popup/index.html?raw";
+import { h } from "@/utils/dom/dom";
+import { $ } from "@/utils/extension-page/extension-page";
+import type { PullRequest } from "@/utils/github-inbox/github-inbox";
+import { normalizePopup, type HeldEvent, type InboxSnapshot } from "@/utils/inbox/inbox";
+import type { Message } from "@/utils/messages/messages";
+import { pageBody } from "@/utils/page-body/page-body";
+import { DEFAULT_REVIEW_TIME, type ReviewRun } from "@/utils/review-sessions/review-sessions";
+import {
+  appearanceItem,
+  doneItem,
+  heldItem,
+  ignoredItem,
+  inboxItem,
+  learnedItem,
+  popupItem,
+  pullBranchesItem,
+  pullFilesItem,
+  readItem,
+  reviewRunItem,
+  reviewSkipItem,
+  reviewTimeItem,
+} from "@/utils/storage/storage";
+
+import { startPopup } from "./popup-page";
+
+vi.mock(import("@/components/popup-review-time/popup-review-time"), () => ({
+  renderReviewPanel: vi.fn<typeof renderReviewPanel>(),
+}));
+
+const NOW = Date.parse("2026-10-26T12:00:00Z");
+
+const pull = (over: Partial<PullRequest> = {}): PullRequest => ({
+  repo: "acme/web",
+  number: 1,
+  title: "Fix the header",
+  url: "https://github.com/acme/web/pull/1",
+  author: "ana",
+  draft: false,
+  comments: 0,
+  createdAt: "2026-10-01T00:00:00Z",
+  updatedAt: "2026-10-26T09:00:00Z",
+  unread: false,
+  headSha: "abc",
+  ...over,
+});
+
+const inbox = (over: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
+  me: "me",
+  reviews: [],
+  mine: [],
+  checkedAt: NOW - 5 * 60_000,
+  problem: null,
+  ...over,
+});
+
+const settle = async () => {
+  await vi.advanceTimersByTimeAsync(50);
+};
+
+let resized: (() => void)[] = [];
+
+let sent: Message[] = [];
+let answer: "ok" | "never" | "fail" = "ok";
+
+const held = (until: HeldEvent["until"]): HeldEvent => ({
+  kind: "review-requested",
+  repo: "acme/web",
+  number: 1,
+  title: "Fix the header",
+  url: "u",
+  actor: "ana",
+  bot: false,
+  draft: false,
+  approvedByMe: false,
+  team: false,
+  again: false,
+  excerpt: "",
+  until,
+  heldAt: NOW,
+});
+
+const start = async () => {
+  startPopup();
+  await settle();
+};
+
+const $$ = <T extends Element = HTMLElement>(selector: string) => [...document.querySelectorAll<T>(selector)];
+const titles = (panel = "#panel-reviews") =>
+  $$(`${panel} .groups > :not(details) .pull-title`).map((t) => t.textContent);
+const layout = (element: Element, sizes: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(sizes)) Object.defineProperty(element, key, { configurable: true, value });
+};
+const press = (target: Element, key: string) => {
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+  target.dispatchEvent(event);
+  return event;
+};
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "requestAnimationFrame", "Date"] });
+  vi.setSystemTime(NOW);
+
+  document.head.replaceChildren();
+  document.documentElement.removeAttribute("style");
+  document.body.innerHTML = pageBody(html);
+  localStorage.clear();
+  resized = [];
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      readonly callback: () => void;
+      constructor(callback: () => void) {
+        this.callback = callback;
+        resized.push(callback);
+      }
+      observe() {}
+    },
+  );
+  vi.stubGlobal("matchMedia", () => ({ matches: false }));
+  sent = [];
+  answer = "ok";
+  fakeBrowser.runtime.onMessage.addListener((message: Message, _sender, respond: () => void) => {
+    sent.push(message);
+    if (answer === "fail") throw new Error("gone");
+    if (answer === "ok") respond();
+    // oxlint-disable-next-line typescript/strict-void-return -- true keeps the message open for an answer, as in Chrome; the types leave it out.
+    return true;
+  });
+  vi.spyOn(fakeBrowser.tabs, "create");
+  vi.spyOn(window, "close").mockImplementation(() => {});
+  vi.mocked(renderReviewPanel).mockReset();
+  vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(false);
+});
+
+afterEach(() => {
+  Reflect.deleteProperty(HTMLElement.prototype, "offsetParent");
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe("startPopup", () => {
+  it("lists the review queue by repository, with news first", async () => {
+    await inboxItem.setValue(
+      inbox({
+        reviews: [
+          pull({ url: "u1", title: "Old", updatedAt: "2026-10-20T00:00:00Z" }),
+          pull({ url: "u2", title: "Fresh", unread: true, updatedAt: "2026-10-21T00:00:00Z" }),
+          pull({ url: "u3", title: "Again", again: true, updatedAt: "2026-10-19T00:00:00Z" }),
+          pull({ url: "u4", title: "Other", repo: "acme/api", updatedAt: "2026-10-25T00:00:00Z" }),
+        ],
+      }),
+    );
+    await start();
+    expect($$("#panel-reviews .group-title").map((t) => t.textContent)).toStrictEqual(["acme/web3", "acme/api1"]);
+    expect(titles()).toStrictEqual(["Again", "Fresh", "Old", "Other"]);
+    expect($("#count-reviews").textContent).toBe("4");
+    expect($("#updated").textContent).toBe("Updated 5m ago");
+    expect(document.documentElement.classList.contains("pending")).toBe(false);
+    expect(sent).toContainEqual({ type: "inbox-refresh" });
+  });
+
+  it("shows a row's details: author, estimate, time, comments, and labels", async () => {
+    await reviewTimeItem.setValue({ ...DEFAULT_REVIEW_TIME, learn: true });
+    await learnedItem.setValue(normalizeLearned({}));
+    await pullFilesItem.setValue({
+      big: { sha: "abc", files: [["a.ts", 4000, 0, false]] },
+      none: { sha: "abc", files: [] },
+    });
+    await inboxItem.setValue(
+      inbox({
+        reviews: [
+          pull({ url: "big", title: "Big", comments: 3, unread: true, again: true }),
+          pull({ url: "none", title: "Nothing", author: "", updatedAt: "" }),
+          pull({ url: "draft", title: "Draft", draft: true, author: "cy" }),
+        ],
+        mine: [pull({ url: "mine", title: "Mine", draft: true, updatedAt: "2025-01-01T00:00:00Z" })],
+      }),
+    );
+    await start();
+    const big = $("#panel-reviews a[href='big/changes']");
+    expect(big.classList.contains("unread")).toBe(true);
+    expect(big.querySelector(".pull-author")?.textContent).toBe("ana");
+    expect(big.querySelector(".pull-estimate .visually-hidden")?.textContent).toMatch(/^About \d.* to review$/u);
+    expect(big.querySelector(".pull-comments > span[aria-hidden]")?.textContent).toBe("3");
+    expect(big.querySelector(".pull-again")?.textContent).toBe("Re-review");
+    expect(big.querySelector(".pull-time")?.textContent).toBe("3h ago");
+    expect(big.querySelector(".avatar img")?.getAttribute("src")).toBe(
+      "https://avatars.githubusercontent.com/ana?size=48",
+    );
+    const none = $("#panel-reviews a[href='none/changes']");
+    expect(none.querySelector(".pull-author")).toBeNull();
+    expect(none.querySelector(".pull-estimate")).toBeNull();
+    expect(none.querySelector(".pull-time")).toBeNull();
+    expect($("#count-reviews").textContent).toBe("2");
+    const drafts = $<HTMLDetailsElement>("#panel-reviews details");
+    expect(drafts.querySelector("summary")?.textContent).toBe("Drafts1");
+    expect(drafts.open).toBe(false);
+    const mine = $("#panel-mine a[href='mine']");
+    expect(mine.querySelector(".pull-draft")?.textContent).toBe("Draft");
+    expect(mine.querySelector(".pull-time")?.textContent).toBe("2y ago");
+    expect(mine.querySelector(".avatar img")).toBeNull();
+  });
+
+  it("leaves estimates out when the reader turns them off, and with a pace not learned", async () => {
+    await reviewTimeItem.setValue({ ...DEFAULT_REVIEW_TIME, queueEstimates: false });
+    await pullFilesItem.setValue({ big: { sha: "abc", files: [["a.ts", 40, 0, false]] } });
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "big" })] }));
+    await start();
+    expect($$(".pull-estimate")).toHaveLength(0);
+    await reviewTimeItem.setValue({ ...DEFAULT_REVIEW_TIME, queueEstimates: true, learn: false });
+    await settle();
+    expect($$(".pull-estimate")).toHaveLength(1);
+  });
+
+  it("says when a moment ago was, and keeps the clock on", async () => {
+    await inboxItem.setValue(inbox({ checkedAt: NOW - 1000, reviews: [pull({ updatedAt: "2026-10-26T11:59:59Z" })] }));
+    await start();
+    expect($("#updated").textContent).toBe("Updated now");
+    expect($(".pull-time").textContent).toBe("now");
+  });
+
+  it("wears the reader's own theme over the defaults", async () => {
+    await appearanceItem.setValue({
+      theme: "mine",
+      themes: [{ id: "mine", name: "Mine", colors: { accent: "#123456" } }],
+    });
+    await start();
+    const style = document.head.querySelector("style")!.textContent;
+    expect(style).toContain("#123456");
+    expect(style).not.toContain(":host");
+    await appearanceItem.setValue({ theme: "provider", themes: [] });
+    await settle();
+    expect(document.head.querySelector("style")!.textContent).not.toContain("#123456");
+  });
+
+  it("shows a skeleton while the first look is on its way", async () => {
+    answer = "never";
+    await start();
+    expect($("#panel-reviews").getAttribute("aria-busy")).toBe("true");
+    expect($$("#panel-reviews .skeleton")).toHaveLength(1);
+    expect($("#panel-reviews .empty").hidden).toBe(true);
+    expect($("#updated").textContent).toBe("Updating…");
+    expect($("#count-reviews").textContent).toBe("");
+  });
+
+  it("says when nothing's waiting, once the look is back even if it failed", async () => {
+    answer = "fail";
+    await start();
+    expect($("#panel-reviews .empty").hidden).toBe(false);
+    expect($("#updated").textContent).toBe("");
+  });
+
+  it.each([
+    ["signed-out", "Sign in to GitHub in this browser to see your pull requests.", false],
+    ["unreadable", "GitHub’s pages didn’t read as expected, so the lists may be out of date.", true],
+  ] as const)("puts a %s problem in place of the lists", async (problem, text, retry) => {
+    await inboxItem.setValue(inbox({ problem }));
+    await start();
+    expect($("#problem").hidden).toBe(false);
+    expect($("#notice").hidden).toBe(true);
+    expect($("#problem-text").textContent).toBe(text);
+    expect($("#problem-link").hidden).toBe(retry);
+    expect($("#problem-retry").hidden).toBe(!retry);
+    expect($("#panel-reviews").classList.contains("blocked")).toBe(true);
+    expect($("#updated").textContent).toBe("");
+    sent = [];
+    $("#problem-retry").click();
+    expect(sent).toContainEqual({ type: "inbox-refresh" });
+  });
+
+  it("keeps the earlier lists under a note when a look fails", async () => {
+    await inboxItem.setValue(inbox({ problem: "offline", reviews: [pull()] }));
+    await start();
+    expect($("#problem").hidden).toBe(true);
+    expect($("#notice").hidden).toBe(false);
+    expect($("#notice-text").textContent).toBe("GitHub can’t be reached right now, so the lists may be out of date.");
+    expect($("#updated").textContent).toBe("Last updated 5m ago");
+  });
+
+  it("leaves out the repositories the reader doesn't want here", async () => {
+    await popupItem.setValue({ repos: [], excludeRepos: ["acme/api"], teams: true, updates: false, merged: false });
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "b", repo: "acme/api" })] }));
+    await start();
+    expect($$("#panel-reviews .pull")).toHaveLength(1);
+    await popupItem.setValue({ repos: [], excludeRepos: [], teams: true, updates: false, merged: false });
+    await settle();
+    expect($$("#panel-reviews .pull")).toHaveLength(2);
+  });
+
+  it("narrows a list to one repository with its chips", async () => {
+    const animate = vi.spyOn(HTMLElement.prototype, "animate");
+    await inboxItem.setValue(
+      inbox({
+        reviews: [
+          pull({ url: "a", repo: "acme/web" }),
+          pull({ url: "b", repo: "acme/api" }),
+          pull({ url: "c", repo: "other/web", unread: true }),
+          pull({ url: "d", repo: "acme/web", draft: true }),
+        ],
+      }),
+    );
+    await start();
+    const chips = () => $$<HTMLButtonElement>("#panel-reviews .chip");
+    expect(chips().map((chip) => chip.textContent)).toStrictEqual(["All3", "other/web1", "acme/web1", "api1"]);
+    chips()[0]!.click();
+    expect(animate).not.toHaveBeenCalled();
+    chips()[3]!.click();
+    expect(titles()).toHaveLength(1);
+    expect($$("#panel-reviews .group.untitled")).toHaveLength(1);
+    expect($$("#panel-reviews details")).toHaveLength(0);
+    expect(document.activeElement).toBe(chips()[3]);
+    expect(animate).toHaveBeenLastCalledWith(
+      [expect.objectContaining({ transform: "translateX(24px)" }), expect.anything()],
+      expect.anything(),
+    );
+    chips()[2]!.click();
+    expect($$("#panel-reviews details")).toHaveLength(1);
+    expect(animate).toHaveBeenLastCalledWith(
+      [expect.objectContaining({ transform: "translateX(-24px)" }), expect.anything()],
+      expect.anything(),
+    );
+    await inboxItem.setValue(
+      inbox({ reviews: [pull({ url: "b", repo: "acme/api" }), pull({ url: "c", repo: "x/y" })] }),
+    );
+    await settle();
+    expect(titles()).toHaveLength(2);
+    expect(chips()[0]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("slides the chips' highlight to the one picked, and brings it out from under the fade", async () => {
+    await inboxItem.setValue(
+      inbox({ reviews: [pull({ url: "a", repo: "acme/web" }), pull({ url: "b", repo: "acme/api" })] }),
+    );
+    await start();
+    const row = () => $("#panel-reviews .filters");
+    const highlight = () => $("#panel-reviews .indicator");
+    const lay = () => {
+      $$("#panel-reviews .chip").forEach((chip, index) => {
+        layout(chip, { offsetLeft: index * 100, offsetWidth: 90, offsetTop: 2, offsetHeight: 20 });
+      });
+      layout(row(), { clientWidth: 150 });
+      layout(highlight(), { offsetHeight: 24 });
+    };
+    for (const callback of resized) callback();
+    expect(highlight().style.width).toBe("");
+    lay();
+    for (const callback of resized) callback();
+    expect(highlight().style.width).toBe("290px");
+    expect(highlight().style.clipPath).toBe("inset(2px 200px 2px 0px round 8px)");
+    expect(highlight().classList.contains("ready")).toBe(true);
+    const before = highlight().style.clipPath;
+    $$<HTMLButtonElement>("#panel-reviews .chip")[2]!.click();
+    expect(highlight().style.clipPath).toBe(before);
+    lay();
+    await settle();
+    expect(row().scrollLeft).toBe(200 - 56);
+    expect(highlight().style.clipPath).toBe("inset(2px 0px 2px 200px round 8px)");
+    expect(highlight().classList.contains("ready")).toBe(true);
+    $$<HTMLButtonElement>("#panel-reviews .chip")[0]!.click();
+    lay();
+    layout(row(), { clientWidth: 1000 });
+    await settle();
+    expect(row().scrollLeft).toBe(0);
+  });
+
+  it("names a repository whole when two owners have one by its name", async () => {
+    await inboxItem.setValue(
+      inbox({
+        reviews: [
+          pull({ url: "a", repo: "acme/web", updatedAt: "2026-10-25T00:00:00Z" }),
+          pull({ url: "a2", repo: "acme/web", updatedAt: "2026-10-01T00:00:00Z" }),
+          pull({ url: "b", repo: "other/web", updatedAt: "2026-10-26T00:00:00Z" }),
+        ],
+      }),
+    );
+    await start();
+    expect($$("#panel-reviews .chip-label").map((label) => label.textContent)).toStrictEqual([
+      "All",
+      "other/web",
+      "acme/web",
+    ]);
+  });
+
+  it("marks the picked pull requests done, and takes them back with Undo", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", title: "A" }), pull({ url: "b", title: "B" })] }));
+    await start();
+    const box = (url: string) =>
+      $<HTMLInputElement>(`#panel-reviews a[href='${url}/changes']`).parentElement!.querySelector<HTMLInputElement>(
+        ".pick",
+      )!;
+    box("a").click();
+    expect(box("a").closest(".row")!.classList.contains("picked")).toBe(true);
+    expect($("#selection").hidden).toBe(false);
+    expect($("#updated").hidden).toBe(true);
+    expect($("#selection-text").textContent).toContain("1");
+    expect($("#panel-reviews").classList.contains("selecting")).toBe(true);
+    box("b").click();
+    box("b").click();
+    expect(box("b").closest(".row")!.classList.contains("picked")).toBe(false);
+    $("#mark-done").click();
+    expect(titles()).toStrictEqual(["B"]);
+    expect(await doneItem.getValue()).toStrictEqual({ a: "2026-10-26T09:00:00Z" });
+    expect($("#undo-done").hidden).toBe(false);
+    expect($("#mark-done").hidden).toBe(true);
+    const done = $<HTMLDetailsElement>("#panel-reviews details");
+    expect(done.querySelector("summary")?.textContent).toBe("Done1");
+    $("#undo-done").click();
+    expect(titles()).toStrictEqual(["A", "B"]);
+    expect(await doneItem.getValue()).toStrictEqual({});
+    expect($("#selection").hidden).toBe(true);
+    box("a").click();
+    $("#mark-done").click();
+    vi.advanceTimersByTime(6000);
+    expect($("#selection").hidden).toBe(true);
+  });
+
+  it("takes back one marked done from the Done section", async () => {
+    await doneItem.setValue({ a: "2026-10-26T09:00:00Z" });
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", title: "A" })] }));
+    await start();
+    const restore = $<HTMLButtonElement>("#panel-reviews .restore");
+    expect(restore.getAttribute("aria-label")).toBe("Not done: “A”");
+    restore.click();
+    expect(titles()).toStrictEqual(["A"]);
+    await doneItem.setValue({ a: "2026-10-26T09:00:00Z" });
+    await settle();
+    expect(titles()).toStrictEqual([]);
+  });
+
+  it("lets go of the picks with Clear, and of picks that left the list", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" })] }));
+    await start();
+    $<HTMLInputElement>("#panel-reviews .pick").click();
+    $("#selection-clear").click();
+    expect($<HTMLInputElement>("#panel-reviews .pick").checked).toBe(false);
+    expect($("#selection").hidden).toBe(true);
+    $<HTMLInputElement>("#panel-reviews .pick").click();
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "a2" })] }));
+    await settle();
+    expect($$("#panel-reviews .row.picked")).toHaveLength(1);
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "b" })] }));
+    await settle();
+    expect($("#panel-reviews").classList.contains("selecting")).toBe(true);
+    $<HTMLInputElement>("#panel-reviews .pick").click();
+    $<HTMLInputElement>("#panel-reviews .pick").click();
+    expect($("#panel-reviews").classList.contains("selecting")).toBe(false);
+  });
+
+  it("works the rows from the keyboard", async () => {
+    Object.defineProperty(HTMLElement.prototype, "offsetParent", { configurable: true, get: () => document.body });
+    await inboxItem.setValue(
+      inbox({
+        reviews: [pull({ url: "a", title: "A" }), pull({ url: "b", title: "B" }), pull({ url: "c", title: "C" })],
+      }),
+    );
+    await start();
+    const links = () => $$("#panel-reviews a.pull");
+    links()[0]!.focus();
+    expect(press(links()[0]!, "ArrowDown").defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(links()[1]);
+    press(links()[1]!, "End");
+    expect(document.activeElement).toBe(links()[2]);
+    press(links()[2]!, "ArrowDown");
+    expect(document.activeElement).toBe(links()[2]);
+    press(links()[2]!, "Home");
+    expect(document.activeElement).toBe(links()[0]);
+    press(links()[0]!, "ArrowUp");
+    expect(document.activeElement).toBe(links()[0]);
+    expect(press(links()[0]!, "Enter").defaultPrevented).toBe(false);
+    expect(press(links()[0]!, "Escape").defaultPrevented).toBe(false);
+    expect(press(links()[0]!, "x").defaultPrevented).toBe(true);
+    expect($<HTMLInputElement>("#panel-reviews .pick").checked).toBe(true);
+    expect(press(links()[0]!, "Escape").defaultPrevented).toBe(true);
+    expect($("#selection").hidden).toBe(true);
+    expect(press($("#panel-reviews .see-all"), "ArrowDown").defaultPrevented).toBe(false);
+    const text = document.createTextNode("");
+    $("main").append(text);
+    text.dispatchEvent(new KeyboardEvent("keydown", { key: "x", bubbles: true }));
+  });
+
+  it("doesn't move when no row is on screen", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull()] }));
+    await start();
+    expect(press($("#panel-reviews a.pull"), "ArrowDown").defaultPrevented).toBe(false);
+  });
+
+  it("switches lists with the tabs, and remembers the last one", async () => {
+    const animate = vi.spyOn(HTMLElement.prototype, "animate");
+    await start();
+    const [reviews, mine] = [$("#tab-reviews"), $("#tab-mine")];
+    layout(reviews, { offsetLeft: 0, offsetWidth: 80 });
+    layout(mine, { offsetLeft: 80, offsetWidth: 60 });
+    mine.click();
+    expect(mine.getAttribute("aria-selected")).toBe("true");
+    expect($("#panel-mine").hidden).toBe(false);
+    expect($("#panel-reviews").hidden).toBe(true);
+    expect(localStorage.getItem("focus-diff:popup-tab")).toBe("mine");
+    const indicator = $(".tab-indicator");
+    expect(indicator.style.getPropertyValue("--left")).toBe("80px");
+    await settle();
+    expect(indicator.classList.contains("ready")).toBe(true);
+    mine.click();
+    expect(animate).toHaveBeenCalledTimes(1);
+    press(mine, "ArrowLeft");
+    expect(document.activeElement).toBe(reviews);
+    press(reviews, "ArrowLeft");
+    expect(document.activeElement).toBe(mine);
+    press(mine, "Home");
+    expect(document.activeElement).toBe(reviews);
+    press(reviews, "End");
+    expect(document.activeElement).toBe(mine);
+    press(mine, "ArrowRight");
+    expect(document.activeElement).toBe(reviews);
+    expect(press(reviews, "a").defaultPrevented).toBe(false);
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    document.documentElement.style.setProperty("--ease", "linear");
+    mine.click();
+    expect(animate).toHaveBeenLastCalledWith([expect.objectContaining({ transform: "none" }), expect.anything()], {
+      duration: 120,
+      easing: "linear",
+    });
+  });
+
+  it("opens on the list it was on", async () => {
+    localStorage.setItem("focus-diff:popup-tab", "mine");
+    await start();
+    expect($("#tab-mine").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("goes on without remembering the tab when storage throws", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    await start();
+    $("#tab-mine").click();
+    expect($("#tab-mine").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("unfolds a folded section, and folds it back", async () => {
+    const animate = vi.spyOn(HTMLElement.prototype, "animate");
+    const scrollTo = vi.spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(() => {});
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "d", draft: true })] }));
+    await start();
+    const section = $<HTMLDetailsElement>("#panel-reviews details");
+    const summary = section.querySelector("summary")!;
+    summary.click();
+    expect(section.open).toBe(true);
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+    expect(animate).toHaveBeenCalledTimes(1);
+    section.dispatchEvent(new Event("toggle"));
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "d", draft: true, title: "New" })] }));
+    await settle();
+    const again = $<HTMLDetailsElement>("#panel-reviews details");
+    expect(again.open).toBe(true);
+    again.querySelector("summary")!.click();
+    expect(again.open).toBe(true);
+    for (const animation of again.querySelector(".fold-body")!.getAnimations()) animation.finish();
+    expect(again.open).toBe(false);
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    animate.mockClear();
+    again.querySelector("summary")!.click();
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "auto" });
+    again.querySelector("summary")!.click();
+    expect(again.open).toBe(false);
+    expect(animate).not.toHaveBeenCalled();
+    scrollTo.mockClear();
+    again.closest(".scroll")!.classList.remove("scroll");
+    again.querySelector("summary")!.click();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("opens a pull request in a tab behind the popup", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "https://github.com/a/b/pull/1", unread: true })] }));
+    await start();
+    const link = $("#panel-reviews a.pull");
+    link.click();
+    expect(fakeBrowser.tabs.create).toHaveBeenCalledWith({
+      url: "https://github.com/a/b/pull/1/changes",
+      active: false,
+    });
+    expect(link.classList.contains("unread")).toBe(false);
+    await settle();
+    expect(await readItem.getValue()).toEqual({ "https://github.com/a/b/pull/1": "2026-10-26T09:00:00Z" });
+    vi.mocked(fakeBrowser.tabs.create).mockClear();
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 1 }));
+    $("#settings").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("click"));
+    expect(fakeBrowser.tabs.create).not.toHaveBeenCalled();
+  });
+
+  it("opens one of review time's with its filters on", async () => {
+    await start();
+    const link = Object.assign(document.createElement("a"), { target: "_blank", href: "https://x" });
+    Object.assign(link.dataset, { repo: "acme/web", url: "https://github.com/acme/web/pull/1" });
+    document.body.append(link);
+    link.click();
+    expect(sent).toContainEqual({
+      type: "review-open",
+      url: "https://github.com/acme/web/pull/1",
+      repo: "acme/web",
+    });
+    expect(fakeBrowser.tabs.create).not.toHaveBeenCalled();
+  });
+
+  it("opens settings, and refreshes the lists from the header", async () => {
+    await start();
+    $("#settings").click();
+    await settle();
+    expect(sent).toContainEqual({ type: "open-options", section: undefined });
+    expect(window.close).toHaveBeenCalled();
+    sent = [];
+    $("#refresh").click();
+    expect($("#refresh").getAttribute("aria-busy")).toBe("true");
+    await settle();
+    expect(sent).toContainEqual({ type: "inbox-refresh" });
+    expect($("#refresh").getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("marks the list's new activity as read, until it changes again", async () => {
+    const fresh = pull({ url: "https://github.com/acme/web/pull/1", unread: true });
+    const other = pull({ url: "https://github.com/acme/web/pull/2", number: 2, unread: true });
+    await inboxItem.setValue(inbox({ reviews: [fresh, other], mine: [pull({ url: "m", unread: false })] }));
+    await start();
+    const button = $("#mark-read");
+    expect(button.hidden).toBe(false);
+    expect(document.querySelectorAll("#panel-reviews a.pull.unread")).toHaveLength(2);
+    button.click();
+    await settle();
+    expect(document.querySelectorAll("#panel-reviews a.pull.unread")).toHaveLength(0);
+    expect(button.hidden).toBe(true);
+    expect(await readItem.getValue()).toEqual({ [fresh.url]: fresh.updatedAt, [other.url]: other.updatedAt });
+    await inboxItem.setValue(inbox({ reviews: [{ ...fresh, updatedAt: "2026-10-26T11:00:00Z" }, other] }));
+    await settle();
+    expect(document.querySelectorAll("#panel-reviews a.pull.unread")).toHaveLength(1);
+    expect(button.hidden).toBe(false);
+    $("#tab-mine").click();
+    expect(button.hidden).toBe(true);
+  });
+
+  it("shows review time on asking to review now, and puts it away", async () => {
+    await heldItem.setValue([held("review"), held("end")]);
+    await doneItem.setValue({ b: "2026-10-26T09:00:00Z" });
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a" }), pull({ url: "b" })] }));
+    await start();
+    const clock = $("#review-now");
+    const card = $("#review-card");
+    expect(card.hidden).toBe(true);
+    expect(clock.dataset.count).toBe("1");
+    expect(clock.getAttribute("aria-label")).toContain("1");
+    vi.mocked(renderReviewPanel).mockImplementation((target) => {
+      target.replaceChildren(h("button", { "aria-pressed": "true" }));
+    });
+    clock.click();
+    expect(card.hidden).toBe(false);
+    expect(clock.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(card.querySelector("button"));
+    const [, state, options] = vi.mocked(renderReviewPanel).mock.lastCall!;
+    expect([...state.waiting]).toStrictEqual(["a"]);
+    expect(options.avatar("bo").textContent).toBe("B");
+    options.openOptions("review-time");
+    await settle();
+    expect(sent).toContainEqual({ type: "open-options", section: "review-time" });
+    options.skip(123);
+    await settle();
+    expect(await reviewSkipItem.getValue()).toBe(123);
+    expect(press(card, "a").defaultPrevented).toBe(false);
+    expect(press(card, "Escape").defaultPrevented).toBe(true);
+    expect(card.hidden).toBe(true);
+    expect(document.activeElement).toBe(clock);
+    expect(press(card, "Escape").defaultPrevented).toBe(false);
+    clock.click();
+    options.close();
+    expect(card.hidden).toBe(true);
+    clock.click();
+    clock.click();
+    expect(card.hidden).toBe(true);
+    await heldItem.setValue([]);
+    await settle();
+    expect(clock.dataset.count).toBe("");
+    expect(clock.getAttribute("aria-label")).toBe("Review now");
+  });
+
+  it("shows a review time under way, its minutes going down", async () => {
+    const run: ReviewRun = {
+      session: "",
+      name: "Now",
+      minutes: 30,
+      offeredAt: NOW,
+      startedAt: null,
+      pulls: [],
+      left: 0,
+      overBy: 0,
+      filters: [],
+    };
+    await reviewRunItem.setValue(run);
+    await start();
+    expect($("#review-card").hidden).toBe(false);
+    expect($("#review-now").hidden).toBe(true);
+    const calls = vi.mocked(renderReviewPanel).mock.calls.length;
+    vi.advanceTimersByTime(20_000);
+    expect(vi.mocked(renderReviewPanel).mock.calls).toHaveLength(calls);
+    await reviewRunItem.setValue({ ...run, startedAt: NOW });
+    await settle();
+    const started = vi.mocked(renderReviewPanel).mock.calls.length;
+    vi.advanceTimersByTime(20_000);
+    expect(vi.mocked(renderReviewPanel).mock.calls).toHaveLength(started + 1);
+    expect(press($("#review-card"), "Escape").defaultPrevented).toBe(false);
+  });
+
+  it("gives an author's picture a second address, then their initial", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "ana" })] }));
+    await start();
+    const images = () => $$<HTMLImageElement>("#panel-reviews .avatar img");
+    const [image] = images();
+    image!.dispatchEvent(new Event("error"));
+    expect(image!.src).toBe("https://github.com/ana.png?size=48");
+    expect(image!.isConnected).toBe(true);
+    image!.dispatchEvent(new Event("error"));
+    expect(image!.isConnected).toBe(false);
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "c", author: "ana" })] }));
+    await settle();
+    expect(images()).toHaveLength(0);
+    expect($("#panel-reviews .avatar").textContent).toBe("A");
+  });
+
+  it("loads a picture once, copying it while it's on screen", async () => {
+    const shown = () => $<HTMLImageElement>("#panel-reviews .avatar img");
+    const draw = async (url: string, author: string) => {
+      await inboxItem.setValue(inbox({ reviews: [pull({ url, author })] }));
+      await settle();
+    };
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "bo" })] }));
+    await start();
+    const image = shown();
+    await draw("b", "bo");
+    expect(shown()).not.toBe(image);
+    expect(shown().src).toBe(image.src);
+    await draw("c", "cy");
+    await draw("d", "bo");
+    expect(shown()).toBe(image);
+    await draw("e", "cy");
+    layout(image, { complete: true, naturalWidth: 0 });
+    await draw("f", "bo");
+    expect($$("#panel-reviews .avatar img")).toHaveLength(0);
+  });
+
+  it("gives each of an author's rows drawn together a picture of its own", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "bo" }), pull({ url: "b", author: "bo" })] }));
+    await start();
+    const images = $$<HTMLImageElement>("#panel-reviews .avatar img");
+    expect(images).toHaveLength(2);
+    expect(images[0]).not.toBe(images[1]);
+    images[1]!.dispatchEvent(new Event("error"));
+    expect(images[1]!.src).toBe("https://github.com/bo.png?size=48");
+  });
+
+  it("leaves the rows alone when a look finds the same", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull()] }));
+    await start();
+    const row = $("#panel-reviews a.pull");
+    await inboxItem.setValue(inbox({ reviews: [pull()], checkedAt: NOW }));
+    await settle();
+    expect($("#panel-reviews a.pull")).toBe(row);
+  });
+
+  it("estimates again once a pull request's files are read, and a pace learned", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "big" })] }));
+    await start();
+    expect($$(".pull-estimate")).toHaveLength(0);
+    await pullFilesItem.setValue({ big: { sha: "abc", files: [["a.ts", 40, 0, false]] } });
+    await settle();
+    expect($$(".pull-estimate")).toHaveLength(1);
+    await learnedItem.setValue(normalizeLearned({}));
+    await settle();
+    await pullFilesItem.setValue({});
+    await settle();
+    expect($$(".pull-estimate")).toHaveLength(0);
+  });
+
+  it("puts a stack's pull requests together, bottom first, each with its place, joined by a line", async () => {
+    const branch = (head: string, base: string) => ({ sha: "abc", head, base, fork: false });
+    await pullBranchesItem.setValue({ top: branch("c", "b"), bottom: branch("a", "main"), middle: branch("b", "a") });
+    await inboxItem.setValue(
+      inbox({
+        reviews: [
+          pull({ url: "top", title: "Top", unread: true }),
+          pull({ url: "lone", title: "Lone", updatedAt: "2026-10-26T10:00:00Z" }),
+          pull({ url: "bottom", title: "Bottom" }),
+          pull({ url: "middle", title: "Middle", updatedAt: "2026-10-20T00:00:00Z" }),
+        ],
+        mine: [pull({ url: "native", title: "Native", stack: { position: 2, size: 3 } })],
+      }),
+    );
+    await start();
+    expect(titles()).toStrictEqual(["Bottom", "Middle", "Top", "Lone"]);
+    const rows = $$("#panel-reviews .row");
+    expect(rows.map((row) => row.querySelector(".pull-stack > [aria-hidden]")?.textContent ?? "")).toStrictEqual([
+      "1/3",
+      "2/3",
+      "3/3",
+      "",
+    ]);
+    expect(rows[0]!.querySelector(".pull-stack .visually-hidden")?.textContent).toBe(
+      "1 of 3 in a stack, from the bottom",
+    );
+    expect(rows.map((row) => ["stack-up", "stack-down"].filter((name) => row.classList.contains(name)))).toStrictEqual([
+      ["stack-down"],
+      ["stack-up", "stack-down"],
+      ["stack-up"],
+      [],
+    ]);
+    expect($("#panel-mine .pull-stack").getAttribute("title")).toBe("2 of 3 in a stack, from the bottom");
+    expect($("#panel-mine .row").classList.contains("stack-up")).toBe(false);
+    await pullBranchesItem.setValue({});
+    await settle();
+    expect(titles()).toStrictEqual(["Top", "Lone", "Bottom", "Middle"]);
+  });
+
+  it("adds the lists the reader turned on in settings, as tabs of their own", async () => {
+    await popupItem.setValue({ ...normalizePopup({}), updates: true, merged: true });
+    await inboxItem.setValue(
+      inbox({
+        updates: [pull({ url: "u", title: "Talked about", author: "bo" })],
+        merged: [pull({ url: "m", title: "Merged without me" }), pull({ url: "m2", draft: true })],
+      }),
+    );
+    await start();
+    expect($$(".tab").map((tab) => tab.hidden)).toStrictEqual([false, false, false, false]);
+    expect($(".tabs").dataset.count).toBe("4");
+    expect([$("#count-updates").textContent, $("#count-merged").textContent]).toStrictEqual(["1", "2"]);
+    expect($("#panel-updates a.pull").getAttribute("href")).toBe("u");
+    expect($("#panel-updates .pull-author").textContent).toBe("bo");
+    expect($("#panel-merged a.pull").getAttribute("href")).toBe("m/changes");
+    expect($$("#panel-merged details")).toHaveLength(0);
+    const query = (list: string) => new URL($<HTMLAnchorElement>(`#panel-${list} .see-all`).href).searchParams.get("q");
+    expect(query("updates")).toContain("involves:@me");
+    expect(query("merged")).toContain("merged:>=2026-10-19");
+    $("#tab-merged").click();
+    press($("#tab-merged"), "ArrowRight");
+    expect(document.activeElement).toBe($("#tab-reviews"));
+    press($("#tab-reviews"), "End");
+    expect(document.activeElement).toBe($("#tab-merged"));
+
+    await popupItem.setValue({ ...normalizePopup({}), updates: true });
+    await settle();
+    expect($("#tab-merged").hidden).toBe(true);
+    expect($(".tabs").dataset.count).toBe("3");
+    expect($("#tab-reviews").getAttribute("aria-selected")).toBe("true");
+    press($("#tab-reviews"), "End");
+    expect(document.activeElement).toBe($("#tab-updates"));
+  });
+
+  it("stands rows in for a list just added, until its first look is back", async () => {
+    await popupItem.setValue({ ...normalizePopup({}), updates: true });
+    await inboxItem.setValue(inbox({ reviews: [pull()] }));
+    answer = "never";
+    await start();
+    expect($("#panel-updates").getAttribute("aria-busy")).toBe("true");
+    expect($$("#panel-updates .skeleton")).toHaveLength(1);
+    expect($$("#panel-reviews .skeleton")).toHaveLength(0);
+    expect($$("#panel-merged .skeleton")).toHaveLength(0);
+  });
+
+  it("opens on a list it was on only while the reader has it", async () => {
+    localStorage.setItem("focus-diff:popup-tab", "merged");
+    await start();
+    expect($("#tab-reviews").getAttribute("aria-selected")).toBe("true");
+    localStorage.setItem("focus-diff:popup-tab", "merged");
+    await popupItem.setValue({ ...normalizePopup({}), merged: true });
+    document.body.innerHTML = pageBody(html);
+    await start();
+    expect($("#tab-merged").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("opens a pull request on GitHub, and copies its link, from its row's menu", async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    await inboxItem.setValue(inbox({ reviews: [pull({ comments: 2 })] }));
+    await start();
+    const menu = $("#panel-reviews .row-menu");
+    expect(menu.getAttribute("aria-label")).toBe("More for “Fix the header”");
+    menu.click();
+    const items = $$<HTMLButtonElement>("#panel-reviews [role=menuitem]");
+    expect(items.map((item) => item.textContent)).toStrictEqual(["Open on GitHub", "Copy link", "Ignore"]);
+    items[0]!.click();
+    expect(fakeBrowser.tabs.create).toHaveBeenCalledWith({ url: "https://github.com/acme/web/pull/1", active: false });
+    items[1]!.click();
+    expect(writeText).toHaveBeenCalledWith("https://github.com/acme/web/pull/1");
+    await settle();
+    expect($("#flash").textContent).toBe("Link copied");
+    expect($("#updated").hidden).toBe(true);
+    vi.advanceTimersByTime(2400);
+    expect($("#flash").textContent).toBe("");
+    expect($("#updated").hidden).toBe(false);
+    writeText.mockRejectedValueOnce(new Error("denied"));
+    items[1]!.click();
+    await settle();
+    expect($("#flash").textContent).toBe("");
+  });
+
+  it("holds the rows as they are while a row's menu is open, and draws them once it closes", async () => {
+    await inboxItem.setValue(inbox({ reviews: [pull({ title: "Before" })] }));
+    await start();
+    $("#panel-reviews .row-menu").click();
+    await inboxItem.setValue(inbox({ reviews: [pull({ title: "After" })] }));
+    await settle();
+    expect(titles()).toStrictEqual(["Before"]);
+    press($("#panel-reviews [role=menu]"), "Escape");
+    expect(titles()).toStrictEqual(["After"]);
+  });
+
+  it("ignores a pull request on one list, with Undo, and a way back from the Ignored section", async () => {
+    await inboxItem.setValue(
+      inbox({ reviews: [pull({ url: "a", title: "A" }), pull({ url: "b", title: "B" })], mine: [pull({ url: "a" })] }),
+    );
+    await start();
+    const ignoreIt = (title: string) => {
+      const row = $$("#panel-reviews .row").find((each) => each.querySelector(".pull-title")?.textContent === title)!;
+      row.querySelector<HTMLButtonElement>(".row-menu")!.click();
+      row.querySelectorAll<HTMLButtonElement>("[role=menuitem]")[2]!.click();
+    };
+    ignoreIt("A");
+    expect(titles()).toStrictEqual(["B"]);
+    expect(await ignoredItem.getValue()).toStrictEqual({ reviews: ["a"] });
+    expect($$("#panel-mine .row")).toHaveLength(1);
+    expect($("#count-reviews").textContent).toBe("1");
+    expect(document.activeElement).toBe($("#panel-reviews"));
+    expect($("#selection-text").textContent).toBe("Ignored");
+    expect($("#undo-done").hidden).toBe(false);
+    $("#undo-done").click();
+    expect(titles()).toStrictEqual(["A", "B"]);
+    expect(await ignoredItem.getValue()).toStrictEqual({ reviews: [] });
+    expect($("#selection").hidden).toBe(true);
+
+    ignoreIt("A");
+    const section = $<HTMLDetailsElement>("#panel-reviews details");
+    expect(section.querySelector("summary")?.textContent).toBe("Ignored1");
+    expect(section.querySelector(".row-menu")).toBeNull();
+    vi.advanceTimersByTime(6000);
+    expect($("#selection").hidden).toBe(true);
+    const restore = section.querySelector<HTMLButtonElement>(".restore")!;
+    expect(restore.getAttribute("aria-label")).toBe("Bring back “A”");
+    restore.click();
+    expect(titles()).toStrictEqual(["A", "B"]);
+
+    ignoreIt("A");
+    $<HTMLInputElement>("#panel-reviews .pick").click();
+    expect($("#selection-text").textContent).toBe("1 selected");
+    $("#mark-done").click();
+    $("#undo-done").click();
+    expect(await ignoredItem.getValue()).toStrictEqual({ reviews: ["a"] });
+    await ignoredItem.setValue({ reviews: ["a", "b"] });
+    await settle();
+    expect(titles()).toStrictEqual([]);
+  });
+
+  it("marks a merged pull request as seen", async () => {
+    await popupItem.setValue({ ...normalizePopup({}), merged: true });
+    await inboxItem.setValue(inbox({ merged: [pull({ url: "m", title: "M" })] }));
+    await start();
+    $("#tab-merged").click();
+    $("#panel-merged .row-menu").click();
+    const seen = $$<HTMLButtonElement>("#panel-merged [role=menuitem]")[2]!;
+    expect(seen.textContent).toBe("Mark as seen");
+    seen.click();
+    expect($("#selection-text").textContent).toBe("Marked as seen");
+    expect($("#panel-merged summary").textContent).toBe("Seen1");
+    expect($("#panel-merged .done-hint").textContent).toBe("They stay off this list until you bring them back.");
+  });
+
+  it("opens a pull request's link pasted outside a field on its changes", async () => {
+    await start();
+    const paste = (text: string | null, target: Element = document.body) => {
+      const event = new Event("paste", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "clipboardData", {
+        value: text === null ? null : { getData: (type: string) => (type === "text/plain" ? text : "") },
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+    expect(paste("  github.com/acme/web/pull/12/files#diff-1 ").defaultPrevented).toBe(true);
+    expect(fakeBrowser.tabs.create).toHaveBeenCalledWith({
+      url: "https://github.com/acme/web/pull/12/changes",
+      active: false,
+    });
+    expect($("#flash").textContent).toBe("Opened acme/web#12 in a new tab");
+    vi.mocked(fakeBrowser.tabs.create).mockClear();
+    expect(paste("https://github.com/acme/web/issues/12").defaultPrevented).toBe(false);
+    expect(paste(null).defaultPrevented).toBe(false);
+    const field = document.createElement("input");
+    document.body.append(field);
+    expect(paste("https://github.com/acme/web/pull/12", field).defaultPrevented).toBe(false);
+    document.dispatchEvent(new Event("paste"));
+    expect(fakeBrowser.tabs.create).not.toHaveBeenCalled();
+  });
+});

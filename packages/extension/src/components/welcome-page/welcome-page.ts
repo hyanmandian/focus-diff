@@ -1,0 +1,269 @@
+import { browser } from "wxt/browser";
+
+import { i18n } from "#i18n";
+import { toaster } from "@/components/toast/toast";
+import { appearanceCss, createStyler, normalizeAppearance } from "@/utils/appearance/appearance";
+import { h } from "@/utils/dom/dom";
+import { $, reveal, templateElement, translate, translateDocument } from "@/utils/extension-page/extension-page";
+import { normalize, type Config } from "@/utils/filters/filters";
+import { message, uiLanguage } from "@/utils/i18n/i18n";
+import { providerNames } from "@/utils/providers/providers";
+import { RECIPES, type Recipe } from "@/utils/recipes/recipes";
+import {
+  normalizeReviewTime,
+  presetSession,
+  REVIEW_PRESETS,
+  type ReviewPreset,
+  type ReviewTimeSettings,
+} from "@/utils/review-sessions/review-sessions";
+import { sessionSummary } from "@/utils/review-summary/review-summary";
+import {
+  appearanceItem,
+  configItem,
+  loadAppearance,
+  loadConfig,
+  loadReviewTime,
+  reviewTimeItem,
+  saveConfig,
+  saveReviewTime,
+} from "@/utils/storage/storage";
+
+const recipeId = (recipe: Recipe, index: number) => `recipe-${recipe.id}-${index}`;
+const recipeIds = (recipe: Recipe) => recipe.filters.map((_, index) => recipeId(recipe, index));
+
+const names = (recipe: Recipe) => recipe.filters.map((filter) => message(filter.name)).join(", ");
+
+const pattern = (label: string, value: string) =>
+  h(
+    "div",
+    {},
+    h("dt", { textContent: label }),
+    h(
+      "dd",
+      {},
+      value
+        ? h("code", { textContent: value })
+        : h("span", { textContent: i18n.t("recipeEverything"), className: "everything" }),
+    ),
+  );
+
+export const startWelcome = (): void => {
+  const notify = toaster($("#toast"));
+  let config: Config = normalize({});
+
+  const isAdded = (recipe: Recipe) => recipeIds(recipe).some((id) => config.global.some((filter) => filter.id === id));
+
+  const toggle = async (recipe: Recipe) => {
+    const ids = recipeIds(recipe);
+    const adding = !isAdded(recipe);
+    const global = adding
+      ? [
+          ...config.global,
+          ...recipe.filters.map((filter, index) => ({
+            ...filter,
+            id: recipeId(recipe, index),
+            name: message(filter.name),
+          })),
+        ]
+      : config.global.filter((filter) => !ids.includes(filter.id));
+    const next = normalize({ ...config, global });
+    try {
+      await saveConfig(next);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      notify(/QUOTA/iu.test(reason) ? i18n.t("statusQuota") : i18n.t("statusSaveError", [reason]));
+      return;
+    }
+    config = next;
+    const item = document.querySelector<HTMLElement>(`[data-recipe="${recipe.id}"]`);
+    if (item) showState(item, recipe);
+    notify(adding ? i18n.t("recipeAddedNotice", [names(recipe)]) : i18n.t("recipeRemovedNotice", [names(recipe)]));
+  };
+
+  const renderRecipe = (recipe: Recipe) => {
+    const item = templateElement<HTMLLIElement>("recipe-template");
+    item.dataset.recipe = recipe.id;
+    $(".recipe-title", item).textContent = message(recipe.title);
+    $(".recipe-description", item).textContent = message(recipe.description);
+    translate(item);
+    $(".recipe-names", item).replaceChildren(
+      ...recipe.filters.map((filter) => h("li", { textContent: message(filter.name) })),
+    );
+    const list = $(".recipe-filters", item);
+    for (const filter of recipe.filters)
+      list.append(
+        h(
+          "div",
+          { className: "recipe-filter" },
+          h("span", { className: "recipe-filter-name", textContent: message(filter.name) }),
+          h(
+            "dl",
+            {},
+            pattern(i18n.t("recipeInclude"), filter.include),
+            filter.exclude ? pattern(i18n.t("recipeExclude"), filter.exclude) : null,
+          ),
+        ),
+      );
+    $<HTMLButtonElement>(".recipe-toggle", item).addEventListener("click", () => void toggle(recipe));
+    showState(item, recipe);
+    return item;
+  };
+
+  function showState(item: HTMLElement, recipe: Recipe) {
+    const added = isAdded(recipe);
+    const button = $<HTMLButtonElement>(".recipe-toggle", item);
+    button.textContent = added ? i18n.t("recipeRemove") : i18n.t("recipeAdd");
+    button.setAttribute(
+      "aria-label",
+      added ? i18n.t("recipeRemoveLabel", [names(recipe)]) : i18n.t("recipeAddLabel", [names(recipe)]),
+    );
+    item.toggleAttribute("data-added", added);
+  }
+
+  const render = () => {
+    const focusedId = document.activeElement?.closest<HTMLElement>(".recipe")?.dataset.recipe;
+    $("#recipes").replaceChildren(...RECIPES.map((each) => renderRecipe(each)));
+    if (focusedId) document.querySelector<HTMLElement>(`[data-recipe="${focusedId}"] .recipe-toggle`)?.focus();
+  };
+
+  let reviewTime: ReviewTimeSettings = normalizeReviewTime({});
+  const PRESET_NAMES: Record<string, [string, string]> = {
+    twice: [i18n.t("presetTwiceTitle"), i18n.t("presetTwiceDescription")],
+    every: [i18n.t("presetEveryTitle"), i18n.t("presetEveryDescription")],
+    end: [i18n.t("presetEndTitle"), i18n.t("presetEndDescription")],
+  };
+  const ORDER_NAMES = {
+    oldest: i18n.t("reviewOrderOldest"),
+    quickest: i18n.t("reviewOrderQuickest"),
+    fill: i18n.t("reviewOrderFill"),
+  };
+  const presetOn = (preset: ReviewPreset) =>
+    reviewTime.enabled && reviewTime.sessions.some((session) => session.id === `preset-${preset.id}` && session.on);
+
+  const togglePreset = async (preset: ReviewPreset) => {
+    const [title] = PRESET_NAMES[preset.id]!;
+    const id = `preset-${preset.id}`;
+    const adding = !presetOn(preset);
+    if (adding && browser.runtime.getManifest().optional_permissions?.includes("notifications")) {
+      const allowed = await browser.permissions.request({ permissions: ["notifications"] }).catch(() => false);
+      if (!allowed) {
+        notify(i18n.t("notifyDenied"));
+        return;
+      }
+    }
+    const others = reviewTime.sessions.filter((session) => session.id !== id);
+    const next = normalizeReviewTime({
+      ...reviewTime,
+      enabled: adding || others.some((session) => session.on),
+      sessions: adding ? [...others, presetSession(preset, title)] : others,
+    });
+    try {
+      await saveReviewTime(next);
+    } catch (error) {
+      notify(i18n.t("statusSaveError", [error instanceof Error ? error.message : String(error)]));
+      return;
+    }
+    reviewTime = next;
+    renderPresets();
+    notify(adding ? i18n.t("welcomeReviewAdded", [title]) : i18n.t("welcomeReviewRemoved", [title]));
+  };
+
+  function renderPresets() {
+    const focused = document.activeElement?.closest<HTMLElement>("[data-preset]")?.dataset.preset;
+    $("#review-presets").replaceChildren(
+      ...REVIEW_PRESETS.map((preset) => {
+        const [title, description] = PRESET_NAMES[preset.id]!;
+        const session = presetSession(preset, title);
+        const on = presetOn(preset);
+        const item = h(
+          "li",
+          { className: "recipe", "data-preset": preset.id },
+          h(
+            "div",
+            { className: "recipe-text" },
+            h("h3", { className: "recipe-title", textContent: title }),
+            h("p", { className: "recipe-description", textContent: description }),
+          ),
+          h(
+            "ul",
+            { className: "recipe-names", role: "list" },
+            ...[sessionSummary(session), ORDER_NAMES[session.order]].map((fact) => h("li", { textContent: fact })),
+          ),
+          h("button", {
+            type: "button",
+            className: "btn recipe-toggle",
+            textContent: on ? i18n.t("presetStop") : i18n.t("presetUse"),
+            "aria-label": on ? i18n.t("presetStopLabel", [title]) : i18n.t("presetUseLabel", [title]),
+            onClick: () => void togglePreset(preset),
+          }),
+        );
+        item.toggleAttribute("data-added", on);
+        return item;
+      }),
+    );
+    if (focused) document.querySelector<HTMLElement>(`[data-preset="${focused}"] button`)?.focus();
+  }
+
+  reviewTimeItem.watch((value) => {
+    reviewTime = normalizeReviewTime(value);
+    renderPresets();
+  });
+
+  const DEFAULT_SHORTCUTS: Record<string, string> = {
+    "next-filter": "Alt+Shift+.",
+    "previous-filter": "Alt+Shift+,",
+    "show-all": "Alt+Shift+0",
+    "next-unviewed": "Alt+Shift+J",
+  };
+
+  const renderShortcuts = async () => {
+    const commands = (await browser.commands?.getAll?.()?.catch(() => [])) ?? [];
+    const keys = Object.entries(DEFAULT_SHORTCUTS).map(
+      ([name, fallback]) => commands.find((command) => command.name === name)?.shortcut || fallback,
+    );
+    const marker = "@@@";
+    const parts = i18n.t("welcomeShortcuts", [marker, marker, marker, marker]).split(marker);
+    const paragraph = $("#shortcuts");
+    paragraph.replaceChildren();
+    parts.forEach((part, index) => {
+      paragraph.append(part);
+      const key = keys[index];
+      if (index < keys.length && key) {
+        const kbd = document.createElement("kbd");
+        kbd.textContent = key;
+        paragraph.append(kbd);
+      }
+    });
+  };
+
+  configItem.watch((value) => {
+    config = normalize(value);
+    render();
+  });
+
+  translateDocument(i18n.t("welcomeTitle"));
+  $("#lead").textContent = i18n.t("welcomeLead", [providerNames(uiLanguage())]);
+  void Promise.all([loadConfig(), loadReviewTime(), renderShortcuts()]).then(([loaded, review]) => {
+    config = loaded;
+    reviewTime = review;
+    render();
+    renderPresets();
+    reveal();
+    if (location.hash === "#recipes-h") $("#recipes-h").focus();
+  });
+
+  void Promise.all([
+    import("@/components/demo/demo"),
+    import("@/utils/demo-sample/demo-sample"),
+    loadAppearance().then(appearanceCss),
+  ]).then(([{ createDemo }, { SAMPLE_PULL_REQUEST }, theme]) => {
+    const demo = createDemo($("#demo"), SAMPLE_PULL_REQUEST, {
+      onSettings: () => {
+        location.assign("/options.html");
+      },
+      theme,
+    });
+    const restyle = createStyler(demo.setTheme);
+    appearanceItem.watch((value) => void restyle(normalizeAppearance(value)));
+  });
+};

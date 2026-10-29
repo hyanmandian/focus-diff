@@ -11,3 +11,6 @@ skills-lock.json
 
 # The store listing text, kept locally
 store/listing.md
+
+# Builds
+dist

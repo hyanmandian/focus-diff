@@ -1,0 +1,58 @@
+{
+  "name": "@focus-diff/extension",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Review what matters. A browser extension that filters pull request diffs.",
+  "license": "MIT",
+  "author": "Hyan Mandian",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:demo": "vite build -c vite.demo.config.ts",
+    "build:firefox": "wxt build -b firefox",
+    "build:safari": "wxt build -b safari",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "zip:safari": "wxt zip -b safari",
+    "screenshots": "wxt build && node scripts/screenshots.ts",
+    "compile": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:firefox": "wxt build -b firefox && web-ext lint --source-dir .output/firefox-mv3 --self-hosted",
+    "fmt": "oxfmt",
+    "check": "tsc --noEmit && oxlint && oxfmt --check && jscpd && npm run check:dependencies && npm run check:lockfile && npm run check:unused",
+    "test": "vitest run",
+    "e2e": "wxt build && npm run build:demo && playwright test",
+    "postinstall": "wxt prepare",
+    "duplicates": "jscpd",
+    "check:dependencies": "node -e \"const d=Object.keys(require('./package.json').dependencies||{}).filter((n)=>!n.startsWith('@focus-diff/'));if(d.length){console.error('Runtime dependencies are not allowed:',d.join(', '));process.exit(1)}\"",
+    "check:lockfile": "lockfile-lint --path ../../package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity",
+    "check:unused": "knip",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@focus-diff/core": "*"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@vitest/coverage-v8": "^5.0.5",
+    "@wxt-dev/i18n": "^0.2.8",
+    "happy-dom": "^21.0.4",
+    "jscpd": "^5.4.2",
+    "knip": "^6.43.0",
+    "lockfile-lint": "^5.1.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "web-ext": "^10.8.0",
+    "wxt": "^0.21.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

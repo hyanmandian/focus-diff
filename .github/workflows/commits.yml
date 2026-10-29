@@ -1,7 +1,5 @@
 name: Commit messages
 
-# Pull requests are merged with all their commits, and release-please works out the next version and the changelog
-# from each of them, so every commit follows Conventional Commits.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -29,7 +27,6 @@ jobs:
           pattern='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9./_-]+\))?!?: .+'
           failed=0
           while IFS= read -r subject; do
-            # Merging main into the branch is fine; the merge itself isn't a change to release.
             if [[ "$subject" == Merge\ * ]]; then continue; fi
             if ! [[ "$subject" =~ $pattern ]]; then
               echo "::error::Not a Conventional Commit: $subject"

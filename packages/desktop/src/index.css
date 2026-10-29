@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./styles/utilities.css";
+@import "./styles/tokens.css";
+@import "./styles/base.css";
+@import "./styles/styles.css";
+
+@source not "./**/*.test.ts";
+@source not "./**/*.test.tsx";
+
+html.panel,
+html.panel body {
+  background: transparent;
+}

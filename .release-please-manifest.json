@@ -1,3 +1,4 @@
 {
-  ".": "1.2.0"
+  "packages/extension": "1.2.0",
+  "packages/desktop": "0.1.0"
 }

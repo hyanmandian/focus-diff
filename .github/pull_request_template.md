@@ -9,5 +9,5 @@
 <!-- Screenshots or a short recording for anything visible on GitHub or the settings pages. -->
 
 - [ ] `npm run check`, `npm test` and `npm run e2e` pass
-- [ ] Tried on a real pull request (say which view: classic or newer)
-- [ ] New text is in both `en.json` and `pt_BR.json`
+- [ ] Tried on a real pull request (extension: say which view, classic or newer; desktop: say which system)
+- [ ] New text is in both languages (`en.json`/`pt_BR.json` in the extension, `src/locales/en`/`pt-BR` in the desktop app)

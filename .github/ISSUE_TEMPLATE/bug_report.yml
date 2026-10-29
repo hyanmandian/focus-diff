@@ -5,6 +5,17 @@ body:
   - type: markdown
     attributes:
       value: Thanks for taking the time. Please leave out anything private, like code from a private repository.
+  - type: dropdown
+    id: app
+    attributes:
+      label: Which app?
+      options:
+        - Browser extension
+        - Desktop app on Mac
+        - Desktop app on Windows
+        - Desktop app on Linux
+    validations:
+      required: true
   - type: textarea
     id: what
     attributes:
@@ -31,18 +42,18 @@ body:
   - type: dropdown
     id: view
     attributes:
-      label: GitHub diff view
+      label: GitHub diff view (extension)
       description: GitHub has two. The newer one shows a "Changes" tab with a file tree on the left.
       options:
         - Classic (Files changed)
         - Newer (Changes)
         - Not sure
     validations:
-      required: true
+      required: false
   - type: dropdown
     id: browser
     attributes:
-      label: Browser
+      label: Browser (extension)
       options:
         - Chrome
         - Edge
@@ -52,12 +63,12 @@ body:
         - Firefox
         - Safari
     validations:
-      required: true
+      required: false
   - type: input
     id: version
     attributes:
       label: Focus Diff version
-      description: It's at the bottom of the Focus Diff settings page.
+      description: The extension shows it at the bottom of its settings page; the desktop app in Focus Diff › About.
       placeholder: '1.0.0'
     validations:
       required: true

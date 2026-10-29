@@ -1,0 +1,292 @@
+import { i18n } from "#i18n";
+import {
+  notifySwitch,
+  repoPickers,
+  segmented,
+  soundPicker,
+  switchInput,
+  toggleChip,
+} from "@/components/options-widgets/options-widgets";
+import { h } from "@/utils/dom/dom";
+import { $ } from "@/utils/extension-page/extension-page";
+import {
+  EXCEPTIONS,
+  INTERVALS,
+  normalizeNotify,
+  type EventKind,
+  type Exception,
+  type NotifySettings,
+} from "@/utils/inbox/inbox";
+import { keysOf, oneOf } from "@/utils/record/record";
+import { inboxItem } from "@/utils/storage/storage";
+
+const GROUPS: { list: string; events: EventKind[] }[] = [
+  { list: "#events-reviewing", events: ["review-requested", "ready-for-review", "comment-reviewing"] },
+  { list: "#events-mine", events: ["comment-mine", "approved", "changes-requested"] },
+  { list: "#events-other", events: ["mention"] },
+];
+
+const EVENT_NAMES: Record<EventKind, string> = {
+  "review-requested": i18n.t("eventReviewRequested"),
+  "ready-for-review": i18n.t("eventReadyForReview"),
+  "comment-reviewing": i18n.t("eventCommentReviewing"),
+  "comment-mine": i18n.t("eventCommentMine"),
+  approved: i18n.t("eventApproved"),
+  "changes-requested": i18n.t("eventChangesRequested"),
+  mention: i18n.t("eventMention"),
+};
+
+const FULL_NAMES: Partial<Record<EventKind, string>> = {
+  "comment-reviewing": i18n.t("eventCommentReviewingFull"),
+  "comment-mine": i18n.t("eventCommentMineFull"),
+};
+const fullName = (kind: EventKind) => FULL_NAMES[kind] ?? EVENT_NAMES[kind];
+
+const EXCEPTION_NAMES: Record<Exception, string> = {
+  drafts: i18n.t("exceptDrafts"),
+  approved: i18n.t("exceptApproved"),
+  bots: i18n.t("exceptBots"),
+};
+
+export const createNotifications = ({
+  onChange,
+  say,
+}: {
+  onChange: () => void;
+  say: (text: string, tone: "error") => void;
+}) => {
+  let settings: NotifySettings = normalizeNotify({});
+  const pickers = repoPickers(onChange);
+  const toggle = $<HTMLInputElement>("#notify-on");
+  const body = $("#notify-body");
+  const permission = $("#notify-permission");
+  const interval = $<HTMLSelectElement>("#notify-interval");
+  const quietOn = $<HTMLInputElement>("#quiet-on");
+  const quietFrom = $<HTMLInputElement>("#quiet-from");
+  const quietTo = $<HTMLInputElement>("#quiet-to");
+  const quietWeekends = $<HTMLInputElement>("#quiet-weekends");
+  const delivery = {
+    grouped: $<HTMLInputElement>("#delivery-grouped"),
+    sticky: $<HTMLInputElement>("#delivery-sticky"),
+  };
+  let reviewTime = false;
+
+  interval.append(
+    ...INTERVALS.map((minutes) => new Option(i18n.t("notifyMinutes", minutes, [minutes]), String(minutes))),
+  );
+  if (import.meta.env.FIREFOX)
+    document.querySelectorAll<HTMLElement>(".chrome-only").forEach((row) => {
+      row.hidden = true;
+    });
+
+  void inboxItem.getValue().then((snapshot) => {
+    const repos = [
+      ...new Set([...(snapshot?.reviews ?? []), ...(snapshot?.mine ?? [])].map((pull) => pull.repo)),
+    ].toSorted();
+    const owners = [...new Set(repos.map((repo) => `${repo.slice(0, repo.indexOf("/"))}/*`))];
+    $("#repo-suggestions").replaceChildren(...[...repos, ...owners].map((repo) => new Option(repo)));
+  });
+
+  const { picker } = pickers;
+
+  const skipChips = (kind: EventKind) => {
+    const setting = settings.events[kind];
+    const chips = EXCEPTIONS[kind].map((exception) =>
+      toggleChip(EXCEPTION_NAMES[exception], setting.except.includes(exception), (on) => {
+        setting.except = on ? [...setting.except, exception] : setting.except.filter((each) => each !== exception);
+        onChange();
+      }),
+    );
+    const group = h(
+      "div",
+      { className: "event-skip", role: "group" },
+      h("span", { className: "skip-label", textContent: i18n.t("notifySkip") }),
+      ...chips,
+    );
+    group.setAttribute("aria-label", i18n.t("notifyExceptFor", [fullName(kind)]));
+    return group;
+  };
+
+  const eventRepos = (kind: EventKind) => {
+    const setting = settings.events[kind];
+    const id = `event-${kind}-repos`;
+    const button = h("button", { type: "button", className: "event-repos-toggle" });
+    const panel = h("div", { className: "event-repos", id });
+    const label = () =>
+      (button.textContent =
+        setting.repos.length > 0
+          ? i18n.t("notifyEventReposCount", setting.repos.length, [setting.repos.length])
+          : i18n.t("notifyEventReposSame"));
+    label();
+    panel.hidden = setting.repos.length === 0;
+    button.setAttribute("aria-controls", id);
+    button.setAttribute("aria-expanded", String(!panel.hidden));
+    panel.append(
+      picker(`${id}-input`, i18n.t("notifyEventReposLabel", [fullName(kind)]), setting.repos, (repos) => {
+        setting.repos = repos;
+        label();
+      }),
+      h("p", { className: "hint", textContent: i18n.t("notifyEventReposHint") }),
+    );
+    button.addEventListener("click", () => {
+      panel.hidden = !panel.hidden;
+      button.setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) $<HTMLInputElement>("input", panel).focus();
+    });
+    return [button, panel];
+  };
+
+  const whenChoice = (kind: EventKind) => {
+    const setting = settings.events[kind];
+    const group = segmented(
+      `event-${kind}-when`,
+      i18n.t("notifyWhenFor", [fullName(kind)]),
+      [
+        ["now", i18n.t("notifyWhenNow")],
+        ["review", i18n.t("notifyWhenReview")],
+      ],
+      setting.when,
+      (when) => {
+        setting.when = when;
+        onChange();
+      },
+    );
+    group.classList.add("event-when");
+    group.hidden = !reviewTime;
+    return group;
+  };
+
+  const eventRow = (kind: EventKind) => {
+    const setting = settings.events[kind];
+    const id = `event-${kind}`;
+    const details = h(
+      "div",
+      { className: "event-details" },
+      whenChoice(kind),
+      EXCEPTIONS[kind].length > 0 ? skipChips(kind) : null,
+      ...eventRepos(kind),
+    );
+    details.hidden = !setting.on;
+    const input = switchInput(id, setting.on);
+    if (FULL_NAMES[kind]) input.setAttribute("aria-label", fullName(kind));
+    input.addEventListener("change", () => {
+      setting.on = input.checked;
+      details.hidden = !input.checked;
+      onChange();
+    });
+    return h(
+      "li",
+      { className: "event" },
+      h("div", { className: "event-main" }, input, h("label", { htmlFor: id, textContent: EVENT_NAMES[kind] })),
+      details,
+    );
+  };
+
+  const syncIntervalHint = () => {
+    $("#notify-on-hint").textContent = i18n.t("notifyOnHint", [settings.interval]);
+  };
+
+  const syncQuiet = () => {
+    $("#quiet-fields").hidden = !settings.quiet.on;
+  };
+
+  const render = () => {
+    pickers.clear();
+    toggle.checked = settings.enabled;
+    body.hidden = !settings.enabled;
+    syncIntervalHint();
+    $("#repos-only").replaceChildren(
+      picker("notify-repos", i18n.t("notifyReposOnly"), settings.repos, (repos) => {
+        settings.repos = repos;
+      }),
+    );
+    $("#repos-never").replaceChildren(
+      picker("notify-repos-never", i18n.t("notifyReposNever"), settings.excludeRepos, (repos) => {
+        settings.excludeRepos = repos;
+      }),
+    );
+    for (const group of GROUPS) $(group.list).replaceChildren(...group.events.map(eventRow));
+    interval.value = String(settings.interval);
+    quietOn.checked = settings.quiet.on;
+    quietFrom.value = settings.quiet.from;
+    quietTo.value = settings.quiet.to;
+    quietWeekends.checked = settings.quiet.weekends;
+    syncQuiet();
+    for (const key of keysOf(delivery)) delivery[key].checked = settings.delivery[key];
+    $("#notify-sound").replaceChildren(
+      soundPicker({ id: "notify-sound-choice", label: i18n.t("soundLabel"), value: settings.delivery.sound, onChange }),
+    );
+    void permissionSwitch.sync();
+  };
+
+  const permissionSwitch = notifySwitch({
+    toggle,
+    permission,
+    allowButton: $("#notify-allow"),
+    isOn: () => settings.enabled,
+    onToggle: (on) => {
+      settings.enabled = on;
+      body.hidden = !on;
+      onChange();
+    },
+    say,
+  });
+
+  interval.addEventListener("change", () => {
+    settings.interval = oneOf(INTERVALS, Number(interval.value), settings.interval);
+    syncIntervalHint();
+    onChange();
+  });
+  quietOn.addEventListener("change", () => {
+    settings.quiet.on = quietOn.checked;
+    syncQuiet();
+    onChange();
+  });
+  (
+    [
+      [quietFrom, "from"],
+      [quietTo, "to"],
+    ] as const
+  ).forEach(([input, key]) => {
+    input.addEventListener("change", () => {
+      if (input.value) settings.quiet[key] = input.value;
+      else input.value = settings.quiet[key];
+      onChange();
+    });
+  });
+  quietWeekends.addEventListener("change", () => {
+    settings.quiet.weekends = quietWeekends.checked;
+    onChange();
+  });
+  keysOf(delivery).forEach((key) => {
+    const input = delivery[key];
+    input.addEventListener("change", () => {
+      settings.delivery[key] = input.checked;
+      onChange();
+    });
+  });
+
+  return {
+    render: (next: NotifySettings) => {
+      settings = structuredClone(next);
+      render();
+    },
+    value: (): NotifySettings => normalizeNotify(settings),
+    setReviewTime: (on: boolean) => {
+      reviewTime = on;
+      document.querySelectorAll<HTMLElement>(".event-when").forEach((group) => {
+        group.hidden = !on;
+      });
+      $("#notify-when-hint").hidden = !on;
+    },
+    check: (): boolean => {
+      const wrong = pickers.wrong();
+      const panel = wrong[0]?.input.closest<HTMLElement>(".event-repos");
+      if (panel?.hidden) {
+        panel.hidden = false;
+        panel.previousElementSibling?.setAttribute("aria-expanded", "true");
+      }
+      return wrong.length === 0;
+    },
+  };
+};

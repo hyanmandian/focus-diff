@@ -1,0 +1,789 @@
+import {
+  AlertCircle,
+  Check,
+  CloudUpload,
+  CornerDownRight,
+  Loader2,
+  MessageSquare,
+  Pencil,
+  Sparkles,
+  Square,
+  Trash2,
+  Undo2,
+} from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { AiAnswer } from "@/components/ai-answer/ai-answer";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { ButtonGroup } from "@/components/button-group/button-group";
+import { Button } from "@/components/button/button";
+import { CommentHtml } from "@/components/comment-html/comment-html";
+import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
+import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
+import { SuggestionActions } from "@/components/suggestion/suggestion";
+import { Textarea } from "@/components/textarea/textarea";
+import { MarkdownField } from "@/components/writer/writer";
+import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
+import { useSeconds } from "@/hooks/use-seconds/use-seconds";
+import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
+import { avatar } from "@/utils/avatar/avatar";
+import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
+import { bridge } from "@/utils/bridge/bridge";
+import { cn } from "@/utils/cn/cn";
+import { firstName } from "@/utils/copy/copy";
+import type { Actor } from "@/utils/engine/engine";
+import { errorText } from "@/utils/error/error";
+import { i18n, useT } from "@/utils/i18n/i18n";
+import { tabKeys } from "@/utils/keys/keys";
+import { isMac } from "@/utils/os/os";
+import type { Draft, Thread as ThreadData, ThreadComment } from "@/utils/review/review";
+import { linesFromPatch } from "@/utils/suggestion/suggestion";
+import { quote } from "@/utils/writing/writing";
+
+function Person({ actor }: { actor: Actor }) {
+  return (
+    <Avatar className="size-5">
+      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
+      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+export function Composer({
+  placeholder,
+  submitLabel,
+  initial = "",
+  onSubmit,
+  onCancel,
+  secondary,
+  suggestion,
+  base,
+}: {
+  placeholder: string;
+  submitLabel: string;
+  initial?: string;
+  onSubmit: (body: string) => Promise<void> | void;
+  onCancel: () => void;
+  secondary?: { label: string; onClick: (body: string) => Promise<void> | void };
+  suggestion?: string[] | null;
+  base?: string[];
+}) {
+  const t = useT();
+  const [body, setBody] = useState(initial);
+  const [added, setAdded] = useState(initial);
+  if (initial !== added) {
+    setAdded(initial);
+    setBody(body.trim() ? `${body.trimEnd()}\n\n${initial}` : initial);
+  }
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (action: (body: string) => Promise<void> | void) => {
+    if (!body.trim()) {
+      setError(i18n()("review.writeFirst"));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await action(body.trim());
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <MarkdownField
+        value={body}
+        onChange={setBody}
+        label={placeholder}
+        placeholder={placeholder}
+        onSubmit={() => void run(onSubmit)}
+        onCancel={onCancel}
+        suggestion={suggestion}
+        base={base}
+      />
+      {error ? (
+        <p className="text-callout text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" onClick={onCancel} disabled={busy}>
+          {t("common.cancel")}
+        </Button>
+        {secondary ? (
+          <Button variant="outline" onClick={() => void run(secondary.onClick)} disabled={busy}>
+            {secondary.label}
+          </Button>
+        ) : null}
+        <Button onClick={() => void run(onSubmit)} disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : null}
+          {submitLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const Box = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+  <div
+    className={cn(
+      "mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none",
+      className,
+    )}
+  >
+    {children}
+  </div>
+);
+
+const LONG_THREAD = 8;
+
+function CommentView({
+  thread,
+  comment,
+  onQuote,
+}: {
+  thread: ThreadData;
+  comment: ThreadComment;
+  onQuote: (text: string) => void;
+}) {
+  const t = useT();
+  const api = useConversationApi();
+  const [editing, setEditing] = useState(false);
+  const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
+  const { body } = comment;
+  return (
+    <div className="group/said flex gap-2">
+      <Person actor={comment.author} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-0.5">
+          <p className="min-w-0 flex-1 text-callout text-muted-foreground">
+            <span className="font-medium text-foreground">{firstName(comment.author, t)}</span> ·{" "}
+            {t.since(Date.parse(comment.at))}
+            {comment.edited ? ` · ${t("review.edited")}` : ""}
+            {thread.outdated ? ` · ${t("review.outdated")}` : ""}
+          </p>
+          {api ? (
+            <span className={ACTIONS}>
+              {comment.canReact ? <ReactionPicker reactions={reactions} onToggle={toggle} /> : null}
+              <CommentMenu
+                url={comment.url}
+                onQuote={
+                  body === undefined
+                    ? undefined
+                    : () => {
+                        onQuote(body);
+                      }
+                }
+                onEdit={
+                  comment.canEdit && body !== undefined
+                    ? () => {
+                        setEditing(true);
+                      }
+                    : undefined
+                }
+                onDelete={comment.canDelete ? () => void api.deleteComment(comment) : undefined}
+              />
+            </span>
+          ) : null}
+        </div>
+        {editing && api ? (
+          <div className="mt-1">
+            <Composer
+              placeholder={t("review.commentPlaceholder")}
+              submitLabel={t("review.save")}
+              initial={body}
+              onSubmit={async (text) => {
+                await api.editComment(comment, text);
+                setEditing(false);
+              }}
+              onCancel={() => {
+                setEditing(false);
+              }}
+            />
+          </div>
+        ) : (
+          <CommentHtml html={comment.html} />
+        )}
+        <SuggestionActions thread={thread} comment={comment} />
+        <ReactionList reactions={reactions} canReact={Boolean(api && comment.canReact)} onToggle={toggle} />
+      </div>
+    </div>
+  );
+}
+
+export function ThreadView({
+  thread: drawn,
+  moved = false,
+  className,
+  onReply,
+  onResolve,
+}: {
+  thread: ThreadData;
+  className?: string;
+  moved?: boolean;
+  onReply: (body: string) => Promise<void>;
+  onResolve: (resolved: boolean) => Promise<void>;
+}) {
+  const t = useT();
+  const api = useConversationApi();
+  const thread = api?.thread(drawn.id) ?? drawn;
+  const [replying, setReplying] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(!thread.resolved);
+  const [whole, setWhole] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const toggle = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await onResolve(!thread.resolved);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!open) {
+    return (
+      <Box className={cn("py-2", className)}>
+        <button
+          type="button"
+          className="flex w-full cursor-default items-center gap-2 rounded-sm text-left text-callout text-muted-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:text-foreground"
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
+          <Check className="size-3.5 text-success" />{" "}
+          {t("review.resolvedConversation", { comments: t("common.comments", { count: thread.comments.length }) })}
+        </button>
+      </Box>
+    );
+  }
+  const folded = !whole && thread.comments.length > LONG_THREAD;
+  const hidden = folded ? thread.comments.length - 4 : 0;
+  const shown = folded ? [...thread.comments.slice(0, 1), null, ...thread.comments.slice(-3)] : thread.comments;
+  return (
+    <Box className={className}>
+      {moved ? (
+        <p className="mb-2 text-callout text-muted-foreground">
+          {thread.line ? t("review.onGoneLine", { line: String(thread.line) }) : t("review.onFile")}
+        </p>
+      ) : null}
+      <div className="flex flex-col gap-3">
+        {shown.map((c) =>
+          c ? (
+            <CommentView
+              key={c.id}
+              thread={thread}
+              comment={c}
+              onQuote={(text) => {
+                setReplying(quote(text));
+              }}
+            />
+          ) : (
+            <Button
+              key="more"
+              variant="ghost"
+              className="self-start text-link"
+              onClick={() => {
+                setWhole(true);
+              }}
+            >
+              {t("review.showMoreReplies", { count: hidden })}
+            </Button>
+          ),
+        )}
+      </div>
+      <div className="mt-3 border-t pt-3">
+        {error ? (
+          <p className="mb-2 text-callout text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {replying === null ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setReplying("");
+              }}
+            >
+              <CornerDownRight /> {t("review.reply")}
+            </Button>
+            <Button variant="ghost" className="ml-auto" onClick={() => void toggle()} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : thread.resolved ? <Undo2 /> : <Check />}
+              {thread.resolved ? t("review.unresolve") : t("review.resolve")}
+            </Button>
+          </div>
+        ) : (
+          <Composer
+            placeholder={t("review.reply")}
+            submitLabel={t("review.reply")}
+            initial={replying}
+            onSubmit={async (body) => {
+              await onReply(body);
+              setReplying(null);
+            }}
+            secondary={
+              api
+                ? {
+                    label: t("review.addToReviewShort"),
+                    onClick: (body) => {
+                      api.replyLater(thread, body);
+                      setReplying(null);
+                    },
+                  }
+                : undefined
+            }
+            onCancel={() => {
+              setReplying(null);
+            }}
+          />
+        )}
+      </div>
+    </Box>
+  );
+}
+
+export function DraftView({
+  draft: drawn,
+  onEdit,
+  onRemove,
+}: {
+  draft: Draft;
+  onEdit: (body: string) => void;
+  onRemove: () => void;
+}) {
+  const t = useT();
+  const api = useConversationApi();
+  const draft = api?.draft(drawn.key) ?? drawn;
+  const [editing, setEditing] = useState(false);
+  const error = api?.draftError(draft.key);
+  const sending = api?.draftSending(draft.key);
+  return (
+    <Box className="border-unread/40 bg-unread/5">
+      {editing ? (
+        <Composer
+          placeholder={t("review.commentPlaceholder")}
+          submitLabel={t("review.save")}
+          initial={draft.body}
+          onSubmit={(body) => {
+            onEdit(body);
+            setEditing(false);
+          }}
+          onCancel={() => {
+            setEditing(false);
+          }}
+        />
+      ) : (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 text-callout font-medium text-unread">
+              {draft.replyTo ? t("review.pendingReply") : draft.file ? t("review.pendingOnFile") : t("review.pending")}
+              {error ? null : sending ? (
+                <output className="flex items-center gap-1 font-normal text-muted-foreground">
+                  <CloudUpload className="size-3.5" aria-hidden /> {t("review.savingToGitHub")}
+                </output>
+              ) : draft.id ? (
+                <span className="font-normal text-muted-foreground">· {t("review.onGitHub")}</span>
+              ) : null}
+            </p>
+            {draft.html && !sending ? (
+              <CommentHtml html={draft.html} className="mt-1" />
+            ) : (
+              <p className="selectable mt-1 text-body whitespace-pre-wrap">{draft.body}</p>
+            )}
+            {error ? (
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-callout text-destructive" role="alert">
+                <AlertCircle className="size-3.5" aria-hidden /> {t("review.githubRefused", { reason: error })}
+                <Button variant="link" size="xs" className="h-auto px-0" onClick={() => api?.retryDrafts()}>
+                  {t("review.tryAgain")}
+                </Button>
+              </p>
+            ) : null}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            aria-label={t("review.editComment")}
+            onClick={() => {
+              setEditing(true);
+            }}
+          >
+            <Pencil />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            aria-label={t("review.removeComment")}
+            onClick={onRemove}
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      )}
+    </Box>
+  );
+}
+
+const TAB = "selection-tab";
+type Mode = "comment" | "ask";
+function lastMode(): Mode {
+  try {
+    return localStorage.getItem(TAB) === "ask" ? "ask" : "comment";
+  } catch {
+    return "comment";
+  }
+}
+
+type Turn = { id: number; question: string; answer?: string; note?: string };
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+export function NewComment({
+  lines,
+  path,
+  range,
+  file = false,
+  onAdd,
+  onSendNow,
+  onCancel,
+  ask,
+  askName,
+}: {
+  lines: string;
+  path?: string;
+  range?: { start: number; end: number; side?: "additions" | "deletions"; endSide?: "additions" | "deletions" };
+  file?: boolean;
+  onAdd: (body: string) => void;
+  onSendNow: (body: string) => Promise<void>;
+  onCancel: () => void;
+  ask: ((question: string, earlier: Exchange[], run: string) => Promise<Answer>) | null;
+  askName: string;
+}) {
+  const t = useT();
+  const api = useConversationApi();
+  const patch = path ? api?.patchOf(path) : undefined;
+  const side = range?.endSide ?? range?.side ?? "additions";
+  const picked =
+    range && patch && !file && side === "additions"
+      ? linesFromPatch(patch, Math.min(range.start, range.end), Math.max(range.start, range.end), "additions")
+      : null;
+  const [mode, setModeState] = useState<Mode>(lastMode);
+  const [body, setBody] = useState("");
+  const [question, setQuestion] = useState("");
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const latest = useRef<HTMLLIElement>(null);
+  const [asked, setAsked] = useState<{ run: string; at: number } | null>(null);
+  const waited = useSeconds(asked?.at ?? null);
+  const tabs = useId();
+  const asking = mode === "ask";
+
+  const setMode = (next: Mode) => {
+    setModeState(next);
+    setError(null);
+    try {
+      localStorage.setItem(TAB, next);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (mode === "ask") field.current?.focus();
+  }, [mode]);
+  useEffect(() => {
+    if (turns.length > 0)
+      latest.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [turns]);
+
+  const fail = (e: unknown) => {
+    setError(errorText(e));
+  };
+
+  const comment = async (now: boolean) => {
+    const text = body.trim();
+    if (!text) {
+      setError(i18n()("review.writeFirst"));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      if (now) await onSendNow(text);
+      else onAdd(text);
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const send = async () => {
+    const q = question.trim();
+    if (!ask || !q || busy) return;
+    const earlier = turns
+      .filter((turn): turn is Turn & { answer: string } => Boolean(turn.answer))
+      .map((turn) => ({ question: turn.question, answer: turn.answer }));
+    setBusy(true);
+    setError(null);
+    setQuestion("");
+    setTurns((list) => [...list, { id: (list.at(-1)?.id ?? 0) + 1, question: q }]);
+    const run = newRun();
+    setAsked({ run, at: Date.now() });
+    try {
+      const a = await ask(q, earlier, run);
+      setTurns((list) =>
+        list.map((turn, i) => (i === list.length - 1 ? { ...turn, answer: a.text, note: a.note } : turn)),
+      );
+    } catch (e) {
+      setTurns((list) => list.slice(0, -1));
+      setQuestion(q);
+      fail(e);
+    } finally {
+      setAsked(null);
+      setBusy(false);
+      field.current?.focus();
+    }
+  };
+
+  const submit = () => void (asking ? send() : comment(false));
+
+  return (
+    <Box className="p-0">
+      <div className="flex items-center gap-3 px-3 pt-3">
+        {/* oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- in a tab list the tabs take the focus (WAI-ARIA's tabs pattern), not the list. */}
+        <div
+          role="tablist"
+          onKeyDown={tabKeys}
+          aria-label={t("review.onLines", { lines })}
+          className="relative isolate flex rounded-(--radius-control) bg-fill"
+        >
+          <SlidingPill selected={mode} className="rounded-(--radius-control-sm) bg-selected" />
+          {(
+            [
+              ["comment", t("review.commentTab"), MessageSquare],
+              ["ask", ask ? t("review.askTab", { name: askName }) : t("review.askAiTab"), Sparkles],
+            ] as const
+          ).map(([value, label, Icon]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              data-pill={value}
+              tabIndex={mode === value ? 0 : -1}
+              id={`${tabs}-${value}`}
+              aria-selected={mode === value}
+              aria-controls={`${tabs}-panel`}
+              onClick={() => {
+                setMode(value);
+              }}
+              className={cn(
+                "flex h-(--control-h) cursor-default items-center gap-1.5 rounded-(--radius-control-sm) px-2.5 text-body focus-ring transition-colors duration-(--duration-fast) outline-none",
+                mode === value ? "text-selected-foreground" : "text-foreground hover:bg-(--fill-control-hover)",
+              )}
+            >
+              <Icon className="size-3.5" aria-hidden /> {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-callout text-muted-foreground">{lines}</span>
+      </div>
+
+      <div
+        role="tabpanel"
+        id={`${tabs}-panel`}
+        aria-labelledby={`${tabs}-${mode}`}
+        className="flex flex-col gap-2 px-3 pt-2.5"
+      >
+        {asking && turns.length > 0 ? (
+          <ol
+            aria-label={t("review.conversationWith", { name: askName })}
+            className="-mx-3 flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-1"
+          >
+            {turns.map(({ id, question: text, answer, note }, i) => (
+              <li key={id} ref={i === turns.length - 1 ? latest : undefined} className="flex flex-col gap-2">
+                <p className="selectable max-w-[85%] animate-in self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-body whitespace-pre-wrap duration-(--duration) fade-in-0 motion-reduce:animate-none">
+                  <span className="sr-only">{t("review.you")}</span>
+                  {text}
+                </p>
+                <div className="flex gap-2.5">
+                  <span
+                    aria-hidden
+                    className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet/15 text-violet"
+                  >
+                    <Sparkles className="size-3" />
+                  </span>
+                  {answer ? (
+                    <div className="flex min-w-0 flex-1 animate-in flex-col gap-1.5 duration-300 fade-in-0 motion-reduce:animate-none">
+                      <span className="sr-only">{askName}: </span>
+                      <AiAnswer text={answer} />
+                      {note ? <p className="text-subheadline text-muted-foreground">{note}</p> : null}
+                      <div>
+                        <Button
+                          variant="ghost"
+                          className="-ml-2.5 text-muted-foreground"
+                          onClick={() => {
+                            setBody(answer);
+                            setMode("comment");
+                          }}
+                        >
+                          <MessageSquare /> {t("review.turnIntoComment")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <output className="flex min-w-0 flex-1 flex-col gap-1.5 pt-1">
+                      <span className="text-subheadline text-muted-foreground tabular-nums">
+                        {t("review.readingCode", { name: askName })}
+                        {waited >= 3 ? (
+                          <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
+                        ) : null}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="h-3 w-11/12 animate-pulse rounded bg-muted motion-reduce:animate-none"
+                      />
+                      <span
+                        aria-hidden
+                        className="h-3 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none"
+                      />
+                      <span
+                        aria-hidden
+                        className="h-3 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none"
+                      />
+                    </output>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
+        {asking && !ask ? (
+          <p className="py-2 text-body text-muted-foreground">{t("review.setUpAi")}</p>
+        ) : asking ? (
+          <>
+            <label htmlFor={`${tabs}-field`} className="sr-only">
+              {t("review.questionLabel")}
+            </label>
+            <Textarea
+              id={`${tabs}-field`}
+              ref={field}
+              rows={2}
+              value={question}
+              placeholder={turns.length > 0 ? t("review.askFollowUp") : t("review.askAbout")}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (!e.shiftKey && !e.nativeEvent.isComposing))) {
+                  e.preventDefault();
+                  submit();
+                } else if (e.key === "Escape") {
+                  e.stopPropagation();
+                  onCancel();
+                }
+              }}
+              className="resize-y"
+            />
+          </>
+        ) : (
+          <MarkdownField
+            value={body}
+            onChange={setBody}
+            label={t("review.commentLabel")}
+            placeholder={t("review.commentForAuthor")}
+            onSubmit={submit}
+            onCancel={onCancel}
+            suggestion={picked}
+            base={picked ?? undefined}
+          />
+        )}
+        {error ? (
+          <p className="text-callout text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-2 p-3">
+        <p className="mr-auto text-subheadline text-muted-foreground">
+          {asking
+            ? ask
+              ? t("review.askHint")
+              : null
+            : t("review.commentHint", { shortcut: `${isMac ? "⌘" : "Ctrl+"}Enter` })}
+        </p>
+        <Button variant="outline" onClick={onCancel} disabled={busy && !asking}>
+          {t("review.close")}
+        </Button>
+        {asking ? (
+          ask ? (
+            asked ? (
+              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.run)}>
+                <Square className="size-3 fill-current" />
+                {t("review.stop")}
+              </Button>
+            ) : (
+              <Button onClick={submit} disabled={busy || !question.trim()}>
+                <Sparkles />
+                {t("review.ask")}
+              </Button>
+            )
+          ) : (
+            <Button onClick={() => void bridge.openSettings()}>{t("review.openSettings")}</Button>
+          )
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => void comment(true)} disabled={busy}>
+              {t("review.postNow")}
+            </Button>
+            <Button onClick={submit} disabled={busy}>
+              {busy ? <Loader2 className="animate-spin" /> : <MessageSquare />}
+              {t("review.comment")}
+            </Button>
+          </>
+        )}
+      </div>
+    </Box>
+  );
+}
+
+export function FindingView({
+  finding,
+  by,
+  onAdd,
+  onDismiss,
+}: {
+  finding: Finding;
+  by: string;
+  onAdd: () => void;
+  onDismiss: () => void;
+}) {
+  const t = useT();
+  return (
+    <Box className="border-violet/40 bg-violet/5">
+      <p className="flex items-center gap-1.5 text-callout font-medium text-violet">
+        <Sparkles className="size-3.5" aria-hidden /> {by} · {t(`review.severity.${finding.severity}`)}
+      </p>
+      <div className="mt-1.5">
+        <AiAnswer text={finding.body} />
+      </div>
+      <ButtonGroup className="mt-2.5">
+        <Button variant="outline" onClick={onAdd}>
+          {t("review.addToReview")}
+        </Button>
+        <Button variant="outline" onClick={onDismiss}>
+          {t("review.dismiss")}
+        </Button>
+      </ButtonGroup>
+    </Box>
+  );
+}

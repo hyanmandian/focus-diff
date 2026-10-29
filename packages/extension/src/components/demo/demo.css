@@ -1,0 +1,172 @@
+:host {
+  display: block;
+}
+
+.demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--fd-border);
+  border-radius: 16px;
+  background: var(--fd-canvas-muted);
+  color: var(--fd-fg);
+  font:
+    400 14px/20px -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans",
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+.demo-files {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.demo-file {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 44px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--fd-border);
+  border-radius: 8px;
+  background: var(--fd-canvas);
+  font:
+    12px/18px ui-monospace,
+    SFMono-Regular,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+}
+.demo-file {
+  transition: color 200ms ease-out;
+}
+.demo-file[data-out] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--fd-muted);
+}
+.demo-file[data-out] .demo-path {
+  text-decoration: line-through;
+}
+.demo-file[data-out] :is(.demo-add, .demo-del, .demo-talk) {
+  color: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-file {
+    transition: none;
+  }
+}
+.demo-file[aria-current="true"] {
+  border-color: var(--fd-accent);
+  box-shadow: 0 0 0 1px var(--fd-accent);
+}
+.demo-path {
+  flex: 1 0 min(100%, 26ch);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.demo-talks {
+  display: inline-flex;
+  gap: 4px;
+}
+.demo-talk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--fd-muted);
+}
+.demo-talk[data-current] {
+  background: var(--fd-selected-bg);
+  color: #ffffff;
+}
+@media (forced-colors: active) {
+  .demo-talk[data-current] {
+    outline: 2px solid Highlight;
+  }
+}
+.demo-lines {
+  display: inline-flex;
+  gap: 6px;
+  font-weight: 600;
+}
+.demo-add {
+  color: var(--fd-add);
+}
+.demo-del {
+  color: var(--fd-del);
+}
+.demo-viewed {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--fd-border);
+  border-radius: 6px;
+  background: var(--fd-canvas-muted);
+  color: var(--fd-fg);
+  font:
+    500 12px/18px -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans",
+    Helvetica,
+    Arial,
+    sans-serif;
+  cursor: pointer;
+}
+.demo-viewed[aria-pressed="true"] {
+  border-color: var(--fd-add);
+  color: var(--fd-add);
+}
+.demo-viewed[aria-pressed="true"]::before {
+  content: "✓ ";
+}
+.demo-viewed[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.demo-viewed:focus-visible {
+  outline: 2px solid var(--fd-focus);
+  outline-offset: 1px;
+}
+@media (pointer: coarse) {
+  .demo-viewed {
+    min-height: 44px;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.demo-bar {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  --fd-max-width: 100%;
+}
+
+@media (forced-colors: active) {
+  .demo-file[aria-current="true"] {
+    outline: 2px solid Highlight;
+  }
+}

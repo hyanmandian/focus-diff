@@ -1,0 +1,20 @@
+import { Input as InputPrimitive } from "@base-ui/react/input";
+import type { ComponentProps } from "react";
+
+import { cn } from "@/utils/cn/cn";
+
+function Input({ className, type, ...props }: ComponentProps<"input">) {
+  return (
+    <InputPrimitive
+      type={type}
+      data-slot="input"
+      className={cn(
+        "h-(--field-h) w-full min-w-0 rounded-(--radius-field) field px-2.5 text-body text-foreground caret-primary outline-none file:inline-flex file:h-5 file:border-0 file:bg-transparent file:text-body placeholder:text-muted-foreground disabled:pointer-events-none disabled:text-(--label-tertiary) aria-invalid:border-destructive",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Input };

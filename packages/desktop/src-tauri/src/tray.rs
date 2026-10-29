@@ -1,0 +1,274 @@
+use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::thread;
+use std::time::Duration;
+
+use tauri::image::Image;
+use tauri::tray::TrayIcon;
+use tauri::{AppHandle};
+
+use crate::i18n::tr;
+use crate::sync::Locked;
+
+const SIZE: u32 = 36;
+const SUPERSAMPLE: u32 = 4;
+
+#[cfg(target_os = "macos")]
+const INK: [u8; 3] = [0, 0, 0];
+#[cfg(not(target_os = "macos"))]
+const INK: [u8; 3] = [46, 160, 67];
+
+fn to_segment(x: f32, y: f32, (ax, ay): (f32, f32), (bx, by): (f32, f32)) -> f32 {
+    let (dx, dy) = (bx - ax, by - ay);
+    let t = (((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy).max(f32::EPSILON)).clamp(0.0, 1.0);
+    ((x - ax - t * dx).powi(2) + (y - ay - t * dy).powi(2)).sqrt()
+}
+
+const STEPS: usize = 8;
+
+static SYMBOL: OnceLock<Option<Vec<Vec<u8>>>> = OnceLock::new();
+
+pub fn prepare() {
+    SYMBOL.get_or_init(|| {
+        #[cfg(target_os = "macos")]
+        {
+            (0..=STEPS).map(|i| symbol::render(15.0 + 2.0 * i as f64 / STEPS as f64)).collect()
+        }
+        #[cfg(not(target_os = "macos"))]
+        None
+    });
+}
+
+#[cfg(target_os = "macos")]
+mod symbol {
+    use objc2::AnyThread;
+    use objc2_app_kit::{NSBitmapImageRep, NSDeviceRGBColorSpace, NSFontWeightRegular, NSGraphicsContext, NSImage, NSImageSymbolConfiguration};
+    use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+
+    use super::SIZE;
+
+    pub fn render(points: f64) -> Option<Vec<u8>> {
+        let px = SIZE as isize;
+        let image = NSImage::imageWithSystemSymbolName_accessibilityDescription(&NSString::from_str("text.magnifyingglass"), None)?;
+        let image = image.imageWithSymbolConfiguration(&NSImageSymbolConfiguration::configurationWithPointSize_weight(points, unsafe { NSFontWeightRegular }))?;
+        // SAFETY: a null planes pointer makes the rep allocate its own buffer.
+        let rep = unsafe {
+            NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
+                NSBitmapImageRep::alloc(),
+                std::ptr::null_mut(),
+                px,
+                px,
+                8,
+                4,
+                true,
+                false,
+                NSDeviceRGBColorSpace,
+                0,
+                32,
+            )
+        }?;
+        rep.setSize(NSSize::new(18.0, 18.0));
+        let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&rep)?;
+        NSGraphicsContext::saveGraphicsState_class();
+        NSGraphicsContext::setCurrentContext(Some(&context));
+        let size = image.size();
+        image.drawInRect(NSRect::new(NSPoint::new((18.0 - size.width) / 2.0, (18.0 - size.height) / 2.0), size));
+        context.flushGraphics();
+        NSGraphicsContext::restoreGraphicsState_class();
+        let (row, data) = (rep.bytesPerRow() as usize, rep.bitmapData());
+        if data.is_null() {
+            return None;
+        }
+        let side = SIZE as usize;
+        // SAFETY: the rep's buffer is bytesPerRow × height, 4 bytes a pixel, alpha last.
+        Some((0..side * side).map(|i| unsafe { *data.add((i / side) * row + (i % side) * 4 + 3) }).collect())
+    }
+}
+
+pub fn frame(focus: f32, dot: bool) -> Image<'static> {
+    let Some(Some(steps)) = SYMBOL.get() else { return drawn(focus, dot) };
+    let Some(alpha) = steps.get((focus.clamp(0.0, 1.0) * STEPS as f32).round() as usize) else { return drawn(focus, dot) };
+    let scale = SIZE as f32 / 18.0;
+    let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
+    for (i, &a) in alpha.iter().enumerate() {
+        let (px, py) = ((i as u32 % SIZE) as f32, (i as u32 / SIZE) as f32);
+        let a = if dot {
+            let cover = |r: f32| {
+                let mut hits = 0;
+                for s in 0..SUPERSAMPLE * SUPERSAMPLE {
+                    let x = (px + ((s % SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    let y = (py + ((s / SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    hits += ((x - 15.0).powi(2) + (y - 3.0).powi(2) <= r * r) as u32;
+                }
+                hits as f32 / (SUPERSAMPLE * SUPERSAMPLE) as f32
+            };
+            (cover(2.6) * 255.0).max(a as f32 * (1.0 - cover(4.1))) as u8
+        } else {
+            a
+        };
+        rgba[i * 4..i * 4 + 3].copy_from_slice(&INK);
+        rgba[i * 4 + 3] = a;
+    }
+    Image::new_owned(rgba, SIZE, SIZE)
+}
+
+fn drawn(focus: f32, dot: bool) -> Image<'static> {
+    let scale = SIZE as f32 / 18.0;
+    let zoom = 1.0 + 0.14 * focus;
+    let at = |v: f32| 9.0 + (v - 9.0) * zoom;
+    let (gx, gy, ring, rim) = (at(8.0), at(8.0), 3.4 * zoom, 0.95 * zoom);
+    let handle = ((at(10.6), at(10.6)), (at(13.5), at(13.5)), 1.15 * zoom);
+    let badge = (15.0, 3.0);
+
+    let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
+    let n = SUPERSAMPLE * SUPERSAMPLE;
+    for py in 0..SIZE {
+        for px in 0..SIZE {
+            let mut hits = 0u32;
+            for sy in 0..SUPERSAMPLE {
+                for sx in 0..SUPERSAMPLE {
+                    let x = (px as f32 + (sx as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    let y = (py as f32 + (sy as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
+                    let (qx, qy) = ((x - 9.0).abs() - 3.5, (y - 9.0).abs() - 3.5);
+                    let square = (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) <= 4.5;
+                    let glass = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - ring).abs() <= rim || to_segment(x, y, handle.0, handle.1) <= handle.2;
+                    let near = |r: f32| (x - badge.0).powi(2) + (y - badge.1).powi(2) <= r * r;
+                    let on = if dot { near(2.6) || (square && !glass && !near(4.1)) } else { square && !glass };
+                    hits += on as u32;
+                }
+            }
+            let i = ((py * SIZE + px) * 4) as usize;
+            rgba[i..i + 3].copy_from_slice(&INK);
+            rgba[i + 3] = ((hits * 255) / n) as u8;
+        }
+    }
+    Image::new_owned(rgba, SIZE, SIZE)
+}
+
+fn show(tray: &TrayIcon, image: Image<'static>) {
+    let _ = tray.set_icon(Some(image));
+    #[cfg(target_os = "macos")]
+    let _ = tray.set_icon_as_template(true);
+}
+
+static COUNTDOWN: Mutex<Option<i64>> = Mutex::new(None);
+
+fn left(minutes: i64) -> String {
+    tr!("{minutes}m", "{minutes} min")
+}
+
+fn tooltip(count: u32) -> String {
+    let waiting = match count {
+        0 => tr!("nothing waiting on you", "nada esperando por você"),
+        1 => tr!("1 pull request waiting on you", "1 pull request esperando por você"),
+        n => tr!("{n} pull requests waiting on you", "{n} pull requests esperando por você"),
+    };
+    match *COUNTDOWN.held() {
+        Some(minutes) => {
+            let left = left(minutes);
+            tr!("Focus Diff: review time, {left} left · {waiting}", "Focus Diff: review time, faltam {left} · {waiting}")
+        }
+        None => format!("Focus Diff: {waiting}"),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn title() -> Option<String> {
+    COUNTDOWN.held().map(left)
+}
+
+static LAST_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn countdown(tray: &TrayIcon, minutes: Option<i64>) {
+    *COUNTDOWN.held() = minutes;
+    relocalize(tray);
+}
+
+pub fn relocalize(tray: &TrayIcon) {
+    #[cfg(target_os = "macos")]
+    let _ = tray.set_title(title().as_deref());
+    let _ = tray.set_tooltip(Some(&tooltip(LAST_COUNT.load(Ordering::SeqCst))));
+}
+
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
+pub fn update(app: &AppHandle, tray: &TrayIcon, count: u32, animate: bool) {
+    let generation = GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    let dot = count > 0;
+    LAST_COUNT.store(count, Ordering::SeqCst);
+    relocalize(tray);
+    let rest = frame(0.0, dot);
+    if !animate {
+        show(tray, rest);
+        return;
+    }
+    let tray = tray.clone();
+    let app = app.clone();
+    thread::spawn(move || {
+        const FRAMES: u32 = 18;
+        for _ in 0..3 {
+            for f in 0..=FRAMES {
+                if GENERATION.load(Ordering::SeqCst) != generation {
+                    return;
+                }
+                let t = (std::f32::consts::PI * f as f32 / FRAMES as f32).sin().powi(2);
+                let image = frame(t, dot);
+                let tray = tray.clone();
+                let _ = app.run_on_main_thread(move || {
+                    show(&tray, image);
+                });
+                thread::sleep(Duration::from_millis(33));
+            }
+            thread::sleep(Duration::from_millis(120));
+        }
+        let _ = app.run_on_main_thread(move || {
+            show(&tray, rest);
+        });
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::i18n::{in_locale, Locale};
+
+    #[test]
+    fn tooltip_in_each_language() {
+        in_locale(Locale::En, || {
+            assert_eq!(tooltip(2), "Focus Diff: 2 pull requests waiting on you");
+            assert_eq!(left(24), "24m");
+        });
+        in_locale(Locale::PtBr, || {
+            assert_eq!(tooltip(0), "Focus Diff: nada esperando por você");
+            assert_eq!(tooltip(1), "Focus Diff: 1 pull request esperando por você");
+            assert_eq!(left(24), "24 min");
+        });
+    }
+
+    #[test]
+    fn preview_frames() {
+        let Ok(dir) = std::env::var("TRAY_PREVIEW_DIR") else { return };
+        prepare();
+        for (name, image) in [("rest", frame(0.0, false)), ("focus", frame(1.0, false)), ("unread", frame(0.0, true))] {
+            let (w, h) = (image.width(), image.height());
+            let mut bmp = Vec::new();
+            let size = 54 + w * h * 4;
+            bmp.extend_from_slice(b"BM");
+            bmp.extend_from_slice(&size.to_le_bytes());
+            bmp.extend_from_slice(&[0; 4]);
+            bmp.extend_from_slice(&54u32.to_le_bytes());
+            bmp.extend_from_slice(&40u32.to_le_bytes());
+            bmp.extend_from_slice(&(w as i32).to_le_bytes());
+            bmp.extend_from_slice(&(-(h as i32)).to_le_bytes());
+            bmp.extend_from_slice(&1u16.to_le_bytes());
+            bmp.extend_from_slice(&32u16.to_le_bytes());
+            bmp.extend_from_slice(&[0; 24]);
+            for px in image.rgba().chunks(4) {
+                let a = px[3] as u32;
+                let blend = |c: u8| ((c as u32 * a + 255 * (255 - a)) / 255) as u8;
+                bmp.extend_from_slice(&[blend(px[2]), blend(px[1]), blend(px[0]), 255]);
+            }
+            std::fs::write(format!("{dir}/tray-{name}.bmp"), bmp).unwrap();
+        }
+    }
+}

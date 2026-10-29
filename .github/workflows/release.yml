@@ -1,16 +1,3 @@
-# Every merge to main updates a release pull request with the next version and its changelog, worked out from the
-# conventional pull request titles. Merging that pull request tags the release and creates it as a draft; then:
-#
-#   1. `build` checks, tests and zips the tagged commit, with read-only access.
-#   2. `release-assets` signs the zips' build provenance, attaches them and the provenance to the draft, and
-#      publishes the release, so the site's "latest release" download links only ever see a complete one.
-#
-# The stores get the release's zips by hand: focus-diff-chromium.zip on the Chrome Web Store, and
-# focus-diff-firefox.zip with focus-diff-sources.zip on Firefox Add-ons.
-#
-# One-time setup, in the repository's settings (not done by CI):
-#   - Releases can be made immutable (Settings → General → Releases): assets go on while the release is a draft.
-
 name: Release
 
 on:
@@ -32,8 +19,11 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      created: ${{ steps.release.outputs.release_created }}
-      tag: ${{ steps.release.outputs.tag_name }}
+      created: ${{ steps.release.outputs['packages/extension--release_created'] }}
+      tag: ${{ steps.release.outputs['packages/extension--tag_name'] }}
+      desktop-created: ${{ steps.release.outputs['packages/desktop--release_created'] }}
+      desktop-tag: ${{ steps.release.outputs['packages/desktop--tag_name'] }}
+      desktop-version: ${{ steps.release.outputs['packages/desktop--version'] }}
     steps:
       - name: Run release-please
         id: release
@@ -48,6 +38,9 @@ jobs:
     if: ${{ needs.release-please.outputs.created == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/extension
     steps:
       - name: Checkout the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,6 +50,8 @@ jobs:
 
       - name: Setup
         uses: ./.github/actions/setup
+        with:
+          cache: 'false'
 
       - name: Typecheck, lint, format, duplication, dependencies, lockfile and unused code
         run: npm run check
@@ -73,9 +68,6 @@ jobs:
       - name: Lint the Firefox build as Firefox Add-ons does
         run: npm run lint:firefox
 
-      # Fixed names, so the site can link to the latest release's files: one build for every Chromium browser
-      # (Chrome, Edge, Brave, Arc, Opera), one for Firefox and the browsers built on it, one for Safari, and the
-      # sources Firefox Add-ons reviews.
       - name: Zip the builds
         run: |
           npm run zip && npm run zip:firefox && npm run zip:safari
@@ -86,10 +78,10 @@ jobs:
           cp .output/*-sources.zip release/focus-diff-sources.zip
 
       - name: Upload the zips
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
-          path: release/*.zip
+          path: packages/extension/release/*.zip
           if-no-files-found: error
 
   release-assets:
@@ -105,7 +97,7 @@ jobs:
       TAG: ${{ needs.release-please.outputs.tag }}
     steps:
       - name: Download the zips
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release
           path: release
@@ -116,9 +108,6 @@ jobs:
         with:
           subject-path: release/*.zip
 
-      # `gh attestation verify <zip> --repo hyanmandian/focus-diff` checks a zip against the Sigstore bundle; the
-      # .intoto.jsonl file holds the same signed SLSA provenance as a DSSE envelope, the form OpenSSF Scorecard
-      # (Signed-Releases) looks for.
       - name: Attach the zips and their provenance, then publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -128,3 +117,198 @@ jobs:
           jq -c .dsseEnvelope "$BUNDLE" > release/focus-diff.intoto.jsonl
           gh release upload "$TAG" release/* --clobber --repo "$GITHUB_REPOSITORY"
           gh release edit "$TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+
+  desktop-build:
+    name: Check, test and build the Mac app
+    needs: release-please
+    if: ${{ needs.release-please.outputs.desktop-created == 'true' }}
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: packages/desktop
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.desktop-tag }}
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          cache: 'false'
+
+      - name: Format, lint and typecheck
+        run: npx vp check
+
+      - name: Unit tests, at full coverage
+        run: npx vp test --coverage
+
+      - name: Rust tests
+        working-directory: packages/desktop/src-tauri
+        run: cargo test --locked
+
+      - name: Add both Mac architectures to Rust
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Build the app
+        run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg --no-sign
+
+      - name: Sign the updater's archive
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for file in src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz; do
+            npx tauri signer sign "$file" > /dev/null
+          done
+
+      - name: Gather the files
+        env:
+          TAG: ${{ needs.release-please.outputs.desktop-tag }}
+        run: |
+          bundle=src-tauri/target/universal-apple-darwin/release/bundle
+          mkdir release
+          cp "$bundle"/dmg/*.dmg release/Focus-Diff.dmg
+          cp "$bundle"/macos/*.app.tar.gz release/Focus-Diff.app.tar.gz
+          cp "$bundle"/macos/*.app.tar.gz.sig release/Focus-Diff.app.tar.gz.sig
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Focus-Diff.app.tar.gz"
+          jq -n --arg url "$url" --rawfile signature release/Focus-Diff.app.tar.gz.sig \
+            '{"darwin-aarch64": {url: $url, signature: $signature}, "darwin-x86_64": {url: $url, signature: $signature}}' \
+            > release/platforms-macos.json
+
+      - name: Upload the app
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-release-macos
+          path: packages/desktop/release/*
+          if-no-files-found: error
+
+  desktop-build-other:
+    name: Build the app for ${{ matrix.os }}
+    needs: release-please
+    if: ${{ needs.release-please.outputs.desktop-created == 'true' }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/desktop
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.desktop-tag }}
+          persist-credentials: false
+
+      - name: Install what Tauri needs on Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/linux-deps
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          cache: 'false'
+
+      - name: Rust tests
+        working-directory: packages/desktop/src-tauri
+        run: cargo test --locked
+
+      - name: Build the app
+        run: npm run tauri build -- --no-sign
+
+      - name: Sign the updater's files
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for file in src-tauri/target/release/bundle/nsis/*-setup.exe src-tauri/target/release/bundle/appimage/*.AppImage; do
+            [ -e "$file" ] && npx tauri signer sign "$file" > /dev/null
+          done
+          true
+
+      - name: Gather the files
+        env:
+          TAG: ${{ needs.release-please.outputs.desktop-tag }}
+          OS: ${{ runner.os }}
+        run: |
+          bundle=src-tauri/target/release/bundle
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          mkdir release
+          if [ "$OS" = Windows ]; then
+            cp "$bundle"/nsis/*-setup.exe release/Focus-Diff-Setup.exe
+            cp "$bundle"/nsis/*-setup.exe.sig release/Focus-Diff-Setup.exe.sig
+            jq -n --arg url "$base/Focus-Diff-Setup.exe" --rawfile signature release/Focus-Diff-Setup.exe.sig \
+              '{"windows-x86_64": {url: $url, signature: $signature}}' > release/platforms-windows.json
+          else
+            cp "$bundle"/appimage/*.AppImage release/Focus-Diff.AppImage
+            cp "$bundle"/appimage/*.AppImage.sig release/Focus-Diff.AppImage.sig
+            cp "$bundle"/deb/*.deb release/Focus-Diff.deb
+            cp "$bundle"/rpm/*.rpm release/Focus-Diff.rpm
+            jq -n --arg url "$base/Focus-Diff.AppImage" --rawfile signature release/Focus-Diff.AppImage.sig \
+              '{"linux-x86_64": {url: $url, signature: $signature}}' > release/platforms-linux.json
+          fi
+
+      - name: Upload the app
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-release-${{ runner.os }}
+          path: packages/desktop/release/*
+          if-no-files-found: error
+
+  desktop-assets:
+    name: Attest, attach and publish the desktop app
+    needs: [release-please, desktop-build, desktop-build-other]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.desktop-tag }}
+    steps:
+      - name: Download the app, for every system
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-release-*
+          merge-multiple: true
+          path: release
+
+      - name: Write latest.json
+        env:
+          VERSION: ${{ needs.release-please.outputs.desktop-version }}
+        run: |
+          jq -s --arg version "$VERSION" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version: $version, pub_date: $date, platforms: add}' release/platforms-*.json > release/latest.json
+          rm release/platforms-*.json
+
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            release/Focus-Diff.dmg
+            release/Focus-Diff.app.tar.gz
+            release/Focus-Diff-Setup.exe
+            release/Focus-Diff.AppImage
+            release/Focus-Diff.deb
+            release/Focus-Diff.rpm
+
+      - name: Attach the files, publish the release and point the updater at it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" release/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" --draft=false --latest=false --repo "$GITHUB_REPOSITORY"
+          if ! gh release view desktop-latest --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create desktop-latest --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+              --title "Focus Diff desktop: newest" \
+              --notes "The newest desktop app, at links that don't change: Focus-Diff.dmg (Mac), Focus-Diff-Setup.exe (Windows), Focus-Diff.AppImage, .deb or .rpm (Linux). The installed app looks for updates here too."
+          fi
+          gh release upload desktop-latest release/latest.json release/Focus-Diff.dmg release/Focus-Diff-Setup.exe \
+            release/Focus-Diff.AppImage release/Focus-Diff.deb release/Focus-Diff.rpm --clobber --repo "$GITHUB_REPOSITORY"

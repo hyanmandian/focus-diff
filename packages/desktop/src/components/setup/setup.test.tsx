@@ -39,6 +39,8 @@ const ready = (provider: AiStatus["provider"], version: string | null = "1.0.0")
   signed_in: true,
   version,
   login_command: `${provider} login`,
+  outdated: false,
+  update_command: `${provider} update`,
 });
 
 function later<T>() {
@@ -301,6 +303,15 @@ describe("Setup", () => {
     await waitFor(() => {
       expect(saved().ai).toMatchObject({ provider: "claude", model: "opus", effort: "high" });
     });
+  });
+
+  it("says when an agent works but is out of date", async () => {
+    answer({ statuses: () => Promise.resolve([{ ...ready("claude"), outdated: true }]) });
+    const user = userEvent.setup();
+    render(<Setup />);
+    await screen.findByText("@octocat");
+    await toAi(user);
+    expect(screen.getByText("Works, but out of date: run claude update")).toBeTruthy();
   });
 
   it("starts the model over for another agent", async () => {

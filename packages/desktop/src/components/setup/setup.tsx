@@ -437,7 +437,9 @@ export function Setup() {
                         }}
                         title={PROVIDERS[provider].name}
                       >
-                        {t("setup.readyVersion", { version: status.version ?? "" })}
+                        {status.outdated
+                          ? t("setup.outdatedRun", { command: status.update_command })
+                          : t("setup.readyVersion", { version: status.version ?? "" })}
                       </Choice>
                     );
                   })

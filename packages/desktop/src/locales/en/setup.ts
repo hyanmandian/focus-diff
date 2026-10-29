@@ -43,6 +43,7 @@ export const setup = {
   notInstalled: "not installed",
   getIt: "Get it",
   readyVersion: "Ready · {version}",
+  outdatedRun: "Works, but out of date: run {command}",
   doneTitle: "You're set",
   doneBodyMac:
     "Focus Diff lives in your menu bar. Click its icon for your queues; it'll light up when something needs you. Model, effort, your own prompts and buttons are in Settings.",

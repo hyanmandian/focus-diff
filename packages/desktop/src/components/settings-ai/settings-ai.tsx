@@ -155,7 +155,15 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                     statuses ? (
                       status?.installed ? (
                         status.signed_in ? (
-                          <span className="text-success">{t("settings.ready", { version: status.version ?? "" })}</span>
+                          status.outdated ? (
+                            <>
+                              {t("settings.outdatedRun")} <CopyCommand command={status.update_command} />
+                            </>
+                          ) : (
+                            <span className="text-success">
+                              {t("settings.ready", { version: status.version ?? "" })}
+                            </span>
+                          )
                         ) : (
                           <>
                             {t("settings.notSignedInRun")} <CopyCommand command={status.login_command} />

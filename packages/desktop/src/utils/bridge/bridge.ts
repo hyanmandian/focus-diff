@@ -28,6 +28,8 @@ export type AiStatus = {
   signed_in: boolean;
   version: string | null;
   login_command: string;
+  outdated: boolean;
+  update_command: string;
 };
 
 export type AiUsage = {

@@ -306,6 +306,7 @@ export const settings = {
   getIt: "Get it",
   ready: "Ready · {version}",
   notSignedInRun: "Installed, not signed in. In a terminal, run",
+  outdatedRun: "Works, but it's out of date. To get everything, run",
   model: "Model",
   modelHint: "Empty uses what you've set in {provider}. Some plans only allow some models.",
   modelPlaceholder: "{provider}'s own default",

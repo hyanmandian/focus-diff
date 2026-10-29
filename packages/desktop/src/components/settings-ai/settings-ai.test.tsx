@@ -19,6 +19,8 @@ const status = (provider: AiProvider, patch: Partial<AiStatus> = {}): AiStatus =
   signed_in: true,
   version: "1.0",
   login_command: `${provider} login`,
+  outdated: false,
+  update_command: `${provider} update`,
   ...patch,
 });
 
@@ -116,6 +118,15 @@ describe("Ai", () => {
     await user.click(within(row("Cursor")).getByRole("button", { name: "Copy cursor login" }));
     await waitFor(async () => {
       expect(await navigator.clipboard.readText()).toBe("cursor login");
+    });
+  });
+
+  it("says when a CLI works but is out of date, with the command that updates it", async () => {
+    const { user } = setup({}, { statuses: [status("claude", { outdated: true })] });
+    expect((await within(row("Claude Code")).findByText(/out of date/u)).textContent).toContain("To get everything");
+    await user.click(within(row("Claude Code")).getByRole("button", { name: "Copy claude update" }));
+    await waitFor(async () => {
+      expect(await navigator.clipboard.readText()).toBe("claude update");
     });
   });
 

@@ -32,6 +32,13 @@ impl Provider {
         }
     }
 
+    fn update_command(self) -> &'static str {
+        match self {
+            Provider::Claude => "claude update",
+            Provider::Cursor => "agent update",
+        }
+    }
+
     fn login_command(self) -> String {
         match self {
             Provider::Claude if login_env().claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR=~/.claude claude auth login".into(),
@@ -57,6 +64,8 @@ pub struct Status {
     signed_in: bool,
     version: Option<String>,
     login_command: String,
+    outdated: bool,
+    update_command: String,
 }
 
 struct LoginEnv {
@@ -297,7 +306,7 @@ pub fn cancel(id: &str) {
 pub fn status(provider: Provider) -> Status {
     let Some(binary) = find(provider) else {
         crate::diagnostics::write("ai", &format!("{provider:?}: not found"));
-        return Status { provider, installed: false, signed_in: false, version: None, login_command: provider.login_command() };
+        return Status { provider, installed: false, signed_in: false, version: None, login_command: provider.login_command(), outdated: false, update_command: provider.update_command().into() };
     };
     let version = run_with_limit(command(&binary).arg("--version"), None, Duration::from_secs(10))
         .ok()
@@ -307,7 +316,8 @@ pub fn status(provider: Provider) -> Status {
         Provider::Claude => &["auth", "status"],
         Provider::Cursor => &["status"],
     };
-    let signed_in = run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
+    let can_tell = knows(&binary, args[0]);
+    let signed_in = !can_tell || run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
         .map(|o| {
             let text = format!("{}{}", o.stdout, o.stderr).to_lowercase();
             o.status_ok
@@ -317,8 +327,10 @@ pub fn status(provider: Provider) -> Status {
                 && !text.contains("unable to fetch user details")
         })
         .unwrap_or(false);
-    crate::diagnostics::write("ai", &format!("{provider:?}: found, {}", if signed_in { "signed in" } else { "not signed in" }));
-    Status { provider, installed: true, signed_in, version, login_command: provider.login_command() }
+    let lacking = missing(provider, &binary);
+    let outdated = !can_tell || !lacking.is_empty();
+    crate::diagnostics::write("ai", &format!("{provider:?}: found, {}{}", if signed_in { "signed in" } else { "not signed in" }, if outdated { format!(", outdated (no {})", if lacking.is_empty() { args[0].to_string() } else { lacking.join(", ") }) } else { String::new() }));
+    Status { provider, installed: true, signed_in, version, login_command: provider.login_command(), outdated, update_command: provider.update_command().into() }
 }
 
 pub fn statuses() -> Vec<Status> {
@@ -387,10 +399,59 @@ pub fn ask(q: Question) -> Result<Reply, String> {
 fn ask_with(q: &Question, binary: &Path) -> Result<Reply, String> {
     sweep(IDLE);
     let reply = match q.provider {
-        Provider::Claude => claude(q, binary)?,
-        Provider::Cursor => cursor(q, binary)?,
-    };
+        Provider::Claude => claude(q, binary),
+        Provider::Cursor => cursor(q, binary),
+    }
+    .map_err(|e| outdated(q.provider, e))?;
     Ok(Reply { text: reply.text.trim().to_string(), ..reply })
+}
+
+fn help_text(binary: &Path) -> Option<Arc<str>> {
+    static HELP: OnceLock<Mutex<HashMap<PathBuf, Option<Arc<str>>>>> = OnceLock::new();
+    let cache = HELP.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(known) = cache.held().get(binary) {
+        return known.clone();
+    }
+    let read = run_with_limit(command(binary).arg("--help"), None, Duration::from_secs(10))
+        .ok()
+        .map(|o| format!("{}\n{}", o.stdout, o.stderr))
+        .filter(|text| text.contains("--"))
+        .map(Arc::from);
+    cache.held().insert(binary.to_path_buf(), read.clone());
+    read
+}
+
+fn mentions(help: &str, flag: &str) -> bool {
+    help.match_indices(flag).any(|(at, _)| {
+        let before = help[..at].chars().next_back();
+        let after = help[at + flag.len()..].chars().next();
+        before.is_none_or(|c| !c.is_alphanumeric() && c != '-') && after.is_none_or(|c| !c.is_alphanumeric() && c != '-')
+    })
+}
+
+fn knows(binary: &Path, flag: &str) -> bool {
+    help_text(binary).is_none_or(|help| mentions(&help, flag))
+}
+
+const CLAUDE_FLAGS: [&str; 7] = ["--tools", "--no-session-persistence", "--strict-mcp-config", "--effort", "--json-schema", "--setting-sources", "dontAsk"];
+const CURSOR_FLAGS: [&str; 3] = ["--mode", "--sandbox", "--trust"];
+
+fn missing(provider: Provider, binary: &Path) -> Vec<&'static str> {
+    let wanted: &[&str] = match provider {
+        Provider::Claude => &CLAUDE_FLAGS,
+        Provider::Cursor => &CURSOR_FLAGS,
+    };
+    wanted.iter().copied().filter(|flag| !knows(binary, flag)).collect()
+}
+
+fn outdated(provider: Provider, error: String) -> String {
+    if !error.to_lowercase().contains("unknown option") {
+        return error;
+    }
+    match provider {
+        Provider::Claude => tr!("Claude Code is too old for Focus Diff: run `claude update`, then try again", "O Claude Code está desatualizado para o Focus Diff: rode `claude update` e tente de novo"),
+        Provider::Cursor => tr!("Cursor's agent is too old for Focus Diff: run `agent update`, then try again", "O agente do Cursor está desatualizado para o Focus Diff: rode `agent update` e tente de novo"),
+    }
 }
 
 const IDLE: Duration = Duration::from_secs(600);
@@ -420,21 +481,36 @@ fn fingerprint(parts: &[&str]) -> u64 {
     hasher.finish()
 }
 
-fn claude_args(q: &Question, structured: bool) -> Vec<String> {
+fn claude_args(q: &Question, binary: &Path, structured: bool) -> Vec<String> {
     let tools = if q.project.is_some() { READ_ONLY_TOOLS } else { "" };
-    let mut args: Vec<String> = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--tools", tools, "--allowedTools", tools, "--permission-mode", "dontAsk", "--no-session-persistence", "--strict-mcp-config", "--system-prompt", q.system].map(String::from).to_vec();
-    if q.own_settings {
-        args.extend(["--setting-sources", "user", "--settings", HOOKS_OFF].map(String::from));
-    } else {
-        args.push("--safe-mode".into());
+    let has = |flag: &str| knows(binary, flag);
+    let mut args: Vec<String> = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose"].map(String::from).to_vec();
+    if has("--tools") {
+        args.extend(["--tools", tools].map(String::from));
+    } else if q.project.is_none() {
+        args.extend(["--disallowedTools", "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Task"].map(String::from));
+    }
+    args.extend(["--allowedTools", tools].map(String::from));
+    args.extend(["--permission-mode", if has("dontAsk") { "dontAsk" } else { "default" }].map(String::from));
+    for flag in ["--no-session-persistence", "--strict-mcp-config"] {
+        if has(flag) {
+            args.push(flag.into());
+        }
+    }
+    args.extend(["--system-prompt", q.system].map(String::from));
+    if q.own_settings && has("--setting-sources") {
+        args.extend(["--setting-sources", "user"].map(String::from));
+    }
+    if has("--settings") {
+        args.extend(["--settings", HOOKS_OFF].map(String::from));
     }
     if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
         args.extend(["--model".into(), model.into()]);
     }
-    if let Some(effort) = q.provider.effort(q.effort) {
+    if let Some(effort) = q.provider.effort(q.effort).filter(|_| has("--effort")) {
         args.extend(["--effort".into(), effort.into()]);
     }
-    if let (true, Some(schema)) = (structured, q.schema) {
+    if let (true, Some(schema)) = (structured && has("--json-schema"), q.schema) {
         args.extend(["--json-schema".into(), schema.into()]);
     }
     args
@@ -451,15 +527,15 @@ fn claude(q: &Question, binary: &Path) -> Result<Reply, String> {
     let material = clipped(q.material);
     let first = format!("{}{}", q.recap, q.task);
     if let Some(schema) = q.schema {
-        let turn = once(q, binary, &claude_args(q, false), opening(&material, &with_schema(&first, schema)))?;
+        let turn = once(q, binary, &claude_args(q, binary, false), opening(&material, &with_schema(&first, schema)))?;
         if let Some(json) = json_object(&turn.text) {
             return Ok(Reply { text: json, usage: Some(turn.usage), resumed: false });
         }
-        let turn = once(q, binary, &claude_args(q, true), opening(&material, &first))?;
+        let turn = once(q, binary, &claude_args(q, binary, true), opening(&material, &first))?;
         let text = turn.structured.map(|s| s.to_string()).or_else(|| json_object(&turn.text)).ok_or_else(|| tr!("The answer wasn't in the expected form", "A resposta não veio no formato esperado"))?;
         return Ok(Reply { text, usage: Some(turn.usage), resumed: false });
     }
-    let args = claude_args(q, false);
+    let args = claude_args(q, binary, false);
     let Some(name) = q.session else {
         let turn = once(q, binary, &args, opening(&material, &first))?;
         return Ok(Reply { text: turn.text, usage: Some(turn.usage), resumed: false });
@@ -594,6 +670,9 @@ impl Session {
         let dir = project.or(scratch.as_ref().map(|s| s.0.as_path())).unwrap_or(Path::new("."));
         let mut cmd = command(binary);
         cmd.current_dir(dir).args(args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        if !args.iter().any(|a| a == "--setting-sources") {
+            cmd.env("CLAUDE_CODE_SAFE_MODE", "1");
+        }
         no_window(&mut cmd);
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
@@ -740,7 +819,14 @@ fn cursor(q: &Question, binary: &Path) -> Result<Reply, String> {
 fn cursor_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat: Option<&str>) -> Result<(String, Option<String>), String> {
     let mut cmd = command(binary);
     cmd.current_dir(workspace);
-    cmd.args(["-p", "--output-format", "json", "--mode", "ask", "--sandbox", "enabled", "--trust", "--workspace"]).arg(workspace);
+    cmd.args(["-p", "--output-format", "json"]);
+    for (flag, value) in [("--mode", Some("ask")), ("--sandbox", Some("enabled")), ("--trust", None)] {
+        if knows(binary, flag) {
+            cmd.arg(flag);
+            cmd.args(value);
+        }
+    }
+    cmd.arg("--workspace").arg(workspace);
     if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
         cmd.args(["--model", model]);
     }
@@ -792,6 +878,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn says_when_the_cli_is_too_old() {
+        assert!(outdated(Provider::Claude, "error: unknown option '--x'".into()).contains("claude update"));
+        assert!(outdated(Provider::Cursor, "Unknown option --x".into()).contains("agent update"));
+        assert_eq!(outdated(Provider::Claude, "Timed out".into()), "Timed out");
+    }
+
+    #[test]
     fn finds_json_in_prose() {
         assert_eq!(json_object("Sure:\n```json\n{\"findings\": []}\n```").as_deref(), Some("{\"findings\":[]}"));
         assert_eq!(json_object("no json here"), None);
@@ -831,6 +924,35 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    const HELP: &str = "auth status --tools --no-session-persistence --strict-mcp-config --effort --json-schema --setting-sources --settings dontAsk --mode --sandbox --trust";
+
+    #[test]
+    fn passes_only_the_flags_a_cli_knows() {
+        assert!(mentions("  --settings <json>", "--settings"));
+        assert!(!mentions("  --setting-sources <s>", "--settings"));
+        assert!(!mentions("--allowedTools", "--tools"));
+        assert!(mentions("choices: default, dontAsk)", "dontAsk"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn talks_to_an_old_claude_code_with_what_it_knows() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("fd-old-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let binary = dir.join("claude");
+        std::fs::write(&binary, "#!/bin/sh\necho '-p --print --output-format --input-format --verbose --model --allowedTools --disallowedTools --permission-mode --system-prompt'\n").unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let q = question(Provider::Claude, "DIFF", "Why?", None);
+        let args = claude_args(&q, &binary, true).join(" ");
+        for unknown in ["--tools ", "--no-session-persistence", "--strict-mcp-config", "--effort", "--settings", "dontAsk"] {
+            assert!(!args.contains(unknown), "{unknown} in {args}");
+        }
+        assert!(args.contains("--disallowedTools") && args.contains("--permission-mode default"));
+        assert_eq!(missing(Provider::Claude, &binary).len(), CLAUDE_FLAGS.len());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[cfg(unix)]
     fn fake(name: &str, script: &str) -> (PathBuf, PathBuf) {
         use std::os::unix::fs::PermissionsExt;
@@ -839,7 +961,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let log = dir.join("log");
         let binary = dir.join("cli");
-        std::fs::write(&binary, format!("#!/bin/sh\nLOG='{}'\n{script}", log.display())).unwrap();
+        std::fs::write(&binary, format!("#!/bin/sh\nLOG='{}'\nif [ \"$1\" = --help ]; then echo '{HELP}'; exit 0; fi\n{script}", log.display())).unwrap();
         std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).unwrap();
         (binary, log)
     }
@@ -890,7 +1012,7 @@ done
         assert_eq!(second.usage.map(|u| u.cost), Some(1.0));
         let lines = logged(&log);
         assert_eq!(lines.iter().filter(|l| l.starts_with("start")).count(), 1);
-        assert!(lines[0].contains("--input-format stream-json") && lines[0].contains("--safe-mode") && lines[0].contains("--system-prompt Be brief.") && lines[0].contains("--effort medium") && lines[0].contains("--no-session-persistence"));
+        assert!(lines[0].contains("--input-format stream-json") && lines[0].contains("--settings {\"disableAllHooks\":true}") && lines[0].contains("--system-prompt Be brief.") && lines[0].contains("--effort medium") && lines[0].contains("--no-session-persistence"));
         assert!(!lines[0].contains("--setting-sources"));
         let opening: serde_json::Value = serde_json::from_str(&lines[1]).unwrap();
         assert_eq!(opening["message"]["content"][0]["text"], "THE DIFF");
@@ -935,7 +1057,7 @@ done
         assert_eq!(slow, Err(tr!("Stopped", "Interrompido")));
         let own = ask_with(&Question { own_settings: true, ..question(Provider::Claude, "DIFF", "Mine?", None) }, &binary).unwrap();
         assert_eq!(own.text, "answer 1");
-        assert!(logged(&log).iter().any(|l| l.starts_with("start") && l.contains("--setting-sources user") && !l.contains("--safe-mode")));
+        assert!(logged(&log).iter().any(|l| l.starts_with("start") && l.contains("--setting-sources user") && l.matches("--settings").count() == 1));
         close("w-fails");
     }
 

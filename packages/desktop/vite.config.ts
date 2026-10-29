@@ -34,7 +34,7 @@ export default defineConfig({
     sortImports: true,
     sortPackageJson: true,
     sortTailwindcss: { stylesheet: "./src/index.css", functions: ["cn", "cva"] },
-    ignorePatterns: ["dist/**", "src-tauri/**", "node_modules/**", "coverage/**", "package-lock.json"],
+    ignorePatterns: ["dist/**", "src-tauri/**", "node_modules/**", "coverage/**", "package-lock.json", "CHANGELOG.md"],
   },
 
   lint: {

@@ -16,23 +16,25 @@ Cursor command line you installed and signed in to yourself.
 
 ## The desktop app
 
-- **How it signs in:** with the GitHub CLI (`gh`) when it is installed and signed in, asking it for your token each
-  time, or with a personal access token you paste, kept in your system's keychain. You can also sign in to github.com
+- **How it signs in:** with the GitHub CLI (`gh`) when it is installed and signed in, asking it for your token once
+  per launch and keeping it in memory, or with a personal access token you paste, kept in your system's keychain. You can also sign in to github.com
   in its own window for what GitHub's API doesn't offer; that session is kept in the keychain too.
 - **What it stores, on your computer only:** your settings (queues, filters, actions, AI and notification choices),
   the comments you are still writing, what it last read of your pull requests and their pictures so they open fast,
   what notifications it already showed, and your review pace. When you ask the AI with the whole project as context,
-  it keeps a checkout of that repository in its cache folder and removes it once it goes unused.
+  it keeps a checkout of that repository in its cache folder and removes it after 14 days unused.
 - **What it asks GitHub:** your pull requests and their files, comments, checks and reviews, from `api.github.com`
-  and `github.com`; pictures and attachments from GitHub's `githubusercontent.com` hosts; and the logs of checks you
-  open. It sends only what you do: comments, reviews, viewed files, merges and the like.
+  and `github.com`; pictures and attachments from GitHub's `githubusercontent.com` hosts; the logs of checks you open,
+  which GitHub serves from its storage on `blob.core.windows.net`; and the images you attach to a comment go to the
+  upload address GitHub gives for them. It sends only what you do: comments, reviews, viewed files, merges and the like.
 - **AI, only when you ask:** it runs the Claude Code or Cursor command line on your computer, signed in to your own
   account. What you ask about (the pull request's description and changes, your question, and the checkout when you
   pick the whole project) goes to that provider under your agreement with them. Focus Diff sends it nowhere else.
 - **Actions you set up:** a command you add runs on your computer, as you, with the pull request's number, title,
-  link, repository and author. It asks before running a command the first time.
+  link, repository and author, and your GitHub login. It asks before running a command the first time.
 - **Updates:** it checks `github.com/hyanmandian/focus-diff` releases for a newer version and installs it only if its
   signature matches.
-- **Third parties:** none but GitHub, and the AI provider you pick when you use the AI.
+- **Third parties:** none but GitHub, and the AI provider you pick when you use the AI. On Windows, the installer may
+  download Microsoft's WebView2 runtime if the system doesn't have it.
 
 Questions: email focus-diff@hyan.com.br or open an issue at https://github.com/hyanmandian/focus-diff/issues.

@@ -2,3 +2,33 @@
 id = "GHSA-gcqx-w48m-w2h4"
 ignoreUntil = 2027-01-31
 reason = "deepmerge <= 4.3.1, no fixed version yet. It reaches us only through web-ext -> addons-linter, which merges its own bundled manifest schemas with it when `web-ext lint` checks the Firefox build; nothing of it ships in the extension or the desktop app."
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+ignoreUntil = 2027-01-31
+reason = "block-buffer 0.10, fixed only in 0.12. It reaches the desktop app through digest 0.10 (sha2), which Tauri and its plugins pin; the bug needs a panic inside the block callback, and sha2's compression never panics."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+ignoreUntil = 2027-01-31
+reason = "glib 0.18, fixed in 0.20. Tauri's Linux backend (gtk 0.18 through tao, wry and muda) pins it; the unsound VariantStrIter is never used by the desktop app."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+ignoreUntil = 2027-01-31
+reason = "proc-macro-error is unmaintained, not vulnerable. It runs only at compile time, as a dependency of glib-macros 0.18 in Tauri's Linux backend."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+ignoreUntil = 2027-01-31
+reason = "zvariant is unmaintained, not vulnerable. It reaches the desktop app on Linux through zbus 5 (notifications, opener and the keyring's secret service); no maintained replacement exists in those crates yet."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+ignoreUntil = 2027-01-31
+reason = "zbus_names is unmaintained, not vulnerable. Same path as zvariant: zbus 5 on Linux, through notifications, opener and the keyring's secret service."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+ignoreUntil = 2027-01-31
+reason = "zvariant_derive is unmaintained, not vulnerable. A compile-time macro for zvariant, on the same zbus 5 path on Linux."

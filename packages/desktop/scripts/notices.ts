@@ -13,6 +13,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const text = (value: unknown) => (typeof value === "string" ? value : "");
 const run = (command: string, args: string[], cwd: string): unknown =>
   JSON.parse(execFileSync(command, args, { cwd, encoding: "utf8", maxBuffer: 1 << 28 }));
+const npm = (args: string[]) => {
+  const cli = process.env.npm_execpath;
+  return cli ? run(process.execPath, [cli, ...args], root) : run("npm", args, root);
+};
 
 const textsIn = (dir: string) =>
   existsSync(dir)
@@ -24,11 +28,7 @@ const textsIn = (dir: string) =>
     : [];
 
 function npmEntries(): Entry[] {
-  const tree = run(
-    "npm",
-    ["ls", "--omit=dev", "--all", "--long", "--json", "--workspace", "@focus-diff/desktop"],
-    root,
-  );
+  const tree = npm(["ls", "--omit=dev", "--all", "--long", "--json", "--workspace", "@focus-diff/desktop"]);
   const found = new Map<string, Entry>();
   const walk = (deps: unknown) => {
     if (!isRecord(deps)) return;

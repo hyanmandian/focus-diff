@@ -144,8 +144,16 @@ pub(crate) fn run_with_limit(command: &mut Command, input: Option<&str>, limit: 
     run_until(command, input, limit, None)
 }
 
+pub(crate) fn no_window(command: &mut Command) {
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(command, 0x0800_0000);
+    #[cfg(not(windows))]
+    let _ = command;
+}
+
 pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Duration, cancel: Option<&AtomicBool>) -> Result<Output, String> {
     command.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
+    no_window(command);
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(command, 0);
     let mut child = command.spawn().map_err(|e| e.to_string())?;
@@ -523,6 +531,7 @@ impl Session {
         let dir = project.or(scratch.as_ref().map(|s| s.0.as_path())).unwrap_or(Path::new("."));
         let mut cmd = command(binary);
         cmd.current_dir(dir).args(args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        no_window(&mut cmd);
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
         let mut child = cmd.spawn().map_err(|e| e.to_string())?;

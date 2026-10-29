@@ -6,6 +6,7 @@ mod checkout;
 mod config;
 #[cfg(any(debug_assertions, feature = "devctl"))]
 mod devctl;
+mod diagnostics;
 mod disk;
 mod drafts;
 mod engine;
@@ -216,7 +217,13 @@ async fn drafts_flush(app: AppHandle, pull: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn auth_status(auth: State<'_, github::Auth>) -> Result<github::Status, String> {
-    Ok(auth.status())
+    let status = auth.status();
+    diagnostics::write("auth", &format!("signed in {}, through {:?}, GitHub CLI {}", status.signed_in, status.source, match (status.gh_available, status.gh_signed_in) {
+        (false, _) => "not found",
+        (true, false) => "found, not signed in",
+        (true, true) => "found, signed in",
+    }));
+    Ok(status)
 }
 
 fn remember_source(app: &AppHandle, source: Option<github::Source>) -> Result<(), String> {
@@ -226,25 +233,25 @@ fn remember_source(app: &AppHandle, source: Option<github::Source>) -> Result<()
 
 #[tauri::command]
 async fn auth_use_gh(app: AppHandle, auth: State<'_, github::Auth>) -> Result<(), String> {
-    auth.use_gh()?;
-    remember_source(&app, Some(github::Source::Gh))
+    diagnostics::noted("auth", auth.use_gh())?;
+    diagnostics::noted("auth", remember_source(&app, Some(github::Source::Gh)))
 }
 
 #[tauri::command]
 async fn auth_use_token(app: AppHandle, auth: State<'_, github::Auth>, token: String) -> Result<(), String> {
-    auth.use_token(&token)?;
-    remember_source(&app, Some(github::Source::Keychain))
+    diagnostics::noted("auth", auth.use_token(&token))?;
+    diagnostics::noted("auth", remember_source(&app, Some(github::Source::Keychain)))
 }
 
 #[tauri::command]
 async fn auth_device_start() -> Result<github::DeviceCode, String> {
-    github::device_start()
+    diagnostics::noted("auth", github::device_start())
 }
 
 #[tauri::command]
 async fn auth_device_finish(app: AppHandle, auth: State<'_, github::Auth>, device_code: String, interval: u64, expires_in: u64) -> Result<(), String> {
-    github::device_finish(&auth, &device_code, interval, expires_in)?;
-    remember_source(&app, Some(github::Source::Keychain))
+    diagnostics::noted("auth", github::device_finish(&auth, &device_code, interval, expires_in))?;
+    diagnostics::noted("auth", remember_source(&app, Some(github::Source::Keychain)))
 }
 
 #[tauri::command]
@@ -514,7 +521,9 @@ pub(crate) fn show_panel(app: &AppHandle) {
     if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
         return;
     }
-    let _ = toggle_panel(app, &tray_rect(app));
+    if let Err(e) = toggle_panel(app, &tray_rect(app)) {
+        diagnostics::write("panel", &format!("couldn't show the panel: {e}"));
+    }
 }
 
 #[tauri::command]
@@ -820,9 +829,12 @@ fn hide_panel(app: AppHandle) {
 
 #[tauri::command]
 fn log(window: tauri::Window, message: String) {
-    if cfg!(any(debug_assertions, feature = "devctl")) {
-        eprintln!("[{}] {}", window.label(), message.chars().take(2000).collect::<String>());
-    }
+    diagnostics::write(window.label(), &message);
+}
+
+#[tauri::command]
+fn report_problem(app: AppHandle) {
+    diagnostics::report(&app);
 }
 
 #[tauri::command]
@@ -1094,6 +1106,8 @@ fn create_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
             let _ = show_settings(app);
         }
         "licenses" => about::open_licenses(app),
+        "logs" => diagnostics::show_logs(app),
+        "report" => diagnostics::report(app),
         "quit" => app.exit(0),
         _ => {}
     });
@@ -1107,6 +1121,9 @@ pub(crate) fn tray_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<taur
         .item(&MenuItemBuilder::with_id("open", i18n::tr!("Open Focus Diff", "Abrir o Focus Diff")).build(app)?)
         .item(&MenuItemBuilder::with_id("settings", i18n::tr!("Settings…", "Configurações…")).accelerator("CmdOrCtrl+,").build(app)?)
         .item(&MenuItemBuilder::with_id("licenses", i18n::tr!("Third-Party Licenses", "Licenças de terceiros")).build(app)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("report", i18n::tr!("Report a Problem…", "Relatar um problema…")).build(app)?)
+        .item(&MenuItemBuilder::with_id("logs", i18n::tr!("Show Logs", "Mostrar logs")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("quit", i18n::tr!("Quit Focus Diff", "Sair do Focus Diff")).build(app)?)
         .build()
@@ -1127,7 +1144,7 @@ fn move_old_files(app: &AppHandle) {
 
 fn answer(scheme: &str, serve: impl FnOnce() -> tauri::http::Response<Vec<u8>>) -> tauri::http::Response<Vec<u8>> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(serve)).unwrap_or_else(|_| {
-        eprintln!("[{scheme}] the request failed");
+        diagnostics::write(scheme, "the request failed");
         tauri::http::Response::builder().status(tauri::http::StatusCode::INTERNAL_SERVER_ERROR).body(vec![]).unwrap_or_default()
     })
 }
@@ -1135,7 +1152,12 @@ fn answer(scheme: &str, serve: impl FnOnce() -> tauri::http::Response<Vec<u8>>) 
 pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(not(target_os = "macos"))]
-    let builder = builder.plugin(tauri_plugin_notification::init());
+    let builder = builder
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            diagnostics::write("start", "opened again while running");
+            show_panel(app);
+        }))
+        .plugin(tauri_plugin_notification::init());
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1213,6 +1235,7 @@ pub fn run() {
             switch_review,
             hide_panel,
             log,
+            report_problem,
             quit,
             menu::confirm,
             menu::menu_state,
@@ -1224,6 +1247,7 @@ pub fn run() {
             notify::start(app.handle());
 
             let handle = app.handle().clone();
+            diagnostics::start(&handle);
             move_old_files(&handle);
             match read_file(handle.clone(), "config") {
                 Ok(Some(text)) => {
@@ -1265,7 +1289,15 @@ pub fn run() {
                 });
             }
             if file_path(&handle, "config").is_ok_and(|p| !p.exists()) {
+                diagnostics::write("start", "no settings yet: showing setup");
                 show_setup(&handle)?;
+            } else {
+                let app = handle.clone();
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(800));
+                    let shown = app.clone();
+                    let _ = app.run_on_main_thread(move || show_panel(&shown));
+                });
             }
             Ok(())
         })
@@ -1294,6 +1326,11 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &event {
                 api.prevent_exit();
+            }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = &event {
+                diagnostics::write("start", "opened again while running");
+                show_panel(app);
             }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = &event {

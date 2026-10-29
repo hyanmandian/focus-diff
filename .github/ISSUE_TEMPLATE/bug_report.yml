@@ -75,8 +75,8 @@ body:
   - type: textarea
     id: extra
     attributes:
-      label: Screenshots or anything else
-      description: Errors from the browser console help too.
+      label: Screenshots, logs or anything else
+      description: "Errors from the browser console help too. For the desktop app, Report a Problem opens the folder with its log: drag `focus-diff.log` here if you're fine sharing it (tokens are already hidden in it)."
   - type: checkboxes
     id: searched
     attributes:

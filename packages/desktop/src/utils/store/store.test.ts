@@ -49,7 +49,14 @@ const live = (extra: Record<string, unknown> = {}) => ({
 });
 
 const config = defaultConfig();
-const signedOut: AuthStatus = { signed_in: false, source: null, login: null, device_flow: true, gh_available: false };
+const signedOut: AuthStatus = {
+  signed_in: false,
+  source: null,
+  login: null,
+  device_flow: true,
+  gh_available: false,
+  gh_signed_in: false,
+};
 
 function rust(snapshot: Record<string, unknown> = live(), auth: AuthStatus = signedOut) {
   const calls: Array<[string, Args | undefined]> = [];

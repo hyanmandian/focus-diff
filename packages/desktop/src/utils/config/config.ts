@@ -644,11 +644,11 @@ export function normalize(r: unknown): Config {
   };
 }
 
-export async function loadConfig(): Promise<Config> {
+export async function loadConfig({ create = true } = {}): Promise<Config> {
   const text = await bridge.readFile("config");
   if (!text) {
     const config = defaultConfig();
-    await saveConfig(config);
+    if (create) await saveConfig(config);
     return config;
   }
   try {

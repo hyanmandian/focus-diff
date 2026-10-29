@@ -44,7 +44,10 @@ export const setup = {
   doneBodyTray:
     "Focus Diff lives in your menu bar (the system tray). Click its icon for your queues; it'll light up when something needs you. Model, effort, your own prompts and buttons are in Settings.",
   laterAi: "You can turn it on later.",
+  trouble: "Having trouble? Report a problem",
+  finishFailed: "Couldn't finish: {error}",
   back: "Back",
   continue: "Continue",
+  later: "Sign in later",
   open: "Open Focus Diff",
 } as const;

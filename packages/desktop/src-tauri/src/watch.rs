@@ -549,7 +549,7 @@ impl Worker {
                 } else {
                     failure.message
                 };
-                eprintln!("Refreshing failed: {message}");
+                crate::diagnostics::write("watch", &format!("refreshing failed: {message}"));
                 state.status = Status { phase: "error", error: Some(message), updated_at: state.status.updated_at };
                 if failure.status == 401 {
                     drop(state);

@@ -653,7 +653,14 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
       files[str(args, "name")] = str(args, "contents");
       return null;
     case "auth_status":
-      return { signed_in: true, source: "gh", login: "you_reviewer", device_flow: true, gh_available: true };
+      return {
+        signed_in: true,
+        source: "gh",
+        login: "you_reviewer",
+        device_flow: true,
+        gh_available: true,
+        gh_signed_in: true,
+      };
     case "github": {
       const path = str(args, "path");
       if (path.includes("/files?")) return { status: 200, body: JSON.stringify(reviewFiles) };

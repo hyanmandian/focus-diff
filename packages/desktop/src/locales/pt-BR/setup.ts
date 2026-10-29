@@ -46,7 +46,10 @@ export const setup: Dictionary["setup"] = {
   doneBodyTray:
     "O Focus Diff fica na barra de menus (a bandeja do sistema). Clique no ícone para ver suas filas; ele se acende quando algo precisa de você. Modelo, esforço, seus prompts e botões ficam nos Ajustes.",
   laterAi: "Dá para ativar depois.",
+  trouble: "Algo deu errado? Relatar um problema",
+  finishFailed: "Não deu para concluir: {error}",
   back: "Voltar",
   continue: "Continuar",
+  later: "Entrar depois",
   open: "Abrir o Focus Diff",
 };

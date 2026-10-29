@@ -131,7 +131,6 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/entries/**",
-        "src/utils/dev-log/**",
         "src/utils/mock*/**",
         "src/utils/test-setup/**",
         "src/utils/fake-platform/**",

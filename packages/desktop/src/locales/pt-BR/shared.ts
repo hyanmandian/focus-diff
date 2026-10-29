@@ -16,6 +16,10 @@ export const shared: Dictionary["shared"] = {
   connectTokenNeedsAfter: ". Fica nas chaves do sistema e só é enviado ao GitHub.",
   connectUseToken: "Usar este token",
   connectUseTokenInstead: "Usar um token de acesso pessoal",
+  connectGhSignedOut:
+    "O GitHub CLI está instalado, mas não está conectado. Rode isto num terminal e depois use o login dele:",
+  connectCopyCommand: "Copiar o comando",
+  connectCreateToken: "Criar um token no GitHub",
   askTitle: "Perguntar ao {provider}",
   askPlaceholder: "Pergunte sobre este pull request…",
   askLabel: "Perguntar ao {provider} sobre este pull request",

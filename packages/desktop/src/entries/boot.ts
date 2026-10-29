@@ -1,3 +1,4 @@
+import { forwardErrors } from "@/utils/error-log/error-log";
 import { followLanguage } from "@/utils/language/language";
 import { setPlatform } from "@/utils/platform/platform";
 import { tauriPlatform } from "@/utils/tauri-platform/tauri-platform";
@@ -7,7 +8,7 @@ export async function boot() {
     setPlatform((await import("@/utils/mock/mock")).mockPlatform);
   else {
     setPlatform(tauriPlatform);
-    if (import.meta.env.DEV) (await import("@/utils/dev-log/dev-log")).forwardErrors();
+    forwardErrors();
   }
   followLanguage();
 }

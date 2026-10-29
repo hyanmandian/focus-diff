@@ -135,7 +135,12 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
         .separator()
         .item(&PredefinedMenuItem::bring_all_to_front(app, Some(&tr!("Bring All to Front", "Trazer tudo para a frente")))?)
         .build()?;
-    let help = SubmenuBuilder::new(app, tr!("Help", "Ajuda")).item(&item("shortcuts", &tr!("Keyboard Shortcuts", "Atalhos de teclado"), None)?).build()?;
+    let help = SubmenuBuilder::new(app, tr!("Help", "Ajuda"))
+        .item(&item("shortcuts", &tr!("Keyboard Shortcuts", "Atalhos de teclado"), None)?)
+        .separator()
+        .item(&item("report", &tr!("Report a Problem…", "Relatar um problema…"), None)?)
+        .item(&item("logs", &tr!("Show Logs", "Mostrar logs"), None)?)
+        .build()?;
     let menu = MenuBuilder::new(app).items(&[&app_menu, &file, &edit, &view, &pull_request, &window, &help]).build()?;
     #[cfg(target_os = "macos")]
     {
@@ -180,6 +185,8 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
         "about" => crate::about::show(app),
         "updates" => check_for_updates(app),
         "licenses" => crate::about::open_licenses(app),
+        "report" => crate::diagnostics::report(app),
+        "logs" => crate::diagnostics::show_logs(app),
         _ if REVIEW.contains(&id) => {
             if let Some((label, _)) = app.webview_windows().into_iter().find(|(label, w)| label.starts_with("review-") && w.is_focused().unwrap_or(false)) {
                 let _ = app.emit_to(label.as_str(), "menu", id);

@@ -153,7 +153,18 @@ jobs:
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Build the app
-        run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg --no-sign
+        run: >-
+          npm run tauri build -- --target universal-apple-darwin --bundles app,dmg
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Check the app's ad-hoc signature
+        run: codesign --verify --deep --strict src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+
+      - name: Archive the app for the updater
+        working-directory: packages/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos
+        env:
+          COPYFILE_DISABLE: '1'
+        run: tar -czf "Focus Diff.app.tar.gz" "Focus Diff.app"
 
       - name: Sign the updater's archive
         env:

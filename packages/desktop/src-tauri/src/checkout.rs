@@ -37,13 +37,15 @@ fn git(dir: &Path, args: &[&str], token: &str) -> Result<String, String> {
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", if cfg!(windows) { "NUL" } else { "/dev/null" })
-        .env("GIT_CONFIG_COUNT", "3")
+        .env("GIT_CONFIG_COUNT", "4")
         .env("GIT_CONFIG_KEY_0", "http.https://github.com/.extraheader")
         .env("GIT_CONFIG_VALUE_0", format!("AUTHORIZATION: basic {}", base64(format!("x-access-token:{token}").as_bytes())))
         .env("GIT_CONFIG_KEY_1", "credential.helper")
         .env("GIT_CONFIG_VALUE_1", "")
         .env("GIT_CONFIG_KEY_2", "core.hooksPath")
-        .env("GIT_CONFIG_VALUE_2", if cfg!(windows) { "NUL" } else { "/dev/null" });
+        .env("GIT_CONFIG_VALUE_2", if cfg!(windows) { "NUL" } else { "/dev/null" })
+        .env("GIT_CONFIG_KEY_3", "core.symlinks")
+        .env("GIT_CONFIG_VALUE_3", "false");
     let output = run_with_limit(&mut command, None, LIMIT).map_err(|e| format!("git: {e}"))?;
     if !output.status_ok {
         let line = output.stderr.lines().rev().map(str::trim).find(|l| !l.is_empty()).unwrap_or("git failed").to_string();

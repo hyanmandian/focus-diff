@@ -67,6 +67,10 @@ fn ask(app: &tauri::AppHandle, name: &str, command: &str) -> bool {
         .blocking_show()
 }
 
+fn for_shell(value: &str) -> String {
+    if cfg!(windows) { value.chars().map(|c| if "\"&|<>^%!`\r\n".contains(c) { ' ' } else { c }).collect() } else { value.to_string() }
+}
+
 fn shell(command: &str) -> Command {
     #[cfg(windows)]
     {
@@ -100,11 +104,11 @@ pub fn run(app: &tauri::AppHandle, config: PathBuf, trusted: PathBuf, action: &s
     shell
         .env("PATH", ai::search_path())
         .env("PR_NUMBER", pr.number.to_string())
-        .env("PR_REPO", &pr.repo)
-        .env("PR_TITLE", &pr.title)
-        .env("PR_URL", &pr.url)
-        .env("PR_AUTHOR", &pr.author)
-        .env("GITHUB_LOGIN", &pr.me);
+        .env("PR_REPO", for_shell(&pr.repo))
+        .env("PR_TITLE", for_shell(&pr.title))
+        .env("PR_URL", for_shell(&pr.url))
+        .env("PR_AUTHOR", for_shell(&pr.author))
+        .env("GITHUB_LOGIN", for_shell(&pr.me));
     if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
         shell.current_dir(home);
     }
@@ -135,6 +139,16 @@ mod tests {
         fs::write(&config, r#"{"actions":[{"id":"a1","steps":[],"choices":[{"id":"c1","steps":[{"kind":"run","command":"echo dana"}]}]}]}"#).unwrap();
         assert_eq!(command_of(&config, "c1", 0).as_deref(), Ok("echo dana"));
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn keeps_what_a_pull_request_says_out_of_the_windows_shell() {
+        let title = for_shell("a & echo pwned %PATH% | b");
+        if cfg!(windows) {
+            assert!(!title.contains(['&', '%', '|']));
+        } else {
+            assert_eq!(title, "a & echo pwned %PATH% | b");
+        }
     }
 
     #[test]

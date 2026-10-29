@@ -75,10 +75,17 @@ fn read_all(response: ureq::http::Response<ureq::Body>) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
+fn tag_ok(tag: &str) -> bool {
+    !tag.is_empty() && !tag.starts_with('.') && tag.chars().all(|c| c.is_ascii_alphanumeric() || "._-+%".contains(c))
+}
+
 fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
     let rest = url.strip_prefix("https://github.com/")?;
     let parts: Vec<&str> = rest.splitn(6, '/').collect();
     let [owner, repo, "releases", "download", tag, file] = parts.as_slice() else { return None };
+    if !crate::github::name_ok(owner) || !crate::github::name_ok(repo) || !tag_ok(tag) {
+        return None;
+    }
     let agent = crate::github::agent();
     let auth = format!("Bearer {token}");
     let release: Value = agent
@@ -173,6 +180,15 @@ pub fn sweep(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_release_tag_is_one_plain_path_segment() {
+        assert!(tag_ok("v1.2.0"));
+        assert!(tag_ok("desktop-v0.1.0"));
+        assert!(!tag_ok(".."));
+        assert!(!tag_ok(""));
+        assert!(!tag_ok("v1?x=1"));
+    }
 
     #[test]
     fn only_github() {

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.0.0...desktop-v1.0.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **desktop:** sign the Mac app ad hoc again, so a downloaded copy opens ([a997130](https://github.com/hyanmandian/focus-diff/commit/a997130ec82fab5308f4201d89fd4624b76494d6))
+* **desktop:** sign the Mac app ad hoc again, so a downloaded copy opens ([e1f9fc6](https://github.com/hyanmandian/focus-diff/commit/e1f9fc6bbbc6f8db1613e40667dec49f583c2eec))
+
 ## [1.0.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v0.1.0...desktop-v1.0.0) (2026-10-29)
 
 

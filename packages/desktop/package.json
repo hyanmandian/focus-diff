@@ -1,6 +1,6 @@
 {
   "name": "@focus-diff/desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Focus Diff for Mac: a Tauri app with a React front end (the panel under the menu bar icon, a pull request's review, Settings and setup).",
   "license": "MIT",

@@ -359,20 +359,19 @@ const fromRecipe = (f: DiffFilter, name: PathFilterName) =>
 export const recipeOn = (filters: DiffFilter[], id: RecipeId) =>
   RECIPES[id].every((name) => filters.some((f) => fromRecipe(f, name)));
 
-export function withRecipes(filters: DiffFilter[], chosen: ReadonlySet<RecipeId>, t: T): DiffFilter[] {
-  const fromRecipes = new Set(RECIPE_ORDER.flatMap((id) => RECIPES[id]));
-  const own = filters.filter((f) => ![...fromRecipes].some((name) => fromRecipe(f, name)));
-  const names = [...new Set(RECIPE_ORDER.filter((id) => chosen.has(id)).flatMap((id) => RECIPES[id]))];
-  const picked = names.map(
-    (name) =>
-      filters.find((f) => fromRecipe(f, name)) ?? {
-        id: filterId(name),
-        name: t(`config.filter.${name}`),
-        ...PATH_FILTERS[name],
-        repos: [],
-      },
-  );
-  return [...picked, ...own].slice(0, 12);
+export function withRecipes(
+  filters: DiffFilter[],
+  chosen: ReadonlySet<RecipeId>,
+  t: T,
+  was: ReadonlySet<RecipeId> = new Set(RECIPE_ORDER.filter((id) => recipeOn(filters, id))),
+): DiffFilter[] {
+  const dropped = RECIPE_ORDER.filter((id) => was.has(id) && !chosen.has(id)).flatMap((id) => RECIPES[id]);
+  const kept = filters.filter((f) => !dropped.some((name) => fromRecipe(f, name)));
+  const added = RECIPE_ORDER.filter((id) => chosen.has(id))
+    .flatMap((id) => RECIPES[id])
+    .filter((name) => !kept.some((f) => fromRecipe(f, name)))
+    .map((name) => ({ id: filterId(name), name: t(`config.filter.${name}`), ...PATH_FILTERS[name], repos: [] }));
+  return [...kept, ...added].slice(0, 12);
 }
 
 function defaultFilters(): DiffFilter[] {

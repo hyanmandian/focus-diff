@@ -83,7 +83,8 @@ test("saves the choices and opens the panel at the end", async ({ page }) => {
       { kind: "authored", repos: ["acme/web"] },
     ],
     filters: expect.arrayContaining([
-      expect.objectContaining({ name: "Docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/" }),
+      expect.objectContaining({ id: "tests", name: "Tests" }),
+      expect.objectContaining({ name: "Docs", include: "\\.(mdx?|rst|adoc)$|(^|/)docs?/" }),
     ]),
   });
 });

@@ -266,8 +266,8 @@ async fn github_web_session(web: State<'_, web::WebSession>) -> Result<Option<St
 }
 
 #[tauri::command]
-fn sign_in_web(app: AppHandle) -> Result<(), String> {
-    web::sign_in(&app).map_err(|e| e.to_string())
+async fn sign_in_web(app: AppHandle) -> Result<(), String> {
+    on_main(&app, |app| web::sign_in(app).map_err(|e| e.to_string()))
 }
 
 #[tauri::command]
@@ -494,14 +494,24 @@ fn can_open(link: &str) -> bool {
     }
 }
 
-#[tauri::command]
-fn open_settings(app: AppHandle) -> Result<(), String> {
-    show_settings(&app).map_err(|e| e.to_string())
+fn on_main<T: Send + 'static>(app: &AppHandle, f: impl FnOnce(&AppHandle) -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    let (sent, answer) = std::sync::mpsc::channel();
+    let main = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = sent.send(f(&main));
+    })
+    .map_err(|e| e.to_string())?;
+    answer.recv().map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn open_setup(app: AppHandle) -> Result<(), String> {
-    show_setup(&app).map_err(|e| e.to_string())
+async fn open_settings(app: AppHandle) -> Result<(), String> {
+    on_main(&app, |app| show_settings(app).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+async fn open_setup(app: AppHandle) -> Result<(), String> {
+    on_main(&app, |app| show_setup(app).map_err(|e| e.to_string()))
 }
 
 pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
@@ -513,8 +523,11 @@ pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
 }
 
 #[tauri::command]
-fn open_panel(app: AppHandle) {
-    show_panel(&app);
+async fn open_panel(app: AppHandle) -> Result<(), String> {
+    on_main(&app, |app| {
+        show_panel(app);
+        Ok(())
+    })
 }
 
 pub(crate) fn show_panel(app: &AppHandle) {

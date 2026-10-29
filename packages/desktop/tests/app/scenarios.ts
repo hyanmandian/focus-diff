@@ -105,10 +105,11 @@ async function send(command: string) {
   await sleep(450);
 }
 
-async function windows(run: Run) {
+async function windows(run: Run, tries = 6): Promise<string> {
   const before = run.err.length;
   await send("windows");
-  return (await until(() => /\[devctl\] windows: (.*)/u.exec(run.err.slice(before))?.[1])) ?? "";
+  const said = await until(() => /\[devctl\] windows: (.*)/u.exec(run.err.slice(before))?.[1], 5000);
+  return said ?? (tries > 1 ? windows(run, tries - 1) : "");
 }
 
 let probes = 0;

@@ -142,6 +142,7 @@ fn keychain() -> Result<keyring::Entry, String> {
 }
 
 fn gh_path() -> Option<String> {
+    let found = crate::ai::find_in(crate::ai::search_path(), &["gh"]).map(|p| p.to_string_lossy().into_owned());
     let candidates = if cfg!(windows) {
         vec!["gh.exe".to_string(), r"C:\Program Files\GitHub CLI\gh.exe".to_string()]
     } else {
@@ -152,7 +153,7 @@ fn gh_path() -> Option<String> {
             "/home/linuxbrew/.linuxbrew/bin/gh".to_string(),
         ]
     };
-    candidates.into_iter().find(|p| {
+    found.into_iter().chain(candidates).find(|p| {
         crate::ai::run_with_limit(Command::new(p).arg("--version"), None, Duration::from_secs(10)).is_ok_and(|o| o.status_ok)
     })
 }

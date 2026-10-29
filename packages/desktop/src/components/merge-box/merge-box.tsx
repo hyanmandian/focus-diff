@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/input/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/select/select";
 import { Textarea } from "@/components/textarea/textarea";
+import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
@@ -60,6 +61,20 @@ const REASON_ICON: Record<Reason, { icon: typeof CircleX; className: string }> =
 };
 
 type Props = { details: Details; pull: Pull };
+type Edited = Partial<Record<Method, { title: string; body: string }>>;
+
+const isEdited = (value: unknown): value is Edited =>
+  typeof value === "object" &&
+  value !== null &&
+  Object.values(value).every(
+    (m: unknown) =>
+      typeof m === "object" &&
+      m !== null &&
+      "title" in m &&
+      "body" in m &&
+      typeof m.title === "string" &&
+      typeof m.body === "string",
+  );
 
 export function MergeBox({ details, pull }: Props) {
   const t = useT();
@@ -67,7 +82,7 @@ export function MergeBox({ details, pull }: Props) {
   const m = pull.manage;
   const [method, setMethod] = useState<Method | null>(null);
   const chosen = method && details.mergeMethods.includes(method) ? method : (details.mergeMethods[0] ?? null);
-  const [edited, setEdited] = useState<Partial<Record<Method, { title: string; body: string }>>>({});
+  const [edited, setEdited] = usePersisted<Edited>(`merge-message:${details.id}`, {}, isEdited);
   const [bypass, setBypass] = useState(false);
   const [deleteAfter, setDeleteAfter] = useState(false);
   if (!view || !m) return null;

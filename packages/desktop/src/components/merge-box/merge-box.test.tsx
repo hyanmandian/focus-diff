@@ -158,6 +158,26 @@ describe("MergeBox", () => {
     );
   });
 
+  it("keeps an edited message after leaving the pull request and coming back", async () => {
+    const { unmount } = box();
+    await userEvent.click(button("Commit Message"));
+    await userEvent.type(screen.getByRole("textbox", { name: "Commit title" }), " kept");
+    unmount();
+    box();
+    await userEvent.click(button("Commit Message"));
+    expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Commit title" }).value).toMatch(/ kept$/u);
+  });
+
+  it.each([null, { squash: "x" }, { squash: { title: 1, body: "" } }, { squash: null }])(
+    "ignores a kept message it can't read (%j)",
+    async (kept) => {
+      localStorage.setItem(`merge-message:${fakeDetails().id}`, JSON.stringify(kept));
+      box();
+      await userEvent.click(button("Commit Message"));
+      expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Commit title" }).value).not.toBe("x");
+    },
+  );
+
   it("keeps each way's message apart, and rebases with the commits' own", async () => {
     const { pull } = box();
     await userEvent.click(button("Commit Message"));

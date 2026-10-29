@@ -168,7 +168,7 @@ fn find(provider: Provider) -> Option<PathBuf> {
     find_in(search_path(), provider.binaries())
 }
 
-fn find_in(path: &str, names: &[&str]) -> Option<PathBuf> {
+pub(crate) fn find_in(path: &str, names: &[&str]) -> Option<PathBuf> {
     let extensions: &[&str] = if cfg!(windows) { &[".exe", ".cmd"] } else { &[""] };
     for dir in std::env::split_paths(path).filter(|dir| !dir.as_os_str().is_empty()) {
         for name in names {

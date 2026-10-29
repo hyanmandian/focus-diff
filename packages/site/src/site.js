@@ -162,6 +162,7 @@
         tab.focus({ preventScroll: true });
       });
     }
-    select(tabs[{ firefox: 1, safari: 2 }[browser] ?? 0]);
+    const initial = list.dataset.initial === 'os' ? { windows: 1, linux: 2 }[system] : { firefox: 1, safari: 2 }[browser];
+    select(tabs[initial ?? 0]);
   }
 }

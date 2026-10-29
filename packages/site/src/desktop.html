@@ -145,7 +145,7 @@
           </ul>
           <p class="fine">
             One app for Apple silicon and Intel Macs. On Linux, also as a <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.deb">.deb</a> or an <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.rpm">.rpm</a>.
-            Not code-signed yet: <a href="#faq-title">how to open it the first time</a>.
+            Not code-signed yet: <a href="#manual-title">how to open it the first time</a>.
           </p>
         </div>
       </section>
@@ -159,6 +159,47 @@
             </video>
           </div>
           <p class="caption">The 56-second tour, on made-up pull requests.</p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="manual-title">
+        <div class="wrap manual">
+          <div class="head">
+            <h2 id="manual-title">Opening it the first time.</h2>
+            <p>The app isn’t signed by Apple or Microsoft yet, so your system asks once. After that, updates install from the app’s Update button.</p>
+          </div>
+          <div role="tablist" aria-label="System" data-initial="os">
+            <button type="button" role="tab" id="tab-mac" aria-controls="panel-mac" aria-selected="true">Mac</button>
+            <button type="button" role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false" tabindex="-1">Windows</button>
+            <button type="button" role="tab" id="tab-linux" aria-controls="panel-linux" aria-selected="false" tabindex="-1">Linux</button>
+          </div>
+
+          <div role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" tabindex="0">
+            <p>macOS 15 and later.</p>
+            <ol>
+              <li>Open <code>Focus-Diff.dmg</code>, click <strong>Agree</strong> and drag Focus Diff to Applications.</li>
+              <li>Open Focus Diff. When macOS says it couldn’t verify the app, click <strong>Done</strong>, not Move to Trash.</li>
+              <li>Go to <strong>System Settings › Privacy &amp; Security</strong>, scroll down to Security and click <strong>Open Anyway</strong> next to “Focus Diff.app” was blocked.</li>
+              <li>Click <strong>Open Anyway</strong> once more and confirm with Touch ID or your password.</li>
+            </ol>
+            <p>On macOS 14 and earlier, right-click Focus Diff in Applications and choose <strong>Open</strong>.</p>
+          </div>
+
+          <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" tabindex="0">
+            <p>Windows 10 and 11.</p>
+            <ol>
+              <li>Run <code>Focus-Diff-Setup.exe</code>. It installs for your user, without asking for an administrator.</li>
+              <li>When Windows says it protected your PC, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+            </ol>
+          </div>
+
+          <div role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" tabindex="0">
+            <p>Nothing to approve on Linux. Use either one:</p>
+            <ul>
+              <li>The AppImage, which updates itself:<pre><code>chmod +x Focus-Diff.AppImage &amp;&amp; ./Focus-Diff.AppImage</code></pre></li>
+              <li>The <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.deb">.deb</a> or the <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.rpm">.rpm</a>, updated by installing the next one:<pre><code>sudo apt install ./Focus-Diff.deb</code></pre></li>
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -247,7 +288,7 @@
             </details>
             <details>
               <summary>Why does my computer warn me the first time?</summary>
-              <p>The app isn’t code-signed yet, so the system asks once. On a Mac, open it, then go to <strong>System Settings › Privacy &amp; Security</strong> and click <strong>Open Anyway</strong> (on macOS 14 and earlier, right-click the app and choose <strong>Open</strong>). On Windows, choose <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+              <p>The app isn’t code-signed yet, so the system asks once. On a Mac, open it, then go to <strong>System Settings › Privacy &amp; Security</strong> and click <strong>Open Anyway</strong> (on macOS 14 and earlier, right-click the app and choose <strong>Open</strong>). On Windows, choose <strong>More info</strong>, then <strong>Run anyway</strong>. <a href="#manual-title">Step by step</a>.</p>
             </details>
             <details>
               <summary>How does it update?</summary>

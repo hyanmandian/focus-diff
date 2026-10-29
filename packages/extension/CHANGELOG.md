@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.3.0](https://github.com/hyanmandian/focus-diff/compare/v1.2.0...v1.3.0) (2026-10-29)
+
+
+### Features
+
+* **app:** where the app has no tray icon, the screens say where it is instead ([c8722a7](https://github.com/hyanmandian/focus-diff/commit/c8722a7fe9acd18d7487fbd591f6d61eeb86546d))
+* **extension:** move the old settings into the app's setup on update ([90ad6e2](https://github.com/hyanmandian/focus-diff/commit/90ad6e2c981940e91f7a3308e019e753a628230f))
+* **extension:** run the app's screens and queue engine in the browser ([110de5d](https://github.com/hyanmandian/focus-diff/commit/110de5df3e1995cf82ba5b299c8a7076e46dbf58))
+* **extension:** stacks, Updates and Merged lists, and a menu on each row of the popup ([36dda46](https://github.com/hyanmandian/focus-diff/commit/36dda4665d5f2b466ea29cda0394c5fc80ab24d5))
+* **extension:** the background answers the pages as the desktop's Rust does ([bbd4e19](https://github.com/hyanmandian/focus-diff/commit/bbd4e1930b16a0165301de5828edaa9353dc69b0))
+* **extension:** the bar on github.com is the app's filter bar ([31ee27e](https://github.com/hyanmandian/focus-diff/commit/31ee27e5a8a6eebded9cb30270779cfc3fffc7a3))
+* **extension:** the GitHub commands in the background, as the desktop's Rust answers them ([96d57ac](https://github.com/hyanmandian/focus-diff/commit/96d57ac3e225a5b7f51d8584371971739698b841))
+* **extension:** the panel, Settings, setup and the review as the extension's pages ([5f8741f](https://github.com/hyanmandian/focus-diff/commit/5f8741f9e227e928d1a2a84d1f76988b31c223bd))
+* **extension:** the queues run in the background, as the desktop's watch.rs ([89975df](https://github.com/hyanmandian/focus-diff/commit/89975df20576aae4f00667c48ebd0bd2c8f9f094))
+
+
+### Bug Fixes
+
+* changed or re-requested reviews go to Review, settings keep the last good pattern, a cancelled link opens nothing ([dbd0c7c](https://github.com/hyanmandian/focus-diff/commit/dbd0c7c7b73a4bba769730c7da0f3bb895a7d30c))
+* **desktop:** show notifications while the app is in front and open the pull request on a click; pin Node 24 in each package ([314ac57](https://github.com/hyanmandian/focus-diff/commit/314ac570c00b21f9523c626c032a8bfe9113e118))
+* **extension:** accept a theme colour typed with spaces around it, as the preview does ([778e25e](https://github.com/hyanmandian/focus-diff/commit/778e25e3d8ef4cf7d4f657fa479dcde7d1f91eec))
+* **extension:** answer the popup's refresh even when reading the lists fails ([60bd9f8](https://github.com/hyanmandian/focus-diff/commit/60bd9f824e195d2b852a9792d79594eeebb3f987))
+* **extension:** end a review time once when its end alarm and tick go off together ([1a6c2d6](https://github.com/hyanmandian/focus-diff/commit/1a6c2d6a1a265cac6eeb5a5e426ef4bb01814bcb))
+* **extension:** find GitHub's counters again when it draws them anew after the first twenty seconds ([45dee77](https://github.com/hyanmandian/focus-diff/commit/45dee771ee6de62f676e65459eca02fad103c527))
+* **extension:** fit pull requests in the fraction of a minute left after the ones asked for again ([1fe9f77](https://github.com/hyanmandian/focus-diff/commit/1fe9f770d2e3a77fe24396a01945f75468498007))
+* **extension:** forget what was seen while no event is told of, so turning one on brings no backlog ([3e9e6ab](https://github.com/hyanmandian/focus-diff/commit/3e9e6abb0e57b761d159c65740e5135d451f6faf))
+* **extension:** hand a pool's free place straight to the task waiting for it ([26d929b](https://github.com/hyanmandian/focus-diff/commit/26d929b7fd96330aeaa7ce261f1f946733478e1f))
+* **extension:** keep a list when a later page fails; the popup's header and footer as the app's ([aa396bc](https://github.com/hyanmandian/focus-diff/commit/aa396bc6ede779568446d90a667875c1f984e637))
+* **extension:** keep a review time card unfolded for a fix unfolded when drawn again ([901a003](https://github.com/hyanmandian/focus-diff/commit/901a003a784ab8b932d1c5a3c930e64625003a25))
+* **extension:** keep settings changed during a save marked unsaved ([5cf1ad8](https://github.com/hyanmandian/focus-diff/commit/5cf1ad8c290e52399a0fc7742b484854d929607e))
+* **extension:** leave test results and coverage out of the sources zip ([6af0d25](https://github.com/hyanmandian/focus-diff/commit/6af0d259cdcd07650394516fee9aac5f8ae4748e))
+* **extension:** offer review times the filters as they're named, renamed and removed ([994c71e](https://github.com/hyanmandian/focus-diff/commit/994c71e326f5aa0bd6fac53d6d60cc1b169a698b))
+* **extension:** show notifications one batch at a time, so none loses its link ([a6f6a9d](https://github.com/hyanmandian/focus-diff/commit/a6f6a9d7bd89401734c790a89eb5a8a15cd38f5a))
+* **extension:** show the time kept when a time field is cleared ([5b0a439](https://github.com/hyanmandian/focus-diff/commit/5b0a43909440bd56f25bf1db5ec16cd86ab0edbc))
+* **extension:** show the welcome page even when the browser fails to list its shortcuts ([da2851a](https://github.com/hyanmandian/focus-diff/commit/da2851a30ad4429b13bc039e5cab4a7572608b0b))
+* **extension:** take GitHub to a file again when the address already points at it ([4f1b7bf](https://github.com/hyanmandian/focus-diff/commit/4f1b7bf3502ef5867cc7aa6d864348c64d0570d7))
+* **extension:** the sources zip holds the shared core and the lockfile it builds with ([629bacd](https://github.com/hyanmandian/focus-diff/commit/629bacd9478c09285734faf7d5ccf684fd075b7c))
+* made-up logins in the last samples and store images, and a not-affiliated note on the site ([19f81a7](https://github.com/hyanmandian/focus-diff/commit/19f81a7e622a150b84f673f42a60429cc7768aaf))
+* strip tags until none are left and skip the folder-date test on Windows ([e3f7853](https://github.com/hyanmandian/focus-diff/commit/e3f78530eef89689b7b2d286a80241f160bcdb01))
+
+
+### Reverts
+
+* **extension:** bring back the extension as it was before it ran the Mac app's screens ([da0047a](https://github.com/hyanmandian/focus-diff/commit/da0047a1c962f77ec6af509bc1478ed3606011c4))
+
 ## [1.2.0](https://github.com/hyanmandian/focus-diff/compare/v1.1.0...v1.2.0) (2026-10-13)
 
 

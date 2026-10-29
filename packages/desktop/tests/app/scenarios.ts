@@ -198,6 +198,14 @@ async function scenarios() {
   check("opening it again shows the panel", Boolean(await until(() => shown(run) > 0, 15_000)), run.err.slice(-1500));
   const panel = await settled(run, "panel", signIn);
   check("the panel asks to sign in when nobody is", signIn(panel), panel);
+  await send(
+    `eval panel window.__TAURI_INTERNALS__.invoke("open_review",{id:"PR_x",repo:"acme/web",number:1,title:"#1",teams:[],queue:null,from:null}).then(()=>window.__TAURI_INTERNALS__.invoke("log",{message:"REVIEW OPENED"}))`,
+  );
+  check(
+    "opens a pull request from the panel without freezing",
+    Boolean(await until(() => run.err.includes("REVIEW OPENED"), 15_000)) && /review-\d/u.test(await windows(run)),
+    run.err.slice(-1500),
+  );
 
   if (bundle) execFileSync("open", [bundle]);
   else {

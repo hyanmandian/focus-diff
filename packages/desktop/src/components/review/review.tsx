@@ -61,6 +61,7 @@ import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
+import { reviewRun, startReview } from "@/utils/ai-runs/ai-runs";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
@@ -511,15 +512,35 @@ export function Review({ target }: { target: Target }) {
       setReviewing(details.headRefOid);
       setReviewError(null);
       try {
-        setReviewed({ head: details.headRefOid, review: await aiReview(ai, details, files) });
+        setReviewed(await startReview(prId, details.headRefOid, () => aiReview(ai, details, files)));
       } catch (e) {
         setReviewError(errorText(e));
       } finally {
         setReviewing(null);
       }
     },
-    [ai, details, files, setReviewed],
+    [ai, details, files, setReviewed, prId],
   );
+  useEffect(() => {
+    const run = reviewRun(prId);
+    if (!run) return;
+    let mounted = true;
+    // oxlint-disable-next-line react/set-state-in-effect -- picks up a review still running from an earlier visit to this pull request
+    setReviewing(run.head);
+    void (async () => {
+      try {
+        const done = await run.done;
+        if (mounted) setReviewed(done);
+      } catch (e) {
+        if (mounted) setReviewError(errorText(e));
+      } finally {
+        if (mounted) setReviewing(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [prId, setReviewed]);
   useEffect(() => {
     if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
       // oxlint-disable-next-line react/set-state-in-effect -- it sets state only once the AI's readiness is known (awaited)
@@ -1657,6 +1678,7 @@ export function Review({ target }: { target: Target }) {
                 visible.length > 0 ? (
                   <Diffs
                     ref={diffs}
+                    pull={prId}
                     files={visible}
                     threads={olderRange ? new Map<string, Thread[]>() : threadsByPath}
                     commentable={!olderRange}

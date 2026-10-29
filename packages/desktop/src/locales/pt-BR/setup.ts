@@ -3,6 +3,7 @@ import type { Dictionary } from "@/utils/i18n/i18n";
 export const setup: Dictionary["setup"] = {
   "step.github": "GitHub",
   "step.queues": "Filas",
+  "step.filters": "Filtros",
   "step.notifications": "Notificações",
   "step.ai": "IA",
   "step.ready": "Pronto",
@@ -23,6 +24,10 @@ export const setup: Dictionary["setup"] = {
   repositories: "Repositórios",
   repoPlaceholder: "acme/web ou acme/*",
   reposEmpty: "Vazio: todos os repositórios que você vê.",
+  filtersTitle: "Como você gosta de passar por um diff?",
+  filtersBody:
+    "Cada filtro escolhido vira um botão acima dos arquivos alterados, para você revisar uma parte de cada vez e ver quanto falta em cada uma.",
+  filtersNote: "São filtros comuns: dá para renomear, ajustar ou criar os seus depois em Ajustes › Filtros.",
   notifyTitle: "Como avisar você?",
   notifyBody:
     "Uma notificação e a animação do ícone na barra de menus quando algo novo precisa de você: um pedido de revisão, commits ou respostas novas no que você revisou, aprovações e CI falhando nos seus. O que cada fila avisa pode ser mudado nos Ajustes.",

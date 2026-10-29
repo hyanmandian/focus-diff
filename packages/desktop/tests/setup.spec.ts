@@ -23,6 +23,11 @@ test("walks every step, and back", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "What should it watch?", level: 1 })).toBeVisible();
 
   await next(page);
+  await expect(step(page, "Filters")).toHaveAttribute("aria-current", "step");
+  await expect(page.getByRole("checkbox")).toHaveCount(6);
+  await expect(page.getByRole("checkbox", { name: /^Frontend and backend/u })).toBeChecked();
+
+  await next(page);
   await expect(step(page, "Notifications")).toHaveAttribute("aria-current", "step");
   await expect(page.getByRole("heading", { name: "How should it tell you?", level: 1 })).toBeVisible();
 
@@ -61,6 +66,8 @@ test("saves the choices and opens the panel at the end", async ({ page }) => {
   await page.getByRole("textbox", { name: "Repositories" }).fill("acme/web");
   await page.getByRole("textbox", { name: "Repositories" }).press("Enter");
   await next(page);
+  await page.getByRole("checkbox", { name: /^Docs/u }).click();
+  await next(page);
   await page.getByRole("switch", { name: "Play a sound" }).click();
   await next(page);
   await page.getByRole("radio", { name: /^No AI/u }).click();
@@ -75,5 +82,8 @@ test("saves the choices and opens the panel at the end", async ({ page }) => {
       { kind: "involved", repos: ["acme/web"] },
       { kind: "authored", repos: ["acme/web"] },
     ],
+    filters: expect.arrayContaining([
+      expect.objectContaining({ name: "Docs", include: "\\.(mdx?|rst|txt)$|(^|/)docs/" }),
+    ]),
   });
 });

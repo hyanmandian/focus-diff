@@ -111,6 +111,7 @@ export const bridge = {
   authUseGh: () => invoke<void>("auth_use_gh"),
   authUseToken: (token: string) => invoke<void>("auth_use_token", { token }),
   authDeviceStart: () => invoke<DeviceCode>("auth_device_start"),
+  authDeviceCancel: () => invoke<void>("auth_device_cancel"),
   authDeviceFinish: (code: DeviceCode) =>
     invoke<void>("auth_device_finish", {
       deviceCode: code.device_code,

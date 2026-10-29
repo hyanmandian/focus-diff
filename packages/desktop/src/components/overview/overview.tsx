@@ -34,6 +34,7 @@ import type { Thread } from "@/utils/review/review";
 import { leadsElsewhere, sanitize } from "@/utils/sanitize/sanitize";
 import type { StackPull } from "@/utils/stack/stack";
 import { byTime } from "@/utils/timeline/timeline";
+import { typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
 
 function Person({ actor, className }: { actor: Actor; className?: string }) {
@@ -221,21 +222,25 @@ function Where({ path, line, onJump }: { path: string; line: number | null; onJu
 }
 
 function AddComment({
+  pull,
   onComment,
   quoted,
   onQuoted,
 }: {
+  pull: string;
   onComment: Props["onComment"];
   quoted: string | null;
   onQuoted: () => void;
 }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const keep = `comment:${pull}`;
+  const [open, setOpen] = useState(() => typed(keep) !== null);
   return open || quoted !== null ? (
     <Composer
       placeholder={t("review.commentOnPull")}
       submitLabel={t("review.comment")}
       initial={quoted ?? ""}
+      keep={keep}
       onSubmit={async (body) => {
         await onComment(body);
         setOpen(false);
@@ -263,10 +268,12 @@ function Words({
   html,
   body,
   editing,
+  keep,
   onSave,
   onDone,
   className,
 }: {
+  keep: string;
   html: string;
   body?: string;
   editing: boolean;
@@ -282,6 +289,7 @@ function Words({
           placeholder={t("review.commentPlaceholder")}
           submitLabel={t("review.save")}
           initial={body}
+          keep={keep}
           onSubmit={async (text) => {
             await onSave(text);
             onDone();
@@ -307,7 +315,7 @@ function EntryView({
 } & Pick<Props, "onJump" | "onReply" | "onResolve">) {
   const t = useT();
   const api = useConversationApi();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => typed(`edit:${entry.id}`) !== null);
   const [reactions, toggle] = useReactions(entry.id, entry.reactions ?? []);
   const words = entry.body;
   const parts =
@@ -363,6 +371,7 @@ function EntryView({
           html={entry.html}
           body={entry.body}
           editing={editing}
+          keep={`edit:${entry.id}`}
           className="mt-1"
           onSave={async (body) => {
             await api?.editEntry(entry.kind, entry.id, body);
@@ -468,7 +477,7 @@ function Heading({ details }: { details: Details }) {
 function Description({ details, conversation }: { details: Details; conversation: Conversation | null | undefined }) {
   const t = useT();
   const api = useConversationApi();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => typed(`edit:${details.id}`) !== null);
   const [reactions, toggle] = useReactions(details.id, conversation?.reactions ?? []);
   const html = conversation?.html ?? details.html;
   return (
@@ -497,6 +506,7 @@ function Description({ details, conversation }: { details: Details; conversation
           html={html}
           body={conversation?.body}
           editing={editing}
+          keep={`edit:${details.id}`}
           onSave={async (body) => {
             await api?.editDescription(body);
           }}
@@ -631,6 +641,7 @@ export function Overview({
             </Button>
           ) : null}
           <AddComment
+            pull={details.id}
             onComment={async (body) => {
               const id = await onComment(body);
               setLanded(id ?? "");

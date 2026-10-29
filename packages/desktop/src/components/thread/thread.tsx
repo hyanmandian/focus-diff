@@ -26,6 +26,7 @@ import { MarkdownField } from "@/components/writer/writer";
 import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
+import { askInto, BLANK, updateChat, usePullAsking, type Mode } from "@/utils/asking/asking";
 import { avatar } from "@/utils/avatar/avatar";
 import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
@@ -38,6 +39,7 @@ import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/os/os";
 import type { Draft, Thread as ThreadData, ThreadComment } from "@/utils/review/review";
 import { linesFromPatch } from "@/utils/suggestion/suggestion";
+import { forgetTyping, keepTyping, typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
 
 function Person({ actor }: { actor: Actor }) {
@@ -58,9 +60,11 @@ export function Composer({
   secondary,
   suggestion,
   base,
+  keep,
 }: {
   placeholder: string;
   submitLabel: string;
+  keep: string;
   initial?: string;
   onSubmit: (body: string) => Promise<void> | void;
   onCancel: () => void;
@@ -69,12 +73,20 @@ export function Composer({
   base?: string[];
 }) {
   const t = useT();
-  const [body, setBody] = useState(initial);
+  const [body, setBodyState] = useState(() => typed(keep) ?? initial);
+  const setBody = (next: string) => {
+    setBodyState(next);
+    keepTyping(keep, next);
+  };
   const [added, setAdded] = useState(initial);
   if (initial !== added) {
     setAdded(initial);
     setBody(body.trim() ? `${body.trimEnd()}\n\n${initial}` : initial);
   }
+  const cancel = () => {
+    forgetTyping(keep);
+    onCancel();
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (action: (body: string) => Promise<void> | void) => {
@@ -86,6 +98,7 @@ export function Composer({
     setError(null);
     try {
       await action(body.trim());
+      forgetTyping(keep);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -100,7 +113,7 @@ export function Composer({
         label={placeholder}
         placeholder={placeholder}
         onSubmit={() => void run(onSubmit)}
-        onCancel={onCancel}
+        onCancel={cancel}
         suggestion={suggestion}
         base={base}
       />
@@ -110,7 +123,7 @@ export function Composer({
         </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" onClick={onCancel} disabled={busy}>
+        <Button variant="outline" onClick={cancel} disabled={busy}>
           {t("common.cancel")}
         </Button>
         {secondary ? (
@@ -151,7 +164,7 @@ function CommentView({
 }) {
   const t = useT();
   const api = useConversationApi();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => typed(`edit:${comment.id}`) !== null);
   const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
   const { body } = comment;
   return (
@@ -195,6 +208,7 @@ function CommentView({
               placeholder={t("review.commentPlaceholder")}
               submitLabel={t("review.save")}
               initial={body}
+              keep={`edit:${comment.id}`}
               onSubmit={async (text) => {
                 await api.editComment(comment, text);
                 setEditing(false);
@@ -230,7 +244,7 @@ export function ThreadView({
   const t = useT();
   const api = useConversationApi();
   const thread = api?.thread(drawn.id) ?? drawn;
-  const [replying, setReplying] = useState<string | null>(null);
+  const [replying, setReplying] = useState<string | null>(() => (typed(`reply:${drawn.id}`) === null ? null : ""));
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
   const [whole, setWhole] = useState(false);
@@ -323,6 +337,7 @@ export function ThreadView({
             placeholder={t("review.reply")}
             submitLabel={t("review.reply")}
             initial={replying}
+            keep={`reply:${thread.id}`}
             onSubmit={async (body) => {
               await onReply(body);
               setReplying(null);
@@ -360,7 +375,7 @@ export function DraftView({
   const t = useT();
   const api = useConversationApi();
   const draft = api?.draft(drawn.key) ?? drawn;
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => typed(`draft:${drawn.key}`) !== null);
   const error = api?.draftError(draft.key);
   const sending = api?.draftSending(draft.key);
   return (
@@ -370,6 +385,7 @@ export function DraftView({
           placeholder={t("review.commentPlaceholder")}
           submitLabel={t("review.save")}
           initial={draft.body}
+          keep={`draft:${draft.key}`}
           onSubmit={(body) => {
             onEdit(body);
             setEditing(false);
@@ -432,7 +448,6 @@ export function DraftView({
 }
 
 const TAB = "selection-tab";
-type Mode = "comment" | "ask";
 function lastMode(): Mode {
   try {
     return localStorage.getItem(TAB) === "ask" ? "ask" : "comment";
@@ -440,8 +455,6 @@ function lastMode(): Mode {
     return "comment";
   }
 }
-
-type Turn = { id: number; question: string; answer?: string; note?: string };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -455,6 +468,7 @@ export function NewComment({
   onCancel,
   ask,
   askName,
+  chat: where,
 }: {
   lines: string;
   path?: string;
@@ -465,6 +479,7 @@ export function NewComment({
   onCancel: () => void;
   ask: ((question: string, earlier: Exchange[], run: string) => Promise<Answer>) | null;
   askName: string;
+  chat: { pull: string; key: string };
 }) {
   const t = useT();
   const api = useConversationApi();
@@ -474,22 +489,33 @@ export function NewComment({
     range && patch && !file && side === "additions"
       ? linesFromPatch(patch, Math.min(range.start, range.end), Math.max(range.start, range.end), "additions")
       : null;
-  const [mode, setModeState] = useState<Mode>(lastMode);
-  const [body, setBody] = useState("");
-  const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const chat = usePullAsking(where.pull).chats[where.key] ?? BLANK;
+  const [fallbackMode] = useState<Mode>(() => (chat.turns.length > 0 || chat.run ? "ask" : lastMode()));
+  const mode = chat.mode ?? fallbackMode;
+  const { body, question, turns, error } = chat;
+  const asked = chat.run;
+  const change = (next: Parameters<typeof updateChat>[2]) => {
+    updateChat(where.pull, where.key, next);
+  };
+  const setBody = (next: string) => {
+    change({ body: next });
+  };
+  const setQuestion = (next: string) => {
+    change({ question: next });
+  };
+  const setError = (next: string | null) => {
+    change({ error: next });
+  };
+  const [sending, setSending] = useState(false);
+  const busy = sending || Boolean(asked);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef<HTMLLIElement>(null);
-  const [asked, setAsked] = useState<{ run: string; at: number } | null>(null);
   const waited = useSeconds(asked?.at ?? null);
   const tabs = useId();
   const asking = mode === "ask";
 
   const setMode = (next: Mode) => {
-    setModeState(next);
-    setError(null);
+    change({ mode: next, error: null });
     try {
       localStorage.setItem(TAB, next);
     } catch {}
@@ -513,7 +539,7 @@ export function NewComment({
       setError(i18n()("review.writeFirst"));
       return;
     }
-    setBusy(true);
+    setSending(true);
     setError(null);
     try {
       if (now) await onSendNow(text);
@@ -521,36 +547,16 @@ export function NewComment({
     } catch (e) {
       fail(e);
     } finally {
-      setBusy(false);
+      setSending(false);
     }
   };
 
   const send = async () => {
     const q = question.trim();
     if (!ask || !q || busy) return;
-    const earlier = turns
-      .filter((turn): turn is Turn & { answer: string } => Boolean(turn.answer))
-      .map((turn) => ({ question: turn.question, answer: turn.answer }));
-    setBusy(true);
-    setError(null);
-    setQuestion("");
-    setTurns((list) => [...list, { id: (list.at(-1)?.id ?? 0) + 1, question: q }]);
     const run = newRun();
-    setAsked({ run, at: Date.now() });
-    try {
-      const a = await ask(q, earlier, run);
-      setTurns((list) =>
-        list.map((turn, i) => (i === list.length - 1 ? { ...turn, answer: a.text, note: a.note } : turn)),
-      );
-    } catch (e) {
-      setTurns((list) => list.slice(0, -1));
-      setQuestion(q);
-      fail(e);
-    } finally {
-      setAsked(null);
-      setBusy(false);
-      field.current?.focus();
-    }
+    await askInto(where.pull, where.key, q, run, (earlier) => ask(q, earlier, run));
+    field.current?.focus();
   };
 
   const submit = () => void (asking ? send() : comment(false));
@@ -630,8 +636,7 @@ export function NewComment({
                           variant="ghost"
                           className="-ml-2.5 text-muted-foreground"
                           onClick={() => {
-                            setBody(answer);
-                            setMode("comment");
+                            change({ body: answer, mode: "comment", error: null });
                           }}
                         >
                           <MessageSquare /> {t("review.turnIntoComment")}
@@ -727,7 +732,7 @@ export function NewComment({
         {asking ? (
           ask ? (
             asked ? (
-              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.run)}>
+              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.id)}>
                 <Square className="size-3 fill-current" />
                 {t("review.stop")}
               </Button>

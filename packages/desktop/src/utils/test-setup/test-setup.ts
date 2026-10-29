@@ -1,8 +1,11 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
+import { resetReviewRuns } from "@/utils/ai-runs/ai-runs";
+import { resetAsking } from "@/utils/asking/asking";
 import { clearMocks, fakePlatform } from "@/utils/fake-platform/fake-platform";
 import { setPlatform } from "@/utils/platform/platform";
+import { resetTyping } from "@/utils/typing/typing";
 
 setPlatform(fakePlatform);
 
@@ -13,6 +16,9 @@ afterEach(async () => {
   });
   clearMocks();
   localStorage.clear();
+  resetAsking();
+  resetReviewRuns();
+  resetTyping();
   sessionStorage.clear();
   vi.restoreAllMocks();
 });

@@ -7,45 +7,43 @@ import { Input } from "@/components/input/input";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { ensureAi, openAiSettings, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { ask, newRun, PROVIDERS } from "@/utils/ai/ai";
+import { askInto, BLANK, updateChat, usePullAsking } from "@/utils/asking/asking";
 import { bridge } from "@/utils/bridge/bridge";
 import type { Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
-import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 
-type State =
-  | { phase: "idle" }
-  | { phase: "busy"; asked: string; run: string; at: number }
-  | { phase: "done" | "error"; asked: string; text: string; note?: string };
+const KEY = "overview";
 
 export function AskAi({ config, details }: { config: Config; details: Details }) {
-  const [state, setState] = useState<State>({ phase: "idle" });
-  const [question, setQuestion] = useState("");
+  const chat = usePullAsking(details.id).chats[KEY] ?? BLANK;
+  const [asked, setAsked] = useState("");
+  const { question, run: running, error } = chat;
+  const last = chat.turns.at(-1);
   const headingId = useId();
   const t = useT();
   const problem = useAiProblem(config);
-  const waited = useSeconds(state.phase === "busy" ? state.at : null);
+  const waited = useSeconds(running?.at ?? null);
   const provider = config.ai.provider;
   if (!provider) return null;
-  const busy = state.phase === "busy";
-
-  const askNow = async (asked: string, prompt: string) => {
-    const id = newRun();
-    // oxlint-disable-next-line react/purity
-    setState({ phase: "busy", asked, run: id, at: Date.now() });
-    try {
-      const answer = await ask(config, details, prompt, id);
-      setState({ phase: "done", asked, text: answer.text, note: answer.note });
-    } catch (e) {
-      setState({ phase: "error", asked, text: errorText(e) });
-    }
+  const busy = Boolean(running);
+  const setQuestion = (next: string) => {
+    updateChat(details.id, KEY, { question: next });
   };
-  const run = async (asked: string, prompt: string) => {
-    if (await ensureAi(config)) await askNow(asked, prompt);
+
+  const askNow = async (title: string, prompt: string) => {
+    setAsked(title);
+    updateChat(details.id, KEY, { turns: [] });
+    const id = newRun();
+    const answered = await askInto(details.id, KEY, title, id, () => ask(config, details, prompt, id));
+    if (!answered && title !== prompt)
+      updateChat(details.id, KEY, (c) => (c.question === title ? { question: "" } : {}));
+  };
+  const run = async (title: string, prompt: string) => {
+    if (await ensureAi(config)) await askNow(title, prompt);
   };
   const send = async (q: string) => {
     if (!(await ensureAi(config))) return;
-    setQuestion("");
     await askNow(q, q);
   };
   const submit = (e: SubmitEvent<HTMLFormElement>) => {
@@ -66,8 +64,8 @@ export function AskAi({ config, details }: { config: Config; details: Details })
         <h3 id={headingId} className="text-headline font-bold">
           {t("shared.askTitle", { provider: PROVIDERS[provider].name })}
         </h3>
-        {state.phase === "busy" ? (
-          <Button variant="outline" size="xs" className="ml-auto" onClick={() => void bridge.aiCancel(state.run)}>
+        {running ? (
+          <Button variant="outline" size="xs" className="ml-auto" onClick={() => void bridge.aiCancel(running.id)}>
             <Square className="size-2.5 fill-current" /> {t("review.stop")}
           </Button>
         ) : null}
@@ -109,26 +107,28 @@ export function AskAi({ config, details }: { config: Config; details: Details })
           <ArrowUp />
         </Button>
       </form>
-      {state.phase === "idle" ? null : (
+      {!last && !error ? null : (
         <div className="flex flex-col gap-1.5 border-t pt-2.5" aria-live="polite">
-          <p className="line-clamp-2 text-subheadline font-medium text-muted-foreground">{state.asked}</p>
-          {state.phase === "done" ? (
-            <>
-              <AiAnswer text={state.text} />
-              {state.note ? <p className="text-subheadline text-muted-foreground">{state.note}</p> : null}
-            </>
-          ) : state.phase === "error" ? (
-            <p className="text-callout text-destructive" role="alert">
-              {state.text}
-            </p>
+          <p className="line-clamp-2 text-subheadline font-medium text-muted-foreground">{last?.question ?? asked}</p>
+          {last?.answer === undefined ? (
+            error ? (
+              <p className="text-callout text-destructive" role="alert">
+                {error}
+              </p>
+            ) : (
+              <p className="flex items-center gap-1.5 text-callout text-muted-foreground tabular-nums">
+                <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+                {config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}
+                {waited >= 3 ? (
+                  <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
+                ) : null}
+              </p>
+            )
           ) : (
-            <p className="flex items-center gap-1.5 text-callout text-muted-foreground tabular-nums">
-              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
-              {config.ai.project ? t("shared.askReadingProject") : t("shared.askReadingDiff")}
-              {waited >= 3 ? (
-                <span aria-hidden> · {t("review.waitedSeconds", { seconds: String(waited) })}</span>
-              ) : null}
-            </p>
+            <>
+              <AiAnswer text={last.answer} />
+              {last.note ? <p className="text-subheadline text-muted-foreground">{last.note}</p> : null}
+            </>
           )}
         </div>
       )}

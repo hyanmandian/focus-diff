@@ -159,6 +159,7 @@ function newComment(props: Props = {}, api: ConversationApi | null = apiFor()) {
         onCancel={onCancel}
         ask={null}
         askName="Claude"
+        chat={{ pull: "acme/octo#1", key: "a.ts:12-12:additions" }}
         {...props}
       />,
     ),
@@ -172,7 +173,7 @@ describe("Composer", () => {
   it("asks for something to be written first", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn<(body: string) => void>();
-    render(<Composer placeholder="Reply" submitLabel="Send" onSubmit={onSubmit} onCancel={nothing} />);
+    render(<Composer keep="reply:t" placeholder="Reply" submitLabel="Send" onSubmit={onSubmit} onCancel={nothing} />);
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(screen.getByRole("alert").textContent).toBe("Write something first.");
     expect(onSubmit).not.toHaveBeenCalled();
@@ -183,7 +184,14 @@ describe("Composer", () => {
     const sending = deferred<void>();
     const onSubmit = vi.fn<(body: string) => Promise<void>>(() => sending.promise);
     render(
-      <Composer placeholder="Reply" submitLabel="Send" initial="  Done  " onSubmit={onSubmit} onCancel={nothing} />,
+      <Composer
+        keep="reply:t"
+        placeholder="Reply"
+        submitLabel="Send"
+        initial="  Done  "
+        onSubmit={onSubmit}
+        onCancel={nothing}
+      />,
     );
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSubmit).toHaveBeenCalledWith("Done");
@@ -202,7 +210,16 @@ describe("Composer", () => {
       .fn<(body: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error("Not allowed"))
       .mockRejectedValueOnce("offline");
-    render(<Composer placeholder="Reply" submitLabel="Send" initial="Hi" onSubmit={onSubmit} onCancel={nothing} />);
+    render(
+      <Composer
+        keep="reply:t"
+        placeholder="Reply"
+        submitLabel="Send"
+        initial="Hi"
+        onSubmit={onSubmit}
+        onCancel={nothing}
+      />,
+    );
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Not allowed");
     await user.click(box("Reply"));
@@ -218,6 +235,7 @@ describe("Composer", () => {
     const onCancel = vi.fn<() => void>();
     render(
       <Composer
+        keep="reply:t"
         placeholder="Reply"
         submitLabel="Send"
         initial="Later"
@@ -312,6 +330,22 @@ describe("ThreadView", () => {
     await user.click(screen.getByRole("button", { name: "Resolve" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Not allowed");
     expect(screen.getByRole("button", { name: "Resolve" })).toHaveProperty("disabled", false);
+  });
+
+  it("keeps a reply half typed after it scrolls away or the pull request is left, until it's cancelled", async () => {
+    const user = userEvent.setup();
+    const thread = conversation();
+    const first = threadView(thread);
+    await user.click(screen.getByRole("button", { name: "Reply" }));
+    await user.type(box("Reply"), "Half a thought");
+    first.unmount();
+
+    threadView(thread);
+    expect(box("Reply").value).toBe("Half a thought");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    cleanup();
+    threadView(thread);
+    expect(screen.queryByRole("textbox", { name: "Reply" })).toBeNull();
   });
 
   it("replies now, or with your review", async () => {
@@ -720,6 +754,33 @@ describe("NewComment", () => {
       expect(outside).not.toHaveBeenCalled();
       fireEvent.keyDown(question(), { key: "a" });
       expect(onCancel).toHaveBeenCalledOnce();
+    });
+
+    it("keeps the conversation, and an answer still on its way, after leaving and coming back", async () => {
+      const user = userEvent.setup();
+      const answer = deferred<AiAnswer>();
+      const ask = vi.fn<Ask>(() => answer.promise);
+      const first = newComment({ ask });
+      await user.click(tab("Ask Claude"));
+      await user.type(question(), "Why?{Enter}");
+      await user.type(question(), "Half a fol");
+      first.unmount();
+      await act(async () => {
+        answer.resolve({ text: "Because of the cache.", project: false });
+        await answer.promise;
+      });
+
+      newComment({ ask });
+      expect(tab("Ask Claude").getAttribute("aria-selected")).toBe("true");
+      expect(screen.getByText("Why?")).toBeTruthy();
+      expect(screen.getByText("Because of the cache.")).toBeTruthy();
+      expect(question().value).toBe("Half a fol");
+      await user.click(tab("Comment"));
+      await user.type(box("Your comment for the author"), "Draft");
+      cleanup();
+      newComment({ ask });
+      expect(tab("Comment").getAttribute("aria-selected")).toBe("true");
+      expect(box("Your comment for the author").value).toBe("Draft");
     });
 
     it("doesn't ask while a word is being composed (an input method's Enter)", () => {

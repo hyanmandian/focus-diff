@@ -62,7 +62,7 @@ pub fn open(app: &AppHandle, app_link: &str) {
         {
             let main = app.clone();
             let _ = app.run_on_main_thread(move || {
-                let _ = crate::open_review(main, found.id, format!("{}/{}", link.owner, link.repo), link.number, found.title, vec![], None, None);
+                let _ = crate::show_review(main, found.id, format!("{}/{}", link.owner, link.repo), link.number, found.title, vec![], None, None);
             });
             return;
         }

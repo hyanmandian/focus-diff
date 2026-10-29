@@ -156,23 +156,31 @@ struct Response {
     body: String,
 }
 
-#[tauri::command]
-async fn github(auth: State<'_, github::Auth>, method: String, path: String, body: Option<String>, accept: Option<String>) -> Result<Response, String> {
-    let (status, body) = auth.request_for_page(&method, &path, body.as_deref(), accept.as_deref())?;
-    Ok(Response { status, body })
+async fn blocking<T: Send + 'static>(app: AppHandle, work: impl FnOnce(&AppHandle) -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(move || work(&app)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-async fn github_file(app: AppHandle, auth: State<'_, github::Auth>, repo: String, sha: String, path: String) -> Result<tauri::ipc::Response, String> {
-    match blobs::file_at(&app, &auth, &repo, &sha, &path)? {
+async fn github(app: AppHandle, method: String, path: String, body: Option<String>, accept: Option<String>) -> Result<Response, String> {
+    blocking(app, move |app| {
+        let (status, body) = app.state::<github::Auth>().request_for_page(&method, &path, body.as_deref(), accept.as_deref())?;
+        Ok(Response { status, body })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn github_file(app: AppHandle, repo: String, sha: String, path: String) -> Result<tauri::ipc::Response, String> {
+    blocking(app, move |app| match blobs::file_at(app, &app.state::<github::Auth>(), &repo, &sha, &path)? {
         Some(bytes) => Ok(tauri::ipc::Response::new(bytes)),
         None => Err(blobs::ABSENT.into()),
-    }
+    })
+    .await
 }
 
 #[tauri::command]
-async fn job_log(auth: State<'_, github::Auth>, logs: State<'_, logs::Logs>, owner: String, repo: String, job: u64, done: bool) -> Result<logs::Log, String> {
-    logs::job_log(&auth, &logs, &owner, &repo, job, done)
+async fn job_log(app: AppHandle, owner: String, repo: String, job: u64, done: bool) -> Result<logs::Log, String> {
+    blocking(app, move |app| logs::job_log(&app.state::<github::Auth>(), &app.state::<logs::Logs>(), &owner, &repo, job, done)).await
 }
 
 #[tauri::command]
@@ -216,8 +224,8 @@ async fn drafts_flush(app: AppHandle, pull: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn auth_status(auth: State<'_, github::Auth>) -> Result<github::Status, String> {
-    let status = auth.status();
+async fn auth_status(app: AppHandle) -> Result<github::Status, String> {
+    let status = blocking(app, |app| Ok(app.state::<github::Auth>().status())).await?;
     diagnostics::write("auth", &format!("signed in {}, through {:?}, GitHub CLI {}", status.signed_in, status.source, match (status.gh_available, status.gh_signed_in) {
         (false, _) => "not found",
         (true, false) => "found, not signed in",
@@ -232,32 +240,49 @@ fn remember_source(app: &AppHandle, source: Option<github::Source>) -> Result<()
 }
 
 #[tauri::command]
-async fn auth_use_gh(app: AppHandle, auth: State<'_, github::Auth>) -> Result<(), String> {
-    diagnostics::noted("auth", auth.use_gh())?;
-    diagnostics::noted("auth", remember_source(&app, Some(github::Source::Gh)))
+async fn auth_use_gh(app: AppHandle) -> Result<(), String> {
+    blocking(app, |app| {
+        diagnostics::noted("auth", app.state::<github::Auth>().use_gh())?;
+        diagnostics::noted("auth", remember_source(app, Some(github::Source::Gh)))
+    })
+    .await
 }
 
 #[tauri::command]
-async fn auth_use_token(app: AppHandle, auth: State<'_, github::Auth>, token: String) -> Result<(), String> {
-    diagnostics::noted("auth", auth.use_token(&token))?;
-    diagnostics::noted("auth", remember_source(&app, Some(github::Source::Keychain)))
+async fn auth_use_token(app: AppHandle, token: String) -> Result<(), String> {
+    blocking(app, move |app| {
+        diagnostics::noted("auth", app.state::<github::Auth>().use_token(&token))?;
+        diagnostics::noted("auth", remember_source(app, Some(github::Source::Keychain)))
+    })
+    .await
 }
 
 #[tauri::command]
-async fn auth_device_start() -> Result<github::DeviceCode, String> {
-    diagnostics::noted("auth", github::device_start())
+async fn auth_device_start(app: AppHandle) -> Result<github::DeviceCode, String> {
+    blocking(app, |_| diagnostics::noted("auth", github::device_start())).await
 }
 
 #[tauri::command]
-async fn auth_device_finish(app: AppHandle, auth: State<'_, github::Auth>, device_code: String, interval: u64, expires_in: u64) -> Result<(), String> {
-    diagnostics::noted("auth", github::device_finish(&auth, &device_code, interval, expires_in))?;
-    diagnostics::noted("auth", remember_source(&app, Some(github::Source::Keychain)))
+async fn auth_device_finish(app: AppHandle, device_code: String, interval: u64, expires_in: u64) -> Result<(), String> {
+    blocking(app, move |app| {
+        diagnostics::noted("auth", github::device_finish(&app.state::<github::Auth>(), &device_code, interval, expires_in))?;
+        diagnostics::noted("auth", remember_source(app, Some(github::Source::Keychain)))
+    })
+    .await
 }
 
 #[tauri::command]
-async fn auth_sign_out(app: AppHandle, auth: State<'_, github::Auth>) -> Result<(), String> {
-    auth.sign_out()?;
-    remember_source(&app, None)
+fn auth_device_cancel() {
+    github::device_cancel();
+}
+
+#[tauri::command]
+async fn auth_sign_out(app: AppHandle) -> Result<(), String> {
+    blocking(app, |app| {
+        app.state::<github::Auth>().sign_out()?;
+        remember_source(app, None)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -383,8 +408,8 @@ fn check_out(app: &AppHandle, p: Project) -> Result<std::sync::mpsc::Receiver<Re
 }
 
 #[tauri::command]
-fn ai_prepare(app: AppHandle, project: Project) {
-    let _ = check_out(&app, project);
+async fn ai_prepare(app: AppHandle, project: Project) {
+    let _ = tauri::async_runtime::spawn_blocking(move || check_out(&app, project).map(drop)).await;
 }
 
 #[tauri::command]
@@ -423,18 +448,24 @@ pub(crate) fn update_tray(app: &AppHandle, count: u32, animate: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] {count} waiting, animate {animate}");
     }
-    if let Some(icon) = app.state::<Tray>().0.held().as_ref() {
-        tray::update(app, icon, count, animate);
-    }
+    let main = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(icon) = main.state::<Tray>().0.held().as_ref() {
+            tray::update(&main, icon, count, animate);
+        }
+    });
 }
 
 pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] countdown {minutes:?}");
     }
-    if let Some(icon) = app.state::<Tray>().0.held().as_ref() {
-        tray::countdown(icon, minutes);
-    }
+    let main = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(icon) = main.state::<Tray>().0.held().as_ref() {
+            tray::countdown(icon, minutes);
+        }
+    });
 }
 
 fn apply_language(app: &AppHandle, config: &str) {
@@ -652,7 +683,12 @@ fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> boo
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
+async fn open_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
+    on_main(&app, move |app| show_review(app.clone(), id, repo, number, title, teams, queue, from))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn show_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
     if !plausible(&id, &repo, &teams, queue.as_deref()) {
         return Err("Bad pull request".into());
     }
@@ -1224,6 +1260,7 @@ pub fn run() {
             auth_use_token,
             auth_device_start,
             auth_device_finish,
+            auth_device_cancel,
             auth_sign_out,
             github_web_session,
             sign_in_web,

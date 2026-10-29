@@ -93,6 +93,25 @@ describe("Connect", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("lets a sign-in waiting on GitHub be cancelled, to choose another way", async () => {
+    const finished = deferred();
+    const calls = rust({
+      auth_device_start: CODE,
+      open_url: null,
+      auth_device_finish: finished.promise,
+      auth_device_cancel: null,
+    });
+    const onConnected = vi.fn<() => void>();
+    render(<Connect auth={auth({ device_flow: true, gh_available: true })} onConnected={onConnected} />);
+    await userEvent.click(screen.getByRole("button", { name: "Sign in with GitHub" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(calls.map(([cmd]) => cmd)).toContain("auth_device_cancel");
+    finished.reject("cancelled");
+    expect(await screen.findByRole("button", { name: "Use the GitHub CLI's login" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(onConnected).not.toHaveBeenCalled();
+  });
+
   it("shows the code even when it can't be copied, and copies it on request", async () => {
     const finished = deferred();
     rust({ auth_device_start: CODE, open_url: null, auth_device_finish: finished.promise });

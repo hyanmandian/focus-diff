@@ -28,6 +28,7 @@ import { NoPatchFile } from "@/components/rich-diff/rich-diff";
 import { DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Exchange, Finding } from "@/utils/ai/ai";
+import { chatKey, forget, setOpen, usePullAsking, type Open } from "@/utils/asking/asking";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
@@ -65,6 +66,7 @@ export type DiffsHandle = {
 export type LinkTarget = { owner: string; repo: string; number: number; head: string };
 
 type Props = {
+  pull: string;
   files: ReviewFile[];
   threads: Map<string, Thread[]>;
   drafts: Draft[];
@@ -227,7 +229,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
     commentable,
   } = props;
   const viewer = useRef<CodeViewHandle<Annotation, undefined>>(null);
-  const [composing, setComposing] = useState<{ path: string; range: SelectedLineRange; file?: boolean } | null>(null);
+  const { pull } = props;
+  const composing = usePullAsking(pull).open;
+  const setComposing = (open: Open | null) => {
+    setOpen(pull, open);
+  };
   const [rendered, setRendered] = useState<Set<string>>(() => new Set());
   const [loaded, setLoaded] = useState<Map<string, Loaded>>(() => new Map());
   const [cache] = useState(() => new Cache());
@@ -429,7 +435,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       },
       enableLineSelection: commentable,
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
-        if (range && latest?.item) setComposing({ path: latest.item.id, range });
+        if (range && latest?.item) setOpen(pull, { path: latest.item.id, range });
       },
       onLineEnter: (line: OnLineEnterLeaveProps | OnDiffLineEnterLeaveProps, context?: { item?: { id: string } }) => {
         if (context?.item && "annotationSide" in line)
@@ -452,7 +458,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
           }
         : {}),
     }),
-    [diffStyle, wrap, dark, source, filesByPath, commentable, t],
+    [diffStyle, wrap, dark, source, filesByPath, commentable, t, pull],
   );
 
   const loadFile = async (file: ReviewFile) => {
@@ -734,7 +740,7 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                         ? { path: a.path, side: "additions", line: 0, body, file: true }
                         : toDraft(a.path, a.range, body),
                     );
-                    setComposing(null);
+                    forget(pull, chatKey(a));
                   }}
                   onSendNow={async (body) => {
                     await props.onCommentNow(
@@ -742,11 +748,12 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                         ? { path: a.path, side: "additions", line: 0, body, file: true }
                         : toDraft(a.path, a.range, body),
                     );
-                    setComposing(null);
+                    forget(pull, chatKey(a));
                   }}
                   onCancel={() => {
-                    setComposing(null);
+                    forget(pull, chatKey(a));
                   }}
+                  chat={{ pull, key: chatKey(a) }}
                   ask={
                     props.onAsk
                       ? (question, earlier, run) => props.onAsk!(a.path, a.range, question, earlier, run)

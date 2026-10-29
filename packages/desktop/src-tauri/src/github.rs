@@ -142,6 +142,7 @@ fn keychain() -> Result<keyring::Entry, String> {
 }
 
 fn gh_path() -> Option<String> {
+    let found = crate::ai::find_in(crate::ai::search_path(), &["gh"]).map(|p| p.to_string_lossy().into_owned());
     let candidates = if cfg!(windows) {
         vec!["gh.exe".to_string(), r"C:\Program Files\GitHub CLI\gh.exe".to_string()]
     } else {
@@ -152,7 +153,7 @@ fn gh_path() -> Option<String> {
             "/home/linuxbrew/.linuxbrew/bin/gh".to_string(),
         ]
     };
-    candidates.into_iter().find(|p| {
+    found.into_iter().chain(candidates).find(|p| {
         crate::ai::run_with_limit(Command::new(p).arg("--version"), None, Duration::from_secs(10)).is_ok_and(|o| o.status_ok)
     })
 }
@@ -423,11 +424,33 @@ pub fn device_start() -> Result<DeviceCode, String> {
     })
 }
 
+static DEVICE_TRIES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub const DEVICE_CANCELLED: &str = "cancelled";
+
+pub fn device_cancel() {
+    DEVICE_TRIES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn device_cancelled(this: u64, wait: Duration) -> bool {
+    let until = Instant::now() + wait;
+    while Instant::now() < until {
+        if DEVICE_TRIES.load(std::sync::atomic::Ordering::SeqCst) != this {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    DEVICE_TRIES.load(std::sync::atomic::Ordering::SeqCst) != this
+}
+
 pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_in: u64) -> Result<(), String> {
     let client_id = CLIENT_ID.ok_or_else(|| tr!("Signing in with GitHub isn't set up in this build", "Entrar com o GitHub não está configurado nesta versão"))?;
+    let this = DEVICE_TRIES.load(std::sync::atomic::Ordering::SeqCst);
     let deadline = Instant::now() + Duration::from_secs(expires_in);
     while Instant::now() < deadline {
-        std::thread::sleep(Duration::from_secs(interval));
+        if device_cancelled(this, Duration::from_secs(interval)) {
+            return Err(DEVICE_CANCELLED.into());
+        }
         let response = agent()
             .post("https://github.com/login/oauth/access_token")
             .header("Accept", "application/json")
@@ -458,6 +481,14 @@ pub fn device_finish(auth: &Auth, device_code: &str, mut interval: u64, expires_
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cancelled_sign_in_stops_waiting() {
+        let this = DEVICE_TRIES.load(std::sync::atomic::Ordering::SeqCst);
+        assert!(!device_cancelled(this, Duration::from_millis(10)));
+        device_cancel();
+        assert!(device_cancelled(this, Duration::from_secs(5)));
+    }
 
     #[test]
     fn hosts_of_https_addresses() {

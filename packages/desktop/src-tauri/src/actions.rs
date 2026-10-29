@@ -58,8 +58,8 @@ fn ask(app: &tauri::AppHandle, name: &str, command: &str) -> bool {
     let shown: String = command.chars().take(600).collect();
     app.dialog()
         .message(tr!(
-            "“{name}” wants to run this command, as you:\n\n{shown}\n\nIt gets the pull request's number, title, link, repository and author. Allow it from now on?",
-            "“{name}” quer rodar este comando, como você:\n\n{shown}\n\nEle recebe o número, o título, o link, o repositório e o autor do pull request. Permitir daqui em diante?"
+            "“{name}” wants to run this command, as you:\n\n{shown}\n\nIt gets the pull request's number, title, link, repository and author, and your GitHub login. Allow it from now on?",
+            "“{name}” quer rodar este comando, como você:\n\n{shown}\n\nEle recebe o número, o título, o link, o repositório e o autor do pull request, e o seu login do GitHub. Permitir daqui em diante?"
         ))
         .title(tr!("Run a command?", "Rodar um comando?"))
         .kind(MessageDialogKind::Warning)

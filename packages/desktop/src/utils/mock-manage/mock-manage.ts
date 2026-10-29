@@ -11,11 +11,11 @@ const person = (login: string, name: string) => ({
   avatarUrl: `https://avatars.githubusercontent.com/${login}?s=64`,
 });
 const people = {
-  me: person("you", "You"),
-  ana: person("ana-lima", "Ana Lima"),
-  bruno: person("bruno-costa", "Bruno Costa"),
-  carla: person("carla-dias", "Carla Dias"),
-  dev: person("devon-hart", "Devon Hart"),
+  me: person("you_reviewer", "You"),
+  ana: person("ana_lima", "Ana Lima"),
+  bruno: person("bruno_costa", "Bruno Costa"),
+  carla: person("carla_dias", "Carla Dias"),
+  dev: person("devon_hart", "Devon Hart"),
 };
 const ok = (data: unknown): Reply => ({ status: 200, body: JSON.stringify(data) });
 
@@ -176,7 +176,7 @@ let checks = [
     id: "SC_1",
     context: "Vercel – Preview",
     state: "SUCCESS",
-    targetUrl: "https://vercel.com/acme/web/abc",
+    targetUrl: "https://deploys.acme.dev/web/abc",
     description: "Deployment has completed",
     createdAt: iso(20),
     isRequired: false,
@@ -296,35 +296,35 @@ const timeline = {
               messageHeadline: "Keep the promo code when the cart changes",
               committedDate: iso(180),
               url: "https://github.com/acme/web/commit/1111111",
-              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
+              author: { user: { login: "ana_lima" }, name: "Ana Lima" },
             },
           },
           {
             __typename: "LabeledEvent",
             id: "le1",
             createdAt: iso(170),
-            actor: { login: "ana-lima" },
+            actor: { login: "ana_lima" },
             label: { name: "checkout", color: "1d76db" },
           },
           {
             __typename: "LabeledEvent",
             id: "le2",
             createdAt: iso(170),
-            actor: { login: "ana-lima" },
+            actor: { login: "ana_lima" },
             label: { name: "bug", color: "d73a4a" },
           },
           {
             __typename: "ReviewRequestedEvent",
             id: "rr1",
             createdAt: iso(165),
-            actor: { login: "ana-lima" },
-            requestedReviewer: { __typename: "User", login: "you" },
+            actor: { login: "ana_lima" },
+            requestedReviewer: { __typename: "User", login: "you_reviewer" },
           },
           {
             __typename: "ReviewRequestedEvent",
             id: "rr2",
             createdAt: iso(165),
-            actor: { login: "ana-lima" },
+            actor: { login: "ana_lima" },
             requestedReviewer: { __typename: "Team", name: "Payments" },
           },
           {
@@ -336,14 +336,14 @@ const timeline = {
               messageHeadline: "Show why a code stopped applying",
               committedDate: iso(120),
               url: "https://github.com/acme/web/commit/2222222",
-              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
+              author: { user: { login: "ana_lima" }, name: "Ana Lima" },
             },
           },
           {
             __typename: "RenamedTitleEvent",
             id: "rn1",
             createdAt: iso(100),
-            actor: { login: "ana-lima" },
+            actor: { login: "ana_lima" },
             previousTitle: "Keep promo code",
             currentTitle: "Checkout: keep the promo code when the cart changes",
           },
@@ -351,7 +351,7 @@ const timeline = {
             __typename: "HeadRefForcePushedEvent",
             id: "fp1",
             createdAt: iso(60),
-            actor: { login: "ana-lima" },
+            actor: { login: "ana_lima" },
             beforeCommit: { abbreviatedOid: "9f8e7d6" },
             afterCommit: { abbreviatedOid: "2222222" },
             ref: { name: "ana/keep-promo-code" },
@@ -365,7 +365,7 @@ const timeline = {
               messageHeadline: "Check the minimum against the new total",
               committedDate: iso(40),
               url: "https://github.com/acme/web/commit/3333333",
-              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
+              author: { user: { login: "ana_lima" }, name: "Ana Lima" },
             },
           },
           {
@@ -377,14 +377,14 @@ const timeline = {
               messageHeadline: "Test: keeps a valid code",
               committedDate: iso(12),
               url: "https://github.com/acme/web/commit/abc123f",
-              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
+              author: { user: { login: "ana_lima" }, name: "Ana Lima" },
             },
           },
           {
             __typename: "CrossReferencedEvent",
             id: "cr1",
             createdAt: iso(11),
-            actor: { login: "carla-dias" },
+            actor: { login: "carla_dias" },
             willCloseTarget: false,
             source: {
               __typename: "Issue",
@@ -398,7 +398,7 @@ const timeline = {
             __typename: "DeployedEvent",
             id: "de1",
             createdAt: iso(8),
-            actor: { login: "vercel" },
+            actor: { login: "deploy_bot" },
             deployment: { environment: "Preview" },
           },
         ],
@@ -431,7 +431,7 @@ export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
   const variables = isRecord(body.variables) ? body.variables : undefined;
   if (query.trimStart().startsWith("mutation")) {
     if (query.includes("enablePullRequestAutoMerge"))
-      autoMerge = { mergeMethod: String(variables?.method), enabledBy: { login: "you" } };
+      autoMerge = { mergeMethod: String(variables?.method), enabledBy: { login: "you_reviewer" } };
     if (query.includes("disablePullRequestAutoMerge")) autoMerge = null;
     if (query.includes("closePullRequest")) pr.state = "CLOSED";
     if (query.includes("reopenPullRequest")) pr.state = "OPEN";
@@ -475,7 +475,7 @@ export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
                 nodes: [
                   {
                     createdAt: iso(60),
-                    actor: { login: "ana-lima" },
+                    actor: { login: "ana_lima" },
                     beforeCommit: { oid: "9f8e7d6aaaa" },
                     afterCommit: { oid: "2222222bbbb" },
                   },

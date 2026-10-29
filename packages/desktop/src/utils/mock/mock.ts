@@ -12,11 +12,11 @@ const person = (login: string, name: string) => ({
   avatarUrl: `https://avatars.githubusercontent.com/${login}?s=64`,
 });
 const people = {
-  me: person("you", "You"),
-  ana: person("ana-lima", "Ana Lima"),
-  bruno: person("bruno-costa", "Bruno Costa"),
-  carla: person("carla-dias", "Carla Dias"),
-  dev: person("devon-hart", "Devon Hart"),
+  me: person("you_reviewer", "You"),
+  ana: person("ana_lima", "Ana Lima"),
+  bruno: person("bruno_costa", "Bruno Costa"),
+  carla: person("carla_dias", "Carla Dias"),
+  dev: person("devon_hart", "Devon Hart"),
 };
 
 let n = 1800;
@@ -59,7 +59,7 @@ const review = [
   pr({
     title: "Checkout: keep the promo code when the cart changes",
     author: people.ana,
-    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
+    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(25),
     headRefName: "ana/keep-promo-code",
     baseRefName: "main",
@@ -76,7 +76,7 @@ const review = [
   pr({
     title: "Fix flaky date picker test in Safari",
     author: people.dev,
-    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
+    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(60 * 50),
   }),
   pr({
@@ -85,7 +85,7 @@ const review = [
     url: "https://github.com/acme/web/pull/1812",
     title: "Show why a promo code stopped applying",
     author: people.ana,
-    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you" } }] },
+    reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(20),
     updatedAt: iso(60),
     headRefName: "ana/promo-reasons",
@@ -155,7 +155,7 @@ const authored = [
       ],
     },
     reviewRequests: {
-      nodes: [{ requestedReviewer: { __typename: "User", login: "bruno-costa", avatarUrl: people.bruno.avatarUrl } }],
+      nodes: [{ requestedReviewer: { __typename: "User", login: "bruno_costa", avatarUrl: people.bruno.avatarUrl } }],
     },
   }),
   pr({
@@ -193,7 +193,7 @@ const config = {
       name: "Hand off to Dana",
       confirm: true,
       steps: [
-        { kind: "request", reviewers: ["dana"] },
+        { kind: "request", reviewers: ["dana_reyes"] },
         { kind: "unrequestMe" },
         { kind: "comment", body: "@dana could you take this one? Thanks!" },
       ],
@@ -565,7 +565,7 @@ const seen = Object.fromEntries(
 const snapshot = {
   ready: true,
   signedIn: true,
-  me: "you",
+  me: "you_reviewer",
   items,
   status: { phase: "idle", updatedAt: now },
   arrivals: [promo.id],
@@ -653,7 +653,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
       files[str(args, "name")] = str(args, "contents");
       return null;
     case "auth_status":
-      return { signed_in: true, source: "gh", login: "you", device_flow: true, gh_available: true };
+      return { signed_in: true, source: "gh", login: "you_reviewer", device_flow: true, gh_available: true };
     case "github": {
       const path = str(args, "path");
       if (path.includes("/files?")) return { status: 200, body: JSON.stringify(reviewFiles) };
@@ -695,7 +695,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
                   headRefName: "ana/promo-reasons",
                   baseRefName: "ana/keep-promo-code",
                   reviewDecision: "REVIEW_REQUIRED",
-                  author: { login: "ana-lima", name: "Ana Lima" },
+                  author: { login: "ana_lima", name: "Ana Lima" },
                 },
               ]
             : [];
@@ -718,7 +718,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
       return webLogin;
     case "sign_in_web":
       setTimeout(() => {
-        emit("web-session", (webLogin = "you"));
+        emit("web-session", (webLogin = "you_reviewer"));
       }, 600);
       return;
     case "sign_out_web":

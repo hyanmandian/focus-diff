@@ -12,7 +12,7 @@ const REACTIONS = ["THUMBS_UP", "THUMBS_DOWN", "LAUGH", "HOORAY", "CONFUSED", "H
 const groups = (given: Record<string, string[]> = {}) =>
   REACTIONS.map((content) => ({
     content,
-    viewerHasReacted: (given[content] ?? []).includes("you"),
+    viewerHasReacted: (given[content] ?? []).includes("you_reviewer"),
     reactors: { totalCount: (given[content] ?? []).length, nodes: (given[content] ?? []).map((login) => ({ login })) },
   }));
 
@@ -132,8 +132,8 @@ function comment(author: Actor, body: string, minutesAgo: number, at: Partial<Co
     url: `https://github.com/acme/web/pull/1807#discussion_r${ids}`,
     state: "SUBMITTED",
     lastEditedAt: null,
-    viewerCanUpdate: author.login === "you",
-    viewerCanDelete: author.login === "you",
+    viewerCanUpdate: author.login === "you_reviewer",
+    viewerCanDelete: author.login === "you_reviewer",
     viewerCanReact: true,
     replyTo: null,
     reactionGroups: groups(),
@@ -181,7 +181,7 @@ function seed({ people, threads, details, files }: Seed) {
   const t1 = thread(first.path, first.line, [
     {
       ...comment(opener.author, "Should `promoError` be cleared when the code is removed by hand?", 9, {
-        reactionGroups: groups({ THUMBS_UP: ["ana-lima", "you"], EYES: ["carla-dias"] }),
+        reactionGroups: groups({ THUMBS_UP: ["ana_lima", "you_reviewer"], EYES: ["carla_dias"] }),
       }),
       id: opener.id,
     },
@@ -235,7 +235,7 @@ function seed({ people, threads, details, files }: Seed) {
         15,
       ),
       ...(n.__typename === "IssueComment"
-        ? { reactionGroups: groups({ HEART: ["ana-lima", "bruno-costa", "you"], ROCKET: ["carla-dias"] }) }
+        ? { reactionGroups: groups({ HEART: ["ana_lima", "bruno_costa", "you_reviewer"], ROCKET: ["carla_dias"] }) }
         : {}),
     })),
     {
@@ -255,7 +255,7 @@ function seed({ people, threads, details, files }: Seed) {
     pull: {
       body: "Changing the cart used to drop the promo code, so people had to type it again. Now the code stays and is checked against the new total.\n\n- Re-validates the code when items change\n- Shows why a code stopped applying\n\nCloses #1790.",
       bodyHTML: pr.bodyHTML,
-      reactionGroups: groups({ HOORAY: ["bruno-costa", "carla-dias"] }),
+      reactionGroups: groups({ HOORAY: ["bruno_costa", "carla_dias"] }),
     },
     files,
   };
@@ -376,8 +376,12 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
         mentionableUsers: {
           nodes: [
             ...Object.values(s.people),
-            { login: "dana", name: "Dana Reyes", avatarUrl: "https://avatars.githubusercontent.com/dana?s=40" },
-          ].filter((p) => p.login !== "you"),
+            {
+              login: "dana_reyes",
+              name: "Dana Reyes",
+              avatarUrl: "https://avatars.githubusercontent.com/dana_reyes?s=40",
+            },
+          ].filter((p) => p.login !== "you_reviewer"),
         },
       },
     });
@@ -421,8 +425,8 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
         if (g.content !== v.content) return g;
         const on = reaction === "addReaction";
         const nodes = on
-          ? [{ login: "you" }, ...g.reactors.nodes.filter((n) => n.login !== "you")]
-          : g.reactors.nodes.filter((n) => n.login !== "you");
+          ? [{ login: "you_reviewer" }, ...g.reactors.nodes.filter((n) => n.login !== "you_reviewer")]
+          : g.reactors.nodes.filter((n) => n.login !== "you_reviewer");
         return { ...g, viewerHasReacted: on, reactors: { totalCount: nodes.length, nodes } };
       });
     }

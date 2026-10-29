@@ -204,17 +204,17 @@ test("writes a comment with an @mention and an emoji, and keeps it for the revie
 
   await box.pressSequentially("Thanks @ana");
   const people = page.getByRole("listbox", { name: "People to mention" });
-  await expect(people.getByRole("option", { name: /ana-lima/u })).toBeVisible();
+  await expect(people.getByRole("option", { name: /ana_lima/u })).toBeVisible();
   await box.press("Enter");
-  await expect(box).toHaveValue(/Thanks @ana-lima $/u);
+  await expect(box).toHaveValue(/Thanks @ana_lima $/u);
 
   await box.pressSequentially("this works :tad");
   await expect(page.getByRole("option", { name: /tada/u })).toBeVisible();
   await box.press("Enter");
-  await expect(box).toHaveValue("Thanks @ana-lima this works :tada: ");
+  await expect(box).toHaveValue("Thanks @ana_lima this works :tada: ");
 
   await page.getByRole("tab", { name: "Preview" }).click();
-  await expect(page.getByRole("tabpanel", { name: "Preview" }).getByRole("link", { name: "@ana-lima" })).toBeVisible();
+  await expect(page.getByRole("tabpanel", { name: "Preview" }).getByRole("link", { name: "@ana_lima" })).toBeVisible();
 
   const submit = page.getByRole("button", { name: /^Submit Review/u });
   await expect(submit).toHaveText(/1/u);

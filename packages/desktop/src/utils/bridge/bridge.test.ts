@@ -66,6 +66,7 @@ describe("bridge", () => {
     ["authUseGh", () => bridge.authUseGh(), "auth_use_gh", {}],
     ["authUseToken", () => bridge.authUseToken("t"), "auth_use_token", { token: "t" }],
     ["authDeviceStart", () => bridge.authDeviceStart(), "auth_device_start", {}],
+    ["authDeviceCancel", () => bridge.authDeviceCancel(), "auth_device_cancel", {}],
     [
       "authDeviceFinish",
       () => bridge.authDeviceFinish(code),

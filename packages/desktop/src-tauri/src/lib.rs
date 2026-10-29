@@ -272,6 +272,11 @@ async fn auth_device_finish(app: AppHandle, device_code: String, interval: u64, 
 }
 
 #[tauri::command]
+fn auth_device_cancel() {
+    github::device_cancel();
+}
+
+#[tauri::command]
 async fn auth_sign_out(app: AppHandle) -> Result<(), String> {
     blocking(app, |app| {
         app.state::<github::Auth>().sign_out()?;
@@ -1255,6 +1260,7 @@ pub fn run() {
             auth_use_token,
             auth_device_start,
             auth_device_finish,
+            auth_device_cancel,
             auth_sign_out,
             github_web_session,
             sign_in_web,

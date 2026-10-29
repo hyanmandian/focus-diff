@@ -9,6 +9,8 @@ import { i18n, useT } from "@/utils/i18n/i18n";
 
 type Props = { auth: AuthStatus | null; onConnected: () => void };
 
+const CANCELLED = "cancelled";
+
 export const NEW_TOKEN = "https://github.com/settings/tokens/new?scopes=repo,read:org&description=Focus%20Diff";
 
 export function Connect({ auth, onConnected }: Props) {
@@ -28,7 +30,8 @@ export function Connect({ auth, onConnected }: Props) {
       await action();
       onConnected();
     } catch (e) {
-      setError(typeof e === "string" ? e : e instanceof Error ? e.message : i18n()("common.somethingWentWrong"));
+      if (e !== CANCELLED)
+        setError(typeof e === "string" ? e : e instanceof Error ? e.message : i18n()("common.somethingWentWrong"));
     } finally {
       setBusy(null);
       setCode(null);
@@ -77,6 +80,9 @@ export function Connect({ auth, onConnected }: Props) {
         <p className="flex items-center gap-2 text-callout text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" aria-hidden /> {t("shared.connectWaiting")}
         </p>
+        <Button variant="outline" onClick={() => void bridge.authDeviceCancel()}>
+          {t("common.cancel")}
+        </Button>
       </div>
     );
   }

@@ -64,6 +64,7 @@ fn make(app: &AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Items)> {
     let app_menu = SubmenuBuilder::new(app, &name)
         .item(&item("about", &tr!("About {name}", "Sobre o {name}"), None)?)
         .item(&item("updates", &tr!("Check for Updates…", "Buscar atualizações…"), None)?)
+        .item(&item("licenses", &tr!("Third-Party Licenses", "Licenças de terceiros"), None)?)
         .separator()
         .item(&item("settings", &tr!("Settings…", "Ajustes…"), Some("CmdOrCtrl+,"))?)
         .separator()
@@ -178,6 +179,7 @@ pub fn on_event(app: &AppHandle, event: MenuEvent) {
         }
         "about" => crate::about::show(app),
         "updates" => check_for_updates(app),
+        "licenses" => crate::about::open_licenses(app),
         _ if REVIEW.contains(&id) => {
             if let Some((label, _)) = app.webview_windows().into_iter().find(|(label, w)| label.starts_with("review-") && w.is_focused().unwrap_or(false)) {
                 let _ = app.emit_to(label.as_str(), "menu", id);

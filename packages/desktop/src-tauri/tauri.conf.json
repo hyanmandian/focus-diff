@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run notices && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -30,6 +30,14 @@
       "icons/icon.ico"
     ],
     "category": "DeveloperTool",
+    "license": "MIT",
+    "licenseFile": "../../../LICENSE",
+    "copyright": "© 2026 Hyan Mandian",
+    "publisher": "Hyan Mandian",
+    "homepage": "https://focus-diff.com",
+    "resources": {
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    },
     "shortDescription": "Your pull request reviews, from the menu bar.",
     "createUpdaterArtifacts": true,
     "macOS": {

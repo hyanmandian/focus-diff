@@ -11,6 +11,7 @@
     "build": "tsc --noEmit && vp build",
     "preview": "vp preview",
     "tauri": "tauri",
+    "notices": "node scripts/notices.ts",
     "fmt": "vp fmt",
     "lint": "vp lint",
     "test": "vp test",

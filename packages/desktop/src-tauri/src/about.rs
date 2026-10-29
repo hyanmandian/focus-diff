@@ -1,4 +1,5 @@
-use tauri::{AppHandle};
+use tauri::{AppHandle, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 pub fn show(app: &AppHandle) {
     let version = app.package_info().version.to_string();
@@ -8,6 +9,12 @@ pub fn show(app: &AppHandle) {
         #[cfg(not(target_os = "macos"))]
         let _ = version;
     });
+}
+
+pub fn open_licenses(app: &AppHandle) {
+    if let Ok(path) = app.path().resolve("THIRD-PARTY-NOTICES.txt", tauri::path::BaseDirectory::Resource) {
+        let _ = app.opener().open_path(path.to_string_lossy(), None::<&str>);
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -29,6 +36,7 @@ mod mac {
             WEBSITE.to_string(),
             tr!("Built with open-source software:", "Feito com software de código aberto:"),
             "Tauri (MIT or Apache-2.0) · React (MIT)\n@pierre/diffs (Apache-2.0) · Mermaid (MIT)\nBase UI and shadcn/ui (MIT) · Lucide (ISC)".to_string(),
+            tr!("All of them, with their licenses: Focus Diff › Third-Party Licenses.", "Todos, com as licenças: Focus Diff › Licenças de terceiros."),
         ]
         .join("\n\n")
     }

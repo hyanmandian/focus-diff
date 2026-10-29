@@ -1093,6 +1093,7 @@ fn create_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
         "settings" => {
             let _ = show_settings(app);
         }
+        "licenses" => about::open_licenses(app),
         "quit" => app.exit(0),
         _ => {}
     });
@@ -1105,6 +1106,7 @@ pub(crate) fn tray_menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<taur
     MenuBuilder::new(app)
         .item(&MenuItemBuilder::with_id("open", i18n::tr!("Open Focus Diff", "Abrir o Focus Diff")).build(app)?)
         .item(&MenuItemBuilder::with_id("settings", i18n::tr!("Settings…", "Configurações…")).accelerator("CmdOrCtrl+,").build(app)?)
+        .item(&MenuItemBuilder::with_id("licenses", i18n::tr!("Third-Party Licenses", "Licenças de terceiros")).build(app)?)
         .separator()
         .item(&MenuItemBuilder::with_id("quit", i18n::tr!("Quit Focus Diff", "Sair do Focus Diff")).build(app)?)
         .build()

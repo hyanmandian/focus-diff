@@ -416,10 +416,12 @@ const visit = (number: number, title: string): Visit => ({
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((r, j) => {
     resolve = r;
+    reject = j;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 const stored = (key: string): unknown => JSON.parse(localStorage.getItem(key) ?? "null");
@@ -1344,6 +1346,52 @@ describe("Review", () => {
         expect(button("AI Review").hasAttribute("disabled")).toBe(true);
       });
       expect(h.overview!.reviewing).toBe(true);
+    });
+
+    it("keeps a review still running after the pull request is left, and shows it on the way back", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      const running = deferred<AiReview>();
+      vi.mocked(aiReview).mockReturnValue(running.promise);
+      const first = await openReview();
+      await userEvent.click(button("AI Review"));
+      await waitFor(() => {
+        expect(h.overview!.reviewing).toBe(true);
+      });
+      first.unmount();
+      (await openReview()).unmount();
+
+      await openReview();
+      await waitFor(() => {
+        expect(h.overview!.reviewing).toBe(true);
+      });
+      await act(async () => {
+        running.resolve(aiReviewOf([finding("src/cart.ts", 3)]));
+        await running.promise;
+      });
+      await waitFor(() => {
+        expect(h.overview!.review?.findings).toHaveLength(1);
+      });
+      expect(aiReview).toHaveBeenCalledOnce();
+    });
+
+    it("says why a review it came back to failed, and forgets one it left again", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      const failing = deferred<AiReview>();
+      vi.mocked(aiReview).mockReturnValue(failing.promise);
+      const first = await openReview();
+      await userEvent.click(button("AI Review"));
+      first.unmount();
+      const second = await openReview();
+      second.unmount();
+      await openReview();
+      await act(async () => {
+        failing.reject(new Error("No quota"));
+        await failing.promise.catch(() => {});
+      });
+      await waitFor(() => {
+        expect(h.overview!.reviewError).toBe("No quota");
+      });
+      expect(h.overview!.reviewing).toBe(false);
     });
 
     it("says what's missing rather than reviewing when the AI isn't ready", async () => {

@@ -173,7 +173,7 @@ describe("Composer", () => {
   it("asks for something to be written first", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn<(body: string) => void>();
-    render(<Composer placeholder="Reply" submitLabel="Send" onSubmit={onSubmit} onCancel={nothing} />);
+    render(<Composer keep="reply:t" placeholder="Reply" submitLabel="Send" onSubmit={onSubmit} onCancel={nothing} />);
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(screen.getByRole("alert").textContent).toBe("Write something first.");
     expect(onSubmit).not.toHaveBeenCalled();
@@ -184,7 +184,14 @@ describe("Composer", () => {
     const sending = deferred<void>();
     const onSubmit = vi.fn<(body: string) => Promise<void>>(() => sending.promise);
     render(
-      <Composer placeholder="Reply" submitLabel="Send" initial="  Done  " onSubmit={onSubmit} onCancel={nothing} />,
+      <Composer
+        keep="reply:t"
+        placeholder="Reply"
+        submitLabel="Send"
+        initial="  Done  "
+        onSubmit={onSubmit}
+        onCancel={nothing}
+      />,
     );
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(onSubmit).toHaveBeenCalledWith("Done");
@@ -203,7 +210,16 @@ describe("Composer", () => {
       .fn<(body: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error("Not allowed"))
       .mockRejectedValueOnce("offline");
-    render(<Composer placeholder="Reply" submitLabel="Send" initial="Hi" onSubmit={onSubmit} onCancel={nothing} />);
+    render(
+      <Composer
+        keep="reply:t"
+        placeholder="Reply"
+        submitLabel="Send"
+        initial="Hi"
+        onSubmit={onSubmit}
+        onCancel={nothing}
+      />,
+    );
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Not allowed");
     await user.click(box("Reply"));
@@ -219,6 +235,7 @@ describe("Composer", () => {
     const onCancel = vi.fn<() => void>();
     render(
       <Composer
+        keep="reply:t"
         placeholder="Reply"
         submitLabel="Send"
         initial="Later"
@@ -313,6 +330,22 @@ describe("ThreadView", () => {
     await user.click(screen.getByRole("button", { name: "Resolve" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Not allowed");
     expect(screen.getByRole("button", { name: "Resolve" })).toHaveProperty("disabled", false);
+  });
+
+  it("keeps a reply half typed after it scrolls away or the pull request is left, until it's cancelled", async () => {
+    const user = userEvent.setup();
+    const thread = conversation();
+    const first = threadView(thread);
+    await user.click(screen.getByRole("button", { name: "Reply" }));
+    await user.type(box("Reply"), "Half a thought");
+    first.unmount();
+
+    threadView(thread);
+    expect(box("Reply").value).toBe("Half a thought");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    cleanup();
+    threadView(thread);
+    expect(screen.queryByRole("textbox", { name: "Reply" })).toBeNull();
   });
 
   it("replies now, or with your review", async () => {

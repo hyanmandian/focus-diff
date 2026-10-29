@@ -39,6 +39,7 @@ import { tabKeys } from "@/utils/keys/keys";
 import { isMac } from "@/utils/os/os";
 import type { Draft, Thread as ThreadData, ThreadComment } from "@/utils/review/review";
 import { linesFromPatch } from "@/utils/suggestion/suggestion";
+import { forgetTyping, keepTyping, typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
 
 function Person({ actor }: { actor: Actor }) {
@@ -59,9 +60,11 @@ export function Composer({
   secondary,
   suggestion,
   base,
+  keep,
 }: {
   placeholder: string;
   submitLabel: string;
+  keep: string;
   initial?: string;
   onSubmit: (body: string) => Promise<void> | void;
   onCancel: () => void;
@@ -70,12 +73,20 @@ export function Composer({
   base?: string[];
 }) {
   const t = useT();
-  const [body, setBody] = useState(initial);
+  const [body, setBodyState] = useState(() => typed(keep) ?? initial);
+  const setBody = (next: string) => {
+    setBodyState(next);
+    keepTyping(keep, next);
+  };
   const [added, setAdded] = useState(initial);
   if (initial !== added) {
     setAdded(initial);
     setBody(body.trim() ? `${body.trimEnd()}\n\n${initial}` : initial);
   }
+  const cancel = () => {
+    forgetTyping(keep);
+    onCancel();
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (action: (body: string) => Promise<void> | void) => {
@@ -87,6 +98,7 @@ export function Composer({
     setError(null);
     try {
       await action(body.trim());
+      forgetTyping(keep);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -101,7 +113,7 @@ export function Composer({
         label={placeholder}
         placeholder={placeholder}
         onSubmit={() => void run(onSubmit)}
-        onCancel={onCancel}
+        onCancel={cancel}
         suggestion={suggestion}
         base={base}
       />
@@ -111,7 +123,7 @@ export function Composer({
         </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" onClick={onCancel} disabled={busy}>
+        <Button variant="outline" onClick={cancel} disabled={busy}>
           {t("common.cancel")}
         </Button>
         {secondary ? (
@@ -152,7 +164,7 @@ function CommentView({
 }) {
   const t = useT();
   const api = useConversationApi();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => typed(`edit:${comment.id}`) !== null);
   const [reactions, toggle] = useReactions(comment.id, comment.reactions ?? []);
   const { body } = comment;
   return (
@@ -196,6 +208,7 @@ function CommentView({
               placeholder={t("review.commentPlaceholder")}
               submitLabel={t("review.save")}
               initial={body}
+              keep={`edit:${comment.id}`}
               onSubmit={async (text) => {
                 await api.editComment(comment, text);
                 setEditing(false);
@@ -231,7 +244,7 @@ export function ThreadView({
   const t = useT();
   const api = useConversationApi();
   const thread = api?.thread(drawn.id) ?? drawn;
-  const [replying, setReplying] = useState<string | null>(null);
+  const [replying, setReplying] = useState<string | null>(() => (typed(`reply:${drawn.id}`) === null ? null : ""));
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(!thread.resolved);
   const [whole, setWhole] = useState(false);
@@ -324,6 +337,7 @@ export function ThreadView({
             placeholder={t("review.reply")}
             submitLabel={t("review.reply")}
             initial={replying}
+            keep={`reply:${thread.id}`}
             onSubmit={async (body) => {
               await onReply(body);
               setReplying(null);
@@ -361,7 +375,7 @@ export function DraftView({
   const t = useT();
   const api = useConversationApi();
   const draft = api?.draft(drawn.key) ?? drawn;
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => typed(`draft:${drawn.key}`) !== null);
   const error = api?.draftError(draft.key);
   const sending = api?.draftSending(draft.key);
   return (
@@ -371,6 +385,7 @@ export function DraftView({
           placeholder={t("review.commentPlaceholder")}
           submitLabel={t("review.save")}
           initial={draft.body}
+          keep={`draft:${draft.key}`}
           onSubmit={(body) => {
             onEdit(body);
             setEditing(false);

@@ -4,6 +4,7 @@ import { afterEach, vi } from "vite-plus/test";
 import { resetAsking } from "@/utils/asking/asking";
 import { clearMocks, fakePlatform } from "@/utils/fake-platform/fake-platform";
 import { setPlatform } from "@/utils/platform/platform";
+import { resetTyping } from "@/utils/typing/typing";
 
 setPlatform(fakePlatform);
 
@@ -15,6 +16,7 @@ afterEach(async () => {
   clearMocks();
   localStorage.clear();
   resetAsking();
+  resetTyping();
   sessionStorage.clear();
   vi.restoreAllMocks();
 });

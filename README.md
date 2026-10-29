@@ -86,8 +86,8 @@ To build from source instead, run `npm install`, then `npm run build` (or `build
 
 The desktop app lives in the menu bar (the system tray on Windows and Linux): your review queues at a glance, and every pull request opens in its own window to review it whole (overview, diff, conversations, checks, merging), without github.com. Download it from the [`desktop-latest` release](https://github.com/hyanmandian/focus-diff/releases/tag/desktop-latest) or [focus-diff.com](https://focus-diff.com/desktop.html); after that, the panel offers each new version with an Update button (the `.deb` and `.rpm` update by installing the new package).
 
-- **Mac:** `Focus-Diff.dmg`, drag it to Applications and open it. It isn't signed with an Apple Developer ID yet, so the first time macOS stops it: open it, then go to **System Settings › Privacy & Security** and click **Open Anyway** (on macOS 14 and earlier, right-click it and choose **Open**).
-- **Windows:** `Focus-Diff-Setup.exe`, installed for your user (no administrator needed). It isn't code-signed yet, so SmartScreen may warn you the first time: choose **More info › Run anyway**.
+- **Mac:** `Focus-Diff.dmg`, drag it to Applications and open it. It isn't signed with an Apple Developer ID yet, so the first time macOS stops it: open it, then go to **System Settings › Privacy & Security** and click **Open Anyway** (on macOS 14 and earlier, right-click it and choose **Open**). On a Mac without Open Anyway, such as one a company manages, install it from Terminal instead, with nothing to approve: `curl -fsSL https://focus-diff.com/install.sh | sh`.
+- **Windows:** `Focus-Diff-Setup.exe`, installed for your user (no administrator needed). It isn't code-signed yet, so SmartScreen may warn you the first time: choose **More info › Run anyway**. Without Run anyway, install it from PowerShell instead: `irm https://focus-diff.com/install.ps1 | iex`.
 - **Linux:** `Focus-Diff.AppImage` (make it executable and run it), or `Focus-Diff.deb` / `Focus-Diff.rpm`. The tray icon needs a desktop with tray support (KDE, or GNOME with the AppIndicator extension); its menu opens the panel.
 
 ## Contributing

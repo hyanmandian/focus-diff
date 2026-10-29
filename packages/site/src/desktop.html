@@ -183,6 +183,8 @@
               <li>Click <strong>Open Anyway</strong> once more and confirm with Touch ID or your password.</li>
             </ol>
             <p>On macOS 14 and earlier, right-click Focus Diff in Applications and choose <strong>Open</strong>.</p>
+            <p>No Open Anyway, or a Mac your company manages? Paste this in Terminal instead. It installs the same app, in your own Applications folder when you can’t write to the main one, with nothing to approve:</p>
+            <pre><code>curl -fsSL https://focus-diff.com/install.sh | sh</code></pre>
           </div>
 
           <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" tabindex="0">
@@ -191,6 +193,8 @@
               <li>Run <code>Focus-Diff-Setup.exe</code>. It installs for your user, without asking for an administrator.</li>
               <li>When Windows says it protected your PC, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
             </ol>
+            <p>No Run anyway, or a PC your company manages? Paste this in PowerShell instead. It installs the same app for your user, with nothing to approve:</p>
+            <pre><code>irm https://focus-diff.com/install.ps1 | iex</code></pre>
           </div>
 
           <div role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" tabindex="0">

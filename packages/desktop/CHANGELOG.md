@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.1.0...desktop-v1.2.0) (2026-10-29)
+
+
+### Features
+
+* **desktop:** pick diff filter presets during setup ([9293084](https://github.com/hyanmandian/focus-diff/commit/92930845bd419d1de3de04b7cd81e72a63557303))
+
+
+### Bug Fixes
+
+* **desktop:** a GitHub sign-in waiting in the browser can be cancelled ([9a42aaa](https://github.com/hyanmandian/focus-diff/commit/9a42aaaa03398c4dba74abe1f1cfb4fb67522b10))
+* **desktop:** an AI review keeps going when you leave the pull request ([4e1db31](https://github.com/hyanmandian/focus-diff/commit/4e1db316d18b2ec4ed59177f94ba787584a62043))
+* **desktop:** find Claude Code and Cursor wherever the terminal finds them ([cc0f1a0](https://github.com/hyanmandian/focus-diff/commit/cc0f1a0065977902f505276d07a7e3fbe0dcfa57))
+* **desktop:** find the AI CLIs, keep work in progress, no more freezes ([779e477](https://github.com/hyanmandian/focus-diff/commit/779e477d1a7c390912c6a6f272b1897da234dfb1))
+* **desktop:** keep a question about selected lines after leaving the page ([d4711c1](https://github.com/hyanmandian/focus-diff/commit/d4711c147656b8ccae46e96181ffdf938ad3dbcb))
+* **desktop:** keep half-written replies, edits and comments ([e050325](https://github.com/hyanmandian/focus-diff/commit/e050325941a667b1573f30a992887ad7e8f09794))
+* **desktop:** no more freezes from opening a pull request or updating the tray ([6e64ad4](https://github.com/hyanmandian/focus-diff/commit/6e64ad46a9d5bb1e394e7c7a9197557c16194c69))
+
 ## [1.1.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.0.1...desktop-v1.1.0) (2026-10-29)
 
 

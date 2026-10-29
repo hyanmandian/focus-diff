@@ -2,8 +2,8 @@
 
 Focus Diff does not collect, sell, or share any data. Neither the browser extension nor the desktop app has an
 account, analytics or a server of its own: they send nothing to their developer, and talk to GitHub with your own
-sign-in. The desktop app's AI is the one exception you choose: when you ask it something, it runs the Claude Code or
-Cursor command line you installed and signed in to yourself.
+sign-in. The desktop app's AI is the one exception you choose: when you ask it something, it runs the Claude Code, Codex,
+Cursor or OpenCode command line you installed and signed in to yourself.
 
 ## The browser extension
 
@@ -27,7 +27,7 @@ Cursor command line you installed and signed in to yourself.
   and `github.com`; pictures and attachments from GitHub's `githubusercontent.com` hosts; the logs of checks you open,
   which GitHub serves from its storage on `blob.core.windows.net`; and the images you attach to a comment go to the
   upload address GitHub gives for them. It sends only what you do: comments, reviews, viewed files, merges and the like.
-- **AI, only when you ask:** it runs the Claude Code or Cursor command line on your computer, signed in to your own
+- **AI, only when you ask:** it runs the Claude Code, Codex, Cursor or OpenCode command line on your computer, signed in to your own
   account. What you ask about (the pull request's description and changes, your question, and the checkout when you
   pick the whole project) goes to that provider under your agreement with them. Focus Diff sends it nowhere else.
 - **Actions you set up:** a command you add runs on your computer, as you, with the pull request's number, title,

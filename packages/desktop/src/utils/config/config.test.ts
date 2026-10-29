@@ -63,9 +63,11 @@ describe("normalize", () => {
     expect(new Set(config.queues.map((q) => q.id)).size).toBe(2);
   });
 
-  it("keeps only Claude Code and Cursor, and filters with valid patterns", () => {
+  it("keeps only the coding agents it knows, and filters with valid patterns", () => {
+    expect(normalize({ ai: { provider: "codex" } }).ai.provider).toBe("codex");
+    expect(normalize({ ai: { provider: "opencode" } }).ai.provider).toBe("opencode");
     const config = normalize({
-      ai: { provider: "codex", effort: "minimal" },
+      ai: { provider: "gemini", effort: "minimal" },
       filters: [{ name: "Web", include: "\\.tsx$", exclude: "(" }],
     });
     expect(config.ai.provider).toBeNull();

@@ -83,7 +83,7 @@ export type ReviewTime = {
   holdWhileReviewing: boolean;
 };
 
-export const AI_PROVIDERS = ["claude", "cursor"] as const;
+export const AI_PROVIDERS = ["claude", "codex", "cursor", "opencode"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type Effort = (typeof EFFORTS)[number];

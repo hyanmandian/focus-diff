@@ -20,15 +20,19 @@ const READ_ONLY_TOOLS: &str = "Read,Grep,Glob";
 pub enum Provider {
     Claude,
     Cursor,
+    Codex,
+    Opencode,
 }
 
 impl Provider {
-    const ALL: [Provider; 2] = [Provider::Claude, Provider::Cursor];
+    const ALL: [Provider; 4] = [Provider::Claude, Provider::Cursor, Provider::Codex, Provider::Opencode];
 
     fn binaries(self) -> &'static [&'static str] {
         match self {
             Provider::Claude => &["claude"],
             Provider::Cursor => &["agent", "cursor-agent"],
+            Provider::Codex => &["codex"],
+            Provider::Opencode => &["opencode"],
         }
     }
 
@@ -36,6 +40,8 @@ impl Provider {
         match self {
             Provider::Claude => "claude update",
             Provider::Cursor => "agent update",
+            Provider::Codex => "npm install -g @openai/codex@latest",
+            Provider::Opencode => "opencode upgrade",
         }
     }
 
@@ -44,12 +50,25 @@ impl Provider {
             Provider::Claude if login_env().claude_config_dir.is_some() => "CLAUDE_CONFIG_DIR=~/.claude claude auth login".into(),
             Provider::Claude => "claude auth login".into(),
             Provider::Cursor => "agent login".into(),
+            Provider::Codex => "codex login".into(),
+            Provider::Opencode => "opencode auth login".into(),
+        }
+    }
+
+    fn probe(self) -> (&'static [&'static str], &'static [&'static str]) {
+        match self {
+            Provider::Claude => (&[], &CLAUDE_FLAGS),
+            Provider::Cursor => (&[], &CURSOR_FLAGS),
+            Provider::Codex => (&["exec"], &["--json", "--skip-git-repo-check", "--sandbox"]),
+            Provider::Opencode => (&["run"], &["--format", "--agent"]),
         }
     }
 
     fn effort(self, effort: Option<&str>) -> Option<&'static str> {
         let allowed: &[&'static str] = match self {
             Provider::Claude => &["low", "medium", "high", "xhigh", "max"],
+            Provider::Codex => &["low", "medium", "high", "xhigh"],
+            Provider::Opencode => &["low", "medium", "high", "max"],
             Provider::Cursor => &[],
         };
         let effort = effort?.trim();
@@ -315,8 +334,10 @@ pub fn status(provider: Provider) -> Status {
     let args: &[&str] = match provider {
         Provider::Claude => &["auth", "status"],
         Provider::Cursor => &["status"],
+        Provider::Codex => &["login", "status"],
+        Provider::Opencode => &[],
     };
-    let can_tell = knows(&binary, args[0]);
+    let can_tell = args.first().is_some_and(|first| knows(&binary, first));
     let signed_in = !can_tell || run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
         .map(|o| {
             let text = format!("{}{}", o.stdout, o.stderr).to_lowercase();
@@ -328,8 +349,8 @@ pub fn status(provider: Provider) -> Status {
         })
         .unwrap_or(false);
     let lacking = missing(provider, &binary);
-    let outdated = !can_tell || !lacking.is_empty();
-    crate::diagnostics::write("ai", &format!("{provider:?}: found, {}{}", if signed_in { "signed in" } else { "not signed in" }, if outdated { format!(", outdated (no {})", if lacking.is_empty() { args[0].to_string() } else { lacking.join(", ") }) } else { String::new() }));
+    let outdated = (!can_tell && !args.is_empty()) || !lacking.is_empty();
+    crate::diagnostics::write("ai", &format!("{provider:?}: found, {}{}", if signed_in { "signed in" } else { "not signed in" }, if outdated { format!(", outdated (no {})", if lacking.is_empty() { args.join(" ") } else { lacking.join(", ") }) } else { String::new() }));
     Status { provider, installed: true, signed_in, version, login_command: provider.login_command(), outdated, update_command: provider.update_command().into() }
 }
 
@@ -343,9 +364,11 @@ pub fn statuses() -> Vec<Status> {
 pub fn models(provider: Provider) -> Vec<String> {
     match provider {
         Provider::Claude => ["fable", "opus", "sonnet", "haiku"].map(String::from).to_vec(),
-        Provider::Cursor => {
+        Provider::Codex => vec![],
+        Provider::Cursor | Provider::Opencode => {
             let Some(binary) = find(provider) else { return vec![] };
-            let Ok(output) = run_with_limit(command(&binary).arg("--list-models"), None, Duration::from_secs(20)) else { return vec![] };
+            let listing: &[&str] = if provider == Provider::Cursor { &["--list-models"] } else { &["models"] };
+            let Ok(output) = run_with_limit(command(&binary).args(listing), None, Duration::from_secs(20)) else { return vec![] };
             if !output.status_ok {
                 return vec![];
             }
@@ -400,24 +423,29 @@ fn ask_with(q: &Question, binary: &Path) -> Result<Reply, String> {
     sweep(IDLE);
     let reply = match q.provider {
         Provider::Claude => claude(q, binary),
-        Provider::Cursor => cursor(q, binary),
+        Provider::Cursor => one_shot(q, binary, cursor_call),
+        Provider::Codex => one_shot(q, binary, codex_call),
+        Provider::Opencode => one_shot(q, binary, opencode_call),
     }
     .map_err(|e| outdated(q.provider, e))?;
     Ok(Reply { text: reply.text.trim().to_string(), ..reply })
 }
 
-fn help_text(binary: &Path) -> Option<Arc<str>> {
-    static HELP: OnceLock<Mutex<HashMap<PathBuf, Option<Arc<str>>>>> = OnceLock::new();
+type Helps = Mutex<HashMap<(PathBuf, String), Option<Arc<str>>>>;
+
+fn help_text(binary: &Path, sub: &[&str]) -> Option<Arc<str>> {
+    static HELP: OnceLock<Helps> = OnceLock::new();
     let cache = HELP.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Some(known) = cache.held().get(binary) {
+    let key = (binary.to_path_buf(), sub.join(" "));
+    if let Some(known) = cache.held().get(&key) {
         return known.clone();
     }
-    let read = run_with_limit(command(binary).arg("--help"), None, Duration::from_secs(10))
+    let read = run_with_limit(command(binary).args(sub).arg("--help"), None, Duration::from_secs(10))
         .ok()
         .map(|o| format!("{}\n{}", o.stdout, o.stderr))
         .filter(|text| text.contains("--"))
         .map(Arc::from);
-    cache.held().insert(binary.to_path_buf(), read.clone());
+    cache.held().insert(key, read.clone());
     read
 }
 
@@ -430,28 +458,27 @@ fn mentions(help: &str, flag: &str) -> bool {
 }
 
 fn knows(binary: &Path, flag: &str) -> bool {
-    help_text(binary).is_none_or(|help| mentions(&help, flag))
+    knows_in(binary, &[], flag)
+}
+
+fn knows_in(binary: &Path, sub: &[&str], flag: &str) -> bool {
+    help_text(binary, sub).is_none_or(|help| mentions(&help, flag))
 }
 
 const CLAUDE_FLAGS: [&str; 7] = ["--tools", "--no-session-persistence", "--strict-mcp-config", "--effort", "--json-schema", "--setting-sources", "dontAsk"];
 const CURSOR_FLAGS: [&str; 3] = ["--mode", "--sandbox", "--trust"];
 
 fn missing(provider: Provider, binary: &Path) -> Vec<&'static str> {
-    let wanted: &[&str] = match provider {
-        Provider::Claude => &CLAUDE_FLAGS,
-        Provider::Cursor => &CURSOR_FLAGS,
-    };
-    wanted.iter().copied().filter(|flag| !knows(binary, flag)).collect()
+    let (sub, wanted) = provider.probe();
+    wanted.iter().copied().filter(|flag| !knows_in(binary, sub, flag)).collect()
 }
 
 fn outdated(provider: Provider, error: String) -> String {
     if !error.to_lowercase().contains("unknown option") {
         return error;
     }
-    match provider {
-        Provider::Claude => tr!("Claude Code is too old for Focus Diff: run `claude update`, then try again", "O Claude Code está desatualizado para o Focus Diff: rode `claude update` e tente de novo"),
-        Provider::Cursor => tr!("Cursor's agent is too old for Focus Diff: run `agent update`, then try again", "O agente do Cursor está desatualizado para o Focus Diff: rode `agent update` e tente de novo"),
-    }
+    let command = provider.update_command();
+    tr!("It's too old for Focus Diff: run `{command}`, then try again", "Está desatualizado para o Focus Diff: rode `{command}` e tente de novo")
 }
 
 const IDLE: Duration = Duration::from_secs(600);
@@ -783,7 +810,9 @@ struct Chat {
     scratch: Option<Arc<Scratch>>,
 }
 
-fn cursor(q: &Question, binary: &Path) -> Result<Reply, String> {
+type Call = fn(&Question, &Path, &Path, &str, Option<&str>) -> Result<(String, Option<String>), String>;
+
+fn one_shot(q: &Question, binary: &Path, call: Call) -> Result<Reply, String> {
     let task = format!("{}{}", q.recap, q.task);
     let task = match q.schema {
         Some(schema) => with_schema(&task, schema),
@@ -795,7 +824,7 @@ fn cursor(q: &Question, binary: &Path) -> Result<Reply, String> {
     let earlier = name.and_then(|n| chats().held().get(n).filter(|c| c.key == key).map(|c| (c.id.clone(), c.scratch.clone())));
     if let Some((id, scratch)) = earlier {
         let workspace = q.project.or(scratch.as_ref().map(|s| s.0.as_path())).unwrap_or(Path::new("."));
-        match cursor_call(q, binary, workspace, q.task, Some(&id)) {
+        match call(q, binary, workspace, q.task, Some(&id)) {
             Ok((text, _)) => {
                 if let Some(n) = name {
                     chats().held().insert(n.to_string(), Chat { key, id, used: Instant::now(), scratch });
@@ -808,7 +837,7 @@ fn cursor(q: &Question, binary: &Path) -> Result<Reply, String> {
     }
     let scratch = if q.project.is_some() { None } else { Some(Arc::new(Scratch::new()?)) };
     let workspace = q.project.or(scratch.as_ref().map(|s| s.0.as_path())).unwrap_or(Path::new("."));
-    let (text, id) = cursor_call(q, binary, workspace, &message, None)?;
+    let (text, id) = call(q, binary, workspace, &message, None)?;
     if let (Some(n), Some(id)) = (name, id) {
         chats().held().insert(n.to_string(), Chat { key, id, used: Instant::now(), scratch });
     }
@@ -865,6 +894,116 @@ fn json_object(text: &str) -> Option<String> {
     let end = text.rfind('}')?;
     let candidate = text.get(start..=end)?;
     serde_json::from_str::<serde_json::Value>(candidate).ok().filter(|v| v.is_object()).map(|v| v.to_string())
+}
+
+fn request_file(workspace: &Path, message: &str) -> Result<Option<(PathBuf, String)>, String> {
+    if message.len() <= ARGV_LIMIT {
+        return Ok(None);
+    }
+    static REQUESTS: AtomicU64 = AtomicU64::new(0);
+    let file = workspace.join(format!(".focus-diff-request-{}-{}.md", std::process::id(), REQUESTS.fetch_add(1, Ordering::Relaxed)));
+    std::fs::write(&file, message).map_err(|e| e.to_string())?;
+    let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    Ok(Some((file, format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks."))))
+}
+
+fn inner_message(text: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(text)
+        .ok()
+        .and_then(|v| v["error"]["message"].as_str().or(v["message"].as_str()).map(String::from))
+        .unwrap_or_else(|| text.to_string())
+}
+
+fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat: Option<&str>) -> Result<(String, Option<String>), String> {
+    let mut cmd = command(binary);
+    cmd.current_dir(workspace).arg("exec");
+    let has = |flag: &str| knows_in(binary, &["exec"], flag);
+    cmd.args(["--json", "--skip-git-repo-check", "--sandbox", "read-only"]);
+    if has("--color") {
+        cmd.args(["--color", "never"]);
+    }
+    if has("--ignore-user-config") {
+        cmd.arg("--ignore-user-config");
+    }
+    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+        cmd.args(["--model", model]);
+    }
+    if let Some(effort) = q.provider.effort(q.effort) {
+        cmd.args(["--config", &format!("model_reasoning_effort=\"{effort}\"")]);
+    }
+    if let Some(chat) = chat {
+        cmd.args(["resume", chat]);
+    }
+    cmd.arg("-");
+    let output = run_until(&mut cmd, Some(message), limit(q), q.cancel)?;
+    let mut text = None;
+    let mut thread = None;
+    let mut problem = None;
+    for event in output.stdout.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()) {
+        match event["type"].as_str() {
+            Some("thread.started") => thread = event["thread_id"].as_str().map(String::from),
+            Some("item.completed") if event["item"]["type"] == "agent_message" => text = event["item"]["text"].as_str().map(String::from),
+            Some("error") => problem = event["message"].as_str().map(inner_message),
+            Some("turn.failed") => problem = event["error"]["message"].as_str().map(inner_message),
+            _ => {}
+        }
+    }
+    match (text, problem) {
+        (Some(text), None) => Ok((text, thread)),
+        (_, Some(problem)) => Err(problem.chars().take(400).collect()),
+        (None, None) => Err(failure(&output)),
+    }
+}
+
+fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat: Option<&str>) -> Result<(String, Option<String>), String> {
+    let mut cmd = command(binary);
+    cmd.current_dir(workspace).args(["run", "--format", "json", "--agent", "plan"]);
+    if knows_in(binary, &["run"], "--pure") {
+        cmd.arg("--pure");
+    }
+    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+        cmd.args(["--model", model]);
+    }
+    if let Some(effort) = q.provider.effort(q.effort).filter(|_| knows_in(binary, &["run"], "--variant")) {
+        cmd.args(["--variant", effort]);
+    }
+    if let Some(chat) = chat {
+        cmd.args(["--session", chat]);
+    }
+    let request = request_file(workspace, message)?;
+    cmd.arg("--").arg(request.as_ref().map_or(message, |(_, ask)| ask.as_str()));
+    let output = run_until(&mut cmd, None, limit(q), q.cancel);
+    if let Some((file, _)) = &request {
+        let _ = std::fs::remove_file(file);
+    }
+    let output = output?;
+    let mut session = None;
+    let mut last: Option<(String, String)> = None;
+    let mut problem = None;
+    for event in output.stdout.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()) {
+        if let Some(id) = event["sessionID"].as_str() {
+            session = Some(id.to_string());
+        }
+        match event["type"].as_str() {
+            Some("text") => {
+                let (message_id, piece) = (event["part"]["messageID"].as_str().unwrap_or_default(), event["part"]["text"].as_str().unwrap_or_default());
+                last = match last {
+                    Some((id, mut text)) if id == message_id => {
+                        text.push_str(piece);
+                        Some((id, text))
+                    }
+                    _ => Some((message_id.to_string(), piece.to_string())),
+                };
+            }
+            Some("error") => problem = event["error"]["data"]["message"].as_str().or(event["error"]["message"].as_str()).map(String::from),
+            _ => {}
+        }
+    }
+    match (last.map(|(_, text)| text).filter(|t| !t.trim().is_empty()), problem) {
+        (Some(text), None) => Ok((text, session)),
+        (_, Some(problem)) => Err(problem.chars().take(400).collect()),
+        (None, None) => Err(failure(&output)),
+    }
 }
 
 fn failure(output: &Output) -> String {
@@ -932,6 +1071,27 @@ mod tests {
         assert!(!mentions("  --setting-sources <s>", "--settings"));
         assert!(!mentions("--allowedTools", "--tools"));
         assert!(mentions("choices: default, dontAsk)", "dontAsk"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reads_codex_and_opencode_answers_and_errors() {
+        let dir = std::env::temp_dir();
+        let (codex, _) = fake("codex", "cat >/dev/null\necho '{\"type\":\"thread.started\",\"thread_id\":\"t1\"}'\necho 'noise'\necho '{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"Hi\"}}'\n");
+        let q = question(Provider::Codex, "DIFF", "Why?", None);
+        assert_eq!(codex_call(&q, &codex, &dir, "hello", None).unwrap(), ("Hi".to_string(), Some("t1".to_string())));
+        let (broken, _) = fake("codex-bad", "cat >/dev/null\necho '{\"type\":\"turn.failed\",\"error\":{\"message\":\"{\\\"error\\\":{\\\"message\\\":\\\"No such model\\\"}}\"}}'\n");
+        assert_eq!(codex_call(&q, &broken, &dir, "hello", None).unwrap_err(), "No such model");
+
+        let (opencode, log) = fake("opencode", "echo \"$@\" >> \"$LOG\"\necho '{\"type\":\"text\",\"sessionID\":\"s1\",\"part\":{\"messageID\":\"m1\",\"text\":\"Old\"}}'\necho '{\"type\":\"text\",\"sessionID\":\"s1\",\"part\":{\"messageID\":\"m2\",\"text\":\"New \"}}'\necho '{\"type\":\"text\",\"sessionID\":\"s1\",\"part\":{\"messageID\":\"m2\",\"text\":\"answer\"}}'\n");
+        let q = question(Provider::Opencode, "DIFF", "Why?", None);
+        assert_eq!(opencode_call(&q, &opencode, &dir, "hello", Some("s0")).unwrap(), ("New answer".to_string(), Some("s1".to_string())));
+        let said = std::fs::read_to_string(&log).unwrap();
+        assert!(said.contains("--agent plan") && said.contains("--session s0"), "{said}");
+        let (failing, _) = fake("opencode-bad", "echo '{\"type\":\"error\",\"error\":{\"data\":{\"message\":\"Bad model\"}}}'\n");
+        assert_eq!(opencode_call(&q, &failing, &dir, "hello", None).unwrap_err(), "Bad model");
+        let (silent, _) = fake("opencode-quiet", "exit 1\n");
+        assert!(opencode_call(&q, &silent, &dir, "hello", None).is_err());
     }
 
     #[cfg(unix)]
@@ -1162,5 +1322,15 @@ esac
         println!("Cursor: {:?}", ask_cursor("Reply with exactly: OK"));
         println!("Cursor again: {:?}", ask_cursor("What did you reply last time, and what is the secret word?"));
         close("round-trip-cursor");
+        for provider in [Provider::Codex, Provider::Opencode] {
+            let name = format!("round-trip-{provider:?}");
+            let ask_it = |task| ask(Question { provider, model: None, effort: None, system: "Answer in one short line.", material: "The secret word is PONG.", task, recap: "", project: None, schema: None, session: Some(&name), own_settings: false, cancel: None });
+            let first = ask_it("Reply with exactly: OK");
+            println!("{provider:?}: {first:?}");
+            let again = ask_it("What is the secret word? One word.").unwrap();
+            println!("{provider:?} again: {again:?}");
+            assert!(again.resumed && again.text.to_uppercase().contains("PONG"));
+            close(&name);
+        }
     }
 }

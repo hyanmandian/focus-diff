@@ -184,7 +184,7 @@ export const review: Dictionary["review"] = {
   you: "Você: ",
   turnIntoComment: "Transformar em comentário",
   readingCode: "{name} está lendo o código…",
-  setUpAi: "Configure o Claude Code ou o Cursor nos Ajustes para perguntar sobre o código aqui.",
+  setUpAi: "Configure o Claude Code, o Codex, o Cursor ou o OpenCode nos Ajustes para perguntar sobre o código aqui.",
   questionLabel: "Sua pergunta sobre estas linhas",
   commentLabel: "Seu comentário para o autor",
   askFollowUp: "Faça outra pergunta…",

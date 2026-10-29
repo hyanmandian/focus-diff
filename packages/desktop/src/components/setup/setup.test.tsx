@@ -234,7 +234,7 @@ describe("Setup", () => {
     expect(screen.getByRole("radio", { name: /No AI/u }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText("You can turn it on later.")).toBeTruthy();
     expect(screen.getByText("cursor login")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Get it/u })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Get it/u })).toHaveLength(2);
     await user.click(screen.getByRole("radio", { name: /Claude Code/u }));
     expect(screen.getByRole("radio", { name: /Claude Code/u }).getAttribute("aria-checked")).toBe("true");
     expect(screen.queryByText("You can turn it on later.")).toBeNull();
@@ -341,7 +341,7 @@ describe("Setup", () => {
     });
     expect(screen.queryByLabelText("Looking for coding agents")).toBeNull();
     const getIt = screen.getAllByRole("button", { name: /Get it/u });
-    expect(getIt).toHaveLength(2);
+    expect(getIt).toHaveLength(4);
     await user.click(getIt[0]!);
     expect(sent("open_url")[0]?.args).toEqual({ url: "https://claude.com/product/claude-code" });
   });

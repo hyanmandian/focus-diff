@@ -1,3 +1,4 @@
+import type { AiProvider } from "@/utils/config/config";
 import { i18n } from "@/utils/i18n/i18n";
 import { invoke, platform } from "@/utils/platform/platform";
 
@@ -23,7 +24,7 @@ export type DeviceCode = {
 type StoredFile = "config" | "pace";
 
 export type AiStatus = {
-  provider: "claude" | "cursor";
+  provider: AiProvider;
   installed: boolean;
   signed_in: boolean;
   version: string | null;

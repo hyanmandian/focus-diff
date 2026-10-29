@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.0.1...desktop-v1.1.0) (2026-10-29)
+
+
+### Features
+
+* **desktop:** a local log, Report a Problem, and a setup that can't get stuck ([b5fb730](https://github.com/hyanmandian/focus-diff/commit/b5fb730fcd6dbdb6a7c6d46966276622c1efbc08))
+* **desktop:** a local log, Report a Problem, and a setup that can't get stuck ([4816f30](https://github.com/hyanmandian/focus-diff/commit/4816f30576f9aefc67ee6692586394764092e5a7))
+
+
+### Bug Fixes
+
+* **desktop:** draw the menu bar icon at the system's size ([dd47afd](https://github.com/hyanmandian/focus-diff/commit/dd47afd4fee8c5535324d79229923a8923efc12f))
+* **desktop:** open windows from commands without freezing on Windows ([8aa6d3e](https://github.com/hyanmandian/focus-diff/commit/8aa6d3e642418c637da449bcb42d290ca3b91d0a))
+
 ## [1.0.1](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.0.0...desktop-v1.0.1) (2026-10-29)
 
 

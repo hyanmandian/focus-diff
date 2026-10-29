@@ -11,8 +11,8 @@ This repository holds everything Focus Diff is, as npm workspaces:
 ```text
 packages/
   extension/      the browser extension: WXT and TypeScript
-  desktop/        the Mac app: Tauri 2 (Rust) with a React front end and its own UI kit, built with Vite+
-  site/           focus-diff.com, a static page
+  desktop/        the desktop app for Mac, Windows and Linux: Tauri 2 (Rust) with a React front end and its own UI kit, built with Vite+
+  site/           focus-diff.com, three static pages
   core/           logic both apps share (filters, recipes, the review-time estimate): TypeScript, no dependencies
 ```
 
@@ -53,11 +53,11 @@ tests/              Playwright end-to-end tests, on a local copy of a pull reque
 
 The welcome page's demo (`components/demo/`) is the real bar on a sample pull request, built from the same components and the same review logic (`utils/review/review.ts`) as on a review site. `build:demo` packs it for any web page, reading the messages from the locales instead of the extension: add `<div data-focus-diff-demo data-settings="#install"></div>` and `<script type="module" src="focus-diff-demo.js"></script>`.
 
-The extension's code follows the same layout as the Mac app's: `src/components/<name>/<name>.ts` (UI that builds elements) and `src/utils/<name>/<name>.ts` (logic), kebab-case, one folder per module even when it has a single file, each with its unit test (Vitest with WXT's fake browser) beside it as `<name>.test.ts`. Import the file itself, never an index. `src/entrypoints/` stays thin: WXT needs it, and its files only wire up a component or util.
+The extension's code follows the same layout as the desktop app's: `src/components/<name>/<name>.ts` (UI that builds elements) and `src/utils/<name>/<name>.ts` (logic), kebab-case, one folder per module even when it has a single file, each with its unit test (Vitest with WXT's fake browser) beside it as `<name>.test.ts`. Import the file itself, never an index. `src/entrypoints/` stays thin: WXT needs it, and its files only wire up a component or util.
 
 The end-to-end tests serve a saved pull request page in place of github.com, so they don't depend on the network.
 
-### The Mac app (`packages/desktop`)
+### The desktop app (`packages/desktop`)
 
 ```sh
 npm run tauri dev   # the app, with the menu bar icon, hot reload for the pages and Rust rebuilt on change
@@ -65,7 +65,8 @@ npx vp dev          # the pages alone in a browser, on sample data (no Rust, no 
 npx vp check        # Oxfmt, Oxlint (strict, type-aware) and types
 npx vp test --coverage   # unit tests, at 100% coverage
 npm run e2e         # Playwright on the pages, in Chromium and WebKit
-npm run tauri build # a signed .app in src-tauri/target/release/bundle (needs the updater key, see Releasing)
+npm run notices     # THIRD-PARTY-NOTICES.txt, the licenses the app ships with (the build runs it too)
+npm run tauri build # this system's bundles in src-tauri/target/release/bundle (signing the updater's files needs the key, see Releasing)
 ```
 
 What makes it a Tauri app is `src/entries/` (a page each, which plugs in the Tauri platform and draws a screen),
@@ -92,19 +93,19 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 
 Pull requests are merged with all their commits, so every commit message follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. A maintainer then uploads the zips to the Chrome Web Store and Firefox Add-ons by hand.
 
-The Mac app has its own release pull request (tagged `desktop-v…`). Merging it builds the app on macOS (one universal build for Apple Silicon and Intel), attaches `Focus-Diff.dmg` and the updater's archive, publishes the release without making it the latest (the site's download links follow the extension's), and puts `latest.json`, where installed apps look for updates, on the `desktop-latest` release. The updater's key goes in the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+The desktop app has its own release pull request (tagged `desktop-v…`). Merging it builds one universal Mac app (`Focus-Diff.dmg`), the Windows installer (`Focus-Diff-Setup.exe`) and the Linux packages (`Focus-Diff.AppImage`, `.deb`, `.rpm`), attests and attaches them, publishes the release without making it the latest, and copies the installers and `latest.json` to the `desktop-latest` release, where the site's download links and the updater look. The updater's key goes in the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ## Supply chain
 
-- Add no runtime dependency: the extension ships only its own code, and `npm run check` enforces it.
+- Add no runtime dependency to the extension: it ships only its own code, and its `npm run check` enforces it. A dependency of the desktop app needs a license that allows shipping it in a closed bundle with its notice (MIT, ISC, BSD, Apache, MPL and the like), and lands in `THIRD-PARTY-NOTICES.txt`.
 - Pin every action to a full commit SHA with its version in a comment (`uses: owner/action@<sha> # vX.Y.Z`), and give each job only the permissions it needs. Dependabot keeps both up to date.
-- The Security workflow lints the workflows (actionlint, zizmor), scans the lockfile (OSV-Scanner) and the commits (TruffleHog), runs CodeQL and reviews new dependencies on pull requests, and runs OpenSSF Scorecard on `main`. Fix what it reports in the same pull request.
+- The Security workflow lints the workflows (actionlint, zizmor), scans the lockfiles (OSV-Scanner, npm and Cargo) and the commits (TruffleHog), runs CodeQL and reviews new dependencies on pull requests, and runs OpenSSF Scorecard on `main`. Fix what it reports in the same pull request.
 - Use the Node.js version in `.nvmrc`.
 
 ## Pull requests
 
 - Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
-- Put new text in both languages: the extension's in `src/locales/en.json` and `src/locales/pt_BR.json`, the Mac app's in `src/locales/en/` and `src/locales/pt-BR/`.
+- Put new text in both languages: the extension's in `src/locales/en.json` and `src/locales/pt_BR.json`, the desktop app's in `src/locales/en/` and `src/locales/pt-BR/`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.
 - Check the panel in the site's light and dark themes, and with the keyboard.

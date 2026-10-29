@@ -15,11 +15,11 @@ Your pull request reviews from the menu bar (system tray on Windows and Linux): 
 
 ## Privacy and security
 
-- GitHub's token stays in the system keychain (or with the GitHub CLI) and is only ever sent to `api.github.com`, by the app's Rust side. The web views never see it.
+- GitHub's token stays in the system keychain (or with the GitHub CLI) and is only ever sent to GitHub (`api.github.com`, and `github.com` when git fetches a project for the AI), by the app's Rust side. The web views never see it.
 - Nothing goes anywhere but GitHub — and, when you ask for it, your own AI CLI on your computer. For the AI to read a project, the pull request's code is fetched into the app's cache folder with git, without your git config (no credential helpers or hooks), and the agent settings in it that would run things (hooks, MCP servers) are deleted first. Checkouts unused for two weeks are removed.
 - Updates are signed: the app installs only what the release key signed, and only when you say so.
 - HTML from GitHub is sanitized with an allowlist on top of a strict Content-Security-Policy. Links open in your browser.
-- Few dependencies, each well known: Tauri and its official plugins (notifications, opener, dialog, updater), serde, regex, ureq and keyring in Rust; React, Base UI (through shadcn/ui), lucide and @pierre/diffs on the web side. `npm audit` is clean; of the Rust crates, the [OSV](https://osv.dev) database lists only "unmaintained" notices and one unsoundness in `glib` 0.18, all from Tauri's own Linux (GTK) stack and in code paths the app doesn't use.
+- Few dependencies, each well known: Tauri and its official plugins (notifications, opener, dialog, updater), serde, regex, ureq and keyring in Rust; React, Base UI (through shadcn/ui), lucide, Mermaid and @pierre/diffs on the web side. Their licenses ship with the app in `THIRD-PARTY-NOTICES.txt` (Focus Diff › Third-Party Licenses). `npm audit` is clean; of the Rust crates, the [OSV](https://osv.dev) database lists only "unmaintained" notices and one unsoundness in `glib` 0.18, all from Tauri's own Linux (GTK) stack and in code paths the app doesn't use.
 
 ## Fast and light
 
@@ -43,7 +43,7 @@ Signing in with GitHub (device flow) needs an OAuth app's client id at build tim
 
 ## Releasing
 
-Merging the desktop's release pull request (tagged `desktop-v…`, see the root `CONTRIBUTING.md`) builds one universal Mac app for Apple Silicon and Intel (`Focus-Diff.dmg`), the Windows installer (`Focus-Diff-Setup.exe`, NSIS, per user) and the Linux packages (`Focus-Diff.AppImage`, `.deb`, `.rpm`, built on the oldest supported Ubuntu so the AppImage runs on newer systems), attaches them with the updater's files, and puts one `latest.json` for all three on the `desktop-latest` release, where the updater looks (`https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/latest.json`). Nothing is code-signed yet (no Apple Developer ID, no Windows certificate): the release is downloaded and installed by hand. CI builds the Windows and Linux installers on every pull request and starts the app once on each, to see it come up. The updater's key, made with `tauri signer generate` and kept outside the repository, goes in the secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+Merging the desktop's release pull request (tagged `desktop-v…`, see the root `CONTRIBUTING.md`) builds one universal Mac app for Apple Silicon and Intel (`Focus-Diff.dmg`), the Windows installer (`Focus-Diff-Setup.exe`, NSIS, per user) and the Linux packages (`Focus-Diff.AppImage`, `.deb`, `.rpm`, built on the oldest supported Ubuntu so the AppImage runs on newer systems), attaches them with the updater's files, and puts one `latest.json` for all three on the `desktop-latest` release, where the updater looks (`https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/latest.json`). Nothing is code-signed yet (no Apple Developer ID, no Windows certificate): the first install is by hand, and after that the app offers each update with its Update button. CI builds the Windows and Linux installers on every pull request and starts the app once on each, to see it come up. The updater's key, made with `tauri signer generate` and kept outside the repository, goes in the secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
 ## Layout
 

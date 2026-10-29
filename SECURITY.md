@@ -1,6 +1,6 @@
 # Security policy
 
-Focus Diff runs on github.com pages and has access to what they show, so security reports are taken seriously.
+Focus Diff runs on github.com pages and, as a desktop app, holds a GitHub token, so security reports are taken seriously.
 
 ## Reporting a vulnerability
 
@@ -8,7 +8,7 @@ Please report it privately through [GitHub's vulnerability reporting](https://gi
 
 ## Supported versions
 
-Only the latest release gets fixes. Store builds update on their own.
+Only the latest release of each app gets fixes. Store builds update on their own, and the desktop app offers each new version with its Update button.
 
 ## Verifying a release
 
@@ -20,8 +20,10 @@ gh attestation verify focus-diff-chromium.zip --repo hyanmandian/focus-diff
 
 The release also carries the same provenance as `focus-diff.sigstore.json` and `focus-diff.intoto.jsonl`.
 
+The desktop app's files are attested the same way (`gh attestation verify Focus-Diff.dmg --repo hyanmandian/focus-diff`), and its updater installs only files signed with the release key.
+
 ## How the project is kept safe
 
-- **No runtime dependencies:** the extension ships only its own code, and `npm run check` fails if a runtime dependency is added. Development dependencies are pinned by the lockfile, which is linted, scanned with OSV-Scanner, and updated weekly by Dependabot a week after each version is published.
-- **Workflows:** every action is pinned to a full commit SHA, each job gets only the permissions it needs, and the workflows are linted with actionlint and zizmor. CodeQL, TruffleHog and OpenSSF Scorecard run on every pull request or weekly.
+- **No runtime dependencies in the extension:** it ships only its own code, and its `npm run check` fails if a runtime dependency is added. The desktop app's dependencies, and every development dependency, are pinned by the lockfiles (`package-lock.json` and `Cargo.lock`), which are scanned with OSV-Scanner, and updated weekly by Dependabot a week after each version is published.
+- **Workflows:** every action is pinned to a full commit SHA, each job gets only the permissions it needs, and the workflows are linted with actionlint and zizmor. CodeQL, TruffleHog and OpenSSF Scorecard run on every pull request or weekly. The dependency review allows one advisory, GHSA-wrw7-89jp-8q8g (unsoundness in `glib` 0.18), which only Tauri's Linux (GTK) build pulls in, in code the app doesn't call.
 - **Store credentials:** CI holds none. A maintainer uploads each release to the Chrome Web Store and Firefox Add-ons by hand.

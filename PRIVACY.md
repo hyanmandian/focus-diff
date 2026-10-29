@@ -32,8 +32,8 @@ Cursor command line you installed and signed in to yourself.
   pick the whole project) goes to that provider under your agreement with them. Focus Diff sends it nowhere else.
 - **Actions you set up:** a command you add runs on your computer, as you, with the pull request's number, title,
   link, repository and author, and your GitHub login. It asks before running a command the first time.
-- **Updates:** it checks `github.com/hyanmandian/focus-diff` releases for a newer version and installs it only if its
-  signature matches.
+- **Updates:** every six hours it checks `github.com/hyanmandian/focus-diff` releases for a newer version, and when
+  you click Update it downloads it from GitHub and installs it only if its signature matches.
 - **Third parties:** none but GitHub, and the AI provider you pick when you use the AI. On Windows, the installer may
   download Microsoft's WebView2 runtime if the system doesn't have it.
 

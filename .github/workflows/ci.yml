@@ -187,6 +187,16 @@ jobs:
           Stop-Process -Id $app.Id
           Get-Content launch.log
 
+      - name: Install with the site's script and check the app stays up (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & (Join-Path $env:GITHUB_WORKSPACE 'packages/site/src/install.ps1')
+          Start-Sleep -Seconds 20
+          $running = Get-Process | Where-Object { $_.Path -like "$env:LOCALAPPDATA\Focus Diff\*" }
+          if (-not $running) { throw 'The installed app is not running' }
+          $running | Stop-Process
+
       - name: Upload the installers
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

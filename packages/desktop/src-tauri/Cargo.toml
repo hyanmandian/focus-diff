@@ -1,6 +1,6 @@
 [package]
 name = "focus-diff"
-version = "0.1.0"
+version = "1.0.0"
 description = "Your pull request reviews, from the menu bar."
 authors = ["Hyan Mandian"]
 edition = "2024"

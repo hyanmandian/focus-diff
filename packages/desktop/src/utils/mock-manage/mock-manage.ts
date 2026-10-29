@@ -12,10 +12,10 @@ const person = (login: string, name: string) => ({
 });
 const people = {
   me: person("you", "You"),
-  ana: person("octocat", "Ana Lima"),
-  bruno: person("defunkt", "Bruno Costa"),
-  carla: person("mojombo", "Carla Dias"),
-  dev: person("pjhyett", "Devon Hart"),
+  ana: person("ana-lima", "Ana Lima"),
+  bruno: person("bruno-costa", "Bruno Costa"),
+  carla: person("carla-dias", "Carla Dias"),
+  dev: person("devon-hart", "Devon Hart"),
 };
 const ok = (data: unknown): Reply => ({ status: 200, body: JSON.stringify(data) });
 
@@ -296,35 +296,35 @@ const timeline = {
               messageHeadline: "Keep the promo code when the cart changes",
               committedDate: iso(180),
               url: "https://github.com/acme/web/commit/1111111",
-              author: { user: { login: "octocat" }, name: "Ana Lima" },
+              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
             },
           },
           {
             __typename: "LabeledEvent",
             id: "le1",
             createdAt: iso(170),
-            actor: { login: "octocat" },
+            actor: { login: "ana-lima" },
             label: { name: "checkout", color: "1d76db" },
           },
           {
             __typename: "LabeledEvent",
             id: "le2",
             createdAt: iso(170),
-            actor: { login: "octocat" },
+            actor: { login: "ana-lima" },
             label: { name: "bug", color: "d73a4a" },
           },
           {
             __typename: "ReviewRequestedEvent",
             id: "rr1",
             createdAt: iso(165),
-            actor: { login: "octocat" },
+            actor: { login: "ana-lima" },
             requestedReviewer: { __typename: "User", login: "you" },
           },
           {
             __typename: "ReviewRequestedEvent",
             id: "rr2",
             createdAt: iso(165),
-            actor: { login: "octocat" },
+            actor: { login: "ana-lima" },
             requestedReviewer: { __typename: "Team", name: "Payments" },
           },
           {
@@ -336,14 +336,14 @@ const timeline = {
               messageHeadline: "Show why a code stopped applying",
               committedDate: iso(120),
               url: "https://github.com/acme/web/commit/2222222",
-              author: { user: { login: "octocat" }, name: "Ana Lima" },
+              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
             },
           },
           {
             __typename: "RenamedTitleEvent",
             id: "rn1",
             createdAt: iso(100),
-            actor: { login: "octocat" },
+            actor: { login: "ana-lima" },
             previousTitle: "Keep promo code",
             currentTitle: "Checkout: keep the promo code when the cart changes",
           },
@@ -351,7 +351,7 @@ const timeline = {
             __typename: "HeadRefForcePushedEvent",
             id: "fp1",
             createdAt: iso(60),
-            actor: { login: "octocat" },
+            actor: { login: "ana-lima" },
             beforeCommit: { abbreviatedOid: "9f8e7d6" },
             afterCommit: { abbreviatedOid: "2222222" },
             ref: { name: "ana/keep-promo-code" },
@@ -365,7 +365,7 @@ const timeline = {
               messageHeadline: "Check the minimum against the new total",
               committedDate: iso(40),
               url: "https://github.com/acme/web/commit/3333333",
-              author: { user: { login: "octocat" }, name: "Ana Lima" },
+              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
             },
           },
           {
@@ -377,14 +377,14 @@ const timeline = {
               messageHeadline: "Test: keeps a valid code",
               committedDate: iso(12),
               url: "https://github.com/acme/web/commit/abc123f",
-              author: { user: { login: "octocat" }, name: "Ana Lima" },
+              author: { user: { login: "ana-lima" }, name: "Ana Lima" },
             },
           },
           {
             __typename: "CrossReferencedEvent",
             id: "cr1",
             createdAt: iso(11),
-            actor: { login: "mojombo" },
+            actor: { login: "carla-dias" },
             willCloseTarget: false,
             source: {
               __typename: "Issue",
@@ -475,7 +475,7 @@ export async function manageRoute(cmd: string, args: Args): Promise<unknown> {
                 nodes: [
                   {
                     createdAt: iso(60),
-                    actor: { login: "octocat" },
+                    actor: { login: "ana-lima" },
                     beforeCommit: { oid: "9f8e7d6aaaa" },
                     afterCommit: { oid: "2222222bbbb" },
                   },

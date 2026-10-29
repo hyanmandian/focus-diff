@@ -202,19 +202,19 @@ test("writes a comment with an @mention and an emoji, and keeps it for the revie
   const box = page.getByRole("combobox", { name: "Your comment for the author" });
   await expect(box).toBeFocused();
 
-  await box.pressSequentially("Thanks @octo");
+  await box.pressSequentially("Thanks @ana");
   const people = page.getByRole("listbox", { name: "People to mention" });
-  await expect(people.getByRole("option", { name: /octocat/u })).toBeVisible();
+  await expect(people.getByRole("option", { name: /ana-lima/u })).toBeVisible();
   await box.press("Enter");
-  await expect(box).toHaveValue(/Thanks @octocat $/u);
+  await expect(box).toHaveValue(/Thanks @ana-lima $/u);
 
   await box.pressSequentially("this works :tad");
   await expect(page.getByRole("option", { name: /tada/u })).toBeVisible();
   await box.press("Enter");
-  await expect(box).toHaveValue("Thanks @octocat this works :tada: ");
+  await expect(box).toHaveValue("Thanks @ana-lima this works :tada: ");
 
   await page.getByRole("tab", { name: "Preview" }).click();
-  await expect(page.getByRole("tabpanel", { name: "Preview" }).getByRole("link", { name: "@octocat" })).toBeVisible();
+  await expect(page.getByRole("tabpanel", { name: "Preview" }).getByRole("link", { name: "@ana-lima" })).toBeVisible();
 
   const submit = page.getByRole("button", { name: /^Submit Review/u });
   await expect(submit).toHaveText(/1/u);

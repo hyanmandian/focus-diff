@@ -21,6 +21,8 @@ const isGroups = (value: unknown): value is Groups => Array.isArray(value);
 
 const escape = (s: string) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
+const EMOJI: Record<string, string> = { tada: "🎉", rocket: "🚀", taco: "🌮", eyes: "👀", "+1": "👍", heart: "❤️" };
+
 function markdown(text: string) {
   const out: string[] = [];
   const parts = text.replaceAll("\r\n", "\n").split(/^(`{3,}[^\n]*\n[\s\S]*?\n?`{3,})$/mu);
@@ -39,6 +41,7 @@ function markdown(text: string) {
         .replaceAll(/`([^`]+)`/gu, "<code>$1</code>")
         .replaceAll(/\*\*([^*]+)\*\*/gu, "<strong>$1</strong>")
         .replaceAll(/(^|\s)@([\w-]+)/gu, '$1<a href="https://github.com/$2">@$2</a>')
+        .replaceAll(/:([a-z0-9_+-]+):/gu, (code, name: string) => EMOJI[name] ?? code)
         .replaceAll("\n", "<br>");
       out.push(
         block.startsWith("&gt; ") || block.startsWith("> ")
@@ -178,7 +181,7 @@ function seed({ people, threads, details, files }: Seed) {
   const t1 = thread(first.path, first.line, [
     {
       ...comment(opener.author, "Should `promoError` be cleared when the code is removed by hand?", 9, {
-        reactionGroups: groups({ THUMBS_UP: ["octocat", "you"], EYES: ["mojombo"] }),
+        reactionGroups: groups({ THUMBS_UP: ["ana-lima", "you"], EYES: ["carla-dias"] }),
       }),
       id: opener.id,
     },
@@ -232,7 +235,7 @@ function seed({ people, threads, details, files }: Seed) {
         15,
       ),
       ...(n.__typename === "IssueComment"
-        ? { reactionGroups: groups({ HEART: ["octocat", "defunkt", "you"], ROCKET: ["mojombo"] }) }
+        ? { reactionGroups: groups({ HEART: ["ana-lima", "bruno-costa", "you"], ROCKET: ["carla-dias"] }) }
         : {}),
     })),
     {
@@ -252,7 +255,7 @@ function seed({ people, threads, details, files }: Seed) {
     pull: {
       body: "Changing the cart used to drop the promo code, so people had to type it again. Now the code stays and is checked against the new total.\n\n- Re-validates the code when items change\n- Shows why a code stopped applying\n\nCloses #1790.",
       bodyHTML: pr.bodyHTML,
-      reactionGroups: groups({ HOORAY: ["defunkt", "mojombo"] }),
+      reactionGroups: groups({ HOORAY: ["bruno-costa", "carla-dias"] }),
     },
     files,
   };

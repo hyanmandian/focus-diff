@@ -13,10 +13,10 @@ const person = (login: string, name: string) => ({
 });
 const people = {
   me: person("you", "You"),
-  ana: person("octocat", "Ana Lima"),
-  bruno: person("defunkt", "Bruno Costa"),
-  carla: person("mojombo", "Carla Dias"),
-  dev: person("pjhyett", "Devon Hart"),
+  ana: person("ana-lima", "Ana Lima"),
+  bruno: person("bruno-costa", "Bruno Costa"),
+  carla: person("carla-dias", "Carla Dias"),
+  dev: person("devon-hart", "Devon Hart"),
 };
 
 let n = 1800;
@@ -155,7 +155,7 @@ const authored = [
       ],
     },
     reviewRequests: {
-      nodes: [{ requestedReviewer: { __typename: "User", login: "defunkt", avatarUrl: people.bruno.avatarUrl } }],
+      nodes: [{ requestedReviewer: { __typename: "User", login: "bruno-costa", avatarUrl: people.bruno.avatarUrl } }],
     },
   }),
   pr({
@@ -695,7 +695,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
                   headRefName: "ana/promo-reasons",
                   baseRefName: "ana/keep-promo-code",
                   reviewDecision: "REVIEW_REQUIRED",
-                  author: { login: "octocat", name: "Ana Lima" },
+                  author: { login: "ana-lima", name: "Ana Lima" },
                 },
               ]
             : [];
@@ -805,6 +805,14 @@ async function listen<T>(event: string, handler: (payload: T) => void): Promise<
   };
 }
 
+function initials(url: string) {
+  const login = new URL(url).pathname.split("/").findLast(Boolean) ?? "?";
+  let hue = 0;
+  for (let i = 0; i < login.length; i++) hue = (hue + login.codePointAt(i)! * 47) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="hsl(${hue} 45% 42%)"/><text x="32" y="42" font-family="system-ui,sans-serif" font-size="28" font-weight="600" fill="#fff" text-anchor="middle">${login[0]!.toUpperCase()}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export const mockPlatform: Platform = {
   invoke: async <T>(command: string, args?: PlatformArgs, options?: InvokeOptions) =>
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the caller names the shape the sample answers in
@@ -814,4 +822,5 @@ export const mockPlatform: Platform = {
   emitTo: () => Promise.resolve(),
   version: () => Promise.resolve(""),
   closeWindow: () => Promise.resolve(),
+  mediaUrl: (kind, url) => (kind === "avatar" ? initials(url) : url),
 };

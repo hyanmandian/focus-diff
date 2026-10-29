@@ -288,7 +288,8 @@ jobs:
           gh release edit "$TAG" --draft=false --latest=false --repo "$GITHUB_REPOSITORY"
           if ! gh release view desktop-latest --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release create desktop-latest --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
-              --title "Focus Diff: updates" \
-              --notes "Where the installed app looks for updates. To install it, download it from the newest desktop-v release: Focus-Diff.dmg (Mac), Focus-Diff-Setup.exe (Windows), Focus-Diff.AppImage, .deb or .rpm (Linux)."
+              --title "Focus Diff desktop: newest" \
+              --notes "The newest desktop app, at links that don't change: Focus-Diff.dmg (Mac), Focus-Diff-Setup.exe (Windows), Focus-Diff.AppImage, .deb or .rpm (Linux). The installed app looks for updates here too."
           fi
-          gh release upload desktop-latest release/latest.json --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload desktop-latest release/latest.json release/Focus-Diff.dmg release/Focus-Diff-Setup.exe \
+            release/Focus-Diff.AppImage release/Focus-Diff.deb release/Focus-Diff.rpm --clobber --repo "$GITHUB_REPOSITORY"

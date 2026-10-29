@@ -155,6 +155,16 @@
           padding: 0 12px;
           font-size: 15px;
         }
+        .links li:last-child:nth-child(odd) {
+          grid-column: 1 / -1;
+        }
+        .links.downloads {
+          grid-template-columns: minmax(0, 1fr);
+          max-width: 320px;
+        }
+        .downloads a {
+          width: 100%;
+        }
       }
       .video {
         width: 100%;
@@ -335,7 +345,18 @@
         color: var(--muted);
         font-size: 14px;
       }
+      .desktop .note {
+        max-width: 620px;
+        text-wrap: balance;
+      }
+      .desktop .note a {
+        color: var(--fg);
+      }
+      .desktop .video {
+        margin-top: 8px;
+      }
       .features,
+      .desktop,
       .faq {
         display: grid;
         justify-items: center;
@@ -549,10 +570,20 @@
             "name": "Focus Diff in 88 seconds",
             "description": "A tour of Focus Diff on GitHub pull requests: filters, the files, lines and review time left, conversations, the review queue in the toolbar, review time, settings, examples, sharing and themes.",
             "thumbnailUrl": ["https://focus-diff.com/poster.webp", "https://focus-diff.com/og.jpg"],
-            "uploadDate": "2026-10-13",
+            "uploadDate": "2026-10-28",
             "duration": "PT1M28S",
             "contentUrl": "https://focus-diff.com/focus-diff.mp4",
             "embedUrl": "https://focus-diff.com/"
+          },
+          {
+            "@type": "VideoObject",
+            "name": "Focus Diff for your desktop in 56 seconds",
+            "description": "A tour of the Focus Diff desktop app: the review queue in the menu bar, notifications, asking Claude Code, filtering the diff, comments, approving, settings and themes.",
+            "thumbnailUrl": ["https://focus-diff.com/desktop-poster.webp"],
+            "uploadDate": "2026-10-28",
+            "duration": "PT56S",
+            "contentUrl": "https://focus-diff.com/desktop.mp4",
+            "embedUrl": "https://focus-diff.com/#desktop-title"
           },
           {
             "@type": "FAQPage",
@@ -624,6 +655,7 @@
         <li>
           <a href="#manual-title" data-tab="tab-safari">Add to Safari</a>
         </li>
+        <li><a href="#desktop-title">Get the desktop app</a></li>
         <li><a href="https://github.com/hyanmandian/focus-diff">View on GitHub</a></li>
       </ul>
       <script>
@@ -713,6 +745,93 @@
               No account and no tracking. Focus Diff reads the file paths and line counts on the page, and talks to no one but GitHub
               itself.
             </p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="desktop" aria-labelledby="desktop-title">
+        <h2 id="desktop-title">Focus Diff for your desktop</h2>
+        <p class="section-lede">
+          Your review queue in the menu bar, and a review window that does what the pull request page does: filters, comments, suggestions
+          and approvals, without opening GitHub. Free for Mac, Windows and Linux.
+        </p>
+        <ul class="links downloads" aria-label="Download the desktop app">
+          <li><a class="primary" data-os="mac" href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.dmg">Download for Mac</a></li>
+          <li>
+            <a data-os="windows" href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff-Setup.exe">Download for Windows</a>
+          </li>
+          <li>
+            <a data-os="linux" href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.AppImage">Download for Linux</a>
+          </li>
+        </ul>
+        <script>
+          // The visitor's own system gets the main button, before the first paint.
+          {
+            const ua = navigator.userAgent;
+            const os = /Windows/.test(ua) ? 'windows' : /Linux|X11/.test(ua) && !/Android/.test(ua) ? 'linux' : 'mac';
+            for (const a of document.querySelectorAll('[data-os]')) a.classList.toggle('primary', a.dataset.os === os);
+          }
+        </script>
+        <p class="note">
+          One app for Apple silicon and Intel Macs. On Linux it also comes as a
+          <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.deb">.deb</a> or an
+          <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.rpm">.rpm</a>. It isn’t signed yet, so
+          the first time, open it with right-click → Open on a Mac, or More info → Run anyway on Windows. It updates itself after that.
+        </p>
+
+        <div class="video">
+          <video
+            poster="desktop-poster.webp"
+            width="1280"
+            height="720"
+            muted
+            loop
+            playsinline
+            controls
+            preload="none"
+            aria-label="Focus Diff for your desktop in 56 seconds: the review queue in the menu bar with its Review, Updates, My PRs and Merged tabs, a notification that opens the pull request, asking Claude Code about it, filtering the diff, marking files viewed until it says done, a comment with a mention and an emoji, approving, the settings for queues, filters, actions and AI, and light and dark mode"
+          >
+            <source src="desktop.av1.mp4" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"' />
+            <source src="desktop.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <script>
+          // Plays once it scrolls into view; with reduced motion, it waits for a press on play.
+          {
+            const video = document.querySelector('.desktop video');
+            if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window)
+              new IntersectionObserver((entries, observer) => {
+                if (!entries.some((e) => e.isIntersecting)) return;
+                observer.disconnect();
+                video.play().catch(() => {});
+              }, { threshold: 0.4 }).observe(video);
+          }
+        </script>
+
+        <ul class="feature-list">
+          <li>
+            <h3>The queue in the menu bar</h3>
+            <p>What waits on your review, the pull requests you took part in, your own, and the ones merged before you got to them, each with its review time.</p>
+          </li>
+          <li>
+            <h3>A notification when it’s your turn</h3>
+            <p>A review request, new commits after you asked for changes, or a reply. Click it and the pull request opens.</p>
+          </li>
+          <li>
+            <h3>The whole review in one window</h3>
+            <p>Overview, checks, the diff with your filters, comments with mentions and suggestions, then approve or request changes.</p>
+          </li>
+          <li>
+            <h3>Stacks in order</h3>
+            <p>Stacked pull requests show as one stack, and Next takes you to the following one when you’re done.</p>
+          </li>
+          <li>
+            <h3>AI on your own plan</h3>
+            <p>Ask Claude Code or Cursor about a change, with the whole project as context. It runs the CLI you already signed in to.</p>
+          </li>
+          <li>
+            <h3>Your own buttons</h3>
+            <p>Queues, filters and actions you set up yourself: hand a review off, ping a channel, or run a command of your own.</p>
           </li>
         </ul>
       </section>

@@ -199,6 +199,7 @@ describe("starting points", () => {
   it("names the filter recipes in words", () => {
     const [stack] = filterRecipes(t);
     expect(stack).toEqual({
+      id: "stack",
       title: "Frontend and backend",
       description: "Review each side of a full-stack change on its own.",
       filters: [

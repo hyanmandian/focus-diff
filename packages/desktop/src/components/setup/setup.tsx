@@ -1,3 +1,4 @@
+import type { RecipeId } from "@focus-diff/core/recipes";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -14,10 +15,13 @@ import { cn } from "@/utils/cn/cn";
 import {
   AI_PROVIDERS,
   defaultConfig,
+  filterRecipes,
   isRepoPattern,
   loadConfig,
+  recipeOn,
   saveConfig,
   TEMPLATES,
+  withRecipes,
   type AiProvider,
   type Config,
   type Queue,
@@ -29,8 +33,9 @@ import { isMac } from "@/utils/os/os";
 import { platform } from "@/utils/platform/platform";
 import { useTheme } from "@/utils/theme/theme";
 
-const STEPS = ["github", "queues", "notifications", "ai", "ready"] as const;
+const STEPS = ["github", "queues", "filters", "notifications", "ai", "ready"] as const;
 const OFFERED: QueueKind[] = ["review", "involved", "authored", "merged"];
+const OFFERED_RECIPES: RecipeId[] = ["stack", "tests", "generated", "infra", "database", "docs"];
 const repoError = (s: string) => (isRepoPattern(s) ? null : i18n()("setup.repoError"));
 
 function Choice({
@@ -87,6 +92,7 @@ export function Setup() {
   const [kinds, setKinds] = useState<Set<QueueKind>>(new Set());
   const [repos, setRepos] = useState<string[]>([]);
   const [startRepos, setStartRepos] = useState<string[]>([]);
+  const [recipes, setRecipes] = useState<Set<RecipeId>>(() => new Set());
   const [statuses, setStatuses] = useState<AiStatus[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -115,6 +121,7 @@ export function Setup() {
       });
       setConfig(c);
       setKinds(new Set(c.queues.filter((q) => q.enabled).map((q) => q.kind)));
+      setRecipes(new Set(OFFERED_RECIPES.filter((id) => recipeOn(c.filters, id))));
       const shared = c.queues[0]?.repos ?? [];
       if (c.queues.every((q) => q.repos.join() === shared.join())) {
         setRepos(shared);
@@ -151,7 +158,11 @@ export function Setup() {
       for (const q of had)
         queues.push({ ...q, enabled: true, repos: repos.join() === startRepos.join() ? q.repos : repos });
     }
-    return { ...config, queues: [...queues, ...config.queues.filter((q) => q.kind === "custom")] };
+    return {
+      ...config,
+      queues: [...queues, ...config.queues.filter((q) => q.kind === "custom")],
+      filters: withRecipes(config.filters, recipes, t),
+    };
   };
 
   const finish = async () => {
@@ -273,6 +284,37 @@ export function Setup() {
               />
               <p className="text-callout text-muted-foreground">{t("setup.reposEmpty")}</p>
             </div>
+          </section>
+        ) : at === "filters" ? (
+          <section className="flex flex-col gap-5" aria-labelledby="step-title">
+            <div className="flex flex-col gap-1.5">
+              <h1 id="step-title" className="text-title1 font-bold">
+                {t("setup.filtersTitle")}
+              </h1>
+              <p className="text-body text-muted-foreground">{t("setup.filtersBody")}</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {filterRecipes(t)
+                .filter((recipe) => OFFERED_RECIPES.includes(recipe.id))
+                .map((recipe) => (
+                  <Choice
+                    key={recipe.id}
+                    checked={recipes.has(recipe.id)}
+                    onClick={() => {
+                      setRecipes((now) => {
+                        const next = new Set(now);
+                        if (next.has(recipe.id)) next.delete(recipe.id);
+                        else next.add(recipe.id);
+                        return next;
+                      });
+                    }}
+                    title={recipe.title}
+                  >
+                    {recipe.description}
+                  </Choice>
+                ))}
+            </div>
+            <p className="text-callout text-muted-foreground">{t("setup.filtersNote")}</p>
           </section>
         ) : at === "notifications" ? (
           <section className="flex flex-col gap-5" aria-labelledby="step-title">

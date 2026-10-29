@@ -1,6 +1,7 @@
 export const setup = {
   "step.github": "GitHub",
   "step.queues": "Queues",
+  "step.filters": "Filters",
   "step.notifications": "Notifications",
   "step.ai": "AI",
   "step.ready": "Ready",
@@ -21,6 +22,10 @@ export const setup = {
   repositories: "Repositories",
   repoPlaceholder: "acme/web or acme/*",
   reposEmpty: "Empty: every repository you can see.",
+  filtersTitle: "How do you like to go through a diff?",
+  filtersBody:
+    "Each filter you pick is a button above the changed files, so you can review one part at a time and see how much is left in each.",
+  filtersNote: "They're regular filters: rename, tweak or add your own later in Settings › Filters.",
   notifyTitle: "How should it tell you?",
   notifyBody:
     "A notification and the menu bar icon's animation when something new needs you: a review request, new commits or replies on what you reviewed, approvals and failing CI on yours. What each queue tells you about can be changed in Settings.",

@@ -104,6 +104,7 @@ const toAi = async (user: ReturnType<typeof userEvent.setup>) => {
   await next(user);
   await next(user);
   await next(user);
+  await next(user);
 };
 
 async function aiStep() {
@@ -210,6 +211,17 @@ describe("Setup", () => {
     await user.type(repos, "acme/web{Enter}");
     await next(user);
 
+    expect(screen.getByRole("heading", { name: "How do you like to go through a diff?" })).toBeTruthy();
+    const stack = screen.getByRole("checkbox", { name: /Frontend and backend/u });
+    const generated = screen.getByRole("checkbox", { name: /Without generated files/u });
+    expect(stack.getAttribute("aria-checked")).toBe("true");
+    expect(generated.getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByRole("checkbox", { name: /One area/u })).toBeNull();
+    await user.click(generated);
+    await user.click(screen.getByRole("checkbox", { name: /Code, then tests/u }));
+    expect(generated.getAttribute("aria-checked")).toBe("false");
+    await next(user);
+
     expect(screen.getByRole("heading", { name: "How should it tell you?" })).toBeTruthy();
     await user.click(screen.getByRole("switch", { name: "Play a sound" }));
     await user.click(screen.getByRole("combobox", { name: "Check GitHub every" }));
@@ -242,6 +254,8 @@ describe("Setup", () => {
     ]);
     expect(final.queues[0]!.id).toBe(config.queues[0]!.id);
     expect(final).toMatchObject({ sound: true, pollSeconds: 300, ai: { provider: "claude" } });
+    expect(final.filters.map((f) => f.name)).toEqual(["Frontend", "Backend", "Code", "Tests"]);
+    expect(final.filters[0]!.id).toBe(config.filters[0]!.id);
   });
 
   it("says why it couldn't finish and lets you try again", async () => {
@@ -334,6 +348,7 @@ describe("Setup", () => {
 
     for (const title of [
       "What should it watch?",
+      "How do you like to go through a diff?",
       "How should it tell you?",
       "Want a second pair of eyes?",
       "You're set",

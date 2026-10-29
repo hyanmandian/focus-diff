@@ -618,7 +618,8 @@ fn review_builder<'a>(app: &'a AppHandle, label: &str, url: String, title: &str)
 }
 
 fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
-    if let Ok(Some(monitor)) = app.primary_monitor() {
+    let here = app.cursor_position().ok().and_then(|at| app.monitor_from_point(at.x, at.y).ok().flatten());
+    if let Some(monitor) = here.or_else(|| app.primary_monitor().ok().flatten()) {
         let area = monitor.work_area();
         let scale = monitor.scale_factor();
         let _ = window.set_position(area.position.to_logical::<f64>(scale));
@@ -708,6 +709,7 @@ pub(crate) fn show_review(app: AppHandle, id: String, repo: String, number: u64,
         Some(window) => {
             window.emit_to(window.label(), "review-open", target).map_err(|e| e.to_string())?;
             let _ = window.set_title(&title);
+            fill_screen(&app, &window);
             window
         }
         None => {

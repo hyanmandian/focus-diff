@@ -131,7 +131,7 @@ const involved = [
         {
           author: people.bruno,
           createdAt: iso(12),
-          body: "@you does this match what you had in mind?",
+          body: "@you_reviewer does this match what you had in mind?",
           url: "https://github.com/acme/web/pull/2#c3",
         },
       ],
@@ -195,7 +195,7 @@ const config = {
       steps: [
         { kind: "request", reviewers: ["dana_reyes"] },
         { kind: "unrequestMe" },
-        { kind: "comment", body: "@dana could you take this one? Thanks!" },
+        { kind: "comment", body: "@dana_reyes could you take this one? Thanks!" },
       ],
     },
     {

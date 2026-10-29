@@ -28,6 +28,11 @@ tar -xzf "$tmp/focus-diff.tar.gz" -C "$tmp"
 codesign --verify --deep --strict "$tmp/Focus Diff.app"
 
 osascript -e 'quit app id "com.focusdiff.app"' > /dev/null 2>&1 || true
+tries=0
+while pgrep -qf "Focus Diff.app/Contents/MacOS/" && [ "$tries" -lt 20 ]; do
+  sleep 0.5
+  tries=$((tries + 1))
+done
 if [ -d "$dir/Focus Diff.app" ]; then
   rm -rf "$dir/Focus Diff.app"
 fi

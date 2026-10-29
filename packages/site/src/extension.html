@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Focus Diff for your browser: filter GitHub pull request diffs</title>
+    <meta name="description" content="Free browser extension for Chrome, Edge, Firefox and Safari: filter GitHub pull request diffs by file path, see what’s left to review, and step through every conversation. No account." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#08090a" media="(prefers-color-scheme: dark)" />
+    <link rel="canonical" href="https://focus-diff.com/extension.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Focus Diff" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://focus-diff.com/extension.html" />
+    <meta property="og:title" content="Focus Diff for your browser: filter GitHub pull request diffs" />
+    <meta property="og:description" content="A free, open source browser extension that narrows big GitHub pull requests to the files you own and counts what’s left to review." />
+    <meta property="og:image" content="https://focus-diff.com/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The Focus Diff logo, with the line “Review only the code that matters.”" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Focus Diff for your browser: filter GitHub pull request diffs" />
+    <meta name="twitter:description" content="A free, open source browser extension that narrows big GitHub pull requests to the files you own and counts what’s left to review." />
+    <meta name="twitter:image" content="https://focus-diff.com/og.jpg" />
+    <meta name="twitter:image:alt" content="The Focus Diff logo, with the line “Review only the code that matters.”" />
+    <link rel="icon" href="favicon.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preload" href="fonts/mona-sans.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" as="image" href="poster.webp" type="image/webp" loading="lazy" decoding="async" />
+    <link rel="stylesheet" href="site.css" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://focus-diff.com/extension.html#app",
+      "name": "Focus Diff",
+      "description": "Free browser extension for Chrome, Edge, Firefox and Safari: filter GitHub pull request diffs by file path, see what’s left to review, and step through every conversation.",
+      "url": "https://focus-diff.com/extension.html",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Browser extension",
+      "operatingSystem": "Windows, macOS, Linux",
+      "browserRequirements": "Chrome, Edge, Firefox or Safari",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "downloadUrl": "https://github.com/hyanmandian/focus-diff/releases/latest",
+      "installUrl": "https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil",
+      "license": "https://opensource.org/licenses/MIT",
+      "image": "https://focus-diff.com/og.jpg",
+      "screenshot": "https://focus-diff.com/poster.webp",
+      "author": {
+        "@type": "Person",
+        "name": "Hyan Mandian",
+        "url": "https://github.com/hyanmandian"
+      },
+      "sameAs": [
+        "https://github.com/hyanmandian/focus-diff",
+        "https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil",
+        "https://addons.mozilla.org/firefox/addon/focus-diff/"
+      ]
+    },
+    {
+      "@type": "VideoObject",
+      "name": "Focus Diff in 88 seconds",
+      "description": "A tour of Focus Diff on GitHub pull requests: filters, the files, lines and review time left, conversations, the review queue in the toolbar, review time, settings, examples, sharing and themes.",
+      "thumbnailUrl": [
+        "https://focus-diff.com/poster.webp",
+        "https://focus-diff.com/og.jpg"
+      ],
+      "uploadDate": "2026-10-28",
+      "duration": "PT1M28S",
+      "contentUrl": "https://focus-diff.com/focus-diff.mp4",
+      "embedUrl": "https://focus-diff.com/extension.html"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does it send my code anywhere?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. It collects no data and sends nothing to anyone but GitHub. Your filters stay in your browser’s storage."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work on private repositories?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. It works on any pull request page you can open on github.com, public or private, using only what that page shows you."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which browsers does it support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Chrome, Edge, Brave, Arc, Opera and other Chromium browsers, Firefox and the browsers built on it, and Safari on a Mac."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it need my GitHub password or a token?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. It works with the GitHub session already in your browser, like opening the pages yourself."
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href="./"><img src="icon-96.webp" alt="" width="26" height="26" />Focus Diff</a>
+        <nav aria-label="Products">
+          <a href="extension.html" aria-current="page">Extension</a>
+          <a href="desktop.html">Desktop</a>
+        </nav>
+        <div class="end">
+          <a class="gh" href="https://github.com/hyanmandian/focus-diff" aria-label="Focus Diff on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" /></svg><span class="label">GitHub</span><span class="stars" data-count="stars" hidden>★ <span data-value></span></span></a>
+          <a class="btn small primary" href="#install">Install</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-labelledby="title">
+        <div class="wrap">
+          <span class="pill"><b>Browser extension</b> · Chrome · Edge · Firefox · Safari</span>
+          <h1 id="title">Review only the code that matters.</h1>
+          <p class="lede">
+            A small bar on every GitHub pull request. Pick a filter and the files, lines and time left follow it, then go to the next file
+            or conversation in one click. <strong>No account: it uses the GitHub session already in your browser.</strong>
+          </p>
+          <ul class="actions" id="install" aria-label="Add Focus Diff to your browser" data-pick="browser">
+            <li><a class="btn primary" data-for="chrome" href="https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil">Add to Chrome</a></li>
+            <li><a class="btn" data-for="firefox" href="https://addons.mozilla.org/firefox/addon/focus-diff/">Add to Firefox</a></li>
+            <li><a class="btn" data-for="safari" href="#manual-title" data-tab="tab-safari">Add to Safari</a></li>
+          </ul>
+          <p class="fine">The Chrome Web Store version works in Edge, Brave, Arc and every other Chromium browser.</p>
+        </div>
+      </section>
+
+      <section class="stage" aria-label="Tour">
+        <div class="wrap">
+          <div class="frame" style="background-image: url(poster.webp)">
+            <video data-autoplay poster="poster.webp" width="1280" height="720" muted loop playsinline preload="none" aria-label="Focus Diff in 88 seconds: filtering a pull request to Frontend or Backend files, combining filters, the files, lines and review time left, the breakdown by filter, the next file to review, stepping through conversations, the Done badge, switching filters from the keyboard, the review queue in the toolbar with a time for each pull request, a review time planned to fit 45 minutes, picking which repositories the queue lists, writing filters and trying a path in settings, filters for one repository, starting from examples, sharing filters with your team, making your own theme, and following light and dark mode">
+              <source src="focus-diff.av1.mp4" type='video/mp4; codecs="av01.0.05M.08, mp4a.40.2"' />
+              <source src="focus-diff.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <p class="caption">The 88-second tour, on public pull requests of withastro/astro.</p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="what-title">
+        <div class="wrap">
+          <div class="head">
+            <h2 id="what-title">One part of the pull request at a time.</h2>
+            <p>Big pull requests stop being a wall of files. Filter to what you own, see what’s left, and move through it in order.</p>
+          </div>
+        <div class="grid" style="--cols: 3">
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg>
+            <h3>Filters from file paths</h3>
+            <p>Each filter is a button with an Include and an optional Exclude regex. Keep them for every repository, or add some for one.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
+            <h3>Counters that count again</h3>
+            <p>Files changed and the added and removed lines show only what the filter keeps: the real size of your review.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <h3>Review time left</h3>
+            <p>An estimate from about 1,000 changed lines an hour that drops as you mark files viewed, until it says Done.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-8M12 20V5M19 20v-5M3 20h18"/></svg>
+            <h3>A breakdown by filter</h3>
+            <p>Every filter side by side: how many of its files you’ve viewed, the lines they change and the time they take.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+            <h3>The next file to review</h3>
+            <p>One click, or <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd>, to the next file you haven’t viewed, then on to the next filter.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+            <h3>Every conversation in turn</h3>
+            <p>Step through the review threads with their file and line, and see which wait on you, are answered or resolved.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h5l2 3h4l2-3h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/></svg>
+            <h3>Your queue in the toolbar</h3>
+            <p>The pull requests waiting on your review, how long each takes, and a review time that picks what fits.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/></svg>
+            <h3>Made to share</h3>
+            <p>Copy your filters and send them to a teammate, who imports them in one step. Themes for the bar too.</p>
+          </div>
+          <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2M17 6l3 3M14 9l2 2"/></svg>
+            <h3>No sign-in</h3>
+            <p>It reads what the page shows, and your lists with the session already in your browser. No password, no token.</p>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="manual-title">
+        <div class="wrap manual">
+          <div class="head">
+            <h2 id="manual-title">Install it yourself.</h2>
+            <p>Every release comes with ready-made builds. Download one and load it into your browser, no store needed.</p>
+          </div>
+          <div role="tablist" aria-label="Browser">
+            <button type="button" role="tab" id="tab-chromium" aria-controls="panel-chromium" aria-selected="true">Chromium</button>
+            <button type="button" role="tab" id="tab-firefox" aria-controls="panel-firefox" aria-selected="false" tabindex="-1">Firefox</button>
+            <button type="button" role="tab" id="tab-safari" aria-controls="panel-safari" aria-selected="false" tabindex="-1">Safari</button>
+          </div>
+
+          <div role="tabpanel" id="panel-chromium" aria-labelledby="tab-chromium" tabindex="0">
+            <p>Chrome, Edge, Brave, Arc, Opera and every other Chromium browser.</p>
+            <ol>
+              <li>Unzip <code>focus-diff-chromium.zip</code>.</li>
+              <li>Open <code>chrome://extensions</code> (<code>edge://extensions</code> in Edge) and turn on <strong>Developer mode</strong>.</li>
+              <li>Click <strong>Load unpacked</strong> and pick the unzipped folder.</li>
+            </ol>
+            <p class="note">It doesn’t update itself. The Chrome Web Store version does.</p>
+            <a class="btn" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-chromium.zip"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>Download for Chromium</a>
+          </div>
+
+          <div role="tabpanel" id="panel-firefox" aria-labelledby="tab-firefox" tabindex="0">
+            <p>Firefox, Zen, LibreWolf, Floorp and other browsers built on Firefox.</p>
+            <ol>
+              <li>Open <code>about:debugging#/runtime/this-firefox</code>.</li>
+              <li>Click <strong>Load Temporary Add-on</strong> and pick <code>focus-diff-firefox.zip</code>.</li>
+            </ol>
+            <p class="note">It stays until Firefox restarts. The <a href="https://addons.mozilla.org/firefox/addon/focus-diff/">Firefox Add-ons</a> version stays for good, and updates itself.</p>
+            <a class="btn" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-firefox.zip"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>Download for Firefox</a>
+          </div>
+
+          <div role="tabpanel" id="panel-safari" aria-labelledby="tab-safari" tabindex="0">
+            <p>Safari on a Mac with Xcode.</p>
+            <ol>
+              <li>
+                Unzip <code>focus-diff-safari.zip</code>, run this in Terminal, then click <strong>Run</strong> in Xcode:
+                <pre><code>xcrun safari-web-extension-converter focus-diff-safari --app-name "Focus Diff" --macos-only</code></pre>
+              </li>
+              <li>In Safari, turn on <strong>Settings › Advanced › Show features for web developers</strong>, then <strong>Develop › Allow Unsigned Extensions</strong>.</li>
+              <li>Turn on Focus Diff in <strong>Settings › Extensions</strong>. Safari asks again for unsigned extensions after it restarts.</li>
+            </ol>
+            <a class="btn" href="https://github.com/hyanmandian/focus-diff/releases/latest/download/focus-diff-safari.zip"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>Download for Safari</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="faq-title">
+        <div class="wrap faq">
+          <div class="head">
+            <h2 id="faq-title">Questions</h2>
+          </div>
+          <div class="faq-list">
+            <details>
+              <summary>Does it send my code anywhere?</summary>
+              <p>No. It collects no data and sends nothing to anyone but GitHub. Your filters stay in your browser’s storage.</p>
+            </details>
+            <details>
+              <summary>Does it work on private repositories?</summary>
+              <p>Yes. It works on any pull request page you can open on github.com, public or private, using only what that page shows you.</p>
+            </details>
+            <details>
+              <summary>Which browsers does it support?</summary>
+              <p>Chrome, Edge, Brave, Arc, Opera and other Chromium browsers, Firefox and the browsers built on it, and Safari on a Mac.</p>
+            </details>
+            <details>
+              <summary>Does it need my GitHub password or a token?</summary>
+              <p>No. It works with the GitHub session already in your browser, like opening the pages yourself.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="wrap">
+          <h2 id="closing-title">Review only the code that matters.</h2>
+          <p>Free, for Chrome, Edge, Firefox and Safari.</p>
+          <ul class="actions" aria-label="Add Focus Diff to your browser" data-pick="browser">
+            <li><a class="btn primary" data-for="chrome" href="https://chromewebstore.google.com/detail/focus-diff/nnocnopcbjipboglgbnmocfaplhlkfil">Add to Chrome</a></li>
+            <li><a class="btn" data-for="firefox" href="https://addons.mozilla.org/firefox/addon/focus-diff/">Add to Firefox</a></li>
+            <li><a class="btn" data-for="safari" href="#manual-title" data-tab="tab-safari">Add to Safari</a></li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Free and open source, under the MIT license. No tracking.</span>
+        <nav aria-label="More">
+          <a href="./">Home</a>
+          <a href="extension.html">Extension</a>
+          <a href="desktop.html">Desktop</a>
+          <a href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md">Privacy</a>
+          <a href="https://github.com/hyanmandian/focus-diff">Source</a>
+          <a href="https://github.com/hyanmandian/focus-diff/issues">Report a problem</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="site.js" defer></script>
+  </body>
+</html>

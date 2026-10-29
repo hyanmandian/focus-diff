@@ -1,6 +1,8 @@
 const CHROME_ID = 'nnocnopcbjipboglgbnmocfaplhlkfil';
 const FIREFOX_ID = 'focus-diff@hyan.com.br';
 const repository = process.env.GITHUB_REPOSITORY || 'hyanmandian/focus-diff';
+const INSTALLERS = /\.(zip|dmg|deb|rpm)$/;
+const SITE_ONLY = /\.(exe|AppImage)$/;
 
 const json = async (url: string, headers: Record<string, string> = {}): Promise<unknown> => {
   const response = await fetch(url, { headers: { 'user-agent': 'focus-diff-installs', ...headers } });
@@ -14,10 +16,14 @@ const releaseDownloads = async (): Promise<number> => {
   let total = 0;
   for (let page = 1; ; page++) {
     const releases = (await json(`https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}`, headers)) as {
+      tag_name: string;
       assets: { name: string; download_count: number }[];
     }[];
     for (const release of releases)
-      for (const asset of release.assets) if (asset.name.endsWith('.zip') && !asset.name.includes('sources')) total += asset.download_count;
+      for (const asset of release.assets) {
+        const counted = INSTALLERS.test(asset.name) || (release.tag_name === 'desktop-latest' && SITE_ONLY.test(asset.name));
+        if (counted && !asset.name.includes('sources')) total += asset.download_count;
+      }
     if (releases.length < 100) return total;
   }
 };

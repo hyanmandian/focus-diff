@@ -39,12 +39,13 @@ jobs:
       - name: Build the site
         run: npm run build --workspace @focus-diff/site
 
-      - name: Count the installs
+      - name: Count the installs and stars
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p packages/site/dist/badges
-          node packages/site/installs.ts > packages/site/dist/badges/installs.json
+          node packages/site/installs.ts > packages/site/dist/badges/installs.json || rm -f packages/site/dist/badges/installs.json
+          node packages/site/stars.ts > packages/site/dist/badges/stars.json || rm -f packages/site/dist/badges/stars.json
 
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

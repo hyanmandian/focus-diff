@@ -1,4 +1,11 @@
 export const shared = {
+  whatsNewTitle: "What's new in Focus Diff {version}",
+  whatsNewNothing: "Nothing new to show for this version.",
+  whatsNewNew: "New",
+  whatsNewFixed: "Fixed",
+  whatsNewOnGitHub: "All releases on GitHub",
+  whatsNewIn: "What's new in {version}",
+  whatsNew: "What's New",
   close: "Close",
   connectEnterCode: "Enter this code on GitHub to finish signing in:",
   connectCodeLabel: "Code {code}",

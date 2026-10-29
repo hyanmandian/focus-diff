@@ -1,6 +1,13 @@
 import type { Dictionary } from "@/utils/i18n/i18n";
 
 export const shared: Dictionary["shared"] = {
+  whatsNewTitle: "Novidades do Focus Diff {version}",
+  whatsNewNothing: "Nada de novo para mostrar nesta versão.",
+  whatsNewNew: "Novo",
+  whatsNewFixed: "Corrigido",
+  whatsNewOnGitHub: "Todas as versões no GitHub",
+  whatsNewIn: "Novidades da {version}",
+  whatsNew: "Novidades",
   close: "Fechar",
   connectEnterCode: "Digite este código no GitHub para terminar de entrar:",
   connectCodeLabel: "Código {code}",

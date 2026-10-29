@@ -30,10 +30,12 @@ import {
 } from "@/components/settings-form/settings-form";
 import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
 import { Switch } from "@/components/switch/switch";
+import { WhatsNew } from "@/components/whats-new/whats-new";
 import { PROVIDERS } from "@/utils/ai/ai";
 import { useWebSession } from "@/utils/attachments/attachments";
 import { avatar } from "@/utils/avatar/avatar";
 import { bridge, type AuthStatus } from "@/utils/bridge/bridge";
+import { releaseUrl } from "@/utils/changes/changes";
 import { cn } from "@/utils/cn/cn";
 import {
   keepValidPatterns,
@@ -374,6 +376,7 @@ const languageName = (language: Language, t: T) =>
 
 function Updates() {
   const [version, setVersion] = useState("");
+  const [reading, setReading] = useState(false);
   const t = useT();
   const [state, setState] = useState<
     | { phase: "idle" | "checking" | "installing" }
@@ -415,6 +418,16 @@ function Updates() {
               : t("settings.checksOnItsOwn")
       }
     >
+      <Button
+        variant="outline"
+        onClick={() => {
+          if (state.phase === "found") void bridge.openUrl(releaseUrl(state.version));
+          else setReading(true);
+        }}
+      >
+        {state.phase === "found" ? t("shared.whatsNewIn", { version: state.version }) : t("shared.whatsNew")}
+      </Button>
+      {version ? <WhatsNew open={reading} onOpenChange={setReading} version={version} /> : null}
       {state.phase === "found" || state.phase === "installing" ? (
         <Button
           disabled={state.phase === "installing"}

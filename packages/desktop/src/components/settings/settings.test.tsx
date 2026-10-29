@@ -380,6 +380,20 @@ describe("General pane", () => {
     expect(await within(panel()).findByText("You have the latest version.")).toBeTruthy();
   });
 
+  it("shows what's new in this version, and the notes of one about to be installed", async () => {
+    const rust = await general({ offered: "9.0.0" });
+    await userEvent.click(await within(panel()).findByRole("button", { name: "What's new in 9.0.0" }));
+    expect(rust.called("open_url").at(-1)?.args).toEqual({
+      url: "https://github.com/hyanmandian/focus-diff/releases/tag/desktop-v9.0.0",
+    });
+  });
+
+  it("lists the latest changes on request", async () => {
+    await general({ check: () => Promise.resolve(null) });
+    await userEvent.click(await within(panel()).findByRole("button", { name: "What's New" }));
+    expect(await screen.findByRole("dialog", { name: "What's new in Focus Diff 1.2.3" })).toBeTruthy();
+  });
+
   it("names the app alone until the version is known", async () => {
     await general({ hold: [VERSION] });
     expect(await screen.findByText("Focus Diff")).toBeTruthy();

@@ -1,5 +1,5 @@
 import { isValidPattern } from "@focus-diff/core/filters";
-import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
+import { PATH_FILTERS, RECIPES, upgradePatterns, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
 
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
@@ -479,13 +479,13 @@ function normalizePrompt(r: unknown): Prompt | null {
 
 function normalizeFilter(r: unknown): DiffFilter | null {
   if (!isRecord(r)) return null;
-  return {
+  return upgradePatterns({
     id: id(r.id, newId),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : i18n()("config.filter.untitled"),
     include: pattern(r.include),
     exclude: pattern(r.exclude),
     repos: strings(r.repos, 20).filter((s) => isRepoPattern(s)),
-  };
+  });
 }
 
 function normalizeAction(r: unknown): Action | null {

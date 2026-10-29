@@ -1,3 +1,4 @@
+import { upgradePatterns } from "@focus-diff/core/recipes";
 import { repoMatches } from "@focus-diff/core/repos";
 
 import { isRecord } from "@/utils/record/record";
@@ -43,12 +44,14 @@ export const normalize = (input?: unknown): Config => {
   const filters = (list: unknown): Filter[] =>
     (Array.isArray(list) ? list : [])
       .filter((filter): filter is Record<string, unknown> => isRecord(filter) && typeof filter.name === "string")
-      .map((filter) => ({
-        id: uniqueId(filter.id),
-        name: text(filter.name).trim(),
-        include: text(filter.include),
-        exclude: text(filter.exclude),
-      }));
+      .map((filter) =>
+        upgradePatterns({
+          id: uniqueId(filter.id),
+          name: text(filter.name).trim(),
+          include: text(filter.include),
+          exclude: text(filter.exclude),
+        }),
+      );
   const config = isRecord(input) ? input : {};
   return {
     global: filters(config.global),

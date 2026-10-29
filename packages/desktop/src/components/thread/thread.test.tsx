@@ -159,6 +159,7 @@ function newComment(props: Props = {}, api: ConversationApi | null = apiFor()) {
         onCancel={onCancel}
         ask={null}
         askName="Claude"
+        chat={{ pull: "acme/octo#1", key: "a.ts:12-12:additions" }}
         {...props}
       />,
     ),
@@ -720,6 +721,33 @@ describe("NewComment", () => {
       expect(outside).not.toHaveBeenCalled();
       fireEvent.keyDown(question(), { key: "a" });
       expect(onCancel).toHaveBeenCalledOnce();
+    });
+
+    it("keeps the conversation, and an answer still on its way, after leaving and coming back", async () => {
+      const user = userEvent.setup();
+      const answer = deferred<AiAnswer>();
+      const ask = vi.fn<Ask>(() => answer.promise);
+      const first = newComment({ ask });
+      await user.click(tab("Ask Claude"));
+      await user.type(question(), "Why?{Enter}");
+      await user.type(question(), "Half a fol");
+      first.unmount();
+      await act(async () => {
+        answer.resolve({ text: "Because of the cache.", project: false });
+        await answer.promise;
+      });
+
+      newComment({ ask });
+      expect(tab("Ask Claude").getAttribute("aria-selected")).toBe("true");
+      expect(screen.getByText("Why?")).toBeTruthy();
+      expect(screen.getByText("Because of the cache.")).toBeTruthy();
+      expect(question().value).toBe("Half a fol");
+      await user.click(tab("Comment"));
+      await user.type(box("Your comment for the author"), "Draft");
+      cleanup();
+      newComment({ ask });
+      expect(tab("Comment").getAttribute("aria-selected")).toBe("true");
+      expect(box("Your comment for the author").value).toBe("Draft");
     });
 
     it("doesn't ask while a word is being composed (an input method's Enter)", () => {

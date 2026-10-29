@@ -1657,6 +1657,7 @@ export function Review({ target }: { target: Target }) {
                 visible.length > 0 ? (
                   <Diffs
                     ref={diffs}
+                    pull={prId}
                     files={visible}
                     threads={olderRange ? new Map<string, Thread[]>() : threadsByPath}
                     commentable={!olderRange}

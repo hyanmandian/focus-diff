@@ -1,6 +1,7 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vite-plus/test";
 
+import { resetAsking } from "@/utils/asking/asking";
 import { clearMocks, fakePlatform } from "@/utils/fake-platform/fake-platform";
 import { setPlatform } from "@/utils/platform/platform";
 
@@ -13,6 +14,7 @@ afterEach(async () => {
   });
   clearMocks();
   localStorage.clear();
+  resetAsking();
   sessionStorage.clear();
   vi.restoreAllMocks();
 });

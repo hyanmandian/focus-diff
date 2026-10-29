@@ -26,6 +26,7 @@ import { MarkdownField } from "@/components/writer/writer";
 import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
+import { askInto, BLANK, updateChat, usePullAsking, type Mode } from "@/utils/asking/asking";
 import { avatar } from "@/utils/avatar/avatar";
 import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
@@ -432,7 +433,6 @@ export function DraftView({
 }
 
 const TAB = "selection-tab";
-type Mode = "comment" | "ask";
 function lastMode(): Mode {
   try {
     return localStorage.getItem(TAB) === "ask" ? "ask" : "comment";
@@ -440,8 +440,6 @@ function lastMode(): Mode {
     return "comment";
   }
 }
-
-type Turn = { id: number; question: string; answer?: string; note?: string };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -455,6 +453,7 @@ export function NewComment({
   onCancel,
   ask,
   askName,
+  chat: where,
 }: {
   lines: string;
   path?: string;
@@ -465,6 +464,7 @@ export function NewComment({
   onCancel: () => void;
   ask: ((question: string, earlier: Exchange[], run: string) => Promise<Answer>) | null;
   askName: string;
+  chat: { pull: string; key: string };
 }) {
   const t = useT();
   const api = useConversationApi();
@@ -474,22 +474,33 @@ export function NewComment({
     range && patch && !file && side === "additions"
       ? linesFromPatch(patch, Math.min(range.start, range.end), Math.max(range.start, range.end), "additions")
       : null;
-  const [mode, setModeState] = useState<Mode>(lastMode);
-  const [body, setBody] = useState("");
-  const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const chat = usePullAsking(where.pull).chats[where.key] ?? BLANK;
+  const [fallbackMode] = useState<Mode>(() => (chat.turns.length > 0 || chat.run ? "ask" : lastMode()));
+  const mode = chat.mode ?? fallbackMode;
+  const { body, question, turns, error } = chat;
+  const asked = chat.run;
+  const change = (next: Parameters<typeof updateChat>[2]) => {
+    updateChat(where.pull, where.key, next);
+  };
+  const setBody = (next: string) => {
+    change({ body: next });
+  };
+  const setQuestion = (next: string) => {
+    change({ question: next });
+  };
+  const setError = (next: string | null) => {
+    change({ error: next });
+  };
+  const [sending, setSending] = useState(false);
+  const busy = sending || Boolean(asked);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef<HTMLLIElement>(null);
-  const [asked, setAsked] = useState<{ run: string; at: number } | null>(null);
   const waited = useSeconds(asked?.at ?? null);
   const tabs = useId();
   const asking = mode === "ask";
 
   const setMode = (next: Mode) => {
-    setModeState(next);
-    setError(null);
+    change({ mode: next, error: null });
     try {
       localStorage.setItem(TAB, next);
     } catch {}
@@ -513,7 +524,7 @@ export function NewComment({
       setError(i18n()("review.writeFirst"));
       return;
     }
-    setBusy(true);
+    setSending(true);
     setError(null);
     try {
       if (now) await onSendNow(text);
@@ -521,36 +532,16 @@ export function NewComment({
     } catch (e) {
       fail(e);
     } finally {
-      setBusy(false);
+      setSending(false);
     }
   };
 
   const send = async () => {
     const q = question.trim();
     if (!ask || !q || busy) return;
-    const earlier = turns
-      .filter((turn): turn is Turn & { answer: string } => Boolean(turn.answer))
-      .map((turn) => ({ question: turn.question, answer: turn.answer }));
-    setBusy(true);
-    setError(null);
-    setQuestion("");
-    setTurns((list) => [...list, { id: (list.at(-1)?.id ?? 0) + 1, question: q }]);
     const run = newRun();
-    setAsked({ run, at: Date.now() });
-    try {
-      const a = await ask(q, earlier, run);
-      setTurns((list) =>
-        list.map((turn, i) => (i === list.length - 1 ? { ...turn, answer: a.text, note: a.note } : turn)),
-      );
-    } catch (e) {
-      setTurns((list) => list.slice(0, -1));
-      setQuestion(q);
-      fail(e);
-    } finally {
-      setAsked(null);
-      setBusy(false);
-      field.current?.focus();
-    }
+    await askInto(where.pull, where.key, q, run, (earlier) => ask(q, earlier, run));
+    field.current?.focus();
   };
 
   const submit = () => void (asking ? send() : comment(false));
@@ -630,8 +621,7 @@ export function NewComment({
                           variant="ghost"
                           className="-ml-2.5 text-muted-foreground"
                           onClick={() => {
-                            setBody(answer);
-                            setMode("comment");
+                            change({ body: answer, mode: "comment", error: null });
                           }}
                         >
                           <MessageSquare /> {t("review.turnIntoComment")}
@@ -727,7 +717,7 @@ export function NewComment({
         {asking ? (
           ask ? (
             asked ? (
-              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.run)}>
+              <Button variant="outline" onClick={() => void bridge.aiCancel(asked.id)}>
                 <Square className="size-3 fill-current" />
                 {t("review.stop")}
               </Button>

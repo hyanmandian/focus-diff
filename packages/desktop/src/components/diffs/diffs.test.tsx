@@ -337,6 +337,7 @@ function props(more: Partial<Props> = {}) {
     findings: [] as Finding[],
     findingsBy: "Claude",
     onAcceptFinding: vi.fn<Props["onAcceptFinding"]>(),
+    pull: "acme/octo#1",
     onAsk: null,
     onDismissFinding: vi.fn<Props["onDismissFinding"]>(),
     isViewed: () => false,

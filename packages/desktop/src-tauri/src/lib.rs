@@ -521,8 +521,9 @@ pub(crate) fn show_panel(app: &AppHandle) {
     if app.get_webview_window(PANEL).is_some_and(|p| p.is_visible().unwrap_or(false)) {
         return;
     }
-    if let Err(e) = toggle_panel(app, &tray_rect(app)) {
-        diagnostics::write("panel", &format!("couldn't show the panel: {e}"));
+    match toggle_panel(app, &tray_rect(app)) {
+        Ok(()) => diagnostics::write("panel", "shown"),
+        Err(e) => diagnostics::write("panel", &format!("couldn't show the panel: {e}")),
     }
 }
 

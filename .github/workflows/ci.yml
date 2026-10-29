@@ -126,6 +126,87 @@ jobs:
       - name: Tests
         run: cargo test --locked
 
+  desktop-scenarios:
+    name: Desktop — the app in every situation (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install what Tauri needs on Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/linux-deps
+
+      - name: Install a virtual screen and a session bus on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends xvfb dbus-x11
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build the app with its test controls
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            npm run tauri build -- --bundles app --features devctl --config '{"bundle":{"createUpdaterArtifacts":false}}'
+            echo "APP=src-tauri/target/release/bundle/macos/Focus Diff.app" >> "$GITHUB_ENV"
+          elif [ "$RUNNER_OS" = Windows ]; then
+            npm run tauri build -- --no-bundle --features devctl
+            echo "APP=src-tauri/target/release/focus-diff.exe" >> "$GITHUB_ENV"
+          else
+            npm run tauri build -- --no-bundle --features devctl
+            echo "APP=src-tauri/target/release/focus-diff" >> "$GITHUB_ENV"
+          fi
+
+      - name: With the GitHub CLI signed out
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- xvfb-run -a node tests/app/scenarios.ts "$APP" signed-out
+          else
+            node tests/app/scenarios.ts "$APP" signed-out
+          fi
+
+      - name: With the GitHub CLI signed in
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- xvfb-run -a node tests/app/scenarios.ts "$APP" token
+          else
+            node tests/app/scenarios.ts "$APP" token
+          fi
+
+      - name: Take the GitHub CLI away (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-Command gh -All -ErrorAction SilentlyContinue | ForEach-Object { Rename-Item $_.Source "$($_.Source).off" }
+          $default = 'C:\Program Files\GitHub CLI\gh.exe'
+          if (Test-Path $default) { Rename-Item $default 'gh.exe.off' }
+
+      - name: Take the GitHub CLI away (Mac and Linux)
+        if: runner.os != 'Windows'
+        run: |
+          for found in $(which -a gh) /usr/bin/gh /usr/local/bin/gh /opt/homebrew/bin/gh; do
+            if [ -e "$found" ]; then sudo mv "$found" "$found.off"; fi
+          done
+
+      - name: Without the GitHub CLI
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- xvfb-run -a node tests/app/scenarios.ts "$APP" missing
+          else
+            node tests/app/scenarios.ts "$APP" missing
+          fi
+
   desktop-bundle:
     name: Desktop — installers and a first launch (${{ matrix.os }})
     strategy:

@@ -169,7 +169,7 @@ fn gh_token_from(gh: &str) -> Result<String, String> {
     })?;
     let token = output.stdout.trim().to_string();
     if !output.status_ok || token.is_empty() {
-        crate::diagnostics::write("auth", &format!("gh auth token failed: {}", output.stderr.trim()));
+        crate::diagnostics::write("auth", "gh auth token answered without a token");
         return Err(tr!("The GitHub CLI isn't signed in: run `gh auth login`", "O GitHub CLI não está conectado: rode `gh auth login`"));
     }
     Ok(token)

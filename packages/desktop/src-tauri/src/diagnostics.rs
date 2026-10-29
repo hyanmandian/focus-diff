@@ -30,7 +30,9 @@ pub fn start(app: &AppHandle) {
     let _ = PATH.set(path);
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        write("panic", &info.to_string());
+        let at = info.location().map(|l| format!("{}:{}", l.file(), l.line())).unwrap_or_default();
+        let said = info.payload().downcast_ref::<&str>().map(|s| (*s).to_string()).or_else(|| info.payload().downcast_ref::<String>().cloned()).unwrap_or_default();
+        write("panic", &format!("at {at}: {said}"));
         previous(info);
     }));
     write("start", &about(app));
@@ -64,17 +66,57 @@ fn home() -> Option<String> {
     std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).ok().filter(|h| h.len() > 1)
 }
 
+fn pattern(cell: &'static OnceLock<Regex>, source: &str) -> &'static Regex {
+    cell.get_or_init(|| Regex::new(source).expect("a valid pattern"))
+}
+
+const KEPT_HOSTS: [&str; 4] = ["github.com", "githubusercontent.com", "githubassets.com", "localhost"];
+
+fn link(url: &str) -> String {
+    let (scheme, rest) = url.split_once("://").unwrap_or(("", url));
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("").rsplit('@').next().unwrap_or("");
+    let host = host.split(':').next().unwrap_or("");
+    let ours = scheme == "tauri" || host == "tauri.localhost" || host == "localhost";
+    if ours {
+        return format!("{scheme}://{}", rest.split(['?', '#']).next().unwrap_or(""));
+    }
+    if KEPT_HOSTS.iter().any(|kept| host == *kept || host.ends_with(&format!(".{kept}"))) {
+        format!("{scheme}://{host}/…")
+    } else {
+        "[link]".to_string()
+    }
+}
+
+fn code_file(text: &str) -> bool {
+    [".rs", ".js", ".mjs", ".ts", ".tsx", ".html", ".css"].iter().any(|ext| text.split(':').next().unwrap_or(text).ends_with(ext))
+}
+
 fn clean(message: &str, home: Option<&str>) -> String {
     static SECRET: OnceLock<Regex> = OnceLock::new();
-    let secret = SECRET.get_or_init(|| {
-        Regex::new(r"(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?i:bearer|token)\s+[A-Za-z0-9._~+/=-]{20,})").expect("a valid pattern")
-    });
-    let hidden = secret.replace_all(message, "[hidden]");
-    let local = match home {
-        Some(home) => hidden.replace(home, "~"),
-        None => hidden.into_owned(),
+    static URL: OnceLock<Regex> = OnceLock::new();
+    static EMAIL: OnceLock<Regex> = OnceLock::new();
+    static PROFILE: OnceLock<Regex> = OnceLock::new();
+    static DOUBLE: OnceLock<Regex> = OnceLock::new();
+    static SINGLE: OnceLock<Regex> = OnceLock::new();
+    static MENTION: OnceLock<Regex> = OnceLock::new();
+    static NAME: OnceLock<Regex> = OnceLock::new();
+
+    let text = message.replace("\r\n", "\n");
+    let text = pattern(&SECRET, r"(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?i:bearer|token)\s+[A-Za-z0-9._~+/=-]{20,})").replace_all(&text, "[hidden]");
+    let text = match home {
+        Some(home) => text.replace(home, "~"),
+        None => text.into_owned(),
     };
-    local.replace("\r\n", "\n").replace('\n', " ⏎ ").chars().take(LONGEST).collect()
+    let text = pattern(&PROFILE, r"(?i)(?:/Users/|/home/|[A-Z]:\\Users\\)[^/\\\s]+").replace_all(&text, "~");
+    let text = pattern(&URL, r"[A-Za-z][A-Za-z0-9+.-]*://[^\s\x22'<>`)\]]+").replace_all(&text, |c: &regex::Captures| link(&c[0]));
+    let text = pattern(&EMAIL, r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}").replace_all(&text, "[email]");
+    let text = pattern(&DOUBLE, r"[\x22“`][^\x22”`\n]*[\x22”`]").replace_all(&text, "\"…\"");
+    let text = pattern(&SINGLE, r"(^|[\s(\[:=,])'[^'\n]*'($|[\s).,;:\]])").replace_all(&text, "${1}'…'${2}");
+    let text = pattern(&MENTION, r"(^|[^\w@])@[A-Za-z0-9][A-Za-z0-9_-]*").replace_all(&text, "${1}@…");
+    let text = pattern(&NAME, r"(^|[\s(\[,;=])([A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+)").replace_all(&text, |c: &regex::Captures| {
+        if code_file(&c[2]) { c[0].to_string() } else { format!("{}…/…", &c[1]) }
+    });
+    text.replace('\n', " ⏎ ").chars().take(LONGEST).collect()
 }
 
 fn stamp(seconds: u64) -> String {
@@ -141,6 +183,22 @@ mod tests {
         assert_eq!(clean("read /Users/ana/Library/x.json", Some("/Users/ana")), "read ~/Library/x.json");
         assert_eq!(clean("one\r\ntwo\nthree", None), "one ⏎ two ⏎ three");
         assert_eq!(clean(&"y".repeat(LONGEST + 10), None).chars().count(), LONGEST);
+    }
+
+    #[test]
+    fn keeps_anything_about_people_and_their_work_out() {
+        assert_eq!(clean("open /home/bruno/code and C:\\Users\\Carla\\AppData and /Users/dana/x", None), "open ~/code and ~\\AppData and ~/x");
+        assert_eq!(
+            clean("GET https://api.github.com/repos/acme/secret/pulls/7?x=1 failed, see https://wiki.acme.dev/page", None),
+            "GET https://api.github.com/… failed, see [link]"
+        );
+        assert_eq!(clean("at tauri://localhost/assets/panel-x1.js:3:9", None), "at tauri://localhost/assets/panel-x1.js:3:9");
+        assert_eq!(clean("at http://tauri.localhost/assets/a.js?v=2", None), "at http://tauri.localhost/assets/a.js");
+        assert_eq!(clean("Could not resolve to a Repository with the name 'acme/secret'.", None), "Could not resolve to a Repository with the name '…'.");
+        assert_eq!(clean(r#"title "Fix the payroll bug" by @ana_lima, mail ana@acme.dev"#, None), "title \"…\" by @…, mail [email]");
+        assert_eq!(clean("refreshing acme/secret-repo#12 failed", None), "refreshing …/…#12 failed");
+        assert_eq!(clean("it couldn't, and it didn't", None), "it couldn't, and it didn't");
+        assert_eq!(clean("at src/watch.rs:12 and src/panel.tsx:3", None), "at src/watch.rs:12 and src/panel.tsx:3");
     }
 
     #[test]

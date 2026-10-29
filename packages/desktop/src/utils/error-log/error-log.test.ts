@@ -21,19 +21,23 @@ describe("forwardErrors", () => {
     forwardErrors();
     const failure = new Error("boom");
     failure.stack = "at here";
-    console.error("Saving failed", failure, { code: 7 });
+    console.error("Saving failed", failure, { title: "Fix the payroll bug" }, null, 3, true);
     window.dispatchEvent(new ErrorEvent("error", { message: "bad thing", filename: "panel.js", lineno: 3 }));
     window.dispatchEvent(new ErrorEvent("error", { message: "ResizeObserver loop completed" }));
     const why = new Error("lost");
     why.stack = "at there";
     rejected(why);
     rejected("plain");
+    const bare = new Error("bare");
+    bare.stack = "";
+    rejected(bare);
 
     expect(invoke.mock.calls.map(([, args]) => args)).toEqual([
-      { message: 'Saving failed boom\nat here {"code":7}' },
+      { message: "Saving failed Error: boom\nat here [object] [null] 3 true" },
       { message: "bad thing at panel.js:3" },
-      { message: "Unhandled: lost\nat there" },
+      { message: "Unhandled: Error: lost\nat there" },
       { message: "Unhandled: plain" },
+      { message: "Unhandled: Error: bare" },
     ]);
   });
 

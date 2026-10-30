@@ -10,7 +10,7 @@ import { Review, type Target } from "@/components/review/review";
 import { TooltipProvider } from "@/components/tooltip/tooltip";
 import { Viewer } from "@/components/viewer/viewer";
 import { boot } from "@/entries/boot";
-import { DIRECTION } from "@/hooks/use-next-in-queue/use-next-in-queue";
+import { takeDirection } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import { platform } from "@/utils/platform/platform";
 
 import "@/index.css";
@@ -52,8 +52,7 @@ void platform().listenToWindow<Target>("review-open", (payload) => {
     queue: payload.queue ?? "",
   });
   history.replaceState(null, "", `?${query}`);
-  const direction = sessionStorage.getItem(DIRECTION);
-  sessionStorage.removeItem(DIRECTION);
+  const direction = takeDirection();
   if (!direction || matchMedia("(prefers-reduced-motion: reduce)").matches || !("startViewTransition" in document)) {
     show(payload);
     return;

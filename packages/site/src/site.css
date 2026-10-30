@@ -6,6 +6,14 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "Mona Sans Fallback";
+  src: local("Arial"), local("Helvetica"), local("Liberation Sans");
+  size-adjust: 102.86%;
+  ascent-override: 105.96%;
+  descent-override: 31.11%;
+  line-gap-override: 0%;
+}
+@font-face {
   font-family: "JetBrains Mono";
   src: url(fonts/jetbrains-mono.woff2) format("woff2");
   font-weight: 400 800;
@@ -36,7 +44,9 @@
     transparent 80%
   );
   --header: rgba(255, 255, 255, 0.78);
-  --sans: "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --sans:
+    "Mona Sans", "Mona Sans Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial,
+    sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --wide: 1160px;

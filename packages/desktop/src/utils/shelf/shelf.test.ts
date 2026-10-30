@@ -16,6 +16,16 @@ describe("the shelf", () => {
     expect(shelved("nothing")).toBeNull();
     localStorage.setItem("shelf:broken", "{");
     expect(shelved("broken")).toBeNull();
+    for (const odd of [
+      "null",
+      "3",
+      JSON.stringify({ at: 1 }),
+      JSON.stringify({ value: 1 }),
+      JSON.stringify({ at: "x", value: 1 }),
+    ]) {
+      localStorage.setItem("shelf:odd", odd);
+      expect(shelved("odd")).toBeNull();
+    }
   });
 
   it("lets the least recently kept go past 120 things", () => {

@@ -1,5 +1,3 @@
-type Shelved<T> = { at: number; value: T };
-
 const INDEX = "shelf-index";
 
 function index() {
@@ -17,9 +15,17 @@ export function shelved<T>(key: string): { value: T; age: number } | null {
   try {
     const text = localStorage.getItem(`shelf:${key}`);
     if (!text) return null;
+    const kept: unknown = JSON.parse(text);
+    if (
+      typeof kept !== "object" ||
+      kept === null ||
+      !("value" in kept) ||
+      !("at" in kept) ||
+      typeof kept.at !== "number"
+    )
+      return null;
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- only shelve() writes here, with what the key's callers keep
-    const kept = JSON.parse(text) as Shelved<T>;
-    return { value: kept.value, age: Date.now() - kept.at };
+    return { value: kept.value as T, age: Date.now() - kept.at };
   } catch {
     return null;
   }

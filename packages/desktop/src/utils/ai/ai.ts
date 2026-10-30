@@ -138,9 +138,9 @@ export function commentable(patch: string): Set<number> {
   return lines;
 }
 
-export async function review(config: Config, details: Details, files: ReviewFile[]): Promise<AiReview> {
+export async function review(config: Config, details: Details, files: ReviewFile[], runId?: string): Promise<AiReview> {
   const task = `${config.ai.review.prompt}\n\nGive each problem as a finding on the line it's about. If nothing is worth raising, return no findings.`;
-  const answer = await run(config, details, files, task, { schema: SCHEMA });
+  const answer = await run(config, details, files, task, { schema: SCHEMA, runId });
   let parsed: unknown;
   try {
     parsed = JSON.parse(answer.text);

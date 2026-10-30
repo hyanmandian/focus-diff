@@ -1,4 +1,14 @@
-import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeft,
+  Check,
+  Copy,
+  Loader2,
+  MessageSquarePlus,
+  Pencil,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
@@ -8,6 +18,7 @@ import { Button } from "@/components/button/button";
 import { Checks } from "@/components/checks/checks";
 import { CommitsSection } from "@/components/commits/commits";
 import { MergeBox } from "@/components/merge-box/merge-box";
+import { PullState } from "@/components/pull-state/pull-state";
 import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { StackCard } from "@/components/stack-card/stack-card";
@@ -88,6 +99,7 @@ function ReviewSummary({
   review,
   reviewing,
   error,
+  onStop,
   onJump,
 }: {
   by: string;
@@ -95,6 +107,7 @@ function ReviewSummary({
   review: AiReview | null;
   reviewing: boolean;
   error: string | null;
+  onStop: () => void;
   onJump: (path: string, line: number | null) => void;
 }) {
   const t = useT();
@@ -111,7 +124,15 @@ function ReviewSummary({
         <Sparkles className="size-3.5 text-violet" aria-hidden /> {t("review.aiReviewHeading")}
         <span className="font-normal text-muted-foreground">{t("review.by", { name: by })}</span>
         {reviewing ? (
-          <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("review.reviewing")} />
+          <>
+            <Loader2
+              className="ml-auto size-3.5 animate-spin text-muted-foreground"
+              aria-label={t("review.reviewing")}
+            />
+            <Button variant="outline" size="xs" onClick={onStop}>
+              <Square className="size-2.5 fill-current" aria-hidden /> {t("review.stop")}
+            </Button>
+          </>
         ) : null}
       </h3>
       {error ? (
@@ -173,6 +194,7 @@ type Props = {
   review: AiReview | null;
   reviewing: boolean;
   reviewError: string | null;
+  onStopReview: () => void;
   onJump: (path: string, line: number | null) => void;
   threads: Thread[];
   onReply: (thread: Thread, body: string) => Promise<void>;
@@ -446,6 +468,7 @@ function Heading({ details }: { details: Details }) {
           {details.title} <span className="font-normal text-muted-foreground tabular-nums">#{details.number}</span>
         </h1>
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-muted-foreground">
+          <PullState details={details} />
           <span>
             {beforeWho}
             <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
@@ -518,6 +541,7 @@ export function Overview({
   review,
   reviewing,
   reviewError,
+  onStopReview,
   onJump,
   threads,
   onReply,
@@ -648,6 +672,7 @@ export function Overview({
             review={review}
             reviewing={reviewing}
             error={reviewError}
+            onStop={onStopReview}
             onJump={onJump}
           />
         ) : null}

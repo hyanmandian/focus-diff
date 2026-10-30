@@ -15,6 +15,7 @@ import {
   Rows2,
   Search,
   Sparkles,
+  Square,
   WrapText,
   X,
   Zap,
@@ -53,6 +54,7 @@ import { Overview } from "@/components/overview/overview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Progress } from "@/components/progress/progress";
 import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
+import { PullState } from "@/components/pull-state/pull-state";
 import { Shortcuts } from "@/components/shortcuts/shortcuts";
 import { Skeleton } from "@/components/skeleton/skeleton";
 import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
@@ -71,7 +73,7 @@ import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
-import { reviewRun, startReview } from "@/utils/ai-runs/ai-runs";
+import { ReviewStopped, reviewRun, startReview, stopReview } from "@/utils/ai-runs/ai-runs";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
@@ -358,6 +360,7 @@ export function Review({ target }: { target: Target }) {
     isReviewed,
   );
   const [reviewing, setReviewing] = useState<string | null>(null);
+  const [stoppedAt, setStoppedAt] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   useTheme(config?.theme);
   const dark = useDark();
@@ -499,10 +502,12 @@ export function Review({ target }: { target: Target }) {
       if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
       setReviewing(details.headRefOid);
       setReviewError(null);
+      setStoppedAt(null);
       try {
-        setReviewed(await startReview(prId, details.headRefOid, () => aiReview(ai, details, files)));
+        setReviewed(await startReview(prId, details.headRefOid, (run) => aiReview(ai, details, files, run)));
       } catch (e) {
-        setReviewError(errorText(e));
+        if (e instanceof ReviewStopped) setStoppedAt(details.headRefOid);
+        else setReviewError(errorText(e));
       } finally {
         setReviewing(null);
       }
@@ -520,7 +525,9 @@ export function Review({ target }: { target: Target }) {
         const done = await run.done;
         if (mounted) setReviewed(done);
       } catch (e) {
-        if (mounted) setReviewError(errorText(e));
+        if (!mounted) return;
+        if (e instanceof ReviewStopped) setStoppedAt(run.head);
+        else setReviewError(errorText(e));
       } finally {
         if (mounted) setReviewing(null);
       }
@@ -530,10 +537,22 @@ export function Review({ target }: { target: Target }) {
     };
   }, [prId, setReviewed]);
   useEffect(() => {
-    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
+    if (
+      ai?.ai.review.auto &&
+      details &&
+      files &&
+      !current &&
+      !reviewing &&
+      !reviewError &&
+      stoppedAt !== details.headRefOid &&
+      details.state === "OPEN"
+    )
       // oxlint-disable-next-line react/set-state-in-effect -- it sets state only once the AI's readiness is known (awaited)
       void runReview(false);
-  }, [ai, details, files, current, reviewing, reviewError, runReview]);
+  }, [ai, details, files, current, reviewing, reviewError, stoppedAt, runReview]);
+  const stopAiReview = () => {
+    stopReview(prId);
+  };
   const dropFinding = (finding: Finding) => {
     setReviewed((r) =>
       r
@@ -1064,9 +1083,12 @@ export function Review({ target }: { target: Target }) {
         >
           {details ? (
             <>
-              <h1 data-tauri-drag-region className="max-w-full truncate text-headline font-bold" title={details.title}>
-                {details.title}
-              </h1>
+              <div data-tauri-drag-region className="flex max-w-full items-center gap-1.5">
+                {isOpen ? null : <PullState details={details} className="h-4 px-1.5" />}
+                <h1 data-tauri-drag-region className="min-w-0 truncate text-headline font-bold" title={details.title}>
+                  {details.title}
+                </h1>
+              </div>
               {notice ? (
                 <output className="block max-w-full animate-in truncate text-subheadline text-foreground duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   {notice}
@@ -1248,22 +1270,24 @@ export function Review({ target }: { target: Target }) {
                         <Button
                           variant="ghost"
                           className={cn(TOOL, "@max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                          onClick={() => void runReview()}
-                          disabled={Boolean(reviewing) || !files}
+                          onClick={reviewing ? stopAiReview : () => void runReview()}
+                          disabled={!reviewing && !files}
                         />
                       }
                     >
-                      {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {reviewing ? <Square className="size-3 fill-current" /> : <Sparkles />}
                       <span className="@max-[1360px]:sr-only">
-                        {current ? t("review.reviewAgain") : t("review.aiReview")}
+                        {reviewing ? t("review.stop") : current ? t("review.reviewAgain") : t("review.aiReview")}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {aiProblemNow
-                        ? aiProblemNow.title
-                        : current
-                          ? t("review.reviewAgainTip")
-                          : t("review.aiReviewTip")}
+                      {reviewing
+                        ? t("review.stopReview")
+                        : aiProblemNow
+                          ? aiProblemNow.title
+                          : current
+                            ? t("review.reviewAgainTip")
+                            : t("review.aiReviewTip")}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -1515,6 +1539,7 @@ export function Review({ target }: { target: Target }) {
                 review={current}
                 reviewing={Boolean(reviewing)}
                 reviewError={reviewError}
+                onStopReview={stopAiReview}
                 onJump={jump}
                 onReply={async (thread, body) => {
                   await reply(details, thread, body);

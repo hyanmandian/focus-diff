@@ -201,6 +201,7 @@ function props(extra: Partial<Props> = {}): Props {
     review: null,
     reviewing: false,
     reviewError: null,
+    onStopReview: vi.fn<Props["onStopReview"]>(),
     onJump: vi.fn<Props["onJump"]>(),
     threads: [],
     onReply: vi.fn<Props["onReply"]>(done),
@@ -261,6 +262,13 @@ describe("the heading", () => {
     expect(screen.getByTitle("main")).toBeTruthy();
     expect(screen.getByTitle("promo-keep")).toBeTruthy();
     expect(screen.getByLabelText("from")).toBeTruthy();
+  });
+
+  it("says whether it's still open or already merged", () => {
+    const { again } = show();
+    expect(screen.getByText("Open")).toBeTruthy();
+    again({ details: { ...details, state: "MERGED" } });
+    expect(screen.getByText("Merged")).toBeTruthy();
   });
 
   it("shows the stack it's in under the heading, and goes to another of it", async () => {
@@ -645,6 +653,12 @@ describe("at a glance", () => {
     expect(screen.getByText("Ask AI")).toBeTruthy();
     again({ config: claude });
     expect(screen.queryByRole("heading", { name: /AI review/u })).toBeNull();
+  });
+
+  it("stops the review it's running", async () => {
+    const { onStopReview } = show({ config: claude, reviewing: true });
+    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(onStopReview).toHaveBeenCalledOnce();
   });
 
   it("says what it's reading while it reviews", () => {

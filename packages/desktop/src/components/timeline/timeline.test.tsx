@@ -3,9 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
 import { describe as words, TimelineRow } from "@/components/timeline/timeline";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { openedUrls } from "@/utils/fake-platform/fake-platform";
 import { i18n } from "@/utils/i18n/i18n";
-import type { Args } from "@/utils/platform/platform";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
 const at = "2026-10-20T10:00:00Z";
@@ -13,16 +12,6 @@ const base = { id: "E1", at, actor: "ana" };
 const commit = (n: number) => ({ oid: `oid${n}`, short: `abc${n}`, headline: `Commit ${n}`, url: `https://c/${n}` });
 const red = { name: "bug", color: "d73a4a" };
 const blue = { name: "docs", color: "0075ca" };
-
-const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
-
-function opened() {
-  const urls: unknown[] = [];
-  mockCommands((cmd, args) => {
-    if (cmd === "open_url") urls.push(arg(args, "url"));
-  });
-  return urls;
-}
 
 const row = (event: TimelineEvent) => render(<TimelineRow event={event} />);
 
@@ -115,7 +104,7 @@ describe("TimelineRow", () => {
   });
 
   it("opens what referenced it in the browser", async () => {
-    const urls = opened();
+    const urls = openedUrls();
     row({
       ...base,
       kind: "commitReferenced",

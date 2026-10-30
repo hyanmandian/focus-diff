@@ -8,6 +8,9 @@ import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversa
 import type { Exchange } from "@/utils/ai/ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeOs } from "@/utils/mock-os/mock-os";
+import { fakeConversation } from "@/utils/mock-pull/mock-pull";
+import { deferred, refuseStorage } from "@/utils/mock-render/mock-render";
 import type { Draft, Thread, ThreadComment } from "@/utils/review/review";
 
 vi.mock("@/utils/writer/writer", () => ({
@@ -18,55 +21,20 @@ vi.mock("@/utils/writer/writer", () => ({
   savedReplies: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
 }));
 
-const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("@/utils/os/os", async (original) => ({
-  ...(await original<object>()),
-  get isMac() {
-    return platform.mac;
-  },
-}));
+vi.mock("@/utils/os/os", async (original) =>
+  (await import("@/utils/mock-os/mock-os")).withFakeOs(await original<object>()),
+);
 
 const nothing = () => {};
 
-function deferred<T>() {
-  let resolve: (value: T) => void = nothing;
-  let reject: (reason: unknown) => void = nothing;
-  const promise = new Promise<T>((settle, fail) => {
-    resolve = settle;
-    reject = fail;
-  });
-  return { promise, resolve, reject };
-}
-
-function apiFor(overrides: Partial<ConversationApi> = {}): ConversationApi {
-  return {
+const apiFor = (overrides: Partial<ConversationApi> = {}) =>
+  fakeConversation({
     repo: "acme/app",
     url: "https://github.com/acme/app/pull/12",
     me: "you",
-    people: [],
-    canApplySuggestion: false,
     branch: "feature",
-    thread: vi.fn<ConversationApi["thread"]>(),
-    patchOf: vi.fn<ConversationApi["patchOf"]>(),
-    draft: vi.fn<ConversationApi["draft"]>(),
-    draftError: vi.fn<ConversationApi["draftError"]>(),
-    draftSending: () => false,
-    retryDrafts: vi.fn<ConversationApi["retryDrafts"]>(),
-    replyLater: vi.fn<ConversationApi["replyLater"]>(),
-    editComment: vi.fn<ConversationApi["editComment"]>(() => Promise.resolve()),
-    deleteComment: vi.fn<ConversationApi["deleteComment"]>(() => Promise.resolve()),
-    editEntry: vi.fn<ConversationApi["editEntry"]>(),
-    deleteEntry: vi.fn<ConversationApi["deleteEntry"]>(),
-    editDescription: vi.fn<ConversationApi["editDescription"]>(),
-    react: vi.fn<ConversationApi["react"]>(() => Promise.resolve()),
-    copyLink: vi.fn<ConversationApi["copyLink"]>(),
-    batch: [],
-    toggleBatch: vi.fn<ConversationApi["toggleBatch"]>(),
-    clearBatch: vi.fn<ConversationApi["clearBatch"]>(),
-    commit: vi.fn<ConversationApi["commit"]>(),
     ...overrides,
-  };
-}
+  });
 
 const withApi = (api: ConversationApi | null, ui: ReactNode) => (
   <ConversationProvider value={api}>{ui}</ConversationProvider>
@@ -116,7 +84,7 @@ const suggestOffered = () => screen.queryByRole("button", { name: /Suggest/u });
 const box = (name: string | RegExp) => screen.getByRole<HTMLTextAreaElement>("combobox", { name });
 
 beforeEach(() => {
-  platform.mac = false;
+  fakeOs.mac = false;
   rust();
   Object.defineProperty(document, "execCommand", { configurable: true, value: () => false });
 });
@@ -181,7 +149,7 @@ describe("Composer", () => {
 
   it("sends what's written, trimmed, and waits while it goes", async () => {
     const user = userEvent.setup();
-    const sending = deferred<void>();
+    const sending = deferred();
     const onSubmit = vi.fn<(body: string) => Promise<void>>(() => sending.promise);
     render(
       <Composer
@@ -304,7 +272,7 @@ describe("ThreadView", () => {
 
   it("resolves, waiting while GitHub does it", async () => {
     const user = userEvent.setup();
-    const done = deferred<void>();
+    const done = deferred();
     const onReply = vi.fn<(body: string) => Promise<void>>();
     const onResolve = vi.fn<(resolved: boolean) => Promise<void>>(() => done.promise);
     render(withApi(apiFor(), <ThreadView thread={conversation()} onReply={onReply} onResolve={onResolve} />));
@@ -536,14 +504,14 @@ describe("NewComment", () => {
     });
 
     it("names ⌘↩ on the Mac", () => {
-      platform.mac = true;
+      fakeOs.mac = true;
       newComment();
       expect(screen.getByText("Goes into your review · ⌘Enter")).toBeTruthy();
     });
 
     it("waits while it's posted, and says why it wasn't", async () => {
       const user = userEvent.setup();
-      const posting = deferred<void>();
+      const posting = deferred();
       const onSendNow = vi
         .fn<(body: string) => Promise<void>>()
         .mockReturnValueOnce(posting.promise)
@@ -634,12 +602,7 @@ describe("NewComment", () => {
       expect(document.activeElement).toBe(question());
       unmount();
 
-      vi.spyOn(localStorage, "getItem").mockImplementation(() => {
-        throw new Error("denied");
-      });
-      vi.spyOn(localStorage, "setItem").mockImplementation(() => {
-        throw new Error("denied");
-      });
+      refuseStorage();
       newComment();
       expect(tab("Comment").getAttribute("aria-selected")).toBe("true");
       await user.click(tab("Ask AI"));

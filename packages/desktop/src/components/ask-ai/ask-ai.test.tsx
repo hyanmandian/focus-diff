@@ -7,6 +7,7 @@ import type { AiAnswer } from "@/utils/bridge/bridge";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { fakeDetails } from "@/utils/mock-pull/mock-pull";
+import { deferred } from "@/utils/mock-render/mock-render";
 
 const ai = vi.hoisted(() => ({
   ready: vi.fn<() => Promise<boolean>>(),
@@ -34,18 +35,6 @@ function config(over: Partial<Config["ai"]> = {}): Config {
       ...over,
     },
   };
-}
-
-const NOTHING = () => {};
-
-function deferred<T = void>() {
-  let resolve: (value: T) => void = NOTHING;
-  let reject: (e: unknown) => void = NOTHING;
-  const promise = new Promise<T>((yes, no) => {
-    resolve = yes;
-    reject = no;
-  });
-  return { promise, resolve, reject };
 }
 
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Ask Claude Code about this pull request" });

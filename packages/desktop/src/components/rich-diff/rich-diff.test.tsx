@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ImageDiff, isImage, NoPatchFile, renamed } from "@/components/rich-diff/rich-diff";
 import type { Source } from "@/utils/contents/contents";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import { later } from "@/utils/mock-render/mock-render";
+import { later, refuseStorage } from "@/utils/mock-render/mock-render";
 import type { Args } from "@/utils/platform/platform";
 import type { ReviewFile } from "@/utils/review/review";
 
@@ -122,12 +122,7 @@ describe("ImageDiff", () => {
   });
 
   it("still works where storage is refused", async () => {
-    vi.spyOn(localStorage, "getItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
+    refuseStorage();
     const file = picture();
     commits({ [`base:${file.path}`]: 1, [`head:${file.path}`]: 1 });
     render(<ImageDiff file={file} source={source()} />);

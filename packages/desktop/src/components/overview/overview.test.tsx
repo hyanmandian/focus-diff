@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vite-plus/test";
 
 import { Overview } from "@/components/overview/overview";
+import type { ThreadView } from "@/components/thread/thread";
 import { openViewer } from "@/components/viewer/viewer";
 import { ConversationProvider, copyText, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Pull } from "@/hooks/use-pull/use-pull";
@@ -13,6 +14,7 @@ import type { Conversation, ConversationEntry, Said } from "@/utils/conversation
 import type { Entry } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { fakeDetails } from "@/utils/mock-pull/mock-pull";
+import { ThreadStub } from "@/utils/mock-render/mock-render";
 import type { Thread } from "@/utils/review/review";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
@@ -89,24 +91,7 @@ vi.mock("@/components/thread/thread", () => ({
       </button>
     </fieldset>
   ),
-  ThreadView: ({
-    thread,
-    onReply,
-    onResolve,
-  }: {
-    thread: Thread;
-    onReply: (body: string) => Promise<void>;
-    onResolve: (resolved: boolean) => Promise<void>;
-  }) => (
-    <div>
-      <button type="button" onClick={() => void onReply("Thanks")}>
-        Reply to {thread.id}
-      </button>
-      <button type="button" onClick={() => void onResolve(true)}>
-        Resolve {thread.id}
-      </button>
-    </div>
-  ),
+  ThreadView: (given: ComponentProps<typeof ThreadView>) => ThreadStub(given),
 }));
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -467,7 +452,7 @@ describe("the conversation", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Reply to T1" }));
-    expect(p.onReply).toHaveBeenCalledWith(started, "Thanks");
+    expect(p.onReply).toHaveBeenCalledWith(started, "Agreed");
     await user.click(screen.getByRole("button", { name: "Resolve T2" }));
     expect(p.onResolve).toHaveBeenCalledWith(onFile, true);
   });

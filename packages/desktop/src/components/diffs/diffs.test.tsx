@@ -1,14 +1,15 @@
 import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createRef, useImperativeHandle, useLayoutEffect, type ReactNode, type Ref } from "react";
+import { createRef, useImperativeHandle, useLayoutEffect, type ComponentProps, type ReactNode, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { Diffs, type DiffsHandle } from "@/components/diffs/diffs";
-import type { Exchange, Finding } from "@/utils/ai/ai";
-import type { AiAnswer } from "@/utils/bridge/bridge";
+import type { NewComment, ThreadView } from "@/components/thread/thread";
+import type { Finding } from "@/utils/ai/ai";
 import { BinaryFile, bothVersions, type Source } from "@/utils/contents/contents";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { deferred, ThreadStub } from "@/utils/mock-render/mock-render";
 import type { Draft, ReviewFile, Thread } from "@/utils/review/review";
 
 type Hovered = { lineNumber: number; side?: "additions" | "deletions" };
@@ -90,30 +91,7 @@ vi.mock("@pierre/diffs/react", () => ({
 }));
 
 vi.mock("@/components/thread/thread", () => ({
-  ThreadView: ({
-    thread,
-    moved,
-    onReply,
-    onResolve,
-  }: {
-    thread: Thread;
-    moved: boolean;
-    onReply: (body: string) => Promise<void>;
-    onResolve: (resolved: boolean) => Promise<void>;
-  }) => (
-    <div>
-      <p>
-        Conversation {thread.id}
-        {moved ? " (moved)" : ""}
-      </p>
-      <button type="button" onClick={() => void onReply("Agreed")}>
-        Reply to {thread.id}
-      </button>
-      <button type="button" onClick={() => void onResolve(true)}>
-        Resolve {thread.id}
-      </button>
-    </div>
-  ),
+  ThreadView: (given: ComponentProps<typeof ThreadView>) => ThreadStub(given),
   DraftView: ({ draft, onEdit, onRemove }: { draft: Draft; onEdit: (body: string) => void; onRemove: () => void }) => (
     <div>
       <p>Pending {draft.body}</p>
@@ -153,23 +131,7 @@ vi.mock("@/components/thread/thread", () => ({
       </button>
     </div>
   ),
-  NewComment: ({
-    lines,
-    path,
-    file,
-    onAdd,
-    onSendNow,
-    onCancel,
-    ask,
-  }: {
-    lines: string;
-    path: string;
-    file?: boolean;
-    onAdd: (body: string) => void;
-    onSendNow: (body: string) => Promise<void>;
-    onCancel: () => void;
-    ask: ((question: string, earlier: Exchange[], run: string) => Promise<AiAnswer>) | null;
-  }) => (
+  NewComment: ({ lines, path, file, onAdd, onSendNow, onCancel, ask }: ComponentProps<typeof NewComment>) => (
     <div>
       <p>
         New comment on {lines} of {path}
@@ -390,18 +352,6 @@ const withRect = (box: DOMRect) => {
   el.getBoundingClientRect = () => box;
   return el;
 };
-
-const nothing = () => {};
-
-function deferred<T>() {
-  let resolve: (value: T) => void = nothing;
-  let reject: (reason: unknown) => void = nothing;
-  const promise = new Promise<T>((settle, fail) => {
-    resolve = settle;
-    reject = fail;
-  });
-  return { promise, resolve, reject };
-}
 
 function rust(confirmed = true) {
   const sent: Array<[string, unknown]> = [];

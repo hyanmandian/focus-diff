@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { Connect, NEW_TOKEN } from "@/components/connect/connect";
 import type { AuthStatus, DeviceCode } from "@/utils/bridge/bridge";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { deferred } from "@/utils/mock-render/mock-render";
 
 const auth = (over: Partial<AuthStatus> = {}): AuthStatus => ({
   signed_in: false,
@@ -33,18 +34,6 @@ function rust(answers: Record<string, unknown>) {
     return answer;
   });
   return calls;
-}
-
-const NOTHING = () => {};
-
-function deferred<T = void>() {
-  let resolve: (value: T) => void = NOTHING;
-  let reject: (e: unknown) => void = NOTHING;
-  const promise = new Promise<T>((yes, no) => {
-    resolve = yes;
-    reject = no;
-  });
-  return { promise, resolve, reject };
 }
 
 describe("Connect", () => {

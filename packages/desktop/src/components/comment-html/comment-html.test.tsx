@@ -5,20 +5,9 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CommentHtml, openClicked } from "@/components/comment-html/comment-html";
 import { Viewer } from "@/components/viewer/viewer";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { openedUrls } from "@/utils/fake-platform/fake-platform";
 
 const PICTURE = "https://user-images.githubusercontent.com/1/shot.png";
-
-const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
-
-function opened() {
-  const urls: unknown[] = [];
-  mockCommands((cmd, args) => {
-    if (cmd === "open_url") urls.push(arg(args, "url"));
-  });
-  return urls;
-}
 
 describe("CommentHtml", () => {
   it("shows GitHub's HTML cleaned of anything unsafe", () => {
@@ -31,14 +20,14 @@ describe("CommentHtml", () => {
   });
 
   it("opens a link in the browser", async () => {
-    const urls = opened();
+    const urls = openedUrls();
     render(<CommentHtml html='<p>See <a href="https://github.com/acme/app/pull/1">the PR</a></p>' />);
     await userEvent.click(screen.getByText("the PR"));
     expect(urls).toEqual(["https://github.com/acme/app/pull/1"]);
   });
 
   it("opens a picture in the viewer, even one linked to itself", async () => {
-    const urls = opened();
+    const urls = openedUrls();
     render(
       <>
         <CommentHtml html={`<a href="${PICTURE}"><img src="${PICTURE}" alt="Screenshot"></a>`} />
@@ -51,14 +40,14 @@ describe("CommentHtml", () => {
   });
 
   it("follows a picture's link when it leads to a page", async () => {
-    const urls = opened();
+    const urls = openedUrls();
     render(<CommentHtml html={`<a href="https://example.com/docs"><img src="${PICTURE}" alt="Badge"></a>`} />);
     await userEvent.click(screen.getByRole("img", { name: "Badge" }));
     expect(urls).toEqual(["https://example.com/docs"]);
   });
 
   it("does nothing for a click on plain text", async () => {
-    const urls = opened();
+    const urls = openedUrls();
     render(<CommentHtml html="<p>Just words</p>" />);
     await userEvent.click(screen.getByText("Just words"));
     expect(urls).toEqual([]);

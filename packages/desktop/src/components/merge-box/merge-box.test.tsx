@@ -5,11 +5,10 @@ import { describe, expect, it } from "vite-plus/test";
 import { MergeBox } from "@/components/merge-box/merge-box";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { Details } from "@/utils/details/details";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { openedUrls } from "@/utils/fake-platform/fake-platform";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
 import { fakeCommit, fakeDetails, fakeManage, fakePull, fakeView } from "@/utils/mock-pull/mock-pull";
-import type { Args } from "@/utils/platform/platform";
 
 type Setup = { details?: Partial<Details>; view?: Partial<MergeView>; manage?: Partial<Manage>; pull?: Partial<Pull> };
 
@@ -24,16 +23,6 @@ const status = () => screen.getByRole("region").querySelector("h2")?.textContent
 const detail = () => screen.getByRole("heading").nextElementSibling?.textContent ?? null;
 const button = (name: string | RegExp) => screen.getByRole("button", { name });
 const noButton = (name: string) => screen.queryByRole("button", { name });
-
-const arg = (args: Args | undefined, key: string): unknown => new Map(Object.entries(args ?? {})).get(key);
-
-function opened() {
-  const urls: unknown[] = [];
-  mockCommands((cmd, args) => {
-    if (cmd === "open_url") urls.push(arg(args, "url"));
-  });
-  return urls;
-}
 
 describe("MergeBox", () => {
   it("shows nothing until it knows where the pull request stands", () => {
@@ -298,7 +287,7 @@ describe("MergeBox", () => {
   });
 
   it("opens GitHub's page for resolving conflicts", async () => {
-    const urls = opened();
+    const urls = openedUrls();
     box({ view: { status: "conflicts", canMerge: false } });
     await userEvent.click(button("Resolve Conflicts"));
     expect(urls).toEqual(["https://github.com/acme/shop/pull/42/conflicts"]);

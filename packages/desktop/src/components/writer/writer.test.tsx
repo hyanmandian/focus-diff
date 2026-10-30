@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { MarkdownField } from "@/components/writer/writer";
 import { ConversationProvider, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeOs } from "@/utils/mock-os/mock-os";
+import { fakeConversation } from "@/utils/mock-pull/mock-pull";
+import { deferred } from "@/utils/mock-render/mock-render";
 import { emoji, mentionable, preview, referable, savedReplies } from "@/utils/writer/writer";
 
 vi.mock("@/utils/writer/writer", () => ({
@@ -16,47 +19,23 @@ vi.mock("@/utils/writer/writer", () => ({
   savedReplies: vi.fn<typeof savedReplies>(),
 }));
 
-const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("@/utils/os/os", async (original) => ({
-  ...(await original<object>()),
-  get isMac() {
-    return platform.mac;
-  },
-}));
+vi.mock("@/utils/os/os", async (original) =>
+  (await import("@/utils/mock-os/mock-os")).withFakeOs(await original<object>()),
+);
 
 const PEOPLE = [
   { login: "ana", name: "Ana Lima", avatarUrl: "https://avatars.githubusercontent.com/u/1" },
   { login: "andre", name: null },
 ];
 
-function apiFor(url = "https://github.com/acme/app/pull/12"): ConversationApi {
-  return {
+const apiFor = (url = "https://github.com/acme/app/pull/12") =>
+  fakeConversation({
     repo: "acme/app",
     url,
     me: "you",
     people: PEOPLE,
-    canApplySuggestion: false,
     branch: "feature",
-    thread: vi.fn<ConversationApi["thread"]>(),
-    patchOf: vi.fn<ConversationApi["patchOf"]>(),
-    draft: vi.fn<ConversationApi["draft"]>(),
-    draftError: vi.fn<ConversationApi["draftError"]>(),
-    draftSending: () => false,
-    retryDrafts: vi.fn<ConversationApi["retryDrafts"]>(),
-    replyLater: vi.fn<ConversationApi["replyLater"]>(),
-    editComment: vi.fn<ConversationApi["editComment"]>(),
-    deleteComment: vi.fn<ConversationApi["deleteComment"]>(),
-    editEntry: vi.fn<ConversationApi["editEntry"]>(),
-    deleteEntry: vi.fn<ConversationApi["deleteEntry"]>(),
-    editDescription: vi.fn<ConversationApi["editDescription"]>(),
-    react: vi.fn<ConversationApi["react"]>(),
-    copyLink: vi.fn<ConversationApi["copyLink"]>(),
-    batch: [],
-    toggleBatch: vi.fn<ConversationApi["toggleBatch"]>(),
-    clearBatch: vi.fn<ConversationApi["clearBatch"]>(),
-    commit: vi.fn<ConversationApi["commit"]>(),
-  };
-}
+  });
 
 type FieldProps = Partial<Parameters<typeof MarkdownField>[0]> & { api?: ConversationApi | null; initial?: string };
 
@@ -90,18 +69,6 @@ const nextFrame = () =>
       }),
   );
 
-const nothing = () => {};
-
-function deferred<T>() {
-  let resolve: (value: T) => void = nothing;
-  let reject: (reason: unknown) => void = nothing;
-  const promise = new Promise<T>((settle, fail) => {
-    resolve = settle;
-    reject = fail;
-  });
-  return { promise, resolve, reject };
-}
-
 function dragOver(types: string[]) {
   const event = new Event("dragover", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", { value: { types } });
@@ -134,10 +101,16 @@ function execCommand(typed: boolean) {
 }
 
 const picture = (name = "shot.png", type = "image/png") => new File(["png"], name, { type });
+const notes = () => new File(["x"], "notes.txt", { type: "text/plain" });
+const pasteFiles = (files: File[]) => fireEvent.paste(field(), { clipboardData: { files, getData: () => "" } });
+const shown = async () => {
+  render(<Field />);
+  await act(async () => {});
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
-  platform.mac = false;
+  fakeOs.mac = false;
   execCommand(false);
   rust();
 });
@@ -167,7 +140,7 @@ describe("MarkdownField", () => {
     await user.type(field(), "@an");
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(mentionable).not.toHaveBeenCalled();
-    fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
+    pasteFiles([picture()]);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -176,7 +149,7 @@ describe("MarkdownField", () => {
     expect(field().getAttribute("aria-describedby")).toBeTruthy();
     expect(hint()).toContain("Ctrl+B");
     unmount();
-    platform.mac = true;
+    fakeOs.mac = true;
     render(<Field />);
     expect(hint()).toContain("⌘B");
   });
@@ -462,7 +435,7 @@ describe("MarkdownField", () => {
       expect(onSubmit).toHaveBeenCalledTimes(2);
       unmount();
 
-      platform.mac = true;
+      fakeOs.mac = true;
       render(<Field initial="bold" />);
       field().setSelectionRange(0, 4);
       await user.keyboard("{Control>}b{/Control}");
@@ -541,7 +514,7 @@ describe("MarkdownField", () => {
       render(<Field initial="Before" />);
       await act(async () => {});
       field().setSelectionRange(6, 6);
-      fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
+      pasteFiles([picture()]);
       await nextFrame();
       expect(valueNow()).toBe("Before\n![Uploading shot.png…]()\n");
       field().focus();
@@ -603,15 +576,10 @@ describe("MarkdownField", () => {
     it("says what GitHub doesn't take, and still uploads the rest", async () => {
       const upload = deferred<unknown>();
       rust({ uploads: [() => upload.promise] });
-      render(<Field />);
-      await act(async () => {});
-      fireEvent.paste(field(), {
-        clipboardData: { files: [new File(["x"], "notes.txt", { type: "text/plain" })], getData: () => "" },
-      });
+      await shown();
+      pasteFiles([notes()]);
       expect(screen.getByRole("alert").textContent).toContain("GitHub takes PNG");
-      fireEvent.paste(field(), {
-        clipboardData: { files: [new File(["x"], "notes.txt", { type: "text/plain" }), picture()], getData: () => "" },
-      });
+      pasteFiles([notes(), picture()]);
       await nextFrame();
       expect(valueNow()).toContain("Uploading shot.png");
       expect(screen.getByRole("alert").textContent).toContain("GitHub takes PNG");
@@ -620,9 +588,8 @@ describe("MarkdownField", () => {
     it("asks to sign in to github.com first, and lets go of that once signed in", async () => {
       const user = userEvent.setup();
       const sent = rust({ session: null });
-      render(<Field />);
-      await act(async () => {});
-      fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
+      await shown();
+      pasteFiles([picture()]);
       const status = screen.getByRole("status");
       expect(status.textContent).toContain("sign in to github.com once");
       await user.click(screen.getByRole("button", { name: "Sign in to github.com" }));
@@ -636,11 +603,8 @@ describe("MarkdownField", () => {
 
     it("keeps saying why an upload failed after signing in", async () => {
       rust({ session: null });
-      render(<Field />);
-      await act(async () => {});
-      fireEvent.paste(field(), {
-        clipboardData: { files: [new File(["x"], "notes.txt", { type: "text/plain" })], getData: () => "" },
-      });
+      await shown();
+      pasteFiles([notes()]);
       await act(async () => {
         await emit("web-session", "you");
       });
@@ -660,10 +624,9 @@ describe("MarkdownField", () => {
       ];
       const uploads = failures.map(() => deferred<unknown>());
       rust({ uploads: uploads.map((u) => () => u.promise) });
-      render(<Field />);
-      await act(async () => {});
+      await shown();
       const attempt = async () => {
-        fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
+        pasteFiles([picture()]);
         await nextFrame();
         field().blur();
         await act(async () => {
@@ -686,9 +649,8 @@ describe("MarkdownField", () => {
     it("leaves the text alone when the placeholder was already taken out", async () => {
       const upload = deferred<unknown>();
       rust({ uploads: [() => upload.promise] });
-      render(<Field />);
-      await act(async () => {});
-      fireEvent.paste(field(), { clipboardData: { files: [picture()], getData: () => "" } });
+      await shown();
+      pasteFiles([picture()]);
       await nextFrame();
       fireEvent.change(field(), { target: { value: "Rewritten", selectionStart: 9 } });
       await act(async () => {

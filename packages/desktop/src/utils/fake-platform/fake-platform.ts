@@ -83,3 +83,22 @@ export function answerGitHub(answer: (request: GitHubRequest) => unknown) {
 }
 
 export const sentJson = (request: GitHubRequest | undefined): unknown => JSON.parse(String(request?.body));
+
+export function answerConfirm(answer: boolean) {
+  const asked: string[] = [];
+  mockCommands((cmd, args) => {
+    if (cmd !== "confirm") return null;
+    const { title } = fieldsOf(args);
+    asked.push(typeof title === "string" ? title : "");
+    return answer;
+  });
+  return asked;
+}
+
+export function openedUrls() {
+  const urls: unknown[] = [];
+  mockCommands((cmd, args) => {
+    if (cmd === "open_url") urls.push(fieldsOf(args).url);
+  });
+  return urls;
+}

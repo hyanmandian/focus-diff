@@ -1,6 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { Filters } from "@/components/settings-filters/settings-filters";
@@ -8,6 +7,7 @@ import { defaultConfig, type Config, type DiffFilter } from "@/utils/config/conf
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { exportFilters } from "@/utils/filters/filters";
 import { setLanguage } from "@/utils/i18n/i18n";
+import { renderEditing } from "@/utils/mock-render/mock-render";
 
 const filter = (id: string, name: string, more: Partial<DiffFilter> = {}): DiffFilter => ({
   id,
@@ -19,20 +19,12 @@ const filter = (id: string, name: string, more: Partial<DiffFilter> = {}): DiffF
 });
 
 function setup(filters: DiffFilter[], changes = vi.fn<(c: Config) => void>()) {
-  function Harness() {
-    const [config, setConfig] = useState<Config>({ ...defaultConfig(), filters });
-    return (
-      <Filters
-        config={config}
-        onChange={(c) => {
-          changes(c);
-          setConfig(c);
-        }}
-      />
-    );
-  }
-  render(<Harness />);
-  return { changes, last: () => changes.mock.lastCall![0].filters };
+  const editing = renderEditing<Config>(
+    { ...defaultConfig(), filters },
+    (config, onChange) => <Filters config={config} onChange={onChange} />,
+    { changes },
+  );
+  return { changes, last: () => editing.last().filters };
 }
 
 function confirmWith(answer: boolean) {

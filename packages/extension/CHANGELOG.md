@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/hyanmandian/focus-diff/compare/v1.3.0...v1.3.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **core:** tell test files apart reliably in the filter presets ([dca9634](https://github.com/hyanmandian/focus-diff/commit/dca96346af043b5a203b7a79870711655086c03a))
+* **desktop:** Windows windows, any CLI version, Codex and OpenCode, what's new ([085cc16](https://github.com/hyanmandian/focus-diff/commit/085cc16de9fe32fb8dd16c475a6ff74c179bdf88))
+
 ## [1.3.0](https://github.com/hyanmandian/focus-diff/compare/v1.2.0...v1.3.0) (2026-10-29)
 
 

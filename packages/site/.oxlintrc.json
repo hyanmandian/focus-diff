@@ -1,0 +1,38 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "pedantic": "error"
+  },
+  "env": {
+    "es2024": true
+  },
+  "ignorePatterns": ["dist/**"],
+  "rules": {
+    "eslint/max-lines-per-function": "off",
+    "eslint/max-lines": "off",
+    "eslint/eqeqeq": "error",
+    "eslint/no-var": "error",
+    "eslint/prefer-const": "error",
+    "eslint/no-unused-vars": "error",
+    "typescript/no-explicit-any": "error",
+    "unicorn/no-null": "off",
+    "promise/always-return": ["error", { "ignoreLastCallback": true }],
+    "eslint/no-console": ["error", { "allow": ["error"] }]
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.js"],
+      "env": { "browser": true },
+      "rules": { "unicorn/prefer-top-level-await": "off" }
+    },
+    {
+      "files": ["*.ts"],
+      "env": { "node": true },
+      "rules": { "eslint/no-console": "off" }
+    }
+  ]
+}

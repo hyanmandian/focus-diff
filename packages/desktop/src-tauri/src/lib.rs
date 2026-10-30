@@ -32,6 +32,9 @@ mod uploads;
 mod watch;
 mod web;
 
+#[cfg(all(feature = "devctl", not(debug_assertions), not(devctl_allowed)))]
+compile_error!("The devctl feature lets anything that can write a file drive the app: build a release with it only for tests, with FOCUS_DIFF_DEVCTL=1 set.");
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;

@@ -156,6 +156,8 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build the app with its test controls
+        env:
+          FOCUS_DIFF_DEVCTL: "1"
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
             npm run tauri build -- --bundles app --features devctl --config '{"bundle":{"createUpdaterArtifacts":false}}'

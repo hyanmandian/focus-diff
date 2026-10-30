@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.3.0...desktop-v1.4.0) (2026-10-30)
+
+
+### Features
+
+* **desktop:** show whether a pull request is open, merged or closed, and stop an AI review that's running ([d9b96b2](https://github.com/hyanmandian/focus-diff/commit/d9b96b21768d75be9e9fc316735d53cdac9420e5))
+
+
+### Bug Fixes
+
+* **desktop:** hand every Cursor request over in a file ([3c5bcde](https://github.com/hyanmandian/focus-diff/commit/3c5bcdea38e50069e7a89b2f34356ea0794b072a))
+* **desktop:** hide Basic credentials and x-access-token in the log ([9cd094f](https://github.com/hyanmandian/focus-diff/commit/9cd094f6d937a4bc7a07f17b6420717a48219ea4))
+* **desktop:** keep diagrams drawing, and retry mermaid if it fails to start ([67114e2](https://github.com/hyanmandian/focus-diff/commit/67114e203c8084e01186a297279c52985eeaa662))
+* **desktop:** make the AI's scratch folder private and unguessable ([3002e6f](https://github.com/hyanmandian/focus-diff/commit/3002e6f0324b6761342ce4db59bd06005a124862))
+* **desktop:** tighten the pages' security policy ([8b83497](https://github.com/hyanmandian/focus-diff/commit/8b83497c25c4cb57802f1301883f442f39658e3b))
+* follow settings across windows, check what's cached, and match the site's fallback font ([51bef75](https://github.com/hyanmandian/focus-diff/commit/51bef7593abdb1e0f81a4fa039f37223db6c6e58))
+* pass the new Rust 1.99 lints, measure contrast after animations, and leave no exit code behind in install.ps1 ([82e00ce](https://github.com/hyanmandian/focus-diff/commit/82e00ce546cc215947732693d6f3f4ee7bd58a84))
+
 ## [1.3.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.2.0...desktop-v1.3.0) (2026-10-30)
 
 

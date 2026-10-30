@@ -14,13 +14,7 @@ fn kind(bytes: &[u8]) -> &'static str {
 }
 
 fn fetch(address: &str) -> Option<Vec<u8>> {
-    use std::io::Read;
-    let response = crate::github::agent().get(address).call().ok()?;
-    if response.status() != 200 {
-        return None;
-    }
-    let mut bytes = Vec::new();
-    response.into_body().into_reader().take(LARGEST).read_to_end(&mut bytes).ok()?;
+    let bytes = crate::media::read_ok(crate::github::agent().get(address).call().ok()?, LARGEST)?;
     (kind(&bytes) != "application/octet-stream").then_some(bytes)
 }
 

@@ -792,6 +792,11 @@ fn event(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&A
     Event { key: format!("{}:{kind}:{id}", pr.id), kind, at, who: who.cloned(), text: None }
 }
 
+fn comment_event(pr: &PullRequest, c: &Comment, me: &str) -> Event {
+    let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
+    said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref())
+}
+
 fn said(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&Actor>, body: Option<&str>) -> Event {
     Event { text: snippet(body.unwrap_or("")), ..event(pr, kind, id, at, who) }
 }
@@ -898,8 +903,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 let since = waiting.max(act.last);
                 for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
                     if by_others(c) && time(c.created_at.as_deref()) > since {
-                        let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
-                        events.push(said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
+                        events.push(comment_event(pr, c, me));
                     }
                 }
                 items.push(Item { via_teams: Some(if direct { vec![] } else { via }), waiting_since: Some(waiting), ..item(events) });
@@ -938,8 +942,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 }
                 for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
                     if by_others(c) {
-                        let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
-                        events.push(said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
+                        events.push(comment_event(pr, c, me));
                     }
                 }
                 if matches!(ci.as_deref(), Some("FAILURE" | "ERROR")) {
@@ -1148,6 +1151,14 @@ mod tests {
         k
     }
 
+    fn authored(pull: Value) -> Vec<Item> {
+        items(&queue(Kind::Authored, json!({})), &[pr(pull)])
+    }
+
+    fn approval(url: &str, body: Option<&str>) -> Value {
+        json!({ "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": url, "body": body })
+    }
+
     fn comment(login: &str, minutes_ago: i64, body: &str) -> Value {
         json!({ "author": user(login), "createdAt": t(minutes_ago), "body": body, "url": format!("https://x/{login}/{minutes_ago}") })
     }
@@ -1288,19 +1299,16 @@ mod tests {
 
     #[test]
     fn authored_queues() {
-        let found = items(
-            &queue(Kind::Authored, json!({})),
-            &[pr(json!({
-                "author": user(ME),
-                "latestOpinionatedReviews": { "nodes": [
-                    { "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": "u1" },
-                    { "author": user("bruno"), "state": "CHANGES_REQUESTED", "submittedAt": t(4), "url": "u2" },
-                ] },
-                "comments": { "nodes": [comment("carla", 3, "ok")] },
-                "commits": { "nodes": [{ "commit": { "committedDate": t(2), "statusCheckRollup": { "state": "FAILURE" } } }] },
-                "mergeable": "CONFLICTING",
-            }))],
-        );
+        let found = authored(json!({
+            "author": user(ME),
+            "latestOpinionatedReviews": { "nodes": [
+                approval("u1", None),
+                { "author": user("bruno"), "state": "CHANGES_REQUESTED", "submittedAt": t(4), "url": "u2" },
+            ] },
+            "comments": { "nodes": [comment("carla", 3, "ok")] },
+            "commits": { "nodes": [{ "commit": { "committedDate": t(2), "statusCheckRollup": { "state": "FAILURE" } } }] },
+            "mergeable": "CONFLICTING",
+        }));
         assert_eq!(kinds(&found), ["approved", "changes", "ci-failed", "comment", "conflict", "new"]);
 
         let passing = pr(json!({ "author": user(ME) }));
@@ -1441,10 +1449,7 @@ mod tests {
         let comments: Vec<&Event> = found[0].events.iter().filter(|e| e.kind == "comment").collect();
         assert_eq!(comments.len(), 1, "only since you were asked");
         assert_eq!(comments[0].text.as_deref(), Some("Can you look at this?"));
-        let mine = items(
-            &queue(Kind::Authored, json!({})),
-            &[pr(json!({ "author": user(ME), "latestOpinionatedReviews": { "nodes": [{ "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": "u", "body": "Ship it" }] } }))],
-        );
+        let mine = authored(json!({ "author": user(ME), "latestOpinionatedReviews": { "nodes": [approval("u", Some("Ship it"))] } }));
         let approved = mine[0].events.iter().find(|e| e.kind == "approved").unwrap();
         assert_eq!(approved.text.as_deref(), Some("Ship it"));
     }

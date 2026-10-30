@@ -66,12 +66,12 @@ fn kind(bytes: &[u8], url: &str) -> &'static str {
     }
 }
 
-fn read_all(response: ureq::http::Response<ureq::Body>) -> Option<Vec<u8>> {
+pub(crate) fn read_ok(response: ureq::http::Response<ureq::Body>, largest: u64) -> Option<Vec<u8>> {
     if response.status() != 200 {
         return None;
     }
     let mut bytes = Vec::new();
-    response.into_body().into_reader().take(LARGEST).read_to_end(&mut bytes).ok()?;
+    response.into_body().into_reader().take(largest).read_to_end(&mut bytes).ok()?;
     Some(bytes)
 }
 
@@ -105,7 +105,7 @@ fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
         .header("Accept", "application/octet-stream")
         .call()
         .ok()?;
-    read_all(response)
+    read_ok(response, LARGEST)
 }
 
 fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
@@ -114,9 +114,9 @@ fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
         return release_asset(&token, url);
     }
     if let Some(signed) = crate::web::signed_address(app, url) {
-        return read_all(crate::github::agent().get(&signed).call().ok()?);
+        return read_ok(crate::github::agent().get(&signed).call().ok()?, LARGEST);
     }
-    read_all(crate::github::agent().get(url).call().ok()?)
+    read_ok(crate::github::agent().get(url).call().ok()?, LARGEST)
 }
 
 fn empty(status: StatusCode) -> Response<Vec<u8>> {

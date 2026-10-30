@@ -451,10 +451,14 @@ pub(crate) fn update_tray(app: &AppHandle, count: u32, animate: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] {count} waiting, animate {animate}");
     }
+    with_tray(app, move |app, icon| tray::update(app, icon, count, animate));
+}
+
+fn with_tray(app: &AppHandle, work: impl FnOnce(&AppHandle, &TrayIcon) + Send + 'static) {
     let main = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(icon) = main.state::<Tray>().0.held().as_ref() {
-            tray::update(&main, icon, count, animate);
+            work(&main, icon);
         }
     });
 }
@@ -463,12 +467,7 @@ pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] countdown {minutes:?}");
     }
-    let main = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        if let Some(icon) = main.state::<Tray>().0.held().as_ref() {
-            tray::countdown(icon, minutes);
-        }
-    });
+    with_tray(app, move |_, icon| tray::countdown(icon, minutes));
 }
 
 fn apply_language(app: &AppHandle, config: &str) {
@@ -678,10 +677,11 @@ struct ReviewTarget {
     queue: Option<String>,
 }
 
-fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> bool {
+fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> Result<(), String> {
     let token = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
     let name = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
-    token(id) && name(repo) && teams.iter().all(|t| name(t)) && queue.is_none_or(token)
+    let ok = token(id) && name(repo) && teams.iter().all(|t| name(t)) && queue.is_none_or(token);
+    if ok { Ok(()) } else { Err("Bad pull request".into()) }
 }
 
 #[tauri::command]
@@ -692,9 +692,7 @@ async fn open_review(app: AppHandle, id: String, repo: String, number: u64, titl
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn show_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
-    if !plausible(&id, &repo, &teams, queue.as_deref()) {
-        return Err("Bad pull request".into());
-    }
+    plausible(&id, &repo, &teams, queue.as_deref())?;
     let reviews = app.state::<Reviews>();
     let existing = reviews.open.held().get(&id).cloned();
     if let Some(window) = existing.and_then(|label| app.get_webview_window(&label)) {
@@ -742,9 +740,7 @@ fn bring_back(app: &AppHandle, window: &tauri::WebviewWindow) -> Result<(), Stri
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>) -> Result<(), String> {
-    if !plausible(&id, &repo, &teams, queue.as_deref()) {
-        return Err("Bad pull request".into());
-    }
+    plausible(&id, &repo, &teams, queue.as_deref())?;
     let reviews = app.state::<Reviews>();
     let elsewhere = reviews.open.held().get(&id).cloned().filter(|label| label != window.label());
     if let Some(other) = elsewhere.and_then(|label| app.get_webview_window(&label)) {

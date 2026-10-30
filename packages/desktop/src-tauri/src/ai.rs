@@ -275,19 +275,22 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
         if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
             break status;
         }
-        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+        if let Some(why) = halted(started, limit, cancel) {
             stop(&mut child);
-            return Err(tr!("Stopped", "Interrompido"));
-        }
-        if started.elapsed() > limit {
-            stop(&mut child);
-            return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
+            return Err(why);
         }
         std::thread::sleep(Duration::from_millis(50));
     };
     stop_group(child.id());
     let grace = Duration::from_secs(2);
     Ok(Output { status_ok: status.success(), stdout: out.recv_timeout(grace).unwrap_or_default(), stderr: err.recv_timeout(grace).unwrap_or_default() })
+}
+
+fn halted(started: Instant, limit: Duration, cancel: Option<&AtomicBool>) -> Option<String> {
+    if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+        return Some(tr!("Stopped", "Interrompido"));
+    }
+    (started.elapsed() > limit).then(|| tr!("It took too long and was stopped", "Demorou demais e foi interrompido"))
 }
 
 fn command(binary: &Path) -> Command {
@@ -393,6 +396,12 @@ pub struct Question<'a> {
     pub session: Option<&'a str>,
     pub own_settings: bool,
     pub cancel: Option<&'a AtomicBool>,
+}
+
+impl Question<'_> {
+    fn chosen_model(&self) -> Option<&str> {
+        self.model.map(str::trim).filter(|m| !m.is_empty())
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -530,7 +539,7 @@ fn claude_args(q: &Question, binary: &Path, structured: bool) -> Vec<String> {
     if has("--settings") {
         args.extend(["--settings", HOOKS_OFF].map(String::from));
     }
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         args.extend(["--model".into(), model.into()]);
     }
     if let Some(effort) = q.provider.effort(q.effort).filter(|_| has("--effort")) {
@@ -622,11 +631,8 @@ fn hold<'a>(slot: &'a Slot, cancel: Option<&AtomicBool>, limit: Duration) -> Res
             Err(std::sync::TryLockError::Poisoned(poisoned)) => return Ok(poisoned.into_inner()),
             Err(std::sync::TryLockError::WouldBlock) => {}
         }
-        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
-            return Err(tr!("Stopped", "Interrompido"));
-        }
-        if started.elapsed() > limit {
-            return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
+        if let Some(why) = halted(started, limit, cancel) {
+            return Err(why);
         }
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -768,11 +774,8 @@ impl Session {
         let started = Instant::now();
         let mut last = String::new();
         loop {
-            if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
-                return Err(tr!("Stopped", "Interrompido"));
-            }
-            if started.elapsed() > limit {
-                return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
+            if let Some(why) = halted(started, limit, cancel) {
+                return Err(why);
             }
             let line = match self.events.recv_timeout(Duration::from_millis(50)) {
                 Ok(line) => line,
@@ -873,7 +876,7 @@ fn cursor_call(q: &Question, binary: &Path, workspace: &Path, message: &str, cha
         }
     }
     cmd.arg("--workspace").arg(workspace);
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         cmd.args(["--model", model]);
     }
     if let Some(chat) = chat {
@@ -931,7 +934,7 @@ fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat
     if has("--ignore-user-config") {
         cmd.arg("--ignore-user-config");
     }
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         cmd.args(["--model", model]);
     }
     if let Some(effort) = q.provider.effort(q.effort) {
@@ -945,7 +948,7 @@ fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat
     let mut text = None;
     let mut thread = None;
     let mut problem = None;
-    for event in output.stdout.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()) {
+    for event in json_lines(&output.stdout) {
         match event["type"].as_str() {
             Some("thread.started") => thread = event["thread_id"].as_str().map(String::from),
             Some("item.completed") if event["item"]["type"] == "agent_message" => text = event["item"]["text"].as_str().map(String::from),
@@ -954,11 +957,7 @@ fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat
             _ => {}
         }
     }
-    match (text, problem) {
-        (Some(text), None) => Ok((text, thread)),
-        (_, Some(problem)) => Err(problem.chars().take(400).collect()),
-        (None, None) => Err(failure(&output)),
-    }
+    answered(text, thread, problem, &output)
 }
 
 fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat: Option<&str>) -> Result<(String, Option<String>), String> {
@@ -967,7 +966,7 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
     if knows_in(binary, &["run"], "--pure") {
         cmd.arg("--pure");
     }
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         cmd.args(["--model", model]);
     }
     if let Some(effort) = q.provider.effort(q.effort).filter(|_| knows_in(binary, &["run"], "--variant")) {
@@ -986,7 +985,7 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
     let mut session = None;
     let mut last: Option<(String, String)> = None;
     let mut problem = None;
-    for event in output.stdout.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()) {
+    for event in json_lines(&output.stdout) {
         if let Some(id) = event["sessionID"].as_str() {
             session = Some(id.to_string());
         }
@@ -1005,10 +1004,18 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
             _ => {}
         }
     }
-    match (last.map(|(_, text)| text).filter(|t| !t.trim().is_empty()), problem) {
-        (Some(text), None) => Ok((text, session)),
+    answered(last.map(|(_, text)| text).filter(|t| !t.trim().is_empty()), session, problem, &output)
+}
+
+fn json_lines(text: &str) -> impl Iterator<Item = serde_json::Value> + '_ {
+    text.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+}
+
+fn answered(text: Option<String>, chat: Option<String>, problem: Option<String>, output: &Output) -> Result<(String, Option<String>), String> {
+    match (text, problem) {
+        (Some(text), None) => Ok((text, chat)),
         (_, Some(problem)) => Err(problem.chars().take(400).collect()),
-        (None, None) => Err(failure(&output)),
+        (None, None) => Err(failure(output)),
     }
 }
 

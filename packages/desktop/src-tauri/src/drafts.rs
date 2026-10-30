@@ -266,10 +266,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&
         crate::disk::save_json(file, &q.saved);
         done.notify_all();
         let _ = app.emit("drafts", job.change.pull());
-        if failures > 0 && !q.woken {
-            let wait = Duration::from_secs(1 << (failures.min(6) - 1)).min(LONGEST_WAIT);
-            drop(wake.wait_timeout_while(q, wait, |q| !q.woken).unwrap_or_else(PoisonError::into_inner));
-        }
+        crate::sync::back_off(wake, q, failures, LONGEST_WAIT, |q| q.woken);
     }
 }
 

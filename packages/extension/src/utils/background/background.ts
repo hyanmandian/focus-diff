@@ -19,7 +19,7 @@ import {
   type InboxSnapshot,
   type NotifySettings,
 } from "@/utils/inbox/inbox";
-import { COMMANDS, type Message } from "@/utils/messages/messages";
+import { COMMANDS, isPullUrl, type Message } from "@/utils/messages/messages";
 import { readBranches } from "@/utils/pull-branches/pull-branches";
 import {
   endRun,
@@ -277,8 +277,34 @@ const onCommand = async (command: string, tab?: Browser.tabs.Tab) => {
   await browser.tabs.sendMessage(target.id, message).catch(() => {});
 };
 
+const REPO = /^[\w.-]+\/[\w.-]+$/u;
+const SECTION = /^[a-z][a-z-]*$/u;
+
+const matching = (value: unknown, pattern: RegExp) =>
+  typeof value === "string" && pattern.test(value) ? value : undefined;
+
+const accepted = (message: Message | null, sender: Browser.runtime.MessageSender): Message | null => {
+  if (!message || sender.id !== browser.runtime.id) return null;
+  const from = sender.url ?? "";
+  const page = from.startsWith(browser.runtime.getURL("/"));
+  const github = !page && sender.tab !== undefined && from.startsWith("https://github.com/");
+  if (message.type === "open-welcome") return page || github ? message : null;
+  if (message.type === "open-options") {
+    if (!page && !github) return null;
+    const section = page ? matching(message.section, SECTION) : undefined;
+    return { type: "open-options", repo: matching(message.repo, REPO), section };
+  }
+  if (!page) return null;
+  if (message.type === "review-start-now") {
+    const valid = Number.isFinite(message.minutes) && message.minutes > 0 && typeof message.session === "string";
+    return valid ? message : null;
+  }
+  if (message.type === "review-open") return isPullUrl(message.url) && matching(message.repo, REPO) ? message : null;
+  return message;
+};
+
 const reviewTimeAction = (message: Message): (() => Promise<boolean | void>) | null => {
-  const type = message?.type;
+  const type = message.type;
   if (type === "review-start-now") return () => startNow(message.minutes, message.session);
   if (type === "review-start") return () => startRun({ fromPopup: true });
   if (type === "review-snooze") return () => snoozeRun();
@@ -326,10 +352,12 @@ export const startBackground = (): void => {
   listenToNotifications();
   browser.permissions.onAdded?.addListener(listenToNotifications);
 
-  browser.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
-    if (message?.type === "open-options") void openOptions(message.repo, message.section);
-    if (message?.type === "open-welcome") void openWelcome();
-    if (message?.type === "inbox-refresh") {
+  browser.runtime.onMessage.addListener((sent: Message | null, sender, sendResponse) => {
+    const message = accepted(sent, sender);
+    if (!message) return;
+    if (message.type === "open-options") void openOptions(message.repo, message.section);
+    if (message.type === "open-welcome") void openWelcome();
+    if (message.type === "inbox-refresh") {
       void recoverReviewTime()
         .then(refreshLists)
         .then(

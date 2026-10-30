@@ -20,7 +20,17 @@ gh attestation verify focus-diff-chromium.zip --repo hyanmandian/focus-diff
 
 The release also carries the same provenance as `focus-diff.sigstore.json` and `focus-diff.intoto.jsonl`.
 
-The desktop app's files are attested the same way (`gh attestation verify Focus-Diff.dmg --repo hyanmandian/focus-diff`), and its updater installs only files signed with the release key.
+The desktop app's files are attested the same way (`gh attestation verify Focus-Diff.dmg --repo hyanmandian/focus-diff`), and its updater installs only files signed with the release key. Each desktop release, and `desktop-latest`, also carries a `SHA256SUMS` file listing the SHA-256 of every download (`shasum -a 256 -c SHA256SUMS --ignore-missing` on a Mac, `sha256sum -c SHA256SUMS --ignore-missing` on Linux). The updater key is used only by a release job that installs nothing from the repository: the builds and tests never see it.
+
+### The install scripts
+
+`install.sh` (Mac) and `install.ps1` (Windows) download the app from this repository's releases and check it before installing anything:
+
+1. The download must match its line in the release's `SHA256SUMS`. If it doesn't, or `SHA256SUMS` can't be downloaded, the script stops.
+2. When the GitHub CLI (`gh`) is installed and signed in, the script runs `gh attestation verify <file> --repo hyanmandian/focus-diff`, and stops if the build provenance doesn't check out. Without `gh`, it says so and goes on, checked by the checksum alone.
+3. On a Mac, `codesign --verify` checks the app's ad hoc signature.
+
+The Mac app isn't signed with an Apple Developer ID or notarized yet, so macOS would block it. **`install.sh` removes the app's quarantine flag (`xattr -dr com.apple.quarantine`), which bypasses Gatekeeper's check of it.** That's why there is nothing to approve, and why the checks above are what stand in for Apple's. If you'd rather Gatekeeper check it, install the `.dmg` and approve it in System Settings instead.
 
 ## How the project is kept safe
 

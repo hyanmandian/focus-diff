@@ -6,6 +6,7 @@ import { isSilent, play } from "@/utils/background-sound/background-sound";
 import { fetchFiles, type InboxProblem, type PullRequest } from "@/utils/github-inbox/github-inbox";
 import { pool } from "@/utils/inbox-check/inbox-check";
 import { isDone, isIgnored, type HeldEvent, type InboxEvent, type When } from "@/utils/inbox/inbox";
+import { isPullUrl } from "@/utils/messages/messages";
 import {
   candidates,
   estimate,
@@ -271,6 +272,7 @@ const offer = async (session: ReviewSession, settings: ReviewTimeSettings) => {
 };
 
 export const openPull = async (url: string, repo: string, active: boolean): Promise<void> => {
+  if (!isPullUrl(url)) return;
   const [run, settings, config, selections] = await Promise.all([
     liveRun(),
     loadReviewTime(),

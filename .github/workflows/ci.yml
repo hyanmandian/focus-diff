@@ -290,3 +290,28 @@ jobs:
             packages/desktop/src-tauri/target/release/bundle/deb/*.deb
             packages/desktop/src-tauri/target/release/bundle/rpm/*.rpm
           if-no-files-found: error
+
+  site:
+    name: Site — check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/site
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Lint, format, duplication and unused code
+        run: npm run check
+
+      - name: Lint the Mac install script
+        run: sh -n src/install.sh && shellcheck src/install.sh
+
+      - name: Build the site
+        run: npm run build

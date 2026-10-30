@@ -1,13 +1,13 @@
 @font-face {
-  font-family: 'Mona Sans';
-  src: url(fonts/mona-sans.woff2) format('woff2');
+  font-family: "Mona Sans";
+  src: url(fonts/mona-sans.woff2) format("woff2");
   font-weight: 200 900;
   font-stretch: 75% 125%;
   font-display: swap;
 }
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url(fonts/jetbrains-mono.woff2) format('woff2');
+  font-family: "JetBrains Mono";
+  src: url(fonts/jetbrains-mono.woff2) format("woff2");
   font-weight: 400 800;
   font-display: swap;
 }
@@ -29,10 +29,15 @@
   --btn-fg: #ffffff;
   --btn-hover: #2a2c31;
   --shadow: 0 1px 2px rgba(15, 18, 24, 0.06), 0 24px 60px -12px rgba(15, 18, 24, 0.18);
-  --glow: radial-gradient(ellipse 90% 80% at 50% -20%, rgba(15, 98, 217, 0.09), rgba(15, 98, 217, 0.03) 45%, transparent 80%);
+  --glow: radial-gradient(
+    ellipse 90% 80% at 50% -20%,
+    rgba(15, 98, 217, 0.09),
+    rgba(15, 98, 217, 0.03) 45%,
+    transparent 80%
+  );
   --header: rgba(255, 255, 255, 0.78);
-  --sans: 'Mona Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Mona Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --wide: 1160px;
 }
@@ -53,7 +58,12 @@
     --btn-fg: #08090a;
     --btn-hover: #d0d3d8;
     --shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 30px 80px -20px rgba(0, 0, 0, 0.8);
-    --glow: radial-gradient(ellipse 90% 80% at 50% -20%, rgba(68, 147, 248, 0.15), rgba(68, 147, 248, 0.05) 45%, transparent 80%);
+    --glow: radial-gradient(
+      ellipse 90% 80% at 50% -20%,
+      rgba(68, 147, 248, 0.15),
+      rgba(68, 147, 248, 0.05) 45%,
+      transparent 80%
+    );
     --header: rgba(8, 9, 10, 0.72);
   }
 }
@@ -206,7 +216,7 @@ p {
   color: var(--fg);
   background: var(--bg-soft);
 }
-.top nav a[aria-current='page'] {
+.top nav a[aria-current="page"] {
   color: var(--fg);
 }
 .top .end {
@@ -311,7 +321,7 @@ p {
   padding: clamp(64px, 11vw, 128px) 0 clamp(40px, 6vw, 72px);
 }
 .hero::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0 0 auto;
   height: 520px;
@@ -670,7 +680,7 @@ h3 {
 .manual {
   max-width: 44em;
 }
-[role='tablist'] {
+[role="tablist"] {
   position: relative;
   display: inline-flex;
   gap: 2px;
@@ -679,7 +689,7 @@ h3 {
   border-radius: 10px;
   background: var(--bg-soft);
 }
-[role='tab'] {
+[role="tab"] {
   position: relative;
   z-index: 1;
   height: 34px;
@@ -692,8 +702,8 @@ h3 {
   cursor: pointer;
   transition: color 160ms var(--ease);
 }
-[role='tab']:hover,
-[role='tab'][aria-selected='true'] {
+[role="tab"]:hover,
+[role="tab"][aria-selected="true"] {
   color: var(--fg);
 }
 .tab-pill {
@@ -711,22 +721,22 @@ h3 {
     translate 320ms var(--ease),
     width 320ms var(--ease);
 }
-[role='tabpanel'] {
+[role="tabpanel"] {
   margin-top: 24px;
 }
-[role='tabpanel'][hidden] {
+[role="tabpanel"][hidden] {
   display: none;
 }
-[role='tabpanel'] ol {
+[role="tabpanel"] ol {
   display: grid;
   gap: 12px;
   margin: 16px 0 20px;
   padding-left: 1.4em;
 }
-[role='tabpanel'] li::marker {
+[role="tabpanel"] li::marker {
   color: var(--faint);
 }
-[role='tabpanel'] > p {
+[role="tabpanel"] > p {
   color: var(--muted);
 }
 pre {
@@ -779,7 +789,7 @@ pre code {
   display: none;
 }
 .faq-list summary::after {
-  content: '';
+  content: "";
   width: 12px;
   height: 12px;
   margin-left: auto;

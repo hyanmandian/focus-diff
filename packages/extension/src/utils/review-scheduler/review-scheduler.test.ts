@@ -577,6 +577,15 @@ describe("openPull", () => {
     await openPull(samplePull(1).url, "octo/web", true);
     expect(await selectionsItem.getValue()).toEqual({ "octo/api": ["docs"] });
   });
+
+  it("opens nothing but a pull request on GitHub", async () => {
+    await reviewRunItem.setValue(run({ filters: ["tests"] }));
+    await openPull("https://evil.example/octo/web/pull/1", "octo/web", true);
+    await openPull("https://github.com/octo/web/issues/1", "octo/web", true);
+    await openPull(`${samplePull(1).url}#x`, "octo/web", true);
+    expect(await openTabs()).toEqual([]);
+    expect(await selectionsItem.getValue()).toEqual({ "octo/api": ["docs"] });
+  });
 });
 
 describe("startNow", () => {

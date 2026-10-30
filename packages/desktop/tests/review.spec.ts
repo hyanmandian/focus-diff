@@ -246,7 +246,7 @@ test("submits the review from its popover", async ({ page }) => {
 
 test("goes through a stack in order, from Next and from the stack's menu", async ({ page }) => {
   await recordCalls(page);
-  const stack = page.getByRole("button", { name: "1 of 2 in the stack" });
+  const stack = page.getByRole("button", { name: "Stack 1/2" });
   await expect(stack).toBeVisible();
   await stack.click();
   await expect(page.getByRole("menuitemradio", { name: /#1807/u })).toHaveAttribute("aria-checked", "true");

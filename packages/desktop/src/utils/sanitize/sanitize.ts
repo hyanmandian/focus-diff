@@ -98,6 +98,7 @@ function suggestion(doc: Document, rows: Row[]) {
   head.dataset.suggestionHead = "";
   head.textContent = i18n()("review.suggestedChange");
   const table = doc.createElement("table");
+  table.setAttribute("tabindex", "0");
   const body = doc.createElement("tbody");
   for (const row of rows) {
     const tr = doc.createElement("tr");
@@ -237,6 +238,7 @@ function clean(node: Node, base?: string[]) {
         continue;
       }
     }
+    if (tag === "table") element.setAttribute("tabindex", "0");
     if (tag === "input") {
       if (element.getAttribute("type") === "checkbox") {
         element.setAttribute("disabled", "");

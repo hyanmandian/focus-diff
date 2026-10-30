@@ -369,7 +369,7 @@ export function DraftView({
       ) : (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-callout font-medium text-unread">
+            <p className="flex items-center gap-1.5 text-callout font-medium text-link">
               {draft.replyTo ? t("review.pendingReply") : draft.file ? t("review.pendingOnFile") : t("review.pending")}
               {error ? null : sending ? (
                 <output className="flex items-center gap-1 font-normal text-muted-foreground">

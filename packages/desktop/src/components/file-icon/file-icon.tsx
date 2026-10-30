@@ -107,6 +107,7 @@ export function FileIcon({ path, className }: { path: string; className?: string
   return (
     <span
       aria-hidden
+      data-slot="file-icon"
       style={{ backgroundColor: color }}
       className={cn(
         "grid h-3.5 w-[18px] shrink-0 place-items-center rounded-[3px] font-sans text-[7.5px] leading-none font-bold tracking-[-0.02em]",

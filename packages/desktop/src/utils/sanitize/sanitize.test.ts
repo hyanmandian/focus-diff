@@ -21,6 +21,12 @@ describe("sanitize", () => {
     );
   });
 
+  it("lets the keyboard scroll a wide table", () => {
+    expect(sanitize("<table><tbody><tr><td>a</td></tr></tbody></table>")).toBe(
+      '<table tabindex="0"><tbody><tr><td>a</td></tr></tbody></table>',
+    );
+  });
+
   it("drops scripts, handlers and dangerous links", () => {
     const out = sanitize(
       '<p onclick="x()">a</p><script>alert(1)</script><a href="javascript:alert(1)">b</a><iframe src="https://evil"></iframe><a href="https://github.com" target="_blank" style="x">c</a>',
@@ -140,7 +146,7 @@ describe("suggested changes", () => {
       '<div class="my-2 border rounded-2 js-suggested-changes-blob diff-view" id=""><div class="f6 p-2">Suggested change</div><div itemprop="text" class="blob-wrapper" style="margin: 0"><table class="d-table" data-paste-markdown-skip=""><tbody><tr class="border-0"><td class="blob-num blob-num-deletion" data-line-number="·"></td><td class="border-0 blob-code-inner blob-code-deletion js-blob-code-deletion"><span class="pl-k">const</span> a = <span class="pl-c1" onclick="x()">1</span>;</td></tr><tr class="border-0"><td class="blob-num blob-num-addition" data-line-number="·"></td><td class="border-0 blob-code-inner blob-code-addition"><span class="pl-k evil">const</span> a = <img src="https://evil.example/x.png">2;</td></tr></tbody></table></div><div class="js-apply-changes"></div></div><p>Then it works.</p>',
     );
     expect(html).toBe(
-      '<div data-suggestion=""><p data-suggestion-head="">Suggested change</p><table><tbody><tr data-diff="deletion"><td data-sign="">−</td><td><span data-pl="k">const</span> a = <span data-pl="c1">1</span>;</td></tr><tr data-diff="addition"><td data-sign="">+</td><td><span data-pl="k">const</span> a = 2;</td></tr></tbody></table></div><p>Then it works.</p>',
+      '<div data-suggestion=""><p data-suggestion-head="">Suggested change</p><table tabindex="0"><tbody><tr data-diff="deletion"><td data-sign="">−</td><td><span data-pl="k">const</span> a = <span data-pl="c1">1</span>;</td></tr><tr data-diff="addition"><td data-sign="">+</td><td><span data-pl="k">const</span> a = 2;</td></tr></tbody></table></div><p>Then it works.</p>',
     );
   });
 
@@ -156,7 +162,7 @@ describe("suggested changes", () => {
 
   it("draws a previewed suggestion that removes the lines, with nothing known of them", () => {
     expect(sanitize('<pre lang="suggestion"></pre>')).toBe(
-      '<div data-suggestion=""><p data-suggestion-head="">Suggested change</p><table><tbody></tbody></table></div>',
+      '<div data-suggestion=""><p data-suggestion-head="">Suggested change</p><table tabindex="0"><tbody></tbody></table></div>',
     );
   });
 

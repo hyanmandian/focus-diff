@@ -39,10 +39,10 @@ describe("ReactionList", () => {
   it("shows each reaction with its count and who gave it", () => {
     render(<ReactionList reactions={[thumbs, heart]} canReact onToggle={() => {}} />);
     expect(screen.getByRole("list", { name: "Reactions" })).toBeTruthy();
-    const first = capsule("octocat and 2 others reacted with Thumbs up");
+    const first = capsule("3: octocat and 2 others reacted with Thumbs up");
     expect(first.textContent).toBe("👍 3");
     expect(first.getAttribute("aria-pressed")).toBe("false");
-    expect(capsule("mona reacted with Heart").getAttribute("aria-pressed")).toBe("true");
+    expect(capsule("1: mona reacted with Heart").getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows nothing when nobody reacted", () => {

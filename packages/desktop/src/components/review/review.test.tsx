@@ -1723,7 +1723,7 @@ describe("Review", () => {
         queue: "q1",
       });
       expect(h.queue.go).not.toHaveBeenCalled();
-      await userEvent.click(button("2 of 3 in the stack"));
+      await userEvent.click(button("Stack 2/3"));
       expect(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }).getAttribute("aria-checked")).toBe(
         "true",
       );
@@ -1752,7 +1752,7 @@ describe("Review", () => {
       await userEvent.click(button("Next in Waiting on me: #8 Next one"));
       expect(h.queue.go).toHaveBeenCalledTimes(1);
       expect(h.queue.goTo).not.toHaveBeenCalled();
-      await userEvent.click(button("2 of 2 in the stack"));
+      await userEvent.click(button("Stack 2/2"));
       await userEvent.click(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }));
       expect(h.queue.goTo).not.toHaveBeenCalled();
       expect(screen.getByRole("menuitemradio", { name: /#3.*Changes requested/u })).toBeTruthy();

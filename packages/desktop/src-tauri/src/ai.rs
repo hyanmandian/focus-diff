@@ -665,12 +665,31 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Result<Scratch, String> {
-        static RUNS: AtomicU64 = AtomicU64::new(0);
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
-        let dir = std::env::temp_dir().join(format!("focus-diff-{}-{stamp}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        Scratch::within(&std::env::temp_dir())
+    }
+
+    fn within(parent: &Path) -> Result<Scratch, String> {
+        let dir = parent.join(format!("focus-diff-{}", unguessable()));
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        builder.create(&dir).map_err(|e| e.to_string())?;
         Ok(Scratch(dir))
     }
+}
+
+fn unguessable() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
+    (0..2)
+        .map(|half| {
+            let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+            hasher.write_u128(stamp);
+            hasher.write_u32(std::process::id());
+            hasher.write_u8(half);
+            format!("{:016x}", hasher.finish())
+        })
+        .collect()
 }
 
 impl Drop for Scratch {
@@ -1264,6 +1283,26 @@ done
         assert_eq!(fallback.text, r#"{"findings":[]}"#);
         assert!(logged(&log).iter().any(|l| l.starts_with("start") && l.contains("--json-schema")));
         assert!(!sessions().held().contains_key("w-review"));
+    }
+
+    #[test]
+    fn scratch_folders_are_private_and_unguessable() {
+        let parent = std::env::temp_dir().join(format!("focus-diff-scratch-test-{}", std::process::id()));
+        std::fs::create_dir_all(&parent).unwrap();
+        let (one, two) = (Scratch::within(&parent).unwrap(), Scratch::within(&parent).unwrap());
+        let name = |s: &Scratch| s.0.file_name().unwrap().to_string_lossy().into_owned();
+        assert_ne!(name(&one), name(&two));
+        assert!(name(&one).strip_prefix("focus-diff-").is_some_and(|rest| rest.len() == 32 && rest.chars().all(|c| c.is_ascii_hexdigit())), "{}", name(&one));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&one.0).unwrap().permissions().mode() & 0o777, 0o700);
+        }
+        assert!(Scratch::within(&parent.join("missing")).is_err());
+        let taken = one.0.clone();
+        drop((one, two));
+        assert!(!taken.exists());
+        std::fs::remove_dir_all(&parent).unwrap();
     }
 
     #[cfg(unix)]

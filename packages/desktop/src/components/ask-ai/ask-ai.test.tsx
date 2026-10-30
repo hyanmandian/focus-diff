@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { AskAi } from "@/components/ask-ai/ask-ai";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { defaultConfig, type Config } from "@/utils/config/config";
-import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
+import { deferred } from "@/utils/mock-render/mock-render";
 
 const ai = vi.hoisted(() => ({
   ready: vi.fn<() => Promise<boolean>>(),
@@ -21,36 +22,7 @@ vi.mock("@/utils/ai-ready/ai-ready", () => ({
 }));
 vi.mock("@/utils/ai/ai", async (original) => ({ ...(await original<object>()), ask: ai.ask }));
 
-const DETAILS: Details = {
-  id: "PR_1",
-  number: 42,
-  title: "Rename the queue",
-  url: "https://github.com/acme/api/pull/42",
-  html: "<p>Renames it.</p>",
-  owner: "acme",
-  repo: "api",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
-  headRefName: "rename",
-  headRefOid: "abc123",
-  updatedAt: "2026-10-26T10:00:00Z",
-  additions: 3,
-  deletions: 1,
-  changedFiles: 1,
-  createdAt: "2026-10-25T10:00:00Z",
-  author: { login: "mona" },
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+const DETAILS = fakeDetails();
 
 function config(over: Partial<Config["ai"]> = {}): Config {
   const c = defaultConfig();
@@ -63,18 +35,6 @@ function config(over: Partial<Config["ai"]> = {}): Config {
       ...over,
     },
   };
-}
-
-const NOTHING = () => {};
-
-function deferred<T = void>() {
-  let resolve: (value: T) => void = NOTHING;
-  let reject: (e: unknown) => void = NOTHING;
-  const promise = new Promise<T>((yes, no) => {
-    resolve = yes;
-    reject = no;
-  });
-  return { promise, resolve, reject };
 }
 
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Ask Claude Code about this pull request" });

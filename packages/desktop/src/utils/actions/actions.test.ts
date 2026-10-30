@@ -2,8 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { fill, runAction } from "@/utils/actions/actions";
 import type { Action, ActionStep } from "@/utils/config/config";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { fieldsOf, mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const pr = {
   number: 7,
@@ -16,13 +15,10 @@ const pr = {
 
 const action = (steps: ActionStep[]): Action => ({ id: "a", name: "Hand off", confirm: false, choices: [], steps });
 
-const fields = (args: Args | undefined): Record<string, unknown> =>
-  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
-
 function rust(answers: { github?: { status: number; body: string }; run?: string; refuse?: string } = {}) {
   const calls: Array<{ cmd: string; args: Record<string, unknown> }> = [];
   mockCommands((cmd, args) => {
-    calls.push({ cmd, args: fields(args) });
+    calls.push({ cmd, args: fieldsOf(args) });
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's errors reach the page as strings
     if (answers.refuse !== undefined) return Promise.reject(answers.refuse);
     if (cmd === "github") return answers.github ?? { status: 200, body: "{}" };

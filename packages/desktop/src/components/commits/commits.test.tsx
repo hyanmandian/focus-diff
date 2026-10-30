@@ -138,11 +138,16 @@ describe("RangePicker", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
-  it("picks one commit, or a run with shift", async () => {
+  const openPicker = async () => {
     const user = userEvent.setup();
     const pull = withList(list());
     render(<Picker pull={pull} />);
     await user.click(trigger());
+    return { user, pull };
+  };
+
+  it("picks one commit, or a run with shift", async () => {
+    const { user, pull } = await openPicker();
     await user.click(options()[1]!);
     expect(pull.setRange).toHaveBeenLastCalledWith({ from: "base0", to: "oid1" });
     await user.click(trigger());
@@ -156,10 +161,7 @@ describe("RangePicker", () => {
   });
 
   it("starts a shift-click run at the commit clicked when nothing was", async () => {
-    const user = userEvent.setup();
-    const pull = withList(list());
-    render(<Picker pull={pull} />);
-    await user.click(trigger());
+    const { user, pull } = await openPicker();
     await user.keyboard("{Shift>}");
     await user.click(options()[2]!);
     expect(pull.setRange).toHaveBeenLastCalledWith({ from: "oid1", to: "oid2" });

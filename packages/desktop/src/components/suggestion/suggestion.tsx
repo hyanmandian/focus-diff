@@ -5,9 +5,9 @@ import { Button } from "@/components/button/button";
 import { Input } from "@/components/input/input";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Textarea } from "@/components/textarea/textarea";
+import { useAttempt } from "@/hooks/use-attempt/use-attempt";
 import { useConversationApi, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { defaultHeadline, type Applied } from "@/utils/commit/commit";
-import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread, ThreadComment } from "@/utils/review/review";
 import { suggestionsIn } from "@/utils/suggestion/suggestion";
@@ -36,22 +36,14 @@ function CommitPopover({
   const [open, setOpen] = useState(false);
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const commit = async () => {
-    setBusy(true);
-    setError(null);
-    try {
+  const { busy, error, attempt } = useAttempt();
+  const commit = () =>
+    attempt(async () => {
       await api.commit(items, headline, body);
       setOpen(false);
       setHeadline("");
       setBody("");
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button variant={variant} />}>{children}</PopoverTrigger>

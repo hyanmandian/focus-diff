@@ -14,7 +14,7 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Face } from "@/components/avatar/avatar";
 import { ButtonGroup } from "@/components/button-group/button-group";
 import { Button } from "@/components/button/button";
 import { CommentHtml } from "@/components/comment-html/comment-html";
@@ -23,16 +23,15 @@ import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 import { SuggestionActions } from "@/components/suggestion/suggestion";
 import { Textarea } from "@/components/textarea/textarea";
 import { MarkdownField } from "@/components/writer/writer";
+import { useAttempt } from "@/hooks/use-attempt/use-attempt";
 import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
 import { askInto, BLANK, updateChat, usePullAsking, type Mode } from "@/utils/asking/asking";
-import { avatar } from "@/utils/avatar/avatar";
 import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
-import type { Actor } from "@/utils/engine/engine";
 import { errorText } from "@/utils/error/error";
 import { i18n, useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
@@ -41,15 +40,6 @@ import type { Draft, Thread as ThreadData, ThreadComment } from "@/utils/review/
 import { linesFromPatch } from "@/utils/suggestion/suggestion";
 import { forgetTyping, keepTyping, typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
-
-function Person({ actor }: { actor: Actor }) {
-  return (
-    <Avatar className="size-5">
-      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
-      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
-    </Avatar>
-  );
-}
 
 export function Composer({
   placeholder,
@@ -87,23 +77,16 @@ export function Composer({
     forgetTyping(keep);
     onCancel();
   };
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, attempt } = useAttempt();
   const run = async (action: (body: string) => Promise<void> | void) => {
     if (!body.trim()) {
       setError(i18n()("review.writeFirst"));
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
+    await attempt(async () => {
       await action(body.trim());
       forgetTyping(keep);
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <div className="flex flex-col gap-2">
@@ -169,7 +152,7 @@ function CommentView({
   const { body } = comment;
   return (
     <div className="group/said flex gap-2">
-      <Person actor={comment.author} />
+      <Face actor={comment.author} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
           <p className="min-w-0 flex-1 text-callout text-muted-foreground">
@@ -245,21 +228,10 @@ export function ThreadView({
   const api = useConversationApi();
   const thread = api?.thread(drawn.id) ?? drawn;
   const [replying, setReplying] = useState<string | null>(() => (typed(`reply:${drawn.id}`) === null ? null : ""));
-  const [busy, setBusy] = useState(false);
+  const { busy, error, attempt } = useAttempt();
   const [open, setOpen] = useState(!thread.resolved);
   const [whole, setWhole] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const toggle = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await onResolve(!thread.resolved);
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const toggle = () => attempt(() => onResolve(!thread.resolved));
   if (!open) {
     return (
       <Box className={cn("py-2", className)}>

@@ -27,19 +27,15 @@ describe("ToggleGroup", () => {
   });
 
   it("slides for a group it's told the value of, and not for several chosen at once", () => {
-    const { rerender } = render(
-      <ToggleGroup variant="outline" value={["a"]}>
+    const group = (value: string[]) => (
+      <ToggleGroup variant="outline" value={value} multiple={value.length > 1}>
         <ToggleGroupItem value="a">A</ToggleGroupItem>
         <ToggleGroupItem value="b">B</ToggleGroupItem>
-      </ToggleGroup>,
+      </ToggleGroup>
     );
+    const { rerender } = render(group(["a"]));
     expect(screen.getByRole("button", { name: "A" }).dataset.pill).toBe("a");
-    rerender(
-      <ToggleGroup variant="outline" value={["a", "b"]} multiple>
-        <ToggleGroupItem value="a">A</ToggleGroupItem>
-        <ToggleGroupItem value="b">B</ToggleGroupItem>
-      </ToggleGroup>,
-    );
+    rerender(group(["a", "b"]));
     expect(screen.getByRole("button", { name: "A" }).dataset.pill).toBeUndefined();
     expect(document.querySelector("[data-slot=toggle-group] > span[aria-hidden]")).toBeNull();
   });

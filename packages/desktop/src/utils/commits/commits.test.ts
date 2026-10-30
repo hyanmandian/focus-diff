@@ -14,25 +14,10 @@ import {
   type Commits,
   type Range,
 } from "@/utils/commits/commits";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { ok, replyInOrder } from "@/utils/fake-platform/fake-platform";
 import { shelve, shelved } from "@/utils/shelf/shelf";
 
 const ref = { owner: "acme", repo: "web", number: 7 };
-
-type Call = { cmd: string; fields: Record<string, unknown> };
-const fields = (args: Args | undefined): Record<string, unknown> =>
-  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
-const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
-
-function rust(...replies: unknown[]) {
-  const calls: Call[] = [];
-  mockCommands((cmd, args) => {
-    calls.push({ cmd, fields: fields(args) });
-    return replies[calls.length - 1];
-  });
-  return calls;
-}
 
 const nothing = () => {};
 
@@ -143,7 +128,7 @@ describe("since your last review", () => {
 
 describe("loadCommits", () => {
   it("reads the commits, force pushes and the commit you last reviewed", async () => {
-    const calls = rust(
+    const calls = replyInOrder(
       commitsPage(
         [
           rawCommit("c1", {
@@ -214,7 +199,7 @@ describe("loadCommits", () => {
   });
 
   it("reads three pages at most, as GitHub lists no more than 250 commits", async () => {
-    const calls = rust(
+    const calls = replyInOrder(
       commitsPage([rawCommit("a")], "p1", { viewerLatestReview: { commit: null } }),
       commitsPage([rawCommit("b")], "p2"),
       commitsPage([rawCommit("c")], "p3"),
@@ -231,7 +216,7 @@ describe("useCommits", () => {
   it("shows the kept copy at once, then GitHub's, and keeps that", async () => {
     const kept: Commits = { commits: [commit("old", "base")], forcePushes: [], reviewed: null };
     shelve("commits:PR_1", kept);
-    rust(commitsPage([rawCommit("new")]));
+    replyInOrder(commitsPage([rawCommit("new")]));
     const { result } = renderHook(() => useCommits("PR_1", ref, "h1"));
     expect(result.current).toEqual(kept);
     await waitFor(() => {
@@ -241,7 +226,7 @@ describe("useCommits", () => {
   });
 
   it("waits for a head, and keeps what it has when GitHub fails", async () => {
-    const calls = rust({ status: 500, body: "{}" });
+    const calls = replyInOrder({ status: 500, body: "{}" });
     const { result, rerender } = renderHook(({ head }: { head?: string }) => useCommits("PR_2", ref, head), {
       initialProps: {},
     });
@@ -257,7 +242,7 @@ describe("useCommits", () => {
 
   it("drops an answer that comes after it's gone", async () => {
     const slow = later();
-    rust(slow.reply);
+    replyInOrder(slow.reply);
     const { result, unmount } = renderHook(() => useCommits("PR_3", ref, "h1"));
     unmount();
     await act(async () => {
@@ -271,7 +256,7 @@ describe("useCommits", () => {
 
 describe("loadRangeFiles", () => {
   it("reads what a range changes in the pull request's shape, asking GitHub once", async () => {
-    const calls = rust(
+    const calls = replyInOrder(
       ok({
         files: [
           { filename: "a.ts", status: "modified", additions: 1, deletions: 1, patch: "@@ -1 +1 @@\n-a\n+b" },
@@ -302,12 +287,12 @@ describe("loadRangeFiles", () => {
   });
 
   it("has no files when GitHub lists none", async () => {
-    rust(ok({}));
+    replyInOrder(ok({}));
     expect(await loadRangeFiles(ref, { from: "e1", to: "e2" })).toEqual([]);
   });
 
   it("asks again after a failure", async () => {
-    const calls = rust({ status: 404, body: JSON.stringify({ message: "Not Found" }) }, ok({ files: [] }));
+    const calls = replyInOrder({ status: 404, body: JSON.stringify({ message: "Not Found" }) }, ok({ files: [] }));
     await expect(loadRangeFiles(ref, { from: "f1", to: "f2" })).rejects.toThrow("Not Found");
     expect(await loadRangeFiles(ref, { from: "f1", to: "f2" })).toEqual([]);
     expect(calls).toHaveLength(2);
@@ -318,7 +303,7 @@ describe("useRangeFiles", () => {
   const file = { filename: "a.ts", status: "added", additions: 1, deletions: 0 };
 
   it("has nothing for no range", () => {
-    const calls = rust();
+    const calls = replyInOrder();
     const { result } = renderHook(() => useRangeFiles(ref, null));
     expect(result.current).toEqual({ files: null, error: null });
     expect(calls).toEqual([]);
@@ -326,7 +311,7 @@ describe("useRangeFiles", () => {
 
   it("loads a range's files, and nothing shows for another range until its own come", async () => {
     const second = later();
-    rust(ok({ files: [file] }), second.reply);
+    replyInOrder(ok({ files: [file] }), second.reply);
     const { result, rerender } = renderHook(({ range }: { range: Range }) => useRangeFiles(ref, range), {
       initialProps: { range: { from: "u1", to: "u2" } },
     });
@@ -345,7 +330,7 @@ describe("useRangeFiles", () => {
 
   it("says what went wrong, until the range changes", async () => {
     const second = later();
-    rust({ status: 403, body: JSON.stringify({ message: "Forbidden" }) }, second.reply);
+    replyInOrder({ status: 403, body: JSON.stringify({ message: "Forbidden" }) }, second.reply);
     const { result, rerender } = renderHook<ReturnType<typeof useRangeFiles>, { range: Range }>(
       ({ range }) => useRangeFiles(ref, range),
       {
@@ -370,7 +355,7 @@ describe("useRangeFiles", () => {
   });
 
   it("starts over for another pull request", async () => {
-    rust({ status: 500, body: JSON.stringify({ message: "Boom" }) }, ok({ files: [] }));
+    replyInOrder({ status: 500, body: JSON.stringify({ message: "Boom" }) }, ok({ files: [] }));
     const { result, rerender } = renderHook(
       ({ pull }: { pull: typeof ref }) => useRangeFiles(pull, { from: "w1", to: "w2" }),
       {
@@ -390,7 +375,7 @@ describe("useRangeFiles", () => {
   it("drops answers that come after it's gone", async () => {
     const files = later();
     const failure = later();
-    rust(files.reply, failure.reply);
+    replyInOrder(files.reply, failure.reply);
     const first = renderHook(() => useRangeFiles(ref, { from: "x1", to: "x2" }));
     const second = renderHook(() => useRangeFiles(ref, { from: "x3", to: "x4" }));
     first.unmount();

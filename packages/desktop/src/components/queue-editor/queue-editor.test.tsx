@@ -1,31 +1,16 @@
 import { act, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import type userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { PATH_PRESETS, QueueEditor, queueSummary } from "@/components/queue-editor/queue-editor";
 import { TEMPLATES, type Queue, type QueueKind } from "@/utils/config/config";
 import { i18n, setLanguage } from "@/utils/i18n/i18n";
+import { renderEditing, typeRepository } from "@/utils/mock-render/mock-render";
 
 const make = (kind: QueueKind, patch: Partial<Queue> = {}): Queue => ({ ...TEMPLATES[kind].make(), ...patch });
 
 function setup(initial: Queue) {
-  const changes = vi.fn<(q: Queue) => void>();
-  function Harness() {
-    const [queue, setQueue] = useState(initial);
-    return (
-      <QueueEditor
-        queue={queue}
-        onChange={(q) => {
-          changes(q);
-          setQueue(q);
-        }}
-      />
-    );
-  }
-  render(<Harness />);
-  const last = () => changes.mock.lastCall![0];
-  return { user: userEvent.setup(), changes, last };
+  return renderEditing(initial, (queue, onChange) => <QueueEditor queue={queue} onChange={onChange} />);
 }
 
 async function choose(user: ReturnType<typeof userEvent.setup>, label: string, option: string) {
@@ -129,11 +114,7 @@ describe("QueueEditor", () => {
     await user.type(screen.getByLabelText("GitHub search terms"), "label:x");
     expect(last().query).toBe("label:x");
 
-    const repos = screen.getByRole("textbox", { name: "Repositories" });
-    await user.type(repos, "nope{Enter}");
-    expect(screen.getByRole("alert").textContent).toContain("Use owner/name");
-    await user.clear(repos);
-    await user.type(repos, "acme/*{Enter}");
+    await typeRepository(user, "acme/*");
     expect(last().repos).toEqual(["acme/*"]);
   });
 

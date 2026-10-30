@@ -1,5 +1,5 @@
 import { ChevronRight, Folder } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { FileIcon } from "@/components/file-icon/file-icon";
 import { renamed } from "@/components/rich-diff/rich-diff";
@@ -13,6 +13,17 @@ const ROW = 24;
 const OVERSCAN = 8;
 
 const keyOf = (row: TreeRow<ReviewFile>) => `${row.node.kind === "folder" ? "d" : "f"}:${row.node.path}`;
+
+function Talk({ count }: { count: number }) {
+  const t = useT();
+  if (!count) return null;
+  return (
+    <span className="text-subheadline text-unread tabular-nums">
+      <span aria-hidden>{count}</span>
+      <span className="sr-only">{t("review.openConversations", { count })}</span>
+    </span>
+  );
+}
 
 export function FileTree({
   files,
@@ -36,18 +47,13 @@ export function FileTree({
   const [height, setHeight] = useState(600);
   const box = useRef<HTMLDivElement>(null);
 
-  const tree = useMemo(() => buildTree(files ?? []), [files]);
-  const rows = useMemo<Array<TreeRow<ReviewFile>>>(
-    () =>
-      flat
-        ? (files ?? []).map((file) => ({
-            node: { kind: "file" as const, path: file.path, name: file.path, file },
-            depth: 0,
-            parent: null,
-          }))
-        : flatten(tree, collapsed),
-    [flat, files, tree, collapsed],
-  );
+  const rows: Array<TreeRow<ReviewFile>> = flat
+    ? (files ?? []).map((file) => ({
+        node: { kind: "file" as const, path: file.path, name: file.path, file },
+        depth: 0,
+        parent: null,
+      }))
+    : flatten(buildTree(files ?? []), collapsed);
   const at = cursor ? rows.findIndex((r) => keyOf(r) === cursor) : -1;
 
   const loading = files === null;
@@ -192,12 +198,7 @@ export function FileTree({
                   />
                   <Folder aria-hidden className="mx-0.5 size-3.5 shrink-0 text-(--blue)" />
                   <span className="min-w-0 flex-1 truncate">{folder.name}</span>
-                  {talk ? (
-                    <span className="text-subheadline text-unread tabular-nums">
-                      <span aria-hidden>{talk}</span>
-                      <span className="sr-only">{t("review.openConversations", { count: talk })}</span>
-                    </span>
-                  ) : null}
+                  <Talk count={talk} />
                   <span className="shrink-0 text-subheadline text-muted-foreground tabular-nums">
                     <span aria-hidden>
                       {viewedCount}/{folder.files.length}
@@ -220,12 +221,7 @@ export function FileTree({
                       {flat ? node.path.slice(slash + 1) : node.name}
                     </span>
                   </span>
-                  {talk ? (
-                    <span className="text-subheadline text-unread tabular-nums">
-                      <span aria-hidden>{talk}</span>
-                      <span className="sr-only">{t("review.openConversations", { count: talk })}</span>
-                    </span>
-                  ) : null}
+                  <Talk count={talk} />
                   <span className="shrink-0 font-mono text-subheadline tabular-nums">
                     <span className="text-success">+{file!.additions}</span>{" "}
                     <span className="text-destructive">−{file!.deletions}</span>

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { RawComment } from "@/utils/comments/comments";
-import type { Details } from "@/utils/details/details";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { answerGitHub, sentJson, type GitHubRequest } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import {
   commentNow,
   header,
@@ -16,29 +15,7 @@ import {
   type Thread,
 } from "@/utils/review/review";
 
-type Request = { method: string; path: string; body: string };
-
-function sent(args: Args | undefined, key: string): unknown {
-  if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
-    return undefined;
-  return args[key];
-}
-
-function github(answer: (request: Request) => unknown) {
-  const asked: Request[] = [];
-  mockCommands((_cmd, args) => {
-    const request = {
-      method: String(sent(args, "method")),
-      path: String(sent(args, "path")),
-      body: String(sent(args, "body")),
-    };
-    asked.push(request);
-    return { status: 200, body: JSON.stringify(answer(request)) };
-  });
-  return asked;
-}
-
-const sentJson = (request: Request | undefined): unknown => JSON.parse(String(request?.body));
+const github = answerGitHub;
 
 const ref = { owner: "acme", repo: "app", number: 7 };
 
@@ -172,7 +149,7 @@ const threadsPage = (nodes: unknown[], pageInfo: { hasNextPage: boolean; endCurs
   data: { repository: { pullRequest: { reviewThreads: { pageInfo, nodes } } } },
 });
 
-function twoPages(request: Request) {
+function twoPages(request: GitHubRequest) {
   if (request.body.includes("PullRequestReviewThread"))
     return { data: { node: { comments: { pageInfo: none, nodes: [comment("T1-c2")] } } } };
   if (request.body.includes('"after":"p2"')) return threadsPage([thread("T2")]);
@@ -262,7 +239,7 @@ const filesPage = (nodes: unknown[], pageInfo: { hasNextPage: boolean; endCursor
   data: { repository: { pullRequest: { files: { pageInfo, nodes } } } },
 });
 
-const viewedPages = (request: Request) =>
+const viewedPages = (request: GitHubRequest) =>
   request.body.includes('"after":"p2"')
     ? filesPage([{ path: "b.ts", viewerViewedState: "DISMISSED" }], { hasNextPage: false, endCursor: null })
     : filesPage([{ path: "a.ts", viewerViewedState: "VIEWED" }], { hasNextPage: true, endCursor: "p2" });
@@ -286,36 +263,11 @@ describe("viewed files", () => {
   });
 });
 
-const pull: Details = {
-  id: "PR_1",
+const pull = fakeDetails({
   number: 7,
-  title: "Fix the thing",
-  url: "https://github.com/acme/app/pull/7",
-  html: "",
-  owner: "acme",
   repo: "app",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: false,
-  baseRefName: "main",
-  headRefName: "fix",
   headRefOid: "abc",
-  updatedAt: "2026-01-01T00:00:00Z",
-  additions: 1,
-  deletions: 0,
-  changedFiles: 1,
-  createdAt: "2026-01-01T00:00:00Z",
-  author: { login: "ana" },
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+});
 const draft = (extra: Partial<Draft> = {}): Draft => ({
   key: "k",
   path: "a.ts",
@@ -374,7 +326,7 @@ describe("reviewing", () => {
   it("replies to a conversation's first comment", async () => {
     const asked = github(() => ({}));
     await reply(pull, conversation([{ id: "C1", databaseId: 99, author: null, html: "", at: "", url: "" }]), "Done");
-    expect(asked[0]).toEqual({
+    expect(asked[0]).toMatchObject({
       method: "POST",
       path: "/repos/acme/app/pulls/7/comments/99/replies",
       body: '{"body":"Done"}',

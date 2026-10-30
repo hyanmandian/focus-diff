@@ -31,12 +31,12 @@ const root = createRoot(document.querySelector("#root")!);
 const show = (target: Target) => {
   root.render(
     <StrictMode>
-      <WorkerPoolContext.Provider value={pool}>
+      <WorkerPoolContext value={pool}>
         <TooltipProvider>
           <Review key={target.id} target={target} />
           <Viewer />
         </TooltipProvider>
-      </WorkerPoolContext.Provider>
+      </WorkerPoolContext>
     </StrictMode>,
   );
 };

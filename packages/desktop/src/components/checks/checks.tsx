@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ButtonGroup } from "@/components/button-group/button-group";
 import { Button } from "@/components/button/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleHeading } from "@/components/collapsible/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -330,25 +330,18 @@ export function Checks({ pr, pull, hasFile, onJump, say }: Props) {
     <section aria-labelledby="checks" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <h2 className="flex min-w-0 flex-1">
-            <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
-              {open ? (
-                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              ) : (
-                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              )}
-              <span id="checks" className="text-headline font-bold">
-                {t("review.checks")}
-              </span>
-              <span className="truncate text-callout text-muted-foreground">{t.list(summary)}</span>
-              {pull.checks.running ? (
-                <Loader2
-                  className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
-                  aria-label={t("review.check.pending")}
-                />
-              ) : null}
-            </CollapsibleTrigger>
-          </h2>
+          <CollapsibleHeading open={open}>
+            <span id="checks" className="text-headline font-bold">
+              {t("review.checks")}
+            </span>
+            <span className="truncate text-callout text-muted-foreground">{t.list(summary)}</span>
+            {pull.checks.running ? (
+              <Loader2
+                className="size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+                aria-label={t("review.check.pending")}
+              />
+            ) : null}
+          </CollapsibleHeading>
           {write && checks.some((c) => c.run) ? (
             <DropdownMenu>
               <DropdownMenuTrigger

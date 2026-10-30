@@ -11,7 +11,7 @@ import {
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { BookOpen, Code, MessageSquarePlus, MoreHorizontal, Plus } from "lucide-react";
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
@@ -120,6 +120,9 @@ const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Dra
   body,
 });
 
+const draftOf = (a: { path: string; range: SelectedLineRange; file?: boolean }, body: string): Omit<Draft, "key"> =>
+  a.file ? { path: a.path, side: "additions", line: 0, body, file: true } : toDraft(a.path, a.range, body);
+
 function byPath<V extends { path: string }>(list: V[]) {
   const map = new Map<string, V[]>();
   for (const v of list) {
@@ -211,7 +214,7 @@ function paintFound(
   CSS.highlights.set("find-current", new Highlight(...here));
 }
 
-export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
+export function Diffs({ ref, ...props }: Props & { ref?: Ref<DiffsHandle> }) {
   const t = useT();
   const {
     files,
@@ -735,19 +738,11 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
                   range={a.range}
                   file={a.file}
                   onAdd={(body) => {
-                    props.onAddDraft(
-                      a.file
-                        ? { path: a.path, side: "additions", line: 0, body, file: true }
-                        : toDraft(a.path, a.range, body),
-                    );
+                    props.onAddDraft(draftOf(a, body));
                     forget(pull, chatKey(a));
                   }}
                   onSendNow={async (body) => {
-                    await props.onCommentNow(
-                      a.file
-                        ? { path: a.path, side: "additions", line: 0, body, file: true }
-                        : toDraft(a.path, a.range, body),
-                    );
+                    await props.onCommentNow(draftOf(a, body));
                     forget(pull, chatKey(a));
                   }}
                   onCancel={() => {
@@ -831,4 +826,4 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       </ContextMenu>
     </div>
   );
-});
+}

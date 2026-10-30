@@ -82,11 +82,10 @@ function ToggleGroup({
       )}
       {...props}
     >
-      {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
       {chosen === null ? null : <SlidingPill selected={chosen} className="rounded-(--radius-control-sm) bg-selected" />}
-      <ToggleGroupContext.Provider value={{ variant, size, spacing, orientation, sliding: chosen !== null }}>
+      <ToggleGroupContext value={{ variant, size, spacing, orientation, sliding: chosen !== null }}>
         {children}
-      </ToggleGroupContext.Provider>
+      </ToggleGroupContext>
     </ToggleGroupPrimitive>
   );
 }

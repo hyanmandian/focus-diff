@@ -1,3 +1,5 @@
+import { patchLines } from "@/utils/patch/patch";
+
 type Side = "additions" | "deletions";
 
 export type FindMatch = { path: string; side: Side; line: number; nth: number };
@@ -7,29 +9,13 @@ export function findInPatches(files: Array<{ path: string; patch: string }>, que
   if (!needle.trim()) return [];
   const matches: FindMatch[] = [];
   for (const file of files) {
-    let old = 0;
-    let now = 0;
-    for (const text of file.patch.split("\n")) {
-      const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(text);
-      if (hunk) {
-        old = Number(hunk[1]);
-        now = Number(hunk[2]);
-        continue;
-      }
-      if (!now || text.startsWith("\\")) continue;
-      const kind = text[0];
+    for (const { text, kind, old, now } of patchLines(file.patch)) {
       const side: Side = kind === "-" ? "deletions" : "additions";
       const line = side === "deletions" ? old : now;
       const code = text.slice(1).toLowerCase();
       let nth = 0;
       for (let at = code.indexOf(needle); at !== -1; at = code.indexOf(needle, at + needle.length))
         matches.push({ path: file.path, side, line, nth: nth++ });
-      if (kind === "+") now++;
-      else if (kind === "-") old++;
-      else {
-        now++;
-        old++;
-      }
     }
   }
   return matches;

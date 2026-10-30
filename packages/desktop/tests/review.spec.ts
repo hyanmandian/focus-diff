@@ -6,19 +6,25 @@ const URL = "/review.html?id=PR_1807&repo=acme/web&number=1807&queue=review";
 
 const fileDiff = (page: Page, path: string) => page.locator("diffs-container").filter({ hasText: path });
 
-async function settled(page: Page, target: Locator) {
-  await expect(async () => {
-    const before = await target.boundingBox();
-    await page.waitForTimeout(150);
-    const after = await target.boundingBox();
-    expect(before && after && before.y === after.y).toBe(true);
-  }).toPass();
+async function settled(target: Locator) {
+  let last: number | undefined;
+  await expect
+    .poll(
+      async () => {
+        const y = (await target.boundingBox())?.y;
+        const still = y !== undefined && y === last;
+        last = y;
+        return still;
+      },
+      { intervals: [150] },
+    )
+    .toBe(true);
 }
 
 async function selectLines(page: Page, file: Locator, from: number, to: number) {
   const number = (line: number) => file.locator(`[data-line-type="change-addition"][data-column-number="${line}"]`);
   await expect(async () => {
-    await settled(page, number(from));
+    await settled(number(from));
     const [start, end] = await Promise.all([number(from).boundingBox(), number(to).boundingBox()]);
     if (!start || !end) throw new Error("The line numbers aren't on screen");
     await page.mouse.move(start.x + 4, start.y + start.height / 2);
@@ -166,7 +172,7 @@ test("moves between files with j and k", async ({ page }) => {
   await openDiff(page);
   const tree = page.getByRole("tree", { name: "Files" });
   await tree.getByRole("treeitem", { name: /^promo\.go/u }).click();
-  await settled(page, page.getByRole("checkbox", { name: "Viewed api/promo.go" }));
+  await settled(page.getByRole("checkbox", { name: "Viewed api/promo.go" }));
   await page.getByRole("heading", { name: "Checkout: keep the promo code when the cart changes" }).click();
 
   await page.keyboard.press("j");

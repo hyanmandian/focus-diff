@@ -6,17 +6,14 @@ import {
   readKeptConversation,
   type Conversation,
 } from "@/utils/conversation/conversation";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fieldsOf, mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Args } from "@/utils/platform/platform";
 
 const ref = { owner: "acme", repo: "shop", number: 7 };
 const ana = { __typename: "User", login: "ana", avatarUrl: "a.png", name: "Ana" };
 const at = (hour: number) => `2026-01-01T${String(hour).padStart(2, "0")}:00:00Z`;
 
-const field = (args: Args | undefined, key: string): unknown =>
-  args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array)
-    ? args[key]
-    : undefined;
+const field = (args: Args | undefined, key: string): unknown => fieldsOf(args)[key];
 
 const said = (hour: number, extra: Record<string, unknown> = {}) => ({
   body: `said at ${hour}`,

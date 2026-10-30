@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { loadCommits } from "@/utils/commits/commits";
-import type { Details, loadDetails } from "@/utils/details/details";
+import type { loadDetails } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { loadManage } from "@/utils/manage/manage";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { loadFiles, loadThreads } from "@/utils/review/review";
 import { shelved } from "@/utils/shelf/shelf";
 
@@ -19,36 +20,9 @@ vi.mock("@/utils/review/review", () => ({ loadFiles: load.files, loadThreads: lo
 vi.mock("@/utils/manage/manage", () => ({ loadManage: load.manage }));
 vi.mock("@/utils/commits/commits", () => ({ loadCommits: load.commits }));
 
-const details: Details = {
-  id: "PR_1",
-  number: 7,
-  title: "Fix the thing",
-  url: "https://github.com/acme/app/pull/7",
-  html: "",
-  owner: "acme",
-  repo: "app",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: false,
-  baseRefName: "main",
-  headRefName: "fix",
-  headRefOid: "abc",
+const details = fakeDetails({
   updatedAt: "v2",
-  additions: 1,
-  deletions: 0,
-  changedFiles: 1,
-  createdAt: "2026-01-01T00:00:00Z",
-  author: { login: "ana" },
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+});
 const commits = { commits: [], forcePushes: [], reviewed: null };
 
 function disk() {

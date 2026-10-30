@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
 import { AskAi } from "@/components/ask-ai/ask-ai";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Face } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
 import { Checks } from "@/components/checks/checks";
 import { CommitsSection } from "@/components/commits/commits";
@@ -18,7 +18,6 @@ import { copyText, useConversationApi } from "@/hooks/use-conversation/use-conve
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { Stack } from "@/hooks/use-stack/use-stack";
 import { PROVIDERS, type AiReview } from "@/utils/ai/ai";
-import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import type { Range } from "@/utils/commits/commits";
@@ -27,7 +26,6 @@ import type { Conversation, ConversationEntry } from "@/utils/conversation/conve
 import { firstName } from "@/utils/copy/copy";
 import type { Details, Entry } from "@/utils/details/details";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
-import type { Actor } from "@/utils/engine/engine";
 import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread } from "@/utils/review/review";
@@ -36,15 +34,6 @@ import type { StackPull } from "@/utils/stack/stack";
 import { byTime } from "@/utils/timeline/timeline";
 import { typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
-
-function Person({ actor, className }: { actor: Actor; className?: string }) {
-  return (
-    <Avatar className={cn("size-5", className)}>
-      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
-      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
-    </Avatar>
-  );
-}
 
 function Html({ html, className }: { html: string; className?: string }) {
   const t = useT();
@@ -330,7 +319,7 @@ function EntryView({
   const said = entry.kind === "comment" || entry.html.trim() || editing;
   return (
     <article data-entry={entry.id} className="group/said -m-2 flex scroll-mt-16 gap-2.5 rounded-[10px] p-2">
-      <Person actor={entry.author} className="mt-0.5 size-6" />
+      <Face actor={entry.author} className="mt-0.5 size-6" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
           <p className="min-w-0 flex-1 text-callout text-muted-foreground">
@@ -451,7 +440,7 @@ function Heading({ details }: { details: Details }) {
   }).split("\u0000");
   return (
     <header className="-mb-3 flex gap-3">
-      <Person actor={details.author} className="mt-0.5 size-8" />
+      <Face actor={details.author} className="mt-0.5 size-8" />
       <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="selectable text-title2 leading-tight font-bold text-balance [overflow-wrap:anywhere]">
           {details.title} <span className="font-normal text-muted-foreground tabular-nums">#{details.number}</span>
@@ -546,10 +535,7 @@ export function Overview({
   const [shown, setShown] = useState(PAGE);
   const [quoted, setQuoted] = useState<string | null>(null);
   const entries: Array<Entry & Partial<ConversationEntry>> = conversation?.entries ?? details.entries;
-  const byComment = useMemo(
-    () => new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const))),
-    [threads],
-  );
+  const byComment = new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const)));
   const items = useMemo(() => byTime(entries, pull.events), [entries, pull.events]);
   const [landed, setLanded] = useState<string | null>(null);
   const lit = useRef<string | null>(null);

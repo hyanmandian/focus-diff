@@ -1,6 +1,8 @@
 "use client";
 
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/utils/cn/cn";
 
@@ -25,4 +27,19 @@ function CollapsibleContent({ className, ...props }: CollapsiblePrimitive.Panel.
   );
 }
 
-export { Collapsible, CollapsibleTrigger, CollapsibleContent };
+function CollapsibleHeading({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <h2 className="flex min-w-0 flex-1">
+      <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
+        {open ? (
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        ) : (
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        )}
+        {children}
+      </CollapsibleTrigger>
+    </h2>
+  );
+}
+
+export { Collapsible, CollapsibleTrigger, CollapsibleContent, CollapsibleHeading };

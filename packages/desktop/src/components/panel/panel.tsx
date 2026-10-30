@@ -1,6 +1,6 @@
 import { parsePullLink } from "@focus-diff/core/pull-link";
 import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
@@ -107,17 +107,13 @@ export function Panel() {
   const [linkSheet, setLinkSheet] = useState<{ at: number; initial: { text: string; error: string } | null } | null>(
     null,
   );
-  const tRef = useRef(t);
-  useLayoutEffect(() => {
-    tRef.current = t;
+  const tryLink = useEffectEvent(async (text: string) => {
+    const error = await openLink(text, t);
+    if (!error) return;
+    void bridge.openPanel();
+    setLinkSheet({ at: Date.now(), initial: { text: text.trim(), error } });
   });
   useEffect(() => {
-    const tryLink = async (text: string) => {
-      const error = await openLink(text, tRef.current);
-      if (!error) return;
-      void bridge.openPanel();
-      setLinkSheet({ at: Date.now(), initial: { text: text.trim(), error } });
-    };
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target;
       if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA)$/u.test(target.tagName)))
@@ -145,8 +141,8 @@ export function Panel() {
     if (shown && ready) requestAnimationFrame(() => listRef.current?.focus({ preventScroll: true }));
   }, [shown, ready]);
   useTheme(config?.theme);
-  const queues = useMemo(() => config?.queues.filter((q) => q.enabled) ?? [], [config]);
-  const unread = useCallback((item: Item) => isUnread(item, seen), [seen]);
+  const queues = config?.queues.filter((q) => q.enabled) ?? [];
+  const unread = (item: Item) => isUnread(item, seen);
 
   const [tab, setTab] = useState(() => remembered("tab"));
   const queue =
@@ -220,63 +216,62 @@ export function Panel() {
     remember("tab", id);
   };
 
-  const pickedRef = useRef(picked);
-  useLayoutEffect(() => {
-    pickedRef.current = picked;
+  const onPanelKey = useEffectEvent((e: KeyboardEvent) => {
+    const command = primary(e) && !e.altKey && !(isMac && e.ctrlKey);
+    if (command && (e.key === "," || e.key === "q")) {
+      e.preventDefault();
+      void (e.key === "," ? bridge.openSettings() : bridge.quit());
+    } else if (command && e.key === "o") {
+      e.preventDefault();
+      setLinkSheet({ at: Date.now(), initial: null });
+    } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
+      if (picked.size > 0) setPicked(new Set());
+      else void bridge.hidePanel();
+    } else if (
+      e.key === "x" &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      e.target instanceof HTMLElement &&
+      e.target.matches("[data-row]")
+    ) {
+      e.preventDefault();
+      e.target.parentElement?.querySelector<HTMLInputElement>("input[type=checkbox]")?.click();
+    } else if (
+      /^(ArrowDown|ArrowUp|Home|End)$/u.test(e.key) &&
+      !e.defaultPrevented &&
+      !document.querySelector("[data-popup-open]") &&
+      e.target instanceof HTMLElement
+    ) {
+      const target = e.target;
+      if (
+        /^(INPUT|TEXTAREA|SELECT)$/u.test(target.tagName) ||
+        target.closest("[role=tablist]") ||
+        (e.key.startsWith("Arrow") && target.closest("[role=group]"))
+      )
+        return;
+      const rows = [...document.querySelectorAll<HTMLElement>("[data-row]")].filter((r) => r.offsetParent);
+      if (rows.length === 0) return;
+      const at = rows.indexOf(target);
+      const next =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? rows.length - 1
+            : at < 0
+              ? e.key === "ArrowDown"
+                ? 0
+                : rows.length - 1
+              : Math.min(rows.length - 1, Math.max(0, at + (e.key === "ArrowDown" ? 1 : -1)));
+      e.preventDefault();
+      const row = rows[next]!;
+      row.focus();
+      row.scrollIntoView({ block: "nearest" });
+    }
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const command = primary(e) && !e.altKey && !(isMac && e.ctrlKey);
-      if (command && (e.key === "," || e.key === "q")) {
-        e.preventDefault();
-        void (e.key === "," ? bridge.openSettings() : bridge.quit());
-      } else if (command && e.key === "o") {
-        e.preventDefault();
-        setLinkSheet({ at: Date.now(), initial: null });
-      } else if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-popup-open]")) {
-        if (pickedRef.current.size > 0) setPicked(new Set());
-        else void bridge.hidePanel();
-      } else if (
-        e.key === "x" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey &&
-        e.target instanceof HTMLElement &&
-        e.target.matches("[data-row]")
-      ) {
-        e.preventDefault();
-        e.target.parentElement?.querySelector<HTMLInputElement>("input[type=checkbox]")?.click();
-      } else if (
-        /^(ArrowDown|ArrowUp|Home|End)$/u.test(e.key) &&
-        !e.defaultPrevented &&
-        !document.querySelector("[data-popup-open]") &&
-        e.target instanceof HTMLElement
-      ) {
-        const target = e.target;
-        if (
-          /^(INPUT|TEXTAREA|SELECT)$/u.test(target.tagName) ||
-          target.closest("[role=tablist]") ||
-          (e.key.startsWith("Arrow") && target.closest("[role=group]"))
-        )
-          return;
-        const rows = [...document.querySelectorAll<HTMLElement>("[data-row]")].filter((r) => r.offsetParent);
-        if (rows.length === 0) return;
-        const at = rows.indexOf(target);
-        const next =
-          e.key === "Home"
-            ? 0
-            : e.key === "End"
-              ? rows.length - 1
-              : at < 0
-                ? e.key === "ArrowDown"
-                  ? 0
-                  : rows.length - 1
-                : Math.min(rows.length - 1, Math.max(0, at + (e.key === "ArrowDown" ? 1 : -1)));
-        e.preventDefault();
-        const row = rows[next]!;
-        row.focus();
-        row.scrollIntoView({ block: "nearest" });
-      }
+      onPanelKey(e);
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -330,19 +325,18 @@ export function Panel() {
     .flatMap((g) => g.items)
     .slice(0, 5)
     .map((i) => i.pr);
-  const topRef = useRef(top);
-  useLayoutEffect(() => {
-    topRef.current = top;
+  const prefetchTop = useEffectEvent(() => {
+    void prefetchSome(top);
   });
   useEffect(() => {
     if (!shown || !ready) return;
     const timer = setTimeout(() => {
-      // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the queue and repository aren't read here: a new list on screen is what starts the wait again
-      void prefetchSome(topRef.current);
+      prefetchTop();
     }, 700);
     return () => {
       clearTimeout(timer);
     };
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the queue and repository aren't read here: a new list on screen is what starts the wait again
   }, [shown, ready, queue?.id, repo]);
 
   const row = (item: Item, of: Queue) => (

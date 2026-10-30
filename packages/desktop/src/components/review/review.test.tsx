@@ -22,6 +22,7 @@ import { learnFiles } from "@/utils/estimate/estimate";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { patchHash } from "@/utils/hashes/hashes";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
+import { deferred } from "@/utils/mock-render/mock-render";
 import type { Args } from "@/utils/platform/platform";
 import {
   commentNow,
@@ -413,16 +414,6 @@ const visit = (number: number, title: string): Visit => ({
   teams: [],
   queue: "q1",
 });
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((r, j) => {
-    resolve = r;
-    reject = j;
-  });
-  return { promise, resolve, reject };
-}
 
 const stored = (key: string): unknown => JSON.parse(localStorage.getItem(key) ?? "null");
 

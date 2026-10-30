@@ -8,19 +8,13 @@ import { defaultConfig, TEMPLATES, type Config, type Queue, type QueueKind } fro
 import type { Event, Item, PullRequest } from "@/utils/engine/engine";
 import { emit, mockCommands, VERSION } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
+import { fakeOs } from "@/utils/mock-os/mock-os";
+import { refuseStorage } from "@/utils/mock-render/mock-render";
 import { start, type ReviewRun, type Status } from "@/utils/store/store";
 
-const platform = vi.hoisted(() => ({ mac: true }));
-vi.mock("@/utils/os/os", async (importOriginal) => {
-  const real = await importOriginal<Record<string, unknown>>();
-  return {
-    ...real,
-    get isMac() {
-      return platform.mac;
-    },
-    primary: (e: KeyboardEvent) => (platform.mac ? e.metaKey : e.ctrlKey),
-  };
-});
+vi.mock("@/utils/os/os", async (original) =>
+  (await import("@/utils/mock-os/mock-os")).withFakeOs(await original<object>()),
+);
 
 const HOUR = 3_600_000;
 let serial = 0;
@@ -191,7 +185,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  platform.mac = true;
+  fakeOs.mac = true;
   Reflect.deleteProperty(HTMLElement.prototype, "offsetParent");
   vi.useRealTimers();
   cleanup();
@@ -255,12 +249,7 @@ describe("Panel", () => {
   });
 
   it("still works when storage can't be used", async () => {
-    const get = vi.spyOn(localStorage, "getItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    const set = vi.spyOn(localStorage, "setItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
+    const { get, set } = refuseStorage();
     const { user } = await setup(live());
     await user.click(screen.getByRole("tab", { name: /Involved/u }));
     expect(screen.getByRole("tab", { name: /Involved/u }).getAttribute("aria-selected")).toBe("true");
@@ -309,7 +298,7 @@ describe("Panel", () => {
   });
 
   it("opens the link sheet with Ctrl+O off the Mac", async () => {
-    platform.mac = false;
+    fakeOs.mac = false;
     await setup(live());
     fireEvent.keyDown(window, { key: "o", metaKey: true });
     expect(screen.queryByRole("dialog")).toBeNull();

@@ -1,12 +1,12 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { StrictMode, useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import type userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { Actions } from "@/components/settings-actions/settings-actions";
 import { defaultConfig, type Action, type ActionStep, type Config } from "@/utils/config/config";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { answerConfirm } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
+import { renderEditing } from "@/utils/mock-render/mock-render";
 
 afterEach(() => {
   setLanguage("en");
@@ -27,37 +27,15 @@ const action = (patch: Partial<Action> = {}): Action => ({
   ...patch,
 });
 
-function titleOf(args: unknown): string {
-  if (typeof args === "object" && args !== null && "title" in args && typeof args.title === "string") return args.title;
-  return "";
-}
-
 function setup(actions: Action[], confirm = true) {
-  const asked: string[] = [];
-  mockCommands((cmd, args) => {
-    if (cmd === "confirm") {
-      asked.push(titleOf(args));
-      return confirm;
-    }
-    return null;
-  });
-  const changes = vi.fn<(c: Config) => void>();
-  function Harness() {
-    const [config, setConfig] = useState<Config>({ ...defaultConfig(), actions });
-    return (
-      <Actions
-        config={config}
-        onChange={(c) => {
-          changes(c);
-          setConfig(c);
-        }}
-      />
-    );
-  }
-  render(<Harness />, { wrapper: StrictMode });
-  const last = () => changes.mock.lastCall![0];
-  const current = () => last().actions[0]!;
-  return { user: userEvent.setup(), changes, last, current, asked };
+  const asked = answerConfirm(confirm);
+  const editing = renderEditing<Config>(
+    { ...defaultConfig(), actions },
+    (config, onChange) => <Actions config={config} onChange={onChange} />,
+    { strict: true },
+  );
+  const current = () => editing.last().actions[0]!;
+  return { ...editing, current, asked };
 }
 
 const open = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
@@ -222,12 +200,13 @@ describe("Actions", () => {
     expect(current().choices[0]!.steps).toEqual([{ kind: "run", command: "" }]);
   });
 
+  const twoChoices = [
+    { id: "c1", name: "Ana", steps: [{ kind: "unrequestMe" } as const] },
+    { id: "c2", name: "Bo", steps: [] },
+  ];
+
   it("asks before dropping a menu's other choices, and keeps them when told no", async () => {
-    const choices = [
-      { id: "c1", name: "Ana", steps: [{ kind: "unrequestMe" } as const] },
-      { id: "c2", name: "Bo", steps: [] },
-    ];
-    const kept = setup([action({ choices })], false);
+    const kept = setup([action({ choices: twoChoices })], false);
     await open(kept.user, "Ping");
     await kept.user.click(screen.getByRole("button", { name: "Button" }));
     await waitFor(() => {
@@ -237,11 +216,7 @@ describe("Actions", () => {
   });
 
   it("drops a menu's other choices once told yes", async () => {
-    const choices = [
-      { id: "c1", name: "Ana", steps: [{ kind: "unrequestMe" } as const] },
-      { id: "c2", name: "Bo", steps: [] },
-    ];
-    const { user, current } = setup([action({ choices })]);
+    const { user, current } = setup([action({ choices: twoChoices })]);
     await open(user, "Ping");
     await user.click(screen.getByRole("button", { name: "Button" }));
     await waitFor(() => {

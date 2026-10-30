@@ -7,20 +7,15 @@ import type { AiStatus, AuthStatus } from "@/utils/bridge/bridge";
 import { defaultConfig, normalize, TEMPLATES, type Config } from "@/utils/config/config";
 import { CLOSE_WINDOW, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
+import { fakeOs } from "@/utils/mock-os/mock-os";
+import { typeRepository } from "@/utils/mock-render/mock-render";
 
-const platform = vi.hoisted(() => ({ mac: false }));
-vi.mock("@/utils/os/os", async (importOriginal) => {
-  const real = await importOriginal<Record<string, unknown>>();
-  return {
-    ...real,
-    get isMac() {
-      return platform.mac;
-    },
-  };
-});
+vi.mock("@/utils/os/os", async (original) =>
+  (await import("@/utils/mock-os/mock-os")).withFakeOs(await original<object>()),
+);
 
 afterEach(() => {
-  platform.mac = false;
+  fakeOs.mac = false;
 });
 
 const signedIn: AuthStatus = {
@@ -102,6 +97,14 @@ const next = async (user: ReturnType<typeof userEvent.setup>) => {
 const enter = (target: Element, key = "Enter") => {
   fireEvent.keyDown(target, { key });
 };
+async function toFinish(user: ReturnType<typeof userEvent.setup>) {
+  render(<Setup />);
+  await screen.findByText("@octocat");
+  await toAi(user);
+  await next(user);
+  return screen.getByRole("button", { name: "Open Focus Diff" });
+}
+
 const toAi = async (user: ReturnType<typeof userEvent.setup>) => {
   await next(user);
   await next(user);
@@ -206,11 +209,7 @@ describe("Setup", () => {
     await user.click(review);
     await user.click(screen.getByRole("checkbox", { name: /Merged without me/u }));
 
-    const repos = screen.getByRole("textbox", { name: "Repositories" });
-    await user.type(repos, "nope{Enter}");
-    expect(screen.getByRole("alert").textContent).toContain("Use owner/name");
-    await user.clear(repos);
-    await user.type(repos, "acme/web{Enter}");
+    await typeRepository(user, "acme/web");
     await next(user);
 
     expect(screen.getByRole("heading", { name: "How do you like to go through a diff?" })).toBeTruthy();
@@ -267,11 +266,7 @@ describe("Setup", () => {
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const user = userEvent.setup();
-    render(<Setup />);
-    await screen.findByText("@octocat");
-    await toAi(user);
-    await next(user);
-    const open = screen.getByRole("button", { name: "Open Focus Diff" });
+    const open = await toFinish(user);
 
     await user.click(open);
     expect((await screen.findByRole("alert")).textContent).toBe("Couldn't finish: disk full");
@@ -349,7 +344,7 @@ describe("Setup", () => {
   it("goes on with Return, unless a field or button has it, and finishes with it", async () => {
     const { sent } = answer();
     const user = userEvent.setup();
-    platform.mac = true;
+    fakeOs.mac = true;
     render(<Setup />);
     await screen.findByText("@octocat");
 
@@ -382,11 +377,7 @@ describe("Setup", () => {
     const saving = later<undefined>();
     const { sent } = answer({ write: () => saving.promise });
     const user = userEvent.setup();
-    render(<Setup />);
-    await screen.findByText("@octocat");
-    await toAi(user);
-    await next(user);
-    const open = screen.getByRole("button", { name: "Open Focus Diff" });
+    const open = await toFinish(user);
     await user.click(open);
     expect(open.hasAttribute("disabled")).toBe(true);
     enter(screen.getByRole("heading", { level: 1 }));

@@ -13,6 +13,7 @@ import { StaleHead, type Applied } from "@/utils/commit/commit";
 import type { Conversation } from "@/utils/conversation/conversation";
 import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { Draft, PullRef, ReviewFile, Thread, ThreadComment } from "@/utils/review/review";
 import { SuggestionError } from "@/utils/suggestion/suggestion";
 
@@ -43,40 +44,18 @@ vi.mock("@/utils/review/review", async (original) => ({ ...(await original<objec
 const REF: PullRef = { owner: "acme", repo: "api", number: 42 };
 const PR = "PR_1";
 
-const DETAILS: Details = {
-  id: PR,
-  number: 42,
-  title: "Rename the queue",
+const DETAILS = fakeDetails({
   url: "https://github.com/acme/api/pull/42",
-  html: "<p>Renames it.</p>",
-  owner: "acme",
-  repo: "api",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
   headRefName: "rename",
   headRefOid: "abc123",
-  updatedAt: "2026-10-26T10:00:00Z",
-  additions: 3,
-  deletions: 1,
-  changedFiles: 1,
-  createdAt: "2026-10-25T10:00:00Z",
   author: { login: "mona", name: "Mona Lisa" },
-  reviewDecision: null,
   reviewers: [
     { actor: { login: "hubot" }, state: "PENDING" },
     { actor: { login: "platform" }, state: "PENDING", team: "acme/platform" },
     { actor: { login: "me" }, state: "COMMENTED" },
   ],
-  checks: [],
-  files: [],
   entries: [{ kind: "comment", id: "IC_0", author: { login: "octocat" }, html: "", at: "", url: "" }],
-  mergeMethods: ["squash"],
-};
+});
 
 const said = { body: "", canEdit: true, canDelete: true, canReact: true, edited: false, reactions: [] };
 const CONVERSATION: Conversation = {

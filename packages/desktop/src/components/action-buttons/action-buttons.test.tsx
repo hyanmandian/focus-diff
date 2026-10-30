@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import type { ActionContext } from "@/utils/bridge/bridge";
 import type { Action } from "@/utils/config/config";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { deferred } from "@/utils/mock-render/mock-render";
 
 type Run = (action: Action, pr: ActionContext) => Promise<string>;
 const runner = vi.hoisted(() => ({ run: vi.fn<Run>() }));
@@ -44,16 +45,6 @@ const DELEGATE = action({
     { id: "to-team", name: "Platform", steps: [] },
   ],
 });
-
-const NOTHING = () => {};
-
-function deferred() {
-  let resolve: () => void = NOTHING;
-  const promise = new Promise<void>((yes) => {
-    resolve = yes;
-  });
-  return { promise, resolve };
-}
 
 function rust({ confirm = true, open }: { confirm?: boolean; open?: () => unknown } = {}) {
   const calls: Array<[string, unknown]> = [];

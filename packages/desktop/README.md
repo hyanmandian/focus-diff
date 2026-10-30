@@ -10,7 +10,7 @@ Your pull request reviews from the menu bar (system tray on Windows and Linux): 
 - **Review one part at a time.** Diff filters like Focus Diff's (frontend, backend, code then tests, no generated files…), as chips over the diff: combine several, keep some for one repository, see what each holds and the time left, go to the next file to review (⌥⇧J; ⌥⇧. ⌥⇧, ⌥⇧0 for the filters). The time left starts at about 1,000 changed lines an hour and learns your pace. Filters copy and import as the same text as Focus Diff's, both ways.
 - **Viewed, everywhere.** Files you mark as viewed are marked on github.com too, and the other way round.
 - **Your own buttons.** Actions that comment, request or drop reviewers, label, open a link or run a script (asked for once, in a native dialog).
-- **Optional AI, on your own plan.** Claude Code or Cursor, through their own CLIs and your login, read-only. It can read the pull request's whole project, to see where the changed code is used and what it could break, with the repository's own rules. Your prompts as buttons, any question, and an AI review whose comments land on the diff's lines for you to add to your review or dismiss.
+- **Optional AI, on your own plan.** Claude Code, Codex, Cursor or OpenCode, through their own CLIs and your login, read-only. It can read the pull request's whole project, to see where the changed code is used and what it could break, with the repository's own rules. Your prompts as buttons, any question, and an AI review whose comments land on the diff's lines for you to add to your review or dismiss.
 - **A minute to set up**, and updates you choose when to install.
 
 ## Privacy and security

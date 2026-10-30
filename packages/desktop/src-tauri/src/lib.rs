@@ -618,7 +618,7 @@ fn review_builder<'a>(app: &'a AppHandle, label: &str, url: String, title: &str)
 }
 
 fn fill_screen(app: &AppHandle, window: &tauri::WebviewWindow) {
-    if let Ok(Some(monitor)) = app.primary_monitor() {
+    if let Some(monitor) = app.primary_monitor().ok().flatten() {
         let area = monitor.work_area();
         let scale = monitor.scale_factor();
         let _ = window.set_position(area.position.to_logical::<f64>(scale));
@@ -708,6 +708,7 @@ pub(crate) fn show_review(app: AppHandle, id: String, repo: String, number: u64,
         Some(window) => {
             window.emit_to(window.label(), "review-open", target).map_err(|e| e.to_string())?;
             let _ = window.set_title(&title);
+            fill_screen(&app, &window);
             window
         }
         None => {
@@ -1013,7 +1014,10 @@ pub(crate) fn toggle_panel(app: &AppHandle, rect: &Rect) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
     with_ns_window(&panel, floating::show);
     #[cfg(not(target_os = "macos"))]
-    panel.set_focus()?;
+    {
+        panel.set_always_on_top(true)?;
+        panel.set_focus()?;
+    }
     let _ = panel.emit("panel-shown", ());
     reshadow(app, &panel);
     keep_focus(app, &panel);
@@ -1057,6 +1061,16 @@ fn keep_focus(app: &AppHandle, panel: &tauri::WebviewWindow) {
                     with_ns_window(&panel, floating::show);
                     #[cfg(not(target_os = "macos"))]
                     let _ = panel.set_focus();
+                }
+            });
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            thread::sleep(Duration::from_millis(400));
+            let _ = app.clone().run_on_main_thread(move || {
+                if panel.is_visible().unwrap_or(false) && !panel.is_focused().unwrap_or(true) {
+                    diagnostics::write("panel", "shown without the focus: not kept above other windows");
+                    let _ = panel.set_always_on_top(false);
                 }
             });
         }
@@ -1108,6 +1122,8 @@ fn create_panel(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
         .title("Focus Diff")
         .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
         .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
         .decorations(false)
         .accept_first_mouse(true)
         .transparent(true)
@@ -1356,6 +1372,11 @@ pub fn run() {
             if window.label() == PANEL
                 && let WindowEvent::Focused(false) = event {
                     hide(window.app_handle());
+                }
+            #[cfg(not(target_os = "macos"))]
+            if window.label() == PANEL
+                && let WindowEvent::Focused(true) = event {
+                    let _ = window.set_always_on_top(true);
                 }
             if let WindowEvent::Focused(true) = event {
                 menu::focused(window.app_handle(), window.label());

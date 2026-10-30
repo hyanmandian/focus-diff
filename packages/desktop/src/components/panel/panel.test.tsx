@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { Panel } from "@/components/panel/panel";
 import { defaultConfig, TEMPLATES, type Config, type Queue, type QueueKind } from "@/utils/config/config";
 import type { Event, Item, PullRequest } from "@/utils/engine/engine";
-import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { emit, mockCommands, VERSION } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
 import { start, type ReviewRun, type Status } from "@/utils/store/store";
 
@@ -119,11 +119,12 @@ type Options = {
   update?: string | null;
   failInstall?: boolean;
   strict?: boolean;
+  version?: string;
 };
 
 async function setup(
   state: Live,
-  { config = makeConfig(QUEUES), update = null, failInstall, strict, github, waiting }: Options = {},
+  { config = makeConfig(QUEUES), update = null, failInstall, strict, github, waiting, version }: Options = {},
 ) {
   const calls: Array<{ cmd: string; args: unknown }> = [];
   mockCommands((cmd, args) => {
@@ -158,6 +159,9 @@ async function setup(
       case "install_update": {
         if (failInstall) throw new Error("offline");
         return null;
+      }
+      case VERSION: {
+        return version ?? null;
       }
       default: {
         return null;
@@ -251,15 +255,17 @@ describe("Panel", () => {
   });
 
   it("still works when storage can't be used", async () => {
-    vi.spyOn(localStorage, "getItem").mockImplementation(() => {
+    const get = vi.spyOn(localStorage, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+    const set = vi.spyOn(localStorage, "setItem").mockImplementation(() => {
       throw new Error("denied");
     });
     const { user } = await setup(live());
     await user.click(screen.getByRole("tab", { name: /Involved/u }));
     expect(screen.getByRole("tab", { name: /Involved/u }).getAttribute("aria-selected")).toBe("true");
+    get.mockRestore();
+    set.mockRestore();
   });
 
   it("groups the pull requests by repository, with chips to narrow to one, busiest first", async () => {
@@ -717,6 +723,24 @@ describe("Panel", () => {
     await user.click(button);
     expect(cmds()).toContain("install_update");
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Updating…" }).disabled).toBe(true);
+  });
+
+  it("says what's new once after an update, and not on a first install", async () => {
+    localStorage.setItem("seen-version", "1.0.0");
+    const { user, view } = await setup(live(), { version: "1.1.0" });
+    await user.click(await screen.findByRole("button", { name: "What's new in 1.1.0" }));
+    const dialog = await screen.findByRole("dialog", { name: "What's new in Focus Diff 1.1.0" });
+    expect(within(dialog).getByRole("heading", { name: /^1\.1\.0/u })).toBeTruthy();
+    expect(within(dialog).queryByRole("heading", { name: /^1\.0\.0/u })).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("button", { name: "What's new in 1.1.0" })).toBeNull();
+    expect(localStorage.getItem("seen-version")).toBe("1.1.0");
+    view.unmount();
+
+    localStorage.clear();
+    await setup(live(), { version: "1.1.0" });
+    expect(localStorage.getItem("seen-version")).toBe("1.1.0");
+    expect(screen.queryByRole("button", { name: /What's new/u })).toBeNull();
   });
 
   it("offers the update again when installing fails", async () => {

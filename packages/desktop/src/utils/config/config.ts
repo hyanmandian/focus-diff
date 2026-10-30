@@ -1,5 +1,5 @@
 import { isValidPattern } from "@focus-diff/core/filters";
-import { PATH_FILTERS, RECIPES, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
+import { PATH_FILTERS, RECIPES, upgradePatterns, type PathFilterName, type RecipeId } from "@focus-diff/core/recipes";
 
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
@@ -83,7 +83,7 @@ export type ReviewTime = {
   holdWhileReviewing: boolean;
 };
 
-export const AI_PROVIDERS = ["claude", "cursor"] as const;
+export const AI_PROVIDERS = ["claude", "codex", "cursor", "opencode"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type Effort = (typeof EFFORTS)[number];
@@ -359,20 +359,19 @@ const fromRecipe = (f: DiffFilter, name: PathFilterName) =>
 export const recipeOn = (filters: DiffFilter[], id: RecipeId) =>
   RECIPES[id].every((name) => filters.some((f) => fromRecipe(f, name)));
 
-export function withRecipes(filters: DiffFilter[], chosen: ReadonlySet<RecipeId>, t: T): DiffFilter[] {
-  const fromRecipes = new Set(RECIPE_ORDER.flatMap((id) => RECIPES[id]));
-  const own = filters.filter((f) => ![...fromRecipes].some((name) => fromRecipe(f, name)));
-  const names = [...new Set(RECIPE_ORDER.filter((id) => chosen.has(id)).flatMap((id) => RECIPES[id]))];
-  const picked = names.map(
-    (name) =>
-      filters.find((f) => fromRecipe(f, name)) ?? {
-        id: filterId(name),
-        name: t(`config.filter.${name}`),
-        ...PATH_FILTERS[name],
-        repos: [],
-      },
-  );
-  return [...picked, ...own].slice(0, 12);
+export function withRecipes(
+  filters: DiffFilter[],
+  chosen: ReadonlySet<RecipeId>,
+  t: T,
+  was: ReadonlySet<RecipeId> = new Set(RECIPE_ORDER.filter((id) => recipeOn(filters, id))),
+): DiffFilter[] {
+  const dropped = RECIPE_ORDER.filter((id) => was.has(id) && !chosen.has(id)).flatMap((id) => RECIPES[id]);
+  const kept = filters.filter((f) => !dropped.some((name) => fromRecipe(f, name)));
+  const added = RECIPE_ORDER.filter((id) => chosen.has(id))
+    .flatMap((id) => RECIPES[id])
+    .filter((name) => !kept.some((f) => fromRecipe(f, name)))
+    .map((name) => ({ id: filterId(name), name: t(`config.filter.${name}`), ...PATH_FILTERS[name], repos: [] }));
+  return [...kept, ...added].slice(0, 12);
 }
 
 function defaultFilters(): DiffFilter[] {
@@ -479,13 +478,13 @@ function normalizePrompt(r: unknown): Prompt | null {
 
 function normalizeFilter(r: unknown): DiffFilter | null {
   if (!isRecord(r)) return null;
-  return {
+  return upgradePatterns({
     id: id(r.id, newId),
     name: isString(r.name) && r.name.trim() ? r.name.trim().slice(0, 24) : i18n()("config.filter.untitled"),
     include: pattern(r.include),
     exclude: pattern(r.exclude),
     repos: strings(r.repos, 20).filter((s) => isRepoPattern(s)),
-  };
+  });
 }
 
 function normalizeAction(r: unknown): Action | null {

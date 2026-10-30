@@ -45,6 +45,7 @@ export const setup: Dictionary["setup"] = {
   notInstalled: "não instalado",
   getIt: "Instalar",
   readyVersion: "Pronto · {version}",
+  outdatedRun: "Funciona, mas está desatualizado: rode {command}",
   doneTitle: "Tudo pronto",
   doneBodyMac:
     "O Focus Diff fica na barra de menus. Clique no ícone para ver suas filas; ele se acende quando algo precisa de você. Modelo, esforço, seus prompts e botões ficam nos Ajustes.",

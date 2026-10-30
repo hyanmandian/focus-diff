@@ -1,5 +1,5 @@
 import { parsePullLink } from "@focus-diff/core/pull-link";
-import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
+import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
@@ -19,14 +19,17 @@ import { PullRow } from "@/components/pull-row/pull-row";
 import { Skeleton } from "@/components/skeleton/skeleton";
 import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import { WhatsNew } from "@/components/whats-new/whats-new";
 import { arrange } from "@/utils/arrange/arrange";
 import { bridge } from "@/utils/bridge/bridge";
+import { sawNews, updatedFrom } from "@/utils/changes/changes";
 import { cn } from "@/utils/cn/cn";
 import type { Queue } from "@/utils/config/config";
 import type { Item } from "@/utils/engine/engine";
 import { useT } from "@/utils/i18n/i18n";
 import { tabKeys } from "@/utils/keys/keys";
 import { isMac, primary, shortcut } from "@/utils/os/os";
+import { platform } from "@/utils/platform/platform";
 import { prefetchSome } from "@/utils/prefetch/prefetch";
 import {
   clearArrival,
@@ -198,6 +201,17 @@ export function Panel() {
   useEffect(() => {
     void bridge.updateOffered().then(setUpdate);
     return bridge.on<string>("update-available", setUpdate);
+  }, []);
+  const [news, setNews] = useState<{ version: string; after: string } | null>(null);
+  const [readingNews, setReadingNews] = useState(false);
+  useEffect(() => {
+    void platform()
+      .version()
+      .then((version) => {
+        if (!version) return;
+        const after = updatedFrom(version);
+        if (after) setNews({ version, after });
+      });
   }, []);
   const choose = (id: string) => {
     setTab(id);
@@ -657,8 +671,19 @@ export function Panel() {
                         {updating ? <Loader2 className="size-3 animate-spin" /> : null}
                         {updating ? t("panel.updating") : t("panel.updateTo", { version: update })}
                       </button>
+                    ) : news ? (
+                      <button
+                        type="button"
+                        className="flex h-7 cursor-default items-center gap-1.5 rounded-[8px] px-2 font-semibold text-success focus-ring transition-colors duration-(--duration-fast) outline-none hover:bg-foreground/6"
+                        onClick={() => {
+                          setReadingNews(true);
+                        }}
+                      >
+                        <Sparkles className="size-3" aria-hidden />
+                        {t("shared.whatsNewIn", { version: news.version })}
+                      </button>
                     ) : null}
-                    <output className={cn("whitespace-nowrap", update && "sr-only")}>
+                    <output className={cn("whitespace-nowrap", (update || news) && "sr-only")}>
                       {status.updatedAt
                         ? lastMinute(status.updatedAt)
                           ? t("panel.updatedNow")
@@ -717,6 +742,18 @@ export function Panel() {
           <div className="h-9 shrink-0" />
         </div>
       )}
+      {news ? (
+        <WhatsNew
+          open={readingNews}
+          onOpenChange={() => {
+            setReadingNews(false);
+            sawNews(news.version);
+            setNews(null);
+          }}
+          version={news.version}
+          after={news.after}
+        />
+      ) : null}
     </div>
   );
 }

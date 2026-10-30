@@ -168,7 +168,7 @@ export const review = {
   you: "You: ",
   turnIntoComment: "Turn into a comment",
   readingCode: "{name} is reading the code…",
-  setUpAi: "Set up Claude Code or Cursor in Settings to ask about code here.",
+  setUpAi: "Set up Claude Code, Codex, Cursor or OpenCode in Settings to ask about code here.",
   questionLabel: "Your question about these lines",
   commentLabel: "Your comment for the author",
   askFollowUp: "Ask a follow-up…",

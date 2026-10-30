@@ -756,8 +756,18 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
           signed_in: true,
           version: "2.1.310 (Claude Code)",
           login_command: "claude auth login",
+          outdated: false,
+          update_command: "claude update",
         },
-        { provider: "cursor", installed: false, signed_in: false, version: null, login_command: "agent login" },
+        {
+          provider: "cursor",
+          installed: false,
+          signed_in: false,
+          version: null,
+          login_command: "agent login",
+          outdated: false,
+          update_command: "agent update",
+        },
       ];
     case "ai_models":
       return ["fable", "opus", "sonnet", "haiku"];

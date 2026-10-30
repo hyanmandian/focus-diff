@@ -144,6 +144,20 @@ fn run(app: &AppHandle, command: &str) {
             }
             _ => Err("hit <label> <x> <y>".into()),
         },
+        (Some("props"), Some(label), _) => match app.get_webview_window(label) {
+            Some(w) => {
+                eprintln!(
+                    "[devctl] props {label}: resizable={} maximizable={} minimizable={} decorated={} on_top={}",
+                    w.is_resizable().unwrap_or(false),
+                    w.is_maximizable().unwrap_or(false),
+                    w.is_minimizable().unwrap_or(false),
+                    w.is_decorated().unwrap_or(false),
+                    w.is_always_on_top().unwrap_or(false)
+                );
+                Ok(())
+            }
+            None => Err(format!("no window {label}")),
+        },
         (Some("windows"), _, _) => {
             let labels: Vec<String> = app.webview_windows().into_iter().map(|(label, w)| format!("{label}{}", if w.is_visible().unwrap_or(false) { "" } else { " (hidden)" })).collect();
             eprintln!("[devctl] windows: {}", labels.join(", "));

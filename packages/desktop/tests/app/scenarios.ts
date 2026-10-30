@@ -100,6 +100,13 @@ async function until<T>(test: () => T | null | undefined | false, ms = 30_000): 
   return until(test, ms - 250);
 }
 
+async function without(run: Run, label: string, tries = 20): Promise<string> {
+  const list = await windows(run);
+  if (!visible(list, label) || tries <= 0) return list;
+  await sleep(500);
+  return without(run, label, tries - 1);
+}
+
 async function send(command: string) {
   appendFileSync(control, `${command}\n`);
   await sleep(450);
@@ -129,6 +136,15 @@ async function settled(run: Run, label: string, done: (text: string) => boolean,
   if (done(text) || ms <= 0) return text;
   await sleep(500);
   return settled(run, label, done, ms - 1500);
+}
+
+async function props(run: Run, label: string): Promise<string> {
+  const before = run.err.length;
+  await send(`props ${label}`);
+  return (
+    (await until(() => new RegExp(`\\[devctl\\] props ${label}: (.*)`, "u").exec(run.err.slice(before))?.[1], 5000)) ??
+    ""
+  );
 }
 
 async function stop(run: Run) {
@@ -189,7 +205,7 @@ async function scenarios() {
   await send(`eval setup ${CLICK_THROUGH}`);
   check("finishing saves the settings", Boolean(await until(() => existsSync(configFile), 20_000)), configFile);
   await until(() => shown(run) > shownBefore, 15_000);
-  const after = await windows(run);
+  const after = await without(run, "setup");
   check("finishing closes setup and opens the panel", shown(run) > shownBefore && !visible(after, "setup"), after);
   await stop(run);
 
@@ -205,6 +221,14 @@ async function scenarios() {
     "opens a pull request from the panel without freezing",
     Boolean(await until(() => run.err.includes("REVIEW OPENED"), 15_000)) && /review-\d/u.test(await windows(run)),
     run.err.slice(-1500),
+  );
+  const review =
+    (await windows(run)).split(", ").find((w) => w.startsWith("review-") && !w.includes("hidden")) ?? "review-0";
+  const normal = await props(run, review);
+  check(
+    "the pull request window is a normal window: resizes, maximizes, minimizes, stays behind others",
+    normal.includes("resizable=true maximizable=true minimizable=true decorated=true on_top=false"),
+    normal,
   );
 
   if (bundle) execFileSync("open", [bundle]);
@@ -222,6 +246,12 @@ async function scenarios() {
     run.err.slice(-1500),
   );
   check("the first copy keeps running", run.exited === null);
+  const popup = await props(run, "panel");
+  check(
+    "the panel is a popup: no resizing or maximizing",
+    popup.includes(os === "linux" ? "resizable=false" : "resizable=false maximizable=false"),
+    popup,
+  );
   await stop(run);
 
   const log = existsSync(logFile) ? readFileSync(logFile, "utf8") : "";

@@ -620,7 +620,7 @@ describe("NewComment", () => {
       const sent = rust();
       newComment();
       await user.click(tab("Ask AI"));
-      expect(screen.getByText(/Set up Claude Code or Cursor/u)).toBeTruthy();
+      expect(screen.getByText(/Set up Claude Code, Codex, Cursor or OpenCode/u)).toBeTruthy();
       await user.click(screen.getByRole("button", { name: "Open Settings" }));
       expect(sent.map(([cmd]) => cmd)).toContain("open_settings");
       expect(localStorage.getItem("selection-tab")).toBe("ask");

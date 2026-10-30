@@ -304,6 +304,7 @@ export const settings: Dictionary["settings"] = {
   getIt: "Baixar",
   ready: "Pronto · {version}",
   notSignedInRun: "Instalado, sem login. Num terminal, rode",
+  outdatedRun: "Funciona, mas está desatualizado. Para ter tudo, rode",
   model: "Modelo",
   modelHint: "Vazio usa o que você configurou no {provider}. Alguns planos só permitem alguns modelos.",
   modelPlaceholder: "O padrão do {provider}",

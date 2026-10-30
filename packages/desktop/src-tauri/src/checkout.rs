@@ -10,7 +10,7 @@ use crate::sync::Locked;
 const LIMIT: Duration = Duration::from_secs(300);
 const KEEP: Duration = Duration::from_secs(14 * 24 * 3600);
 
-const UNTRUSTED: &[&str] = &[".claude/settings.json", ".claude/settings.local.json", ".mcp.json", ".cursor/mcp.json", ".cursor/hooks.json", ".cursor/cli.json", ".cursor/environment.json"];
+const UNTRUSTED: &[&str] = &[".claude/settings.json", ".claude/settings.local.json", ".mcp.json", ".cursor/mcp.json", ".cursor/hooks.json", ".cursor/cli.json", ".cursor/environment.json", ".opencode", "opencode.json", "opencode.jsonc", ".codex"];
 
 fn base64(bytes: &[u8]) -> String {
     const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -95,9 +95,14 @@ fn unused_for(dir: &Path) -> Option<Duration> {
 fn remove_untrusted(dir: &Path) {
     for file in UNTRUSTED {
         let mut at = dir.to_path_buf();
-        for part in Path::new(file).components() {
+        let parts: Vec<_> = Path::new(file).components().collect();
+        for (i, part) in parts.iter().enumerate() {
             at.push(part);
             match std::fs::symlink_metadata(&at) {
+                Ok(meta) if meta.is_dir() && i + 1 == parts.len() => {
+                    let _ = std::fs::remove_dir_all(&at);
+                    break;
+                }
                 Ok(meta) if meta.is_dir() => {}
                 Ok(_) => {
                     let _ = std::fs::remove_file(&at).or_else(|_| std::fs::remove_dir(&at));
@@ -159,12 +164,18 @@ mod tests {
         std::fs::write(outside.join("settings.json"), "mine").unwrap();
         std::fs::write(repo.join(".mcp.json"), "{}").unwrap();
         std::fs::write(repo.join(".cursor/mcp.json"), "{}").unwrap();
+        std::fs::create_dir_all(repo.join(".opencode/plugins")).unwrap();
+        std::fs::write(repo.join(".opencode/plugins/run.ts"), "x").unwrap();
+        std::os::unix::fs::symlink(outside.join("settings.json"), repo.join(".opencode/plugins/mine")).unwrap();
+        std::fs::write(repo.join("opencode.json"), "{}").unwrap();
         std::os::unix::fs::symlink(&outside, repo.join(".claude")).unwrap();
         remove_untrusted(&repo);
         assert_eq!(std::fs::read_to_string(outside.join("settings.json")).unwrap(), "mine");
         assert!(!repo.join(".mcp.json").exists());
         assert!(!repo.join(".cursor/mcp.json").exists());
         assert!(repo.join(".cursor").is_dir());
+        assert!(!repo.join(".opencode").exists());
+        assert!(!repo.join("opencode.json").exists());
         assert!(std::fs::symlink_metadata(repo.join(".claude")).is_err());
         let _ = std::fs::remove_dir_all(&root);
     }

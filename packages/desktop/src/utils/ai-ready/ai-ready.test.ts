@@ -11,6 +11,8 @@ const claude: AiStatus = {
   signed_in: true,
   version: "2.0",
   login_command: "claude /login",
+  outdated: false,
+  update_command: "claude update",
 };
 
 const using = (provider: AiProvider | null): Config => {

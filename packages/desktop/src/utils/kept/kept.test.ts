@@ -142,6 +142,14 @@ describe("keeping a review", () => {
 });
 
 describe("reading a kept review", () => {
+  it("isn't current when its notes can't be read at all", () => {
+    const get = vi.spyOn(localStorage, "getItem").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    expect(keptCurrent("PR_1", "2026-01-01T00:00:00Z")).toBe(false);
+    get.mockRestore();
+  });
+
   it("has nothing when nothing was kept", async () => {
     disk();
     expect(await readKept("PR_1")).toBeNull();

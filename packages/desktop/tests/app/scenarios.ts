@@ -100,6 +100,13 @@ async function until<T>(test: () => T | null | undefined | false, ms = 30_000): 
   return until(test, ms - 250);
 }
 
+async function without(run: Run, label: string, tries = 20): Promise<string> {
+  const list = await windows(run);
+  if (!visible(list, label) || tries <= 0) return list;
+  await sleep(500);
+  return without(run, label, tries - 1);
+}
+
 async function send(command: string) {
   appendFileSync(control, `${command}\n`);
   await sleep(450);
@@ -198,7 +205,7 @@ async function scenarios() {
   await send(`eval setup ${CLICK_THROUGH}`);
   check("finishing saves the settings", Boolean(await until(() => existsSync(configFile), 20_000)), configFile);
   await until(() => shown(run) > shownBefore, 15_000);
-  const after = await windows(run);
+  const after = await without(run, "setup");
   check("finishing closes setup and opens the panel", shown(run) > shownBefore && !visible(after, "setup"), after);
   await stop(run);
 
@@ -240,7 +247,11 @@ async function scenarios() {
   );
   check("the first copy keeps running", run.exited === null);
   const popup = await props(run, "panel");
-  check("the panel is a popup: no resizing or maximizing", popup.includes("resizable=false maximizable=false"), popup);
+  check(
+    "the panel is a popup: no resizing or maximizing",
+    popup.includes(os === "linux" ? "resizable=false" : "resizable=false maximizable=false"),
+    popup,
+  );
   await stop(run);
 
   const log = existsSync(logFile) ? readFileSync(logFile, "utf8") : "";

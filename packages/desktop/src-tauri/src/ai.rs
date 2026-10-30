@@ -1063,6 +1063,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    #[cfg(unix)]
     const HELP: &str = "auth status --tools --no-session-persistence --strict-mcp-config --effort --json-schema --setting-sources --settings dontAsk --mode --sandbox --trust";
 
     #[test]

@@ -23,7 +23,15 @@ export function openClicked(e: MouseEvent) {
   }
 }
 
-export function CommentHtml({ html, base, className }: { html: string; base?: string[]; className?: string }) {
+export function CommentHtml({
+  html,
+  base,
+  className,
+}: {
+  html: string;
+  base?: string[] | undefined;
+  className?: string | undefined;
+}) {
   const clean = sanitize(html, base);
   const ref = useRef<HTMLDivElement>(null);
   useDiagrams(ref, clean);

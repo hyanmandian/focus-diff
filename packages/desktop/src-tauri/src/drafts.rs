@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -239,7 +239,7 @@ impl Drafts {
             }
             queue.woken = true;
             wake.notify_one();
-            queue = done.wait_timeout(queue, left).unwrap().0;
+            queue = done.wait_timeout(queue, left).unwrap_or_else(PoisonError::into_inner).0;
         }
     }
 }
@@ -256,7 +256,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&
                     let synced = q.saved.ids.get(job.change.key()).map(|s| s.comment.clone());
                     break (job, synced);
                 }
-                q = wake.wait(q).unwrap();
+                q = wake.wait(q).unwrap_or_else(PoisonError::into_inner);
             }
         };
         let sent = send(&app.state::<github::Auth>(), &job, synced);
@@ -266,10 +266,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar, Condvar), file: Option<&
         crate::disk::save_json(file, &q.saved);
         done.notify_all();
         let _ = app.emit("drafts", job.change.pull());
-        if failures > 0 && !q.woken {
-            let wait = Duration::from_secs(1 << (failures.min(6) - 1)).min(LONGEST_WAIT);
-            drop(wake.wait_timeout_while(q, wait, |q| !q.woken).unwrap());
-        }
+        crate::sync::back_off(wake, q, failures, LONGEST_WAIT, |q| q.woken);
     }
 }
 
@@ -303,52 +300,46 @@ fn create(auth: &github::Auth, put: &Put) -> Result<Sent, Sent> {
         json!({ "id": put.pull }),
     )?;
     let reviews = data["node"]["reviews"]["nodes"].as_array().cloned().unwrap_or_default();
-    let review = match reviews.iter().find(|r| r["viewerDidAuthor"].as_bool() == Some(true)) {
-        Some(review) => {
-            let twin = review["comments"]["nodes"].as_array().and_then(|comments| {
-                comments.iter().find(|c| c["body"].as_str() == Some(&put.body) && c["path"].as_str() == Some(&put.path) && (put.file || c["line"].as_u64() == Some(put.line.into())))
-            });
-            if let Some(id) = twin.and_then(|c| c["id"].as_str()) {
-                return Ok(Sent::Done(Some(id.to_string())));
-            }
-            review["id"].as_str().unwrap_or_default().to_string()
+    let review = if let Some(review) = reviews.iter().find(|r| r["viewerDidAuthor"].as_bool() == Some(true)) {
+        let twin = review["comments"]["nodes"].as_array().and_then(|comments| {
+            comments.iter().find(|c| c["body"].as_str() == Some(&put.body) && c["path"].as_str() == Some(&put.path) && (put.file || c["line"].as_u64() == Some(put.line.into())))
+        });
+        if let Some(id) = twin.and_then(|c| c["id"].as_str()) {
+            return Ok(Sent::Done(Some(id.to_string())));
         }
-        None => {
-            let data = graphql(auth, "mutation($id: ID!) { addPullRequestReview(input: { pullRequestId: $id }) { pullRequestReview { id } } }", json!({ "id": put.pull }))?;
-            data["addPullRequestReview"]["pullRequestReview"]["id"].as_str().unwrap_or_default().to_string()
-        }
+        review["id"].as_str().unwrap_or_default().to_string()
+    } else {
+        let data = graphql(auth, "mutation($id: ID!) { addPullRequestReview(input: { pullRequestId: $id }) { pullRequestReview { id } } }", json!({ "id": put.pull }))?;
+        data["addPullRequestReview"]["pullRequestReview"]["id"].as_str().unwrap_or_default().to_string()
     };
-    let id = match &put.reply_to {
-        Some(thread) => {
-            let data = graphql(
-                auth,
-                "mutation($review: ID!, $thread: ID!, $body: String!) { addPullRequestReviewThreadReply(input: { pullRequestReviewId: $review, pullRequestReviewThreadId: $thread, body: $body }) { comment { id } } }",
-                json!({ "review": review, "thread": thread, "body": put.body }),
-            )?;
-            data["addPullRequestReviewThreadReply"]["comment"]["id"].as_str().map(String::from)
-        }
-        None => {
-            let side_of = |s: &str| if s == "deletions" { "LEFT" } else { "RIGHT" };
-            let side = side_of(&put.side);
-            let start_side = put.start_side.as_deref().map_or(side, side_of);
-            let mut input = json!({ "pullRequestReviewId": review, "path": put.path, "body": put.body });
-            if put.file {
-                input["subjectType"] = json!("FILE");
-            } else {
-                input["line"] = json!(put.line);
-                input["side"] = json!(side);
-                if let Some(start) = put.start_line.filter(|s| *s != put.line || start_side != side) {
-                    input["startLine"] = json!(start);
-                    input["startSide"] = json!(start_side);
-                }
+    let id = if let Some(thread) = &put.reply_to {
+        let data = graphql(
+            auth,
+            "mutation($review: ID!, $thread: ID!, $body: String!) { addPullRequestReviewThreadReply(input: { pullRequestReviewId: $review, pullRequestReviewThreadId: $thread, body: $body }) { comment { id } } }",
+            json!({ "review": review, "thread": thread, "body": put.body }),
+        )?;
+        data["addPullRequestReviewThreadReply"]["comment"]["id"].as_str().map(String::from)
+    } else {
+        let side_of = |s: &str| if s == "deletions" { "LEFT" } else { "RIGHT" };
+        let side = side_of(&put.side);
+        let start_side = put.start_side.as_deref().map_or(side, side_of);
+        let mut input = json!({ "pullRequestReviewId": review, "path": put.path, "body": put.body });
+        if put.file {
+            input["subjectType"] = json!("FILE");
+        } else {
+            input["line"] = json!(put.line);
+            input["side"] = json!(side);
+            if let Some(start) = put.start_line.filter(|s| *s != put.line || start_side != side) {
+                input["startLine"] = json!(start);
+                input["startSide"] = json!(start_side);
             }
-            let data = graphql(
-                auth,
-                "mutation($input: AddPullRequestReviewThreadInput!) { addPullRequestReviewThread(input: $input) { thread { comments(first: 1) { nodes { id } } } } }",
-                json!({ "input": input }),
-            )?;
-            data["addPullRequestReviewThread"]["thread"]["comments"]["nodes"][0]["id"].as_str().map(String::from)
         }
+        let data = graphql(
+            auth,
+            "mutation($input: AddPullRequestReviewThreadInput!) { addPullRequestReviewThread(input: $input) { thread { comments(first: 1) { nodes { id } } } } }",
+            json!({ "input": input }),
+        )?;
+        data["addPullRequestReviewThread"]["thread"]["comments"]["nodes"][0]["id"].as_str().map(String::from)
     };
     Ok(Sent::Done(id))
 }
@@ -367,7 +358,7 @@ fn graphql(auth: &github::Auth, query: &str, variables: Value) -> Result<Value, 
         Ok((status, _)) if status == 401 || status == 403 || status == 429 || status >= 500 => Err(Sent::Later(tr!("GitHub returned {status}", "O GitHub respondeu {status}"))),
         Ok((status, text)) => {
             let reply: Value = serde_json::from_str(&text).unwrap_or_default();
-            Err(Sent::Refused(reply["message"].as_str().map(String::from).unwrap_or_else(|| tr!("GitHub returned {status}", "O GitHub respondeu {status}"))))
+            Err(Sent::Refused(reply["message"].as_str().map_or_else(|| tr!("GitHub returned {status}", "O GitHub respondeu {status}"), String::from)))
         }
     }
 }
@@ -387,7 +378,7 @@ mod tests {
         q.put(put("k1", "first"));
         q.put(put("k2", "other"));
         q.put(put("k1", "second"));
-        let bodies: Vec<_> = q.saved.jobs.iter().map(|j| match &j.change { Change::Put(p) => p.body.clone(), _ => String::new() }).collect();
+        let bodies: Vec<_> = q.saved.jobs.iter().map(|j| match &j.change { Change::Put(p) => p.body.clone(), Change::Remove { .. } => String::new() }).collect();
         assert_eq!(bodies, ["other", "second"]);
     }
 

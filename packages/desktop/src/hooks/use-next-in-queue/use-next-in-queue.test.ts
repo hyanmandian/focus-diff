@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { DIRECTION, useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
+import { takeDirection, useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import type { ReviewPull } from "@/utils/bridge/bridge";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
@@ -123,7 +123,7 @@ describe("useNextInQueue", () => {
         title: "#2 · Change 2 · Mona",
       },
     ]);
-    expect(sessionStorage.getItem(DIRECTION)).toBe("forward");
+    expect(takeDirection()).toBe("forward");
     expect(kept()).toEqual([HERE]);
   });
 
@@ -163,7 +163,7 @@ describe("useNextInQueue", () => {
     const { result } = renderHook(() => useNextInQueue("review", "PR_A", HERE));
     await result.current.goTo(other);
     expect(asked(calls, "switch_review")).toEqual([expect.objectContaining({ id: "PR_S", queue: "review" })]);
-    expect(sessionStorage.getItem(DIRECTION)).toBe("forward");
+    expect(takeDirection()).toBe("forward");
     expect(kept()).toEqual([HERE]);
     sessionStorage.clear();
     const { result: early } = renderHook(() => useNextInQueue("review", "PR_A", null));
@@ -206,7 +206,7 @@ describe("useNextInQueue", () => {
     expect(asked(calls, "switch_review")).toEqual([
       expect.objectContaining({ id: "PR_Z", teams: ["acme/web"], queue: null }),
     ]);
-    expect(sessionStorage.getItem(DIRECTION)).toBe("back");
+    expect(takeDirection()).toBe("back");
     expect(kept()).toEqual([HERE]);
   });
 
@@ -237,5 +237,13 @@ describe("useNextInQueue", () => {
     refuseToKeepVisits();
     await expect(result.current.go()).resolves.toBe(true);
     await expect(result.current.back()).resolves.toBeUndefined();
+  });
+
+  it("tells nothing of the way it went when the session keeps nothing", () => {
+    vi.spyOn(sessionStorage, "getItem").mockImplementation(() => {
+      throw new Error("Denied");
+    });
+    expect(takeDirection()).toBeNull();
+    vi.restoreAllMocks();
   });
 });

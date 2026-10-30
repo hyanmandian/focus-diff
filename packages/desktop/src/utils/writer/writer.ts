@@ -105,7 +105,9 @@ export function referable(repo: string, query: string): Promise<Reference[]> {
   const key = `${repo}\n#${query}`;
   const known = references.get(key);
   if (known) return known;
-  type Raw = { search: { nodes: Array<{ __typename: string; number?: number; title?: string; state?: string }> } };
+  type Raw = {
+    search: { nodes: Array<{ __typename: string; number?: number; title?: string; state?: string | undefined }> };
+  };
   const words = /^\d+$/u.test(query) ? query : query ? `${query} in:title` : "";
   const asked = graphql<Raw>(
     `

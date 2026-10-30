@@ -6,7 +6,7 @@ import { i18n, LANGUAGES, type Language, type T } from "@/utils/i18n/i18n";
 
 export type QueueKind = "review" | "involved" | "authored" | "merged" | "custom";
 
-export const EVENT_KINDS = [
+const EVENT_KINDS = [
   "new",
   "commits",
   "reply",
@@ -26,7 +26,7 @@ export const LEAVE_OUT = ["drafts", "bots", "approved"] as const;
 export type LeaveOut = (typeof LEAVE_OUT)[number];
 
 export const TONES = ["blue", "purple", "green", "amber", "red", "gray"] as const;
-export type Tone = (typeof TONES)[number];
+type Tone = (typeof TONES)[number];
 
 export type Queue = {
   id: string;
@@ -85,7 +85,7 @@ export type ReviewTime = {
 
 export const AI_PROVIDERS = ["claude", "codex", "cursor", "opencode"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
-export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type Effort = (typeof EFFORTS)[number];
 
 export type Prompt = { id: string; name: string; prompt: string };

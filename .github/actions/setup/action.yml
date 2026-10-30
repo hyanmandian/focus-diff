@@ -14,6 +14,7 @@ runs:
       with:
         node-version-file: .nvmrc
         cache: ${{ inputs.cache == 'true' && 'npm' || '' }}
+        package-manager-cache: ${{ inputs.cache }}
 
     - name: Install dependencies
       shell: bash

@@ -166,28 +166,12 @@ jobs:
           COPYFILE_DISABLE: '1'
         run: tar -czf "Focus Diff.app.tar.gz" "Focus Diff.app"
 
-      - name: Sign the updater's archive
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          for file in src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz; do
-            npx tauri signer sign "$file" > /dev/null
-          done
-
       - name: Gather the files
-        env:
-          TAG: ${{ needs.release-please.outputs.desktop-tag }}
         run: |
           bundle=src-tauri/target/universal-apple-darwin/release/bundle
           mkdir release
           cp "$bundle"/dmg/*.dmg release/Focus-Diff.dmg
           cp "$bundle"/macos/*.app.tar.gz release/Focus-Diff.app.tar.gz
-          cp "$bundle"/macos/*.app.tar.gz.sig release/Focus-Diff.app.tar.gz.sig
-          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Focus-Diff.app.tar.gz"
-          jq -n --arg url "$url" --rawfile signature release/Focus-Diff.app.tar.gz.sig \
-            '{"darwin-aarch64": {url: $url, signature: $signature}, "darwin-x86_64": {url: $url, signature: $signature}}' \
-            > release/platforms-macos.json
 
       - name: Upload the app
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -233,36 +217,18 @@ jobs:
       - name: Build the app
         run: npm run tauri build -- --no-sign
 
-      - name: Sign the updater's files
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          for file in src-tauri/target/release/bundle/nsis/*-setup.exe src-tauri/target/release/bundle/appimage/*.AppImage; do
-            [ -e "$file" ] && npx tauri signer sign "$file" > /dev/null
-          done
-          true
-
       - name: Gather the files
         env:
-          TAG: ${{ needs.release-please.outputs.desktop-tag }}
           OS: ${{ runner.os }}
         run: |
           bundle=src-tauri/target/release/bundle
-          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
           mkdir release
           if [ "$OS" = Windows ]; then
             cp "$bundle"/nsis/*-setup.exe release/Focus-Diff-Setup.exe
-            cp "$bundle"/nsis/*-setup.exe.sig release/Focus-Diff-Setup.exe.sig
-            jq -n --arg url "$base/Focus-Diff-Setup.exe" --rawfile signature release/Focus-Diff-Setup.exe.sig \
-              '{"windows-x86_64": {url: $url, signature: $signature}}' > release/platforms-windows.json
           else
             cp "$bundle"/appimage/*.AppImage release/Focus-Diff.AppImage
-            cp "$bundle"/appimage/*.AppImage.sig release/Focus-Diff.AppImage.sig
             cp "$bundle"/deb/*.deb release/Focus-Diff.deb
             cp "$bundle"/rpm/*.rpm release/Focus-Diff.rpm
-            jq -n --arg url "$base/Focus-Diff.AppImage" --rawfile signature release/Focus-Diff.AppImage.sig \
-              '{"linux-x86_64": {url: $url, signature: $signature}}' > release/platforms-linux.json
           fi
 
       - name: Upload the app
@@ -272,9 +238,63 @@ jobs:
           path: packages/desktop/release/*
           if-no-files-found: error
 
+  desktop-sign:
+    name: Sign the desktop app's updates
+    needs: [release-please, desktop-build, desktop-build-other]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions: {}
+    steps:
+      - name: Download the app, for every system
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-release-*
+          merge-multiple: true
+          path: release
+
+      - name: Sign the updater's files, with the Tauri CLI alone in an empty folder
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          npm_config_ignore_scripts: 'true'
+        run: |
+          release="$PWD/release"
+          cd "$(mktemp -d)"
+          for file in Focus-Diff.app.tar.gz Focus-Diff-Setup.exe Focus-Diff.AppImage; do
+            npx --yes @tauri-apps/cli@2.12.4 signer sign "$release/$file" > /dev/null
+            test -s "$release/$file.sig"
+          done
+
+      - name: Write latest.json
+        env:
+          TAG: ${{ needs.release-please.outputs.desktop-tag }}
+          VERSION: ${{ needs.release-please.outputs.desktop-version }}
+        run: |
+          mkdir signatures
+          mv release/*.sig signatures/
+          jq -n --arg version "$VERSION" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg base "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG" \
+            --rawfile mac signatures/Focus-Diff.app.tar.gz.sig \
+            --rawfile windows signatures/Focus-Diff-Setup.exe.sig \
+            --rawfile linux signatures/Focus-Diff.AppImage.sig \
+            '{version: $version, pub_date: $date, platforms: {
+              "linux-x86_64": {url: "\($base)/Focus-Diff.AppImage", signature: $linux},
+              "darwin-aarch64": {url: "\($base)/Focus-Diff.app.tar.gz", signature: $mac},
+              "darwin-x86_64": {url: "\($base)/Focus-Diff.app.tar.gz", signature: $mac},
+              "windows-x86_64": {url: "\($base)/Focus-Diff-Setup.exe", signature: $windows}}}' \
+            > signatures/latest.json
+
+      - name: Upload the signatures and latest.json
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-release-signatures
+          path: signatures/*
+          if-no-files-found: error
+
   desktop-assets:
     name: Attest, attach and publish the desktop app
-    needs: [release-please, desktop-build, desktop-build-other]
+    needs: [release-please, desktop-sign]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -291,13 +311,11 @@ jobs:
           merge-multiple: true
           path: release
 
-      - name: Write latest.json
-        env:
-          VERSION: ${{ needs.release-please.outputs.desktop-version }}
+      - name: Write SHA256SUMS
+        working-directory: release
         run: |
-          jq -s --arg version "$VERSION" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{version: $version, pub_date: $date, platforms: add}' release/platforms-*.json > release/latest.json
-          rm release/platforms-*.json
+          sha256sum Focus-Diff.dmg Focus-Diff.app.tar.gz Focus-Diff-Setup.exe Focus-Diff.AppImage Focus-Diff.deb Focus-Diff.rpm \
+            > SHA256SUMS
 
       - name: Attest the build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -322,4 +340,4 @@ jobs:
               --notes "The newest desktop app, at links that don't change: Focus-Diff.dmg (Mac), Focus-Diff-Setup.exe (Windows), Focus-Diff.AppImage, .deb or .rpm (Linux). The installed app looks for updates here too."
           fi
           gh release upload desktop-latest release/latest.json release/Focus-Diff.dmg release/Focus-Diff-Setup.exe \
-            release/Focus-Diff.AppImage release/Focus-Diff.deb release/Focus-Diff.rpm --clobber --repo "$GITHUB_REPOSITORY"
+            release/Focus-Diff.AppImage release/Focus-Diff.deb release/Focus-Diff.rpm release/SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"

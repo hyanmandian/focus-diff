@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import { github } from "@/utils/bridge/bridge";
 
@@ -21,11 +21,8 @@ export function useNewChanges(
     setShown(head);
     if (found && found.head === head) setFound(null);
   }
-  const known = useRef(updatedAt);
-  const activity = useRef(onActivity);
-  useLayoutEffect(() => {
-    known.current = updatedAt;
-    activity.current = onActivity;
+  const updatedSince = useEffectEvent((updated: string) => {
+    if (updatedAt && Date.parse(updated) > Date.parse(updatedAt)) onActivity();
   });
 
   useEffect(() => {
@@ -38,9 +35,11 @@ export function useNewChanges(
       try {
         const pr = await github<Rest>("GET", `/repos/${repo}/pulls/${number}`);
         if (!live) return;
-        const since = known.current;
-        if (pr.head.sha !== head) setFound({ head: pr.head.sha, at: Date.now() });
-        else if (since && Date.parse(pr.updated_at) > Date.parse(since)) activity.current();
+        if (pr.head.sha === head) {
+          updatedSince(pr.updated_at);
+        } else {
+          setFound({ head: pr.head.sha, at: Date.now() });
+        }
       } catch {
       } finally {
         busy = false;

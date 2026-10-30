@@ -21,14 +21,14 @@ export type ThreadComment = {
   html: string;
   at: string;
   url: string;
-  body?: string;
+  body?: string | undefined;
   pending?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
   canReact?: boolean;
   edited?: boolean;
   reactions?: Reaction[];
-  authorId?: number | null;
+  authorId?: number | null | undefined;
 };
 export type Thread = {
   id: string;
@@ -38,7 +38,7 @@ export type Thread = {
   startLine?: number | null;
   resolved: boolean;
   outdated: boolean;
-  context?: string;
+  context?: string | undefined;
   comments: ThreadComment[];
   pending?: boolean;
 };
@@ -53,7 +53,7 @@ export type Draft = {
   body: string;
   id?: string;
   html?: string;
-  file?: boolean;
+  file?: boolean | undefined;
   replyTo?: string;
 };
 
@@ -67,21 +67,31 @@ export const header = (f: { filename: string; previous_filename?: string; status
   ].join("\n");
 };
 
+export type GitHubFile = {
+  filename: string;
+  previous_filename?: string;
+  status: ReviewFile["status"];
+  additions: number;
+  deletions: number;
+  patch?: string;
+};
+
+export const toReviewFile = (f: GitHubFile): ReviewFile => ({
+  path: f.filename,
+  previousPath: f.previous_filename ?? null,
+  status: f.status,
+  additions: f.additions,
+  deletions: f.deletions,
+  patch: f.patch ? `${header(f)}\n${f.patch}\n` : "",
+});
+
 export type PullRef = Pick<Details, "owner" | "repo" | "number">;
 
 const PAGES = 30;
 
 export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[]> {
-  type Raw = {
-    filename: string;
-    previous_filename?: string;
-    status: ReviewFile["status"];
-    additions: number;
-    deletions: number;
-    patch?: string;
-  };
   const page = (n: number) =>
-    github<Raw[]>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}/files?per_page=100&page=${n}`);
+    github<GitHubFile[]>("GET", `/repos/${d.owner}/${d.repo}/pulls/${d.number}/files?per_page=100&page=${n}`);
   const pages = [await page(1)];
   if (pages[0]!.length === 100) {
     const known = count ? Math.min(PAGES, Math.ceil(count / 100)) : 0;
@@ -97,14 +107,7 @@ export async function loadFiles(d: PullRef, count?: number): Promise<ReviewFile[
   const files: ReviewFile[] = [];
   for (const batch of pages) {
     for (const f of batch) {
-      files.push({
-        path: f.filename,
-        previousPath: f.previous_filename ?? null,
-        status: f.status,
-        additions: f.additions,
-        deletions: f.deletions,
-        patch: f.patch ? `${header(f)}\n${f.patch}\n` : "",
-      });
+      files.push(toReviewFile(f));
     }
     if (batch.length < 100) break;
   }

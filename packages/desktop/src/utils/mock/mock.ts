@@ -1,23 +1,19 @@
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
-import { type Args, fail, isRecord, json, str, wait } from "@/utils/mock-ipc/mock-ipc";
+import {
+  type Args,
+  emitEvent,
+  fail,
+  iso,
+  isRecord,
+  json,
+  listen,
+  now,
+  people,
+  str,
+  wait,
+} from "@/utils/mock-ipc/mock-ipc";
 import { manageRoute } from "@/utils/mock-manage/mock-manage";
-import type { Args as PlatformArgs, InvokeOptions, Platform, Unlisten } from "@/utils/platform/platform";
-
-const now = Date.now();
-const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
-const person = (login: string, name: string) => ({
-  __typename: "User",
-  login,
-  name,
-  avatarUrl: `https://avatars.githubusercontent.com/${login}?s=64`,
-});
-const people = {
-  me: person("you_reviewer", "You"),
-  ana: person("ana_lima", "Ana Lima"),
-  bruno: person("bruno_costa", "Bruno Costa"),
-  carla: person("carla_dias", "Carla Dias"),
-  dev: person("devon_hart", "Devon Hart"),
-};
+import type { Args as PlatformArgs, InvokeOptions, Platform } from "@/utils/platform/platform";
 
 let n = 1800;
 function pr(overrides: Record<string, unknown>) {
@@ -617,11 +613,7 @@ const contents: Record<string, string> = {
   "base:data/promo-fixtures.json": fixtures(40),
   "abc123:data/promo-fixtures.json": fixtures(60),
 };
-const listeners = new Map<string, Set<(payload: unknown) => void>>();
-const emit = (event: string, payload: unknown) => {
-  for (const heard of listeners.get(event) ?? []) heard(payload);
-};
-setEmitter(emit);
+setEmitter(emitEvent);
 const MENU_KEYS: Record<string, string> = {
   f: "find",
   "shift+f": "find-files",
@@ -632,7 +624,7 @@ window.addEventListener("keydown", (e) => {
   const id = MENU_KEYS[`${e.shiftKey ? "shift+" : ""}${e.key.toLowerCase()}`];
   if (!e.metaKey || e.ctrlKey || e.altKey || !id) return;
   e.preventDefault();
-  emit("menu", id);
+  emitEvent("menu", id);
 });
 let webLogin: string | null = null;
 
@@ -725,11 +717,11 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
       return webLogin;
     case "sign_in_web":
       setTimeout(() => {
-        emit("web-session", (webLogin = "you_reviewer"));
+        emitEvent("web-session", (webLogin = "you_reviewer"));
       }, 600);
       return;
     case "sign_out_web":
-      emit("web-session", (webLogin = null));
+      emitEvent("web-session", (webLogin = null));
       return;
     case "upload_attachment": {
       await wait(900);
@@ -807,19 +799,6 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
     default:
       return null;
   }
-}
-
-// oxlint-disable-next-line typescript/require-await, typescript/no-unnecessary-type-parameters -- a promise, as the app's registering is; the caller names the payload
-async function listen<T>(event: string, handler: (payload: T) => void): Promise<Unlisten> {
-  const heard = (payload: unknown) => {
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the sample sends the payload the listener names
-    handler(payload as T);
-  };
-  const set = listeners.get(event) ?? new Set();
-  listeners.set(event, set.add(heard));
-  return () => {
-    set.delete(heard);
-  };
 }
 
 function initials(url: string) {

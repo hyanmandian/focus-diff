@@ -11,17 +11,15 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Face } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
 import { Picker, type Choice } from "@/components/picker/picker";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Pull } from "@/hooks/use-pull/use-pull";
-import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { firstName } from "@/utils/copy/copy";
 import type { Details } from "@/utils/details/details";
-import type { Actor } from "@/utils/engine/engine";
 import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import {
@@ -45,16 +43,13 @@ import {
   type Team,
 } from "@/utils/manage/manage";
 
-export function Face({ actor, className }: { actor: Actor; className?: string }) {
-  return (
-    <Avatar className={cn("size-5", className)}>
-      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
-      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
-    </Avatar>
-  );
-}
-
-export function LabelChip({ label, className }: { label: Pick<Label, "name" | "color">; className?: string }) {
+export function LabelChip({
+  label,
+  className,
+}: {
+  label: Pick<Label, "name" | "color">;
+  className?: string | undefined;
+}) {
   return (
     <span
       className={cn(
@@ -95,6 +90,51 @@ function Section({
 const gear = (label: string) => (
   <Button variant="ghost" size="icon-xs" className="text-muted-foreground" aria-label={label} />
 );
+
+const personChoice = (p: Person, selected: boolean): Choice => ({
+  id: p.login,
+  label: p.name || p.login,
+  detail: p.name ? p.login : null,
+  leading: <Face actor={p} />,
+  selected,
+});
+
+function PeoplePicker({
+  title,
+  edit,
+  choices,
+  loading,
+  onToggle,
+  onQuery,
+}: {
+  title: string;
+  edit: string;
+  choices: Choice[];
+  loading: boolean;
+  onToggle: (id: string, on: boolean) => void;
+  onQuery: (query: string) => void;
+}) {
+  const t = useT();
+  return (
+    <Picker
+      title={title}
+      placeholder={t("manage.searchPeople")}
+      empty={t("manage.nobodyFound")}
+      choices={choices}
+      loading={loading}
+      onPick={(c) => {
+        onToggle(c.id, !c.selected);
+      }}
+      onQuery={onQuery}
+      onOpenChange={(open) => {
+        if (open) onQuery("");
+      }}
+      trigger={gear(edit)}
+    >
+      <Settings2 />
+    </Picker>
+  );
+}
 
 const STATE_TONE = {
   APPROVED: "text-success",
@@ -162,15 +202,7 @@ function Reviewers({ details, pull, me, onError }: Props) {
       leading: <TeamMark name={team.name} />,
       selected: requested.has(`team:${team.slug}`),
     })),
-    ...candidates.people
-      .filter((p) => p.login !== author)
-      .map((p) => ({
-        id: p.login,
-        label: p.name || p.login,
-        detail: p.name ? p.login : null,
-        leading: <Face actor={p} />,
-        selected: requested.has(p.login),
-      })),
+    ...candidates.people.filter((p) => p.login !== author).map((p) => personChoice(p, requested.has(p.login))),
   ];
   for (const r of list)
     if (r.requested && !choices.some((c) => c.id === r.key))
@@ -223,23 +255,14 @@ function Reviewers({ details, pull, me, onError }: Props) {
       title={t("review.reviewers")}
       action={
         may ? (
-          <Picker
+          <PeoplePicker
             title={t("manage.requestReviewers")}
-            placeholder={t("manage.searchPeople")}
-            empty={t("manage.nobodyFound")}
+            edit={t("manage.editReviewers")}
             choices={choices}
             loading={loading}
-            onPick={(c) => {
-              toggle(c.id, !c.selected);
-            }}
+            onToggle={toggle}
             onQuery={fetch}
-            onOpenChange={(open) => {
-              if (open) fetch("");
-            }}
-            trigger={gear(t("manage.editReviewers"))}
-          >
-            <Settings2 />
-          </Picker>
+          />
         ) : null
       }
     >
@@ -324,13 +347,12 @@ function Assignees({ details, pull, me, onError }: Props) {
       setLoading(false);
     });
   };
-  const choices: Choice[] = people.map((p) => ({
-    id: p.login,
-    label: p.name || p.login,
-    detail: p.name ? p.login : null,
-    leading: <Face actor={p} />,
-    selected: assigned.some((a) => a.login === p.login),
-  }));
+  const choices: Choice[] = people.map((p) =>
+    personChoice(
+      p,
+      assigned.some((a) => a.login === p.login),
+    ),
+  );
   for (const a of assigned)
     if (!choices.some((c) => c.id === a.login))
       choices.unshift({ id: a.login, label: a.name || a.login, leading: <Face actor={a} />, selected: true });
@@ -354,23 +376,14 @@ function Assignees({ details, pull, me, onError }: Props) {
       title={t("manage.assignees")}
       action={
         may ? (
-          <Picker
+          <PeoplePicker
             title={t("manage.assignTo")}
-            placeholder={t("manage.searchPeople")}
-            empty={t("manage.nobodyFound")}
+            edit={t("manage.editAssignees")}
             choices={choices}
             loading={loading}
-            onPick={(c) => {
-              toggle(c.id, !c.selected);
-            }}
+            onToggle={toggle}
             onQuery={fetch}
-            onOpenChange={(open) => {
-              if (open) fetch("");
-            }}
-            trigger={gear(t("manage.editAssignees"))}
-          >
-            <Settings2 />
-          </Picker>
+          />
         ) : null
       }
     >

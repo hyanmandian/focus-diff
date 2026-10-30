@@ -17,7 +17,7 @@ import type { ReviewFile } from "@/utils/review/review";
 
 export const chord = (key: string) => shortcut(key, ["alt", "shift"]);
 
-export type Next = { left: number; nextFilter?: { id: string; name: string; left: number } };
+export type Next = { left: number; nextFilter?: { id: string; name: string; left: number } | undefined };
 
 type Props = {
   files: ReviewFile[];

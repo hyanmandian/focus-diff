@@ -10,7 +10,11 @@ const host = process.env.TAURI_DEV_HOST;
 const page = (name: string) => fileURLToPath(new URL(`./${name}.html`, import.meta.url));
 
 export default defineConfig({
-  plugins: [react(), ...(process.env.VITEST ? [] : [babel({ presets: [reactCompilerPreset()] })]), tailwindcss()],
+  plugins: [
+    react(),
+    ...(process.env.VITEST && !process.env.REACT_COMPILER ? [] : [babel({ presets: [reactCompilerPreset()] })]),
+    tailwindcss(),
+  ],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
@@ -25,7 +29,7 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     host: host || false,
-    hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
+    ...(host ? { hmr: { protocol: "ws", host, port: 1421 } } : {}),
     watch: { ignored: ["**/src-tauri/**"] },
   },
 

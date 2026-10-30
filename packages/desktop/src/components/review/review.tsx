@@ -15,11 +15,21 @@ import {
   Rows2,
   Search,
   Sparkles,
+  Square,
   WrapText,
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
 import { Badge } from "@/components/badge/badge";
@@ -44,6 +54,7 @@ import { Overview } from "@/components/overview/overview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
 import { Progress } from "@/components/progress/progress";
 import { MergeMenuItems, PullMenuItems } from "@/components/pull-menus/pull-menus";
+import { PullState } from "@/components/pull-state/pull-state";
 import { Shortcuts } from "@/components/shortcuts/shortcuts";
 import { Skeleton } from "@/components/skeleton/skeleton";
 import { SlidingPill } from "@/components/sliding-pill/sliding-pill";
@@ -53,6 +64,7 @@ import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
+import { useAttempt } from "@/hooks/use-attempt/use-attempt";
 import { ConversationProvider, copyText, useConversation } from "@/hooks/use-conversation/use-conversation";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
@@ -61,7 +73,7 @@ import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { useStack } from "@/hooks/use-stack/use-stack";
 import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
-import { reviewRun, startReview } from "@/utils/ai-runs/ai-runs";
+import { ReviewStopped, reviewRun, startReview, stopReview } from "@/utils/ai-runs/ai-runs";
 import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
@@ -106,7 +118,7 @@ import type { StackPull } from "@/utils/stack/stack";
 import { useTheme } from "@/utils/theme/theme";
 import { inTreeOrder } from "@/utils/tree/tree";
 
-export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
+export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null | undefined };
 
 const MIN_REVIEW_SECONDS = 2;
 
@@ -161,22 +173,14 @@ function SubmitReview({
   const setOpen = onOpenChange;
   const [event, setEvent] = useState<Event>("COMMENT");
   const [body, setBody] = usePersisted(`review-body:${details.id}`, "", isString);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    try {
+  const { busy, error, attempt } = useAttempt();
+  const submit = () =>
+    attempt(async () => {
       await onSubmit(event, body);
       setBody("");
       setOpen(false);
       onSubmitted();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
   const discard = async () => {
     const tr = i18n();
     if (
@@ -187,16 +191,10 @@ function SubmitReview({
       ))
     )
       return;
-    setBusy(true);
-    setError(null);
-    try {
+    await attempt(async () => {
       await onDiscard();
       setOpen(false);
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -355,14 +353,6 @@ export function Review({ target }: { target: Target }) {
   const markDone = async () => {
     if (!(await goNext(true))) say(t("review.doneQueueDone", { queue: queueLabel }));
   };
-  const goNextRef = useRef(nextInQueue);
-  const goBackRef = useRef(goBack);
-  const markDoneRef = useRef(markDone);
-  useLayoutEffect(() => {
-    goNextRef.current = nextInQueue;
-    goBackRef.current = goBack;
-    markDoneRef.current = markDone;
-  });
   const minutesOf = useMemo(() => createEstimator(LINES_PER_HOUR, learned), [learned]);
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(
     `ai-review:${prId}`,
@@ -370,6 +360,7 @@ export function Review({ target }: { target: Target }) {
     isReviewed,
   );
   const [reviewing, setReviewing] = useState<string | null>(null);
+  const [stoppedAt, setStoppedAt] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   useTheme(config?.theme);
   const dark = useDark();
@@ -511,10 +502,12 @@ export function Review({ target }: { target: Target }) {
       if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
       setReviewing(details.headRefOid);
       setReviewError(null);
+      setStoppedAt(null);
       try {
-        setReviewed(await startReview(prId, details.headRefOid, () => aiReview(ai, details, files)));
+        setReviewed(await startReview(prId, details.headRefOid, (run) => aiReview(ai, details, files, run)));
       } catch (e) {
-        setReviewError(errorText(e));
+        if (e instanceof ReviewStopped) setStoppedAt(details.headRefOid);
+        else setReviewError(errorText(e));
       } finally {
         setReviewing(null);
       }
@@ -532,7 +525,9 @@ export function Review({ target }: { target: Target }) {
         const done = await run.done;
         if (mounted) setReviewed(done);
       } catch (e) {
-        if (mounted) setReviewError(errorText(e));
+        if (!mounted) return;
+        if (e instanceof ReviewStopped) setStoppedAt(run.head);
+        else setReviewError(errorText(e));
       } finally {
         if (mounted) setReviewing(null);
       }
@@ -542,10 +537,22 @@ export function Review({ target }: { target: Target }) {
     };
   }, [prId, setReviewed]);
   useEffect(() => {
-    if (ai?.ai.review.auto && details && files && !current && !reviewing && !reviewError && details.state === "OPEN")
+    if (
+      ai?.ai.review.auto &&
+      details &&
+      files &&
+      !current &&
+      !reviewing &&
+      !reviewError &&
+      stoppedAt !== details.headRefOid &&
+      details.state === "OPEN"
+    )
       // oxlint-disable-next-line react/set-state-in-effect -- it sets state only once the AI's readiness is known (awaited)
       void runReview(false);
-  }, [ai, details, files, current, reviewing, reviewError, runReview]);
+  }, [ai, details, files, current, reviewing, reviewError, stoppedAt, runReview]);
+  const stopAiReview = () => {
+    stopReview(prId);
+  };
   const dropFinding = (finding: Finding) => {
     setReviewed((r) =>
       r
@@ -763,64 +770,62 @@ export function Review({ target }: { target: Target }) {
     const at = stops[index]!;
     jump(at.path, at.line, at.side, at.thread);
   };
-  const filterKeys = useRef({ stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step });
-  useLayoutEffect(() => {
-    filterKeys.current = { stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step };
+  const onReviewKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
+    if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
+      e.preventDefault();
+      void (e.key === "]" ? nextInQueue : goBack)();
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) return;
+    if (e.altKey && e.shiftKey) {
+      const action = {
+        Period: () => {
+          stepPart(1);
+        },
+        Comma: () => {
+          stepPart(-1);
+        },
+        Digit0: () => {
+          choose([]);
+        },
+        KeyJ: goToNextFile,
+      }[e.code];
+      if (!action || !files) return;
+      e.preventDefault();
+      setTab("diff");
+      action();
+      return;
+    }
+    if (e.key === "e" && !e.altKey && target.queue) {
+      e.preventDefault();
+      void markDone();
+      return;
+    }
+    if (e.key === "?") {
+      e.preventDefault();
+      setShortcuts(true);
+      return;
+    }
+    if (tab !== "diff" || e.altKey) return;
+    if (e.key === "n" || e.key === "p") {
+      e.preventDefault();
+      step(e.key === "n" ? 1 : -1);
+    } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
+      e.preventDefault();
+      if (e.key === "v") toggleViewedAtTop();
+      else stepToFile(e.key === "j" ? 1 : -1);
+    }
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
-      if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
-        e.preventDefault();
-        void (e.key === "]" ? goNextRef : goBackRef).current();
-        return;
-      }
-      if (e.metaKey || e.ctrlKey) return;
-      if (e.altKey && e.shiftKey) {
-        const keys = filterKeys.current;
-        const action = {
-          Period: () => {
-            keys.stepPart(1);
-          },
-          Comma: () => {
-            keys.stepPart(-1);
-          },
-          Digit0: () => {
-            keys.choose([]);
-          },
-          KeyJ: keys.goToNextFile,
-        }[e.code];
-        if (!action || !files) return;
-        e.preventDefault();
-        setTab("diff");
-        action();
-        return;
-      }
-      if (e.key === "e" && !e.altKey && target.queue) {
-        e.preventDefault();
-        void markDoneRef.current();
-        return;
-      }
-      if (e.key === "?") {
-        e.preventDefault();
-        setShortcuts(true);
-        return;
-      }
-      if (tab !== "diff" || e.altKey) return;
-      if (e.key === "n" || e.key === "p") {
-        e.preventDefault();
-        filterKeys.current.step(e.key === "n" ? 1 : -1);
-      } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
-        e.preventDefault();
-        if (e.key === "v") filterKeys.current.toggleViewedAtTop();
-        else filterKeys.current.stepToFile(e.key === "j" ? 1 : -1);
-      }
+      onReviewKey(e);
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [tab, files, setTab, target.queue]);
+  }, []);
 
   const actionResult = (message: string, ok: boolean) => {
     say(message);
@@ -862,9 +867,8 @@ export function Review({ target }: { target: Target }) {
     }
   };
 
-  const menuActions = useRef<Record<string, () => void>>({});
-  useLayoutEffect(() => {
-    menuActions.current = {
+  const runMenu = useEffectEvent((id: string) => {
+    const actions: Record<string, () => void> = {
       find: openFind,
       "find-next": () => {
         stepFind(1);
@@ -930,9 +934,12 @@ export function Review({ target }: { target: Target }) {
       },
       leave: () => void leave(),
     };
+    actions[id]?.();
   });
   useEffect(() => {
-    const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
+    const off = bridge.on<string>("menu", (id) => {
+      runMenu(id);
+    });
     const keys: Record<string, string> = {
       "1": "overview",
       "2": "diff",
@@ -949,7 +956,7 @@ export function Review({ target }: { target: Target }) {
       e.preventDefault();
       if (id === "settings") void bridge.openSettings();
       else if (id === "quit") void bridge.quit();
-      else menuActions.current[id]?.();
+      else runMenu(id);
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -1076,9 +1083,12 @@ export function Review({ target }: { target: Target }) {
         >
           {details ? (
             <>
-              <h1 data-tauri-drag-region className="max-w-full truncate text-headline font-bold" title={details.title}>
-                {details.title}
-              </h1>
+              <div data-tauri-drag-region className="flex max-w-full items-center gap-1.5">
+                {isOpen ? null : <PullState details={details} className="h-4 px-1.5" />}
+                <h1 data-tauri-drag-region className="min-w-0 truncate text-headline font-bold" title={details.title}>
+                  {details.title}
+                </h1>
+              </div>
               {notice ? (
                 <output className="block max-w-full animate-in truncate text-subheadline text-foreground duration-(--duration) fade-in-0 motion-reduce:animate-none">
                   {notice}
@@ -1260,22 +1270,24 @@ export function Review({ target }: { target: Target }) {
                         <Button
                           variant="ghost"
                           className={cn(TOOL, "@max-[1360px]:w-(--toolbar-item-h) @max-[1360px]:px-0")}
-                          onClick={() => void runReview()}
-                          disabled={Boolean(reviewing) || !files}
+                          onClick={reviewing ? stopAiReview : () => void runReview()}
+                          disabled={!reviewing && !files}
                         />
                       }
                     >
-                      {reviewing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {reviewing ? <Square className="size-3 fill-current" /> : <Sparkles />}
                       <span className="@max-[1360px]:sr-only">
-                        {current ? t("review.reviewAgain") : t("review.aiReview")}
+                        {reviewing ? t("review.stop") : current ? t("review.reviewAgain") : t("review.aiReview")}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {aiProblemNow
-                        ? aiProblemNow.title
-                        : current
-                          ? t("review.reviewAgainTip")
-                          : t("review.aiReviewTip")}
+                      {reviewing
+                        ? t("review.stopReview")
+                        : aiProblemNow
+                          ? aiProblemNow.title
+                          : current
+                            ? t("review.reviewAgainTip")
+                            : t("review.aiReviewTip")}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -1527,6 +1539,7 @@ export function Review({ target }: { target: Target }) {
                 review={current}
                 reviewing={Boolean(reviewing)}
                 reviewError={reviewError}
+                onStopReview={stopAiReview}
                 onJump={jump}
                 onReply={async (thread, body) => {
                   await reply(details, thread, body);

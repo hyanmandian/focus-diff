@@ -32,6 +32,9 @@ mod uploads;
 mod watch;
 mod web;
 
+#[cfg(all(feature = "devctl", not(debug_assertions), not(devctl_allowed)))]
+compile_error!("The devctl feature lets anything that can write a file drive the app: build a release with it only for tests, with FOCUS_DIFF_DEVCTL=1 set.");
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -59,7 +62,7 @@ const SETTINGS: &str = "settings";
 const SETUP: &str = "setup";
 const PANEL_SIZE: (f64, f64) = (470.0, 600.0);
 const PANEL_RADIUS: f64 = 18.0;
-const PANEL_KEEP: Duration = Duration::from_secs(3 * 60);
+const PANEL_KEEP: Duration = Duration::from_mins(3);
 
 pub(crate) struct Tray(pub(crate) Mutex<Option<TrayIcon>>);
 
@@ -448,10 +451,14 @@ pub(crate) fn update_tray(app: &AppHandle, count: u32, animate: bool) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] {count} waiting, animate {animate}");
     }
+    with_tray(app, move |app, icon| tray::update(app, icon, count, animate));
+}
+
+fn with_tray(app: &AppHandle, work: impl FnOnce(&AppHandle, &TrayIcon) + Send + 'static) {
     let main = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(icon) = main.state::<Tray>().0.held().as_ref() {
-            tray::update(&main, icon, count, animate);
+            work(&main, icon);
         }
     });
 }
@@ -460,12 +467,7 @@ pub(crate) fn update_countdown(app: &AppHandle, minutes: Option<i64>) {
     if cfg!(any(debug_assertions, feature = "devctl")) {
         eprintln!("[tray] countdown {minutes:?}");
     }
-    let main = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        if let Some(icon) = main.state::<Tray>().0.held().as_ref() {
-            tray::countdown(icon, minutes);
-        }
-    });
+    with_tray(app, move |_, icon| tray::countdown(icon, minutes));
 }
 
 fn apply_language(app: &AppHandle, config: &str) {
@@ -548,7 +550,7 @@ async fn open_setup(app: AppHandle) -> Result<(), String> {
 pub(crate) fn tray_rect(app: &AppHandle) -> Rect {
     let rect = app.try_state::<Tray>().and_then(|tray| tray.0.held().as_ref().and_then(|t| t.rect().ok().flatten()));
     rect.unwrap_or_else(|| {
-        let (x, y) = app.primary_monitor().ok().flatten().map_or((0, 0), |m| (m.position().x + m.size().width as i32, m.position().y));
+        let (x, y) = app.primary_monitor().ok().flatten().map_or((0, 0), |m| (m.position().x.saturating_add(i32::try_from(m.size().width).unwrap_or(i32::MAX)), m.position().y));
         Rect { position: tauri::PhysicalPosition::new(x, y).into(), size: tauri::PhysicalSize::new(1, 1).into() }
     })
 }
@@ -675,10 +677,11 @@ struct ReviewTarget {
     queue: Option<String>,
 }
 
-fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> bool {
+fn plausible(id: &str, repo: &str, teams: &[String], queue: Option<&str>) -> Result<(), String> {
     let token = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
     let name = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./".contains(c));
-    token(id) && name(repo) && teams.iter().all(|t| name(t)) && queue.is_none_or(token)
+    let ok = token(id) && name(repo) && teams.iter().all(|t| name(t)) && queue.is_none_or(token);
+    if ok { Ok(()) } else { Err("Bad pull request".into()) }
 }
 
 #[tauri::command]
@@ -689,9 +692,7 @@ async fn open_review(app: AppHandle, id: String, repo: String, number: u64, titl
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn show_review(app: AppHandle, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>, from: Option<Card>) -> Result<(), String> {
-    if !plausible(&id, &repo, &teams, queue.as_deref()) {
-        return Err("Bad pull request".into());
-    }
+    plausible(&id, &repo, &teams, queue.as_deref())?;
     let reviews = app.state::<Reviews>();
     let existing = reviews.open.held().get(&id).cloned();
     if let Some(window) = existing.and_then(|label| app.get_webview_window(&label)) {
@@ -704,22 +705,19 @@ pub(crate) fn show_review(app: AppHandle, id: String, repo: String, number: u64,
         if ready { spare.take() } else { None }
     }
     .and_then(|label| app.get_webview_window(&label));
-    let window = match spare {
-        Some(window) => {
-            window.emit_to(window.label(), "review-open", target).map_err(|e| e.to_string())?;
-            let _ = window.set_title(&title);
-            fill_screen(&app, &window);
-            window
-        }
-        None => {
-            let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
-            let url = format!("review.html?id={}&repo={}&number={number}&teams={}&queue={}", encode(&id), encode(&repo), encode(&teams.join(",")), encode(queue.as_deref().unwrap_or("")));
-            let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
-            let window = review_builder(&app, &label, url, &title).build().map_err(|e| e.to_string())?;
-            native_toolbar(&window);
-            fill_screen(&app, &window);
-            window
-        }
+    let window = if let Some(window) = spare {
+        window.emit_to(window.label(), "review-open", target).map_err(|e| e.to_string())?;
+        let _ = window.set_title(&title);
+        fill_screen(&app, &window);
+        window
+    } else {
+        let encode = |s: &str| s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect::<String>();
+        let url = format!("review.html?id={}&repo={}&number={number}&teams={}&queue={}", encode(&id), encode(&repo), encode(&teams.join(",")), encode(queue.as_deref().unwrap_or("")));
+        let label = format!("review-{}", REVIEW_COUNTER.fetch_add(1, Ordering::SeqCst));
+        let window = review_builder(&app, &label, url, &title).build().map_err(|e| e.to_string())?;
+        native_toolbar(&window);
+        fill_screen(&app, &window);
+        window
     };
     reviews.open.held().insert(id, window.label().to_string());
     show_growing(&app, &window, from).map_err(|e| e.to_string())?;
@@ -742,9 +740,7 @@ fn bring_back(app: &AppHandle, window: &tauri::WebviewWindow) -> Result<(), Stri
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 fn switch_review(app: AppHandle, window: tauri::WebviewWindow, id: String, repo: String, number: u64, title: String, teams: Vec<String>, queue: Option<String>) -> Result<(), String> {
-    if !plausible(&id, &repo, &teams, queue.as_deref()) {
-        return Err("Bad pull request".into());
-    }
+    plausible(&id, &repo, &teams, queue.as_deref())?;
     let reviews = app.state::<Reviews>();
     let elsewhere = reviews.open.held().get(&id).cloned().filter(|label| label != window.label());
     if let Some(other) = elsewhere.and_then(|label| app.get_webview_window(&label)) {
@@ -820,6 +816,7 @@ fn grow(app: &AppHandle, window: &tauri::WebviewWindow, from: objc2_foundation::
 
     // SAFETY: a new borderless window on the main thread, kept alive by STAND_IN (not released on close).
     let stand_in = unsafe { NSWindow::initWithContentRect_styleMask_backing_defer(main.alloc::<NSWindow>(), from, NSWindowStyleMask::Borderless, NSBackingStoreType::Buffered, false) };
+    // SAFETY: STAND_IN keeps its own reference, so AppKit mustn't release the window when it closes.
     unsafe { stand_in.setReleasedWhenClosed(false) };
     stand_in.setOpaque(false);
     stand_in.setBackgroundColor(Some(&NSColor::clearColor()));
@@ -941,7 +938,7 @@ pub(crate) fn show_setup(app: &AppHandle) -> tauri::Result<()> {
 
 fn place_panel(panel: &tauri::WebviewWindow, rect: &Rect) -> tauri::Result<()> {
     let (rx, ry, rw, rh) = match (rect.position, rect.size) {
-        (tauri::Position::Physical(p), tauri::Size::Physical(s)) => (p.x as f64, p.y as f64, s.width as f64, s.height as f64),
+        (tauri::Position::Physical(p), tauri::Size::Physical(s)) => (f64::from(p.x), f64::from(p.y), f64::from(s.width), f64::from(s.height)),
         (position, size) => {
             let scale = panel.scale_factor()?;
             let (p, s) = (position.to_physical::<f64>(scale), size.to_physical::<f64>(scale));
@@ -953,7 +950,7 @@ fn place_panel(panel: &tauri::WebviewWindow, rect: &Rect) -> tauri::Result<()> {
         .iter()
         .map(|m| {
             let (f, p, s) = (m.scale_factor(), m.position(), m.size());
-            (f, p.x as f64 / f, p.y as f64 / f, s.width as f64 / f, s.height as f64 / f)
+            (f, f64::from(p.x) / f, f64::from(p.y) / f, f64::from(s.width) / f, f64::from(s.height) / f)
         })
         .collect();
     let (scale, mx, my, mw, mh) = screens

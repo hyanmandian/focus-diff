@@ -2,8 +2,8 @@ import { github, graphql } from "@/utils/bridge/bridge";
 import { checkState } from "@/utils/checks/checks";
 import type { Actor } from "@/utils/engine/engine";
 
-export type Check = { name: string; state: "success" | "failure" | "pending" | "neutral"; url: string | null };
-export type FileChange = { path: string; additions: number; deletions: number; changeType: string };
+type Check = { name: string; state: "success" | "failure" | "pending" | "neutral"; url: string | null };
+type FileChange = { path: string; additions: number; deletions: number; changeType: string };
 export type Entry =
   | { kind: "comment"; id: string; author: Actor; html: string; at: string; url: string }
   | {

@@ -5,7 +5,7 @@ import { message, uiLanguage } from "./i18n";
 
 const extension = vi.hoisted(() => ({ present: true }));
 
-vi.mock(import("wxt/browser"), async (original) => {
+vi.mock("wxt/browser", async (original: () => Promise<{ browser: unknown }>) => {
   const { browser } = await original();
   return {
     get browser() {

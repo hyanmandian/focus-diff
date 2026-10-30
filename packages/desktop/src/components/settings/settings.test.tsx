@@ -259,13 +259,18 @@ describe("Queues pane", () => {
     expect(within(panel()).getByRole("button", { name: /Untitled queue/u })).toBeTruthy();
   });
 
-  it("deletes a queue and goes back to the list when the alert says Remove", async () => {
-    const rust = await open({ config: config({ queues: [queue("One"), queue("Two")] }) });
+  const deleteOne = async (reviewTime = defaultConfig().reviewTime) => {
+    const rust = await open({ config: config({ queues: [queue("One"), queue("Two")], reviewTime }) });
     await userEvent.click(within(panel()).getByRole("button", { name: /One/u }));
     await userEvent.click(within(panel()).getByRole("button", { name: "Delete One" }));
     await waitFor(() => {
       expect(rust.saved()?.queues.map((q) => q.name)).toEqual(["Two"]);
     });
+    return rust;
+  };
+
+  it("deletes a queue and goes back to the list when the alert says Remove", async () => {
+    await deleteOne();
     expect(within(panel()).queryByRole("button", { name: "Back to Queues" })).toBeNull();
   });
 
@@ -282,12 +287,7 @@ describe("Queues pane", () => {
       drafts: false,
     };
     const reviewTime = { ...defaultConfig().reviewTime, sessions: [session] };
-    const rust = await open({ config: config({ queues: [queue("One"), queue("Two")], reviewTime }) });
-    await userEvent.click(within(panel()).getByRole("button", { name: /One/u }));
-    await userEvent.click(within(panel()).getByRole("button", { name: "Delete One" }));
-    await waitFor(() => {
-      expect(rust.saved()?.queues.map((q) => q.name)).toEqual(["Two"]);
-    });
+    const rust = await deleteOne(reviewTime);
     expect(rust.saved()?.reviewTime.sessions[0]?.queues).toEqual(["Two"]);
   });
 

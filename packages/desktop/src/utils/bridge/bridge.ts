@@ -2,7 +2,7 @@ import type { AiProvider } from "@/utils/config/config";
 import { i18n } from "@/utils/i18n/i18n";
 import { invoke, platform } from "@/utils/platform/platform";
 
-export type AuthSource = "keychain" | "gh";
+type AuthSource = "keychain" | "gh";
 
 export type AuthStatus = {
   signed_in: boolean;
@@ -33,7 +33,7 @@ export type AiStatus = {
   update_command: string;
 };
 
-export type AiUsage = {
+type AiUsage = {
   input: number;
   cacheCreated: number;
   cacheRead: number;
@@ -42,7 +42,13 @@ export type AiUsage = {
   ms: number;
 };
 
-export type AiAnswer = { text: string; project: boolean; note?: string; usage?: AiUsage; resumed?: boolean };
+export type AiAnswer = {
+  text: string;
+  project: boolean;
+  note?: string | undefined;
+  usage?: AiUsage;
+  resumed?: boolean;
+};
 
 export type ActionContext = { number: number; repo: string; title: string; url: string; author: string; me: string };
 
@@ -54,12 +60,14 @@ export type DraftPut = {
   side: "additions" | "deletions";
   startLine?: number;
   startSide?: "additions" | "deletions";
-  file?: boolean;
+  file?: boolean | undefined;
   body: string;
   id?: string;
   replyTo?: string;
 };
-export type DraftChange = ({ op: "put" } & DraftPut) | { op: "remove"; key: string; pull: string; id?: string | null };
+export type DraftChange =
+  | ({ op: "put" } & DraftPut)
+  | { op: "remove"; key: string; pull: string; id?: string | null | undefined };
 export type DraftsState = { jobs: Array<{ change: DraftChange; error: string | null }>; ids: Record<string, string> };
 
 type Uploaded = { href: string; kind: "image" | "video" };
@@ -79,7 +87,7 @@ export type ReviewPull = {
   number: number;
   title: string;
   repository: { nameWithOwner: string };
-  author: { login: string; name?: string | null } | null;
+  author: { login: string; name?: string | null | undefined } | null;
 };
 
 const byline = (author: ReviewPull["author"]) => (author?.name ?? "").trim().split(/\s+/u)[0]! || (author?.login ?? "");
@@ -145,7 +153,7 @@ export const bridge = {
     schema: string | null;
     session: boolean;
     ownSettings: boolean;
-    run?: string;
+    run?: string | undefined;
   }) => invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null, run: q.run ?? null }),
   aiCancel: (run: string) => invoke<void>("ai_cancel", { run }),
   aiPrepare: (project: { repo: string; number: number; head: string }) => invoke<void>("ai_prepare", { project }),

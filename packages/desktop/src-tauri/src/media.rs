@@ -7,7 +7,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::disk;
 
-const KEEP: Duration = Duration::from_secs(7 * 24 * 3600);
+const KEEP: Duration = Duration::from_hours(7 * 24);
 const LARGEST: u64 = 200 * 1024 * 1024;
 
 pub(crate) fn decode(s: &str) -> String {
@@ -19,7 +19,7 @@ pub(crate) fn decode(s: &str) -> String {
             b'%' if i + 2 < bytes.len() => {
                 let hex = |b: u8| char::from(b).to_digit(16);
                 if let (Some(high), Some(low)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
-                    out.push((high * 16 + low) as u8);
+                    out.extend(u8::try_from(high * 16 + low));
                     i += 3;
                     continue;
                 }
@@ -55,23 +55,23 @@ fn kind(bytes: &[u8], url: &str) -> &'static str {
     if let Some(image) = image_kind(bytes) {
         return image;
     }
-    let path = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
-    match bytes {
-        _ if path.ends_with(".mp4") || path.ends_with(".m4v") => "video/mp4",
-        _ if path.ends_with(".mov") => "video/quicktime",
-        _ if path.ends_with(".webm") => "video/webm",
+    let path = std::path::Path::new(url.split('?').next().unwrap_or(url));
+    match path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).as_deref() {
+        Some("mp4" | "m4v") => "video/mp4",
+        Some("mov") => "video/quicktime",
+        Some("webm") => "video/webm",
         _ if bytes.get(4..8) == Some(b"ftyp") => "video/mp4",
         _ if bytes.starts_with(b"<svg") || bytes.starts_with(b"<?xml") => "image/svg+xml",
         _ => "application/octet-stream",
     }
 }
 
-fn read_all(response: ureq::http::Response<ureq::Body>) -> Option<Vec<u8>> {
+pub(crate) fn read_ok(response: ureq::http::Response<ureq::Body>, largest: u64) -> Option<Vec<u8>> {
     if response.status() != 200 {
         return None;
     }
     let mut bytes = Vec::new();
-    response.into_body().into_reader().take(LARGEST).read_to_end(&mut bytes).ok()?;
+    response.into_body().into_reader().take(largest).read_to_end(&mut bytes).ok()?;
     Some(bytes)
 }
 
@@ -105,7 +105,7 @@ fn release_asset(token: &str, url: &str) -> Option<Vec<u8>> {
         .header("Accept", "application/octet-stream")
         .call()
         .ok()?;
-    read_all(response)
+    read_ok(response, LARGEST)
 }
 
 fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
@@ -114,9 +114,9 @@ fn fetch(app: &AppHandle, url: &str) -> Option<Vec<u8>> {
         return release_asset(&token, url);
     }
     if let Some(signed) = crate::web::signed_address(app, url) {
-        return read_all(crate::github::agent().get(&signed).call().ok()?);
+        return read_ok(crate::github::agent().get(&signed).call().ok()?, LARGEST);
     }
-    read_all(crate::github::agent().get(url).call().ok()?)
+    read_ok(crate::github::agent().get(url).call().ok()?, LARGEST)
 }
 
 fn empty(status: StatusCode) -> Response<Vec<u8>> {

@@ -171,9 +171,21 @@ const start = async () => {
   hooks = scheduler.initReviewTime.mock.calls.at(-1)![0];
 };
 
-const message = async (sent: Message | null) => {
+const POPUP: Browser.runtime.MessageSender = {
+  id: "test-extension-id",
+  url: "chrome-extension://test-extension-id/popup.html",
+};
+const githubTab = async (
+  url = "https://github.com/octo/web/pull/1/changes",
+): Promise<Browser.runtime.MessageSender> => ({
+  id: "test-extension-id",
+  url,
+  tab: await fakeBrowser.tabs.create({}),
+});
+
+const message = async (sent: unknown, sender: Browser.runtime.MessageSender = POPUP) => {
   const answers: unknown[] = [];
-  const kept = await fakeBrowser.runtime.onMessage.trigger(sent, {}, (answer: unknown) => {
+  const kept = await fakeBrowser.runtime.onMessage.trigger(sent, sender, (answer: unknown) => {
     answers.push(answer);
   });
   await settle();
@@ -782,6 +794,83 @@ describe("messages", () => {
   it("leaves messages that aren't its own", async () => {
     expect((await message(null)).kept).toBeUndefined();
     expect((await message({ type: "play-sound", sound: "bowl", volume: 50 })).answers).toEqual([]);
+  });
+
+  it("takes settings and welcome from GitHub's pages, without a section", async () => {
+    await message({ type: "open-options", repo: "octo/web", section: "notifications" }, await githubTab());
+    await message({ type: "open-options", section: "notifications" }, await githubTab());
+    await message({ type: "open-welcome" }, await githubTab());
+    expect(await openTabs()).toEqual([
+      "chrome-extension://test-extension-id/options.html#repo=octo%2Fweb",
+      "chrome-extension://test-extension-id/options.html",
+      "chrome-extension://test-extension-id/welcome.html",
+    ]);
+  });
+
+  it("takes nothing else from GitHub's pages", async () => {
+    const sent: Message[] = [
+      { type: "inbox-refresh" },
+      { type: "review-start" },
+      { type: "review-end" },
+      { type: "review-start-now", minutes: 30, session: "s1" },
+      { type: "review-open", url: samplePull(1).url, repo: "octo/web" },
+    ];
+    for (const each of sent) {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- one message at a time, as a page sends them.
+      const { kept, answers } = await message(each, await githubTab());
+      expect(kept).toBeUndefined();
+      expect(answers).toEqual([]);
+    }
+    expect(scheduler.startRun).not.toHaveBeenCalled();
+    expect(scheduler.endRun).not.toHaveBeenCalled();
+    expect(scheduler.startNow).not.toHaveBeenCalled();
+    expect(scheduler.openPull).not.toHaveBeenCalled();
+    expect(mocks.checkInbox).not.toHaveBeenCalled();
+  });
+
+  it("ignores another extension, a page without an address, and other sites", async () => {
+    await message({ type: "open-welcome" }, { ...POPUP, id: "another-extension" });
+    await message({ type: "open-welcome" }, { id: "test-extension-id" });
+    await message({ type: "open-welcome" }, await githubTab("https://example.com/"));
+    await message({ type: "open-options" }, await githubTab("https://example.com/"));
+    await message({ type: "open-options" }, { id: "test-extension-id", url: "https://github.com/octo/web" });
+    expect(await openTabs()).toEqual([]);
+  });
+
+  it("drops a repository or a section that isn't one", async () => {
+    await message({ type: "open-options", repo: "../../evil", section: "x#y" });
+    await message({ type: "open-options", repo: 42 });
+    expect(await openTabs()).toEqual([
+      "chrome-extension://test-extension-id/options.html",
+      "chrome-extension://test-extension-id/options.html",
+    ]);
+  });
+
+  it("ignores review time asked with the wrong minutes or session", async () => {
+    for (const sent of [
+      { type: "review-start-now", minutes: Number.NaN, session: "s1" },
+      { type: "review-start-now", minutes: 0, session: "s1" },
+      { type: "review-start-now", minutes: "30", session: "s1" },
+      { type: "review-start-now", minutes: 30, session: 1 },
+    ]) {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- one message at a time, as a page sends them.
+      expect((await message(sent)).kept).toBeUndefined();
+    }
+    expect(scheduler.startNow).not.toHaveBeenCalled();
+  });
+
+  it("opens only a pull request on GitHub", async () => {
+    for (const sent of [
+      { type: "review-open", url: "https://evil.example/octo/web/pull/1", repo: "octo/web" },
+      { type: "review-open", url: "javascript:alert(1)", repo: "octo/web" },
+      { type: "review-open", url: "https://github.com/octo/web/pull/1/../../x", repo: "octo/web" },
+      { type: "review-open", url: 1, repo: "octo/web" },
+      { type: "review-open", url: samplePull(1).url, repo: "not a repo" },
+    ]) {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- one message at a time, as a page sends them.
+      expect((await message(sent)).kept).toBeUndefined();
+    }
+    expect(scheduler.openPull).not.toHaveBeenCalled();
   });
 });
 

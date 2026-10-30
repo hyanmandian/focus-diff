@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { newer, parse, releasesBetween, releaseUrl, sawNews, updatedFrom } from "@/utils/changes/changes";
+import { refuseStorage } from "@/utils/mock-render/mock-render";
 
 const LOG = `# Changelog
 
@@ -78,12 +79,7 @@ describe("changes", () => {
   });
 
   it("says nothing when storage can't be used", () => {
-    const get = vi.spyOn(localStorage, "getItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    const set = vi.spyOn(localStorage, "setItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
+    const { get, set } = refuseStorage();
     expect(updatedFrom("1.2.0")).toBeNull();
     sawNews("1.2.0");
     get.mockRestore();

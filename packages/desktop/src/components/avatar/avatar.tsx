@@ -1,6 +1,8 @@
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
 
+import { avatar } from "@/utils/avatar/avatar";
 import { cn } from "@/utils/cn/cn";
+import type { Actor } from "@/utils/engine/engine";
 
 function Avatar({ className, ...props }: AvatarPrimitive.Root.Props) {
   return (
@@ -38,4 +40,13 @@ function AvatarFallback({ className, ...props }: AvatarPrimitive.Fallback.Props)
   );
 }
 
-export { Avatar, AvatarImage, AvatarFallback };
+function Face({ actor, className }: { actor: Actor; className?: string | undefined }) {
+  return (
+    <Avatar className={cn("size-5", className)}>
+      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
+      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+export { Avatar, AvatarImage, AvatarFallback, Face };

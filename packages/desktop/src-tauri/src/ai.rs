@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -275,19 +275,22 @@ pub(crate) fn run_until(command: &mut Command, input: Option<&str>, limit: Durat
         if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
             break status;
         }
-        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+        if let Some(why) = halted(started, limit, cancel) {
             stop(&mut child);
-            return Err(tr!("Stopped", "Interrompido"));
-        }
-        if started.elapsed() > limit {
-            stop(&mut child);
-            return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
+            return Err(why);
         }
         std::thread::sleep(Duration::from_millis(50));
     };
     stop_group(child.id());
     let grace = Duration::from_secs(2);
     Ok(Output { status_ok: status.success(), stdout: out.recv_timeout(grace).unwrap_or_default(), stderr: err.recv_timeout(grace).unwrap_or_default() })
+}
+
+fn halted(started: Instant, limit: Duration, cancel: Option<&AtomicBool>) -> Option<String> {
+    if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+        return Some(tr!("Stopped", "Interrompido"));
+    }
+    (started.elapsed() > limit).then(|| tr!("It took too long and was stopped", "Demorou demais e foi interrompido"))
 }
 
 fn command(binary: &Path) -> Command {
@@ -339,15 +342,14 @@ pub fn status(provider: Provider) -> Status {
     };
     let can_tell = args.first().is_some_and(|first| knows(&binary, first));
     let signed_in = !can_tell || run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
-        .map(|o| {
+        .is_ok_and(|o| {
             let text = format!("{}{}", o.stdout, o.stderr).to_lowercase();
             o.status_ok
                 && !text.contains("not logged in")
                 && !text.contains("not authenticated")
                 && !text.contains("authentication required")
                 && !text.contains("unable to fetch user details")
-        })
-        .unwrap_or(false);
+        });
     let lacking = missing(provider, &binary);
     let outdated = (!can_tell && !args.is_empty()) || !lacking.is_empty();
     crate::diagnostics::write("ai", &format!("{provider:?}: found, {}{}", if signed_in { "signed in" } else { "not signed in" }, if outdated { format!(", outdated (no {})", if lacking.is_empty() { args.join(" ") } else { lacking.join(", ") }) } else { String::new() }));
@@ -394,6 +396,12 @@ pub struct Question<'a> {
     pub session: Option<&'a str>,
     pub own_settings: bool,
     pub cancel: Option<&'a AtomicBool>,
+}
+
+impl Question<'_> {
+    fn chosen_model(&self) -> Option<&str> {
+        self.model.map(str::trim).filter(|m| !m.is_empty())
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -531,7 +539,7 @@ fn claude_args(q: &Question, binary: &Path, structured: bool) -> Vec<String> {
     if has("--settings") {
         args.extend(["--settings", HOOKS_OFF].map(String::from));
     }
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         args.extend(["--model".into(), model.into()]);
     }
     if let Some(effort) = q.provider.effort(q.effort).filter(|_| has("--effort")) {
@@ -606,7 +614,7 @@ fn sessions() -> &'static Mutex<HashMap<String, Slot>> {
             std::thread::sleep(Duration::from_secs(60));
             sweep(IDLE);
         });
-        Default::default()
+        Mutex::default()
     })
 }
 
@@ -623,11 +631,8 @@ fn hold<'a>(slot: &'a Slot, cancel: Option<&AtomicBool>, limit: Duration) -> Res
             Err(std::sync::TryLockError::Poisoned(poisoned)) => return Ok(poisoned.into_inner()),
             Err(std::sync::TryLockError::WouldBlock) => {}
         }
-        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
-            return Err(tr!("Stopped", "Interrompido"));
-        }
-        if started.elapsed() > limit {
-            return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
+        if let Some(why) = halted(started, limit, cancel) {
+            return Err(why);
         }
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -665,12 +670,30 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Result<Scratch, String> {
-        static RUNS: AtomicU64 = AtomicU64::new(0);
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
-        let dir = std::env::temp_dir().join(format!("focus-diff-{}-{stamp}-{}", std::process::id(), RUNS.fetch_add(1, Ordering::Relaxed)));
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        Scratch::within(&std::env::temp_dir())
+    }
+
+    fn within(parent: &Path) -> Result<Scratch, String> {
+        let dir = parent.join(format!("focus-diff-{}", unguessable()));
+        let builder = &mut std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        std::os::unix::fs::DirBuilderExt::mode(builder, 0o700);
+        builder.create(&dir).map_err(|e| e.to_string())?;
         Ok(Scratch(dir))
     }
+}
+
+fn unguessable() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
+    let [high, low] = [0u8, 1].map(|half| {
+        let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+        hasher.write_u128(stamp);
+        hasher.write_u32(std::process::id());
+        hasher.write_u8(half);
+        hasher.finish()
+    });
+    format!("{high:016x}{low:016x}")
 }
 
 impl Drop for Scratch {
@@ -743,7 +766,7 @@ impl Session {
 
     fn turn(&mut self, content: serde_json::Value, limit: Duration, cancel: Option<&AtomicBool>) -> Result<Turn, String> {
         let line = serde_json::json!({ "type": "user", "message": { "role": "user", "content": content } }).to_string();
-        let written = self.stdin.as_mut().is_some_and(|stdin| stdin.write_all(format!("{line}\n").as_bytes()).and_then(|_| stdin.flush()).is_ok());
+        let written = self.stdin.as_mut().is_some_and(|stdin| stdin.write_all(format!("{line}\n").as_bytes()).and_then(|()| stdin.flush()).is_ok());
         if !written {
             std::thread::sleep(Duration::from_millis(100));
             return Err(self.failure(""));
@@ -751,11 +774,8 @@ impl Session {
         let started = Instant::now();
         let mut last = String::new();
         loop {
-            if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
-                return Err(tr!("Stopped", "Interrompido"));
-            }
-            if started.elapsed() > limit {
-                return Err(tr!("It took too long and was stopped", "Demorou demais e foi interrompido"));
+            if let Some(why) = halted(started, limit, cancel) {
+                return Err(why);
             }
             let line = match self.events.recv_timeout(Duration::from_millis(50)) {
                 Ok(line) => line,
@@ -784,11 +804,11 @@ impl Session {
                 cache_read: count("cache_read_input_tokens"),
                 output: count("output_tokens"),
                 cost: (total - self.spent).max(0.0),
-                ms: event["duration_ms"].as_u64().unwrap_or_else(|| started.elapsed().as_millis() as u64),
+                ms: event["duration_ms"].as_u64().unwrap_or_else(|| u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
             };
             self.spent = total;
             let structured = Some(event["structured_output"].clone()).filter(serde_json::Value::is_object);
-            let text = text.or_else(|| structured.as_ref().map(|s| s.to_string())).ok_or_else(|| self.failure(&line))?;
+            let text = text.or_else(|| structured.as_ref().map(ToString::to_string)).ok_or_else(|| self.failure(&line))?;
             return Ok(Turn { text, structured, usage });
         }
     }
@@ -856,30 +876,16 @@ fn cursor_call(q: &Question, binary: &Path, workspace: &Path, message: &str, cha
         }
     }
     cmd.arg("--workspace").arg(workspace);
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         cmd.args(["--model", model]);
     }
     if let Some(chat) = chat {
         cmd.args(["--resume", chat]);
     }
-    let request = (message.len() > ARGV_LIMIT).then(|| {
-        static REQUESTS: AtomicU64 = AtomicU64::new(0);
-        workspace.join(format!(".focus-diff-request-{}-{}.md", std::process::id(), REQUESTS.fetch_add(1, Ordering::Relaxed)))
-    });
-    match &request {
-        Some(file) => {
-            std::fs::write(file, message).map_err(|e| e.to_string())?;
-            let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            cmd.arg(format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks."));
-        }
-        None => {
-            cmd.arg(message);
-        }
-    }
+    let (file, ask) = hand_over(workspace, message)?;
+    cmd.arg(ask);
     let output = run_until(&mut cmd, None, limit(q), q.cancel);
-    if let Some(file) = &request {
-        let _ = std::fs::remove_file(file);
-    }
+    let _ = std::fs::remove_file(&file);
     let output = output?;
     let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
     if !output.status_ok || reply["is_error"].as_bool() == Some(true) {
@@ -893,18 +899,21 @@ fn json_object(text: &str) -> Option<String> {
     let start = text.find('{')?;
     let end = text.rfind('}')?;
     let candidate = text.get(start..=end)?;
-    serde_json::from_str::<serde_json::Value>(candidate).ok().filter(|v| v.is_object()).map(|v| v.to_string())
+    serde_json::from_str::<serde_json::Value>(candidate).ok().filter(serde_json::Value::is_object).map(|v| v.to_string())
 }
 
 fn request_file(workspace: &Path, message: &str) -> Result<Option<(PathBuf, String)>, String> {
     if message.len() <= ARGV_LIMIT {
         return Ok(None);
     }
-    static REQUESTS: AtomicU64 = AtomicU64::new(0);
-    let file = workspace.join(format!(".focus-diff-request-{}-{}.md", std::process::id(), REQUESTS.fetch_add(1, Ordering::Relaxed)));
-    std::fs::write(&file, message).map_err(|e| e.to_string())?;
-    let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    Ok(Some((file, format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks."))))
+    hand_over(workspace, message).map(Some)
+}
+
+fn hand_over(workspace: &Path, message: &str) -> Result<(PathBuf, String), String> {
+    let name = format!(".focus-diff-request-{}.md", unguessable());
+    let file = workspace.join(&name);
+    std::fs::OpenOptions::new().write(true).create_new(true).open(&file).and_then(|mut f| f.write_all(message.as_bytes())).map_err(|e| e.to_string())?;
+    Ok((file, format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks.")))
 }
 
 fn inner_message(text: &str) -> String {
@@ -925,7 +934,7 @@ fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat
     if has("--ignore-user-config") {
         cmd.arg("--ignore-user-config");
     }
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         cmd.args(["--model", model]);
     }
     if let Some(effort) = q.provider.effort(q.effort) {
@@ -939,7 +948,7 @@ fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat
     let mut text = None;
     let mut thread = None;
     let mut problem = None;
-    for event in output.stdout.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()) {
+    for event in json_lines(&output.stdout) {
         match event["type"].as_str() {
             Some("thread.started") => thread = event["thread_id"].as_str().map(String::from),
             Some("item.completed") if event["item"]["type"] == "agent_message" => text = event["item"]["text"].as_str().map(String::from),
@@ -948,11 +957,7 @@ fn codex_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat
             _ => {}
         }
     }
-    match (text, problem) {
-        (Some(text), None) => Ok((text, thread)),
-        (_, Some(problem)) => Err(problem.chars().take(400).collect()),
-        (None, None) => Err(failure(&output)),
-    }
+    answered(text, thread, problem, &output)
 }
 
 fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, chat: Option<&str>) -> Result<(String, Option<String>), String> {
@@ -961,7 +966,7 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
     if knows_in(binary, &["run"], "--pure") {
         cmd.arg("--pure");
     }
-    if let Some(model) = q.model.map(str::trim).filter(|m| !m.is_empty()) {
+    if let Some(model) = q.chosen_model() {
         cmd.args(["--model", model]);
     }
     if let Some(effort) = q.provider.effort(q.effort).filter(|_| knows_in(binary, &["run"], "--variant")) {
@@ -980,7 +985,7 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
     let mut session = None;
     let mut last: Option<(String, String)> = None;
     let mut problem = None;
-    for event in output.stdout.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()) {
+    for event in json_lines(&output.stdout) {
         if let Some(id) = event["sessionID"].as_str() {
             session = Some(id.to_string());
         }
@@ -999,16 +1004,24 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
             _ => {}
         }
     }
-    match (last.map(|(_, text)| text).filter(|t| !t.trim().is_empty()), problem) {
-        (Some(text), None) => Ok((text, session)),
+    answered(last.map(|(_, text)| text).filter(|t| !t.trim().is_empty()), session, problem, &output)
+}
+
+fn json_lines(text: &str) -> impl Iterator<Item = serde_json::Value> + '_ {
+    text.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+}
+
+fn answered(text: Option<String>, chat: Option<String>, problem: Option<String>, output: &Output) -> Result<(String, Option<String>), String> {
+    match (text, problem) {
+        (Some(text), None) => Ok((text, chat)),
         (_, Some(problem)) => Err(problem.chars().take(400).collect()),
-        (None, None) => Err(failure(&output)),
+        (None, None) => Err(failure(output)),
     }
 }
 
 fn failure(output: &Output) -> String {
     let text = format!("{}\n{}", output.stderr, output.stdout);
-    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).map(String::from).unwrap_or_else(|| tr!("It didn't answer", "Não houve resposta"));
+    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).map_or_else(|| tr!("It didn't answer", "Não houve resposta"), String::from);
     line.chars().take(400).collect()
 }
 
@@ -1266,17 +1279,39 @@ done
         assert!(!sessions().held().contains_key("w-review"));
     }
 
+    #[test]
+    fn scratch_folders_are_private_and_unguessable() {
+        let parent = std::env::temp_dir().join(format!("focus-diff-scratch-test-{}", std::process::id()));
+        std::fs::create_dir_all(&parent).unwrap();
+        let (one, two) = (Scratch::within(&parent).unwrap(), Scratch::within(&parent).unwrap());
+        let name = |s: &Scratch| s.0.file_name().unwrap().to_string_lossy().into_owned();
+        assert_ne!(name(&one), name(&two));
+        assert!(name(&one).strip_prefix("focus-diff-").is_some_and(|rest| rest.len() == 32 && rest.chars().all(|c| c.is_ascii_hexdigit())), "{}", name(&one));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&one.0).unwrap().permissions().mode() & 0o777, 0o700);
+        }
+        assert!(Scratch::within(&parent.join("missing")).is_err());
+        let taken = one.0.clone();
+        drop((one, two));
+        assert!(!taken.exists());
+        std::fs::remove_dir_all(&parent).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn resumes_cursor_chats_and_hands_long_requests_over_in_a_file() {
         let (binary, log) = fake("cursor", r#"echo "$*" >> "$LOG"
-for last; do :; done
+f=$(ls .focus-diff-request-* 2>/dev/null | head -1)
+[ -n "$f" ] || { echo "no request file" >&2; exit 1; }
+last=$(cat "$f")
 case "$*" in
   *--resume\ broken*) echo "no such chat" >&2; exit 1;;
   *--resume*) printf '{"type":"result","result":"resumed: %s","session_id":"chat-1"}\n' "$last"; exit 0;;
 esac
-f=$(ls .focus-diff-request-* 2>/dev/null | head -1)
-if [ -n "$f" ]; then printf '{"result":"from a file of %s bytes","session_id":"chat-1"}\n' "$(wc -c < "$f" | tr -d ' ')"; exit 0; fi
+size=$(wc -c < "$f" | tr -d ' ')
+if [ "$size" -gt 100000 ]; then printf '{"result":"from a file of %s bytes","session_id":"chat-1"}\n' "$size"; exit 0; fi
 case "$last" in
   *FAIL*) echo "nope" >&2; exit 1;;
   *JSON*) printf '{"result":"ok {\\"findings\\": []}"}\n';;
@@ -1291,9 +1326,12 @@ esac
         let fallback = ask_with(&question(Provider::Cursor, "DIFF", "Still?", Some("w-cursor")), &binary).unwrap();
         assert_eq!((fallback.text.as_str(), fallback.resumed), ("fresh", false));
         let big = "x".repeat(ARGV_LIMIT);
-        let long = ask_with(&question(Provider::Cursor, &big, "Long?", None), &binary).unwrap();
-        assert!(long.text.starts_with("from a file of 1000"));
-        assert!(logged(&log).last().unwrap().contains("Read the file `.focus-diff-request-"));
+        let from_file = ask_with(&question(Provider::Cursor, &big, "Long?", None), &binary).unwrap();
+        assert!(from_file.text.starts_with("from a file of 1000"));
+        assert!(logged(&log).iter().all(|l| l.contains("Read the file `.focus-diff-request-") && !l.contains("DIFF") && !l.contains("Long?")));
+        let dashed = ask_with(&question(Provider::Cursor, "DIFF", "--help me", Some("w-cursor")), &binary).unwrap();
+        assert_eq!(dashed.text, "resumed: --help me");
+        assert!(!logged(&log).last().unwrap().contains("--help"));
         let json = ask_with(&Question { schema: Some("{}"), ..question(Provider::Cursor, "DIFF", "JSON", Some("w-cursor")) }, &binary).unwrap();
         assert_eq!(json.text, r#"{"findings":[]}"#);
         assert!(ask_with(&question(Provider::Cursor, "OTHER", "FAIL", Some("w-cursor")), &binary).is_err());
@@ -1304,7 +1342,7 @@ esac
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "asks the AI tools installed on this computer, signed in"]
     fn ai_round_trip() {
         for status in statuses() {
             println!("{:?}: installed {}, signed in {}, {:?}", status.provider, status.installed, status.signed_in, status.version);

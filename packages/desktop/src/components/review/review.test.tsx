@@ -22,6 +22,7 @@ import { learnFiles } from "@/utils/estimate/estimate";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { patchHash } from "@/utils/hashes/hashes";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
+import { deferred } from "@/utils/mock-render/mock-render";
 import type { Args } from "@/utils/platform/platform";
 import {
   commentNow,
@@ -414,16 +415,6 @@ const visit = (number: number, title: string): Visit => ({
   queue: "q1",
 });
 
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((r, j) => {
-    resolve = r;
-    reject = j;
-  });
-  return { promise, resolve, reject };
-}
-
 const stored = (key: string): unknown => JSON.parse(localStorage.getItem(key) ?? "null");
 
 let calls: Array<{ cmd: string; args: Args | undefined }> = [];
@@ -767,14 +758,14 @@ describe("Review", () => {
       const size = { bar: 1200, trailing: 1000 };
       layOut(size);
       const view = await openReview();
-      const title = screen.getByRole("heading", { level: 1 }).parentElement!;
+      const title = screen.getByRole("heading", { level: 1 }).parentElement!.parentElement!;
       expect(title.style.left).toBe("216px");
       expect(title.style.right).toBe("216px");
       view.unmount();
       size.bar = 400;
       size.trailing = 300;
       await openReview();
-      const narrow = screen.getByRole("heading", { level: 1 }).parentElement!;
+      const narrow = screen.getByRole("heading", { level: 1 }).parentElement!.parentElement!;
       expect([narrow.style.left, narrow.style.right]).toEqual(["16px", "116px"]);
     });
 
@@ -1343,12 +1334,40 @@ describe("Review", () => {
       vi.mocked(aiReview).mockReturnValue(deferred<AiReview>().promise);
       await userEvent.click(button("AI Review"));
       await waitFor(() => {
-        expect(button("AI Review").hasAttribute("disabled")).toBe(true);
+        expect(h.overview!.reviewing).toBe(true);
       });
-      expect(h.overview!.reviewing).toBe(true);
+      expect(screen.queryByRole("button", { name: "AI Review" })).toBeNull();
+      await menu("ai-review");
+      expect(aiReview).toHaveBeenCalledOnce();
     });
 
-    it("keeps a review still running after the pull request is left, and shows it on the way back", async () => {
+    const stopsQuietly = async (running: ReturnType<typeof deferred<AiReview>>, stop: () => unknown) => {
+      await waitFor(() => {
+        expect(h.overview!.reviewing).toBe(true);
+      });
+      await stop();
+      await act(async () => {
+        running.reject(new Error("Stopped"));
+        await running.promise.catch(() => {});
+      });
+      await waitFor(() => {
+        expect(h.overview!.reviewing).toBe(false);
+      });
+    };
+
+    it("stops a review when asked, quietly, and doesn't start it again on its own", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi({ review: { auto: true, prompt: "" } }));
+      const running = deferred<AiReview>();
+      vi.mocked(aiReview).mockReturnValue(running.promise);
+      await openReview();
+      await stopsQuietly(running, () => userEvent.click(button("Stop")));
+      expect(h.overview!.reviewError).toBeNull();
+      expect(sent("ai_cancel")).toEqual([{ run: vi.mocked(aiReview).mock.calls[0]?.[3] }]);
+      expect(button("AI Review")).toBeTruthy();
+      expect(aiReview).toHaveBeenCalledOnce();
+    });
+
+    const runAndLeave = async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
       const running = deferred<AiReview>();
       vi.mocked(aiReview).mockReturnValue(running.promise);
@@ -1358,6 +1377,22 @@ describe("Review", () => {
         expect(h.overview!.reviewing).toBe(true);
       });
       first.unmount();
+      return running;
+    };
+
+    it("stops a review it came back to", async () => {
+      const running = await runAndLeave();
+      await openReview();
+      await stopsQuietly(running, () => {
+        act(() => {
+          h.overview!.onStopReview();
+        });
+      });
+      expect(h.overview!.reviewError).toBeNull();
+    });
+
+    it("keeps a review still running after the pull request is left, and shows it on the way back", async () => {
+      const running = await runAndLeave();
       (await openReview()).unmount();
 
       await openReview();
@@ -1541,6 +1576,7 @@ describe("Review", () => {
       await openReview();
       expect(screen.queryByRole("button", { name: /Merge/u })).toBeNull();
       expect(screen.queryByRole("button", { name: /Submit/u })).toBeNull();
+      expect(screen.getByText("Merged").closest("header")).toBeTruthy();
     });
 
     it("opens the pull request on GitHub and shows the shortcuts from the More menu", async () => {
@@ -1732,7 +1768,7 @@ describe("Review", () => {
         queue: "q1",
       });
       expect(h.queue.go).not.toHaveBeenCalled();
-      await userEvent.click(button("2 of 3 in the stack"));
+      await userEvent.click(button("Stack 2/3"));
       expect(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }).getAttribute("aria-checked")).toBe(
         "true",
       );
@@ -1761,7 +1797,7 @@ describe("Review", () => {
       await userEvent.click(button("Next in Waiting on me: #8 Next one"));
       expect(h.queue.go).toHaveBeenCalledTimes(1);
       expect(h.queue.goTo).not.toHaveBeenCalled();
-      await userEvent.click(button("2 of 2 in the stack"));
+      await userEvent.click(button("Stack 2/2"));
       await userEvent.click(screen.getByRole("menuitemradio", { name: /#7 Keep the promo code/u }));
       expect(h.queue.goTo).not.toHaveBeenCalled();
       expect(screen.getByRole("menuitemradio", { name: /#3.*Changes requested/u })).toBeTruthy();

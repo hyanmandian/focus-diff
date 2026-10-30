@@ -27,6 +27,24 @@ describe("usePersisted", () => {
     expect(localStorage.getItem("count")).toBe("3");
   });
 
+  it("follows a change made in another window", () => {
+    const { result } = renderHook(() => usePersisted("count", 0, isNumber));
+    localStorage.setItem("count", "7");
+    act(() => {
+      dispatchEvent(new StorageEvent("storage", { key: "other" }));
+    });
+    expect(result.current[0]).toBe(0);
+    act(() => {
+      dispatchEvent(new StorageEvent("storage", { key: "count" }));
+    });
+    expect(result.current[0]).toBe(7);
+    localStorage.clear();
+    act(() => {
+      dispatchEvent(new StorageEvent("storage", { key: null }));
+    });
+    expect(result.current[0]).toBe(0);
+  });
+
   it("still changes for this window when nothing can be kept", () => {
     const blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("QuotaExceededError");

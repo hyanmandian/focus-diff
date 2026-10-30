@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { type Call, ok, recordCommands } from "@/utils/fake-platform/fake-platform";
 import type { Manage } from "@/utils/manage/manage";
 import {
   defaultMessage,
@@ -14,21 +14,8 @@ import {
   mergeView,
   updateBranch,
 } from "@/utils/merging/merging";
-import type { Args } from "@/utils/platform/platform";
 
-type Call = { cmd: string; fields: Record<string, unknown> };
-const fields = (args: Args | undefined): Record<string, unknown> =>
-  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
-const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
-
-function rust(reply: unknown = ok({ data: {} })) {
-  const calls: Call[] = [];
-  mockCommands((cmd, args) => {
-    calls.push({ cmd, fields: fields(args) });
-    return reply;
-  });
-  return calls;
-}
+const rust = (reply: unknown = ok({ data: {} })) => recordCommands(() => reply);
 const sent = (calls: Call[]) =>
   calls.map((c) => [c.fields.method, c.fields.path, JSON.parse(String(c.fields.body)) as unknown]);
 

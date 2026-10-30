@@ -22,7 +22,7 @@ const STANDING = {
   REVIEW_REQUIRED: "text-muted-foreground",
 } as const;
 
-export function Standing({ pull, className }: { pull: StackPull; className?: string }) {
+export function Standing({ pull, className }: { pull: StackPull; className?: string | undefined }) {
   const t = useT();
   const standing = pull.decision ?? "REVIEW_REQUIRED";
   return (
@@ -44,12 +44,13 @@ export function StackMenu({
   onPick,
 }: {
   stack: Stack;
-  className?: string;
+  className?: string | undefined;
   onPick: (pull: StackPull) => void;
 }) {
   const t = useT();
   const here = stack.pulls[stack.at];
   const position = t("review.stackPosition", { index: String(stack.at + 1), total: String(stack.pulls.length) });
+  const short = t("review.stackButton", { index: String(stack.at + 1), total: String(stack.pulls.length) });
   return (
     <DropdownMenu>
       <Tooltip>
@@ -57,11 +58,7 @@ export function StackMenu({
           render={
             <DropdownMenuTrigger
               render={
-                <Button
-                  variant="ghost"
-                  className={cn(className, "gap-1.5 bg-fill tabular-nums")}
-                  aria-label={position}
-                />
+                <Button variant="ghost" className={cn(className, "gap-1.5 bg-fill tabular-nums")} aria-label={short} />
               }
             />
           }

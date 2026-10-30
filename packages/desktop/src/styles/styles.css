@@ -11,7 +11,7 @@ html.panel.dark {
   --panel-edge: oklch(1 0 0 / 0.12);
   --panel-separator: oklch(1 0 0 / 0.09);
   --panel-fill: oklch(1 0 0 / 0.07);
-  --panel-link: color-mix(in oklch, var(--primary) 75%, white);
+  --panel-link: color-mix(in oklch, var(--primary) 55%, white);
   --panel-raised: color-mix(in oklch, var(--background) 92%, white);
 }
 @media (prefers-reduced-transparency: reduce) {

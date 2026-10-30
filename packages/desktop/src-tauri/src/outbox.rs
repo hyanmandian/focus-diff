@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -73,7 +73,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
         let next = {
             let mut q = lock.held();
             while q.marks.is_empty() {
-                q = wake.wait(q).unwrap();
+                q = wake.wait(q).unwrap_or_else(PoisonError::into_inner);
             }
             q.woken = false;
             q.marks[0].clone()
@@ -101,10 +101,7 @@ fn run(app: &AppHandle, queue: &(Mutex<Queue>, Condvar), file: Option<&Path>) {
             Sent::Later => failures += 1,
         }
         crate::disk::save_json(file, &q.marks);
-        if failures > 0 && !q.woken {
-            let wait = Duration::from_secs(1 << (failures.min(6) - 1)).min(LONGEST_WAIT);
-            drop(wake.wait_timeout_while(q, wait, |q| !q.woken).unwrap());
-        }
+        crate::sync::back_off(wake, q, failures, LONGEST_WAIT, |q| q.woken);
     }
 }
 

@@ -94,7 +94,7 @@ fn parse_page(referer: String, html: &str) -> Page {
 }
 
 fn is_sign_in_page(html: &str) -> bool {
-    let start = html.find("<title>").map(|i| &html[i + 7..]).unwrap_or("");
+    let start = html.find("<title>").map_or("", |i| &html[i + 7..]);
     start.trim_start().starts_with("Sign in to") && !html.contains("\"currentUser\"")
 }
 
@@ -157,7 +157,7 @@ fn find_page(app: &AppHandle, session: &mut Session, owner: &str, repo: &str, nu
 
 fn multipart(fields: &[(&str, &str)], file: Option<(&str, &str, &[u8])>) -> (String, Vec<u8>) {
     static COUNT: AtomicU64 = AtomicU64::new(0);
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     let boundary = format!("----FocusDiff{nanos:x}{:x}", COUNT.fetch_add(1, Ordering::Relaxed));
     let clean = |s: &str| s.replace(['\r', '\n'], " ").replace('"', "%22");
     let mut body = Vec::new();
@@ -244,7 +244,7 @@ fn store(policy: &Value, name: &str, kind: &str, bytes: &[u8]) -> Result<(), Err
     }
     let form: Vec<(String, String)> = policy["form"]
         .as_object()
-        .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(String::from).unwrap_or_else(|| v.to_string()))).collect())
+        .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map_or_else(|| v.to_string(), String::from))).collect())
         .unwrap_or_default();
     let fields: Vec<(&str, &str)> = form.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
     let (content_type, body) = multipart(&fields, Some((name, kind, bytes)));
@@ -259,7 +259,7 @@ fn store(policy: &Value, name: &str, kind: &str, bytes: &[u8]) -> Result<(), Err
     let response = request
         .config()
         .max_redirects(0)
-        .timeout_global(Some(Duration::from_secs(15 * 60)))
+        .timeout_global(Some(Duration::from_mins(15)))
         .build()
         .send(&body[..])
         .map_err(|e| failed(tr!("Couldn't reach GitHub's storage: {e}", "Não foi possível falar com o armazenamento do GitHub: {e}")))?;

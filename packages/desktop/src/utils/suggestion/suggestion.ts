@@ -88,7 +88,7 @@ export function linesFromPatch(
   return lines;
 }
 
-export type Author = { login: string; name?: string | null; databaseId?: number | null };
+export type Author = { login: string; name?: string | null | undefined; databaseId?: number | null | undefined };
 
 export function coAuthors(authors: Author[], me: string | null): string[] {
   const seen = new Set<string>();

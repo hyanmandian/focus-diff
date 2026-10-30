@@ -2,7 +2,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vite-plus/test";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleHeading,
+  CollapsibleTrigger,
+} from "@/components/collapsible/collapsible";
 
 describe("Collapsible", () => {
   it("shows its content when opened and hides it when closed", async () => {
@@ -28,5 +33,17 @@ describe("Collapsible", () => {
       </Collapsible>,
     );
     expect(screen.getByText("Body").className).not.toContain("from-state");
+  });
+
+  it("titles a section with a heading that toggles it", async () => {
+    render(
+      <Collapsible>
+        <CollapsibleHeading open={false}>Checks</CollapsibleHeading>
+        <CollapsibleContent>Build</CollapsibleContent>
+      </Collapsible>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Checks" }));
+    expect(screen.getByRole("heading", { name: "Checks" })).toBeTruthy();
+    expect(screen.getByText("Build")).toBeTruthy();
   });
 });

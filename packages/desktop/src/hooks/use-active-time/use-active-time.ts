@@ -1,5 +1,5 @@
 import { creditFor, share, type OnScreen } from "@focus-diff/core/active-time";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 
 const SAMPLE_MS = 1000;
 const EVENTS = ["scroll", "wheel", "keydown", "pointerdown", "pointermove", "selectionchange"] as const;
@@ -8,10 +8,7 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
   const spent = useRef(new Map<string, number>());
   const last = useRef(0);
   const current = useRef<OnScreen>([]);
-  const read = useRef(onScreen);
-  useLayoutEffect(() => {
-    read.current = onScreen;
-  });
+  const read = useEffectEvent(() => onScreen());
 
   const settle = useCallback((now: number) => {
     if (!last.current) return;
@@ -26,7 +23,7 @@ export function useActiveTime(onScreen: () => OnScreen, on: boolean) {
       if (document.hidden || (last.current && now - last.current < SAMPLE_MS)) return;
       settle(now);
       last.current = now;
-      current.current = read.current();
+      current.current = read();
     };
     const visibility = () => {
       if (!document.hidden) {

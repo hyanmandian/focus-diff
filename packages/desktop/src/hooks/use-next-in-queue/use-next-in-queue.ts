@@ -10,7 +10,7 @@ type Live = { items: Record<string, Item[]>; seen: Record<string, true> };
 export type Visit = { pr: ReviewPull; teams: string[]; queue: string | null };
 
 const BACK = "review-back";
-export const DIRECTION = "review-direction";
+const DIRECTION = "review-direction";
 const isVisits = (value: unknown): value is Visit[] => Array.isArray(value);
 function visits(): Visit[] {
   try {
@@ -24,6 +24,20 @@ function keepVisits(list: Visit[]) {
   try {
     sessionStorage.setItem(BACK, JSON.stringify(list.slice(-50)));
   } catch {}
+}
+function heading(direction: "forward" | "back") {
+  try {
+    sessionStorage.setItem(DIRECTION, direction);
+  } catch {}
+}
+export function takeDirection(): string | null {
+  try {
+    const direction = sessionStorage.getItem(DIRECTION);
+    sessionStorage.removeItem(DIRECTION);
+    return direction;
+  } catch {
+    return null;
+  }
 }
 
 async function find(queue: string, current: string) {
@@ -63,7 +77,7 @@ export function useNextInQueue(queue: string | null | undefined, current: string
       }
       void bridge.markSeen(item.queueId, item.pr.id);
       if (here) keepVisits([...visits(), here]);
-      sessionStorage.setItem(DIRECTION, "forward");
+      heading("forward");
       await bridge.switchReview(item.pr, item.viaTeams ?? [], item.queueId);
       return true;
     },
@@ -73,7 +87,7 @@ export function useNextInQueue(queue: string | null | undefined, current: string
   const goTo = useCallback(
     async (to: Visit) => {
       if (here) keepVisits([...visits(), here]);
-      sessionStorage.setItem(DIRECTION, "forward");
+      heading("forward");
       await bridge.switchReview(to.pr, to.teams, to.queue);
     },
     [here],
@@ -84,7 +98,7 @@ export function useNextInQueue(queue: string | null | undefined, current: string
     const last = list.pop();
     if (!last) return;
     keepVisits(list);
-    sessionStorage.setItem(DIRECTION, "back");
+    heading("back");
     await bridge.switchReview(last.pr, last.teams, last.queue);
   }, []);
 

@@ -1,13 +1,24 @@
-import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Sparkles } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeft,
+  Check,
+  Copy,
+  Loader2,
+  MessageSquarePlus,
+  Pencil,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
 import { AskAi } from "@/components/ask-ai/ask-ai";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar/avatar";
+import { Face } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
 import { Checks } from "@/components/checks/checks";
 import { CommitsSection } from "@/components/commits/commits";
 import { MergeBox } from "@/components/merge-box/merge-box";
+import { PullState } from "@/components/pull-state/pull-state";
 import { ACTIONS, CommentMenu, ReactionList, ReactionPicker, useReactions } from "@/components/said/said";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { StackCard } from "@/components/stack-card/stack-card";
@@ -18,7 +29,6 @@ import { copyText, useConversationApi } from "@/hooks/use-conversation/use-conve
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { Stack } from "@/hooks/use-stack/use-stack";
 import { PROVIDERS, type AiReview } from "@/utils/ai/ai";
-import { avatar } from "@/utils/avatar/avatar";
 import { bridge } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import type { Range } from "@/utils/commits/commits";
@@ -27,7 +37,6 @@ import type { Conversation, ConversationEntry } from "@/utils/conversation/conve
 import { firstName } from "@/utils/copy/copy";
 import type { Details, Entry } from "@/utils/details/details";
 import { useDiagrams } from "@/utils/diagrams/diagrams";
-import type { Actor } from "@/utils/engine/engine";
 import { errorText } from "@/utils/error/error";
 import { useT } from "@/utils/i18n/i18n";
 import type { Thread } from "@/utils/review/review";
@@ -37,16 +46,7 @@ import { byTime } from "@/utils/timeline/timeline";
 import { typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
 
-function Person({ actor, className }: { actor: Actor; className?: string }) {
-  return (
-    <Avatar className={cn("size-5", className)}>
-      {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}
-      <AvatarFallback className="text-footnote">{(actor?.login ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
-    </Avatar>
-  );
-}
-
-function Html({ html, className }: { html: string; className?: string }) {
+function Html({ html, className }: { html: string; className?: string | undefined }) {
   const t = useT();
   const clean = sanitize(html);
   const ref = useRef<HTMLDivElement>(null);
@@ -99,6 +99,7 @@ function ReviewSummary({
   review,
   reviewing,
   error,
+  onStop,
   onJump,
 }: {
   by: string;
@@ -106,6 +107,7 @@ function ReviewSummary({
   review: AiReview | null;
   reviewing: boolean;
   error: string | null;
+  onStop: () => void;
   onJump: (path: string, line: number | null) => void;
 }) {
   const t = useT();
@@ -122,7 +124,15 @@ function ReviewSummary({
         <Sparkles className="size-3.5 text-violet" aria-hidden /> {t("review.aiReviewHeading")}
         <span className="font-normal text-muted-foreground">{t("review.by", { name: by })}</span>
         {reviewing ? (
-          <Loader2 className="ml-auto size-3.5 animate-spin text-muted-foreground" aria-label={t("review.reviewing")} />
+          <>
+            <Loader2
+              className="ml-auto size-3.5 animate-spin text-muted-foreground"
+              aria-label={t("review.reviewing")}
+            />
+            <Button variant="outline" size="xs" onClick={onStop}>
+              <Square className="size-2.5 fill-current" aria-hidden /> {t("review.stop")}
+            </Button>
+          </>
         ) : null}
       </h3>
       {error ? (
@@ -184,6 +194,7 @@ type Props = {
   review: AiReview | null;
   reviewing: boolean;
   reviewError: string | null;
+  onStopReview: () => void;
   onJump: (path: string, line: number | null) => void;
   threads: Thread[];
   onReply: (thread: Thread, body: string) => Promise<void>;
@@ -194,7 +205,7 @@ type Props = {
   onOpenRange: (range: Range) => void;
   hasFile: (path: string) => boolean;
   say: (message: string) => void;
-  stack?: Stack | null;
+  stack?: Stack | null | undefined;
   onPickStack?: (pull: StackPull) => void;
 };
 
@@ -275,11 +286,11 @@ function Words({
 }: {
   keep: string;
   html: string;
-  body?: string;
+  body?: string | undefined;
   editing: boolean;
   onSave: (body: string) => Promise<void>;
   onDone: () => void;
-  className?: string;
+  className?: string | undefined;
 }) {
   const t = useT();
   if (editing && body !== undefined)
@@ -330,7 +341,7 @@ function EntryView({
   const said = entry.kind === "comment" || entry.html.trim() || editing;
   return (
     <article data-entry={entry.id} className="group/said -m-2 flex scroll-mt-16 gap-2.5 rounded-[10px] p-2">
-      <Person actor={entry.author} className="mt-0.5 size-6" />
+      <Face actor={entry.author} className="mt-0.5 size-6" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-0.5">
           <p className="min-w-0 flex-1 text-callout text-muted-foreground">
@@ -451,12 +462,13 @@ function Heading({ details }: { details: Details }) {
   }).split("\u0000");
   return (
     <header className="-mb-3 flex gap-3">
-      <Person actor={details.author} className="mt-0.5 size-8" />
+      <Face actor={details.author} className="mt-0.5 size-8" />
       <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="selectable text-title2 leading-tight font-bold text-balance [overflow-wrap:anywhere]">
           {details.title} <span className="font-normal text-muted-foreground tabular-nums">#{details.number}</span>
         </h1>
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-muted-foreground">
+          <PullState details={details} />
           <span>
             {beforeWho}
             <span className="font-medium text-foreground">{firstName(details.author, t)}</span>
@@ -529,6 +541,7 @@ export function Overview({
   review,
   reviewing,
   reviewError,
+  onStopReview,
   onJump,
   threads,
   onReply,
@@ -546,10 +559,7 @@ export function Overview({
   const [shown, setShown] = useState(PAGE);
   const [quoted, setQuoted] = useState<string | null>(null);
   const entries: Array<Entry & Partial<ConversationEntry>> = conversation?.entries ?? details.entries;
-  const byComment = useMemo(
-    () => new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const))),
-    [threads],
-  );
+  const byComment = new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const)));
   const items = useMemo(() => byTime(entries, pull.events), [entries, pull.events]);
   const [landed, setLanded] = useState<string | null>(null);
   const lit = useRef<string | null>(null);
@@ -662,6 +672,7 @@ export function Overview({
             review={review}
             reviewing={reviewing}
             error={reviewError}
+            onStop={onStopReview}
             onJump={onJump}
           />
         ) : null}

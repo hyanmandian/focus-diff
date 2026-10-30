@@ -1,0 +1,9 @@
+{
+  "path": ["src", "installs.ts", "stars.ts"],
+  "format": ["javascript", "typescript", "css"],
+  "minLines": 5,
+  "minTokens": 50,
+  "threshold": 0,
+  "reporters": ["console"],
+  "gitignore": true
+}

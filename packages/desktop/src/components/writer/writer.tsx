@@ -177,8 +177,8 @@ export function MarkdownField({
   rows?: number;
   onSubmit: () => void;
   onCancel: () => void;
-  suggestion?: string[] | null;
-  base?: string[];
+  suggestion?: string[] | null | undefined;
+  base?: string[] | undefined;
   autoFocus?: boolean;
 }) {
   const t = useT();

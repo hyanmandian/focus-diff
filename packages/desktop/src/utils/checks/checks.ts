@@ -37,7 +37,7 @@ type RawNode = {
   __typename: "CheckRun" | "StatusContext";
   id: string;
   databaseId?: number;
-  name?: string;
+  name?: string | undefined;
   status?: string;
   conclusion?: string | null;
   detailsUrl?: string | null;
@@ -49,8 +49,8 @@ type RawNode = {
     app: { slug: string } | null;
     workflowRun: { databaseId: number; workflow: { name: string } } | null;
   } | null;
-  context?: string;
-  state?: string;
+  context?: string | undefined;
+  state?: string | undefined;
   targetUrl?: string | null;
   description?: string | null;
   createdAt?: string;
@@ -81,7 +81,7 @@ export function checkState(node: {
   __typename?: string | null;
   status?: string | null;
   conclusion?: string | null;
-  state?: string | null;
+  state?: string | null | undefined;
 }): CheckState {
   if (node.__typename === "StatusContext")
     return node.state === "SUCCESS"
@@ -183,14 +183,14 @@ export const allRuns = (checks: CheckItem[]) => [
   ...new Set(checks.filter((c) => c.run && c.state !== "pending").map((c) => c.run!)),
 ];
 
-export type Annotation = {
+type Annotation = {
   path: string;
   line: number | null;
   level: "FAILURE" | "WARNING" | "NOTICE";
   title: string | null;
   message: string;
 };
-export type Step = { number: number; name: string; state: CheckState };
+type Step = { number: number; name: string; state: CheckState };
 export type CheckDetail = { summary: string | null; text: string | null; annotations: Annotation[]; steps: Step[] };
 
 function nonBlank(text: string | null | undefined) {

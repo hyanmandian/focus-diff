@@ -5,8 +5,8 @@ use tauri::{AppHandle};
 
 use crate::disk;
 
-const KEEP: Duration = Duration::from_secs(7 * 24 * 3600);
-const SWEEP_AFTER: Duration = Duration::from_secs(30 * 24 * 3600);
+const KEEP: Duration = Duration::from_hours(7 * 24);
+const SWEEP_AFTER: Duration = Duration::from_hours(30 * 24);
 const LARGEST: u64 = 2 * 1024 * 1024;
 
 fn kind(bytes: &[u8]) -> &'static str {
@@ -14,13 +14,7 @@ fn kind(bytes: &[u8]) -> &'static str {
 }
 
 fn fetch(address: &str) -> Option<Vec<u8>> {
-    use std::io::Read;
-    let response = crate::github::agent().get(address).call().ok()?;
-    if response.status() != 200 {
-        return None;
-    }
-    let mut bytes = Vec::new();
-    response.into_body().into_reader().take(LARGEST).read_to_end(&mut bytes).ok()?;
+    let bytes = crate::media::read_ok(crate::github::agent().get(address).call().ok()?, LARGEST)?;
     (kind(&bytes) != "application/octet-stream").then_some(bytes)
 }
 
@@ -34,7 +28,7 @@ fn reply(status: StatusCode, bytes: Vec<u8>) -> Response<Vec<u8>> {
 
 pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let uri = request.uri();
-    let key = uri.path_and_query().map(|p| p.as_str()).unwrap_or("/");
+    let key = uri.path_and_query().map_or("/", tauri::http::uri::PathAndQuery::as_str);
     if !key.starts_with('/') || key.starts_with("//") || key.contains("..") || key.contains('@') {
         return reply(StatusCode::BAD_REQUEST, vec![]);
     }

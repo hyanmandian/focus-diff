@@ -101,7 +101,7 @@ pub struct Watch {
 }
 
 fn now() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or_default()
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX)).unwrap_or_default()
 }
 
 struct Github<'a>(&'a github::Auth);
@@ -112,11 +112,11 @@ impl Gql for Github<'_> {
         let (status, text) = self.0.request("POST", "/graphql", Some(&body), None).map_err(|message| Failure { status: 0, message })?;
         let mut reply: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
         if status >= 400 {
-            let message = reply["message"].as_str().map(String::from).unwrap_or_else(|| tr!("GitHub returned {status}", "O GitHub respondeu {status}"));
+            let message = reply["message"].as_str().map_or_else(|| tr!("GitHub returned {status}", "O GitHub respondeu {status}"), String::from);
             return Err(Failure { status, message });
         }
         if reply["data"].is_null() {
-            let message = reply["errors"][0]["message"].as_str().map(String::from).unwrap_or_else(|| tr!("GitHub returned no data", "O GitHub não mandou nenhum dado"));
+            let message = reply["errors"][0]["message"].as_str().map_or_else(|| tr!("GitHub returned no data", "O GitHub não mandou nenhum dado"), String::from);
             return Err(Failure { status: 200, message });
         }
         Ok(reply["data"].take())
@@ -374,7 +374,7 @@ impl Watch {
 
     pub fn reviewed(&self, app: &AppHandle, pr_id: &str) {
         self.change(app, |state| {
-            let queues: Vec<String> = state.config.iter().flat_map(|c| c.enabled()).filter(|q| q.kind == crate::config::Kind::Review).map(|q| q.id.clone()).collect();
+            let queues: Vec<String> = state.config.iter().flat_map(crate::config::Config::enabled).filter(|q| q.kind == crate::config::Kind::Review).map(|q| q.id.clone()).collect();
             for queue_id in queues {
                 state.persisted.dismissed.insert(format!("{queue_id}:{pr_id}"), true);
                 if let Some((_, items)) = state.items.iter_mut().find(|(id, _)| *id == queue_id) {
@@ -506,7 +506,7 @@ impl Worker {
             if state.auth_unknown || now() < state.retry_at {
                 return;
             }
-            let fresh = now() - state.status.updated_at < (config.poll_seconds * 1000) as i64 - 5_000;
+            let fresh = now() - state.status.updated_at < i64::try_from(config.poll_seconds.saturating_mul(1000)).unwrap_or(i64::MAX) - 5_000;
             if !force && fresh && state.status.phase != "error" {
                 return;
             }
@@ -521,7 +521,7 @@ impl Worker {
         let started = std::time::Instant::now();
         let result = engine::sync(&Github(&auth), &queues, &me, &mut cache, force, full, now());
         if cfg!(any(debug_assertions, feature = "devctl")) {
-            let fetched = result.as_ref().map(|n| n.to_string()).unwrap_or_else(|e| e.message.clone());
+            let fetched = result.as_ref().map_or_else(|e| e.message.clone(), ToString::to_string);
             eprintln!("[watch] refresh (force {force}, full {full}) in {:?}: {fetched} fetched in full, {} known", started.elapsed(), cache.prs.len());
         }
 
@@ -631,7 +631,7 @@ impl Worker {
             let (title, body) = words(f, queue.map(|q| q.kind));
             let until = if reviewing && config.review_time.hold_while_reviewing {
                 Some(Until::End)
-            } else if scheduled && queue.is_some_and(|q| q.waits_for_review()) {
+            } else if scheduled && queue.is_some_and(crate::config::Queue::waits_for_review) {
                 Some(Until::Review)
             } else {
                 None
@@ -792,7 +792,7 @@ impl Worker {
             return;
         }
         state.last_count = Some(count);
-        crate::update_tray(&self.app, count as u32, animate);
+        crate::update_tray(&self.app, u32::try_from(count).unwrap_or(u32::MAX), animate);
     }
 
     fn publish(&self) {

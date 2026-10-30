@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
 
 function stored<T>(key: string, fallback: T, valid: (value: unknown) => value is T): T {
   try {
@@ -17,6 +17,18 @@ function store(key: string, value: unknown) {
 const isUpdate = <T>(next: T | ((v: T) => T)): next is (v: T) => T => typeof next === "function";
 export function usePersisted<T>(key: string, fallback: T, valid: (value: unknown) => value is T) {
   const [value, setValue] = useState<T>(() => stored(key, fallback, valid));
+  const reread = useEffectEvent(() => {
+    setValue(stored(key, fallback, valid));
+  });
+  useEffect(() => {
+    const changed = (event: StorageEvent) => {
+      if (event.key === key || event.key === null) reread();
+    };
+    addEventListener("storage", changed);
+    return () => {
+      removeEventListener("storage", changed);
+    };
+  }, [key]);
   const set = useCallback(
     (next: T | ((v: T) => T)) => {
       setValue((v) => {

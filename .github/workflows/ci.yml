@@ -85,6 +85,12 @@ jobs:
       - name: Unit tests, at full coverage
         run: npx vp test --coverage
 
+      - name: Unit tests with the React Compiler, as shipped
+        run: npm run test:compiled
+
+      - name: Unused code and duplication
+        run: npx knip && npx jscpd
+
       - name: Install the browsers for the end-to-end tests
         run: npx playwright install --with-deps chromium webkit
 
@@ -156,6 +162,8 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build the app with its test controls
+        env:
+          FOCUS_DIFF_DEVCTL: "1"
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
             npm run tauri build -- --bundles app --features devctl --config '{"bundle":{"createUpdaterArtifacts":false}}'
@@ -288,3 +296,47 @@ jobs:
             packages/desktop/src-tauri/target/release/bundle/deb/*.deb
             packages/desktop/src-tauri/target/release/bundle/rpm/*.rpm
           if-no-files-found: error
+
+  site:
+    name: Site — check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/site
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Lint, format, duplication and unused code
+        run: npm run check
+
+      - name: Lint the Mac install script
+        run: sh -n src/install.sh && shellcheck src/install.sh
+
+      - name: Build the site
+        run: npm run build
+
+  core:
+    name: Core — check and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/core
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Typecheck, lint, format, tests at full coverage, unused code and duplication
+        run: npm run check

@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 
 import { errorText } from "@/utils/error/error";
 
-export type Turn = { id: number; question: string; answer?: string; note?: string };
+type Turn = { id: number; question: string; answer?: string; note?: string | undefined };
 export type Mode = "comment" | "ask";
 export type Chat = {
   mode: Mode | null;
@@ -13,7 +13,7 @@ export type Chat = {
   run: { id: string; at: number } | null;
   error: string | null;
 };
-export type Open = { path: string; range: SelectedLineRange; file?: boolean };
+export type Open = { path: string; range: SelectedLineRange; file?: boolean | undefined };
 type Pull = { open: Open | null; chats: Record<string, Chat> };
 
 const EMPTY: Pull = { open: null, chats: {} };
@@ -151,7 +151,7 @@ export async function askInto(
   key: string,
   question: string,
   run: string,
-  ask: (earlier: Array<{ question: string; answer: string }>) => Promise<{ text: string; note?: string }>,
+  ask: (earlier: Array<{ question: string; answer: string }>) => Promise<{ text: string; note?: string | undefined }>,
 ): Promise<boolean> {
   const chat = read(pull).chats[key] ?? BLANK;
   if (chat.run) return false;

@@ -4,9 +4,17 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "rm -rf dist && cp -R src dist && html-minifier-terser --input-dir src --output-dir dist --file-ext html --collapse-whitespace --conservative-collapse --remove-comments --minify-css true --minify-js true --collapse-boolean-attributes --remove-redundant-attributes --use-short-doctype --sort-attributes --sort-class-name"
+    "build": "rm -rf dist && cp -R src dist && html-minifier-terser --input-dir src --output-dir dist --file-ext html --collapse-whitespace --conservative-collapse --remove-comments --minify-css true --minify-js true --collapse-boolean-attributes --remove-redundant-attributes --use-short-doctype --sort-attributes --sort-class-name",
+    "check": "oxlint && oxfmt --check && knip && jscpd",
+    "duplicates": "jscpd",
+    "fmt": "oxfmt",
+    "lint": "oxlint"
   },
   "devDependencies": {
-    "html-minifier-terser": "^7.2.0"
+    "html-minifier-terser": "^7.2.0",
+    "jscpd": "^5.4.2",
+    "knip": "^6.43.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0"
   }
 }

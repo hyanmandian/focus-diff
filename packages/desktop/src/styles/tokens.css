@@ -266,13 +266,13 @@
   --selected: var(--segment-selected-bg);
   --selected-foreground: var(--segment-selected-fg);
   --success: color-mix(in oklab, var(--green-ic), black 12%);
-  --warning: var(--orange-ic);
-  --violet: var(--purple-ic);
+  --warning: color-mix(in oklab, var(--orange-ic), black 14%);
+  --violet: color-mix(in oklab, var(--purple-ic), black 18%);
   --destructive: color-mix(in oklab, var(--red-ic), black 10%);
   --secondary: var(--fill-control);
   --secondary-foreground: var(--label);
   --muted: var(--fill-control);
-  --muted-foreground: color-mix(in srgb, var(--label) 74%, transparent);
+  --muted-foreground: color-mix(in srgb, var(--label) 80%, transparent);
   --border: var(--separator);
   --input: var(--field-border);
   --ring: var(--accent);
@@ -280,6 +280,8 @@
 }
 .dark {
   --popover: #373737;
+  --warning: var(--orange-ic);
+  --violet: color-mix(in oklab, var(--purple-ic), white 18%);
   --unread: color-mix(in oklab, var(--accent), white 28%);
   --success: var(--green-ic);
   --destructive: color-mix(in oklab, var(--red-ic), white 18%);

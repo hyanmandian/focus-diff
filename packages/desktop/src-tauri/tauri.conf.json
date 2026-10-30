@@ -13,7 +13,7 @@
     "windows": [],
     "macOSPrivateApi": true,
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: avatar: http://avatar.localhost media: http://media.localhost https://*.githubusercontent.com https://github.com https://*.githubassets.com; style-src 'self' 'unsafe-inline'; media-src 'self' media: http://media.localhost; font-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' data: blob: avatar: http://avatar.localhost media: http://media.localhost https://*.githubusercontent.com https://github.com https://*.githubassets.com; style-src 'self' 'unsafe-inline'; media-src 'self' media: http://media.localhost; font-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost; base-uri 'none'; form-action 'none'; object-src 'none'"
     }
   },
   "bundle": {

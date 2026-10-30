@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings",
+  "description": "Settings: signing in and out, AI tools, the command line, updates and a test notification.",
+  "windows": [
+    "settings"
+  ],
+  "permissions": [
+    "core:app:allow-version",
+    "allow-ai-ask",
+    "allow-ai-models",
+    "allow-ai-statuses",
+    "allow-auth-device-cancel",
+    "allow-auth-device-finish",
+    "allow-auth-device-start",
+    "allow-auth-sign-out",
+    "allow-auth-use-gh",
+    "allow-auth-use-token",
+    "allow-check-update",
+    "allow-cli-installed",
+    "allow-confirm",
+    "allow-github-web-session",
+    "allow-install-cli",
+    "allow-install-update",
+    "allow-sign-in-web",
+    "allow-sign-out-web",
+    "allow-test-notification",
+    "allow-update-offered"
+  ]
+}

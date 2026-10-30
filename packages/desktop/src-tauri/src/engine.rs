@@ -287,7 +287,7 @@ struct Light {
 
 impl Light {
     fn fingerprint(&self) -> String {
-        let ci = self.commits.nodes.first().and_then(|c| c.commit.status_check_rollup.as_ref()).map(|s| s.state.as_str()).unwrap_or("");
+        let ci = self.commits.nodes.first().and_then(|c| c.commit.status_check_rollup.as_ref()).map_or("", |s| s.state.as_str());
         format!("{}|{}|{}|{}", self.updated_at, self.head_ref_oid, self.mergeable, ci)
     }
 }
@@ -313,8 +313,8 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
 }
 
 pub fn time(iso: Option<&str>) -> i64 {
-    let Some(s) = iso else { return 0 };
-    let n = |a: usize, b: usize| s.get(a..b).and_then(|p| p.parse::<i64>().ok());
+    let Some(text) = iso else { return 0 };
+    let n = |from: usize, to: usize| text.get(from..to).and_then(|p| p.parse::<i64>().ok());
     match (n(0, 4), n(5, 7), n(8, 10), n(11, 13), n(14, 16), n(17, 19)) {
         (Some(y), Some(mo), Some(d), Some(h), Some(mi), Some(se)) => (days_from_civil(y, mo, d) * 86_400 + h * 3600 + mi * 60 + se) * 1000,
         _ => 0,
@@ -326,6 +326,7 @@ fn quote(s: &str) -> String {
 }
 
 pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String {
+    static ISSUE: OnceLock<Regex> = OnceLock::new();
     let mut parts: Vec<String> = vec!["is:pr".into(), "archived:false".into()];
     match queue.kind {
         Kind::Review => parts.extend(["is:open".into(), format!("review-requested:{me}")]),
@@ -340,13 +341,12 @@ pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String 
         }
         Kind::Custom => {
             static STATE: OnceLock<Regex> = OnceLock::new();
-            if !STATE.get_or_init(|| Regex::new(r"(?i)\b(is:(open|closed|merged|unmerged)|state:)").unwrap()).is_match(&queue.query) {
+            if !STATE.get_or_init(|| Regex::new(r"(?i)\b(is:(open|closed|merged|unmerged)|state:)").expect("a valid pattern")).is_match(&queue.query) {
                 parts.push("is:open".into());
             }
         }
     }
-    static ISSUE: OnceLock<Regex> = OnceLock::new();
-    let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").unwrap()).replace_all(&queue.query, "");
+    let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").expect("a valid pattern")).replace_all(&queue.query, "");
     let query = query.trim();
     if !query.is_empty() {
         parts.push(query.to_string());
@@ -697,7 +697,7 @@ pub fn is_bot(actor: Option<&Actor>) -> bool {
 }
 
 fn login(actor: Option<&Actor>) -> &str {
-    actor.map(|a| a.login.as_str()).unwrap_or("")
+    actor.map_or("", |a| a.login.as_str())
 }
 
 pub fn ci_state(pr: &PullRequest) -> Option<String> {
@@ -792,6 +792,11 @@ fn event(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&A
     Event { key: format!("{}:{kind}:{id}", pr.id), kind, at, who: who.cloned(), text: None }
 }
 
+fn comment_event(pr: &PullRequest, c: &Comment, me: &str) -> Event {
+    let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
+    said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref())
+}
+
 fn said(pr: &PullRequest, kind: &'static str, id: &str, at: i64, who: Option<&Actor>, body: Option<&str>) -> Event {
     Event { text: snippet(body.unwrap_or("")), ..event(pr, kind, id, at, who) }
 }
@@ -802,13 +807,13 @@ pub fn snippet(body: &str) -> Option<String> {
     static PATTERNS: OnceLock<[(Regex, &str); 7]> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
         [
-            (Regex::new(r"(?s)```.*?(```|$)").unwrap(), " "),
-            (Regex::new(r"(?s)<!--.*?(-->|$)").unwrap(), " "),
-            (Regex::new(r"(?m)^\s*>.*$").unwrap(), " "),
-            (Regex::new(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>").unwrap(), " "),
-            (Regex::new(r"\[([^\]]*)\]\([^)]*\)").unwrap(), "$1"),
-            (Regex::new(r"(?m)</?[a-zA-Z][^>]*>|\*\*|~~|`|^#+\s+").unwrap(), ""),
-            (Regex::new(r"\s+").unwrap(), " "),
+            (Regex::new(r"(?s)```.*?(```|$)").expect("a valid pattern"), " "),
+            (Regex::new(r"(?s)<!--.*?(-->|$)").expect("a valid pattern"), " "),
+            (Regex::new(r"(?m)^\s*>.*$").expect("a valid pattern"), " "),
+            (Regex::new(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>").expect("a valid pattern"), " "),
+            (Regex::new(r"\[([^\]]*)\]\([^)]*\)").expect("a valid pattern"), "$1"),
+            (Regex::new(r"(?m)</?[a-zA-Z][^>]*>|\*\*|~~|`|^#+\s+").expect("a valid pattern"), ""),
+            (Regex::new(r"\s+").expect("a valid pattern"), " "),
         ]
     });
     let mut text = body.to_string();
@@ -898,8 +903,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 let since = waiting.max(act.last);
                 for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
                     if by_others(c) && time(c.created_at.as_deref()) > since {
-                        let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
-                        events.push(said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
+                        events.push(comment_event(pr, c, me));
                     }
                 }
                 items.push(Item { via_teams: Some(if direct { vec![] } else { via }), waiting_since: Some(waiting), ..item(events) });
@@ -938,8 +942,7 @@ pub fn items_for(queue: &Queue, prs: &[Arc<PullRequest>], me: &str, previous_ci:
                 }
                 for c in notes(pr).into_iter().chain(threads(pr).flatten()) {
                     if by_others(c) {
-                        let kind = if mentions(c.body.as_deref().unwrap_or(""), me) { "mention" } else { "comment" };
-                        events.push(said(pr, kind, &c.url, time(c.created_at.as_deref()), c.author.as_ref(), c.body.as_deref()));
+                        events.push(comment_event(pr, c, me));
                     }
                 }
                 if matches!(ci.as_deref(), Some("FAILURE" | "ERROR")) {
@@ -1144,8 +1147,16 @@ mod tests {
 
     fn kinds(items: &[Item]) -> Vec<&'static str> {
         let mut k: Vec<_> = items.iter().flat_map(|i| i.events.iter().map(|e| e.kind)).collect();
-        k.sort();
+        k.sort_unstable();
         k
+    }
+
+    fn authored(pull: Value) -> Vec<Item> {
+        items(&queue(Kind::Authored, json!({})), &[pr(pull)])
+    }
+
+    fn approval(url: &str, body: Option<&str>) -> Value {
+        json!({ "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": url, "body": body })
     }
 
     fn comment(login: &str, minutes_ago: i64, body: &str) -> Value {
@@ -1217,7 +1228,7 @@ mod tests {
     #[test]
     fn review_also_looks_for_my_requested_changes() {
         let light = |id: &str| json!({ "id": id, "updatedAt": t(1), "headRefOid": "h", "mergeable": "MERGEABLE" });
-        let script = Script { replies: Mutex::new(vec![page(json!([light("A"), light("B")])), page(json!([light("B"), light("C")]))]), calls: Mutex::new(vec![]) };
+        let script = Script { replies: Mutex::new(vec![Ok(page(json!([light("A"), light("B")]))), Ok(page(json!([light("B"), light("C")])))]), calls: Mutex::new(vec![]) };
         let found = search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap();
         assert_eq!(found.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(), ["A", "B", "C"]);
         let asked: Vec<String> = script.calls.held().iter().map(|v| v["q"].as_str().unwrap().to_string()).collect();
@@ -1288,19 +1299,16 @@ mod tests {
 
     #[test]
     fn authored_queues() {
-        let found = items(
-            &queue(Kind::Authored, json!({})),
-            &[pr(json!({
-                "author": user(ME),
-                "latestOpinionatedReviews": { "nodes": [
-                    { "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": "u1" },
-                    { "author": user("bruno"), "state": "CHANGES_REQUESTED", "submittedAt": t(4), "url": "u2" },
-                ] },
-                "comments": { "nodes": [comment("carla", 3, "ok")] },
-                "commits": { "nodes": [{ "commit": { "committedDate": t(2), "statusCheckRollup": { "state": "FAILURE" } } }] },
-                "mergeable": "CONFLICTING",
-            }))],
-        );
+        let found = authored(json!({
+            "author": user(ME),
+            "latestOpinionatedReviews": { "nodes": [
+                approval("u1", None),
+                { "author": user("bruno"), "state": "CHANGES_REQUESTED", "submittedAt": t(4), "url": "u2" },
+            ] },
+            "comments": { "nodes": [comment("carla", 3, "ok")] },
+            "commits": { "nodes": [{ "commit": { "committedDate": t(2), "statusCheckRollup": { "state": "FAILURE" } } }] },
+            "mergeable": "CONFLICTING",
+        }));
         assert_eq!(kinds(&found), ["approved", "changes", "ci-failed", "comment", "conflict", "new"]);
 
         let passing = pr(json!({ "author": user(ME) }));
@@ -1441,10 +1449,7 @@ mod tests {
         let comments: Vec<&Event> = found[0].events.iter().filter(|e| e.kind == "comment").collect();
         assert_eq!(comments.len(), 1, "only since you were asked");
         assert_eq!(comments[0].text.as_deref(), Some("Can you look at this?"));
-        let mine = items(
-            &queue(Kind::Authored, json!({})),
-            &[pr(json!({ "author": user(ME), "latestOpinionatedReviews": { "nodes": [{ "author": user("ana"), "state": "APPROVED", "submittedAt": t(5), "url": "u", "body": "Ship it" }] } }))],
-        );
+        let mine = authored(json!({ "author": user(ME), "latestOpinionatedReviews": { "nodes": [approval("u", Some("Ship it"))] } }));
         let approved = mine[0].events.iter().find(|e| e.kind == "approved").unwrap();
         assert_eq!(approved.text.as_deref(), Some("Ship it"));
     }
@@ -1489,8 +1494,8 @@ mod tests {
         }
     }
 
-    fn page(nodes: Value) -> Result<Value, Failure> {
-        Ok(json!({ "search": { "pageInfo": { "hasNextPage": false, "endCursor": null }, "nodes": nodes } }))
+    fn page(nodes: Value) -> Value {
+        json!({ "search": { "pageInfo": { "hasNextPage": false, "endCursor": null }, "nodes": nodes } })
     }
 
     #[test]
@@ -1499,8 +1504,8 @@ mod tests {
         let script = Script {
             replies: Mutex::new(vec![
                 Err(Failure { status: 200, message: "Resource limits for this query exceeded.".into() }),
-                page(json!([light, null])),
-                page(json!([light, {}])),
+                Ok(page(json!([light, null]))),
+                Ok(page(json!([light, {}]))),
             ]),
             calls: Mutex::new(vec![]),
         };
@@ -1520,16 +1525,16 @@ mod tests {
         let q = queue(Kind::Custom, json!({}));
         let mut cache = Cache::default();
 
-        let first = Script { replies: Mutex::new(vec![page(json!([light("A", "1"), light("B", "1")])), Ok(json!({ "nodes": [full("A"), full("B")] }))]), calls: Mutex::new(vec![]) };
+        let first = Script { replies: Mutex::new(vec![Ok(page(json!([light("A", "1"), light("B", "1")]))), Ok(json!({ "nodes": [full("A"), full("B")] }))]), calls: Mutex::new(vec![]) };
         sync(&first, &[&q], ME, &mut cache, false, false, T0).unwrap();
         assert_eq!(cache.prs.len(), 2);
 
-        let second = Script { replies: Mutex::new(vec![page(json!([light("A", "1"), light("B", "2")])), Ok(json!({ "nodes": [full("B")] }))]), calls: Mutex::new(vec![]) };
+        let second = Script { replies: Mutex::new(vec![Ok(page(json!([light("A", "1"), light("B", "2")]))), Ok(json!({ "nodes": [full("B")] }))]), calls: Mutex::new(vec![]) };
         sync(&second, &[&q], ME, &mut cache, false, false, T0).unwrap();
         let calls = second.calls.held();
         assert_eq!(calls[1]["ids"], json!(["B"]));
 
-        let third = Script { replies: Mutex::new(vec![page(json!([light("A", "1")]))]), calls: Mutex::new(vec![]) };
+        let third = Script { replies: Mutex::new(vec![Ok(page(json!([light("A", "1")])))]), calls: Mutex::new(vec![]) };
         sync(&third, &[&q], ME, &mut cache, false, false, T0).unwrap();
         assert_eq!(third.calls.held().len(), 1, "nothing changed: no second request");
         assert_eq!(cache.prs.keys().collect::<Vec<_>>(), ["A"], "B left the queue and the cache");

@@ -151,7 +151,7 @@ export type TimelineNode =
     >
   | GitHubEvent<
       "ReviewRequestedEvent" | "ReviewRequestRemovedEvent",
-      { requestedReviewer: { __typename: string; login?: string; name?: string } | null }
+      { requestedReviewer: { __typename: string; login?: string; name?: string | undefined } | null }
     >
   | GitHubEvent<"LabeledEvent" | "UnlabeledEvent", { label: { name: string; color: string } }>
   | GitHubEvent<"RenamedTitleEvent", { previousTitle: string; currentTitle: string }>

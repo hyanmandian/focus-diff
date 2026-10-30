@@ -117,7 +117,11 @@ export function ReactionList({
                   <button
                     type="button"
                     aria-pressed={r.mine}
-                    aria-label={label}
+                    aria-label={t("review.reactionButton", {
+                      count: r.count,
+                      who,
+                      reaction: t(`review.reaction.${r.content}`),
+                    })}
                     disabled={!canReact}
                     onClick={() => {
                       onToggle(r.content);
@@ -152,9 +156,9 @@ export function CommentMenu({
   onDelete,
 }: {
   url: string;
-  onQuote?: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onQuote?: (() => void) | undefined;
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
 }) {
   const t = useT();
   const api = useConversationApi();

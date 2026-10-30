@@ -34,6 +34,7 @@ pub enum SkipIfI {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[expect(clippy::struct_excessive_bools, reason = "mirrors the settings file's switches")]
 pub struct Queue {
     pub id: String,
     pub name: String,
@@ -150,6 +151,7 @@ impl Default for Session {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[expect(clippy::struct_excessive_bools, reason = "mirrors the settings file's switches")]
 pub struct ReviewTime {
     pub enabled: bool,
     pub sessions: Vec<Session>,

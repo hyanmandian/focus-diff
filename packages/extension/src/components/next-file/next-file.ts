@@ -5,7 +5,7 @@ import { formatNumber as format } from "@/utils/format/format";
 
 export interface NextFile {
   left: number;
-  nextFilter?: { name: string; left: number };
+  nextFilter?: { name: string; left: number } | undefined;
 }
 
 export const createNextFile = (onNext: () => void) => {

@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::time::Duration;
 
 use tauri::{AppHandle};
@@ -6,7 +7,7 @@ use crate::disk;
 use crate::github::{repo_ok, Auth};
 use crate::i18n::tr;
 
-const SWEEP_AFTER: Duration = Duration::from_secs(14 * 24 * 3600);
+const SWEEP_AFTER: Duration = Duration::from_hours(14 * 24);
 pub const LARGEST: usize = 20 * 1024 * 1024;
 pub const ABSENT: &str = "absent";
 
@@ -24,7 +25,7 @@ fn encode(path: &str) -> String {
         if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~' | b'/') {
             out.push(b as char);
         } else {
-            out.push_str(&format!("%{b:02X}"));
+            let _ = write!(out, "%{b:02X}");
         }
     }
     out

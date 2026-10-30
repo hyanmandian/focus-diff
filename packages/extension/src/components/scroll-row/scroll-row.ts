@@ -26,7 +26,7 @@ export const scrollRow = (element: HTMLElement, signal?: AbortSignal) => {
     row.classList.toggle("more-before", element.scrollLeft > 1);
     row.classList.toggle("more-after", element.scrollLeft < end - 1);
   };
-  element.addEventListener("scroll", updateEdges, { passive: true, signal });
+  element.addEventListener("scroll", updateEdges, { passive: true, ...(signal ? { signal } : {}) });
   wheelScrollsSideways(element, signal);
   return { row, updateEdges };
 };

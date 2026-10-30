@@ -108,6 +108,7 @@ pub enum Source {
 }
 
 #[derive(Serialize)]
+#[expect(clippy::struct_excessive_bools, reason = "the sign-in facts the pages show")]
 pub struct Status {
     pub signed_in: bool,
     pub source: Option<Source>,
@@ -182,13 +183,12 @@ impl Auth {
             return Ok(token);
         }
         let source = *self.source.held();
-        let token = match source {
-            Some(Source::Gh) => gh_token()?,
-            _ => {
-                let token = keychain()?.get_password().map_err(|_| tr!("Not signed in to GitHub", "Você não está conectado ao GitHub"))?;
-                *self.source.held() = Some(Source::Keychain);
-                token
-            }
+        let token = if source == Some(Source::Gh) {
+            gh_token()?
+        } else {
+            let token = keychain()?.get_password().map_err(|_| tr!("Not signed in to GitHub", "Você não está conectado ao GitHub"))?;
+            *self.source.held() = Some(Source::Keychain);
+            token
         };
         *self.token.held() = Some(token.clone());
         Ok(token)
@@ -272,6 +272,9 @@ impl Auth {
     }
 
     pub fn request_for_page(&self, method: &str, path: &str, body: Option<&str>, accept: Option<&str>) -> Result<(u16, String), String> {
+        if !page_may_ask(method, path) {
+            return Err("Bad request".into());
+        }
         let read = method == "GET" || (method == "POST" && ((path == "/graphql" && is_query(body)) || path == "/markdown"));
         if !read {
             self.recent.held().clear();
@@ -331,6 +334,19 @@ impl Auth {
 
 pub(crate) fn path_ok(path: &str) -> bool {
     path.starts_with('/') && !path.starts_with("//") && !path.contains('\\')
+}
+
+fn page_may_ask(method: &str, path: &str) -> bool {
+    let route = path.split(['?', '#']).next().unwrap_or(path);
+    let plain = path_ok(path) && !route.split('/').any(|part| matches!(part.to_ascii_lowercase().replace("%2e", ".").as_str(), "." | ".."));
+    let repos = route.strip_prefix("/repos/").is_some_and(|rest| !rest.is_empty());
+    plain
+        && match method {
+            "GET" => repos || route == "/emojis",
+            "POST" => repos || route == "/graphql" || route == "/markdown",
+            "PUT" | "PATCH" | "DELETE" => repos,
+            _ => false,
+        }
 }
 
 pub(crate) fn https_host(url: &str) -> Option<String> {
@@ -399,6 +415,7 @@ fn call_bytes(token: &str, path: &str, accept: &str, largest: usize) -> Result<(
 }
 
 #[derive(Serialize)]
+#[expect(clippy::struct_field_names, reason = "GitHub's names for the device flow's fields")]
 pub struct DeviceCode {
     pub device_code: String,
     pub user_code: String,
@@ -496,6 +513,48 @@ mod tests {
         for bad in ["http://github.com/", "https://", "https://user@github.com/", "https://github.com:8443/", "https://evil.com\\.github.com/"] {
             assert_eq!(https_host(bad), None, "{bad}");
         }
+    }
+
+    #[test]
+    fn pages_ask_only_what_the_app_uses() {
+        for (method, path) in [
+            ("GET", "/repos/acme/web/pulls/7/files?per_page=100&page=2"),
+            ("GET", "/repos/acme/web/compare/a1...b2?per_page=1"),
+            ("GET", "/emojis"),
+            ("POST", "/graphql"),
+            ("POST", "/markdown"),
+            ("POST", "/repos/acme/web/issues/7/comments"),
+            ("PUT", "/repos/acme/web/pulls/7/merge"),
+            ("PATCH", "/repos/acme/web/issues/7"),
+            ("DELETE", "/repos/octo/web/git/refs/heads/feature/x"),
+        ] {
+            assert!(page_may_ask(method, path), "{method} {path}");
+        }
+        for (method, path) in [
+            ("GET", "/user"),
+            ("GET", "/user/emails"),
+            ("GET", "/repos/"),
+            ("GET", "/repos/../user"),
+            ("GET", "/repos/acme/%2E%2e/user"),
+            ("GET", "/repos/acme/./web"),
+            ("GET", "//api.example.com/repos/acme/web"),
+            ("GET", "repos/acme/web"),
+            ("GET", "/graphql"),
+            ("POST", "/user/repos"),
+            ("POST", "/emojis"),
+            ("DELETE", "/graphql"),
+            ("PATCH", "/markdown"),
+            ("HEAD", "/repos/acme/web"),
+            ("get", "/repos/acme/web"),
+            ("OPTIONS", "/repos/acme/web"),
+            ("DELETE", "/authorizations/1"),
+            ("PUT", "/user/starred/acme/web"),
+        ] {
+            assert!(!page_may_ask(method, path), "{method} {path}");
+        }
+        let auth = Auth { token: Mutex::new(Some(format!("ghp_{}", "Z".repeat(36)))), ..Auth::default() };
+        assert_eq!(auth.request_for_page("GET", "/user", None, None), Err("Bad request".into()));
+        assert_eq!(auth.request_for_page("TRACE", "/repos/acme/web", None, None), Err("Bad request".into()));
     }
 
     #[test]

@@ -8,15 +8,26 @@ type Mermaid = typeof mermaidApi;
 let mermaid: Promise<Mermaid> | null = null;
 let drawn = 0;
 
-async function draw(blocks: HTMLPreElement[]) {
+async function load(): Promise<Mermaid | null> {
   mermaid ??= import("mermaid").then((m) => m.default);
-  const m = await mermaid;
-  m.initialize({
-    startOnLoad: false,
-    securityLevel: "strict",
-    theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
-    fontFamily: getComputedStyle(document.body).fontFamily,
-  });
+  try {
+    const m = await mermaid;
+    m.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
+      fontFamily: getComputedStyle(document.body).fontFamily,
+    });
+    return m;
+  } catch {
+    mermaid = null;
+    return null;
+  }
+}
+
+async function draw(blocks: HTMLPreElement[]) {
+  const m = await load();
+  if (!m) return;
   for (const pre of blocks) {
     if (!pre.isConnected) continue;
     const source = pre.textContent;

@@ -1,13 +1,12 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { StrictMode, useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { Ai } from "@/components/settings-ai/settings-ai";
 import type { AiStatus } from "@/utils/bridge/bridge";
 import { defaultConfig, REVIEW_PROMPT, type AiProvider, type Config } from "@/utils/config/config";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
+import { renderEditing } from "@/utils/mock-render/mock-render";
 
 afterEach(() => {
   setLanguage("en");
@@ -57,25 +56,20 @@ function setup(ai: Partial<Config["ai"]> = {}, rust: Rust = {}) {
     if (cmd === "confirm") return rust.confirm ?? true;
     return null;
   });
-  const changes = vi.fn<(c: Config) => void>();
   const initial = defaultConfig();
-  function Harness() {
-    const [config, setConfig] = useState<Config>({ ...initial, ai: { ...initial.ai, ...ai } });
-    return (
-      <Ai
-        config={config}
-        onChange={(c) => {
-          changes(c);
-          setConfig(c);
-        }}
-      />
-    );
-  }
-  render(<Harness />, { wrapper: StrictMode });
-  const last = () => changes.mock.lastCall![0].ai;
+  const {
+    user,
+    changes,
+    last: lastConfig,
+  } = renderEditing<Config>(
+    { ...initial, ai: { ...initial.ai, ...ai } },
+    (config, onChange) => <Ai config={config} onChange={onChange} />,
+    { strict: true },
+  );
+  const last = () => lastConfig().ai;
   const asked = (cmd: string) => calls.filter((c) => c.cmd === cmd);
   return {
-    user: userEvent.setup(),
+    user,
     changes,
     last,
     asked,

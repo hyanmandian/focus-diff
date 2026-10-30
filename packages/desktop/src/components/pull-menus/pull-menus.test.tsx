@@ -22,6 +22,16 @@ const allowed = (a: Pull["allowed"]) => fakePull({ allowed: a });
 const item = (name: string) => screen.getByRole("menuitem", { name });
 const items = () => screen.queryAllByRole("menuitem").map((i) => i.textContent);
 
+function mergeMenu(view: Pull["view"]) {
+  const pull = fakePull({ view });
+  render(
+    <Menu>
+      <MergeMenuItems details={details} pull={pull} onDetails={nothing} />
+    </Menu>,
+  );
+  return pull;
+}
+
 describe("MergeMenuItems", () => {
   it("merges by each way the repository allows, asking first", async () => {
     const pull = fakePull();
@@ -41,12 +51,7 @@ describe("MergeMenuItems", () => {
   });
 
   it("offers merging when ready, and taking it back", async () => {
-    const pull = fakePull({ view: fakeView({ canMerge: false, canAutoMerge: true, canDisableAutoMerge: true }) });
-    render(
-      <Menu>
-        <MergeMenuItems details={details} pull={pull} onDetails={nothing} />
-      </Menu>,
-    );
+    const pull = mergeMenu(fakeView({ canMerge: false, canAutoMerge: true, canDisableAutoMerge: true }));
     expect(screen.getByRole("group", { name: "Merge When Ready" })).toBeTruthy();
     await userEvent.click(item("Create Merge Commit"));
     expect(pull.actions.autoMerge).toHaveBeenCalledWith("merge");
@@ -55,12 +60,7 @@ describe("MergeMenuItems", () => {
   });
 
   it("adds to the merge queue and takes it out", async () => {
-    const pull = fakePull({ view: fakeView({ canMerge: false, canEnqueue: true, canDequeue: true }) });
-    render(
-      <Menu>
-        <MergeMenuItems details={details} pull={pull} onDetails={nothing} />
-      </Menu>,
-    );
+    const pull = mergeMenu(fakeView({ canMerge: false, canEnqueue: true, canDequeue: true }));
     await userEvent.click(item("Add to Merge Queue"));
     await userEvent.click(item("Remove from Merge Queue"));
     expect(pull.actions.enqueue).toHaveBeenCalled();
@@ -68,46 +68,26 @@ describe("MergeMenuItems", () => {
   });
 
   it("lets an admin bypass the rules when it can't be merged otherwise", async () => {
-    const pull = fakePull({ view: fakeView({ canMerge: false, canBypass: true }) });
-    render(
-      <Menu>
-        <MergeMenuItems details={details} pull={pull} onDetails={nothing} />
-      </Menu>,
-    );
+    const pull = mergeMenu(fakeView({ canMerge: false, canBypass: true }));
     expect(screen.getByRole("group", { name: "Bypass Rules" })).toBeTruthy();
     await userEvent.click(item("Squash and Merge…"));
     expect(pull.actions.merge).toHaveBeenCalledWith("squash", undefined, { bypass: true });
   });
 
   it("doesn't offer bypassing when it can be merged anyway", () => {
-    const both = fakePull({ view: fakeView({ canBypass: true }) });
-    render(
-      <Menu>
-        <MergeMenuItems details={details} pull={both} onDetails={nothing} />
-      </Menu>,
-    );
+    mergeMenu(fakeView({ canBypass: true }));
     expect(screen.queryByRole("group", { name: "Bypass Rules" })).toBeNull();
   });
 
   it("updates the branch by merging or rebasing", async () => {
-    const pull = fakePull({ view: fakeView({ canMerge: false, canUpdateBranch: true }) });
-    render(
-      <Menu>
-        <MergeMenuItems details={details} pull={pull} onDetails={nothing} />
-      </Menu>,
-    );
+    const pull = mergeMenu(fakeView({ canMerge: false, canUpdateBranch: true }));
     await userEvent.click(item("Update with Merge Commit"));
     await userEvent.click(item("Update with Rebase"));
     expect(vi.mocked(pull.actions.updateBranch).mock.calls).toEqual([["MERGE"], ["REBASE"]]);
   });
 
   it("shows nothing before it knows where the pull request stands", () => {
-    const unknown = fakePull({ view: null });
-    render(
-      <Menu>
-        <MergeMenuItems details={details} pull={unknown} onDetails={nothing} />
-      </Menu>,
-    );
+    mergeMenu(null);
     expect(items()).toEqual([]);
   });
 });

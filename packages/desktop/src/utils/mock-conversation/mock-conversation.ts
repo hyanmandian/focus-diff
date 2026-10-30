@@ -503,7 +503,7 @@ type Put = {
   line: number;
   side: string;
   startLine?: number | null;
-  file?: boolean;
+  file?: boolean | undefined;
   body: string;
   id?: string | null;
   replyTo?: string | null;

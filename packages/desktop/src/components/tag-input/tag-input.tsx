@@ -8,7 +8,7 @@ type Props = {
   value: string[];
   onChange: (value: string[]) => void;
   placeholder?: string;
-  validate?: (value: string) => string | null;
+  validate?: ((value: string) => string | null) | undefined;
   label: string;
 };
 

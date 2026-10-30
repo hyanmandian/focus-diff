@@ -52,7 +52,7 @@ pub fn tail(reader: impl Read, max: usize) -> std::io::Result<(Vec<u8>, bool)> {
     let mut reader = reader;
     let mut kept: VecDeque<u8> = VecDeque::with_capacity(max.min(64 * 1024));
     let mut cut = false;
-    let mut buffer = [0u8; 64 * 1024];
+    let mut buffer = vec![0u8; 64 * 1024];
     loop {
         let n = reader.read(&mut buffer)?;
         if n == 0 {
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn keeps_the_end_of_a_long_one_from_a_line_start() {
-        let log = (0..1000).map(|i| format!("line {i}\n")).collect::<String>();
+        let log = (0..1000).map(|i| format!("line {i}\n")).collect::<Vec<_>>().concat();
         let (bytes, cut) = tail(log.as_bytes(), 50).unwrap();
         let text = String::from_utf8(bytes).unwrap();
         assert!(cut);

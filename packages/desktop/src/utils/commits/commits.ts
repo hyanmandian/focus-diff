@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { github, graphql } from "@/utils/bridge/bridge";
 import { errorText } from "@/utils/error/error";
-import { header, type PullRef, type ReviewFile } from "@/utils/review/review";
+import { toReviewFile, type GitHubFile, type PullRef, type ReviewFile } from "@/utils/review/review";
 import { shelve, shelved } from "@/utils/shelf/shelf";
 
 export type Ci = "success" | "failure" | "pending" | null;
@@ -17,7 +17,7 @@ export type Commit = {
   ci: Ci;
   parent: string | null;
 };
-export type ForcePush = { at: string; actor: string | null; before: string | null; after: string | null };
+type ForcePush = { at: string; actor: string | null; before: string | null; after: string | null };
 export type Commits = {
   commits: Commit[];
   forcePushes: ForcePush[];
@@ -175,29 +175,10 @@ export function loadRangeFiles(ref: PullRef, range: NonNullable<Range>): Promise
   const key = `${ref.owner}/${ref.repo}:${range.from}...${range.to}`;
   const known = compared.get(key);
   if (known) return known;
-  type Compared = {
-    files?: Array<{
-      filename: string;
-      previous_filename?: string;
-      status: ReviewFile["status"];
-      additions: number;
-      deletions: number;
-      patch?: string;
-    }>;
-  };
-  const files = github<Compared>(
+  const files = github<{ files?: GitHubFile[] }>(
     "GET",
     `/repos/${ref.owner}/${ref.repo}/compare/${range.from}...${range.to}?per_page=1`,
-  ).then((data) =>
-    (data.files ?? []).map((f) => ({
-      path: f.filename,
-      previousPath: f.previous_filename ?? null,
-      status: f.status,
-      additions: f.additions,
-      deletions: f.deletions,
-      patch: f.patch ? `${header(f)}\n${f.patch}\n` : "",
-    })),
-  );
+  ).then((data) => (data.files ?? []).map((f) => toReviewFile(f)));
   compared.set(key, files);
   files.catch(() => compared.delete(key));
   return files;

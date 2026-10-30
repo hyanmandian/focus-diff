@@ -312,38 +312,30 @@ describe("Checks", () => {
       expect(screen.queryByRole("button", { name: "Re-run Job" })).toBeNull();
     });
 
-    it("re-runs one job, and says how it went", async () => {
-      const calls = answer();
+    it.each([
+      ["how re-running one job went", () => answer(), "Re-running", ["POST /repos/acme/shop/actions/jobs/70/rerun"]],
+      ["why GitHub wouldn't re-run a job", () => answer({ rerun: 403 }), "Not allowed", []],
+      [
+        "what Rust said when the call itself failed",
+        () => {
+          mockCommands(() => {
+            // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- Rust's errors reach the page as strings.
+            throw "No network";
+          });
+          return [];
+        },
+        "No network",
+        [],
+      ],
+    ])("says %s", async (_case, rust: () => string[], said, posted) => {
+      const calls = rust();
       const { say } = checks({ checks: [failing] });
       await userEvent.click(row(/test/u));
       await userEvent.click(screen.getByRole("button", { name: "Re-run Job" }));
       await waitFor(() => {
-        expect(say).toHaveBeenCalledWith("Re-running");
+        expect(say).toHaveBeenCalledWith(said);
       });
-      expect(calls).toContain("POST /repos/acme/shop/actions/jobs/70/rerun");
-    });
-
-    it("says why GitHub wouldn't re-run a job", async () => {
-      answer({ rerun: 403 });
-      const { say } = checks({ checks: [failing] });
-      await userEvent.click(row(/test/u));
-      await userEvent.click(screen.getByRole("button", { name: "Re-run Job" }));
-      await waitFor(() => {
-        expect(say).toHaveBeenCalledWith("Not allowed");
-      });
-    });
-
-    it("says what Rust said when the call itself failed", async () => {
-      mockCommands(() => {
-        // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- Rust's errors reach the page as strings.
-        throw "No network";
-      });
-      const { say } = checks({ checks: [failing] });
-      await userEvent.click(row(/test/u));
-      await userEvent.click(screen.getByRole("button", { name: "Re-run Job" }));
-      await waitFor(() => {
-        expect(say).toHaveBeenCalledWith("No network");
-      });
+      expect(calls).toEqual(expect.arrayContaining(posted));
     });
 
     it("doesn't offer re-running a job to who can't", async () => {

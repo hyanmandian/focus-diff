@@ -96,7 +96,7 @@ function takesDarkText(hex: string) {
   return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > 0.183;
 }
 
-export function FileIcon({ path, className }: { path: string; className?: string }) {
+export function FileIcon({ path, className }: { path: string; className?: string | undefined }) {
   const tile = tileOf(path);
   if (!Array.isArray(tile)) {
     const Icon = tile;
@@ -107,6 +107,7 @@ export function FileIcon({ path, className }: { path: string; className?: string
   return (
     <span
       aria-hidden
+      data-slot="file-icon"
       style={{ backgroundColor: color }}
       className={cn(
         "grid h-3.5 w-[18px] shrink-0 place-items-center rounded-[3px] font-sans text-[7.5px] leading-none font-bold tracking-[-0.02em]",

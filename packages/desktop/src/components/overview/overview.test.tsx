@@ -4,14 +4,17 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vite-plus/test";
 
 import { Overview } from "@/components/overview/overview";
+import type { ThreadView } from "@/components/thread/thread";
 import { openViewer } from "@/components/viewer/viewer";
 import { ConversationProvider, copyText, type ConversationApi } from "@/hooks/use-conversation/use-conversation";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { AiReview, Finding } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Conversation, ConversationEntry, Said } from "@/utils/conversation/conversation";
-import type { Details, Entry } from "@/utils/details/details";
+import type { Entry } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
+import { ThreadStub } from "@/utils/mock-render/mock-render";
 import type { Thread } from "@/utils/review/review";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
@@ -88,59 +91,17 @@ vi.mock("@/components/thread/thread", () => ({
       </button>
     </fieldset>
   ),
-  ThreadView: ({
-    thread,
-    onReply,
-    onResolve,
-  }: {
-    thread: Thread;
-    onReply: (body: string) => Promise<void>;
-    onResolve: (resolved: boolean) => Promise<void>;
-  }) => (
-    <div>
-      <button type="button" onClick={() => void onReply("Thanks")}>
-        Reply to {thread.id}
-      </button>
-      <button type="button" onClick={() => void onResolve(true)}>
-        Resolve {thread.id}
-      </button>
-    </div>
-  ),
+  ThreadView: (given: ComponentProps<typeof ThreadView>) => ThreadStub(given),
 }));
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const ana = { login: "ana", name: "Ana Lima", avatarUrl: "https://avatars.githubusercontent.com/u/1" };
 
-const details: Details = {
-  id: "PR_1",
+const details = fakeDetails({
   number: 1807,
   title: "Keep the promo code when the cart changes",
-  url: "https://github.com/acme/shop/pull/1807",
   html: "<p>Fixes the cart.</p>",
-  owner: "acme",
-  repo: "shop",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
-  headRefName: "promo-keep",
-  headRefOid: "abc123",
-  updatedAt: ago(5),
-  additions: 10,
-  deletions: 2,
-  changedFiles: 1,
-  createdAt: ago(120),
-  author: ana,
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+});
 
 const comment = (id: string, minutes: number, extra: Partial<Said> = {}): ConversationEntry => ({
   kind: "comment",
@@ -240,6 +201,7 @@ function props(extra: Partial<Props> = {}): Props {
     review: null,
     reviewing: false,
     reviewError: null,
+    onStopReview: vi.fn<Props["onStopReview"]>(),
     onJump: vi.fn<Props["onJump"]>(),
     threads: [],
     onReply: vi.fn<Props["onReply"]>(done),
@@ -300,6 +262,13 @@ describe("the heading", () => {
     expect(screen.getByTitle("main")).toBeTruthy();
     expect(screen.getByTitle("promo-keep")).toBeTruthy();
     expect(screen.getByLabelText("from")).toBeTruthy();
+  });
+
+  it("says whether it's still open or already merged", () => {
+    const { again } = show();
+    expect(screen.getByText("Open")).toBeTruthy();
+    again({ details: { ...details, state: "MERGED" } });
+    expect(screen.getByText("Merged")).toBeTruthy();
   });
 
   it("shows the stack it's in under the heading, and goes to another of it", async () => {
@@ -491,7 +460,7 @@ describe("the conversation", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Reply to T1" }));
-    expect(p.onReply).toHaveBeenCalledWith(started, "Thanks");
+    expect(p.onReply).toHaveBeenCalledWith(started, "Agreed");
     await user.click(screen.getByRole("button", { name: "Resolve T2" }));
     expect(p.onResolve).toHaveBeenCalledWith(onFile, true);
   });
@@ -684,6 +653,12 @@ describe("at a glance", () => {
     expect(screen.getByText("Ask AI")).toBeTruthy();
     again({ config: claude });
     expect(screen.queryByRole("heading", { name: /AI review/u })).toBeNull();
+  });
+
+  it("stops the review it's running", async () => {
+    const { onStopReview } = show({ config: claude, reviewing: true });
+    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(onStopReview).toHaveBeenCalledOnce();
   });
 
   it("says what it's reading while it reviews", () => {

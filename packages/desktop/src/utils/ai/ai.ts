@@ -3,6 +3,7 @@ import { bridge, isRecord, type AiAnswer } from "@/utils/bridge/bridge";
 import type { AiProvider, Config, Effort } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
 import { i18n } from "@/utils/i18n/i18n";
+import { patchLines } from "@/utils/patch/patch";
 import { loadFiles, type ReviewFile } from "@/utils/review/review";
 
 export const PROVIDERS: Record<AiProvider, { name: string; install: string; efforts: Array<Effort | ""> }> = {
@@ -32,7 +33,7 @@ export function system(config: Config): string {
   return [ROLE, project ? PROJECT : null, guidelines].filter(Boolean).join("\n\n");
 }
 
-export function material(details: Details, files: ReviewFile[]): string {
+function material(details: Details, files: ReviewFile[]): string {
   return [
     `Title: ${details.title}`,
     `Repository: ${details.owner}/${details.repo} #${details.number}, ${details.headRefName} into ${details.baseRefName}`,
@@ -45,7 +46,12 @@ export const questionEffort = (effort: Effort | ""): Effort => (effort === "low"
 
 export const newRun = () => crypto.randomUUID();
 
-type Call = { schema?: object; recap?: string; session?: boolean; runId?: string };
+type Call = {
+  schema?: object | undefined;
+  recap?: string | undefined;
+  session?: boolean | undefined;
+  runId?: string | undefined;
+};
 
 function run(config: Config, details: Details, files: ReviewFile[], task: string, call: Call = {}): Promise<AiAnswer> {
   const { provider, model, effort, project, ownSettings } = config.ai;
@@ -80,7 +86,13 @@ export type Finding = {
   inDiff: boolean;
 };
 
-export type AiReview = { summary: string; findings: Finding[]; project: boolean; note?: string; at: number };
+export type AiReview = {
+  summary: string;
+  findings: Finding[];
+  project: boolean;
+  note?: string | undefined;
+  at: number;
+};
 
 const SCHEMA = {
   type: "object",
@@ -126,9 +138,9 @@ export function commentable(patch: string): Set<number> {
   return lines;
 }
 
-export async function review(config: Config, details: Details, files: ReviewFile[]): Promise<AiReview> {
+export async function review(config: Config, details: Details, files: ReviewFile[], runId?: string): Promise<AiReview> {
   const task = `${config.ai.review.prompt}\n\nGive each problem as a finding on the line it's about. If nothing is worth raising, return no findings.`;
-  const answer = await run(config, details, files, task, { schema: SCHEMA });
+  const answer = await run(config, details, files, task, { schema: SCHEMA, runId });
   let parsed: unknown;
   try {
     parsed = JSON.parse(answer.text);
@@ -167,25 +179,9 @@ export function linesFromPatch(
   side: "additions" | "deletions" = "additions",
 ): string {
   const out: string[] = [];
-  let old = 0;
-  let now = 0;
-  for (const text of patch.split("\n")) {
-    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(text);
-    if (hunk) {
-      old = Number(hunk[1]);
-      now = Number(hunk[2]);
-      continue;
-    }
-    if (!now || text.startsWith("\\")) continue;
-    const kind = text[0];
+  for (const { text, kind, old, now } of patchLines(patch)) {
     const line = side === "additions" ? now : old;
     if (kind !== (side === "additions" ? "-" : "+") && line >= start && line <= end) out.push(text);
-    if (kind === "+") now++;
-    else if (kind === "-") old++;
-    else {
-      now++;
-      old++;
-    }
   }
   return out.join("\n");
 }

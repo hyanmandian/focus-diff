@@ -218,7 +218,7 @@ fn check_for_updates(app: &AppHandle) {
             }
             Ok(None) => {
                 let version = app.package_info().version.to_string();
-                dialog.message(tr!("{name} {version} is the newest version.", "O {name} {version} é a versão mais recente.")).title(tr!("You're up to date", "Você está com a versão mais recente")).show(|_| {})
+                dialog.message(tr!("{name} {version} is the newest version.", "O {name} {version} é a versão mais recente.")).title(tr!("You're up to date", "Você está com a versão mais recente")).show(|_| {});
             }
             Err(e) => dialog.message(e).title(tr!("Couldn't check for updates", "Não foi possível buscar atualizações")).kind(MessageDialogKind::Warning).show(|_| {}),
         }

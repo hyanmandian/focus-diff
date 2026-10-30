@@ -82,7 +82,7 @@ export async function loadConversation(d: PullRef): Promise<Conversation> {
   type Raw = {
     repository: {
       pullRequest: {
-        body?: string;
+        body?: string | undefined;
         bodyHTML?: string;
         viewerCanUpdate?: boolean;
         viewerCanReact?: boolean;

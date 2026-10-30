@@ -15,7 +15,7 @@ pub const HOST: &str = "https://github.com";
 const KEYCHAIN_SERVICE: &str = "com.focusdiff.app";
 const KEYCHAIN_ACCOUNT: &str = "github.com session";
 pub const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15";
-const PATIENCE: Duration = Duration::from_secs(60 * 60);
+const PATIENCE: Duration = Duration::from_hours(1);
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Session {
@@ -61,6 +61,7 @@ impl Session {
 }
 
 #[derive(Default)]
+#[expect(clippy::option_option, reason = "None until the keychain is read, then whether a session is kept")]
 pub struct WebSession(Mutex<Option<Option<Session>>>);
 
 fn keychain() -> Result<keyring::Entry, String> {

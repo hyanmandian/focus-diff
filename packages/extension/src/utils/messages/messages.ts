@@ -11,7 +11,7 @@ export const COMMANDS = [
 type Command = (typeof COMMANDS)[number];
 
 export type Message =
-  | { type: "open-options"; repo?: string | null; section?: string }
+  | { type: "open-options"; repo?: string | null | undefined; section?: string | undefined }
   | { type: "open-welcome" }
   | { type: "command"; command: Command }
   | { type: "inbox-refresh" }
@@ -19,4 +19,8 @@ export type Message =
   | { type: "review-start" | "review-snooze" | "review-skip" | "review-end" }
   | { type: "review-open"; url: string; repo: string }
   | { type: "play-sound"; sound: SoundId; volume: number }
-  | { type: "show-options"; repo?: string | null; section?: string };
+  | { type: "show-options"; repo?: string | null | undefined; section?: string | undefined };
+
+const PULL_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/u;
+
+export const isPullUrl = (url: unknown): url is string => typeof url === "string" && PULL_URL.test(url);

@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { BinaryFile, bothVersions, fileAt, isBinary, mergeBase, textAt, type Source } from "@/utils/contents/contents";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fieldsOf, mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Args } from "@/utils/platform/platform";
 
-const field = (args: Args | undefined, key: string): unknown =>
-  args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array)
-    ? args[key]
-    : undefined;
+const field = (args: Args | undefined, key: string): unknown => fieldsOf(args)[key];
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 

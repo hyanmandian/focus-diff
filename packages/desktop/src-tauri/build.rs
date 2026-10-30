@@ -1,3 +1,10 @@
+const COMMANDS: &[&str] = &["queue_viewed", "queued_viewed", "drafts_put", "drafts_remove", "drafts_state", "drafts_retry", "drafts_forget", "drafts_flush", "read_file", "write_file", "snapshot", "refresh", "mark_seen", "mark_queue_seen", "dismiss", "reviewed", "test_notification", "restore", "end_review", "clear_arrival", "github", "github_file", "job_log", "spare_ready", "kept_read", "kept_write", "auth_status", "auth_use_gh", "auth_use_token", "auth_device_start", "auth_device_finish", "auth_device_cancel", "auth_sign_out", "github_web_session", "sign_in_web", "sign_out_web", "upload_attachment", "ai_statuses", "ai_models", "ai_ask", "ai_prepare", "ai_cancel", "run_action", "open_url", "open_settings", "open_setup", "open_panel", "take_link", "install_cli", "cli_installed", "check_update", "update_offered", "install_update", "open_review", "switch_review", "hide_panel", "log", "report_problem", "quit", "confirm", "menu_state"];
+
 fn main() {
-    tauri_build::build()
+    println!("cargo::rerun-if-env-changed=FOCUS_DIFF_DEVCTL");
+    println!("cargo::rustc-check-cfg=cfg(devctl_allowed)");
+    if std::env::var("FOCUS_DIFF_DEVCTL").as_deref() == Ok("1") {
+        println!("cargo::rustc-cfg=devctl_allowed");
+    }
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(COMMANDS))).expect("the Tauri build to succeed");
 }

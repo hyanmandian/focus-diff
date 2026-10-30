@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_possible_wrap, reason = "sample math on small, bounded numbers")]
+
 use tauri::{AppHandle};
 
 pub const OWN: bool = cfg!(target_os = "macos");
@@ -27,7 +29,7 @@ pub fn bowl() -> Vec<u8> {
         })
         .collect();
     let peak = samples.iter().fold(0.0f32, |m, s| m.max(s.abs())).max(f32::EPSILON);
-    let pcm: Vec<i16> = samples.iter().map(|s| (s / peak * 0.5 * i16::MAX as f32) as i16).collect();
+    let pcm: Vec<i16> = samples.iter().map(|s| (s / peak * 0.5 * f32::from(i16::MAX)) as i16).collect();
 
     let data = (pcm.len() * 2) as u32;
     let mut wav = Vec::with_capacity(44 + data as usize);

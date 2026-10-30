@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "common",
+  "description": "What every one of the app's own windows needs: listening for the app's events, dragging by a custom title bar, and the commands they all share. github.com's sign-in window (web.rs) is named in no capability, so it can't reach the app.",
+  "windows": [
+    "panel",
+    "settings",
+    "setup",
+    "review-*"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "allow-auth-status",
+    "allow-github",
+    "allow-job-log",
+    "allow-log",
+    "allow-open-url",
+    "allow-read-file",
+    "allow-write-file"
+  ]
+}

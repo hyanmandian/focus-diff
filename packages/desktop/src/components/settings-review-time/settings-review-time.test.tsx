@@ -1,6 +1,5 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { StrictMode, useState } from "react";
+import { act, screen, waitFor } from "@testing-library/react";
+import type userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ReviewTimePane } from "@/components/settings-review-time/settings-review-time";
@@ -12,8 +11,9 @@ import {
   type ReviewSession,
   type ReviewTime,
 } from "@/utils/config/config";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { answerConfirm } from "@/utils/fake-platform/fake-platform";
 import { setLanguage } from "@/utils/i18n/i18n";
+import { renderEditing } from "@/utils/mock-render/mock-render";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -45,42 +45,21 @@ const queue = (id: string, name: string, patch: Partial<Queue> = {}): Queue => (
   ...patch,
 });
 
-function titleOf(args: unknown): string {
-  if (typeof args === "object" && args !== null && "title" in args && typeof args.title === "string") return args.title;
-  return "";
-}
-
 function setup(review: Partial<ReviewTime> = {}, queues: Queue[] = [], confirm = true) {
-  const asked: string[] = [];
-  mockCommands((cmd, args) => {
-    if (cmd === "confirm") {
-      asked.push(titleOf(args));
-      return confirm;
-    }
-    return null;
-  });
-  const changes = vi.fn<(c: Config) => void>();
+  const asked = answerConfirm(confirm);
   const initial = defaultConfig();
-  function Harness() {
-    const [config, setConfig] = useState<Config>({
-      ...initial,
-      queues,
-      reviewTime: { ...initial.reviewTime, ...review },
-    });
-    return (
-      <ReviewTimePane
-        config={config}
-        onChange={(c) => {
-          changes(c);
-          setConfig(c);
-        }}
-      />
-    );
-  }
-  render(<Harness />, { wrapper: StrictMode });
-  const last = () => changes.mock.lastCall![0].reviewTime;
+  const {
+    user,
+    changes,
+    last: lastConfig,
+  } = renderEditing<Config>(
+    { ...initial, queues, reviewTime: { ...initial.reviewTime, ...review } },
+    (config, onChange) => <ReviewTimePane config={config} onChange={onChange} />,
+    { strict: true },
+  );
+  const last = () => lastConfig().reviewTime;
   const current = () => last().sessions[0]!;
-  return { user: userEvent.setup(), changes, last, current, asked };
+  return { user, changes, last, current, asked };
 }
 
 const rowOf = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`, "u") });

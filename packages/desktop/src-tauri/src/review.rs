@@ -334,7 +334,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(clippy::float_cmp, reason = "these estimates come out exact")]
     fn estimates_from_changed_lines() {
         let pr: PullRequest = serde_json::from_value(json!({ "additions": 480, "deletions": 100, "changedFiles": 4 })).unwrap();
         assert_eq!(estimate_minutes(&pr, 1.0), 31.0, "500 weighted lines at 1,000 an hour, plus a minute for 4 files");
@@ -361,7 +360,7 @@ mod tests {
         let over = plan(vec![candidate("huge", 50.0, 1, false), candidate("bigger", 70.0, 3, false)], 30, Order::Oldest, false);
         assert_eq!(ids(&over), ["bigger"]);
         assert_eq!((over.over_by, over.left), (40, 1));
-        assert!(plan(vec![], 30, Order::Fill, true).picked.is_empty());
+        assert_eq!(ids(&plan(vec![], 30, Order::Fill, true)), [] as [&str; 0]);
     }
 
     #[test]

@@ -675,9 +675,9 @@ impl Scratch {
 
     fn within(parent: &Path) -> Result<Scratch, String> {
         let dir = parent.join(format!("focus-diff-{}", unguessable()));
-        let mut builder = std::fs::DirBuilder::new();
+        let builder = &mut std::fs::DirBuilder::new();
         #[cfg(unix)]
-        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        std::os::unix::fs::DirBuilderExt::mode(builder, 0o700);
         builder.create(&dir).map_err(|e| e.to_string())?;
         Ok(Scratch(dir))
     }

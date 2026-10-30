@@ -30,6 +30,7 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
   $ErrorActionPreference = 'Continue'
   & gh auth status *> $null
   $signedIn = $LASTEXITCODE -eq 0
+  $global:LASTEXITCODE = 0
   $ErrorActionPreference = 'Stop'
   if (-not $signedIn) {
     Write-Host "Notice: the GitHub CLI (gh) isn't signed in, so the build provenance wasn't checked. The checksum was."

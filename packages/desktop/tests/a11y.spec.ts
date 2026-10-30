@@ -26,6 +26,14 @@ const PAGES: Array<{ name: string; url: string; ready: (page: Page) => Promise<v
 ];
 
 const violations = async (page: Page) => {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity)
+        .map((animation) => animation.finished),
+    ),
+  );
   const { violations: found } = await new AxeBuilder({ page })
     .exclude("[data-slot=file-icon]")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
@@ -41,7 +49,9 @@ for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await page.goto(url);
       await ready(page);
-      await page.addStyleTag({ content: "html.panel, html.panel.dark { --panel-tint: var(--background); }" });
+      await page.addStyleTag({
+        content: "html.panel, html.panel.dark { --panel-tint: var(--background); }",
+      });
       expect(await violations(page)).toEqual([]);
     });
   }

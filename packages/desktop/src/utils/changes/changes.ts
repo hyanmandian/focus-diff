@@ -1,6 +1,6 @@
 import changelog from "../../../CHANGELOG.md?raw";
 
-export type Change = { kind: "feature" | "fix"; text: string };
+type Change = { kind: "feature" | "fix"; text: string };
 export type Release = { version: string; date: string; changes: Change[] };
 
 const HEADING = /^## \[?(\d+\.\d+\.\d+)\]?(?:\([^)]*\))?\s*\((\d{4}-\d{2}-\d{2})\)/u;

@@ -4,7 +4,7 @@ export type InvokeOptions = { headers: Record<string, string> };
 
 export type Unlisten = () => void;
 
-export type Media = "avatar" | "media";
+type Media = "avatar" | "media";
 
 export interface Platform {
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the caller names the shape the app answers in

@@ -32,7 +32,7 @@ export function system(config: Config): string {
   return [ROLE, project ? PROJECT : null, guidelines].filter(Boolean).join("\n\n");
 }
 
-export function material(details: Details, files: ReviewFile[]): string {
+function material(details: Details, files: ReviewFile[]): string {
   return [
     `Title: ${details.title}`,
     `Repository: ${details.owner}/${details.repo} #${details.number}, ${details.headRefName} into ${details.baseRefName}`,

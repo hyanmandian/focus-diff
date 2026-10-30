@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 
 import { errorText } from "@/utils/error/error";
 
-export type Turn = { id: number; question: string; answer?: string; note?: string };
+type Turn = { id: number; question: string; answer?: string; note?: string };
 export type Mode = "comment" | "ask";
 export type Chat = {
   mode: Mode | null;

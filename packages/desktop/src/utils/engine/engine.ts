@@ -36,7 +36,7 @@ export type PullRequest = {
   comments: number;
 };
 
-export type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED";
+type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED";
 
 export type Event = { key: string; kind: EventKind; at: number; who: Actor; text?: string };
 

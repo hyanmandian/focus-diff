@@ -17,7 +17,7 @@ export type Commit = {
   ci: Ci;
   parent: string | null;
 };
-export type ForcePush = { at: string; actor: string | null; before: string | null; after: string | null };
+type ForcePush = { at: string; actor: string | null; before: string | null; after: string | null };
 export type Commits = {
   commits: Commit[];
   forcePushes: ForcePush[];

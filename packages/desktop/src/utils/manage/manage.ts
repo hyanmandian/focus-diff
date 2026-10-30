@@ -20,7 +20,7 @@ export type LinkedIssue = {
   url: string;
   repo: string;
 };
-export type Deployment = {
+type Deployment = {
   id: string;
   environment: string;
   state: string;

@@ -7,7 +7,7 @@ import type { PullRef } from "@/utils/review/review";
 
 export type Method = Details["mergeMethods"][number];
 
-export type MergeStatus =
+type MergeStatus =
   | "merged"
   | "closed"
   | "draft"

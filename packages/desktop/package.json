@@ -17,7 +17,7 @@
     "test": "vp test",
     "coverage": "vp test --coverage",
     "e2e": "playwright test",
-    "check": "vp check && vp test --coverage"
+    "check": "vp check && vp test --coverage && knip && jscpd"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -49,6 +49,8 @@
     "@vitest/coverage-v8": "^5.0.5",
     "babel-plugin-react-compiler": "1.0.0",
     "happy-dom": "^21.0.4",
+    "jscpd": "^5.4.2",
+    "knip": "^6.43.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",

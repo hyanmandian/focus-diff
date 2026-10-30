@@ -1,0 +1,9 @@
+{
+  "path": ["src", "tests", "scripts", "src-tauri/src"],
+  "format": ["typescript", "tsx", "css", "rust"],
+  "minLines": 5,
+  "minTokens": 50,
+  "threshold": 0,
+  "reporters": ["console"],
+  "gitignore": true
+}

@@ -2,7 +2,7 @@ import type { AiProvider } from "@/utils/config/config";
 import { i18n } from "@/utils/i18n/i18n";
 import { invoke, platform } from "@/utils/platform/platform";
 
-export type AuthSource = "keychain" | "gh";
+type AuthSource = "keychain" | "gh";
 
 export type AuthStatus = {
   signed_in: boolean;
@@ -33,7 +33,7 @@ export type AiStatus = {
   update_command: string;
 };
 
-export type AiUsage = {
+type AiUsage = {
   input: number;
   cacheCreated: number;
   cacheRead: number;

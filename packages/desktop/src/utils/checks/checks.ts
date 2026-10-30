@@ -183,14 +183,14 @@ export const allRuns = (checks: CheckItem[]) => [
   ...new Set(checks.filter((c) => c.run && c.state !== "pending").map((c) => c.run!)),
 ];
 
-export type Annotation = {
+type Annotation = {
   path: string;
   line: number | null;
   level: "FAILURE" | "WARNING" | "NOTICE";
   title: string | null;
   message: string;
 };
-export type Step = { number: number; name: string; state: CheckState };
+type Step = { number: number; name: string; state: CheckState };
 export type CheckDetail = { summary: string | null; text: string | null; annotations: Annotation[]; steps: Step[] };
 
 function nonBlank(text: string | null | undefined) {

@@ -4,7 +4,7 @@ import type { Details } from "@/utils/details/details";
 import { i18n } from "@/utils/i18n/i18n";
 import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
-export type PendingComment = {
+type PendingComment = {
   id: string;
   body: string;
   html: string;

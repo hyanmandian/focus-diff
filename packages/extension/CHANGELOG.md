@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/hyanmandian/focus-diff/compare/v1.3.1...v1.3.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **extension:** take background messages only from the extension's own pages ([c8c8cab](https://github.com/hyanmandian/focus-diff/commit/c8c8cab284f619960d794b5f523e04aa50fc10e6))
+
 ## [1.3.1](https://github.com/hyanmandian/focus-diff/compare/v1.3.0...v1.3.1) (2026-10-30)
 
 

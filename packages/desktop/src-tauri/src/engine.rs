@@ -287,7 +287,7 @@ struct Light {
 
 impl Light {
     fn fingerprint(&self) -> String {
-        let ci = self.commits.nodes.first().and_then(|c| c.commit.status_check_rollup.as_ref()).map(|s| s.state.as_str()).unwrap_or("");
+        let ci = self.commits.nodes.first().and_then(|c| c.commit.status_check_rollup.as_ref()).map_or("", |s| s.state.as_str());
         format!("{}|{}|{}|{}", self.updated_at, self.head_ref_oid, self.mergeable, ci)
     }
 }
@@ -313,8 +313,8 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
 }
 
 pub fn time(iso: Option<&str>) -> i64 {
-    let Some(s) = iso else { return 0 };
-    let n = |a: usize, b: usize| s.get(a..b).and_then(|p| p.parse::<i64>().ok());
+    let Some(text) = iso else { return 0 };
+    let n = |from: usize, to: usize| text.get(from..to).and_then(|p| p.parse::<i64>().ok());
     match (n(0, 4), n(5, 7), n(8, 10), n(11, 13), n(14, 16), n(17, 19)) {
         (Some(y), Some(mo), Some(d), Some(h), Some(mi), Some(se)) => (days_from_civil(y, mo, d) * 86_400 + h * 3600 + mi * 60 + se) * 1000,
         _ => 0,
@@ -326,6 +326,7 @@ fn quote(s: &str) -> String {
 }
 
 pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String {
+    static ISSUE: OnceLock<Regex> = OnceLock::new();
     let mut parts: Vec<String> = vec!["is:pr".into(), "archived:false".into()];
     match queue.kind {
         Kind::Review => parts.extend(["is:open".into(), format!("review-requested:{me}")]),
@@ -340,13 +341,12 @@ pub fn search_for(queue: &Queue, me: &str, now: i64, orgs: &[String]) -> String 
         }
         Kind::Custom => {
             static STATE: OnceLock<Regex> = OnceLock::new();
-            if !STATE.get_or_init(|| Regex::new(r"(?i)\b(is:(open|closed|merged|unmerged)|state:)").unwrap()).is_match(&queue.query) {
+            if !STATE.get_or_init(|| Regex::new(r"(?i)\b(is:(open|closed|merged|unmerged)|state:)").expect("a valid pattern")).is_match(&queue.query) {
                 parts.push("is:open".into());
             }
         }
     }
-    static ISSUE: OnceLock<Regex> = OnceLock::new();
-    let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").unwrap()).replace_all(&queue.query, "");
+    let query = ISSUE.get_or_init(|| Regex::new(r"\bis:issue\b").expect("a valid pattern")).replace_all(&queue.query, "");
     let query = query.trim();
     if !query.is_empty() {
         parts.push(query.to_string());
@@ -697,7 +697,7 @@ pub fn is_bot(actor: Option<&Actor>) -> bool {
 }
 
 fn login(actor: Option<&Actor>) -> &str {
-    actor.map(|a| a.login.as_str()).unwrap_or("")
+    actor.map_or("", |a| a.login.as_str())
 }
 
 pub fn ci_state(pr: &PullRequest) -> Option<String> {
@@ -802,13 +802,13 @@ pub fn snippet(body: &str) -> Option<String> {
     static PATTERNS: OnceLock<[(Regex, &str); 7]> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
         [
-            (Regex::new(r"(?s)```.*?(```|$)").unwrap(), " "),
-            (Regex::new(r"(?s)<!--.*?(-->|$)").unwrap(), " "),
-            (Regex::new(r"(?m)^\s*>.*$").unwrap(), " "),
-            (Regex::new(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>").unwrap(), " "),
-            (Regex::new(r"\[([^\]]*)\]\([^)]*\)").unwrap(), "$1"),
-            (Regex::new(r"(?m)</?[a-zA-Z][^>]*>|\*\*|~~|`|^#+\s+").unwrap(), ""),
-            (Regex::new(r"\s+").unwrap(), " "),
+            (Regex::new(r"(?s)```.*?(```|$)").expect("a valid pattern"), " "),
+            (Regex::new(r"(?s)<!--.*?(-->|$)").expect("a valid pattern"), " "),
+            (Regex::new(r"(?m)^\s*>.*$").expect("a valid pattern"), " "),
+            (Regex::new(r"!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>").expect("a valid pattern"), " "),
+            (Regex::new(r"\[([^\]]*)\]\([^)]*\)").expect("a valid pattern"), "$1"),
+            (Regex::new(r"(?m)</?[a-zA-Z][^>]*>|\*\*|~~|`|^#+\s+").expect("a valid pattern"), ""),
+            (Regex::new(r"\s+").expect("a valid pattern"), " "),
         ]
     });
     let mut text = body.to_string();
@@ -1144,7 +1144,7 @@ mod tests {
 
     fn kinds(items: &[Item]) -> Vec<&'static str> {
         let mut k: Vec<_> = items.iter().flat_map(|i| i.events.iter().map(|e| e.kind)).collect();
-        k.sort();
+        k.sort_unstable();
         k
     }
 
@@ -1217,7 +1217,7 @@ mod tests {
     #[test]
     fn review_also_looks_for_my_requested_changes() {
         let light = |id: &str| json!({ "id": id, "updatedAt": t(1), "headRefOid": "h", "mergeable": "MERGEABLE" });
-        let script = Script { replies: Mutex::new(vec![page(json!([light("A"), light("B")])), page(json!([light("B"), light("C")]))]), calls: Mutex::new(vec![]) };
+        let script = Script { replies: Mutex::new(vec![Ok(page(json!([light("A"), light("B")]))), Ok(page(json!([light("B"), light("C")])))]), calls: Mutex::new(vec![]) };
         let found = search(&script, &queue(Kind::Review, json!({})), ME, T0, &[]).unwrap();
         assert_eq!(found.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(), ["A", "B", "C"]);
         let asked: Vec<String> = script.calls.held().iter().map(|v| v["q"].as_str().unwrap().to_string()).collect();
@@ -1489,8 +1489,8 @@ mod tests {
         }
     }
 
-    fn page(nodes: Value) -> Result<Value, Failure> {
-        Ok(json!({ "search": { "pageInfo": { "hasNextPage": false, "endCursor": null }, "nodes": nodes } }))
+    fn page(nodes: Value) -> Value {
+        json!({ "search": { "pageInfo": { "hasNextPage": false, "endCursor": null }, "nodes": nodes } })
     }
 
     #[test]
@@ -1499,8 +1499,8 @@ mod tests {
         let script = Script {
             replies: Mutex::new(vec![
                 Err(Failure { status: 200, message: "Resource limits for this query exceeded.".into() }),
-                page(json!([light, null])),
-                page(json!([light, {}])),
+                Ok(page(json!([light, null]))),
+                Ok(page(json!([light, {}]))),
             ]),
             calls: Mutex::new(vec![]),
         };
@@ -1520,16 +1520,16 @@ mod tests {
         let q = queue(Kind::Custom, json!({}));
         let mut cache = Cache::default();
 
-        let first = Script { replies: Mutex::new(vec![page(json!([light("A", "1"), light("B", "1")])), Ok(json!({ "nodes": [full("A"), full("B")] }))]), calls: Mutex::new(vec![]) };
+        let first = Script { replies: Mutex::new(vec![Ok(page(json!([light("A", "1"), light("B", "1")]))), Ok(json!({ "nodes": [full("A"), full("B")] }))]), calls: Mutex::new(vec![]) };
         sync(&first, &[&q], ME, &mut cache, false, false, T0).unwrap();
         assert_eq!(cache.prs.len(), 2);
 
-        let second = Script { replies: Mutex::new(vec![page(json!([light("A", "1"), light("B", "2")])), Ok(json!({ "nodes": [full("B")] }))]), calls: Mutex::new(vec![]) };
+        let second = Script { replies: Mutex::new(vec![Ok(page(json!([light("A", "1"), light("B", "2")]))), Ok(json!({ "nodes": [full("B")] }))]), calls: Mutex::new(vec![]) };
         sync(&second, &[&q], ME, &mut cache, false, false, T0).unwrap();
         let calls = second.calls.held();
         assert_eq!(calls[1]["ids"], json!(["B"]));
 
-        let third = Script { replies: Mutex::new(vec![page(json!([light("A", "1")]))]), calls: Mutex::new(vec![]) };
+        let third = Script { replies: Mutex::new(vec![Ok(page(json!([light("A", "1")])))]), calls: Mutex::new(vec![]) };
         sync(&third, &[&q], ME, &mut cache, false, false, T0).unwrap();
         assert_eq!(third.calls.held().len(), 1, "nothing changed: no second request");
         assert_eq!(cache.prs.keys().collect::<Vec<_>>(), ["A"], "B left the queue and the cache");

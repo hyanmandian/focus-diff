@@ -20,6 +20,7 @@ pub fn local_offset(at: i64) -> i64 {
     #[cfg(target_os = "macos")]
     {
         use objc2_foundation::{NSDate, NSTimeZone};
+        #[expect(clippy::cast_precision_loss, reason = "milliseconds since 1970 fit an f64 exactly")]
         let date = NSDate::dateWithTimeIntervalSince1970(at as f64 / 1000.0);
         NSTimeZone::localTimeZone().secondsFromGMTForDate(&date) as i64 * 1000
     }
@@ -50,7 +51,7 @@ pub fn due<'a>(settings: &'a ReviewTime, last: i64, now: i64, offset: &dyn Fn(i6
     let today = (now + offset(now)).div_euclid(DAY);
     let mut best: Option<Due> = None;
     for day in [today - 1, today] {
-        let weekday = (day + 4).rem_euclid(7) as u8;
+        let weekday = u8::try_from((day + 4).rem_euclid(7)).unwrap_or_default();
         for session in settings.sessions.iter().filter(|s| s.on && s.days.contains(&weekday)) {
             for start in session.times.iter().filter_map(|t| minutes_of(t)) {
                 let at = utc(day * DAY + start * MINUTE, offset);
@@ -74,6 +75,7 @@ pub fn pace_factor(learned: &serde_json::Value) -> f64 {
     (tally("actual") + PRIOR_MINUTES) / (tally("expected") + PRIOR_MINUTES)
 }
 
+#[expect(clippy::cast_precision_loss, reason = "line and file counts are far below 2^53")]
 pub fn estimate_minutes(pr: &PullRequest, pace: f64) -> f64 {
     let lines = pr.additions.max(0) as f64 + pr.deletions.max(0) as f64 * REMOVED_LINE_WEIGHT;
     (pr.changed_files.max(0) as f64 * MINUTES_PER_FILE + lines / LINES_PER_HOUR * 60.0) * pace
@@ -108,7 +110,7 @@ impl Candidate {
             repo: pr.repository.name_with_owner.clone(),
             number: pr.number,
             url: pr.url.clone(),
-            minutes: minutes.round().max(1.0) as u32,
+            minutes: whole(minutes.round().max(1.0)),
             again,
         };
         Candidate { pull, minutes, created: crate::engine::time(Some(&pr.created_at)) }
@@ -121,8 +123,13 @@ pub struct Plan {
     pub over_by: u32,
 }
 
+#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a float to int cast saturates, and minutes are never negative")]
+fn whole(minutes: f64) -> u32 {
+    minutes as u32
+}
+
 fn best_fill(items: &[&Candidate], budget: usize) -> Vec<usize> {
-    let size = |c: &Candidate| (c.minutes.ceil() as usize).max(1);
+    let size = |c: &Candidate| (whole(c.minutes.ceil()) as usize).max(1);
     let mut best: Vec<(usize, usize, Vec<usize>)> = vec![(0, 0, vec![]); budget + 1];
     for (i, item) in items.iter().enumerate() {
         let s = size(item);
@@ -148,7 +155,7 @@ pub fn plan(mut candidates: Vec<Candidate>, minutes: u32, order: Order, again_fi
     let (first, rest): (Vec<&Candidate>, Vec<&Candidate>) = candidates.iter().partition(|c| again_first && c.pull.again);
     let fit = |list: &[&Candidate], room: f64| -> Vec<usize> {
         if order == Order::Fill {
-            let mut picks = best_fill(list, room.max(0.0).floor() as usize);
+            let mut picks = best_fill(list, whole(room.max(0.0).floor()) as usize);
             picks.sort_by(|a, b| by_age(list[*a], list[*b]));
             return picks;
         }
@@ -172,7 +179,7 @@ pub fn plan(mut candidates: Vec<Candidate>, minutes: u32, order: Order, again_fi
     let total: f64 = picked.iter().map(|c| c.minutes).sum();
     Plan {
         left: candidates.len() - picked.len(),
-        over_by: (total.round() as i64 - i64::from(minutes)).max(0) as u32,
+        over_by: whole((total.round() - f64::from(minutes)).max(0.0)),
         picked: picked.into_iter().map(|c| c.pull.clone()).collect(),
     }
 }
@@ -318,7 +325,7 @@ mod tests {
     }
 
     fn candidate(id: &str, minutes: f64, age_days: i64, again: bool) -> Candidate {
-        let pull = RunPull { id: id.into(), title: id.into(), repo: "acme/web".into(), number: 1, url: String::new(), minutes: minutes.round() as u32, again };
+        let pull = RunPull { id: id.into(), title: id.into(), repo: "acme/web".into(), number: 1, url: String::new(), minutes: whole(minutes.round()), again };
         Candidate { pull, minutes, created: MONDAY - age_days * DAY }
     }
 
@@ -327,6 +334,7 @@ mod tests {
     }
 
     #[test]
+    #[expect(clippy::float_cmp, reason = "these estimates come out exact")]
     fn estimates_from_changed_lines() {
         let pr: PullRequest = serde_json::from_value(json!({ "additions": 480, "deletions": 100, "changedFiles": 4 })).unwrap();
         assert_eq!(estimate_minutes(&pr, 1.0), 31.0, "500 weighted lines at 1,000 an hour, plus a minute for 4 files");

@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_possible_wrap, reason = "pixel math on small, bounded numbers")]
+
 use std::sync::{Mutex, OnceLock};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
@@ -50,6 +52,7 @@ mod symbol {
     pub fn render(points: f64) -> Option<Vec<u8>> {
         let px = SIZE as isize;
         let image = NSImage::imageWithSystemSymbolName_accessibilityDescription(&NSString::from_str("text.magnifyingglass"), None)?;
+        // SAFETY: NSFontWeightRegular is a constant AppKit defines.
         let image = image.imageWithSymbolConfiguration(&NSImageSymbolConfiguration::configurationWithPointSize_weight(points, unsafe { NSFontWeightRegular }))?;
         // SAFETY: a null planes pointer makes the rep allocate its own buffer.
         let rep = unsafe {
@@ -79,9 +82,9 @@ mod symbol {
         if data.is_null() {
             return None;
         }
-        let side = SIZE as usize;
+        let width = SIZE as usize;
         // SAFETY: the rep's buffer is bytesPerRow × height, 4 bytes a pixel, alpha last.
-        Some((0..side * side).map(|i| unsafe { *data.add((i / side) * row + (i % side) * 4 + 3) }).collect())
+        Some((0..width * width).map(|i| unsafe { *data.add((i / width) * row + (i % width) * 4 + 3) }).collect())
     }
 }
 
@@ -98,11 +101,11 @@ pub fn frame(focus: f32, dot: bool) -> Image<'static> {
                 for s in 0..SUPERSAMPLE * SUPERSAMPLE {
                     let x = (px + ((s % SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
                     let y = (py + ((s / SUPERSAMPLE) as f32 + 0.5) / SUPERSAMPLE as f32) / scale;
-                    hits += ((x - 14.3).powi(2) + (y - 3.7).powi(2) <= r * r) as u32;
+                    hits += u32::from((x - 14.3).powi(2) + (y - 3.7).powi(2) <= r * r);
                 }
                 hits as f32 / (SUPERSAMPLE * SUPERSAMPLE) as f32
             };
-            (cover(2.4) * 255.0).max(a as f32 * (1.0 - cover(3.8))) as u8
+            (cover(2.4) * 255.0).max(f32::from(a) * (1.0 - cover(3.8))) as u8
         } else {
             a
         };
@@ -134,7 +137,7 @@ fn drawn(focus: f32, dot: bool) -> Image<'static> {
                     let glass = (((x - gx).powi(2) + (y - gy).powi(2)).sqrt() - ring).abs() <= rim || to_segment(x, y, handle.0, handle.1) <= handle.2;
                     let near = |r: f32| (x - badge.0).powi(2) + (y - badge.1).powi(2) <= r * r;
                     let on = if dot { near(2.6) || (square && !glass && !near(4.1)) } else { square && !glass };
-                    hits += on as u32;
+                    hits += u32::from(on);
                 }
             }
             let i = ((py * SIZE + px) * 4) as usize;
@@ -264,8 +267,8 @@ mod tests {
             bmp.extend_from_slice(&32u16.to_le_bytes());
             bmp.extend_from_slice(&[0; 24]);
             for px in image.rgba().chunks(4) {
-                let a = px[3] as u32;
-                let blend = |c: u8| ((c as u32 * a + 255 * (255 - a)) / 255) as u8;
+                let a = u32::from(px[3]);
+                let blend = |c: u8| ((u32::from(c) * a + 255 * (255 - a)) / 255) as u8;
                 bmp.extend_from_slice(&[blend(px[2]), blend(px[1]), blend(px[0]), 255]);
             }
             std::fs::write(format!("{dir}/tray-{name}.bmp"), bmp).unwrap();

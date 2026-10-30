@@ -120,7 +120,7 @@ fn clean(message: &str, home: Option<&str>) -> String {
 }
 
 fn stamp(seconds: u64) -> String {
-    let (days, rest) = ((seconds / 86_400) as i64, seconds % 86_400);
+    let (days, rest) = (i64::try_from(seconds / 86_400).unwrap_or(i64::MAX), seconds % 86_400);
     let (year, month, day) = civil(days);
     format!("{year:04}-{month:02}-{day:02} {:02}:{:02}:{:02}Z", rest / 3600, rest / 60 % 60, rest % 60)
 }
@@ -132,8 +132,8 @@ fn civil(days: i64) -> (i64, u32, u32) {
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
     let mp = (5 * doy + 2) / 153;
-    let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let day = u32::try_from(doy - (153 * mp + 2) / 5 + 1).unwrap_or(1);
+    let month = u32::try_from(if mp < 10 { mp + 3 } else { mp - 9 }).unwrap_or(1);
     (yoe + era * 400 + i64::from(month <= 2), month, day)
 }
 

@@ -64,7 +64,7 @@ pub(crate) use tr;
 #[cfg(test)]
 pub fn in_locale<T>(locale: Locale, f: impl FnOnce() -> T) -> T {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     set(locale);
     let result = f();
     set(Locale::En);
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn follows_a_pick_then_the_first_language_spoken() {
-        let langs = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let langs = |l: &[&str]| l.iter().map(ToString::to_string).collect::<Vec<_>>();
         assert_eq!(resolve("en", &langs(&["pt-BR"])), Locale::En);
         assert_eq!(resolve("system", &langs(&["pt-PT", "en-US"])), Locale::PtBr);
         assert_eq!(resolve("system", &langs(&["fr-FR", "pt_BR.UTF-8"])), Locale::PtBr);

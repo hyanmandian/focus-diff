@@ -339,15 +339,14 @@ pub fn status(provider: Provider) -> Status {
     };
     let can_tell = args.first().is_some_and(|first| knows(&binary, first));
     let signed_in = !can_tell || run_with_limit(command(&binary).args(args), None, Duration::from_secs(15))
-        .map(|o| {
+        .is_ok_and(|o| {
             let text = format!("{}{}", o.stdout, o.stderr).to_lowercase();
             o.status_ok
                 && !text.contains("not logged in")
                 && !text.contains("not authenticated")
                 && !text.contains("authentication required")
                 && !text.contains("unable to fetch user details")
-        })
-        .unwrap_or(false);
+        });
     let lacking = missing(provider, &binary);
     let outdated = (!can_tell && !args.is_empty()) || !lacking.is_empty();
     crate::diagnostics::write("ai", &format!("{provider:?}: found, {}{}", if signed_in { "signed in" } else { "not signed in" }, if outdated { format!(", outdated (no {})", if lacking.is_empty() { args.join(" ") } else { lacking.join(", ") }) } else { String::new() }));
@@ -606,7 +605,7 @@ fn sessions() -> &'static Mutex<HashMap<String, Slot>> {
             std::thread::sleep(Duration::from_secs(60));
             sweep(IDLE);
         });
-        Default::default()
+        Mutex::default()
     })
 }
 
@@ -681,15 +680,14 @@ impl Scratch {
 fn unguessable() -> String {
     use std::hash::{BuildHasher, Hasher};
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
-    (0..2)
-        .map(|half| {
-            let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
-            hasher.write_u128(stamp);
-            hasher.write_u32(std::process::id());
-            hasher.write_u8(half);
-            format!("{:016x}", hasher.finish())
-        })
-        .collect()
+    let [high, low] = [0u8, 1].map(|half| {
+        let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+        hasher.write_u128(stamp);
+        hasher.write_u32(std::process::id());
+        hasher.write_u8(half);
+        hasher.finish()
+    });
+    format!("{high:016x}{low:016x}")
 }
 
 impl Drop for Scratch {
@@ -762,7 +760,7 @@ impl Session {
 
     fn turn(&mut self, content: serde_json::Value, limit: Duration, cancel: Option<&AtomicBool>) -> Result<Turn, String> {
         let line = serde_json::json!({ "type": "user", "message": { "role": "user", "content": content } }).to_string();
-        let written = self.stdin.as_mut().is_some_and(|stdin| stdin.write_all(format!("{line}\n").as_bytes()).and_then(|_| stdin.flush()).is_ok());
+        let written = self.stdin.as_mut().is_some_and(|stdin| stdin.write_all(format!("{line}\n").as_bytes()).and_then(|()| stdin.flush()).is_ok());
         if !written {
             std::thread::sleep(Duration::from_millis(100));
             return Err(self.failure(""));
@@ -803,11 +801,11 @@ impl Session {
                 cache_read: count("cache_read_input_tokens"),
                 output: count("output_tokens"),
                 cost: (total - self.spent).max(0.0),
-                ms: event["duration_ms"].as_u64().unwrap_or_else(|| started.elapsed().as_millis() as u64),
+                ms: event["duration_ms"].as_u64().unwrap_or_else(|| u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
             };
             self.spent = total;
             let structured = Some(event["structured_output"].clone()).filter(serde_json::Value::is_object);
-            let text = text.or_else(|| structured.as_ref().map(|s| s.to_string())).ok_or_else(|| self.failure(&line))?;
+            let text = text.or_else(|| structured.as_ref().map(ToString::to_string)).ok_or_else(|| self.failure(&line))?;
             return Ok(Turn { text, structured, usage });
         }
     }
@@ -898,7 +896,7 @@ fn json_object(text: &str) -> Option<String> {
     let start = text.find('{')?;
     let end = text.rfind('}')?;
     let candidate = text.get(start..=end)?;
-    serde_json::from_str::<serde_json::Value>(candidate).ok().filter(|v| v.is_object()).map(|v| v.to_string())
+    serde_json::from_str::<serde_json::Value>(candidate).ok().filter(serde_json::Value::is_object).map(|v| v.to_string())
 }
 
 fn request_file(workspace: &Path, message: &str) -> Result<Option<(PathBuf, String)>, String> {
@@ -1016,7 +1014,7 @@ fn opencode_call(q: &Question, binary: &Path, workspace: &Path, message: &str, c
 
 fn failure(output: &Output) -> String {
     let text = format!("{}\n{}", output.stderr, output.stdout);
-    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).map(String::from).unwrap_or_else(|| tr!("It didn't answer", "Não houve resposta"));
+    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty()).map_or_else(|| tr!("It didn't answer", "Não houve resposta"), String::from);
     line.chars().take(400).collect()
 }
 
@@ -1321,8 +1319,8 @@ esac
         let fallback = ask_with(&question(Provider::Cursor, "DIFF", "Still?", Some("w-cursor")), &binary).unwrap();
         assert_eq!((fallback.text.as_str(), fallback.resumed), ("fresh", false));
         let big = "x".repeat(ARGV_LIMIT);
-        let long = ask_with(&question(Provider::Cursor, &big, "Long?", None), &binary).unwrap();
-        assert!(long.text.starts_with("from a file of 1000"));
+        let from_file = ask_with(&question(Provider::Cursor, &big, "Long?", None), &binary).unwrap();
+        assert!(from_file.text.starts_with("from a file of 1000"));
         assert!(logged(&log).iter().all(|l| l.contains("Read the file `.focus-diff-request-") && !l.contains("DIFF") && !l.contains("Long?")));
         let dashed = ask_with(&question(Provider::Cursor, "DIFF", "--help me", Some("w-cursor")), &binary).unwrap();
         assert_eq!(dashed.text, "resumed: --help me");
@@ -1337,7 +1335,7 @@ esac
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "asks the AI tools installed on this computer, signed in"]
     fn ai_round_trip() {
         for status in statuses() {
             println!("{:?}: installed {}, signed in {}, {:?}", status.provider, status.installed, status.signed_in, status.version);

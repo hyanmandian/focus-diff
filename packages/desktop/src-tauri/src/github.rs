@@ -108,6 +108,7 @@ pub enum Source {
 }
 
 #[derive(Serialize)]
+#[expect(clippy::struct_excessive_bools, reason = "the sign-in facts the pages show")]
 pub struct Status {
     pub signed_in: bool,
     pub source: Option<Source>,
@@ -182,13 +183,12 @@ impl Auth {
             return Ok(token);
         }
         let source = *self.source.held();
-        let token = match source {
-            Some(Source::Gh) => gh_token()?,
-            _ => {
-                let token = keychain()?.get_password().map_err(|_| tr!("Not signed in to GitHub", "Você não está conectado ao GitHub"))?;
-                *self.source.held() = Some(Source::Keychain);
-                token
-            }
+        let token = if source == Some(Source::Gh) {
+            gh_token()?
+        } else {
+            let token = keychain()?.get_password().map_err(|_| tr!("Not signed in to GitHub", "Você não está conectado ao GitHub"))?;
+            *self.source.held() = Some(Source::Keychain);
+            token
         };
         *self.token.held() = Some(token.clone());
         Ok(token)
@@ -415,6 +415,7 @@ fn call_bytes(token: &str, path: &str, accept: &str, largest: usize) -> Result<(
 }
 
 #[derive(Serialize)]
+#[expect(clippy::struct_field_names, reason = "GitHub's names for the device flow's fields")]
 pub struct DeviceCode {
     pub device_code: String,
     pub user_code: String,

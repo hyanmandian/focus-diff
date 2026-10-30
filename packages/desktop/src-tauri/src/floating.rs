@@ -39,11 +39,11 @@ pub unsafe fn make(window: &NSWindow) {
         return;
     }
     // SAFETY: as above. objc2's set_class insists on equal sizes, which tao's extra state rules
-    unsafe { objc2::ffi::object_setClass(object as *const AnyObject as *mut AnyObject, Floating::class()) };
+    unsafe { objc2::ffi::object_setClass(std::ptr::from_ref::<AnyObject>(object).cast_mut(), Floating::class()) };
     *ORIGINAL.held() = Some(original);
     window.setStyleMask(window.styleMask() | NSWindowStyleMask::NonactivatingPanel);
     // SAFETY: it's an NSPanel now.
-    let panel = unsafe { &*(window as *const NSWindow as *const NSPanel) };
+    let panel = unsafe { &*std::ptr::from_ref::<NSWindow>(window).cast::<NSPanel>() };
     panel.setFloatingPanel(true);
     panel.setHidesOnDeactivate(false);
     window.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::FullScreenAuxiliary);
@@ -60,6 +60,6 @@ pub unsafe fn unmake(window: &NSWindow) {
     }
     if let Some(original) = ORIGINAL.held().take() {
         // SAFETY: the class it had before `make`, so tao's own dealloc frees its state.
-        unsafe { objc2::ffi::object_setClass(object as *const AnyObject as *mut AnyObject, original) };
+        unsafe { objc2::ffi::object_setClass(std::ptr::from_ref::<AnyObject>(object).cast_mut(), original) };
     }
 }

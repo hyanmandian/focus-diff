@@ -38,8 +38,7 @@ fn run(app: &AppHandle, command: &str) {
             let rect = app
                 .state::<crate::Tray>()
                 .0
-                .lock()
-                .unwrap()
+                .held()
                 .as_ref()
                 .and_then(|t| t.rect().ok().flatten())
                 .unwrap_or(Rect { position: PhysicalPosition::new(1400, 0).into(), size: PhysicalSize::new(24, 24).into() });
@@ -135,6 +134,7 @@ fn run(app: &AppHandle, command: &str) {
                     let Ok(pointer) = window.ns_window() else { return };
                     // SAFETY: Tauri's live NSWindow, on the main thread.
                     let ns = unsafe { &*(pointer as *const NSWindow) };
+                    // SAFETY: the content view of a live window, asked for its superview on the main thread.
                     let Some(frame_view) = ns.contentView().and_then(|v| unsafe { v.superview() }) else { return };
                     let height = ns.frame().size.height;
                     let hit = frame_view.hitTest(objc2_foundation::NSPoint::new(x, height - y));

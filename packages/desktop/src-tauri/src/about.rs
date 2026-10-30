@@ -56,11 +56,12 @@ mod mac {
             credits.addAttribute_value_range(NSForegroundColorAttributeName, &NSColor::secondaryLabelColor(), all);
             credits.addAttribute_value_range(NSFontAttributeName, &NSFont::systemFontOfSize(NSFont::smallSystemFontSize()), all);
             credits.addAttribute_value_range(NSParagraphStyleAttributeName, &paragraph, all);
-            let at = text.find(WEBSITE).map(|i| text[..i].encode_utf16().count()).unwrap_or(0);
+            let at = text.find(WEBSITE).map_or(0, |i| text[..i].encode_utf16().count());
             if let Some(url) = NSURL::URLWithString(&NSString::from_str(&format!("https://{WEBSITE}"))) {
                 credits.addAttribute_value_range(NSLinkAttributeName, &url, NSRange::new(at, WEBSITE.encode_utf16().count()));
             }
         }
+        // SAFETY: AppKit's About panel option names are immutable statics it defines.
         let keys: [&NSString; 3] = unsafe { [NSAboutPanelOptionApplicationVersion, NSAboutPanelOptionVersion, NSAboutPanelOptionCredits] };
         let values: [Retained<AnyObject>; 3] = [
             Retained::into_super(Retained::into_super(NSString::from_str(version))),

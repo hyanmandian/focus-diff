@@ -5,7 +5,7 @@ use tauri::{AppHandle};
 
 use crate::disk;
 
-const SWEEP_AFTER: Duration = Duration::from_secs(14 * 24 * 3600);
+const SWEEP_AFTER: Duration = Duration::from_hours(14 * 24);
 const LARGEST: usize = 8 * 1024 * 1024;
 
 fn file(app: &AppHandle, id: &str) -> Result<PathBuf, String> {

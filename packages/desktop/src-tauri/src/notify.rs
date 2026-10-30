@@ -77,7 +77,7 @@ pub fn start(app: &AppHandle) {
     let done = RcBlock::new(|granted: Bool, error: *mut NSError| {
         if !granted.as_bool() {
             // SAFETY: the system passes a valid NSError or null, alive for the call.
-            let why = unsafe { error.as_ref() }.map(|e| e.localizedDescription().to_string()).unwrap_or_else(|| "turned off in System Settings".into());
+            let why = unsafe { error.as_ref() }.map_or_else(|| "turned off in System Settings".into(), |e| e.localizedDescription().to_string());
             crate::diagnostics::write("notify", &format!("notifications aren't allowed: {why}"));
         }
     });
@@ -85,10 +85,10 @@ pub fn start(app: &AppHandle) {
 }
 
 pub fn show(title: &str, body: &str, sound: bool, url: Option<&str>) {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
     if !bundled() {
         return;
     }
-    static NEXT: AtomicU64 = AtomicU64::new(0);
     let content = UNMutableNotificationContent::new();
     content.setTitle(&NSString::from_str(title));
     content.setBody(&NSString::from_str(body));

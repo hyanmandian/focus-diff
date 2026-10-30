@@ -7,7 +7,7 @@ use crate::i18n::tr;
 use crate::sync::Locked;
 
 const FIRST_CHECK: Duration = Duration::from_secs(30);
-const EVERY: Duration = Duration::from_secs(6 * 3600);
+const EVERY: Duration = Duration::from_hours(6);
 
 #[derive(Default)]
 pub struct Pending(Mutex<Option<Update>>);

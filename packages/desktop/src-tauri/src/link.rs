@@ -33,7 +33,7 @@ fn owner_ok(owner: &str) -> bool {
 
 pub fn parse(text: &str) -> Option<PullLink> {
     static LINK: OnceLock<Regex> = OnceLock::new();
-    let link = LINK.get_or_init(|| Regex::new(r"^(?:https://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})/([\w.-]{1,100})/pull/([1-9][0-9]{0,9})(?:/[\w./-]*)?(?:\?[^\s#]*)?(?:#\S*)?$").unwrap());
+    let link = LINK.get_or_init(|| Regex::new(r"^(?:https://)?(?:www\.)?github\.com/([A-Za-z0-9-]{1,39})/([\w.-]{1,100})/pull/([1-9][0-9]{0,9})(?:/[\w./-]*)?(?:\?[^\s#]*)?(?:#\S*)?$").expect("a valid pattern"));
     let found = link.captures(text.trim())?;
     let (owner, repo) = (&found[1], &found[2]);
     if !owner_ok(owner) || repo == "." || repo == ".." {
@@ -111,13 +111,14 @@ pub fn command_line(args: &[String]) -> Option<i32> {
         return None;
     }
     Some(match first.as_str() {
-        "open" => match args.get(1).and_then(|text| parse(text)) {
-            Some(link) => send(&link),
-            None => {
+        "open" => {
+            if let Some(link) = args.get(1).and_then(|text| parse(text)) {
+                send(&link)
+            } else {
                 eprintln!("That isn't a pull request's link on GitHub: {}\n\n{USAGE}", args.get(1).map_or("(none)", String::as_str));
                 2
             }
-        },
+        }
         "help" | "--help" | "-h" => {
             println!("{USAGE}");
             0
@@ -253,7 +254,7 @@ mod tests {
 
     #[test]
     fn command_line() {
-        let args = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let args = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
         assert_eq!(super::command_line(&args(&[])), None);
         assert_eq!(super::command_line(&args(&["-psn_0_123"])), None);
         assert_eq!(super::command_line(&args(&["help"])), Some(0));

@@ -7,7 +7,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::disk;
 
-const KEEP: Duration = Duration::from_secs(7 * 24 * 3600);
+const KEEP: Duration = Duration::from_hours(7 * 24);
 const LARGEST: u64 = 200 * 1024 * 1024;
 
 pub(crate) fn decode(s: &str) -> String {
@@ -19,7 +19,7 @@ pub(crate) fn decode(s: &str) -> String {
             b'%' if i + 2 < bytes.len() => {
                 let hex = |b: u8| char::from(b).to_digit(16);
                 if let (Some(high), Some(low)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
-                    out.push((high * 16 + low) as u8);
+                    out.extend(u8::try_from(high * 16 + low));
                     i += 3;
                     continue;
                 }
@@ -55,11 +55,11 @@ fn kind(bytes: &[u8], url: &str) -> &'static str {
     if let Some(image) = image_kind(bytes) {
         return image;
     }
-    let path = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
-    match bytes {
-        _ if path.ends_with(".mp4") || path.ends_with(".m4v") => "video/mp4",
-        _ if path.ends_with(".mov") => "video/quicktime",
-        _ if path.ends_with(".webm") => "video/webm",
+    let path = std::path::Path::new(url.split('?').next().unwrap_or(url));
+    match path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).as_deref() {
+        Some("mp4" | "m4v") => "video/mp4",
+        Some("mov") => "video/quicktime",
+        Some("webm") => "video/webm",
         _ if bytes.get(4..8) == Some(b"ftyp") => "video/mp4",
         _ if bytes.starts_with(b"<svg") || bytes.starts_with(b"<?xml") => "image/svg+xml",
         _ => "application/octet-stream",

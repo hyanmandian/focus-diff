@@ -6,5 +6,5 @@ fn main() {
     if let Some(code) = focus_diff_lib::link::command_line(&args) {
         std::process::exit(code);
     }
-    focus_diff_lib::run()
+    focus_diff_lib::run();
 }

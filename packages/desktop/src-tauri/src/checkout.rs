@@ -8,7 +8,7 @@ use crate::ai::run_with_limit;
 use crate::sync::Locked;
 
 const LIMIT: Duration = Duration::from_secs(300);
-const KEEP: Duration = Duration::from_secs(14 * 24 * 3600);
+const KEEP: Duration = Duration::from_hours(14 * 24);
 
 const UNTRUSTED: &[&str] = &[".claude/settings.json", ".claude/settings.local.json", ".mcp.json", ".cursor/mcp.json", ".cursor/hooks.json", ".cursor/cli.json", ".cursor/environment.json", ".opencode", "opencode.json", "opencode.jsonc", ".codex"];
 
@@ -138,7 +138,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("focus-diff-checkout-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join(".git")).unwrap();
-        let old = std::time::SystemTime::now() - Duration::from_secs(30 * 24 * 3600);
+        let old = std::time::SystemTime::now() - Duration::from_hours(30 * 24);
         std::fs::File::open(&dir).unwrap().set_modified(old).unwrap();
         assert!(unused_for(&dir).unwrap() > KEEP, "no mark yet: the folder's age");
         std::fs::write(used_mark(&dir), "").unwrap();
@@ -191,7 +191,7 @@ mod tests {
 #[cfg(test)]
 mod live {
     #[test]
-    #[ignore]
+    #[ignore = "clones from GitHub with the token in FD_TOKEN"]
     fn checkout_round_trip() {
         let token = std::env::var("FD_TOKEN").unwrap();
         let (repo, number, head) = (std::env::var("FD_REPO").unwrap(), std::env::var("FD_NUMBER").unwrap().parse().unwrap(), std::env::var("FD_HEAD").unwrap());

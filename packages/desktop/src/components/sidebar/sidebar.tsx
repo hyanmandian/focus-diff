@@ -43,7 +43,13 @@ import {
   type Team,
 } from "@/utils/manage/manage";
 
-export function LabelChip({ label, className }: { label: Pick<Label, "name" | "color">; className?: string }) {
+export function LabelChip({
+  label,
+  className,
+}: {
+  label: Pick<Label, "name" | "color">;
+  className?: string | undefined;
+}) {
   return (
     <span
       className={cn(

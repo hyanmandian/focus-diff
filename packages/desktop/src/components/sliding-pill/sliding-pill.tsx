@@ -8,8 +8,8 @@ export function SlidingPill({
   line = false,
 }: {
   selected: string;
-  className?: string;
-  line?: boolean;
+  className?: string | undefined;
+  line?: boolean | undefined;
 }) {
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ready, setReady] = useState(false);

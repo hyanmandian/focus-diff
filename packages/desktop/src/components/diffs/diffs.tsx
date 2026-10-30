@@ -47,7 +47,7 @@ type Annotation =
   | { kind: "thread"; thread: Thread; moved: boolean }
   | { kind: "draft"; draft: Draft }
   | { kind: "finding"; finding: Finding; side: Side }
-  | { kind: "new"; path: string; range: SelectedLineRange; file?: boolean }
+  | { kind: "new"; path: string; range: SelectedLineRange; file?: boolean | undefined }
   | { kind: "rendered"; file: ReviewFile };
 
 type Side = Thread["side"];
@@ -120,7 +120,10 @@ const toDraft = (path: string, range: SelectedLineRange, body: string): Omit<Dra
   body,
 });
 
-const draftOf = (a: { path: string; range: SelectedLineRange; file?: boolean }, body: string): Omit<Draft, "key"> =>
+const draftOf = (
+  a: { path: string; range: SelectedLineRange; file?: boolean | undefined },
+  body: string,
+): Omit<Draft, "key"> =>
   a.file ? { path: a.path, side: "additions", line: 0, body, file: true } : toDraft(a.path, a.range, body);
 
 function byPath<V extends { path: string }>(list: V[]) {

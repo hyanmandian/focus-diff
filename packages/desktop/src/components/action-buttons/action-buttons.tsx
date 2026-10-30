@@ -60,7 +60,7 @@ function ActionPullDown({
 }: {
   action: Action;
   pr: ActionContext;
-  className?: string;
+  className?: string | undefined;
   onResult: Result;
 }) {
   return (
@@ -100,7 +100,7 @@ function ActionButton({
 }: {
   action: Action;
   pr: ActionContext;
-  className?: string;
+  className?: string | undefined;
   onResult: Result;
 }) {
   const { busy, run } = useRun(action, pr, onResult);
@@ -147,7 +147,7 @@ export function ActionButtons({
 }: {
   actions: Action[];
   pr: ActionContext | null;
-  className?: string;
+  className?: string | undefined;
   onResult: Result;
 }) {
   if (!pr || actions.length === 0) return null;

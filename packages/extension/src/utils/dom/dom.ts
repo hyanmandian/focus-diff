@@ -62,7 +62,7 @@ export const wheelScrollsSideways = (element: HTMLElement, signal?: AbortSignal)
       event.preventDefault();
       element.scrollLeft = next;
     },
-    { passive: false, signal },
+    { passive: false, ...(signal ? { signal } : {}) },
   );
 };
 

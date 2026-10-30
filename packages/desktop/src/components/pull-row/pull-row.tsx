@@ -36,7 +36,7 @@ function Part({
 }: {
   tone?: string;
   title?: string;
-  className?: string;
+  className?: string | undefined;
   children: ReactNode;
 }) {
   return (
@@ -99,7 +99,7 @@ type Props = {
   onPick: (item: Item, on: boolean, range?: boolean) => void;
   pending?: boolean;
   onHover?: (id: string | null) => void;
-  stack?: StackPlace;
+  stack?: StackPlace | undefined;
 };
 
 export const PullRow = memo(function PullRow({

@@ -116,7 +116,7 @@ import type { StackPull } from "@/utils/stack/stack";
 import { useTheme } from "@/utils/theme/theme";
 import { inTreeOrder } from "@/utils/tree/tree";
 
-export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null };
+export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null | undefined };
 
 const MIN_REVIEW_SECONDS = 2;
 

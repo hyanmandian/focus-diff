@@ -156,9 +156,9 @@ export function CommentMenu({
   onDelete,
 }: {
   url: string;
-  onQuote?: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onQuote?: (() => void) | undefined;
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
 }) {
   const t = useT();
   const api = useConversationApi();

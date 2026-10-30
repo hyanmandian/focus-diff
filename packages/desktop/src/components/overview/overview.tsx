@@ -35,7 +35,7 @@ import { byTime } from "@/utils/timeline/timeline";
 import { typed } from "@/utils/typing/typing";
 import { quote } from "@/utils/writing/writing";
 
-function Html({ html, className }: { html: string; className?: string }) {
+function Html({ html, className }: { html: string; className?: string | undefined }) {
   const t = useT();
   const clean = sanitize(html);
   const ref = useRef<HTMLDivElement>(null);
@@ -183,7 +183,7 @@ type Props = {
   onOpenRange: (range: Range) => void;
   hasFile: (path: string) => boolean;
   say: (message: string) => void;
-  stack?: Stack | null;
+  stack?: Stack | null | undefined;
   onPickStack?: (pull: StackPull) => void;
 };
 
@@ -264,11 +264,11 @@ function Words({
 }: {
   keep: string;
   html: string;
-  body?: string;
+  body?: string | undefined;
   editing: boolean;
   onSave: (body: string) => Promise<void>;
   onDone: () => void;
-  className?: string;
+  className?: string | undefined;
 }) {
   const t = useT();
   if (editing && body !== undefined)

@@ -2,7 +2,7 @@ export interface Stackable {
   repo: string;
   head: string;
   base: string;
-  fork?: boolean;
+  fork?: boolean | undefined;
 }
 
 export interface StackPlace {

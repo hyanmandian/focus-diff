@@ -40,7 +40,7 @@ function AvatarFallback({ className, ...props }: AvatarPrimitive.Fallback.Props)
   );
 }
 
-function Face({ actor, className }: { actor: Actor; className?: string }) {
+function Face({ actor, className }: { actor: Actor; className?: string | undefined }) {
   return (
     <Avatar className={cn("size-5", className)}>
       {actor?.avatarUrl ? <AvatarImage src={avatar(actor.avatarUrl)} alt="" /> : null}

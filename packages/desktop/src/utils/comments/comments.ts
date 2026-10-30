@@ -122,7 +122,7 @@ export type RawComment = {
   bodyHTML: string;
   createdAt: string;
   url: string;
-  state?: string;
+  state?: string | undefined;
   lastEditedAt: string | null;
   viewerCanUpdate: boolean;
   viewerCanDelete: boolean;

@@ -12,7 +12,7 @@ const STOPS: CommentStop[] = [
   { path: "src/deep/promo.ts", line: 12, kind: "conversation" },
 ];
 
-function Stepping({ stops, from = -1 }: { stops: CommentStop[]; from?: number }) {
+function Stepping({ stops, from = -1 }: { stops: CommentStop[]; from?: number | undefined }) {
   const [stop, setStop] = useState(from);
   return (
     <CommentNav

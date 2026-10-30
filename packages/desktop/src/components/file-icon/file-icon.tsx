@@ -96,7 +96,7 @@ function takesDarkText(hex: string) {
   return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > 0.183;
 }
 
-export function FileIcon({ path, className }: { path: string; className?: string }) {
+export function FileIcon({ path, className }: { path: string; className?: string | undefined }) {
   const tile = tileOf(path);
   if (!Array.isArray(tile)) {
     const Icon = tile;

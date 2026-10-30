@@ -46,7 +46,7 @@ interface PanelMount {
   container: HTMLElement;
   host: HTMLElement;
   signal: AbortSignal;
-  floating?: boolean;
+  floating?: boolean | undefined;
 }
 
 export const createPanel = (

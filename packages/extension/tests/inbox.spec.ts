@@ -144,7 +144,7 @@ test.describe("popup", () => {
     );
     const page = await openExtensionPage("popup.html");
     const popupUrl = page.url();
-    type Tab = { id?: number; active: boolean };
+    type Tab = { id?: number | undefined; active: boolean };
     const tabs = (): Promise<Tab[]> =>
       background.evaluate(async () => (await chrome.tabs.query({})).map((tab) => ({ id: tab.id, active: tab.active })));
     const before = new Set((await tabs()).map((tab) => tab.id));

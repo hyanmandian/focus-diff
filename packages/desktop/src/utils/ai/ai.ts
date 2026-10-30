@@ -46,7 +46,12 @@ export const questionEffort = (effort: Effort | ""): Effort => (effort === "low"
 
 export const newRun = () => crypto.randomUUID();
 
-type Call = { schema?: object; recap?: string; session?: boolean; runId?: string };
+type Call = {
+  schema?: object | undefined;
+  recap?: string | undefined;
+  session?: boolean | undefined;
+  runId?: string | undefined;
+};
 
 function run(config: Config, details: Details, files: ReviewFile[], task: string, call: Call = {}): Promise<AiAnswer> {
   const { provider, model, effort, project, ownSettings } = config.ai;
@@ -81,7 +86,13 @@ export type Finding = {
   inDiff: boolean;
 };
 
-export type AiReview = { summary: string; findings: Finding[]; project: boolean; note?: string; at: number };
+export type AiReview = {
+  summary: string;
+  findings: Finding[];
+  project: boolean;
+  note?: string | undefined;
+  at: number;
+};
 
 const SCHEMA = {
   type: "object",

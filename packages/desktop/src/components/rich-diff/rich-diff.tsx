@@ -22,7 +22,8 @@ const IMAGE_TYPES: Record<string, string> = {
 };
 
 const extension = (path: string) => path.slice(path.lastIndexOf(".") + 1).toLowerCase();
-export const isImage = (path: string) => extension(path) in IMAGE_TYPES;
+const imageType = (path: string) => IMAGE_TYPES[extension(path)] ?? "";
+export const isImage = (path: string) => imageType(path) !== "";
 
 const dir = (p: string) => p.slice(0, p.lastIndexOf("/") + 1);
 const base = (p: string) => p.slice(p.lastIndexOf("/") + 1);
@@ -61,7 +62,7 @@ function usePicture(source: Source | null, file: ReviewFile, side: "old" | "new"
         const sha = side === "old" ? await from.base() : from.head;
         const bytes = await fileAt(from.repo, sha, side === "old" ? (file.previousPath ?? file.path) : file.path);
         if (!live) return;
-        if (bytes) url = URL.createObjectURL(new Blob([bytes.slice()], { type: IMAGE_TYPES[extension(file.path)] }));
+        if (bytes) url = URL.createObjectURL(new Blob([bytes.slice()], { type: imageType(file.path) }));
         setLoaded({ source: from, file, picture: bytes && url ? { url, bytes: bytes.length } : null });
       } catch (e) {
         if (live) setLoaded({ source: from, file, picture: e instanceof Error ? e : new Error(String(e)) });
@@ -233,7 +234,7 @@ export function NoPatchFile({
   loading: boolean;
   error: string | null;
   onViewed: (viewed: boolean) => void;
-  onLoad?: () => void;
+  onLoad?: (() => void) | undefined;
 }) {
   const t = useT();
   const old = renamed(file);

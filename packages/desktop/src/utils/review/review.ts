@@ -21,14 +21,14 @@ export type ThreadComment = {
   html: string;
   at: string;
   url: string;
-  body?: string;
+  body?: string | undefined;
   pending?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
   canReact?: boolean;
   edited?: boolean;
   reactions?: Reaction[];
-  authorId?: number | null;
+  authorId?: number | null | undefined;
 };
 export type Thread = {
   id: string;
@@ -38,7 +38,7 @@ export type Thread = {
   startLine?: number | null;
   resolved: boolean;
   outdated: boolean;
-  context?: string;
+  context?: string | undefined;
   comments: ThreadComment[];
   pending?: boolean;
 };
@@ -53,7 +53,7 @@ export type Draft = {
   body: string;
   id?: string;
   html?: string;
-  file?: boolean;
+  file?: boolean | undefined;
   replyTo?: string;
 };
 

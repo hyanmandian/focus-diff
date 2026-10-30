@@ -55,12 +55,12 @@ export function Composer({
   placeholder: string;
   submitLabel: string;
   keep: string;
-  initial?: string;
+  initial?: string | undefined;
   onSubmit: (body: string) => Promise<void> | void;
   onCancel: () => void;
-  secondary?: { label: string; onClick: (body: string) => Promise<void> | void };
-  suggestion?: string[] | null;
-  base?: string[];
+  secondary?: { label: string; onClick: (body: string) => Promise<void> | void } | undefined;
+  suggestion?: string[] | null | undefined;
+  base?: string[] | undefined;
 }) {
   const t = useT();
   const [body, setBodyState] = useState(() => typed(keep) ?? initial);
@@ -123,7 +123,7 @@ export function Composer({
   );
 }
 
-const Box = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+const Box = ({ children, className }: { children: React.ReactNode; className?: string | undefined }) => (
   <div
     className={cn(
       "mx-3 my-2 max-w-3xl rounded-xl border bg-card p-3 font-sans text-body text-card-foreground shadow-sm select-none",
@@ -219,7 +219,7 @@ export function ThreadView({
   onResolve,
 }: {
   thread: ThreadData;
-  className?: string;
+  className?: string | undefined;
   moved?: boolean;
   onReply: (body: string) => Promise<void>;
   onResolve: (resolved: boolean) => Promise<void>;
@@ -445,7 +445,7 @@ export function NewComment({
   lines: string;
   path?: string;
   range?: { start: number; end: number; side?: "additions" | "deletions"; endSide?: "additions" | "deletions" };
-  file?: boolean;
+  file?: boolean | undefined;
   onAdd: (body: string) => void;
   onSendNow: (body: string) => Promise<void>;
   onCancel: () => void;

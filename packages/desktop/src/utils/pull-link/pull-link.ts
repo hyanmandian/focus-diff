@@ -8,7 +8,7 @@ type Found = {
       id: string;
       number: number;
       title: string;
-      author: { login: string; name?: string | null } | null;
+      author: { login: string; name?: string | null | undefined } | null;
     } | null;
   } | null;
 };

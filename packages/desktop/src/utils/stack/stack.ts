@@ -4,7 +4,7 @@ export type StackPull = {
   id: string;
   number: number;
   title: string;
-  author: { login: string; name?: string | null } | null;
+  author: { login: string; name?: string | null | undefined } | null;
   decision: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null;
   isDraft: boolean;
 };

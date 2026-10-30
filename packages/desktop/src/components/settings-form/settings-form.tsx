@@ -124,7 +124,7 @@ export function Group({
   accessory?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }) {
   return (
     <section className="flex flex-col gap-1.5">
@@ -155,7 +155,7 @@ export function Row({
   htmlFor?: string;
   stacked?: boolean;
   children?: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }) {
   const text =
     label || description ? (

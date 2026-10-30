@@ -22,7 +22,7 @@ const STANDING = {
   REVIEW_REQUIRED: "text-muted-foreground",
 } as const;
 
-export function Standing({ pull, className }: { pull: StackPull; className?: string }) {
+export function Standing({ pull, className }: { pull: StackPull; className?: string | undefined }) {
   const t = useT();
   const standing = pull.decision ?? "REVIEW_REQUIRED";
   return (
@@ -44,7 +44,7 @@ export function StackMenu({
   onPick,
 }: {
   stack: Stack;
-  className?: string;
+  className?: string | undefined;
   onPick: (pull: StackPull) => void;
 }) {
   const t = useT();

@@ -1,6 +1,11 @@
 import type { EventKind } from "@/utils/config/config";
 
-export type Actor = { __typename?: string; login: string; avatarUrl?: string; name?: string | null } | null;
+export type Actor = {
+  __typename?: string;
+  login: string;
+  avatarUrl?: string | undefined;
+  name?: string | null | undefined;
+} | null;
 
 export type PullRequest = {
   id: string;
@@ -27,7 +32,7 @@ export type PullRequest = {
     nodes: Array<{
       requestedReviewer:
         | null
-        | { __typename: "User"; login: string; avatarUrl?: string }
+        | { __typename: "User"; login: string; avatarUrl?: string | undefined }
         | { __typename: "Team"; slug: string; organization: { login: string } }
         | { __typename: string };
     }>;
@@ -45,7 +50,7 @@ export type Item = {
   pr: PullRequest;
   events: Event[];
   status?: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "MENTIONED";
-  viaTeams?: string[];
+  viaTeams?: string[] | undefined;
   ci: CiState | null;
   passed?: boolean;
   waitingSince?: number;

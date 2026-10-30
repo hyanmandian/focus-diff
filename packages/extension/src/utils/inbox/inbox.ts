@@ -203,8 +203,8 @@ export interface InboxSnapshot {
   me: string;
   reviews: PullRequest[];
   mine: PullRequest[];
-  updates?: PullRequest[];
-  merged?: PullRequest[];
+  updates?: PullRequest[] | undefined;
+  merged?: PullRequest[] | undefined;
   checkedAt: number;
   problem: InboxProblem | null;
 }
@@ -361,7 +361,10 @@ export const unignore = (ignored: IgnoredMarks, list: PopupList, pull: Pick<Pull
   [list]: (ignored[list] ?? []).filter((url) => url !== pull.url),
 });
 
-export const pruneIgnored = (ignored: IgnoredMarks, lists: Partial<Record<PopupList, PullRequest[]>>): IgnoredMarks =>
+export const pruneIgnored = (
+  ignored: IgnoredMarks,
+  lists: Partial<Record<PopupList, PullRequest[] | undefined>>,
+): IgnoredMarks =>
   Object.fromEntries(
     POPUP_LISTS.flatMap((list) => {
       const urls = new Set(lists[list]?.map((pull) => pull.url));

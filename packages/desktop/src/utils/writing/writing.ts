@@ -33,7 +33,7 @@ export function complete(text: string, token: Token, caret: number, value: strin
   };
 }
 
-export type Person = { login: string; name?: string | null; avatarUrl?: string };
+export type Person = { login: string; name?: string | null | undefined; avatarUrl?: string | undefined };
 
 export function rankPeople<P extends Person>(people: P[], query: string, most = 8): P[] {
   const q = query.toLowerCase();

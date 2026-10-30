@@ -185,6 +185,7 @@
             <p>On macOS 14 and earlier, right-click Focus Diff in Applications and choose <strong>Open</strong>.</p>
             <p>No Open Anyway, or a Mac your company manages? Paste this in Terminal instead. It installs the same app, in your own Applications folder when you can’t write to the main one, with nothing to approve:</p>
             <pre><code>curl -fsSL https://focus-diff.com/install.sh | sh</code></pre>
+            <p>The script checks the download against the release’s <code>SHA256SUMS</code>, and its build provenance too when the GitHub CLI is signed in, then clears the app’s quarantine flag, which skips Gatekeeper because the app isn’t notarized yet. <a href="https://github.com/hyanmandian/focus-diff/blob/main/SECURITY.md#the-install-scripts">How it’s checked</a></p>
           </div>
 
           <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" tabindex="0">
@@ -195,6 +196,7 @@
             </ol>
             <p>No Run anyway, or a PC your company manages? Paste this in PowerShell instead. It installs the same app for your user, with nothing to approve:</p>
             <pre><code>irm https://focus-diff.com/install.ps1 | iex</code></pre>
+            <p>The script checks the download against the release’s <code>SHA256SUMS</code>, and its build provenance too when the GitHub CLI is signed in. <a href="https://github.com/hyanmandian/focus-diff/blob/main/SECURITY.md#the-install-scripts">How it’s checked</a></p>
           </div>
 
           <div role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" tabindex="0">

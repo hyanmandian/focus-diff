@@ -102,13 +102,13 @@ fn clean(message: &str, home: Option<&str>) -> String {
     static NAME: OnceLock<Regex> = OnceLock::new();
 
     let text = message.replace("\r\n", "\n");
-    let text = pattern(&SECRET, r"(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?i:bearer|token)\s+[A-Za-z0-9._~+/=-]{20,})").replace_all(&text, "[hidden]");
     let text = match home {
         Some(home) => text.replace(home, "~"),
-        None => text.into_owned(),
+        None => text,
     };
     let text = pattern(&PROFILE, r"(?i)(?:/Users/|/home/|[A-Z]:\\Users\\)[^/\\\s]+").replace_all(&text, "~");
     let text = pattern(&URL, r"[A-Za-z][A-Za-z0-9+.-]*://[^\s\x22'<>`)\]]+").replace_all(&text, |c: &regex::Captures| link(&c[0]));
+    let text = pattern(&SECRET, r"(?:\bgh[pousr]_[A-Za-z0-9]{16,}|\bgithub_pat_[A-Za-z0-9_]{16,}|(?i:bearer|token)\s+[A-Za-z0-9._~+/=-]{20,}|(?i:basic)\s+[A-Za-z0-9+/]{8,}={0,2}|(?i:x-access-token):[^\s@/]+)").replace_all(&text, "[hidden]");
     let text = pattern(&EMAIL, r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}").replace_all(&text, "[email]");
     let text = pattern(&DOUBLE, r"[\x22“`][^\x22”`\n]*[\x22”`]").replace_all(&text, "\"…\"");
     let text = pattern(&SINGLE, r"(^|[\s(\[:=,])'[^'\n]*'($|[\s).,;:\]])").replace_all(&text, "${1}'…'${2}");
@@ -180,6 +180,15 @@ mod tests {
         let pat = format!("github_pat_{}", "B1_".repeat(10));
         let said = clean(&format!("auth {token} then {pat} and Bearer {}", "x".repeat(24)), Some("/Users/ana"));
         assert_eq!(said, "auth [hidden] then [hidden] and [hidden]");
+        for prefix in ["ghp", "gho", "ghu", "ghs", "ghr"] {
+            assert_eq!(clean(&format!("token={prefix}_{}", "Q9".repeat(18)), None), "token=[hidden]", "{prefix}");
+        }
+        assert_eq!(clean(&format!("github_pat_{} failed", "Ab_9".repeat(20)), None), "[hidden] failed");
+        assert_eq!(clean("Authorization: Basic eC1hY2Nlc3MtdG9rZW46c2VjcmV0 sent", None), "Authorization: [hidden] sent");
+        assert_eq!(clean("authorization: basic dXNlcjpwYXNzd29yZA== sent", None), "authorization: [hidden] sent");
+        assert_eq!(clean("pushing to https://x-access-token:s3cr3t-value@github.com/acme/web.git", None), "pushing to https://github.com/…");
+        assert_eq!(clean("set X-Access-Token:abc123 for git", None), "set [hidden] for git");
+        assert_eq!(clean("basic auth failed", None), "basic auth failed");
         assert_eq!(clean("read /Users/ana/Library/x.json", Some("/Users/ana")), "read ~/Library/x.json");
         assert_eq!(clean("one\r\ntwo\nthree", None), "one ⏎ two ⏎ three");
         assert_eq!(clean(&"y".repeat(LONGEST + 10), None).chars().count(), LONGEST);

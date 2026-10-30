@@ -1,7 +1,6 @@
 import {
   BadgeCheck,
   ChevronDown,
-  ChevronRight,
   CircleCheck,
   CircleDot,
   CircleX,
@@ -12,10 +11,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { Face } from "@/components/avatar/avatar";
 import { Button } from "@/components/button/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/collapsible/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleHeading } from "@/components/collapsible/collapsible";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/popover/popover";
-import { Face } from "@/components/sidebar/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import { cn } from "@/utils/cn/cn";
@@ -98,24 +97,17 @@ export function CommitsSection({ pull, onOpen }: { pull: Pull; onOpen: (range: R
     <section aria-labelledby="commits" className="rounded-xl border bg-card">
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center gap-2 px-4 py-2.5">
-          <h2 className="flex min-w-0 flex-1">
-            <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded text-left focus-ring outline-none">
-              {open ? (
-                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              ) : (
-                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              )}
-              <span id="commits" className="text-headline font-bold">
-                {t("manage.commits")}{" "}
-                <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
+          <CollapsibleHeading open={open}>
+            <span id="commits" className="text-headline font-bold">
+              {t("manage.commits")}{" "}
+              <span className="font-normal text-muted-foreground tabular-nums">{list.commits.length}</span>
+            </span>
+            {list.forcePushes.length > 0 ? (
+              <span className="truncate text-callout text-muted-foreground">
+                {t("manage.forcePushes", { count: list.forcePushes.length })}
               </span>
-              {list.forcePushes.length > 0 ? (
-                <span className="truncate text-callout text-muted-foreground">
-                  {t("manage.forcePushes", { count: list.forcePushes.length })}
-                </span>
-              ) : null}
-            </CollapsibleTrigger>
-          </h2>
+            ) : null}
+          </CollapsibleHeading>
           {since ? (
             <Button
               variant="outline"

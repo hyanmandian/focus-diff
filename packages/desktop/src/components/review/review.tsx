@@ -53,6 +53,7 @@ import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
+import { useAttempt } from "@/hooks/use-attempt/use-attempt";
 import { ConversationProvider, copyText, useConversation } from "@/hooks/use-conversation/use-conversation";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import { useNextInQueue, type Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
@@ -161,22 +162,14 @@ function SubmitReview({
   const setOpen = onOpenChange;
   const [event, setEvent] = useState<Event>("COMMENT");
   const [body, setBody] = usePersisted(`review-body:${details.id}`, "", isString);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    try {
+  const { busy, error, attempt } = useAttempt();
+  const submit = () =>
+    attempt(async () => {
       await onSubmit(event, body);
       setBody("");
       setOpen(false);
       onSubmitted();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
   const discard = async () => {
     const tr = i18n();
     if (
@@ -187,16 +180,10 @@ function SubmitReview({
       ))
     )
       return;
-    setBusy(true);
-    setError(null);
-    try {
+    await attempt(async () => {
       await onDiscard();
       setOpen(false);
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>

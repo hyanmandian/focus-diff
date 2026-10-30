@@ -3,6 +3,7 @@ import { bridge, isRecord, type AiAnswer } from "@/utils/bridge/bridge";
 import type { AiProvider, Config, Effort } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
 import { i18n } from "@/utils/i18n/i18n";
+import { patchLines } from "@/utils/patch/patch";
 import { loadFiles, type ReviewFile } from "@/utils/review/review";
 
 export const PROVIDERS: Record<AiProvider, { name: string; install: string; efforts: Array<Effort | ""> }> = {
@@ -167,25 +168,9 @@ export function linesFromPatch(
   side: "additions" | "deletions" = "additions",
 ): string {
   const out: string[] = [];
-  let old = 0;
-  let now = 0;
-  for (const text of patch.split("\n")) {
-    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(text);
-    if (hunk) {
-      old = Number(hunk[1]);
-      now = Number(hunk[2]);
-      continue;
-    }
-    if (!now || text.startsWith("\\")) continue;
-    const kind = text[0];
+  for (const { text, kind, old, now } of patchLines(patch)) {
     const line = side === "additions" ? now : old;
     if (kind !== (side === "additions" ? "-" : "+") && line >= start && line <= end) out.push(text);
-    if (kind === "+") now++;
-    else if (kind === "-") old++;
-    else {
-      now++;
-      old++;
-    }
   }
   return out.join("\n");
 }

@@ -1,22 +1,7 @@
-import { type Args, isRecord, json, str, strings, wait } from "@/utils/mock-ipc/mock-ipc";
+import { type Args, iso, isRecord, json, people, str, strings, wait } from "@/utils/mock-ipc/mock-ipc";
 
 type Reply = { status: number; body: string };
 
-const now = Date.now();
-const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
-const person = (login: string, name: string) => ({
-  __typename: "User",
-  login,
-  name,
-  avatarUrl: `https://avatars.githubusercontent.com/${login}?s=64`,
-});
-const people = {
-  me: person("you_reviewer", "You"),
-  ana: person("ana_lima", "Ana Lima"),
-  bruno: person("bruno_costa", "Bruno Costa"),
-  carla: person("carla_dias", "Carla Dias"),
-  dev: person("devon_hart", "Devon Hart"),
-};
 const ok = (data: unknown): Reply => ({ status: 200, body: JSON.stringify(data) });
 
 const pr = {
@@ -256,7 +241,7 @@ const log = [
 const commit = (
   oid: string,
   headline: string,
-  author: ReturnType<typeof person>,
+  author: (typeof people)["me"],
   minutesAgo: number,
   parent: string,
   ci: string | null,

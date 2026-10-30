@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { Face, LabelChip, Sidebar } from "@/components/sidebar/sidebar";
+import { LabelChip, Sidebar } from "@/components/sidebar/sidebar";
 import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
@@ -83,19 +83,6 @@ const items = (name: string) =>
     .map((li) => li.textContent);
 const open = (name: string) => userEvent.click(screen.getByRole("button", { name }));
 const option = (name: string | RegExp) => screen.findByRole("option", { name });
-
-describe("Face", () => {
-  it("shows a picture, or initials", () => {
-    render(
-      <>
-        <Face actor={null} />
-        <Face actor={{ login: "octocat" }} />
-      </>,
-    );
-    expect(screen.getByText("?")).toBeTruthy();
-    expect(screen.getByText("OC")).toBeTruthy();
-  });
-});
 
 describe("LabelChip", () => {
   it("shows the label with its colour", () => {

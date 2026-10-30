@@ -16,8 +16,9 @@
     "lint": "vp lint",
     "test": "vp test",
     "coverage": "vp test --coverage",
+    "test:compiled": "REACT_COMPILER=1 vp test",
     "e2e": "playwright test",
-    "check": "vp check && vp test --coverage && knip && jscpd"
+    "check": "vp check && vp test --coverage && npm run test:compiled && knip && jscpd"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

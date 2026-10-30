@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.2.0...desktop-v1.3.0) (2026-10-30)
+
+
+### Features
+
+* **desktop:** Codex and OpenCode as coding agents ([4d4e647](https://github.com/hyanmandian/focus-diff/commit/4d4e647739e253b2e3d9fc6271e9766f35e6b284))
+* **desktop:** see what's new after an update ([e54e0b1](https://github.com/hyanmandian/focus-diff/commit/e54e0b1e9f917c6b02b293cad9812848f6315121))
+
+
+### Bug Fixes
+
+* **core:** tell test files apart reliably in the filter presets ([dca9634](https://github.com/hyanmandian/focus-diff/commit/dca96346af043b5a203b7a79870711655086c03a))
+* **desktop:** drop OpenCode and Codex project config from checkouts ([e08e7a1](https://github.com/hyanmandian/focus-diff/commit/e08e7a1dc3dd1ec4ebddf60760fcf0bdb0d8f733))
+* **desktop:** open the review window on the main screen ([6ff0256](https://github.com/hyanmandian/focus-diff/commit/6ff025621edda8f67b12ab616f78fd3498ba0f3f))
+* **desktop:** pull request windows open on the screen in use, and are checked as normal windows ([a379e46](https://github.com/hyanmandian/focus-diff/commit/a379e4605f41d37d6e3d6b8419186dc52e1a6a8b))
+* **desktop:** setup keeps filters from a preset that wasn't ticked ([d7bd7a9](https://github.com/hyanmandian/focus-diff/commit/d7bd7a973ad298928d847439e56cb099860fbc96))
+* **desktop:** the panel stays a popup on Windows and Linux ([8bf911c](https://github.com/hyanmandian/focus-diff/commit/8bf911c0bef584966ceb89c69dffec381f2aa33e))
+* **desktop:** Windows windows, any CLI version, Codex and OpenCode, what's new ([085cc16](https://github.com/hyanmandian/focus-diff/commit/085cc16de9fe32fb8dd16c475a6ff74c179bdf88))
+* **desktop:** work with any version of Claude Code and Cursor's agent ([2482753](https://github.com/hyanmandian/focus-diff/commit/2482753b285db2ea4ea4d161e11eea86de14bdc3))
+
 ## [1.2.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.1.0...desktop-v1.2.0) (2026-10-29)
 
 

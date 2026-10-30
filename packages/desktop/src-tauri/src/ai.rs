@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -881,24 +881,10 @@ fn cursor_call(q: &Question, binary: &Path, workspace: &Path, message: &str, cha
     if let Some(chat) = chat {
         cmd.args(["--resume", chat]);
     }
-    let request = (message.len() > ARGV_LIMIT).then(|| {
-        static REQUESTS: AtomicU64 = AtomicU64::new(0);
-        workspace.join(format!(".focus-diff-request-{}-{}.md", std::process::id(), REQUESTS.fetch_add(1, Ordering::Relaxed)))
-    });
-    match &request {
-        Some(file) => {
-            std::fs::write(file, message).map_err(|e| e.to_string())?;
-            let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            cmd.arg(format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks."));
-        }
-        None => {
-            cmd.arg(message);
-        }
-    }
+    let (file, ask) = hand_over(workspace, message)?;
+    cmd.arg(ask);
     let output = run_until(&mut cmd, None, limit(q), q.cancel);
-    if let Some(file) = &request {
-        let _ = std::fs::remove_file(file);
-    }
+    let _ = std::fs::remove_file(&file);
     let output = output?;
     let reply: serde_json::Value = serde_json::from_str(output.stdout.trim()).map_err(|_| failure(&output))?;
     if !output.status_ok || reply["is_error"].as_bool() == Some(true) {
@@ -919,11 +905,14 @@ fn request_file(workspace: &Path, message: &str) -> Result<Option<(PathBuf, Stri
     if message.len() <= ARGV_LIMIT {
         return Ok(None);
     }
-    static REQUESTS: AtomicU64 = AtomicU64::new(0);
-    let file = workspace.join(format!(".focus-diff-request-{}-{}.md", std::process::id(), REQUESTS.fetch_add(1, Ordering::Relaxed)));
-    std::fs::write(&file, message).map_err(|e| e.to_string())?;
-    let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    Ok(Some((file, format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks."))))
+    hand_over(workspace, message).map(Some)
+}
+
+fn hand_over(workspace: &Path, message: &str) -> Result<(PathBuf, String), String> {
+    let name = format!(".focus-diff-request-{}.md", unguessable());
+    let file = workspace.join(&name);
+    std::fs::OpenOptions::new().write(true).create_new(true).open(&file).and_then(|mut f| f.write_all(message.as_bytes())).map_err(|e| e.to_string())?;
+    Ok((file, format!("Read the file `{name}` in the workspace, in full: it holds the request and the material to answer it from. Do what it asks.")))
 }
 
 fn inner_message(text: &str) -> String {
@@ -1309,13 +1298,15 @@ done
     #[test]
     fn resumes_cursor_chats_and_hands_long_requests_over_in_a_file() {
         let (binary, log) = fake("cursor", r#"echo "$*" >> "$LOG"
-for last; do :; done
+f=$(ls .focus-diff-request-* 2>/dev/null | head -1)
+[ -n "$f" ] || { echo "no request file" >&2; exit 1; }
+last=$(cat "$f")
 case "$*" in
   *--resume\ broken*) echo "no such chat" >&2; exit 1;;
   *--resume*) printf '{"type":"result","result":"resumed: %s","session_id":"chat-1"}\n' "$last"; exit 0;;
 esac
-f=$(ls .focus-diff-request-* 2>/dev/null | head -1)
-if [ -n "$f" ]; then printf '{"result":"from a file of %s bytes","session_id":"chat-1"}\n' "$(wc -c < "$f" | tr -d ' ')"; exit 0; fi
+size=$(wc -c < "$f" | tr -d ' ')
+if [ "$size" -gt 100000 ]; then printf '{"result":"from a file of %s bytes","session_id":"chat-1"}\n' "$size"; exit 0; fi
 case "$last" in
   *FAIL*) echo "nope" >&2; exit 1;;
   *JSON*) printf '{"result":"ok {\\"findings\\": []}"}\n';;
@@ -1332,7 +1323,10 @@ esac
         let big = "x".repeat(ARGV_LIMIT);
         let long = ask_with(&question(Provider::Cursor, &big, "Long?", None), &binary).unwrap();
         assert!(long.text.starts_with("from a file of 1000"));
-        assert!(logged(&log).last().unwrap().contains("Read the file `.focus-diff-request-"));
+        assert!(logged(&log).iter().all(|l| l.contains("Read the file `.focus-diff-request-") && !l.contains("DIFF") && !l.contains("Long?")));
+        let dashed = ask_with(&question(Provider::Cursor, "DIFF", "--help me", Some("w-cursor")), &binary).unwrap();
+        assert_eq!(dashed.text, "resumed: --help me");
+        assert!(!logged(&log).last().unwrap().contains("--help"));
         let json = ask_with(&Question { schema: Some("{}"), ..question(Provider::Cursor, "DIFF", "JSON", Some("w-cursor")) }, &binary).unwrap();
         assert_eq!(json.text, r#"{"findings":[]}"#);
         assert!(ask_with(&question(Provider::Cursor, "OTHER", "FAIL", Some("w-cursor")), &binary).is_err());

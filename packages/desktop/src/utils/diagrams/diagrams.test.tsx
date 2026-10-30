@@ -55,6 +55,21 @@ describe("useDiagrams", () => {
     expect(mermaid.initialize).toHaveBeenLastCalledWith(expect.objectContaining({ theme: "dark" }));
   });
 
+  it("tries again after mermaid fails to start", async () => {
+    mermaid.initialize.mockImplementationOnce(() => {
+      throw new Error("frozen");
+    });
+    mermaid.render.mockResolvedValue({ svg: "<svg></svg>" });
+    const first = render(<Page html={flowchart} />);
+    await waitFor(() => {
+      expect(mermaid.initialize).toHaveBeenCalled();
+    });
+    expect(first.container.querySelector("pre[data-mermaid]")).toBeTruthy();
+    first.unmount();
+    render(<Page html={flowchart} />);
+    expect(await screen.findByRole("img", { name: "Diagram: flowchart LR" })).toBeTruthy();
+  });
+
   it("leaves the source when mermaid can't draw it", async () => {
     mermaid.render.mockRejectedValue(new Error("syntax"));
     const { container } = render(<Page html={'<pre data-mermaid="">not a diagram</pre>'} />);

@@ -20,3 +20,7 @@ export type Message =
   | { type: "review-open"; url: string; repo: string }
   | { type: "play-sound"; sound: SoundId; volume: number }
   | { type: "show-options"; repo?: string | null; section?: string };
+
+const PULL_URL = /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/u;
+
+export const isPullUrl = (url: unknown): url is string => typeof url === "string" && PULL_URL.test(url);

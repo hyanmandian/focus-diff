@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { comment, leaveReview, loadDetails, markReady, merge, review, type Details } from "@/utils/details/details";
+import { comment, leaveReview, loadDetails, markReady, merge, review } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { Args } from "@/utils/platform/platform";
 
 const ana = { __typename: "User", login: "ana", avatarUrl: "a.png", name: "Ana" };
@@ -78,36 +79,9 @@ function answer(pr: Record<string, unknown>, allowed = everyMethod) {
 
 const at = (hour: number) => `2026-01-01T0${hour}:00:00Z`;
 
-const d: Details = {
-  id: "PR_1",
+const d = fakeDetails({
   number: 7,
-  title: "Add checkout",
-  url: "https://github.com/acme/shop/pull/7",
-  html: "",
-  owner: "acme",
-  repo: "shop",
-  isDraft: true,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: true,
-  viewerCanUpdate: true,
-  baseRefName: "main",
-  headRefName: "feature",
-  headRefOid: "abc",
-  updatedAt: "2026-01-02T00:00:00Z",
-  additions: 1,
-  deletions: 0,
-  changedFiles: 1,
-  createdAt: "2026-01-01T00:00:00Z",
-  author: ana,
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+});
 
 describe("loadDetails", () => {
   it("asks for the pull request by owner, name and number and reads its basics", async () => {

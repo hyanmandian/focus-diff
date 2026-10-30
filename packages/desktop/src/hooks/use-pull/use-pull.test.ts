@@ -10,6 +10,7 @@ import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { PullRef, Thread } from "@/utils/review/review";
 import type { TimelinePage } from "@/utils/timeline/timeline";
 
@@ -80,36 +81,11 @@ vi.mock("@/utils/timeline/timeline", () => ({
 
 const REF: PullRef = { owner: "acme", repo: "api", number: 42 };
 
-const DETAILS: Details = {
-  id: "PR_1",
-  number: 42,
+const DETAILS = fakeDetails({
   title: "Rename the queue",
-  url: "https://github.com/acme/api/pull/42",
-  html: "",
-  owner: "acme",
-  repo: "api",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
   headRefName: "rename",
   headRefOid: "abc123",
-  updatedAt: "2026-10-26T10:00:00Z",
-  additions: 3,
-  deletions: 1,
-  changedFiles: 1,
-  createdAt: "2026-10-25T10:00:00Z",
-  author: { login: "mona" },
-  reviewDecision: null,
-  reviewers: [],
-  checks: [{ name: "build", state: "success", url: "https://ci.example.com/1" }],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash", "merge"],
-};
+});
 
 const MANAGE: Manage = {
   viewerPermission: "WRITE",

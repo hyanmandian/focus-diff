@@ -19,24 +19,9 @@ import {
   useChecks,
   type CheckItem,
 } from "@/utils/checks/checks";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { type Call, ok, replyInOrder } from "@/utils/fake-platform/fake-platform";
 
 const ref = { owner: "acme", repo: "web", number: 7 };
-
-type Call = { cmd: string; fields: Record<string, unknown> };
-const fields = (args: Args | undefined): Record<string, unknown> =>
-  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
-const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
-
-function rust(...replies: unknown[]) {
-  const calls: Call[] = [];
-  mockCommands((cmd, args) => {
-    calls.push({ cmd, fields: fields(args) });
-    return replies[calls.length - 1];
-  });
-  return calls;
-}
 
 const body = (call: Call | undefined) => String(call?.fields.body);
 
@@ -219,7 +204,7 @@ describe("checks", () => {
 
 describe("loadChecks", () => {
   it("reads every page of checks on the head commit", async () => {
-    const calls = rust(
+    const calls = replyInOrder(
       page([runNode("a"), { __typename: "Mystery", id: "m" }], "c1"),
       page([{ __typename: "StatusContext", id: "s", context: "ci", state: "SUCCESS", isRequired: true }]),
     );
@@ -237,13 +222,13 @@ describe("loadChecks", () => {
   });
 
   it("asks past Rust's memory when told to", async () => {
-    const calls = rust(page([]));
+    const calls = replyInOrder(page([]));
     await loadChecks(ref, true);
     expect(body(calls[0])).toMatch(/# \d+/u);
   });
 
   it("stops after ten pages", async () => {
-    const calls = rust(...Array.from({ length: 12 }, (_, i) => page([runNode(`r${i}`)], `c${i}`)));
+    const calls = replyInOrder(...Array.from({ length: 12 }, (_, i) => page([runNode(`r${i}`)], `c${i}`)));
     expect((await loadChecks(ref)).checks).toHaveLength(10);
     expect(calls).toHaveLength(10);
   });
@@ -254,16 +239,16 @@ describe("loadChecks", () => {
         repository: { pullRequest: { commits: { nodes: [{ commit: { oid: "h2", statusCheckRollup: null } }] } } },
       },
     });
-    rust(none);
+    replyInOrder(none);
     expect(await loadChecks(ref)).toEqual({ head: "h2", checks: [] });
-    rust(ok({ data: { repository: { pullRequest: { commits: { nodes: [] } } } } }));
+    replyInOrder(ok({ data: { repository: { pullRequest: { commits: { nodes: [] } } } } }));
     expect(await loadChecks(ref)).toEqual({ head: null, checks: [] });
   });
 });
 
 describe("loadCheckDetail", () => {
   it("reads the summary, annotations and steps", async () => {
-    const calls = rust(
+    const calls = replyInOrder(
       ok({
         data: {
           node: {
@@ -312,16 +297,16 @@ describe("loadCheckDetail", () => {
 
   it("has nothing to show for a check that isn't there or says nothing", async () => {
     const empty = { summary: null, text: null, annotations: [], steps: [] };
-    rust(ok({ data: { node: null } }));
+    replyInOrder(ok({ data: { node: null } }));
     expect(await loadCheckDetail("x")).toEqual(empty);
-    rust(ok({ data: { node: { summary: null, text: "Text", annotations: null, steps: null } } }));
+    replyInOrder(ok({ data: { node: { summary: null, text: "Text", annotations: null, steps: null } } }));
     expect(await loadCheckDetail("x")).toEqual({ ...empty, text: "Text" });
   });
 });
 
 describe("re-running", () => {
   it("asks GitHub Actions to re-run or approve", async () => {
-    const calls = rust(ok({}), ok({}), ok({}), ok({}));
+    const calls = replyInOrder(ok({}), ok({}), ok({}), ok({}));
     await rerunFailed(ref, 1);
     await rerunAll(ref, 2);
     await rerunJob(ref, 3);
@@ -335,7 +320,7 @@ describe("re-running", () => {
   });
 
   it("lists the runs waiting for approval, named by their workflow or title", async () => {
-    const calls = rust(
+    const calls = replyInOrder(
       ok({
         workflow_runs: [
           { id: 1, name: "CI", display_title: "Fix" },
@@ -353,7 +338,7 @@ describe("re-running", () => {
 
 describe("logs", () => {
   it("asks Rust for a job's log", async () => {
-    const calls = rust({ text: "log", truncated: false });
+    const calls = replyInOrder({ text: "log", truncated: false });
     expect(await loadLog(ref, 5, true)).toEqual({ text: "log", truncated: false });
     expect(calls).toEqual([{ cmd: "job_log", fields: { owner: "acme", repo: "web", job: 5, done: true } }]);
   });
@@ -399,7 +384,7 @@ describe("useChecks", () => {
   });
 
   it("shows what it was given until there's a head to load for", () => {
-    const calls = rust();
+    const calls = replyInOrder();
     const initial = [run("a", "COMPLETED", "SUCCESS")];
     const { result, rerender } = renderHook(() => useChecks(ref, undefined, initial));
     expect(result.current).toMatchObject({ checks: initial, loaded: false, running: false });
@@ -409,7 +394,7 @@ describe("useChecks", () => {
   });
 
   it("has an empty list when given nothing", () => {
-    rust();
+    replyInOrder();
     const { result, rerender } = renderHook(() => useChecks(ref, undefined, null));
     expect(result.current.checks).toEqual([]);
     rerender();
@@ -421,7 +406,7 @@ describe("useChecks", () => {
   });
 
   it("falls back to what it was given when its own list is cleared", () => {
-    rust();
+    replyInOrder();
     const initial = [run("a", "COMPLETED", "SUCCESS")];
     const { result } = renderHook(() => useChecks(ref, undefined, initial));
     act(() => {
@@ -432,7 +417,7 @@ describe("useChecks", () => {
 
   it("loads the checks, then asks again every ten seconds while one runs and the window is in front", async () => {
     vi.useFakeTimers();
-    const calls = rust(
+    const calls = replyInOrder(
       page([runNode("e2e", "IN_PROGRESS", null)]),
       page([runNode("e2e", "IN_PROGRESS", null)]),
       page([runNode("e2e")]),
@@ -461,7 +446,7 @@ describe("useChecks", () => {
 
   it("stops asking once it's gone", async () => {
     vi.useFakeTimers();
-    const calls = rust(page([runNode("e2e", "IN_PROGRESS", null)]));
+    const calls = replyInOrder(page([runNode("e2e", "IN_PROGRESS", null)]));
     const { unmount } = renderHook(() => useChecks(ref, "h1", null));
     await flush();
     unmount();
@@ -474,7 +459,7 @@ describe("useChecks", () => {
     const slow = new Promise((resolve) => {
       first = resolve;
     });
-    const calls = rust(slow, page([runNode("new")], null, "h2"));
+    const calls = replyInOrder(slow, page([runNode("new")], null, "h2"));
     const { result } = renderHook(() => useChecks(ref, undefined, null));
     let older: Promise<void> = Promise.resolve();
     await act(async () => {
@@ -491,7 +476,7 @@ describe("useChecks", () => {
   });
 
   it("keeps what's shown when GitHub fails", async () => {
-    rust({ status: 502, body: "{}" });
+    replyInOrder({ status: 502, body: "{}" });
     const initial = [run("a", "COMPLETED", "SUCCESS")];
     const { result } = renderHook(() => useChecks(ref, undefined, initial));
     await act(() => result.current.reload());

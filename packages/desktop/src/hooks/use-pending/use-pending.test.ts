@@ -3,43 +3,14 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { published, usePending } from "@/hooks/use-pending/use-pending";
 import type { DraftsState } from "@/utils/bridge/bridge";
-import type { Details } from "@/utils/details/details";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { Draft, PullRef, Thread } from "@/utils/review/review";
 
 const REF: PullRef = { owner: "acme", repo: "api", number: 42 };
 const PR = "PR_1";
 const NO_THREADS: Thread[] = [];
-const DETAILS: Details = {
-  id: PR,
-  number: 42,
-  title: "Rename the queue",
-  url: "https://github.com/acme/api/pull/42",
-  html: "",
-  owner: "acme",
-  repo: "api",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
-  headRefName: "rename",
-  headRefOid: "abc123",
-  updatedAt: "2026-10-26T10:00:00Z",
-  additions: 3,
-  deletions: 1,
-  changedFiles: 1,
-  createdAt: "2026-10-25T10:00:00Z",
-  author: { login: "mona" },
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+const DETAILS = fakeDetails();
 
 const fields = (payload: unknown): Record<string, unknown> =>
   typeof payload === "object" && payload !== null ? Object.fromEntries(Object.entries(payload)) : {};
@@ -114,6 +85,23 @@ const draft = (key: string, body: string, over: Partial<Draft> = {}): Draft => (
 
 const NOTHING = () => {};
 const settle = () => act(() => Promise.resolve());
+const changed = (pull: string) =>
+  act(async () => {
+    await emit("drafts", pull);
+  });
+const askedOnce = async (asked: ReturnType<typeof world>["asked"]) => {
+  await waitFor(() => {
+    expect(asked("drafts_state")).toHaveLength(1);
+  });
+};
+async function withOneDraft() {
+  const rust = world({ pending: () => [onGitHub("C1", "Nit")], state: () => EMPTY });
+  const { result } = renderHook(() => usePending(PR, REF, NO_THREADS));
+  await waitFor(() => {
+    expect(result.current.drafts).toHaveLength(1);
+  });
+  return { ...rust, result };
+}
 
 describe("usePending", () => {
   it("opens with the comments kept from last time, then shows GitHub's", async () => {
@@ -172,24 +160,16 @@ describe("usePending", () => {
   it("asks again when Rust says one of this pull request's comments went, not another's", async () => {
     const { asked } = world({ pending: () => [], state: () => EMPTY });
     const { unmount } = renderHook(() => usePending(PR, REF, NO_THREADS));
-    await waitFor(() => {
-      expect(asked("drafts_state")).toHaveLength(1);
-    });
-    await act(async () => {
-      await emit("drafts", "PR_OTHER");
-    });
+    await askedOnce(asked);
+    await changed("PR_OTHER");
     expect(asked("drafts_state")).toHaveLength(1);
-    await act(async () => {
-      await emit("drafts", PR);
-    });
+    await changed(PR);
     await waitFor(() => {
       expect(asked("drafts_state")).toHaveLength(2);
     });
     unmount();
     await settle();
-    await act(async () => {
-      await emit("drafts", PR);
-    });
+    await changed(PR);
     expect(asked("drafts_state")).toHaveLength(2);
   });
 
@@ -203,12 +183,8 @@ describe("usePending", () => {
         }),
     });
     const { result } = renderHook(() => usePending(PR, REF, NO_THREADS));
-    await waitFor(() => {
-      expect(asked("drafts_state")).toHaveLength(1);
-    });
-    await act(async () => {
-      await emit("drafts", PR);
-    });
+    await askedOnce(asked);
+    await changed(PR);
     await waitFor(() => {
       expect(answers).toHaveLength(2);
     });
@@ -304,11 +280,7 @@ describe("usePending", () => {
 
   it("submits the review, then starts over from what GitHub has", async () => {
     keep([draft("k1", "Nit", { id: "C1" })]);
-    const { asked, queries } = world({ pending: () => [onGitHub("C1", "Nit")], state: () => EMPTY });
-    const { result } = renderHook(() => usePending(PR, REF, NO_THREADS));
-    await waitFor(() => {
-      expect(result.current.drafts).toHaveLength(1);
-    });
+    const { asked, queries, result } = await withOneDraft();
     await act(async () => {
       await result.current.submit(DETAILS, "APPROVE", " Ship it ");
     });
@@ -320,11 +292,7 @@ describe("usePending", () => {
   });
 
   it("throws the review away, then starts over", async () => {
-    const { asked, queries } = world({ pending: () => [onGitHub("C1", "Nit")], state: () => EMPTY });
-    const { result } = renderHook(() => usePending(PR, REF, NO_THREADS));
-    await waitFor(() => {
-      expect(result.current.drafts).toHaveLength(1);
-    });
+    const { asked, queries, result } = await withOneDraft();
     await act(async () => {
       await result.current.discard(DETAILS);
     });

@@ -1,41 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { keep, keptCurrent, readKept, type Kept } from "@/utils/kept/kept";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { Args } from "@/utils/platform/platform";
 import type { ReviewFile, Thread } from "@/utils/review/review";
 
-const details: Details = {
-  id: "PR_1",
-  number: 7,
-  title: "Fix the thing",
-  url: "https://github.com/acme/app/pull/7",
-  html: "",
-  owner: "acme",
-  repo: "app",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: false,
-  baseRefName: "main",
-  headRefName: "fix",
-  headRefOid: "abc",
-  updatedAt: "2026-01-01T00:00:00Z",
-  additions: 1,
-  deletions: 0,
-  changedFiles: 1,
-  createdAt: "2026-01-01T00:00:00Z",
-  author: { login: "ana" },
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+const details = fakeDetails();
 const file = (path: string, patch = "@@ -0,0 +1 @@\n+a"): ReviewFile => ({
   path,
   previousPath: null,

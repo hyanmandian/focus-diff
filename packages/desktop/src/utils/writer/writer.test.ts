@@ -1,31 +1,8 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { answerGitHub, type GitHubRequest } from "@/utils/fake-platform/fake-platform";
 
-type Request = { method: string; path: string; body: string; accept: unknown };
-
-function sent(args: Args | undefined, key: string): unknown {
-  if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
-    return undefined;
-  return args[key];
-}
-
-function github(answer: (request: Request) => unknown) {
-  const asked: Request[] = [];
-  mockCommands((_cmd, args) => {
-    const request = {
-      method: String(sent(args, "method")),
-      path: String(sent(args, "path")),
-      body: String(sent(args, "body")),
-      accept: sent(args, "accept"),
-    };
-    asked.push(request);
-    const reply = answer(request);
-    return { status: 200, body: typeof reply === "string" ? reply : JSON.stringify(reply) };
-  });
-  return asked;
-}
+const github = answerGitHub;
 
 const DAY = 24 * 3_600_000;
 const person = (login: string, name: string | null = null) => ({ login, name, avatarUrl: "" });
@@ -129,7 +106,7 @@ describe("previews", () => {
 
 const hundred = [person("ana", "Ana Souza"), person("bruno"), ...Array.from({ length: 98 }, (_, i) => person(`u${i}`))];
 
-const searchOrHundred = (request: Request) => ({
+const searchOrHundred = (request: GitHubRequest) => ({
   data: {
     repository: { mentionableUsers: { nodes: request.body.includes("query: $q") ? [person("souza-c")] : hundred } },
   },

@@ -2,8 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { GitHubError } from "@/utils/bridge/bridge";
 import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "@/utils/commit/commit";
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
-import type { Args } from "@/utils/platform/platform";
+import { fieldsOf, mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Author } from "@/utils/suggestion/suggestion";
 
 const ana = { login: "ana", name: "Ana Lima", databaseId: 11 };
@@ -18,13 +17,11 @@ const item = (path: string, start: number, lines: string[], author: Author = ana
 });
 
 type Sent = Record<string, unknown>;
-const fields = (args: Args | undefined): Sent =>
-  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
 
 function github(files: Record<string, string>, commit: { status: number; body: string }) {
   const sent: Sent[] = [];
   mockCommands((cmd, args) => {
-    const call = fields(args);
+    const call = fieldsOf(args);
     sent.push(call);
     if (call.path === "/graphql") return commit;
     const path = decodeURIComponent(String(call.path).split("/contents/")[1]?.split("?ref=")[0] ?? "");
@@ -36,7 +33,7 @@ function github(files: Record<string, string>, commit: { status: number; body: s
 function offline() {
   mockCommands((_, args) =>
     // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Rust's errors reach the page as strings
-    fields(args).path === "/graphql" ? Promise.reject("offline") : { status: 200, body: "x\n" },
+    fieldsOf(args).path === "/graphql" ? Promise.reject("offline") : { status: 200, body: "x\n" },
   );
 }
 
@@ -48,6 +45,17 @@ describe("defaultHeadline", () => {
     expect(defaultHeadline([item("a.ts", 1, []), item("b.ts", 1, [])])).toBe("Apply suggestions from code review");
   });
 });
+
+const commitOne = () =>
+  commitSuggestions({
+    repo: "o/r",
+    branch: "b",
+    head: "h1",
+    items: [item("a.ts", 1, ["y"])],
+    headline: "Fix",
+    body: "",
+    me: null,
+  });
 
 describe("commitSuggestions", () => {
   it("applies each file's suggestions at the reviewed head and commits them, crediting the authors", async () => {
@@ -107,44 +115,20 @@ describe("commitSuggestions", () => {
       body: JSON.stringify({ errors: [{ message: "Expected branch to point to h1 but it did not" }] }),
     };
     github({ "a.ts": "x\n" }, moved);
-    const run = commitSuggestions({
-      repo: "o/r",
-      branch: "b",
-      head: "h1",
-      items: [item("a.ts", 1, ["y"])],
-      headline: "Fix",
-      body: "",
-      me: null,
-    });
+    const run = commitOne();
     await expect(run).rejects.toBeInstanceOf(StaleHead);
   });
 
   it("passes on any other failure as it is", async () => {
     github({ "a.ts": "x\n" }, { status: 403, body: JSON.stringify({ message: "Forbidden" }) });
-    const run = commitSuggestions({
-      repo: "o/r",
-      branch: "b",
-      head: "h1",
-      items: [item("a.ts", 1, ["y"])],
-      headline: "Fix",
-      body: "",
-      me: null,
-    });
+    const run = commitOne();
     await expect(run).rejects.toThrow(new GitHubError(403, "Forbidden"));
     await expect(run).rejects.not.toBeInstanceOf(StaleHead);
   });
 
   it("passes on a failure that isn't GitHub's", async () => {
     offline();
-    const run = commitSuggestions({
-      repo: "o/r",
-      branch: "b",
-      head: "h1",
-      items: [item("a.ts", 1, ["y"])],
-      headline: "Fix",
-      body: "",
-      me: null,
-    });
+    const run = commitOne();
     await expect(run).rejects.toBe("offline");
   });
 });

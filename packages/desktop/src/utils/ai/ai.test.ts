@@ -2,40 +2,18 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { ask, askAboutLines, commentable, linesFromPatch, newRun, questionEffort, review, system } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
-import type { Details } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { ReviewFile } from "@/utils/review/review";
 
-const details: Details = {
-  id: "PR_1",
+const details = fakeDetails({
   number: 7,
   title: "Fix the cart",
-  url: "https://github.com/acme/web/pull/7",
   html: "<p>Totals were <b>wrong</b>.</p>",
-  owner: "acme",
   repo: "web",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
   headRefName: "fix-cart",
   headRefOid: "abc123",
-  updatedAt: "2026-01-01T00:00:00Z",
-  additions: 1,
-  deletions: 1,
-  changedFiles: 2,
-  createdAt: "2026-01-01T00:00:00Z",
-  author: null,
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+});
 
 const patch = ["@@ -1,2 +1,2 @@", " keep", "-old", "+new"].join("\n");
 const files: ReviewFile[] = [

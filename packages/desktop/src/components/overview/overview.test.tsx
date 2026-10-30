@@ -10,8 +10,9 @@ import type { Pull } from "@/hooks/use-pull/use-pull";
 import type { AiReview, Finding } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import type { Conversation, ConversationEntry, Said } from "@/utils/conversation/conversation";
-import type { Details, Entry } from "@/utils/details/details";
+import type { Entry } from "@/utils/details/details";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { fakeDetails } from "@/utils/mock-pull/mock-pull";
 import type { Thread } from "@/utils/review/review";
 import type { TimelineEvent } from "@/utils/timeline/timeline";
 
@@ -111,36 +112,11 @@ vi.mock("@/components/thread/thread", () => ({
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const ana = { login: "ana", name: "Ana Lima", avatarUrl: "https://avatars.githubusercontent.com/u/1" };
 
-const details: Details = {
-  id: "PR_1",
+const details = fakeDetails({
   number: 1807,
   title: "Keep the promo code when the cart changes",
-  url: "https://github.com/acme/shop/pull/1807",
   html: "<p>Fixes the cart.</p>",
-  owner: "acme",
-  repo: "shop",
-  isDraft: false,
-  state: "OPEN",
-  mergeable: "MERGEABLE",
-  mergeStateStatus: "CLEAN",
-  viewerDidAuthor: false,
-  viewerCanUpdate: true,
-  baseRefName: "main",
-  headRefName: "promo-keep",
-  headRefOid: "abc123",
-  updatedAt: ago(5),
-  additions: 10,
-  deletions: 2,
-  changedFiles: 1,
-  createdAt: ago(120),
-  author: ana,
-  reviewDecision: null,
-  reviewers: [],
-  checks: [],
-  files: [],
-  entries: [],
-  mergeMethods: ["squash"],
-};
+});
 
 const comment = (id: string, minutes: number, extra: Partial<Said> = {}): ConversationEntry => ({
   kind: "comment",

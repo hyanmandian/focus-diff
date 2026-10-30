@@ -75,6 +75,13 @@ function load() {
   return import("@/utils/store/store");
 }
 
+async function running() {
+  const store = await load();
+  const { result } = renderHook(() => store.useStore());
+  await act(() => store.start());
+  return { store, result };
+}
+
 describe("the panel's store", () => {
   it("starts empty", async () => {
     const store = await load();
@@ -85,9 +92,7 @@ describe("the panel's store", () => {
   it("starts from Rust's snapshot and the config, and notes when it's ready", async () => {
     rust();
     const mark = vi.spyOn(performance, "mark");
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { result } = await running();
     expect(result.current.items.review).toHaveLength(2);
     expect(result.current.arrivals).toEqual(new Set(["PR_1"]));
     expect(result.current.config).toEqual(config);
@@ -120,9 +125,7 @@ describe("the panel's store", () => {
 
   it("asks what's possible for connecting GitHub when no one is signed in, and forgets it once someone is", async () => {
     const { sent } = rust(live({ signedIn: false }));
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { result } = await running();
     expect(result.current.auth).toEqual(signedOut);
     await act(() => emit("snapshot", live({ signedIn: false })));
     expect(sent("auth_status")).toHaveLength(1);
@@ -134,9 +137,7 @@ describe("the panel's store", () => {
 
   it("keeps the connection state while signed in", async () => {
     rust(live({ signedIn: false }), { ...signedOut, signed_in: true });
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { result } = await running();
     await act(() => emit("snapshot", live()));
     expect(result.current.auth).toMatchObject({ signed_in: true });
   });
@@ -150,9 +151,7 @@ describe("the panel's store", () => {
 
   it("follows Rust's snapshots, the config's changes, and the panel opening", async () => {
     const { sent } = rust();
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { result } = await running();
 
     await act(() => emit("snapshot", live({ items: {} })));
     await waitFor(() => {
@@ -192,9 +191,7 @@ describe("what's been seen", () => {
 
   it("marks an item seen at once and tells Rust", async () => {
     const { sent } = rust();
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { store, result } = await running();
     act(() => {
       store.markSeen(result.current.items.review![0]!);
     });
@@ -206,9 +203,7 @@ describe("what's been seen", () => {
 
   it("marks a whole queue seen", async () => {
     const { sent } = rust();
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { store, result } = await running();
     act(() => {
       store.markQueueSeen("review");
       store.markQueueSeen("other");
@@ -219,9 +214,7 @@ describe("what's been seen", () => {
 
   it("clears an arrival once shown, and only once", async () => {
     const { sent } = rust();
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { store, result } = await running();
     act(() => {
       store.clearArrival("PR_1");
       store.clearArrival("PR_1");
@@ -234,9 +227,7 @@ describe("what's been seen", () => {
 describe("dismissing", () => {
   it("takes an item off its queue at once, and puts it back on undo", async () => {
     const { sent } = rust();
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { store, result } = await running();
     const first = result.current.items.review![0]!;
     act(() => {
       store.dismiss(first);
@@ -252,9 +243,7 @@ describe("dismissing", () => {
 
   it("doesn't put back twice what's still there", async () => {
     rust();
-    const store = await load();
-    const { result } = renderHook(() => store.useStore());
-    await act(() => store.start());
+    const { store, result } = await running();
     act(() => {
       store.restore(result.current.items.review![0]!);
     });

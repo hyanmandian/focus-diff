@@ -42,3 +42,44 @@ export const fakePlatform: Platform = {
     await ask(CLOSE_WINDOW);
   },
 };
+
+export type Call = { cmd: string; fields: Record<string, unknown> };
+
+export const fieldsOf = (args: Args | undefined): Record<string, unknown> =>
+  args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array ? {} : args;
+
+export const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
+
+export function recordCommands(answer: (cmd: string, fields: Record<string, unknown>, calls: Call[]) => unknown) {
+  const calls: Call[] = [];
+  mockCommands((cmd, args) => {
+    const call = { cmd, fields: fieldsOf(args) };
+    calls.push(call);
+    return answer(cmd, call.fields, calls);
+  });
+  return calls;
+}
+
+export const replyInOrder = (...replies: unknown[]) =>
+  recordCommands((_cmd, _fields, calls) => replies[calls.length - 1]);
+
+export type GitHubRequest = { method: string; path: string; body: string; accept: unknown };
+
+export function answerGitHub(answer: (request: GitHubRequest) => unknown) {
+  const asked: GitHubRequest[] = [];
+  mockCommands(async (_cmd, args) => {
+    const fields = fieldsOf(args);
+    const request = {
+      method: String(fields.method),
+      path: String(fields.path),
+      body: String(fields.body),
+      accept: fields.accept,
+    };
+    asked.push(request);
+    const reply: unknown = await answer(request);
+    return { status: 200, body: typeof reply === "string" ? reply : JSON.stringify(reply) };
+  });
+  return asked;
+}
+
+export const sentJson = (request: GitHubRequest | undefined): unknown => JSON.parse(String(request?.body));

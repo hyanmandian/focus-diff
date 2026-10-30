@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { mockCommands } from "@/utils/fake-platform/fake-platform";
+import { answerGitHub, sentJson, mockCommands } from "@/utils/fake-platform/fake-platform";
 import {
   addAssignees,
   addLabels,
@@ -25,32 +25,24 @@ import {
   type Manage,
   type Permission,
 } from "@/utils/manage/manage";
-import type { Args } from "@/utils/platform/platform";
 import { shelve, shelved } from "@/utils/shelf/shelf";
 
-type Request = { method: string; path: string; body: string };
-
-function sent(args: Args | undefined, key: string): unknown {
-  if (args === undefined || Array.isArray(args) || args instanceof ArrayBuffer || args instanceof Uint8Array)
-    return undefined;
-  return args[key];
-}
-
-function github(answer: (request: Request) => unknown) {
-  const asked: Request[] = [];
-  mockCommands(async (_cmd, args) => {
-    const request = {
-      method: String(sent(args, "method")),
-      path: String(sent(args, "path")),
-      body: String(sent(args, "body")),
-    };
-    asked.push(request);
-    return { status: 200, body: JSON.stringify(await answer(request)) };
-  });
-  return asked;
-}
+const github = answerGitHub;
 
 const ok = (data: unknown) => ({ status: 200, body: JSON.stringify(data) });
+
+async function reloadWhileAsking(quiet?: boolean) {
+  const answers = heldAnswers();
+  const { result } = renderHook(() => useManage("PR_1", ref));
+  await waitFor(() => {
+    expect(answers).toHaveLength(1);
+  });
+  let second: Promise<void> | undefined;
+  act(() => {
+    second = result.current.reload(quiet);
+  });
+  return { answers, result, second };
+}
 
 function heldAnswers() {
   const answers: Array<{ resolve: (value: unknown) => void; reject: (reason: Error) => void }> = [];
@@ -62,8 +54,6 @@ function heldAnswers() {
   );
   return answers;
 }
-
-const sentJson = (request: Request | undefined): unknown => JSON.parse(String(request?.body));
 
 const ref = { owner: "acme", repo: "app", number: 7 };
 const user = (login: string) => ({ __typename: "User" as const, login, avatarUrl: "" });
@@ -407,15 +397,7 @@ describe("the hook", () => {
   });
 
   it("keeps only the latest answer when they come out of order", async () => {
-    const answers = heldAnswers();
-    const { result } = renderHook(() => useManage("PR_1", ref));
-    await waitFor(() => {
-      expect(answers).toHaveLength(1);
-    });
-    let second: Promise<void> | undefined;
-    act(() => {
-      second = result.current.reload();
-    });
+    const { answers, result, second } = await reloadWhileAsking();
     answers[1]!.resolve(ok(raw({ body: "latest" })));
     await act(() => second);
     answers[0]!.resolve(ok(raw({ body: "stale" })));
@@ -424,15 +406,7 @@ describe("the hook", () => {
   });
 
   it("ignores a stale failure", async () => {
-    const answers = heldAnswers();
-    const { result } = renderHook(() => useManage("PR_1", ref));
-    await waitFor(() => {
-      expect(answers).toHaveLength(1);
-    });
-    let second: Promise<void> | undefined;
-    act(() => {
-      second = result.current.reload(true);
-    });
+    const { answers, result, second } = await reloadWhileAsking(true);
     answers[1]!.resolve(ok(raw()));
     await act(() => second);
     answers[0]!.reject(new Error("too late"));

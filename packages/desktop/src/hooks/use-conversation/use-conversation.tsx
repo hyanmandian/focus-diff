@@ -60,7 +60,7 @@ export type ConversationApi = {
 };
 
 const Context = createContext<ConversationApi | null>(null);
-export const ConversationProvider = Context.Provider;
+export const ConversationProvider = Context;
 export const useConversationApi = () => useContext(Context);
 
 export async function copyText(text: string) {

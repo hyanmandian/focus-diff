@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { Switch } from "@/components/switch/switch";
 import { cn } from "@/utils/cn/cn";
@@ -208,17 +208,23 @@ export function SwitchRow({
   );
 }
 
-export const LinkRow = forwardRef<
-  HTMLButtonElement,
-  {
-    leading?: React.ReactNode;
-    label: React.ReactNode;
-    description?: React.ReactNode;
-    muted?: boolean;
-    control?: React.ReactNode;
-    onOpen: () => void;
-  }
->(function LinkRow({ leading, label, description, muted, control, onOpen }, ref) {
+export function LinkRow({
+  leading,
+  label,
+  description,
+  muted,
+  control,
+  onOpen,
+  ref,
+}: {
+  leading?: React.ReactNode;
+  label: React.ReactNode;
+  description?: React.ReactNode;
+  muted?: boolean;
+  control?: React.ReactNode;
+  onOpen: () => void;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
   return (
     <div className="group/link relative flex min-h-11 items-center gap-3 px-3 py-1.5 transition-colors duration-(--duration-fast) first:rounded-t-[12px] last:rounded-b-[12px] has-[>button:active]:bg-fill has-[>button:hover]:bg-(--fill-quaternary)">
       {leading}
@@ -237,7 +243,7 @@ export const LinkRow = forwardRef<
       <ChevronRight className="size-3.5 shrink-0 text-(--label-tertiary)" strokeWidth={2.25} aria-hidden />
     </div>
   );
-});
+}
 
 export function useDetail() {
   const [openId, setOpenId] = useState<string | null>(null);

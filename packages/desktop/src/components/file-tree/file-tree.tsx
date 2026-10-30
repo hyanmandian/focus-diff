@@ -1,5 +1,5 @@
 import { ChevronRight, Folder } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { FileIcon } from "@/components/file-icon/file-icon";
 import { renamed } from "@/components/rich-diff/rich-diff";
@@ -47,18 +47,13 @@ export function FileTree({
   const [height, setHeight] = useState(600);
   const box = useRef<HTMLDivElement>(null);
 
-  const tree = useMemo(() => buildTree(files ?? []), [files]);
-  const rows = useMemo<Array<TreeRow<ReviewFile>>>(
-    () =>
-      flat
-        ? (files ?? []).map((file) => ({
-            node: { kind: "file" as const, path: file.path, name: file.path, file },
-            depth: 0,
-            parent: null,
-          }))
-        : flatten(tree, collapsed),
-    [flat, files, tree, collapsed],
-  );
+  const rows: Array<TreeRow<ReviewFile>> = flat
+    ? (files ?? []).map((file) => ({
+        node: { kind: "file" as const, path: file.path, name: file.path, file },
+        depth: 0,
+        parent: null,
+      }))
+    : flatten(buildTree(files ?? []), collapsed);
   const at = cursor ? rows.findIndex((r) => keyOf(r) === cursor) : -1;
 
   const loading = files === null;

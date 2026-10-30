@@ -11,7 +11,7 @@ import {
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { BookOpen, Code, MessageSquarePlus, MoreHorizontal, Plus } from "lucide-react";
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 
 import { Button } from "@/components/button/button";
 import { Checkbox } from "@/components/checkbox/checkbox";
@@ -214,7 +214,7 @@ function paintFound(
   CSS.highlights.set("find-current", new Highlight(...here));
 }
 
-export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
+export function Diffs({ ref, ...props }: Props & { ref?: Ref<DiffsHandle> }) {
   const t = useT();
   const {
     files,
@@ -826,4 +826,4 @@ export const Diffs = forwardRef<DiffsHandle, Props>(function Diffs(props, ref) {
       </ContextMenu>
     </div>
   );
-});
+}

@@ -19,7 +19,16 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { ActionButtons, ActionMenuItems } from "@/components/action-buttons/action-buttons";
 import { Badge } from "@/components/badge/badge";
@@ -342,14 +351,6 @@ export function Review({ target }: { target: Target }) {
   const markDone = async () => {
     if (!(await goNext(true))) say(t("review.doneQueueDone", { queue: queueLabel }));
   };
-  const goNextRef = useRef(nextInQueue);
-  const goBackRef = useRef(goBack);
-  const markDoneRef = useRef(markDone);
-  useLayoutEffect(() => {
-    goNextRef.current = nextInQueue;
-    goBackRef.current = goBack;
-    markDoneRef.current = markDone;
-  });
   const minutesOf = useMemo(() => createEstimator(LINES_PER_HOUR, learned), [learned]);
   const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(
     `ai-review:${prId}`,
@@ -750,64 +751,62 @@ export function Review({ target }: { target: Target }) {
     const at = stops[index]!;
     jump(at.path, at.line, at.side, at.thread);
   };
-  const filterKeys = useRef({ stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step });
-  useLayoutEffect(() => {
-    filterKeys.current = { stepPart, choose, goToNextFile, stepToFile, toggleViewedAtTop, step };
+  const onReviewKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
+    if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
+      e.preventDefault();
+      void (e.key === "]" ? nextInQueue : goBack)();
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) return;
+    if (e.altKey && e.shiftKey) {
+      const action = {
+        Period: () => {
+          stepPart(1);
+        },
+        Comma: () => {
+          stepPart(-1);
+        },
+        Digit0: () => {
+          choose([]);
+        },
+        KeyJ: goToNextFile,
+      }[e.code];
+      if (!action || !files) return;
+      e.preventDefault();
+      setTab("diff");
+      action();
+      return;
+    }
+    if (e.key === "e" && !e.altKey && target.queue) {
+      e.preventDefault();
+      void markDone();
+      return;
+    }
+    if (e.key === "?") {
+      e.preventDefault();
+      setShortcuts(true);
+      return;
+    }
+    if (tab !== "diff" || e.altKey) return;
+    if (e.key === "n" || e.key === "p") {
+      e.preventDefault();
+      step(e.key === "n" ? 1 : -1);
+    } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
+      e.preventDefault();
+      if (e.key === "v") toggleViewedAtTop();
+      else stepToFile(e.key === "j" ? 1 : -1);
+    }
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || typing(e.target) || document.querySelector('[aria-modal="true"]')) return;
-      if (primary(e) && !e.shiftKey && !e.altKey && (e.key === "]" || e.key === "[")) {
-        e.preventDefault();
-        void (e.key === "]" ? goNextRef : goBackRef).current();
-        return;
-      }
-      if (e.metaKey || e.ctrlKey) return;
-      if (e.altKey && e.shiftKey) {
-        const keys = filterKeys.current;
-        const action = {
-          Period: () => {
-            keys.stepPart(1);
-          },
-          Comma: () => {
-            keys.stepPart(-1);
-          },
-          Digit0: () => {
-            keys.choose([]);
-          },
-          KeyJ: keys.goToNextFile,
-        }[e.code];
-        if (!action || !files) return;
-        e.preventDefault();
-        setTab("diff");
-        action();
-        return;
-      }
-      if (e.key === "e" && !e.altKey && target.queue) {
-        e.preventDefault();
-        void markDoneRef.current();
-        return;
-      }
-      if (e.key === "?") {
-        e.preventDefault();
-        setShortcuts(true);
-        return;
-      }
-      if (tab !== "diff" || e.altKey) return;
-      if (e.key === "n" || e.key === "p") {
-        e.preventDefault();
-        filterKeys.current.step(e.key === "n" ? 1 : -1);
-      } else if ((e.key === "j" || e.key === "k" || e.key === "v") && files) {
-        e.preventDefault();
-        if (e.key === "v") filterKeys.current.toggleViewedAtTop();
-        else filterKeys.current.stepToFile(e.key === "j" ? 1 : -1);
-      }
+      onReviewKey(e);
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [tab, files, setTab, target.queue]);
+  }, []);
 
   const actionResult = (message: string, ok: boolean) => {
     say(message);
@@ -849,9 +848,8 @@ export function Review({ target }: { target: Target }) {
     }
   };
 
-  const menuActions = useRef<Record<string, () => void>>({});
-  useLayoutEffect(() => {
-    menuActions.current = {
+  const runMenu = useEffectEvent((id: string) => {
+    const actions: Record<string, () => void> = {
       find: openFind,
       "find-next": () => {
         stepFind(1);
@@ -917,9 +915,12 @@ export function Review({ target }: { target: Target }) {
       },
       leave: () => void leave(),
     };
+    actions[id]?.();
   });
   useEffect(() => {
-    const off = bridge.on<string>("menu", (id) => menuActions.current[id]?.());
+    const off = bridge.on<string>("menu", (id) => {
+      runMenu(id);
+    });
     const keys: Record<string, string> = {
       "1": "overview",
       "2": "diff",
@@ -936,7 +937,7 @@ export function Review({ target }: { target: Target }) {
       e.preventDefault();
       if (id === "settings") void bridge.openSettings();
       else if (id === "quit") void bridge.quit();
-      else menuActions.current[id]?.();
+      else runMenu(id);
     };
     window.addEventListener("keydown", onKey);
     return () => {

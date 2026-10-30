@@ -535,10 +535,7 @@ export function Overview({
   const [shown, setShown] = useState(PAGE);
   const [quoted, setQuoted] = useState<string | null>(null);
   const entries: Array<Entry & Partial<ConversationEntry>> = conversation?.entries ?? details.entries;
-  const byComment = useMemo(
-    () => new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const))),
-    [threads],
-  );
+  const byComment = new Map(threads.flatMap((thread) => thread.comments.map((c) => [c.id, thread] as const)));
   const items = useMemo(() => byTime(entries, pull.events), [entries, pull.events]);
   const [landed, setLanded] = useState<string | null>(null);
   const lit = useRef<string | null>(null);

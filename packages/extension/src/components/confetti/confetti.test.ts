@@ -46,11 +46,11 @@ describe("confetti", () => {
     const canvas = parent.querySelector("canvas")!;
     expect(canvas.getAttribute("aria-hidden")).toBe("true");
     nextFrame(16);
-    expect(context.fillRect).toHaveBeenCalledTimes(120);
+    expect(context.fillRect).toHaveBeenCalledTimes(60);
     expect(context.fillStyle).toBe("#1a7f37");
-    nextFrame(2000);
+    nextFrame(1400);
     expect(context.globalAlpha).toBeLessThan(1);
-    nextFrame(2201);
+    nextFrame(1601);
     expect(canvas.isConnected).toBe(false);
     expect(frames).toHaveLength(0);
   });

@@ -24,7 +24,7 @@ vi.mock("@/utils/os/os", async (original) =>
 );
 
 const PEOPLE = [
-  { login: "ana", name: "Ana Lima", avatarUrl: "https://avatars.githubusercontent.com/u/1" },
+  { login: "ana", name: "Bruno Mouse", avatarUrl: "https://avatars.githubusercontent.com/u/1" },
   { login: "andre", name: null },
 ];
 
@@ -230,14 +230,14 @@ describe("MarkdownField", () => {
       await user.click(field());
       await user.keyboard("{End}@an");
       const list = screen.getByRole("listbox", { name: "People to mention" });
-      expect(list.textContent).toContain("Ana Lima");
+      expect(list.textContent).toContain("Bruno Mouse");
       expect(field().getAttribute("aria-expanded")).toBe("true");
       await act(async () => {
         more.resolve([{ login: "anabel", name: "Anabel" }]);
         await more.promise;
       });
       expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
-        "ANanaAna Lima",
+        "ANanaBruno Mouse",
         "ANandre",
         "ANanabelAnabel",
       ]);

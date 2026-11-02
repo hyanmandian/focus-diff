@@ -25,7 +25,7 @@ const PAGES: Array<{ name: string; url: string; ready: (page: Page) => Promise<v
   },
 ];
 
-const violations = async (page: Page) => {
+const violations = async (page: Page, shadow?: [string, string]) => {
   await page.evaluate(() =>
     Promise.all(
       document
@@ -34,8 +34,8 @@ const violations = async (page: Page) => {
         .map((animation) => animation.finished),
     ),
   );
-  const { violations: found } = await new AxeBuilder({ page })
-    .exclude("[data-slot=file-icon]")
+  const axe = new AxeBuilder({ page }).exclude("[data-slot=file-icon]");
+  const { violations: found } = await (shadow ? axe.exclude({ fromShadowDom: shadow }) : axe)
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
     .analyze();
   return found.map(
@@ -66,3 +66,21 @@ test("the review's diff has no accessibility violations", async ({ page }) => {
   );
   expect(await violations(page)).toEqual([]);
 });
+
+const DIFF: [string, string] = ["diffs-container", "code"];
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`the review's walkthrough has no accessibility violations in ${scheme} mode`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto(PAGES[1]?.url ?? "");
+    await page.getByRole("tab", { name: /^Walkthrough/u }).click();
+    expect(await violations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Review and Build Walkthrough" }).click();
+    await expect(page.getByRole("button", { name: /^Part 1:/u })).toHaveAttribute("aria-current", "step");
+    expect(await violations(page, DIFF)).toEqual([]);
+    await page.getByRole("button", { name: /^Part \d+: Everything else/u }).click();
+    await page.getByRole("button", { name: /^Fixtures and mocks/u }).click();
+    await expect(page.getByRole("button", { name: /^data\/promo-fixtures\.json/u })).toBeVisible();
+    expect(await violations(page, DIFF)).toEqual([]);
+  });
+}

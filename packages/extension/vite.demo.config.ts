@@ -20,6 +20,7 @@ export default defineConfig({
     },
   ],
   build: {
+    cssTarget: ["chrome123", "firefox140", "safari17.5"],
     outDir: ".output/demo",
     emptyOutDir: true,
     lib: { entry: "src/components/demo-embed/demo-embed.ts", formats: ["es"], fileName: () => "focus-diff-demo.js" },

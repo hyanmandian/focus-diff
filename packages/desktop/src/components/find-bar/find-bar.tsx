@@ -19,7 +19,7 @@ export function FindBar({ query, total, at, onQuery, onStep, onClose }: Props) {
   return (
     <search
       aria-label={t("review.findInDiff")}
-      className="absolute top-2 right-3 z-30 flex items-center gap-1 rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-(--shadow-menu)"
+      className="absolute top-2 right-3 z-30 flex animate-in items-center gap-1 rounded-[10px] bg-popover p-1 text-popover-foreground shadow-(--shadow-menu) duration-150 ease-out fade-in-0 slide-in-from-top-1 motion-reduce:animate-none"
     >
       <Input
         // oxlint-disable-next-line jsx-a11y/no-autofocus -- opened by Cmd-F to type in at once, as every find bar

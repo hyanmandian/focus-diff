@@ -16,7 +16,7 @@ describe("openPullLink", () => {
   it("opens its review window, outside any queue", async () => {
     const calls = answering({
       repository: {
-        pullRequest: { id: "PR_7", number: 7, title: "Fix it", author: { login: "ana", name: "Ana Lima" } },
+        pullRequest: { id: "PR_7", number: 7, title: "Fix it", author: { login: "ana", name: "Bruno Mouse" } },
       },
     });
     await openPullLink({ owner: "acme", repo: "web", number: 7 });
@@ -24,7 +24,7 @@ describe("openPullLink", () => {
       id: "PR_7",
       repo: "acme/web",
       number: 7,
-      title: "#7 · Fix it · Ana",
+      title: "#7 · Fix it · Bruno",
       teams: [],
       queue: null,
     });

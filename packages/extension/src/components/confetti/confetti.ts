@@ -1,8 +1,8 @@
-const COUNT = 120;
-const DURATION_MS = 2200;
+const COUNT = 60;
+const DURATION_MS = 1600;
 const GRAVITY = 1400;
 const DRAG = 1.6;
-const COLORS = ["--fd-add", "--fd-accent", "--fd-attention", "--fd-done", "--fd-del"];
+const COLORS = ["--fd-add", "--fd-accent", "--fd-done"];
 
 interface Piece {
   x: number;

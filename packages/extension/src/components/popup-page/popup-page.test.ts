@@ -52,7 +52,7 @@ const pull = (over: Partial<PullRequest> = {}): PullRequest => ({
 });
 
 const inbox = (over: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
-  me: "me",
+  me: "me--self",
   reviews: [],
   mine: [],
   checkedAt: NOW - 5 * 60_000,
@@ -666,7 +666,7 @@ describe("startPopup", () => {
     expect(document.activeElement).toBe(card.querySelector("button"));
     const [, state, options] = vi.mocked(renderReviewPanel).mock.lastCall!;
     expect([...state.waiting]).toStrictEqual(["a"]);
-    expect(options.avatar("bo").textContent).toBe("B");
+    expect(options.avatar("bo--dev").textContent).toBe("B");
     options.openOptions("review-time");
     await settle();
     expect(sent).toContainEqual({ type: "open-options", section: "review-time" });
@@ -739,29 +739,31 @@ describe("startPopup", () => {
       await inboxItem.setValue(inbox({ reviews: [pull({ url, author })] }));
       await settle();
     };
-    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "bo" })] }));
+    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "bo--dev" })] }));
     await start();
     const image = shown();
-    await draw("b", "bo");
+    await draw("b", "bo--dev");
     expect(shown()).not.toBe(image);
     expect(shown().src).toBe(image.src);
     await draw("c", "cy");
-    await draw("d", "bo");
+    await draw("d", "bo--dev");
     expect(shown()).toBe(image);
     await draw("e", "cy");
     layout(image, { complete: true, naturalWidth: 0 });
-    await draw("f", "bo");
+    await draw("f", "bo--dev");
     expect($$("#panel-reviews .avatar img")).toHaveLength(0);
   });
 
   it("gives each of an author's rows drawn together a picture of its own", async () => {
-    await inboxItem.setValue(inbox({ reviews: [pull({ url: "a", author: "bo" }), pull({ url: "b", author: "bo" })] }));
+    await inboxItem.setValue(
+      inbox({ reviews: [pull({ url: "a", author: "bo--dev" }), pull({ url: "b", author: "bo--dev" })] }),
+    );
     await start();
     const images = $$<HTMLImageElement>("#panel-reviews .avatar img");
     expect(images).toHaveLength(2);
     expect(images[0]).not.toBe(images[1]);
     images[1]!.dispatchEvent(new Event("error"));
-    expect(images[1]!.src).toBe("https://github.com/bo.png?size=48");
+    expect(images[1]!.src).toBe("https://github.com/bo--dev.png?size=48");
   });
 
   it("leaves the rows alone when a look finds the same", async () => {
@@ -830,7 +832,7 @@ describe("startPopup", () => {
     await popupItem.setValue({ ...normalizePopup({}), updates: true, merged: true });
     await inboxItem.setValue(
       inbox({
-        updates: [pull({ url: "u", title: "Talked about", author: "bo" })],
+        updates: [pull({ url: "u", title: "Talked about", author: "bo--dev" })],
         merged: [pull({ url: "m", title: "Merged without me" }), pull({ url: "m2", draft: true })],
       }),
     );
@@ -839,7 +841,7 @@ describe("startPopup", () => {
     expect($(".tabs").dataset.count).toBe("4");
     expect([$("#count-updates").textContent, $("#count-merged").textContent]).toStrictEqual(["1", "2"]);
     expect($("#panel-updates a.pull").getAttribute("href")).toBe("u");
-    expect($("#panel-updates .pull-author").textContent).toBe("bo");
+    expect($("#panel-updates .pull-author").textContent).toBe("bo--dev");
     expect($("#panel-merged a.pull").getAttribute("href")).toBe("m/changes");
     expect($$("#panel-merged details")).toHaveLength(0);
     const query = (list: string) => new URL($<HTMLAnchorElement>(`#panel-${list} .see-all`).href).searchParams.get("q");

@@ -45,7 +45,7 @@ export const settings = {
   deleteQueue: "Delete queue",
   showInPanel: "Show in the panel",
   hiddenQueue: "Hidden: it isn't checked or shown until you turn it back on.",
-  queuesFooter: "Switched-off queues stay here, unchecked and out of the panel.",
+  queuesFooter: "A queue that's off isn't checked or shown in the panel.",
   showNamedInPanel: "Show {name} in the panel",
   noQueues: "No queues yet. Add one to start.",
 
@@ -206,7 +206,7 @@ export const settings = {
   fromQueues: "From these queues",
   deleteReviewTime: "Delete review time",
   reviewIntro:
-    "Set aside time to review. When it comes, Focus Diff picks the pull requests that fit, by about how long each takes, tells you with a sound of its own, and counts the time down in the menu bar.",
+    "When review time comes, Focus Diff picks the pull requests that fit, plays its own sound and counts down in the menu bar.",
   next: "Next: {day} at {time}, “{name}” for {minutes} min.",
   noneOn: "No review time is on. Turn one on, or give it a day and a time.",
   remindMe: "Remind me when it's review time",
@@ -248,7 +248,7 @@ export const settings = {
   importPlaceholder: "Paste what a teammate, or Focus Diff, copied",
   import: "Import",
   filtersIntro:
-    "Review one part of a pull request at a time. Each filter keeps the files whose path matches what to include and not what to leave out (regular expressions; empty includes everything). They're chips at the bottom of the review window: turn on several to see them together.",
+    "Review one part of a pull request at a time. A filter keeps the files whose path matches Include and not Leave out (regular expressions; empty matches everything). Filters show as chips at the bottom of the review window; turn on several to combine them.",
   filterName: "Filter name",
   onlyIn: "Only in",
   onlyInHint: "Every repository. Add owner/name, or owner/* for all of an owner's, to offer it only there.",
@@ -295,7 +295,7 @@ export const settings = {
 
   copyNamed: "Copy {command}",
   aiIntro:
-    "Optional. Summaries and a second pair of eyes on pull requests, from the coding agent you already use, on your own plan. When you ask, Focus Diff runs it on this computer, read-only: it reads and answers, it can't change files or run commands. Nothing goes through us.",
+    "Optional. Summaries and a second review from the coding agent you already use, on your own plan. Focus Diff runs it on this computer, read-only: it can't change files or run commands. Nothing goes through us.",
   codingAgent: "Coding agent",
   checkAgain: "Check Again",
   checkAgainFooter: "Check again after installing or signing in.",

@@ -45,7 +45,7 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .stats[data-done] .done {
-    animation: done-pop 420ms var(--fd-ease);
+    animation: done-pop 320ms var(--fd-ease);
   }
   .stats[data-done] .done-check {
     stroke-dasharray: 10;
@@ -54,7 +54,7 @@
 }
 @keyframes done-pop {
   from {
-    scale: 0.6;
+    scale: 0.9;
     opacity: 0;
   }
 }

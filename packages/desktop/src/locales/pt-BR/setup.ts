@@ -17,24 +17,24 @@ export const setup: Dictionary["setup"] = {
   checkingGitHub: "Consultando o GitHub",
   tokenNote:
     "Seu token fica nas chaves do sistema (ou com o GitHub CLI) e só vai para o GitHub. O Focus Diff não tem servidor.",
-  queuesTitle: "O que acompanhar?",
+  queuesTitle: "Escolha o que acompanhar",
   queuesBody:
     "Cada uma vira uma fila no painel. Depois, nos Ajustes, dá para filtrar melhor (times, labels, arquivos) ou adicionar suas próprias buscas.",
   onlyRepos: "Só nestes repositórios (opcional)",
   repositories: "Repositórios",
   repoPlaceholder: "acme/web ou acme/*",
   reposEmpty: "Vazio: todos os repositórios que você vê.",
-  filtersTitle: "Como você gosta de passar por um diff?",
+  filtersTitle: "Escolha filtros para os diffs",
   filtersBody:
     "Cada filtro escolhido vira um botão acima dos arquivos alterados, para você revisar uma parte de cada vez e ver quanto falta em cada uma.",
   filtersNote: "São filtros comuns: dá para renomear, ajustar ou criar os seus depois em Ajustes › Filtros.",
-  notifyTitle: "Como avisar você?",
+  notifyTitle: "Escolha como ser avisado",
   notifyBody:
     "Uma notificação e a animação do ícone na barra de menus quando algo novo precisa de você: um pedido de revisão, commits ou respostas novas no que você revisou, aprovações e CI falhando nos seus. O que cada fila avisa pode ser mudado nos Ajustes.",
   sound: "Tocar um som",
   checkEvery: "Consultar o GitHub a cada",
   checkEveryHint: "Só o que mudou é baixado de novo.",
-  aiTitle: "Quer um segundo par de olhos?",
+  aiTitle: "Adicione um revisor com IA",
   aiBody:
     "Opcional. Resumos, problemas que merecem uma olhada e respostas sobre um pull request, do agente de código que você já usa, no seu próprio plano. Roda neste computador e não muda nada.",
   ai: "IA",

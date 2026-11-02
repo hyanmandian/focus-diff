@@ -1,14 +1,4 @@
-import {
-  ArrowDownToLine,
-  ArrowLeft,
-  Check,
-  Copy,
-  Loader2,
-  MessageSquarePlus,
-  Pencil,
-  Sparkles,
-  Square,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, Check, Copy, Loader2, MessageSquarePlus, Pencil, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
@@ -57,7 +47,7 @@ function Html({ html, className }: { html: string; className?: string | undefine
       ref={ref}
       role="presentation"
       className={cn(
-        "selectable prose-sm text-body leading-(--type-reading-leading) break-words",
+        "selectable prose-sm text-body leading-(--type-reading-leading) break-words [&>:first-child]:mt-0 [&>:last-child]:mb-0",
         "[&_a]:text-link [&_a]:underline [&_a]:decoration-link/40 [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-callout [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0",
         "[&_h1]:text-title3 [&_h1]:font-semibold [&_h2]:text-headline [&_h2]:font-bold [&_h3]:font-semibold [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_video]:my-2 [&_video]:max-h-[70vh] [&_video]:max-w-full [&_video]:rounded-lg [&_video]:bg-black",
@@ -117,11 +107,11 @@ function ReviewSummary({
   return (
     <section
       aria-labelledby="ai-review"
-      className="flex flex-col gap-2 rounded-xl border border-violet/30 bg-violet/5 p-3"
+      className="flex flex-col gap-2 rounded-xl border bg-muted/40 p-3"
       aria-busy={reviewing}
     >
       <h3 id="ai-review" className="flex items-center gap-2 text-headline font-bold">
-        <Sparkles className="size-3.5 text-violet" aria-hidden /> {t("review.aiReviewHeading")}
+        {t("review.aiReviewHeading")}
         <span className="font-normal text-muted-foreground">{t("review.by", { name: by })}</span>
         {reviewing ? (
           <>

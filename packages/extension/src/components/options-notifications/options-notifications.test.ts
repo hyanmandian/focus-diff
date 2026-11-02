@@ -96,7 +96,7 @@ describe("createNotifications", () => {
 
   it("offers the repositories the reader has pull requests in, and their owners", async () => {
     await inboxItem.setValue({
-      me: "me",
+      me: "me--self",
       checkedAt: 0,
       problem: null,
       reviews: [samplePull(1, { repo: "acme/web" })],

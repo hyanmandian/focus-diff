@@ -433,7 +433,7 @@ describe("DraftView", () => {
     cleanup();
     const drawn = draftOf();
     draftView(drawn, apiFor({ draft: () => ({ ...drawn, html: "<p><em>Keep it</em></p>", id: "PRRC_1" }) }));
-    expect(screen.getByText("· on GitHub")).toBeTruthy();
+    expect(screen.getByText("· saved to GitHub")).toBeTruthy();
     expect(screen.getByText("Keep it").tagName).toBe("EM");
   });
 
@@ -442,7 +442,7 @@ describe("DraftView", () => {
     const api = apiFor({ draftError: () => "Line not in the diff", draftSending: () => true });
     draftView(draftOf({ id: "PRRC_1" }), api);
     expect(screen.getByRole("alert").textContent).toContain("GitHub didn't take it: Line not in the diff");
-    expect(screen.queryByText("· on GitHub")).toBeNull();
+    expect(screen.queryByText("· saved to GitHub")).toBeNull();
     expect(screen.queryByText("Saving to GitHub…")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(api.retryDrafts).toHaveBeenCalledOnce();
@@ -627,7 +627,12 @@ describe("NewComment", () => {
       await user.type(question(), "What does it do?{Shift>}{Enter}{/Shift}Briefly");
       expect(question().value).toBe("What does it do?\nBriefly");
       await user.keyboard("{Enter}");
-      expect(ask).toHaveBeenCalledWith("What does it do?\nBriefly", [], expect.any(String));
+      expect(ask).toHaveBeenCalledWith(
+        "What does it do?\nBriefly",
+        [],
+        expect.any(String),
+        expect.objectContaining({ kind: "ask" }),
+      );
       expect(question().value).toBe("");
       expect(screen.getByRole("status").textContent).toContain("Claude is reading the code…");
       expect(scrolled).toHaveBeenLastCalledWith({ block: "nearest", behavior: "smooth" });
@@ -652,6 +657,7 @@ describe("NewComment", () => {
         "And?",
         [{ question: "What does it do?\nBriefly", answer: "Applies the code." }],
         expect.any(String),
+        expect.objectContaining({ kind: "ask" }),
       );
       const list = screen.getByRole("list", { name: "Conversation with Claude" });
       expect(within(list).getAllByRole("listitem")).toHaveLength(2);

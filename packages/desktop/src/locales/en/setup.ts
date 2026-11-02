@@ -15,24 +15,24 @@ export const setup = {
   checkingGitHub: "Checking GitHub",
   tokenNote:
     "Your token stays in the system keychain (or with the GitHub CLI) and only ever goes to GitHub. Focus Diff has no server.",
-  queuesTitle: "What should it watch?",
+  queuesTitle: "Choose what to watch",
   queuesBody:
     "Each is a queue in the panel. Later, in Settings, you can narrow them down (teams, labels, files) or add searches of your own.",
   onlyRepos: "Only in these repositories (optional)",
   repositories: "Repositories",
   repoPlaceholder: "acme/web or acme/*",
   reposEmpty: "Empty: every repository you can see.",
-  filtersTitle: "How do you like to go through a diff?",
+  filtersTitle: "Pick filters for your diffs",
   filtersBody:
     "Each filter you pick is a button above the changed files, so you can review one part at a time and see how much is left in each.",
   filtersNote: "They're regular filters: rename, tweak or add your own later in Settings › Filters.",
-  notifyTitle: "How should it tell you?",
+  notifyTitle: "Choose how you're notified",
   notifyBody:
     "A notification and the menu bar icon's animation when something new needs you: a review request, new commits or replies on what you reviewed, approvals and failing CI on yours. What each queue tells you about can be changed in Settings.",
   sound: "Play a sound",
   checkEvery: "Check GitHub every",
   checkEveryHint: "Only what changed is downloaded again.",
-  aiTitle: "Want a second pair of eyes?",
+  aiTitle: "Add an AI reviewer",
   aiBody:
     "Optional. Summaries, problems worth a look and answers about a pull request, from the coding agent you already use, on your own plan. It runs on this computer and can't change anything.",
   ai: "AI",

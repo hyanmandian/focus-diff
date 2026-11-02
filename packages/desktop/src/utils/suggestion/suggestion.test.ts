@@ -101,14 +101,14 @@ describe("coAuthors", () => {
     expect(
       coAuthors(
         [
-          { login: "ana", name: "Ana Lima", databaseId: 7 },
-          { login: "ana", name: "Ana Lima", databaseId: 7 },
+          { login: "ana", name: "Bruno Mouse", databaseId: 7 },
+          { login: "ana", name: "Bruno Mouse", databaseId: 7 },
           { login: "you", databaseId: 9 },
           { login: "bot", databaseId: null },
         ],
         "you",
       ),
-    ).toEqual(["Co-authored-by: Ana Lima <7+ana@users.noreply.github.com>"]);
+    ).toEqual(["Co-authored-by: Bruno Mouse <7+ana@users.noreply.github.com>"]);
   });
 
   it("names someone by their login when they have no name", () => {

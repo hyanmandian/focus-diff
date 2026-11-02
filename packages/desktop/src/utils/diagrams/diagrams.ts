@@ -1,53 +1,56 @@
-import type mermaidApi from "mermaid";
+import type { renderAsync } from "pele/lazy";
 import { useEffect, type RefObject } from "react";
 
 import { i18n } from "@/utils/i18n/i18n";
 
-type Mermaid = typeof mermaidApi;
-
-let mermaid: Promise<Mermaid> | null = null;
+let pele: Promise<typeof renderAsync> | null = null;
 let drawn = 0;
+const WIDTH = 800;
+const ROOM = 1.3;
 
-async function load(): Promise<Mermaid | null> {
-  mermaid ??= import("mermaid").then((m) => m.default);
+async function load(): Promise<typeof renderAsync | null> {
+  pele ??= import("pele/lazy").then((m) => m.renderAsync);
   try {
-    const m = await mermaid;
-    m.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: document.documentElement.classList.contains("dark") ? "dark" : "default",
-      fontFamily: getComputedStyle(document.body).fontFamily,
-    });
-    return m;
+    return await pele;
   } catch {
-    mermaid = null;
+    pele = null;
     return null;
   }
 }
 
+async function drawOne(render: typeof renderAsync, pre: HTMLPreElement) {
+  const source = pre.textContent;
+  const room = pre.parentElement!.clientWidth;
+  try {
+    const { svg } = await render(source, {
+      links: false,
+      images: false,
+      idPrefix: `diagram-${++drawn}-`,
+      maxWidth: Math.round((room > 0 ? room : WIDTH) * ROOM),
+      autoDirection: true,
+      directionBreakpoint: Number.MAX_SAFE_INTEGER,
+      fontFamily: getComputedStyle(document.body).fontFamily,
+    });
+    if (!pre.isConnected) return;
+    const figure = document.createElement("figure");
+    figure.className = "diagram";
+    const picture = document.createElement("div");
+    picture.setAttribute("role", "img");
+    picture.setAttribute("aria-label", i18n()("shared.diagram", { first: source.split("\n")[0]!.trim() }));
+    picture.innerHTML = svg;
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = i18n()("shared.diagramSource");
+    details.append(summary, pre.cloneNode(true));
+    figure.append(picture, details);
+    pre.replaceWith(figure);
+  } catch {}
+}
+
 async function draw(blocks: HTMLPreElement[]) {
-  const m = await load();
-  if (!m) return;
-  for (const pre of blocks) {
-    if (!pre.isConnected) continue;
-    const source = pre.textContent;
-    try {
-      // oxlint-disable-next-line eslint/no-await-in-loop -- one at a time: mermaid draws each in a scratch element of the page
-      const { svg } = await m.render(`diagram-${++drawn}`, source);
-      const figure = document.createElement("figure");
-      figure.className = "diagram";
-      const picture = document.createElement("div");
-      picture.setAttribute("role", "img");
-      picture.setAttribute("aria-label", i18n()("shared.diagram", { first: source.split("\n")[0]!.trim() }));
-      picture.innerHTML = svg;
-      const details = document.createElement("details");
-      const summary = document.createElement("summary");
-      summary.textContent = i18n()("shared.diagramSource");
-      details.append(summary, pre.cloneNode(true));
-      figure.append(picture, details);
-      pre.replaceWith(figure);
-    } catch {}
-  }
+  const render = await load();
+  if (!render) return;
+  await Promise.all(blocks.filter((pre) => pre.isConnected).map((pre) => drawOne(render, pre)));
 }
 
 export function useDiagrams(ref: RefObject<HTMLElement | null>, html: string) {

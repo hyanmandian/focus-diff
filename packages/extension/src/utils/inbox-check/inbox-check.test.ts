@@ -28,7 +28,7 @@ const source = ({
   pulls: vi.fn<InboxSource["pulls"]>((list) =>
     Promise.resolve(list === "reviews" ? reviews : list === "direct" ? direct : []),
   ),
-  notifications: vi.fn<InboxSource["notifications"]>(() => Promise.resolve({ me: "me-too", activity: threads })),
+  notifications: vi.fn<InboxSource["notifications"]>(() => Promise.resolve({ me: "me--too", activity: threads })),
   detail: vi.fn<InboxSource["detail"]>(() => Promise.resolve(detail)),
 });
 
@@ -106,7 +106,7 @@ describe("checkInbox", () => {
 
     const self = source({
       activity: [activity("a")],
-      detail: { actor: "Me-Too", bot: false, review: null, myReview: null, excerpt: "" },
+      detail: { actor: "Me--Too", bot: false, review: null, myReview: null, excerpt: "" },
     });
     expect((await checkInbox(self, on({ "comment-mine": [] }), before)).events).toEqual([]);
 

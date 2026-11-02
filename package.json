@@ -21,9 +21,15 @@
   "overrides": {
     "@focus-diff/desktop": {
       "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
-    }
+    },
+    "minimatch": "$minimatch",
+    "multimatch": "$multimatch"
   },
   "allowScripts": {
     "fsevents@2.3.3": true
+  },
+  "devDependencies": {
+    "minimatch": "^11.0.4",
+    "multimatch": "^7.0.0"
   }
 }

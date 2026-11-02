@@ -6,7 +6,7 @@ import { allowNotifications, dashboard, hovercard, routeGitHubRest } from "./git
 
 const pull = (number: number, extra: Record<string, unknown> = {}) => ({
   itemType: "pull_request",
-  author: { displayLogin: "ada" },
+  author: { displayLogin: "ada--dev" },
   commentCount: 2,
   isDraft: false,
   number,
@@ -35,10 +35,10 @@ const routeGitHub = async (context: BrowserContext, { signedIn = true } = {}) =>
             pull(13, { isDraft: true, title: "Try a new reader" }),
           ])
         : dashboard([
-            pull(20, { title: "Sort books by rating", author: { displayLogin: "me-too" } }),
+            pull(20, { title: "Sort books by rating", author: { displayLogin: "me--too" } }),
             pull(21, {
               title: "Return 404 for unknown authors",
-              author: { displayLogin: "me-too" },
+              author: { displayLogin: "me--too" },
               permalink: "https://github.com/octo/api/pull/21",
             }),
           ]),
@@ -60,13 +60,13 @@ test.describe("popup", () => {
     await expect(web).toHaveCount(1);
     const fresh = web.first();
     await expect(fresh).toHaveAccessibleName(
-      /^Cache the book covers\s*#12\s*ada\s*New activity\s*3h ago\s*2 comments$/u,
+      /^Cache the book covers\s*#12\s*ada--dev\s*New activity\s*3h ago\s*2 comments$/u,
     );
     await expect(fresh).toHaveAttribute("href", "https://github.com/octo/web/pull/12/changes");
     const draft = reviews.getByRole("link", { name: /^Try a new reader/u });
     await expect(draft).toBeHidden();
     await reviews.getByText("Drafts", { exact: true }).click();
-    await expect(draft).toHaveAccessibleName(/^Try a new reader\s*#13\s*ada\s*3h ago/u);
+    await expect(draft).toHaveAccessibleName(/^Try a new reader\s*#13\s*ada--dev\s*3h ago/u);
     await expect(reviews.getByRole("group", { name: "Repositories" })).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Review queue 1" })).toHaveAttribute("aria-selected", "true");
     await expect(page.locator("#updated")).toHaveText("Updated now");
@@ -199,7 +199,7 @@ test.describe("popup", () => {
       "Fix a typo",
     ]);
     await expect(reviews.getByRole("link", { name: /^Resize the covers/u })).toHaveAccessibleName(
-      /#31\s*2 of 3 in a stack, from the bottom\s*ada/u,
+      /#31\s*2 of 3 in a stack, from the bottom\s*ada--dev/u,
     );
     await expect(reviews.locator(".row.stack-up")).toHaveCount(2);
     await expect(reviews.locator(".row.stack-down")).toHaveCount(2);
@@ -344,7 +344,7 @@ test.describe("popup settings", () => {
     await context.route(/^https:\/\/github\.com\/pulls\/search\?q=/u, (route) => {
       const query = new URL(route.request().url()).searchParams.get("q") ?? "";
       const results = query.includes("involves:@me")
-        ? [pull(50, { title: "Talk about the reader", author: { displayLogin: "bo" } })]
+        ? [pull(50, { title: "Talk about the reader", author: { displayLogin: "bo--dev" } })]
         : query.includes("is:merged")
           ? [pull(60, { title: "Merged without me" }), pull(61, { title: "Also merged" })]
           : [];
@@ -531,7 +531,7 @@ test.describe("notification settings", () => {
     await context.route(/^https:\/\/github\.com\/notifications/u, (route) =>
       route.fulfill({
         contentType: "text/html",
-        body: `<meta name="user-login" content="me-too"><ul>
+        body: `<meta name="user-login" content="me--too"><ul>
           <li class="notifications-list-item" data-notification-id="NT_20">
             <a class="notification-list-item-link" href="https://github.com/octo/web/pull/20?notification_referrer_id=NT_20#issuecomment-77"
               data-hydro-click="${hydro.replaceAll('"', "&quot;")}">
@@ -585,7 +585,7 @@ test.describe("notification settings", () => {
       const reviews = [{ url: "https://github.com/octo/web/pull/12", draft: false }];
       await chrome.storage.local.set({
         inboxMemory: { threads: { NT_20: "2026-10-01T00:00:00Z" }, reviews },
-        inbox: { me: "me-too", reviews, mine: [], checkedAt: 0, problem: null },
+        inbox: { me: "me--too", reviews, mine: [], checkedAt: 0, problem: null },
         reviewQueueHistory: { "https://github.com/octo/web/pull/16": { left: Date.now() - 86_400_000 } },
       });
       await chrome.storage.sync.set({
@@ -598,9 +598,13 @@ test.describe("notification settings", () => {
     await expect.poll(async () => (await shown()).length).toBe(4);
     const notifications = (await shown()).toSorted((a, b) => a.title.localeCompare(b.title));
     expect(notifications).toMatchObject([
-      { title: "ada asked for your review", message: "Show the reading time", contextMessage: "octo/web#14" },
-      { title: "ada asked you to review again", message: "Keep the shelf order", contextMessage: "octo/web#16" },
-      { title: "ada asked your team for a review", message: "Lazy load the shelves", contextMessage: "octo/web#15" },
+      { title: "ada--dev asked for your review", message: "Show the reading time", contextMessage: "octo/web#14" },
+      { title: "ada--dev asked you to review again", message: "Keep the shelf order", contextMessage: "octo/web#16" },
+      {
+        title: "ada--dev asked your team for a review",
+        message: "Lazy load the shelves",
+        contextMessage: "octo/web#15",
+      },
       {
         title: "grace commented on your pull request",
         message: "“Could ratings tie?”",

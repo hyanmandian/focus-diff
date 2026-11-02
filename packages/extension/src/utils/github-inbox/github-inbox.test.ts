@@ -22,7 +22,7 @@ const dashboard = (results: unknown[]) => ({
 });
 const pull = {
   itemType: "pull_request",
-  author: { displayLogin: "ada" },
+  author: { displayLogin: "ada--dev" },
   commentCount: 3,
   isDraft: false,
   number: 12,
@@ -62,7 +62,7 @@ describe("parsePulls", () => {
         number: 12,
         title: "Cache the book covers",
         url: "https://github.com/octo/web/pull/12",
-        author: "ada",
+        author: "ada--dev",
         draft: false,
         comments: 3,
         createdAt: "2026-10-07T09:00:00Z",
@@ -196,12 +196,12 @@ describe("parseDetail", () => {
       approved these changes <a href="#pullrequestreview-9" id="pullrequestreview-9-permalink">Oct 9</a></div>
     <div id="pullrequestreview-10"><strong><a class="author Link--primary" href="/linus">linus</a></strong>
       reviewed <a id="pullrequestreview-10-permalink">Oct 9</a></div>
-    <span class="assignee">me-too</span>
-    <a id="review-status-me-too" href="/octo/web/pull/12/changes"></a>
-    <span>me-too approved these changes</span>`;
+    <span class="assignee">me--too</span>
+    <a id="review-status-me--too" href="/octo/web/pull/12/changes"></a>
+    <span>me--too approved these changes</span>`;
 
   it("reads who wrote a comment, and whether they are a bot", () => {
-    expect(parseDetail(page, "issuecomment-34", "me-too")).toEqual({
+    expect(parseDetail(page, "issuecomment-34", "me--too")).toEqual({
       actor: "review-bot",
       bot: true,
       review: null,
@@ -222,7 +222,7 @@ describe("parseDetail", () => {
   });
 
   it("reads only the reader’s review without an event to look at", () => {
-    expect(parseDetail(page, "", "me-too")).toEqual({
+    expect(parseDetail(page, "", "me--too")).toEqual({
       actor: "",
       bot: false,
       review: null,
@@ -230,7 +230,7 @@ describe("parseDetail", () => {
       excerpt: "",
     });
     expect(
-      parseDetail(page.replace("approved these changes</span>", "requested changes</span>"), "", "me-too").myReview,
+      parseDetail(page.replace("approved these changes</span>", "requested changes</span>"), "", "me--too").myReview,
     ).toBe("changes-requested");
   });
 });
@@ -255,7 +255,7 @@ describe("pageCount", () => {
 
 describe("parseLogin", () => {
   it("reads the signed-in login, or nothing when signed out", () => {
-    expect(parseLogin('<meta name="user-login" content="ada">')).toBe("ada");
+    expect(parseLogin('<meta name="user-login" content="ada--dev">')).toBe("ada--dev");
     expect(parseLogin('<meta name="user-login" content="">')).toBe("");
   });
 });
@@ -435,12 +435,12 @@ describe("fetching from GitHub", () => {
 
   it("reads the notifications inbox and who's signed in, and takes a page without a login as signed out", async () => {
     const fetchMock = stubFetch(() =>
-      respond(`<meta name="user-login" content="ada"><ul>${notification()}</ul>`, {
+      respond(`<meta name="user-login" content="ada--dev"><ul>${notification()}</ul>`, {
         url: "https://github.com/notifications",
       }),
     );
     expect(await fetchNotifications()).toEqual({
-      me: "ada",
+      me: "ada--dev",
       activity: [expect.objectContaining({ thread: "NT_1" })],
     });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://github.com/notifications?query=");
@@ -454,9 +454,9 @@ describe("fetching from GitHub", () => {
     const fetchMock = stubFetch((url) =>
       url.endsWith("/changes")
         ? respond(JSON.stringify({ payload: { route: { diffSummaries: [{ path: "a.ts", linesAdded: 1 }] } } }))
-        : respond('<div id="issuecomment-1"><a class="author" href="/ada">ada</a></div>'),
+        : respond('<div id="issuecomment-1"><a class="author" href="/ada--dev">ada--dev</a></div>'),
     );
-    expect(await fetchDetail("octo/web", 7, "issuecomment-1", "")).toMatchObject({ actor: "ada" });
+    expect(await fetchDetail("octo/web", 7, "issuecomment-1", "")).toMatchObject({ actor: "ada--dev" });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://github.com/octo/web/pull/7");
     expect(await fetchFiles("octo/web", 7)).toEqual([["a.ts", 1, 0, false]]);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://github.com/octo/web/pull/7/changes");

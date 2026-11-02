@@ -72,8 +72,30 @@ describe("AskAi", () => {
     await userEvent.click(screen.getByRole("button", { name: "Explain" }));
     expect(await screen.findByText("renames")).toHaveProperty("tagName", "STRONG");
     expect(screen.getByText("Read the diff only.")).toBeTruthy();
-    expect(ai.ask).toHaveBeenCalledWith(expect.anything(), DETAILS, "Explain this change.", expect.any(String));
+    expect(ai.ask).toHaveBeenCalledWith(
+      expect.anything(),
+      DETAILS,
+      "Explain this change.",
+      expect.any(String),
+      expect.objectContaining({ kind: "ask" }),
+    );
     expect(screen.getAllByText("Explain").map((e) => e.tagName)).toEqual(["BUTTON", "P"]);
+  });
+
+  it("starts one question at a time, even clicked twice while the AI is checked", async () => {
+    const ready = deferred<boolean>();
+    ai.ready.mockReturnValueOnce(ready.promise);
+    ai.ask.mockResolvedValue({ text: "Done.", project: false });
+    render(<AskAi config={config()} details={DETAILS} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explain" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explain" }));
+    await act(async () => {
+      ready.resolve(true);
+      await ready.promise;
+    });
+    expect(await screen.findByText("Done.")).toBeTruthy();
+    expect(ai.ready).toHaveBeenCalledOnce();
+    expect(ai.ask).toHaveBeenCalledOnce();
   });
 
   it("sends a question of one's own, then clears the field", async () => {
@@ -83,7 +105,13 @@ describe("AskAi", () => {
     expect(send().disabled).toBe(true);
     await userEvent.type(field(), "  Is it safe?  {Enter}");
     expect(await screen.findByText("Yes.")).toBeTruthy();
-    expect(ai.ask).toHaveBeenCalledWith(expect.anything(), DETAILS, "Is it safe?", expect.any(String));
+    expect(ai.ask).toHaveBeenCalledWith(
+      expect.anything(),
+      DETAILS,
+      "Is it safe?",
+      expect.any(String),
+      expect.objectContaining({ kind: "ask" }),
+    );
     expect(field().value).toBe("");
   });
 

@@ -8,6 +8,19 @@ import { review } from "@/locales/pt-BR/review";
 import { settings } from "@/locales/pt-BR/settings";
 import { setup } from "@/locales/pt-BR/setup";
 import { shared } from "@/locales/pt-BR/shared";
+import { walkthrough } from "@/locales/pt-BR/walkthrough";
 import type { Dictionary } from "@/utils/i18n/i18n";
 
-export const ptBR: Dictionary = { common, config, diff, events, manage, panel, review, settings, setup, shared };
+export const ptBR: Dictionary = {
+  common,
+  config,
+  diff,
+  events,
+  manage,
+  panel,
+  review,
+  settings,
+  setup,
+  shared,
+  walkthrough,
+};

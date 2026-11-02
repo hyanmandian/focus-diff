@@ -121,6 +121,22 @@
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
+    <svg class="sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol>
+      <symbol id="i-msg" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" /></symbol>
+      <symbol id="x-next-file" viewBox="0 0 16 16"><path d="M9.25 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h3.25M9.25 1.75l3.25 3.25v2.75M9.25 1.75V5h3.25" /><path d="M9.5 11.75h5M12.5 9.75l2 2-2 2" /></symbol>
+      <symbol id="x-file" viewBox="0 0 16 16"><path d="M9.25 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5zM9.25 1.75V5h3.25" /></symbol>
+      <symbol id="x-diff" viewBox="0 0 16 16"><path d="M8 2.75v5M5.5 5.25h5M5.5 12.25h5" /></symbol>
+      <symbol id="x-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25" /><path d="M8 4.75V8l2.25 1.5" /></symbol>
+      <symbol id="x-breakdown" viewBox="0 0 16 16"><path d="M2 13.5h12M4 11V7M8 11V3M12 11V8" /></symbol>
+      <symbol id="x-comment" viewBox="0 0 16 16"><path d="M3 3.5h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z" /></symbol>
+      <symbol id="x-settings" viewBox="0 0 16 16"><path d="M2 4h7M13 4h1M2 8h1M7 8h7M2 12h5M11 12h3" /><circle cx="11" cy="4" r="2" /><circle cx="5" cy="8" r="2" /><circle cx="9" cy="12" r="2" /></symbol>
+      <symbol id="x-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.55M13 2.5v3h-3" /></symbol>
+      <symbol id="x-left" viewBox="0 0 16 16"><path d="M10 3.5 5.5 8l4.5 4.5" /></symbol>
+      <symbol id="x-right" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" /></symbol>
+    </svg>
     <header class="top">
       <div class="wrap">
         <a class="brand" href="./"><img src="icon-96.webp" alt="" width="26" height="26" />Focus Diff</a>
@@ -138,7 +154,6 @@
     <main id="main">
       <section class="hero" aria-labelledby="title">
         <div class="wrap">
-          <span class="pill"><b>Browser extension</b> · Chrome · Edge · Firefox · Safari</span>
           <h1 id="title">Review only the code that matters.</h1>
           <p class="lede">
             A small bar on every GitHub pull request. Pick a filter and the files, lines and time left follow it, then go to the next file
@@ -171,53 +186,76 @@
             <h2 id="what-title">One part of the pull request at a time.</h2>
             <p>Big pull requests stop being a wall of files. Filter to what you own, see what’s left, and move through it in order.</p>
           </div>
-        <div class="grid" style="--cols: 3">
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg>
-            <h3>Filters from file paths</h3>
-            <p>Each filter is a button with an Include and an optional Exclude regex. Keep them for every repository, or add some for one.</p>
+          <div class="bento">
+            <div class="tile wide">
+              <p><b>Filters from file paths.</b> Pick one and the files, lines and time left count only what it keeps.</p>
+              <div class="demo bar gh-ui" data-demo="bar" data-play="loop" data-filter="frontend" role="img" aria-label="A pull request’s files with the Focus Diff bar: picking the Backend filter, then All, then Frontend, and the files left, changed lines and review time following each one">
+                <div class="win">
+                  <div class="win-bar"><span class="lights"><i></i><i></i><i></i></span><span class="url">github.com/acme/web/pull/1807/files</span></div>
+                  <div class="files">
+                  <div class="file" data-kind="frontend"><div><div class="gh-file"><code>web/src/checkout/cart.tsx</code><span class="gh-note"><svg class="i s"><use href="#x-comment" /></svg>L31</span><span class="delta"><span class="add">+84</span><span class="del">−12</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file" data-kind="frontend"><div><div class="gh-file"><code>web/src/checkout/use-cart.ts</code><span class="delta"><span class="add">+46</span><span class="del">−9</span></span><span class="viewed on"><i></i>Viewed</span></div></div></div>
+                  <div class="file" data-kind="frontend"><div><div class="gh-file"><code>web/src/checkout/cart.css</code><span class="delta"><span class="add">+20</span><span class="del">−4</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file"><div><div class="gh-file"><code>web/src/checkout/cart.test.tsx</code><span class="delta"><span class="add">+61</span><span class="del">−0</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file"><div><div class="gh-file"><code>web/src/checkout/cart.stories.tsx</code><span class="delta"><span class="add">+28</span><span class="del">−0</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file" data-kind="backend"><div><div class="gh-file"><code>api/orders/service.py</code><span class="gh-note"><svg class="i s"><use href="#x-comment" /></svg>L58</span><span class="delta"><span class="add">+73</span><span class="del">−21</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file" data-kind="backend"><div><div class="gh-file"><code>api/orders/models.py</code><span class="delta"><span class="add">+18</span><span class="del">−2</span></span><span class="viewed on"><i></i>Viewed</span></div></div></div>
+                  <div class="file" data-kind="backend"><div><div class="gh-file"><code>api/orders/migrations/0042_cart.py</code><span class="delta"><span class="add">+27</span><span class="del">−0</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file"><div><div class="gh-file"><code>api/orders/tests/test_service.py</code><span class="gh-note"><svg class="i s"><use href="#x-comment" /></svg>L12</span><span class="delta"><span class="add">+95</span><span class="del">−7</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file"><div><div class="gh-file"><code>docs/checkout.md</code><span class="delta"><span class="add">+32</span><span class="del">−5</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  <div class="file"><div><div class="gh-file"><code>docs/api/orders.md</code><span class="delta"><span class="add">+14</span><span class="del">−3</span></span><span class="viewed on"><i></i>Viewed</span></div></div></div>
+                  <div class="file"><div><div class="gh-file"><code>package-lock.json</code><span class="delta"><span class="add">+412</span><span class="del">−380</span></span><span class="viewed"><i></i>Viewed</span></div></div></div>
+                  </div>
+                </div>
+                <div class="fd">
+                  <span class="fd-btn"><svg class="i s"><use href="#x-next-file" /></svg></span>
+                  <span class="fd-sep"></span>
+                  <span class="filters" data-glide="filter"><span class="glide"></span><span class="chip" data-key="all" data-target="all">All <em class="pill">12</em></span><span class="chip" data-key="frontend" data-target="frontend">Frontend <em class="pill">3</em></span><span class="chip" data-key="backend" data-target="backend">Backend <em class="pill">3</em></span></span>
+                  <span class="stats"><span class="stat files"><svg class="i s"><use href="#x-file" /></svg><span class="board" data-board="files" data-wide="12">2</span></span><span class="stat lines"><svg class="i s"><use href="#x-diff" /></svg><span class="board add" data-board="add" data-wide="+910">+150</span><span class="board del" data-board="del" data-wide="−443">−25</span></span><span class="stat"><svg class="i s"><use href="#x-clock" /></svg><span class="board" data-board="time" data-wide="0:28">0:07</span></span></span>
+                  <span class="fd-btn fd-tail"><svg class="i s"><use href="#x-breakdown" /></svg></span>
+                  <span class="fd-sep fd-tail"></span>
+                  <span class="fd-btn fd-tail"><svg class="i s"><use href="#x-comment" /></svg><em class="pill"><span class="num" data-num="conv">1</span></em></span>
+                  <span class="fd-btn"><svg class="i s"><use href="#x-settings" /></svg></span>
+                </div>
+              </div>
+            </div>
+            <div class="tile say">
+              <p><b>Review time left.</b> It drops as you mark files viewed, until it says Done.</p>
+              <span class="big">1,000 lines<small>changed an hour: the pace behind the estimate</small></span>
+            </div>
+            <div class="tile">
+              <p><b>Every conversation in turn.</b> Step through the threads with their file and line, and see which wait on you.</p>
+              <div class="demo still gh-ui" role="img" aria-label="The conversations stepper above the Focus Diff bar: the first of three threads, on line 31 of cart.tsx, waiting on you">
+                <div class="conv">
+                  <div class="pop"><span class="state"></span><code><b>cart.tsx</b>:31</code><span class="of">1/3</span><span class="says">Waiting on you</span><span class="steps"><svg class="i s"><use href="#x-left" /></svg><svg class="i s"><use href="#x-right" /></svg></span></div>
+                  <div class="fd"><span class="fd-btn"><svg class="i s"><use href="#x-breakdown" /></svg></span><span class="fd-sep"></span><span class="fd-btn open"><svg class="i s"><use href="#x-comment" /></svg><em class="pill">3</em></span><span class="fd-btn"><svg class="i s"><use href="#x-settings" /></svg></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="tile wide">
+              <p><b>Your queue in the toolbar.</b> The pull requests waiting on your review, how long each takes, and a review time that picks what fits.</p>
+              <div class="demo still gh-ui" role="img" aria-label="The review queue in the browser toolbar: the pull requests waiting on your review, by repository, each with the time it takes">
+                <div class="gh-pop">
+                  <div class="pop-top"><span class="seg"><span class="on">Review queue <em class="pill">3</em></span><span>My PRs <em class="pill">2</em></span></span><svg class="i s"><use href="#x-clock" /></svg><svg class="i s"><use href="#x-refresh" /></svg><svg class="i s"><use href="#x-settings" /></svg></div>
+                  <div class="card">
+                    <div class="chips"><span class="on">All <em class="pill">3</em></span><span>web <em class="pill">2</em></span><span>api <em class="pill">1</em></span></div>
+                    <div class="group"><span>acme/<b>web</b></span><span>2</span></div>
+                    <div class="row"><div><div class="row-in"><span class="dot"></span><span class="av" style="--hue: 146">B</span><span class="row-main"><b>Checkout: keep the promo code when the cart changes</b><span class="meta">#1807<i>·</i>bruno_mouse<i>·</i>~11 min</span></span><span class="side"><span>25m ago</span><span><svg class="i s"><use href="#x-comment" /></svg>3</span></span></div></div></div><div class="row"><div><div class="row-in"><span></span><span class="av" style="--hue: 173">T</span><span class="row-main"><b>Fix flaky date picker test in Safari</b><span class="meta">#1821<i>·</i>tina_mouse<i>·</i>~6 min</span></span><span class="side"><span>yesterday</span><span><svg class="i s"><use href="#x-comment" /></svg>2</span></span></div></div></div>
+                    <div class="group next"><span>acme/<b>api</b></span><span>1</span></div>
+                    <div class="row"><div><div class="row-in"><span class="dot"></span><span class="av" style="--hue: 264">K</span><span class="row-main"><b>Move invoice exports to the background queue</b><span class="meta">#1814<i>·</i>kiko_mouse<i>·</i>~24 min</span></span><span class="side"><span>yesterday</span><span><svg class="i s"><use href="#x-comment" /></svg>1</span></span></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
-            <h3>Counters that count again</h3>
-            <p>Files changed and the added and removed lines show only what the filter keeps: the real size of your review.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <h3>Review time left</h3>
-            <p>An estimate from about 1,000 changed lines an hour that drops as you mark files viewed, until it says Done.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-8M12 20V5M19 20v-5M3 20h18"/></svg>
-            <h3>A breakdown by filter</h3>
-            <p>Every filter side by side: how many of its files you’ve viewed, the lines they change and the time they take.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-            <h3>The next file to review</h3>
-            <p>One click, or <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd>, to the next file you haven’t viewed, then on to the next filter.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
-            <h3>Every conversation in turn</h3>
-            <p>Step through the review threads with their file and line, and see which wait on you, are answered or resolved.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h5l2 3h4l2-3h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/></svg>
-            <h3>Your queue in the toolbar</h3>
-            <p>The pull requests waiting on your review, how long each takes, and a review time that picks what fits.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/></svg>
-            <h3>Made to share</h3>
-            <p>Copy your filters and send them to a teammate, who imports them in one step. Themes for the bar too.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2M17 6l3 3M14 9l2 2"/></svg>
-            <h3>No sign-in</h3>
-            <p>It reads what the page shows, and your lists with the session already in your browser. No password, no token.</p>
-          </div>
-        </div>
+          <ul class="facts">
+            <li><b>The next file.</b> One click, or <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd>, to the next file you haven’t viewed, then on to the next filter.</li>
+            <li><b>A breakdown by filter.</b> Every filter side by side: the files you’ve viewed, the lines they change and the time they take.</li>
+            <li><b>Filters per repository.</b> Each filter is an Include and an optional Exclude regex. Keep them for every repository, or add some for one.</li>
+            <li><b>Made to share.</b> Copy your filters and send them to a teammate, who imports them in one step. Themes for the bar too.</li>
+            <li><b>No sign-in.</b> It reads what the page shows, and your lists with the session already in your browser. No password, no token.</li>
+            <li><b>Private repositories.</b> It works on any pull request you can open on github.com, public or private.</li>
+          </ul>
         </div>
       </section>
 

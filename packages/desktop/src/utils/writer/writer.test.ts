@@ -15,7 +15,7 @@ function load() {
 describe("emoji", () => {
   const pictures = {
     "+1": "https://github.githubassets.com/images/icons/emoji/unicode/1f44d.png?v8",
-    octocat: "https://github.githubassets.com/images/icons/emoji/octocat.png?v8",
+    bruno_mouse: "https://github.githubassets.com/images/icons/emoji/bruno_mouse.png?v8",
   };
 
   it("asks GitHub once and keeps them a day", async () => {

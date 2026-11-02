@@ -54,7 +54,7 @@ const DETAILS = fakeDetails({
     { actor: { login: "platform" }, state: "PENDING", team: "acme/platform" },
     { actor: { login: "me" }, state: "COMMENTED" },
   ],
-  entries: [{ kind: "comment", id: "IC_0", author: { login: "octocat" }, html: "", at: "", url: "" }],
+  entries: [{ kind: "comment", id: "IC_0", author: { login: "bruno_mouse" }, html: "", at: "", url: "" }],
 });
 
 const said = { body: "", canEdit: true, canDelete: true, canReact: true, edited: false, reactions: [] };
@@ -243,7 +243,7 @@ describe("useConversation", () => {
     expect(api.url).toBe("https://github.com/acme/api/pull/42");
     expect(api.me).toBe("me");
     expect(api.branch).toBe("rename");
-    expect(api.people.map((p) => p.login)).toEqual(["mona", "hubot", "octocat", "grace", "ada"]);
+    expect(api.people.map((p) => p.login)).toEqual(["mona", "hubot", "bruno_mouse", "grace", "ada"]);
     expect(api.people[0]).toEqual({ login: "mona", name: "Mona Lisa", avatarUrl: undefined });
     await waitFor(() => {
       expect(result.current.api.canApplySuggestion).toBe(true);

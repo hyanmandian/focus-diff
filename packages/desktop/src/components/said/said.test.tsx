@@ -18,7 +18,7 @@ const withApi = (api: ConversationApi | null) =>
     return <ConversationProvider value={api}>{children}</ConversationProvider>;
   };
 
-const thumbs: Reaction = { content: "THUMBS_UP", count: 3, mine: false, who: ["octocat"] };
+const thumbs: Reaction = { content: "THUMBS_UP", count: 3, mine: false, who: ["bruno_mouse"] };
 const heart: Reaction = { content: "HEART", count: 1, mine: true, who: ["mona"] };
 
 function Reactions({ given }: { given: Reaction[] }) {
@@ -39,7 +39,7 @@ describe("ReactionList", () => {
   it("shows each reaction with its count and who gave it", () => {
     render(<ReactionList reactions={[thumbs, heart]} canReact onToggle={() => {}} />);
     expect(screen.getByRole("list", { name: "Reactions" })).toBeTruthy();
-    const first = capsule("3: octocat and 2 others reacted with Thumbs up");
+    const first = capsule("3: bruno_mouse and 2 others reacted with Thumbs up");
     expect(first.textContent).toBe("👍 3");
     expect(first.getAttribute("aria-pressed")).toBe("false");
     expect(capsule("1: mona reacted with Heart").getAttribute("aria-pressed")).toBe("true");
@@ -85,7 +85,7 @@ describe("useReactions", () => {
     render(<Reactions given={[thumbs]} />, { wrapper: withApi(api) });
     await userEvent.click(capsule(/Thumbs up/u));
     expect(api.react).toHaveBeenCalledWith("C_1", "THUMBS_UP", true, [
-      { ...thumbs, count: 4, mine: true, who: ["mona", "octocat"] },
+      { ...thumbs, count: 4, mine: true, who: ["mona", "bruno_mouse"] },
     ]);
   });
 

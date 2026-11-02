@@ -438,17 +438,17 @@ const comment = (id: number, author: string, reacted = false) =>
 
 describe("classic threads", () => {
   it("reads each thread's state and line, skipping threads inside threads", () => {
-    login("reader");
+    login("reader--dev");
     html(`
       <div id="diff">
         <table>
           <tr><td data-line-number="4"></td><td data-line-number="5"></td></tr>
-          <tr><td><review-thread-collapsible data-resolved="true">${comment(1, "ada")}</review-thread-collapsible></td></tr>
-          <tr><td><review-thread-collapsible>${comment(2, "ada")}${comment(3, "reader")}
+          <tr><td><review-thread-collapsible data-resolved="true">${comment(1, "ada--dev")}</review-thread-collapsible></td></tr>
+          <tr><td><review-thread-collapsible>${comment(2, "ada--dev")}${comment(3, "reader--dev")}
             <div class="js-resolvable-timeline-thread-container"></div></review-thread-collapsible></td></tr>
         </table>
-        <div class="js-resolvable-timeline-thread-container">${comment(4, "ada", true)}<div id="rx"></div></div>
-        <review-thread-collapsible>${comment(5, "ada")}</review-thread-collapsible>
+        <div class="js-resolvable-timeline-thread-container">${comment(4, "ada--dev", true)}<div id="rx"></div></div>
+        <review-thread-collapsible>${comment(5, "ada--dev")}</review-thread-collapsible>
         <review-thread-collapsible></review-thread-collapsible>
       </div>`);
     const found = threads(document.querySelector<HTMLElement>("#diff")!);
@@ -464,7 +464,7 @@ describe("classic threads", () => {
 
   it("counts every thread as waiting when the reader isn't signed in", () => {
     login(null);
-    html(`<div id="diff"><review-thread-collapsible>${comment(1, "reader")}</review-thread-collapsible></div>`);
+    html(`<div id="diff"><review-thread-collapsible>${comment(1, "reader--dev")}</review-thread-collapsible></div>`);
     expect(threads(document.querySelector<HTMLElement>("#diff")!)[0]?.state).toBe("waiting");
   });
 
@@ -483,13 +483,13 @@ describe("classic threads", () => {
 
 describe("newer view threads", () => {
   it("reads the conversations open in a diff, on either side", () => {
-    login("reader");
+    login("reader--dev");
     html(`
       <div id="diff"><table>
-        <tr><td data-line-number="12" data-diff-side="right"><div data-marker-id="7">${comment(70, "reader")}</div></td></tr>
-        <tr><td data-line-number="3" data-diff-side="left"><div data-marker-id="8">${comment(80, "ada")}</div></td></tr>
+        <tr><td data-line-number="12" data-diff-side="right"><div data-marker-id="7">${comment(70, "reader--dev")}</div></td></tr>
+        <tr><td data-line-number="3" data-diff-side="left"><div data-marker-id="8">${comment(80, "ada--dev")}</div></td></tr>
         <tr><td data-line-number="9"><div data-marker-id="9"></div></td></tr>
-      </table><div data-marker-id="10">${comment(100, "ada")}</div></div>`);
+      </table><div data-marker-id="10">${comment(100, "ada--dev")}</div></div>`);
     expect(openThreads(document.querySelector<HTMLElement>("#diff")!)).toEqual([
       { id: "7", line: "R12", state: "answered", comment: "70" },
       { id: "8", line: "L3", state: "waiting", comment: "80" },

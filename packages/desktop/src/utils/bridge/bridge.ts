@@ -50,6 +50,25 @@ export type AiAnswer = {
   resumed?: boolean;
 };
 
+type Keep = { pull: string; kind: string; key: string; head: string; meta: string };
+
+export type Saved = {
+  id: string;
+  kind: string;
+  key: string;
+  head: string;
+  at: number;
+  status: "running" | "done" | "failed" | "stopped";
+  text?: string;
+  error?: string;
+  project: boolean;
+  note?: string;
+  usage?: AiUsage;
+  meta: string;
+  archived: boolean;
+  dismissed: string[];
+};
+
 export type ActionContext = { number: number; repo: string; title: string; url: string; author: string; me: string };
 
 export type DraftPut = {
@@ -154,7 +173,18 @@ export const bridge = {
     session: boolean;
     ownSettings: boolean;
     run?: string | undefined;
-  }) => invoke<AiAnswer>("ai_ask", { ...q, model: q.model || null, effort: q.effort || null, run: q.run ?? null }),
+    keep?: Keep | undefined;
+  }) =>
+    invoke<AiAnswer>("ai_ask", {
+      ...q,
+      model: q.model || null,
+      effort: q.effort || null,
+      run: q.run ?? null,
+      keep: q.keep ?? null,
+    }),
+  aiSaved: (pull: string) => invoke<Saved[]>("ai_saved", { pull }),
+  aiSavedMark: (pull: string, id: string, change: { archived?: boolean; dismiss?: string }) =>
+    invoke<void>("ai_saved_mark", { pull, id, archived: change.archived ?? null, dismiss: change.dismiss ?? null }),
   aiCancel: (run: string) => invoke<void>("ai_cancel", { run }),
   aiPrepare: (project: { repo: string; number: number; head: string }) => invoke<void>("ai_prepare", { project }),
 

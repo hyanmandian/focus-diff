@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
-import { AiAnswer } from "@/components/ai-answer/ai-answer";
+import { AiAnswer, AiInline } from "@/components/ai-answer/ai-answer";
 
 describe("AiAnswer", () => {
   it("draws paragraphs and points, joining a paragraph's lines", () => {
@@ -37,5 +37,15 @@ describe("AiAnswer", () => {
     const { container } = render(<AiAnswer text={"``\n\n****"} />);
     expect([...container.querySelectorAll("p")].map((p) => p.textContent)).toEqual(["``", "****"]);
     expect(container.querySelector("code, strong")).toBeNull();
+  });
+
+  it("starts with code without mixing up what it shows", () => {
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = render(<AiInline text="`a` then **b**" />);
+    expect(container.innerHTML).toBe(
+      '<code class="rounded bg-muted px-1 font-mono text-[0.92em]">a</code> then <strong>b</strong>',
+    );
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

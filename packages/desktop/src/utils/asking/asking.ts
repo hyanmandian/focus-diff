@@ -1,6 +1,8 @@
 import type { SelectedLineRange } from "@pierre/diffs";
 import { useSyncExternalStore } from "react";
 
+import type { Keep } from "@/utils/ai/ai";
+import { bridge, type Saved } from "@/utils/bridge/bridge";
 import { errorText } from "@/utils/error/error";
 
 type Turn = { id: number; question: string; answer?: string; note?: string | undefined };
@@ -139,7 +141,54 @@ export function updateChat(pull: string, key: string, change: Partial<Chat> | ((
   });
 }
 
+const kept = new Map<string, Map<string, Set<string>>>();
+const keptFor = (pull: string, key: string) => kept.get(pull)?.get(key) ?? new Set<string>();
+
+function archive(pull: string, key: string) {
+  for (const id of keptFor(pull, key)) void bridge.aiSavedMark(pull, id, { archived: true }).catch(() => {});
+  kept.get(pull)?.delete(key);
+}
+
+const isAsked = (value: unknown): value is { question: string; turn: number } =>
+  isRecord(value) && typeof value.question === "string" && typeof value.turn === "number";
+
+function askedIn(record: Saved) {
+  try {
+    const meta: unknown = JSON.parse(record.meta);
+    return isAsked(meta) ? meta : null;
+  } catch {
+    return null;
+  }
+}
+
+export function adopt(pull: string, records: Saved[]) {
+  const chats = { ...read(pull).chats };
+  let changed = false;
+  for (const record of records) {
+    const asked = askedIn(record);
+    if (record.kind !== "ask" || record.archived || !asked) continue;
+    const ids = kept.get(pull) ?? new Map<string, Set<string>>();
+    kept.set(pull, ids.set(record.key, keptFor(pull, record.key).add(record.id)));
+    const chat = chats[record.key] ?? BLANK;
+    if (record.status !== "done" || chat.turns.some((t) => t.id === asked.turn && t.answer !== undefined)) continue;
+    const turn: Turn = { id: asked.turn, question: asked.question, answer: record.text ?? "", note: record.note };
+    chats[record.key] = {
+      ...chat,
+      run: chat.run?.id === record.id ? null : chat.run,
+      turns: [...chat.turns.filter((t) => t.id !== asked.turn), turn].toSorted((a, b) => a.id - b.id),
+    };
+    changed = true;
+  }
+  if (changed) write(pull, (state) => ({ ...state, chats }));
+}
+
+export function clearTurns(pull: string, key: string) {
+  archive(pull, key);
+  updateChat(pull, key, { turns: [] });
+}
+
 export function forget(pull: string, key: string) {
+  archive(pull, key);
   write(pull, (state) => {
     const { [key]: _, ...chats } = state.chats;
     return { open: null, chats };
@@ -151,14 +200,17 @@ export async function askInto(
   key: string,
   question: string,
   run: string,
-  ask: (earlier: Array<{ question: string; answer: string }>) => Promise<{ text: string; note?: string | undefined }>,
+  ask: (
+    earlier: Array<{ question: string; answer: string }>,
+    keep: Keep,
+  ) => Promise<{ text: string; note?: string | undefined }>,
 ): Promise<boolean> {
   const chat = read(pull).chats[key] ?? BLANK;
   if (chat.run) return false;
   const earlier = chat.turns
     .filter((turn): turn is Turn & { answer: string } => turn.answer !== undefined)
     .map((turn) => ({ question: turn.question, answer: turn.answer }));
-  const id = (chat.turns.at(-1)?.id ?? 0) + 1;
+  const id = Math.max(Date.now(), (chat.turns.at(-1)?.id ?? 0) + 1);
   updateChat(pull, key, (c) => ({
     question: "",
     error: null,
@@ -166,7 +218,13 @@ export async function askInto(
     run: { id: run, at: Date.now() },
   }));
   try {
-    const answer = await ask(earlier);
+    const answer = await ask(earlier, {
+      pull,
+      kind: "ask",
+      key,
+      head: "",
+      meta: JSON.stringify({ question, turn: id }),
+    });
     updateChat(pull, key, (c) => ({
       run: null,
       turns: c.turns.map((turn) => (turn.id === id ? { ...turn, answer: answer.text, note: answer.note } : turn)),
@@ -185,4 +243,5 @@ export async function askInto(
 
 export function resetAsking() {
   pulls.clear();
+  kept.clear();
 }

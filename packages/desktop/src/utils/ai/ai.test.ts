@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { ask, askAboutLines, commentable, linesFromPatch, newRun, questionEffort, review, system } from "@/utils/ai/ai";
+import { ask, askAboutLines, commentable, linesFromPatch, newRun, questionEffort, runAi, system } from "@/utils/ai/ai";
 import { defaultConfig, type Config } from "@/utils/config/config";
 import { mockCommands } from "@/utils/fake-platform/fake-platform";
 import { fakeDetails } from "@/utils/mock-pull/mock-pull";
@@ -37,6 +37,7 @@ type Asked = {
   session: boolean;
   ownSettings: boolean;
   run: string | null;
+  keep: unknown;
 };
 const isAsked = (args: unknown): args is Asked =>
   typeof args === "object" && args !== null && "task" in args && "material" in args;
@@ -103,7 +104,7 @@ describe("asking the AI", () => {
     expect(q.material).toContain("Title: Fix the cart");
     expect(q.material).toContain("acme/web #7, fix-cart into main");
     expect(q.material).toContain("Description:\nTotals were wrong.");
-    expect(q.material).toContain("## cart.ts\n@@ -1,2 +1,2 @@\n__new hunk__\n1  keep\n2 +new\n__old hunk__\n-old");
+    expect(q.material).toContain("## cart.ts\n@@ 1\n1  keep\n-old\n2 +new");
     expect(q.material).not.toMatch(/\d{4}-\d{2}-\d{2}/u);
     expect(q).toMatchObject({
       effort: "medium",
@@ -113,6 +114,7 @@ describe("asking the AI", () => {
       ownSettings: false,
       recap: "",
       run: "run-1",
+      keep: null,
     });
   });
 
@@ -145,11 +147,13 @@ describe("asking the AI", () => {
     );
     const q = only(asked);
     expect(q.system).toContain("checked out");
-    expect(q.system).toContain("open other files only to confirm a concern");
+    expect(q.system).toContain("open files only when it isn't enough");
     expect(q.system).toContain("The reviewer's own guidelines, to follow:\nBe brief.");
     expect(q.project).toEqual({ repo: "acme/web", number: 7, head: "abc123" });
     expect(q.ownSettings).toBe(true);
-    expect(q.material).toContain("Not shown (lockfiles, generated, binary or too large):\n- logo.png (+0 -0)");
+    expect(q.material).toContain(
+      "Also changed, not in the diff (tests, fixtures, docs and the like; open them when needed):\n- logo.png (+0 -0)",
+    );
   });
 
   it("says where the lines asked about are, keeping what was asked before apart", async () => {
@@ -186,47 +190,19 @@ describe("asking the AI", () => {
   });
 });
 
-describe("the AI review", () => {
-  it("reads the findings, marking those on a line of the diff", async () => {
-    const asked = agent(
-      JSON.stringify({
-        summary: "Fixes totals.",
-        findings: [
-          { path: "cart.ts", line: 2, severity: "question", body: " Why? " },
-          { path: "cart.ts", line: 40.2, severity: "suggestion", body: "Elsewhere" },
-          { path: "other.ts", line: 1, severity: "nonsense", body: "Not in the diff" },
-          { path: "cart.ts", line: 1, body: "   " },
-          { path: "cart.ts", line: "1", body: "Bad line" },
-          { line: 1, body: "No path" },
-          { path: "cart.ts", line: 1, body: 5 },
-          "junk",
-          null,
-        ],
-      }),
-    );
-    const result = await review(withAi({ effort: "high" }), details, files);
-    expect(result).toMatchObject({
-      summary: "Fixes totals.",
-      project: false,
-      findings: [
-        { path: "cart.ts", line: 2, severity: "question", body: "Why?", inDiff: true },
-        { path: "cart.ts", line: 40, severity: "suggestion", body: "Elsewhere", inDiff: false },
-        { path: "other.ts", line: 1, severity: "issue", body: "Not in the diff", inDiff: false },
-      ],
-    });
-    expect(only(asked)).toMatchObject({ session: false, effort: "high" });
-    expect(only(asked).schema).toContain('"findings"');
+describe("runAi", () => {
+  it("asks at the run's own effort, and keeps the answer on disk when told where", async () => {
+    const asked = agent("{}");
+    const keep = { pull: "PR_7", kind: "analysis", key: "", head: "abc123", meta: "{}" };
+    await runAi(withAi({ effort: "high" }), details, "M", " T ", { schema: { type: "object" }, runId: "r", keep });
+    expect(only(asked)).toMatchObject({ effort: "high", task: "T", schema: '{"type":"object"}', run: "r", keep });
   });
 
-  it("has no summary or findings when the answer leaves them out", async () => {
-    agent("{}");
-    expect(await review(withAi(), details, files)).toMatchObject({ summary: "", findings: [] });
-  });
-
-  it("refuses an answer that isn't the form asked for", async () => {
-    agent("Sure! Here's my review:");
-    await expect(review(withAi(), details, files)).rejects.toThrow("The AI's answer wasn't in the expected form.");
-    agent("null");
-    await expect(review(withAi(), details, files)).rejects.toThrow("The AI's answer wasn't in the expected form.");
+  it("shows less around each change when it can open the project", async () => {
+    const asked = agent("ok");
+    const wide = ["@@ -1,7 +1,7 @@", " a", " b", " c", "-d", "+D", " e", " f", " g"].join("\n");
+    const one: ReviewFile[] = [{ ...files[0]!, patch: wide }];
+    await askAboutLines(withAi({ project: true }), details, one, "cart.ts", 4, 4, "additions", "?");
+    expect(only(asked).material).toContain("## cart.ts\n@@ 3\n3  c\n-d\n4 +D\n5  e");
   });
 });

@@ -40,7 +40,7 @@ const rawCommit = (oid: string, more: Record<string, unknown> = {}) => ({
   messageHeadline: `Headline ${oid}`,
   messageBody: "",
   committedDate: "2026-01-01T00:00:00Z",
-  author: { name: "Ana Lima", avatarUrl: "a.png", user: { login: "ana" } },
+  author: { name: "Bruno Mouse", avatarUrl: "a.png", user: { login: "ana" } },
   signature: null,
   statusCheckRollup: null,
   parents: { nodes: [{ oid: "base" }] },
@@ -181,19 +181,19 @@ describe("loadCommits", () => {
       headline: "Headline c1",
       body: "Why",
       at: "2026-01-01T00:00:00Z",
-      author: { login: "ana", name: "Ana Lima", avatarUrl: "a.png" },
+      author: { login: "ana", name: "Bruno Mouse", avatarUrl: "a.png" },
       verified: true,
       ci: "success",
       parent: "base",
     });
     expect(loaded.commits.map((c) => [c.author.name, c.author.login, c.verified, c.ci, c.parent])).toEqual([
-      ["Ana Lima", "ana", true, "success", "base"],
+      ["Bruno Mouse", "ana", true, "success", "base"],
       ["bo", "bo", false, "failure", null],
       ["", null, null, "failure", "base"],
       ["", null, null, "pending", "base"],
-      ["Ana Lima", "ana", null, "pending", "base"],
-      ["Ana Lima", "ana", null, null, "base"],
-      ["Ana Lima", "ana", null, null, "base"],
+      ["Bruno Mouse", "ana", null, "pending", "base"],
+      ["Bruno Mouse", "ana", null, null, "base"],
+      ["Bruno Mouse", "ana", null, null, "base"],
     ]);
     expect(JSON.parse(String(calls[1]?.fields.body))).toMatchObject({ variables: { after: "p1", number: 7 } });
   });

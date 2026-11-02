@@ -63,7 +63,7 @@ describe("mapTimeline", () => {
           messageHeadline: "One",
           committedDate: at,
           url: "u1",
-          author: { user: null, name: "Ana Lima" },
+          author: { user: null, name: "Bruno Mouse" },
         },
       },
       {
@@ -72,7 +72,7 @@ describe("mapTimeline", () => {
         commit: { oid: "b2", abbreviatedOid: "b2", messageHeadline: "Two", committedDate: at, url: "u2", author: null },
       },
     ]);
-    expect(events.map((e) => e.actor)).toEqual(["Ana Lima", null]);
+    expect(events.map((e) => e.actor)).toEqual(["Bruno Mouse", null]);
   });
 
   it("reads label changes made together as one, apart otherwise", () => {

@@ -71,7 +71,7 @@ describe("CommitsSection", () => {
     await userEvent.click(screen.getByRole("button", { name: /Commits/u }));
     const items = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(items.map((i) => i.textContent)).toEqual([
-      expect.stringContaining("OCCommit 1 Verifiedc1"),
+      expect.stringContaining("BRCommit 1 Verifiedc1"),
       expect.stringContaining("BOCommit 2 Unverifiedc2"),
       expect.stringContaining("ana force-pushed from 1234567 to abcdefa"),
       expect.stringContaining("Commit 3your reviewc3"),
@@ -127,7 +127,7 @@ describe("RangePicker", () => {
     expect(options().map((o) => o.textContent)).toEqual([
       "All Changes4 commits",
       "Since Your Last Review2 commits",
-      expect.stringMatching(/^Commit 1c1 · octocat · /u),
+      expect.stringMatching(/^Commit 1c1 · bruno_mouse · /u),
       expect.stringMatching(/^Commit 2c2 · Bot · /u),
       expect.stringMatching(/^Commit 3/u),
       expect.stringMatching(/^Commit 4/u),

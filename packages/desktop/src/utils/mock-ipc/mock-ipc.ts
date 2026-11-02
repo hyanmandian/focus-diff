@@ -46,10 +46,10 @@ const person = (login: string, name: string) => ({
 });
 export const people = {
   me: person("you_reviewer", "You"),
-  ana: person("ana_lima", "Ana Lima"),
-  bruno: person("bruno_costa", "Bruno Costa"),
-  carla: person("carla_dias", "Carla Dias"),
-  dev: person("devon_hart", "Devon Hart"),
+  ana: person("bruno_mouse", "Bruno Mouse"),
+  bruno: person("kiko_mouse", "Kiko Mouse"),
+  carla: person("tina_mouse", "Tina Mouse"),
+  dev: person("nina_mouse", "Nina Mouse"),
 };
 
 const listeners = new Map<string, Set<(payload: unknown) => void>>();

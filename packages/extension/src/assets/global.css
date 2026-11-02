@@ -4,7 +4,6 @@
 
 :root {
   --bg: #0b0f14;
-  --glow: #142030;
   --panel: rgba(240, 246, 252, 0.035);
   --panel-raised: #121821;
   --panel-hover: rgba(240, 246, 252, 0.06);
@@ -59,9 +58,7 @@ textarea {
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(1100px 600px at 50% -10%, var(--glow) 0%, var(--bg) 65%) no-repeat,
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
   font: 14px/1.5 var(--sans);
 }
@@ -110,6 +107,35 @@ kbd {
 kbd {
   border: 1px solid var(--line);
   border-bottom-width: 2px;
+}
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  list-style: none;
+  cursor: pointer;
+}
+.disclosure::-webkit-details-marker {
+  display: none;
+}
+.disclosure::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-inline: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  rotate: -45deg;
+}
+[open] > .disclosure::before {
+  rotate: 45deg;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .disclosure::before {
+    transition: rotate 160ms var(--ease);
+  }
 }
 .hint {
   color: var(--muted);

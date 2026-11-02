@@ -323,7 +323,7 @@ describe("startWelcome", () => {
       await start();
       expect(keys()).toEqual(["Ctrl+.", "Alt+Shift+,", "Alt+Shift+0", "Alt+Shift+J"]);
       expect(document.querySelector("#shortcuts")?.textContent).toBe(
-        "Without the mouse: Ctrl+. next filter, Alt+Shift+, previous, Alt+Shift+0 all files, Alt+Shift+J next file to review.",
+        "Ctrl+. next filter, Alt+Shift+, previous filter, Alt+Shift+0 all files, Alt+Shift+J next file to review.",
       );
     });
 

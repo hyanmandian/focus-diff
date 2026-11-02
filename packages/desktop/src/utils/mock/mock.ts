@@ -1,3 +1,4 @@
+import { askAi, markRun, savedRuns, stopRun } from "@/utils/mock-ai/mock-ai";
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
 import {
   type Args,
@@ -57,7 +58,7 @@ const review = [
     author: people.ana,
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(25),
-    headRefName: "ana/keep-promo-code",
+    headRefName: "bruno/keep-promo-code",
     baseRefName: "main",
   }),
   pr({
@@ -84,8 +85,8 @@ const review = [
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(20),
     updatedAt: iso(60),
-    headRefName: "ana/promo-reasons",
-    baseRefName: "ana/keep-promo-code",
+    headRefName: "bruno/promo-reasons",
+    baseRefName: "bruno/keep-promo-code",
   }),
 ];
 
@@ -151,7 +152,7 @@ const authored = [
       ],
     },
     reviewRequests: {
-      nodes: [{ requestedReviewer: { __typename: "User", login: "bruno_costa", avatarUrl: people.bruno.avatarUrl } }],
+      nodes: [{ requestedReviewer: { __typename: "User", login: "kiko_mouse", avatarUrl: people.bruno.avatarUrl } }],
     },
   }),
   pr({
@@ -189,9 +190,9 @@ const config = {
       name: "Hand off to Dana",
       confirm: true,
       steps: [
-        { kind: "request", reviewers: ["dana_reyes"] },
+        { kind: "request", reviewers: ["mimi_mouse"] },
         { kind: "unrequestMe" },
-        { kind: "comment", body: "@dana_reyes could you take this one? Thanks!" },
+        { kind: "comment", body: "@mimi_mouse could you take this one? Thanks!" },
       ],
     },
     {
@@ -244,7 +245,7 @@ const details = {
     viewerDidAuthor: false,
     viewerCanUpdate: true,
     baseRefName: "main",
-    headRefName: "ana/keep-promo-code",
+    headRefName: "bruno/keep-promo-code",
     headRefOid: "abc123",
     additions: 48,
     deletions: 12,
@@ -683,7 +684,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
         const sent = json(args, "body").variables;
         const head = isRecord(sent) ? str(sent, "head") : "";
         const above =
-          head === "ana/keep-promo-code"
+          head === "bruno/keep-promo-code"
             ? [
                 {
                   id: "PR_1812",
@@ -691,10 +692,10 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
                   title: "Show why a promo code stopped applying",
                   isDraft: false,
                   isCrossRepository: false,
-                  headRefName: "ana/promo-reasons",
-                  baseRefName: "ana/keep-promo-code",
+                  headRefName: "bruno/promo-reasons",
+                  baseRefName: "bruno/keep-promo-code",
                   reviewDecision: "REVIEW_REQUIRED",
-                  author: { login: "ana_lima", name: "Ana Lima" },
+                  author: { login: "bruno_mouse", name: "Bruno Mouse" },
                 },
               ]
             : [];
@@ -764,33 +765,15 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
     case "ai_models":
       return ["fable", "opus", "sonnet", "haiku"];
     case "ai_ask":
-      await wait(400);
-      if (args.schema)
-        return {
-          project: true,
-          text: JSON.stringify({
-            summary:
-              "Keeps the promo code when the cart changes and re-checks it against the new total. One real gap: the error isn't cleared.",
-            findings: [
-              {
-                path: "src/checkout/cart.ts",
-                line: 15,
-                severity: "issue",
-                body: "`promoError` stays set after the code is removed by hand: `removePromo` in `src/checkout/promo.ts` only clears `promo`, so the old error keeps showing.",
-              },
-              {
-                path: "src/checkout/promo.ts",
-                line: 40,
-                severity: "suggestion",
-                body: "`validatePromo` is also called from `OrderSummary.tsx`, which doesn't pass the new total.",
-              },
-            ],
-          }),
-        };
-      return {
-        project: true,
-        text: "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.",
-      };
+      return askAi(args);
+    case "ai_saved":
+      return savedRuns(str(args, "pull"));
+    case "ai_saved_mark":
+      markRun(args);
+      return;
+    case "ai_cancel":
+      stopRun(str(args, "run"));
+      return;
     case "run_action":
       await wait(400);
       return "ok";

@@ -264,7 +264,7 @@ describe("needsDetail and the approved exception", () => {
     number: 1,
     title: "",
     url: "",
-    actor: "ada",
+    actor: "ada--dev",
     bot: false,
     draft: false,
     approvedByMe: true,

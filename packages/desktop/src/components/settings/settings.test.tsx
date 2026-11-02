@@ -11,7 +11,7 @@ import { setLanguage } from "@/utils/i18n/i18n";
 const signedIn: AuthStatus = {
   signed_in: true,
   source: "keychain",
-  login: "octocat",
+  login: "bruno_mouse",
   device_flow: true,
   gh_available: false,
   gh_signed_in: false,
@@ -188,7 +188,7 @@ describe("Settings window", () => {
     [/Filters/u, "Filters"],
     [/Actions/u, "Actions"],
     [/AI/u, "AI"],
-    [/octocat/u, "Account"],
+    [/bruno_mouse/u, "Account"],
   ])("titles the window after the pane chosen in the sidebar (%s)", async (name, title) => {
     await open();
     await userEvent.click(tab(name));
@@ -325,20 +325,20 @@ describe("Account pane", () => {
     expect(within(panel()).getByLabelText("Loading")).toBeTruthy();
     expect(tab(/Not signed in/u)).toBeTruthy();
     await rust.release("auth_status");
-    expect(within(panel()).getByText("@octocat")).toBeTruthy();
+    expect(within(panel()).getByText("@bruno_mouse")).toBeTruthy();
   });
 
   it("shows the account signed in, and disconnects it", async () => {
     localStorage.setItem("settings-pane", "account");
     const rust = await open({ web: null });
-    expect(await within(panel()).findByText("@octocat")).toBeTruthy();
+    expect(await within(panel()).findByText("@bruno_mouse")).toBeTruthy();
     expect(within(panel()).getByText("Signed in with GitHub")).toBeTruthy();
     await userEvent.click(within(panel()).getByRole("button", { name: /Disconnect/u }));
     await waitFor(() => {
       expect(rust.called("auth_sign_out")).toHaveLength(1);
     });
     await waitFor(() => {
-      expect(within(panel()).queryByText("@octocat")).toBeNull();
+      expect(within(panel()).queryByText("@bruno_mouse")).toBeNull();
     });
     expect(within(panel()).queryByText("Attachments")).toBeNull();
     expect(tab(/Not signed in/u)).toBeTruthy();
@@ -582,8 +582,8 @@ describe("Searching settings", () => {
 
   it("finds the account by its login, the AI by provider, and says when nothing matches", async () => {
     await open();
-    await userEvent.type(search(), "octo");
-    expect(tab(/octocat/u).getAttribute("aria-selected")).toBe("true");
+    await userEvent.type(search(), "bruno_m");
+    expect(tab(/bruno_mouse/u).getAttribute("aria-selected")).toBe("true");
 
     await userEvent.clear(search());
     await userEvent.type(search(), "cursor");

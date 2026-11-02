@@ -46,7 +46,7 @@ export const settings: Dictionary["settings"] = {
   deleteQueue: "Apagar fila",
   showInPanel: "Mostrar no painel",
   hiddenQueue: "Oculta: não é checada nem aparece até você ligá-la de novo.",
-  queuesFooter: "Filas desligadas ficam aqui, sem ser checadas e fora do painel.",
+  queuesFooter: "Uma fila desligada não é consultada nem aparece no painel.",
   showNamedInPanel: "Mostrar {name} no painel",
   noQueues: "Nenhuma fila ainda. Adicione uma para começar.",
 
@@ -207,7 +207,7 @@ export const settings: Dictionary["settings"] = {
   fromQueues: "Destas filas",
   deleteReviewTime: "Apagar review time",
   reviewIntro:
-    "Reserve um tempo para revisar. Quando chegar a hora, o Focus Diff escolhe os pull requests que cabem, pelo tempo que cada um leva, avisa com um som próprio e faz a contagem regressiva na barra de menus.",
+    "Na hora do review time, o Focus Diff escolhe os pull requests que cabem, toca um som próprio e faz a contagem regressiva na barra de menus.",
   next: "Próximo: {day} às {time}, “{name}” por {minutes} min.",
   noneOn: "Nenhum review time está ligado. Ligue um, ou dê a ele um dia e um horário.",
   remindMe: "Me avisar quando for review time",
@@ -246,7 +246,7 @@ export const settings: Dictionary["settings"] = {
   importPlaceholder: "Cole o que alguém do time, ou o Focus Diff, copiou",
   import: "Importar",
   filtersIntro:
-    "Revise uma parte do pull request de cada vez. Cada filtro mantém os arquivos cujo caminho combina com o que incluir e não com o que deixar de fora (expressões regulares; vazio inclui tudo). Eles viram chips na parte de baixo da janela de revisão: ligue vários para vê-los juntos.",
+    "Revise uma parte do pull request de cada vez. Um filtro mantém os arquivos cujo caminho combina com Incluir e não com Deixar de fora (expressões regulares; vazio inclui tudo). Os filtros aparecem como chips na parte de baixo da janela de revisão; ligue vários para combiná-los.",
   filterName: "Nome do filtro",
   onlyIn: "Só em",
   onlyInHint: "Todos os repositórios. Adicione dono/nome, ou dono/* para todos de um dono, para oferecê-lo só lá.",
@@ -293,7 +293,7 @@ export const settings: Dictionary["settings"] = {
 
   copyNamed: "Copiar {command}",
   aiIntro:
-    "Opcional. Resumos e um segundo par de olhos nos pull requests, do agente de código que você já usa, no seu próprio plano. Quando você pede, o Focus Diff o roda neste computador, só para leitura: ele lê e responde, não pode mudar arquivos nem rodar comandos. Nada passa por nós.",
+    "Opcional. Resumos e uma segunda revisão do agente de código que você já usa, no seu próprio plano. O Focus Diff o roda neste computador, só para leitura: ele não pode mudar arquivos nem rodar comandos. Nada passa por nós.",
   codingAgent: "Agente de código",
   checkAgain: "Checar de novo",
   checkAgainFooter: "Cheque de novo depois de instalar ou entrar.",

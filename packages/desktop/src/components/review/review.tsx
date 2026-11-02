@@ -13,8 +13,8 @@ import {
   Pilcrow,
   RefreshCw,
   Rows2,
+  ScanSearch,
   Search,
-  Sparkles,
   Square,
   WrapText,
   X,
@@ -63,7 +63,9 @@ import { SuggestionBatch } from "@/components/suggestion/suggestion";
 import { Textarea } from "@/components/textarea/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
+import { WalkthroughRail, WalkthroughStart } from "@/components/walkthrough/walkthrough";
 import { useActiveTime } from "@/hooks/use-active-time/use-active-time";
+import { useAnalysis } from "@/hooks/use-analysis/use-analysis";
 import { useAttempt } from "@/hooks/use-attempt/use-attempt";
 import { ConversationProvider, copyText, useConversation } from "@/hooks/use-conversation/use-conversation";
 import { useNewChanges } from "@/hooks/use-new-changes/use-new-changes";
@@ -72,9 +74,9 @@ import { published, usePending } from "@/hooks/use-pending/use-pending";
 import { usePersisted } from "@/hooks/use-persisted/use-persisted";
 import { usePull } from "@/hooks/use-pull/use-pull";
 import { useStack } from "@/hooks/use-stack/use-stack";
-import { aiProblem, ensureAi, useAiProblem } from "@/utils/ai-ready/ai-ready";
-import { ReviewStopped, reviewRun, startReview, stopReview } from "@/utils/ai-runs/ai-runs";
-import { askAboutLines, PROVIDERS, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
+import { ensureAi, openAiSettings, useAiProblem } from "@/utils/ai-ready/ai-ready";
+import { askAboutLines, PROVIDERS, type AiReview, type Finding } from "@/utils/ai/ai";
+import { adopt } from "@/utils/asking/asking";
 import { bridge, isRecord } from "@/utils/bridge/bridge";
 import { cn } from "@/utils/cn/cn";
 import { useRangeFiles } from "@/utils/commits/commits";
@@ -117,6 +119,7 @@ import {
 import type { StackPull } from "@/utils/stack/stack";
 import { useTheme } from "@/utils/theme/theme";
 import { inTreeOrder } from "@/utils/tree/tree";
+import { pathsOf } from "@/utils/walkthrough/walkthrough";
 
 export type Target = { id: string; repo: string; number: number; teams: string[]; queue?: string | null | undefined };
 
@@ -134,9 +137,11 @@ const useDark = () => useSyncExternalStore(watchDark, isDark);
 
 const isString = (v: unknown): v is string => typeof v === "string";
 const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
+const isIndex = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
 const isAnything = (v: unknown): v is unknown => v !== undefined;
 const isDiffStyle = (v: unknown): v is "split" | "unified" => v === "split" || v === "unified";
-const isTab = (v: unknown): v is "overview" | "diff" => v === "overview" || v === "diff";
+type Tab = "overview" | "walkthrough" | "diff";
+const isTab = (v: unknown): v is Tab => v === "overview" || v === "walkthrough" || v === "diff";
 const isMarks = (v: unknown): v is Record<string, string> => isRecord(v) && Object.values(v).every((x) => isString(x));
 const isReviewed = (v: unknown): v is { head: string; review: AiReview } | null =>
   v === null || (isRecord(v) && isString(v.head) && isRecord(v.review));
@@ -199,8 +204,8 @@ function SubmitReview({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={<Button className="h-(--toolbar-item-h) rounded-full px-3.5" />}>
-        <span className="@max-[860px]:hidden">{t("review.submit")}</span>
-        <span className="hidden @max-[860px]:inline">{t("review.submitShort")}</span>
+        <span className="@max-[1000px]:hidden">{t("review.submit")}</span>
+        <span className="hidden @max-[1000px]:inline">{t("review.submitShort")}</span>
         {drafts.length > 0 ? (
           <Badge variant="secondary" className="ml-0.5 bg-white/25 text-primary-foreground">
             {drafts.length}
@@ -302,7 +307,8 @@ export function Review({ target }: { target: Target }) {
   const [whitespace, setWhitespace] = usePersisted("diff-whitespace", false, isBoolean);
   const [shortcuts, setShortcuts] = useState(false);
   const [viewed, setViewed] = usePersisted<Record<string, string>>(`viewed:${prId}`, {}, isMarks);
-  const [tab, setTab] = usePersisted<"overview" | "diff">(`tab:${prId}`, "overview", isTab);
+  const [tab, setTab] = usePersisted<Tab>(`tab:${prId}`, "overview", isTab);
+  const [chapter, setChapter] = usePersisted<number>(`chapter:${prId}`, 0, isIndex);
   const [stop, setStop] = useState(-1);
   const [kept, setKept] = usePersisted<unknown>(`filter:${repo}`, [], isAnything);
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
@@ -354,14 +360,11 @@ export function Review({ target }: { target: Target }) {
     if (!(await goNext(true))) say(t("review.doneQueueDone", { queue: queueLabel }));
   };
   const minutesOf = useMemo(() => createEstimator(LINES_PER_HOUR, learned), [learned]);
-  const [reviewed, setReviewed] = usePersisted<{ head: string; review: AiReview } | null>(
+  const [legacy, setLegacy] = usePersisted<{ head: string; review: AiReview } | null>(
     `ai-review:${prId}`,
     null,
     isReviewed,
   );
-  const [reviewing, setReviewing] = useState<string | null>(null);
-  const [stoppedAt, setStoppedAt] = useState<string | null>(null);
-  const [reviewError, setReviewError] = useState<string | null>(null);
   useTheme(config?.theme);
   const dark = useDark();
   const diffs = useRef<DiffsHandle>(null);
@@ -490,71 +493,44 @@ export function Review({ target }: { target: Target }) {
   }, []);
 
   const ai = config?.ai.provider ? config : null;
-  const current = reviewed && details && reviewed.head === details.headRefOid ? reviewed.review : null;
+  const walk = useAnalysis(prId, ai, details, files);
+  const sections = useMemo(() => walk.analysis?.walkthrough.sections ?? [], [walk.analysis]);
+  const chapterAt = Math.max(0, Math.min(chapter, sections.length - 1));
+  const guided = tab === "walkthrough" && sections.length > 0;
+  const diffShown = tab === "diff" || guided;
+  const focus = useMemo(
+    () => (guided && sections[chapterAt] ? pathsOf(sections[chapterAt]) : null),
+    [guided, sections, chapterAt],
+  );
+  const current = walk.current
+    ? (walk.analysis?.review ?? null)
+    : !walk.record && legacy && details && legacy.head === details.headRefOid
+      ? legacy.review
+      : null;
+  const reviewing = walk.building;
+  const reviewError = walk.error;
+  const runReview = walk.build;
+  const stopAiReview = walk.stop;
   const aiProblemNow = useAiProblem(ai);
   const projectHead = ai?.ai.project && details?.state === "OPEN" ? details.headRefOid : null;
   useEffect(() => {
     if (projectHead && !aiProblemNow) void bridge.aiPrepare({ repo, number, head: projectHead }).catch(() => {});
   }, [projectHead, aiProblemNow, repo, number]);
-  const runReview = useCallback(
-    async (asked = true) => {
-      if (!ai || !details || !files) return;
-      if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
-      setReviewing(details.headRefOid);
-      setReviewError(null);
-      setStoppedAt(null);
-      try {
-        setReviewed(await startReview(prId, details.headRefOid, (run) => aiReview(ai, details, files, run)));
-      } catch (e) {
-        if (e instanceof ReviewStopped) setStoppedAt(details.headRefOid);
-        else setReviewError(errorText(e));
-      } finally {
-        setReviewing(null);
-      }
-    },
-    [ai, details, files, setReviewed, prId],
-  );
+  const tried = Boolean(details && walk.runs.some((r) => r.head === details.headRefOid));
   useEffect(() => {
-    const run = reviewRun(prId);
-    if (!run) return;
-    let mounted = true;
-    // oxlint-disable-next-line react/set-state-in-effect -- picks up a review still running from an earlier visit to this pull request
-    setReviewing(run.head);
-    void (async () => {
-      try {
-        const done = await run.done;
-        if (mounted) setReviewed(done);
-      } catch (e) {
-        if (!mounted) return;
-        if (e instanceof ReviewStopped) setStoppedAt(run.head);
-        else setReviewError(errorText(e));
-      } finally {
-        if (mounted) setReviewing(null);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [prId, setReviewed]);
-  useEffect(() => {
-    if (
-      ai?.ai.review.auto &&
-      details &&
-      files &&
-      !current &&
-      !reviewing &&
-      !reviewError &&
-      stoppedAt !== details.headRefOid &&
-      details.state === "OPEN"
-    )
+    if (ai?.ai.review.auto && walk.saved && details && files && !tried && details.state === "OPEN")
       // oxlint-disable-next-line react/set-state-in-effect -- it sets state only once the AI's readiness is known (awaited)
       void runReview(false);
-  }, [ai, details, files, current, reviewing, reviewError, stoppedAt, runReview]);
-  const stopAiReview = () => {
-    stopReview(prId);
-  };
+  }, [ai, walk.saved, details, files, tried, runReview]);
+  useEffect(() => {
+    if (walk.saved) adopt(prId, walk.saved);
+  }, [prId, walk.saved]);
   const dropFinding = (finding: Finding) => {
-    setReviewed((r) =>
+    if (walk.current) {
+      walk.dismiss(finding);
+      return;
+    }
+    setLegacy((r) =>
       r
         ? {
             ...r,
@@ -617,6 +593,15 @@ export function Review({ target }: { target: Target }) {
     setUpdating(false);
   };
 
+  const toDiff = () => {
+    if (!guided) setTab("diff");
+  };
+  const pickChapter = (index: number) => {
+    setChapter(Math.max(0, Math.min(index, sections.length - 1)));
+    setTab("walkthrough");
+    requestAnimationFrame(() => diffs.current?.scrollToTop());
+  };
+  const fileAt = useMemo(() => new Map((files ?? []).map((f) => [f.path, f])), [files]);
   const isViewed = useCallback((f: ReviewFile) => viewed[f.path] === patchHash(pullFileOf(f)), [viewed, pullFileOf]);
   const repoFilters = useMemo(() => filtersFor(config?.filters ?? [], repo), [config, repo]);
   const chosen = useMemo(() => {
@@ -625,13 +610,18 @@ export function Review({ target }: { target: Target }) {
   }, [kept, repoFilters, files]);
   const chosenIds = useMemo(() => chosen.map((f) => f.id), [chosen]);
   const ordered = useMemo(() => (shownFiles ? inTreeOrder(shownFiles) : []), [shownFiles]);
-  const inPart = useMemo(() => ordered.filter((f) => inAny(chosen, f.path)), [ordered, chosen]);
+  const inPart = useMemo(() => {
+    if (!focus) return ordered.filter((f) => inAny(chosen, f.path));
+    const byPath = new Map(ordered.map((f) => [f.path, f]));
+    return focus.flatMap((path) => byPath.get(path) ?? []);
+  }, [ordered, chosen, focus]);
   const visible = useMemo(() => {
+    if (focus) return inPart;
     const q = filter.trim().toLowerCase();
     return inPart.filter(
       (f) => (!q || f.path.toLowerCase().includes(q)) && (!hideViewed || !isViewed(f) || opened.has(f.path)),
     );
-  }, [inPart, filter, hideViewed, isViewed, opened]);
+  }, [focus, inPart, filter, hideViewed, isViewed, opened]);
   const findMatches = useMemo(
     () =>
       find
@@ -670,7 +660,7 @@ export function Review({ target }: { target: Target }) {
     );
   };
   const goToNextFile = () => {
-    setTab("diff");
+    toDiff();
     const upcoming = nextFile(
       [...visible.filter((f) => f.patch), ...visible.filter((f) => !f.patch)],
       isViewed,
@@ -692,7 +682,7 @@ export function Review({ target }: { target: Target }) {
     if (file) setFileViewed(file, !isViewed(file));
   };
 
-  const take = useActiveTime(() => diffs.current?.onScreen() ?? [], tab === "diff");
+  const take = useActiveTime(() => diffs.current?.onScreen() ?? [], diffShown);
   const setFileViewed = (f: ReviewFile, v: boolean) => {
     if (v && !isViewed(f) && inPart.includes(f) && inPart.every((x) => x === f || isViewed(x)))
       confetti({ x: innerWidth / 2, y: innerHeight - 64 });
@@ -729,10 +719,14 @@ export function Review({ target }: { target: Target }) {
   }, [ordered, conversations, drafts, current]);
 
   const jump = (path: string, line: number | null, side?: Thread["side"], thread?: Thread) => {
-    setTab("diff");
+    const home = guided ? sections.findIndex((s) => pathsOf(s).includes(path)) : -1;
+    if (home >= 0) setChapter(home);
+    else {
+      setTab("diff");
+      if (!inAny(chosen, path)) setKept([]);
+      setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
+    }
     setPicked(path);
-    if (!inAny(chosen, path)) setKept([]);
-    setFilter((q) => (q && !path.toLowerCase().includes(q.trim().toLowerCase()) ? "" : q));
     setOpened((s) => (s.has(path) ? s : new Set([...s, path])));
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -749,7 +743,7 @@ export function Review({ target }: { target: Target }) {
     if (match) jump(match.path, match.line, match.side);
   };
   const openFind = () => {
-    setTab("diff");
+    toDiff();
     setFind((f) => f ?? { query: "", at: -1 });
     setFindFocus((n) => n + 1);
   };
@@ -781,10 +775,12 @@ export function Review({ target }: { target: Target }) {
     if (e.altKey && e.shiftKey) {
       const action = {
         Period: () => {
-          stepPart(1);
+          if (guided) pickChapter(chapterAt + 1);
+          else stepPart(1);
         },
         Comma: () => {
-          stepPart(-1);
+          if (guided) pickChapter(chapterAt - 1);
+          else stepPart(-1);
         },
         Digit0: () => {
           choose([]);
@@ -793,7 +789,7 @@ export function Review({ target }: { target: Target }) {
       }[e.code];
       if (!action || !files) return;
       e.preventDefault();
-      setTab("diff");
+      toDiff();
       action();
       return;
     }
@@ -807,7 +803,7 @@ export function Review({ target }: { target: Target }) {
       setShortcuts(true);
       return;
     }
-    if (tab !== "diff" || e.altKey) return;
+    if (!diffShown || e.altKey) return;
     if (e.key === "n" || e.key === "p") {
       e.preventDefault();
       step(e.key === "n" ? 1 : -1);
@@ -893,13 +889,13 @@ export function Review({ target }: { target: Target }) {
         setWhitespace(!whitespace);
       },
       "file-next": () => {
-        setTab("diff");
+        toDiff();
         requestAnimationFrame(() => {
           stepToFile(1);
         });
       },
       "file-previous": () => {
-        setTab("diff");
+        toDiff();
         requestAnimationFrame(() => {
           stepToFile(-1);
         });
@@ -970,7 +966,7 @@ export function Review({ target }: { target: Target }) {
     "find-previous": findMatches.length > 0,
     "file-next": Boolean(files?.length),
     "file-previous": Boolean(files?.length),
-    "toggle-viewed": tab === "diff" && Boolean(files?.length),
+    "toggle-viewed": diffShown && Boolean(files?.length),
     "next-file": Boolean(files?.length),
     "next-comment": stops.length > 0,
     "previous-comment": stops.length > 0,
@@ -1032,29 +1028,42 @@ export function Review({ target }: { target: Target }) {
             {(
               [
                 ["overview", t("review.overview"), details?.entries.length],
+                ["walkthrough", t("walkthrough.tab"), sections.length],
                 ["diff", t("review.diff"), files?.length],
               ] as const
-            ).map(([value, label, count]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                tabIndex={tab === value ? 0 : -1}
-                id={`tab-${value}`}
-                aria-selected={tab === value}
-                aria-controls={`panel-${value}`}
-                data-pill={value}
-                onClick={() => {
-                  setTab(value);
-                }}
-                className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:not-aria-selected:bg-(--fill-control-hover)"
-              >
-                {label}
-                <span className="min-w-3.5 text-center text-subheadline text-muted-foreground tabular-nums @max-[860px]:hidden">
-                  {count === undefined ? <Skeleton className="h-3 w-3.5" /> : count || null}
-                </span>
-              </button>
-            ))}
+            ).map(([value, label, count]) => {
+              const off = value === "walkthrough" && !ai;
+              const button = (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  tabIndex={tab === value ? 0 : -1}
+                  id={`tab-${value}`}
+                  aria-selected={tab === value}
+                  aria-controls={value === "walkthrough" && guided ? "panel-diff" : `panel-${value}`}
+                  aria-disabled={off || undefined}
+                  data-pill={value}
+                  onClick={() => {
+                    if (!off) setTab(value);
+                  }}
+                  className="flex h-6 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-foreground focus-ring transition-colors duration-(--duration-fast) outline-none hover:not-aria-selected:not-aria-disabled:bg-(--fill-control-hover) aria-disabled:text-muted-foreground"
+                >
+                  {label}
+                  <span className="min-w-3.5 text-center text-subheadline text-muted-foreground tabular-nums @max-[1000px]:hidden">
+                    {count === undefined ? <Skeleton className="h-3 w-3.5" /> : count || null}
+                  </span>
+                </button>
+              );
+              return off ? (
+                <Tooltip key={value}>
+                  <TooltipTrigger render={button} />
+                  <TooltipContent>{t("walkthrough.needsAi")}</TooltipContent>
+                </Tooltip>
+              ) : (
+                button
+              );
+            })}
           </div>
           <div className="flex h-(--toolbar-item-h) shrink-0 items-center rounded-full bg-fill">
             <RangePicker
@@ -1120,11 +1129,11 @@ export function Review({ target }: { target: Target }) {
         >
           <div
             data-tauri-drag-region
-            aria-hidden={tab !== "diff"}
-            inert={tab !== "diff"}
+            aria-hidden={!diffShown}
+            inert={!diffShown}
             className={cn(
               "grid shrink-0 transition-[grid-template-columns,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-              tab === "diff" ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
+              diffShown ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
             )}
           >
             <div data-tauri-drag-region className="flex min-w-0 items-center gap-1 overflow-hidden px-1 py-1">
@@ -1167,7 +1176,10 @@ export function Review({ target }: { target: Target }) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")}
+                        className={cn(
+                          TOOL_ICON,
+                          "aria-pressed:bg-transparent aria-pressed:text-primary @max-[1000px]:hidden",
+                        )}
                         aria-pressed={wrap}
                         aria-label={t("review.wrap")}
                         onClick={() => {
@@ -1186,7 +1198,10 @@ export function Review({ target }: { target: Target }) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={cn(TOOL_ICON, "aria-pressed:bg-transparent aria-pressed:text-primary")}
+                        className={cn(
+                          TOOL_ICON,
+                          "aria-pressed:bg-transparent aria-pressed:text-primary @max-[1000px]:hidden",
+                        )}
                         aria-pressed={whitespace}
                         aria-label={t("diff.hideWhitespace")}
                         onClick={() => {
@@ -1275,7 +1290,7 @@ export function Review({ target }: { target: Target }) {
                         />
                       }
                     >
-                      {reviewing ? <Square className="size-3 fill-current" /> : <Sparkles />}
+                      {reviewing ? <Square className="size-3 fill-current" /> : <ScanSearch />}
                       <span className="@max-[1360px]:sr-only">
                         {reviewing ? t("review.stop") : current ? t("review.reviewAgain") : t("review.aiReview")}
                       </span>
@@ -1537,7 +1552,7 @@ export function Review({ target }: { target: Target }) {
                 conversation={talk.conversation}
                 threads={conversations}
                 review={current}
-                reviewing={Boolean(reviewing)}
+                reviewing={reviewing}
                 reviewError={reviewError}
                 onStopReview={stopAiReview}
                 onJump={jump}
@@ -1590,12 +1605,51 @@ export function Review({ target }: { target: Target }) {
 
           <div
             role="tabpanel"
+            id="panel-walkthrough"
+            aria-labelledby="tab-walkthrough"
+            hidden={tab !== "walkthrough" || guided}
+            className="min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto bg-muted/30"
+          >
+            {ai ? (
+              <WalkthroughStart
+                state={walk}
+                provider={PROVIDERS[ai.ai.provider!].name}
+                problem={aiProblemNow?.title ?? null}
+                onOpenSettings={() => void openAiSettings()}
+              />
+            ) : (
+              <p className="px-8 py-10 text-center text-body text-muted-foreground">{t("walkthrough.needsAi")}</p>
+            )}
+          </div>
+
+          <div
+            role="tabpanel"
             id="panel-diff"
-            aria-labelledby="tab-diff"
-            hidden={tab !== "diff"}
+            aria-labelledby={guided ? "tab-walkthrough" : "tab-diff"}
+            hidden={!diffShown}
             className="flex min-h-0 flex-1"
           >
-            <aside className="flex w-72 shrink-0 flex-col border-r" aria-label={t("review.files")}>
+            {guided && ai ? (
+              <WalkthroughRail
+                state={walk}
+                provider={PROVIDERS[ai.ai.provider!].name}
+                files={files ?? []}
+                findings={current?.findings ?? []}
+                at={chapterAt}
+                isViewed={(path) => {
+                  const file = fileAt.get(path);
+                  return file ? isViewed(file) : false;
+                }}
+                onPick={pickChapter}
+                onOpen={(path, line) => {
+                  jump(path, line, "additions");
+                }}
+              />
+            ) : null}
+            <aside
+              className={cn("flex w-72 shrink-0 flex-col border-r", guided && "hidden")}
+              aria-label={t("review.files")}
+            >
               <div className="flex flex-col gap-2 border-b p-3">
                 <div className="relative">
                   <Search
@@ -1705,7 +1759,7 @@ export function Review({ target }: { target: Target }) {
                     onDismissFinding={dropFinding}
                     onAsk={
                       ai && details && files
-                        ? async (path, lines, question, earlier, run) => {
+                        ? async (path, lines, question, earlier, run, saveAs) => {
                             if (!(await ensureAi(ai)))
                               throw new Error(
                                 i18n()("shared.aiNotReady", { provider: PROVIDERS[ai.ai.provider!].name }),
@@ -1721,6 +1775,7 @@ export function Review({ target }: { target: Target }) {
                               question,
                               earlier,
                               run,
+                              saveAs,
                             );
                           }
                         : null
@@ -1772,7 +1827,7 @@ export function Review({ target }: { target: Target }) {
               {files?.length ? (
                 <FilterBar
                   files={files}
-                  filters={repoFilters}
+                  filters={guided ? [] : repoFilters}
                   chosen={chosenIds}
                   shown={shown}
                   next={next}

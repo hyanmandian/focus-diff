@@ -2,8 +2,10 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
+  adopt,
   askInto,
   chatKey,
+  clearTurns,
   forget,
   resetAsking,
   setOpen,
@@ -11,6 +13,8 @@ import {
   usePullAsking,
   type Open,
 } from "@/utils/asking/asking";
+import type { Saved } from "@/utils/bridge/bridge";
+import { mockCommands } from "@/utils/fake-platform/fake-platform";
 
 const PULL = "acme/octo#7";
 const LINES: Open = { path: "src/a.ts", range: { start: 14, end: 12, side: "additions" } };
@@ -55,7 +59,7 @@ describe("asking", () => {
     const back = renderHook(() => usePullAsking(PULL));
     expect(back.result.current.open).toEqual(LINES);
     expect(back.result.current.chats[KEY]?.turns).toEqual([
-      { id: 1, question: "Why?", answer: "Because.", note: "From the diff" },
+      { id: expect.any(Number) as unknown, question: "Why?", answer: "Because.", note: "From the diff" },
     ]);
     await act(() =>
       askInto(PULL, KEY, "And?", "run-2", (earlier) => {
@@ -63,7 +67,8 @@ describe("asking", () => {
         return Promise.resolve({ text: "That's all." });
       }),
     );
-    expect(back.result.current.chats[KEY]?.turns.map((turn) => turn.id)).toEqual([1, 2]);
+    const [first, second] = back.result.current.chats[KEY]!.turns.map((turn) => turn.id);
+    expect(second).toBeGreaterThan(first!);
   });
 
   it("asks one thing at a time", async () => {
@@ -159,5 +164,101 @@ describe("asking", () => {
     });
     setOpen(PULL, LINES);
     expect(renderHook(() => usePullAsking(PULL)).result.current.open).toEqual(LINES);
+  });
+
+  describe("answers kept on disk", () => {
+    const answer = (over: Partial<Saved> = {}): Saved => ({
+      id: "q1",
+      kind: "ask",
+      key: KEY,
+      head: "",
+      at: 1,
+      status: "done",
+      text: "Because.",
+      note: "From the diff",
+      project: false,
+      meta: JSON.stringify({ question: "Why?", turn: 5 }),
+      archived: false,
+      dismissed: [],
+      ...over,
+    });
+    const blank = (saved: Saved): Saved => {
+      const copy = { ...saved };
+      delete copy.text;
+      return copy;
+    };
+    const marked = () => {
+      const calls: unknown[] = [];
+      mockCommands((cmd, args) => {
+        calls.push([cmd, args]);
+        return null;
+      });
+      return calls;
+    };
+
+    it("brings back answers that came while nobody was looking, in order and once", () => {
+      updateChat(PULL, KEY, { turns: [{ id: 9, question: "Later?", answer: "Yes." }], run: { id: "q2", at: 1 } });
+      adopt(PULL, [
+        answer(),
+        answer({ id: "q2", meta: JSON.stringify({ question: "Pending?", turn: 7 }) }),
+        answer({ id: "q3", status: "running", meta: JSON.stringify({ question: "Still?", turn: 8 }) }),
+        answer({ id: "q4", archived: true }),
+        answer({ id: "q5", kind: "analysis" }),
+        answer({ id: "q6", meta: "{" }),
+        answer({ id: "q7", meta: "{}" }),
+        blank(answer({ id: "q8", meta: JSON.stringify({ question: "Blank?", turn: 6 }) })),
+      ]);
+      const { result } = renderHook(() => usePullAsking(PULL));
+      expect(result.current.chats[KEY]).toMatchObject({
+        run: null,
+        turns: [
+          { id: 5, question: "Why?", answer: "Because.", note: "From the diff" },
+          { id: 6, question: "Blank?", answer: "" },
+          { id: 7, question: "Pending?", answer: "Because." },
+          { id: 9, question: "Later?", answer: "Yes." },
+        ],
+      });
+      const before = stored();
+      adopt(PULL, [answer()]);
+      expect(stored()).toEqual(before);
+      adopt("other", [answer({ key: "x" })]);
+      expect(renderHook(() => usePullAsking("other")).result.current.chats.x?.turns).toHaveLength(1);
+    });
+
+    it("archives what it kept when a conversation is cleared or closed, so it doesn't come back", () => {
+      const calls = marked();
+      adopt(PULL, [answer(), answer({ id: "q2", key: "other" })]);
+      clearTurns(PULL, KEY);
+      expect(renderHook(() => usePullAsking(PULL)).result.current.chats[KEY]?.turns).toEqual([]);
+      forget(PULL, "other");
+      forget(PULL, "never");
+      forget("nowhere", KEY);
+      expect(calls).toEqual([
+        ["ai_saved_mark", { pull: PULL, id: "q1", archived: true, dismiss: null }],
+        ["ai_saved_mark", { pull: PULL, id: "q2", archived: true, dismiss: null }],
+      ]);
+    });
+
+    it("doesn't mind when an archive can't be kept", async () => {
+      mockCommands(() => Promise.reject(new Error("disk full")));
+      adopt(PULL, [answer()]);
+      forget(PULL, KEY);
+      await Promise.resolve();
+      expect(stored()).toBeNull();
+    });
+
+    it("asks with where to keep the answer", async () => {
+      const keep = vi.fn<(earlier: unknown, keep: unknown) => Promise<{ text: string }>>(() =>
+        Promise.resolve({ text: "ok" }),
+      );
+      await askInto(PULL, KEY, "Why?", "r", keep);
+      expect(keep).toHaveBeenCalledWith([], {
+        pull: PULL,
+        kind: "ask",
+        key: KEY,
+        head: "",
+        meta: expect.stringMatching(/^\{"question":"Why\?","turn":\d+\}$/u) as unknown,
+      });
+    });
   });
 });

@@ -115,6 +115,19 @@
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
+    <svg class="sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M20 7h-9M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" /></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></symbol>
+    </svg>
     <header class="top">
       <div class="wrap">
         <a class="brand" href="./"><img src="icon-96.webp" alt="" width="26" height="26" />Focus Diff</a>
@@ -132,7 +145,6 @@
     <main id="main">
       <section class="hero" aria-labelledby="title">
         <div class="wrap">
-          <span class="pill"><b>Desktop app</b> · Mac · Windows · Linux</span>
           <h1 id="title">Review without opening GitHub.</h1>
           <p class="lede">
             Your review queue in the menu bar, and a review window that does what the pull request page does, faster: filters, comments,
@@ -159,6 +171,104 @@
             </video>
           </div>
           <p class="caption">The 56-second tour, on made-up pull requests.</p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="what-title">
+        <div class="wrap">
+          <div class="head">
+            <h2 id="what-title">Everything a review needs, in one window.</h2>
+            <p>From the moment it’s your turn to the moment you approve, without a browser tab.</p>
+          </div>
+          <div class="bento">
+            <div class="tile wide">
+              <p><b>The whole review.</b> Overview, checks, the diff with your filters, comments with mentions and suggestions, then approve or request changes.</p>
+              <div class="demo review" data-demo="review" data-play="loop" data-pr="a" data-step="posted" role="img" aria-label="The Focus Diff review window: a comment added on a changed line of the diff, then the pull request approved">
+                <div class="win">
+                  <div class="win-bar"><span class="lights"><i></i><i></i><i></i></span><span class="title"><span data-v="a"><b>Keep the promo code when the cart changes</b><span>#1807</span></span><span data-v="b"><b>Retry webhooks with backoff</b><span>#1824</span></span></span><span class="ghost" data-target="next"><svg class="i"><use href="#i-next" /></svg></span><span class="approve" data-target="approve"><span>Approve</span><span><svg class="i"><use href="#i-check" /></svg>Approved</span></span></div>
+                  <div class="side"><span><svg class="i"><use href="#i-file" /></svg><i style="--w: 58%"></i></span><span class="on"><svg class="i"><use href="#i-file" /></svg><code><span data-v="a">promo.ts</span><span data-v="b">retry.go</span></code></span><span><svg class="i"><use href="#i-file" /></svg><i style="--w: 66%"></i></span><span><svg class="i"><use href="#i-file" /></svg><i style="--w: 44%"></i></span><span><svg class="i"><use href="#i-file" /></svg><i style="--w: 52%"></i></span><span><svg class="i"><use href="#i-file" /></svg><i style="--w: 36%"></i></span></div>
+                  <div class="body">
+                    <div data-v="a">
+                      <div class="file-box">
+                        <div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>web/src/cart/promo.ts</code><span class="delta"><span class="add">+1</span><span class="del">−1</span></span></div>
+                        <div class="code"><div class="cl"><span>11</span><span></span><span><span class="kw">export function</span> <span class="fn">onCartChange</span>(cart: Cart) {</span></div><div class="cl minus"><span>12</span><span>−</span><span>  <span class="fn">clearPromo</span>(cart);</span></div><div class="cl plus target" data-target="line-a"><span>12</span><span>+</span><span>  <span class="kw">if</span> (!<span class="fn">stillValid</span>(cart)) <span class="fn">clearPromo</span>(cart);</span><span class="add-note" data-target="plus-a"><svg class="i"><use href="#i-plus" /></svg></span></div><div class="fold compose"><div><div class="note"><div class="field" data-target="field-a" data-text="What if the code expires while the cart is open?"></div><div class="acts"><span>Cancel</span><span class="send" data-target="send-a">Comment</span></div></div></div></div><div class="fold thread"><div><div class="note"><div class="who"><span class="av" style="--hue: 32">J</span><b>jo_park</b>now</div><p>What if the code expires while the cart is open?</p></div></div></div><div class="cl"><span>13</span><span></span><span>}</span></div></div>
+                        <div class="bars"><i style="--w: 34%"></i><i style="--w: 52%; --x: 1"></i><i style="--w: 41%; --x: 1"></i><i style="--w: 12%"></i></div>
+                      </div>
+                    </div>
+                    <div data-v="b">
+                      <div class="file-box">
+                        <div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>api/hooks/retry.go</code><span class="delta"><span class="add">+1</span><span class="del">−1</span></span></div>
+                        <div class="code"><div class="cl"><span>40</span><span></span><span><span class="kw">func</span> <span class="fn">backoff</span>(n <span class="kw">int</span>) time.Duration {</span></div><div class="cl minus"><span>41</span><span>−</span><span>  <span class="kw">return</span> time.Second</span></div><div class="cl plus target" data-target="line-b"><span>41</span><span>+</span><span>  <span class="kw">return</span> <span class="fn">min</span>(time.Second&lt;&lt;n, time.Minute)</span><span class="add-note" data-target="plus-b"><svg class="i"><use href="#i-plus" /></svg></span></div><div class="fold compose"><div><div class="note"><div class="field" data-target="field-b" data-text="Add some jitter so the retries don’t all land at once?"></div><div class="acts"><span>Cancel</span><span class="send" data-target="send-b">Comment</span></div></div></div></div><div class="fold thread"><div><div class="note"><div class="who"><span class="av" style="--hue: 32">J</span><b>jo_park</b>now</div><p>Add some jitter so the retries don’t all land at once?</p></div></div></div><div class="cl"><span>42</span><span></span><span>}</span></div></div>
+                        <div class="bars"><i style="--w: 28%"></i><i style="--w: 47%; --x: 1"></i><i style="--w: 55%; --x: 1"></i><i style="--w: 10%"></i></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tile">
+              <p><b>Your queue in the menu bar.</b> What waits on your review, with a notification when it’s your turn.</p>
+              <div class="demo queue" data-demo="queue" data-play="once" data-open data-toast data-fresh role="img" aria-label="The Focus Diff panel in the menu bar: a review request arrives as a notification and as a new pull request at the top of the queue">
+                <div class="menubar"><i></i><i></i><span class="tray" data-target="tray"><img src="icon-96.webp" alt="" width="16" height="16" /></span><i></i><span>Wed 9:41</span></div>
+                <div class="panel">
+                  <div class="tabs"><span class="tab on">Review <em class="num" data-num="review">4</em></span><span class="tab">Updates <em>3</em></span><span class="tab">My PRs <em>2</em></span><span class="tab">Merged <em>1</em></span><svg class="i"><use href="#i-refresh" /></svg><svg class="i"><use href="#i-settings" /></svg></div>
+                  <div class="group"><b>acme/</b>web <span class="num" data-num="group">3</span></div>
+                  <div class="row fresh"><div><div class="row-in" data-target="row"><span class="dot"></span><span class="av" style="--hue: 212">S</span><span class="row-main"><b>Keep the promo code when the cart changes</b><span>#1807 · sam_rivera · ~11 min</span></span><span class="age">now</span></div></div></div>
+                  <div class="row"><div><div class="row-in"><span></span><span class="av" style="--hue: 32">J</span><span class="row-main"><b>Fix the flaky date picker test</b><span>#1821 · jo_park · ~6 min · <em class="late">waiting 2d</em></span></span><span class="age">1h</span></div></div></div>
+                  <div class="row"><div><div class="row-in"><span></span><span class="av blank"></span><span class="row-main"><i style="--w: 72%"></i><i style="--w: 44%"></i></span></div></div></div>
+                  <div class="group"><b>acme/</b>api 1</div>
+                  <div class="row"><div><div class="row-in"><span></span><span class="av blank"></span><span class="row-main"><i style="--w: 64%"></i><i style="--w: 38%"></i></span></div></div></div>
+                </div>
+                <div class="toast"><img src="icon-96.webp" alt="" width="30" height="30" /><span><small>Focus Diff</small><b>Review requested</b>sam_rivera asked you to review #1807</span><small>now</small></div>
+              </div>
+            </div>
+            <div class="tile say">
+              <p><b>A diff that doesn’t freeze.</b> What you open is kept on your computer, so going back, or on to the next one, doesn’t wait.</p>
+              <span class="big words">Thousands of files, still smooth.</span>
+            </div>
+            <div class="tile wide">
+              <p><b>A walkthrough of the change.</b> Your own Claude Code, Codex, Cursor or OpenCode reads the pull request and splits it into chapters to read in order.</p>
+              <div class="demo walk" data-demo="walk" data-play="once" data-ch="2" role="img" aria-label="The AI walkthrough: the pull request split into numbered chapters, each opening its part of the diff with a short summary">
+                <div class="wt">
+                  <div class="rail" data-glide="ch">
+                    <span class="glide"></span>
+                    <div class="rail-head"><svg class="i"><use href="#i-route" /></svg>Walkthrough<span>4 chapters</span></div>
+                    <div class="ch" data-key="1" data-target="ch1"><em>1</em><b>Keep the code on the cart</b><i style="--w: 46%"></i></div>
+                    <div class="ch" data-key="2" data-target="ch2"><em>2</em><b>Check it when the cart changes</b><i style="--w: 58%"></i></div>
+                    <div class="ch" data-key="3" data-target="ch3"><em>3</em><b>Tell the shopper why</b><i style="--w: 40%"></i></div>
+                    <div class="ch" data-key="4"><em>4</em><b>Tests</b><i style="--w: 52%"></i></div>
+                  </div>
+                  <div class="chap">
+                    <div data-c="1"><p>The promo code now lives on the cart, so changing the cart no longer drops it.</p><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-file" /></svg><code>web/src/cart/cart.ts</code></div><div class="code"><div class="cl"><span>8</span><span></span><span><span class="kw">type</span> Cart = {</span></div><div class="cl"><span>9</span><span></span><span>  items: Item[];</span></div><div class="cl plus"><span>10</span><span>+</span><span>  promo?: Promo;</span></div><div class="cl"><span>11</span><span></span><span>};</span></div></div><div class="bars"><i style="--w: 30%"></i><i style="--w: 46%; --x: 1"></i><i style="--w: 38%; --x: 1"></i><i style="--w: 52%; --x: 1"></i><i style="--w: 14%"></i></div></div></div>
+                    <div data-c="2"><p>Every change checks the code again, and clears it only when it no longer applies.</p><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-file" /></svg><code>web/src/cart/promo.ts</code></div><div class="code"><div class="cl"><span>11</span><span></span><span><span class="kw">export function</span> <span class="fn">onCartChange</span>(cart: Cart) {</span></div><div class="cl minus"><span>12</span><span>−</span><span>  <span class="fn">clearPromo</span>(cart);</span></div><div class="cl plus"><span>12</span><span>+</span><span>  <span class="kw">if</span> (!<span class="fn">stillValid</span>(cart)) <span class="fn">clearPromo</span>(cart);</span></div><div class="cl"><span>13</span><span></span><span>}</span></div></div><div class="bars"><i style="--w: 44%; --x: 1"></i><i style="--w: 36%; --x: 1"></i><i style="--w: 12%"></i><i style="--w: 40%"></i><i style="--w: 58%; --x: 1"></i></div></div></div>
+                    <div data-c="3"><p>When a code stops applying, the order summary says why instead of dropping it quietly.</p><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-file" /></svg><code>web/src/cart/summary.tsx</code></div><div class="code"><div class="cl"><span>48</span><span></span><span>{promo.expired &amp;&amp; (</span></div><div class="cl plus"><span>49</span><span>+</span><span>  &lt;<span class="fn">Notice</span>&gt;{t(<span class="st">"promo.expired"</span>)}&lt;/<span class="fn">Notice</span>&gt;</span></div><div class="cl"><span>50</span><span></span><span>)}</span></div></div><div class="bars"><i style="--w: 34%; --x: 1"></i><i style="--w: 48%; --x: 2"></i><i style="--w: 26%; --x: 1"></i><i style="--w: 10%"></i><i style="--w: 44%"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="facts">
+            <li><b>Updates, yours and merged.</b> The queue also lists what changed since you reviewed, your own pull requests, and what merged before you got to it.</li>
+            <li><b>Stacks in order.</b> Stacked pull requests show as one stack, and Next takes you to the following one when you’re done.</li>
+            <li><b>Keys for the whole review.</b> <kbd>N</kbd> <kbd>P</kbd> through comments, <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd> to the next file, <kbd>⌘</kbd> <kbd>]</kbd> to the next pull request. <kbd>Ctrl</kbd> on Windows and Linux.</li>
+            <li><b>Ask about any change.</b> Ask your AI about a line or a file, with the whole project as context, through the command line you already use.</li>
+            <li><b>Your own buttons.</b> Queues, filters and actions you set up yourself: hand a review off, ping a channel, or run a command of your own.</li>
+            <li><b>Updates itself.</b> When a new version is out, one click on Update installs it and restarts.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="auth-title">
+        <div class="wrap statement">
+          <div class="head">
+            <h2 id="auth-title">Your GitHub. Your AI. No account.</h2>
+            <p>It talks to GitHub, and to your AI only when you ask. <a href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md">Read the privacy policy</a>.</p>
+          </div>
+          <ul class="facts" style="--cols: 1">
+            <li><b>Signs in with the GitHub CLI.</b> When <code>gh</code> is installed and signed in, the app uses it. Nothing else to set up.</li>
+            <li><b>Or a token, in your keychain.</b> Without <code>gh</code>, paste a personal access token. It stays in your system’s keychain.</li>
+            <li><b>The AI you already pay for.</b> It runs your own Claude Code, Codex, Cursor or OpenCode, and only when you ask it something.</li>
+          </ul>
         </div>
       </section>
 
@@ -205,75 +315,6 @@
               <li>The AppImage, which updates itself:<pre><code>chmod +x Focus-Diff.AppImage &amp;&amp; ./Focus-Diff.AppImage</code></pre></li>
               <li>The <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.deb">.deb</a> or the <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.rpm">.rpm</a>, updated by installing the next one:<pre><code>sudo apt install ./Focus-Diff.deb</code></pre></li>
             </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="fast-title">
-        <div class="wrap statement">
-          <div class="head">
-            <h2 id="fast-title">A diff that doesn’t freeze.</h2>
-            <p>Made for the pull requests that make a browser tab give up: thousands of files and lines stay smooth to scroll and quick to open.</p>
-          </div>
-          <div class="points">
-            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><h3>Thousands of files, still fluid</h3><p>Huge pull requests scroll smoothly, without the page locking up halfway through.</p></div>
-            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg><h3>Opens in an instant</h3><p>What you open is kept on your computer, so going back, or on to the next one, doesn’t wait.</p></div>
-            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg><h3>Keys for the whole review</h3><p><kbd>N</kbd> <kbd>P</kbd> through comments, <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd> to the next file, <kbd>⌘</kbd> <kbd>]</kbd> to the next pull request, <kbd>⌘</kbd> <kbd>F</kbd> to find. <kbd>Ctrl</kbd> on Windows and Linux.</p></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="what-title">
-        <div class="wrap">
-          <div class="head">
-            <h2 id="what-title">Everything a review needs, in one window.</h2>
-            <p>From the moment it’s your turn to the moment you approve, without a browser tab.</p>
-          </div>
-        <div class="grid" style="--cols: 3">
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h5l2 3h4l2-3h5"/><path d="M5.5 5h13L21 13v6H3v-6z"/></svg>
-            <h3>The queue in the menu bar</h3>
-            <p>What waits on your review, the pull requests you took part in, your own, and the ones merged before you got to them.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>
-            <h3>A notification when it’s your turn</h3>
-            <p>A review request, new commits since your review, a reply or a mention. Click it and the pull request opens.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
-            <h3>The whole review</h3>
-            <p>Overview, checks, the diff with your filters, comments with mentions and suggestions, then approve or request changes.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5z"/><path d="M2 13l10 5 10-5"/></svg>
-            <h3>Stacks in order</h3>
-            <p>Stacked pull requests show as one stack, and Next takes you to the following one when you’re done.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 3v4M17 5h4"/></svg>
-            <h3>AI on your own plan</h3>
-            <p>Ask Claude Code, Codex, Cursor or OpenCode about a change, with the whole project as context, through the command line you already use.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></svg>
-            <h3>Your own buttons</h3>
-            <p>Queues, filters and actions you set up yourself: hand a review off, ping a channel, or run a command of your own.</p>
-          </div>
-        </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="auth-title">
-        <div class="wrap statement">
-          <div class="head">
-            <h2 id="auth-title">Your GitHub. Your AI. No account.</h2>
-            <p>Nothing to sign up for. It talks to GitHub, and to your AI only when you ask. <a href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md">Read the privacy policy</a>.</p>
-          </div>
-          <div class="points">
-            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-5-6-5M12 19h8"/></svg><h3>Signs in with the GitHub CLI</h3><p>When <code>gh</code> is installed and signed in, the app uses it. Nothing else to set up.</p></div>
-            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2M17 6l3 3M14 9l2 2"/></svg><h3>Or a token, in your keychain</h3><p>Without <code>gh</code>, paste a personal access token. It stays in your system’s keychain.</p></div>
-            <div><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 3v4M17 5h4"/></svg><h3>The AI you already pay for</h3><p>It runs your own Claude Code, Codex, Cursor or OpenCode, and only when you ask it something.</p></div>
           </div>
         </div>
       </section>

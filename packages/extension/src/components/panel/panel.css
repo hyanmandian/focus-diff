@@ -109,7 +109,13 @@
   transition: opacity 200ms ease-out;
 }
 .popover {
-  transition: opacity 160ms ease-out;
+  transition:
+    opacity 160ms ease-out,
+    display 160ms allow-discrete;
+}
+.popover[hidden] {
+  opacity: 0;
+  pointer-events: none;
 }
 @starting-style {
   .panel,
@@ -123,99 +129,53 @@
     color 160ms ease-out;
 }
 @media (prefers-reduced-motion: no-preference) {
-  :host {
-    --fd-spring: linear(
-      0,
-      0.0185,
-      0.0666,
-      0.1349,
-      0.2155,
-      0.3024,
-      0.3908,
-      0.4773,
-      0.5592,
-      0.635,
-      0.7036,
-      0.7645,
-      0.8175,
-      0.8629,
-      0.9011,
-      0.9327,
-      0.9583,
-      0.9786,
-      0.9943,
-      1.006,
-      1.0144,
-      1.0201,
-      1.0235,
-      1.0253,
-      1.0256,
-      1.025,
-      1.0237,
-      1.0219,
-      1.0198,
-      1.0175,
-      1.0152,
-      1.013,
-      1.011,
-      1.009,
-      1.0073,
-      1.0058,
-      1.0045,
-      1.0033,
-      1.0024,
-      1.0016,
-      1
-    );
-  }
   .panel {
-    transform-origin: 50% 100%;
     transition:
-      opacity 260ms ease-out,
-      translate 560ms var(--fd-spring),
-      scale 560ms var(--fd-spring),
-      filter 320ms ease-out;
+      opacity 240ms ease-out,
+      translate 360ms var(--fd-ease);
   }
   @starting-style {
     .panel {
-      translate: 0 24px;
-      scale: 0.96;
-      filter: blur(6px);
+      translate: 0 8px;
     }
   }
   .panel > :not(.popover, .visually-hidden) {
     transition:
       opacity 240ms ease-out var(--fd-delay, 0ms),
-      translate 480ms var(--fd-spring) var(--fd-delay, 0ms),
+      translate 320ms var(--fd-ease) var(--fd-delay, 0ms),
       background-color 120ms ease-out,
       color 160ms ease-out;
   }
   @starting-style {
     .panel > :not(.popover, .visually-hidden) {
       opacity: 0;
-      translate: 0 10px;
+      translate: 0 4px;
     }
   }
   .panel > :nth-child(2) {
-    --fd-delay: 50ms;
+    --fd-delay: 40ms;
   }
   .panel > :nth-child(3) {
-    --fd-delay: 90ms;
+    --fd-delay: 80ms;
   }
   .panel > :nth-child(4) {
     --fd-delay: 120ms;
   }
   .panel > :nth-child(n + 5) {
-    --fd-delay: 150ms;
+    --fd-delay: 160ms;
   }
   .popover {
     transition:
       opacity 160ms ease-out,
-      translate 220ms var(--fd-ease);
+      translate 200ms var(--fd-ease),
+      display 200ms allow-discrete;
+  }
+  .popover[hidden] {
+    translate: 0 4px;
   }
   @starting-style {
     .popover {
-      translate: 0 6px;
+      translate: 0 4px;
     }
   }
 }

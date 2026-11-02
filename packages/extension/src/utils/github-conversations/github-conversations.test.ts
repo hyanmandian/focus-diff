@@ -28,7 +28,7 @@ const element = (selector: string) => document.querySelector<HTMLElement>(select
 
 beforeEach(() => {
   vi.useFakeTimers();
-  document.head.innerHTML = `<meta name="user-login" content="reader" />`;
+  document.head.innerHTML = `<meta name="user-login" content="reader--dev" />`;
   document.body.innerHTML = "";
 });
 afterEach(() => {
@@ -41,9 +41,9 @@ describe("the newer view's conversations", () => {
       <div id="diff"><table>
         <tr><td data-line-number="5" data-diff-side="right"></td></tr>
         <tr><td data-line-number="9" data-diff-side="right">
-          <div data-marker-id="2"><div id="r20"><a data-hovercard-type="user">reader</a></div></div></td></tr>
+          <div data-marker-id="2"><div id="r20"><a data-hovercard-type="user">reader--dev</a></div></div></td></tr>
         <tr><td data-line-number="7" data-diff-side="right">
-          <div data-marker-id="4"><div id="r40"><a data-hovercard-type="user">ada</a></div></div></td></tr>
+          <div data-marker-id="4"><div id="r40"><a data-hovercard-type="user">ada--dev</a></div></div></td></tr>
       </table></div>`;
     const drawn = fileWith(
       "a.ts",

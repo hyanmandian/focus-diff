@@ -27,7 +27,7 @@ import { isMarkdown, Rendered } from "@/components/rendered/rendered";
 import { NoPatchFile } from "@/components/rich-diff/rich-diff";
 import { DraftView, FindingView, NewComment, ThreadView } from "@/components/thread/thread";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/tooltip";
-import type { Exchange, Finding } from "@/utils/ai/ai";
+import type { Exchange, Finding, Keep } from "@/utils/ai/ai";
 import { chatKey, forget, setOpen, usePullAsking, type Open } from "@/utils/asking/asking";
 import type { AiAnswer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
@@ -80,6 +80,7 @@ type Props = {
         question: string,
         earlier: Exchange[],
         run: string,
+        keep: Keep,
       ) => Promise<AiAnswer>)
     | null;
   onDismissFinding: (finding: Finding) => void;
@@ -754,7 +755,7 @@ export function Diffs({ ref, ...props }: Props & { ref?: Ref<DiffsHandle> }) {
                   chat={{ pull, key: chatKey(a) }}
                   ask={
                     props.onAsk
-                      ? (question, earlier, run) => props.onAsk!(a.path, a.range, question, earlier, run)
+                      ? (question, earlier, run, keep) => props.onAsk!(a.path, a.range, question, earlier, run, keep)
                       : null
                   }
                   askName={props.findingsBy}

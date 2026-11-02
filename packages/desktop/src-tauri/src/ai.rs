@@ -319,6 +319,10 @@ pub fn end_run(id: &str) {
     running().held().remove(id);
 }
 
+pub fn is_running(id: &str) -> bool {
+    running().held().contains_key(id)
+}
+
 pub fn cancel(id: &str) {
     if let Some(flag) = running().held().get(id) {
         flag.store(true, Ordering::Relaxed);
@@ -404,7 +408,7 @@ impl Question<'_> {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
     pub input: u64,
@@ -494,7 +498,7 @@ const ARGV_LIMIT: usize = 100_000;
 const HOOKS_OFF: &str = r#"{"disableAllHooks":true}"#;
 
 fn limit(q: &Question) -> Duration {
-    if q.project.is_some() { PROJECT_TIME_LIMIT } else { TIME_LIMIT }
+    if q.project.is_some() || q.schema.is_some() { PROJECT_TIME_LIMIT } else { TIME_LIMIT }
 }
 
 fn clipped(material: &str) -> String {
@@ -1161,6 +1165,14 @@ while IFS= read -r line; do
   printf '{"type":"system"}\nnot json\n{"type":"result","is_error":false,"result":" answer %s ","usage":{"input_tokens":%s,"cache_creation_input_tokens":10,"cache_read_input_tokens":20,"output_tokens":3},"total_cost_usd":%s.5,"duration_ms":7}\n' "$n" "$n" "$n"
 done
 "#;
+
+    #[test]
+    #[cfg(unix)]
+    fn gives_structured_answers_as_long_as_project_ones() {
+        let quick = question(Provider::Claude, "DIFF", "Hi", None);
+        assert_eq!(limit(&quick), TIME_LIMIT);
+        assert_eq!(limit(&Question { schema: Some("{}"), ..quick }), PROJECT_TIME_LIMIT);
+    }
 
     #[cfg(unix)]
     fn question<'a>(provider: Provider, material: &'a str, task: &'a str, session: Option<&'a str>) -> Question<'a> {

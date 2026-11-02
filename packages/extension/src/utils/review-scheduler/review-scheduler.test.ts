@@ -81,7 +81,7 @@ const settings = (extra: Partial<ReviewTimeSettings> = {}, sessionExtra: Partial
   ...extra,
 });
 const snapshot = (reviews: PullRequest[], extra: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
-  me: "me",
+  me: "me--self",
   reviews,
   mine: [],
   checkedAt: NOW,
@@ -100,7 +100,7 @@ const run = (extra: Partial<ReviewRun> = {}): ReviewRun => ({
       repo: "octo/web",
       number: 1,
       title: "Pull request 1",
-      author: "ada",
+      author: "ada--dev",
       minutes: 5,
       files: 1,
     },
@@ -116,7 +116,7 @@ const event = (number: number, extra: Partial<HeldEvent> = {}): HeldEvent => ({
   number,
   title: `Pull request ${number}`,
   url: samplePull(number).url,
-  actor: "ada",
+  actor: "ada--dev",
   bot: false,
   draft: false,
   approvedByMe: false,

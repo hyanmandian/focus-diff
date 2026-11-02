@@ -16,7 +16,7 @@ describe("record", () => {
   });
 
   it("reads strings and numbers as text, and nothing else", () => {
-    expect(asText("ada")).toBe("ada");
+    expect(asText("ada--dev")).toBe("ada--dev");
     expect(asText(12)).toBe("12");
     expect(asText({})).toBe("");
   });

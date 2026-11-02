@@ -161,7 +161,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
                             </>
                           ) : (
                             <span className="text-success">
-                              {t("settings.ready", { version: status.version ?? "" })}
+                              {t("settings.ready", { version: status.version?.replace(/\s*\(.*\)$/u, "") ?? "" })}
                             </span>
                           )
                         ) : (
@@ -206,7 +206,7 @@ export function Ai({ config, onChange }: { config: Config; onChange: (c: Config)
               <Input
                 id={modelId}
                 list={`${modelId}-list`}
-                className="w-60 font-mono text-callout"
+                className="w-60 font-mono text-callout placeholder:font-sans"
                 spellCheck={false}
                 autoComplete="off"
                 value={ai.model}

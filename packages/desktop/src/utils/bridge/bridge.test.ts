@@ -33,6 +33,21 @@ const code: DeviceCode = {
 };
 
 const project = { repo: "acme/web", number: 7, head: "abc" };
+const choices = {
+  provider: "claude" as const,
+  model: "opus",
+  effort: "high",
+  system: "s",
+  material: "m",
+  task: "t",
+  recap: "r",
+  project,
+  schema: "{}",
+  session: true,
+  ownSettings: true,
+  run: "r",
+  keep: { pull: "PR_1", kind: "ask", key: "k", head: "h", meta: "{}" },
+};
 
 describe("bridge", () => {
   const cases: Array<[string, () => Promise<unknown>, string, unknown]> = [
@@ -109,40 +124,22 @@ describe("bridge", () => {
         session: false,
         ownSettings: false,
         run: null,
+        keep: null,
       },
     ],
+    ["aiAsk with choices", () => bridge.aiAsk(choices), "ai_ask", choices],
+    ["aiSaved", () => bridge.aiSaved("PR_1"), "ai_saved", { pull: "PR_1" }],
     [
-      "aiAsk with choices",
-      () =>
-        bridge.aiAsk({
-          provider: "claude",
-          model: "opus",
-          effort: "high",
-          system: "s",
-          material: "m",
-          task: "t",
-          recap: "r",
-          project,
-          schema: "{}",
-          session: true,
-          ownSettings: true,
-          run: "r",
-        }),
-      "ai_ask",
-      {
-        provider: "claude",
-        model: "opus",
-        effort: "high",
-        system: "s",
-        material: "m",
-        task: "t",
-        recap: "r",
-        project,
-        schema: "{}",
-        session: true,
-        ownSettings: true,
-        run: "r",
-      },
+      "aiSavedMark archiving",
+      () => bridge.aiSavedMark("PR_1", "r", { archived: true }),
+      "ai_saved_mark",
+      { pull: "PR_1", id: "r", archived: true, dismiss: null },
+    ],
+    [
+      "aiSavedMark dismissing",
+      () => bridge.aiSavedMark("PR_1", "r", { dismiss: "a" }),
+      "ai_saved_mark",
+      { pull: "PR_1", id: "r", archived: null, dismiss: "a" },
     ],
     ["aiCancel", () => bridge.aiCancel("r"), "ai_cancel", { run: "r" }],
     ["aiPrepare", () => bridge.aiPrepare(project), "ai_prepare", { project }],

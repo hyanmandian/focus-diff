@@ -157,11 +157,11 @@ describe("Setup", () => {
     const user = userEvent.setup();
     render(<Setup />);
     await user.click(await screen.findByRole("button", { name: "Sign in later" }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What should it watch?");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Choose what to watch");
     for (const box of screen.getAllByRole("checkbox"))
       if (box.getAttribute("aria-checked") === "true") await user.click(box);
     enter(screen.getByRole("heading", { level: 1 }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("What should it watch?");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Choose what to watch");
     expect(sent("write_file")).toEqual([]);
   });
 
@@ -198,7 +198,7 @@ describe("Setup", () => {
     await screen.findByText("@octocat");
     await next(user);
 
-    expect(screen.getByRole("heading", { name: "What should it watch?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Choose what to watch" })).toBeTruthy();
     const review = screen.getByRole("checkbox", { name: /Needs my review/u });
     const involved = screen.getByRole("checkbox", { name: /Updates/u });
     expect(review.getAttribute("aria-checked")).toBe("true");
@@ -212,7 +212,7 @@ describe("Setup", () => {
     await typeRepository(user, "acme/web");
     await next(user);
 
-    expect(screen.getByRole("heading", { name: "How do you like to go through a diff?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Pick filters for your diffs" })).toBeTruthy();
     const stack = screen.getByRole("checkbox", { name: /Frontend and backend/u });
     const generated = screen.getByRole("checkbox", { name: /Without generated files/u });
     expect(stack.getAttribute("aria-checked")).toBe("true");
@@ -223,7 +223,7 @@ describe("Setup", () => {
     expect(generated.getAttribute("aria-checked")).toBe("false");
     await next(user);
 
-    expect(screen.getByRole("heading", { name: "How should it tell you?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Choose how you're notified" })).toBeTruthy();
     await user.click(screen.getByRole("switch", { name: "Play a sound" }));
     await user.click(screen.getByRole("combobox", { name: "Check GitHub every" }));
     await user.click(await screen.findByRole("option", { name: "5 minutes" }));
@@ -353,10 +353,10 @@ describe("Setup", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Your reviews, without opening GitHub");
 
     for (const title of [
-      "What should it watch?",
-      "How do you like to go through a diff?",
-      "How should it tell you?",
-      "Want a second pair of eyes?",
+      "Choose what to watch",
+      "Pick filters for your diffs",
+      "Choose how you're notified",
+      "Add an AI reviewer",
       "You're set",
     ]) {
       enter(screen.getByRole("heading", { level: 1 }));
@@ -365,7 +365,7 @@ describe("Setup", () => {
     expect(screen.getByText(/lives in your menu bar\. Click/u)).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Want a second pair of eyes?");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Add an AI reviewer");
     enter(screen.getByRole("heading", { level: 1 }));
     enter(screen.getByRole("heading", { level: 1 }));
     await waitFor(() => {

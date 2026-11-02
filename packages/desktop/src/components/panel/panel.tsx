@@ -1,5 +1,5 @@
 import { parsePullLink } from "@focus-diff/core/pull-link";
-import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
+import { AlertCircle, ChevronRight, Loader2, RefreshCw, Settings } from "lucide-react";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/button/button";
@@ -561,7 +561,7 @@ export function Panel() {
                   ref={listRef}
                   tabIndex={-1}
                   aria-label={t("panel.pullRequestsOf", { queue: queue.name })}
-                  className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
+                  className="stagger min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-1 pb-1 outline-none"
                 >
                   {groups.length > 0 || drafts.length > 0 ? (
                     <>
@@ -673,7 +673,6 @@ export function Panel() {
                           setReadingNews(true);
                         }}
                       >
-                        <Sparkles className="size-3" aria-hidden />
                         {t("shared.whatsNewIn", { version: news.version })}
                       </button>
                     ) : null}

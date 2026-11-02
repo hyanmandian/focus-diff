@@ -43,6 +43,36 @@ body,
     background-color: color-mix(in oklch, var(--unread) 9%, transparent);
   }
 }
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.stagger > * {
+  animation: rise 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.stagger > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.stagger > :nth-child(3) {
+  animation-delay: 80ms;
+}
+.stagger > :nth-child(4) {
+  animation-delay: 120ms;
+}
+.stagger > :nth-child(5) {
+  animation-delay: 160ms;
+}
+.stagger > :nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stagger > * {
+    animation: none;
+  }
+}
+
 .arrive {
   animation: arrive-settle 0.9s var(--ease-standard) both;
 }
@@ -62,13 +92,24 @@ body,
 }
 
 figure.diagram {
+  --pele-bg: color-mix(in srgb, var(--foreground) 5%, var(--card));
+  --pele-fg: var(--foreground);
+  --pele-muted: var(--muted-foreground);
+  --pele-line: var(--muted-foreground);
+  --pele-surface: var(--card);
+  --pele-surface-alt: color-mix(in srgb, var(--foreground) 10%, var(--card));
+  --pele-border: color-mix(in srgb, var(--foreground) 35%, var(--card));
+  --pele-accent: var(--accent);
+  --pele-font: var(--font-sans);
+  --pele-font-mono: var(--font-mono);
+  --pele-radius: 6px;
   margin: 0.5rem 0;
 }
 figure.diagram > [role="img"] {
   overflow-x: auto;
   padding: 12px;
   border-radius: 8px;
-  background: var(--muted);
+  background: var(--pele-bg);
 }
 figure.diagram svg {
   display: block;
@@ -100,9 +141,15 @@ div a[data-button] {
   vertical-align: middle;
 }
 div a[data-button]::after {
-  content: "↗";
-  font-size: var(--type-subheadline);
+  content: "";
+  width: 11px;
+  height: 11px;
+  background: currentColor;
   opacity: 0.6;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 div a[data-button]:active {
   background: var(--fill-control-pressed);

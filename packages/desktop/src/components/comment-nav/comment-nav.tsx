@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, MessageSquare, PencilLine, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare, PencilLine, ScanSearch } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/button/button";
@@ -13,7 +13,7 @@ export type CommentStop = { path: string; line: number; kind: "conversation" | "
 const KIND = {
   conversation: { icon: MessageSquare, label: "review.stopConversation", tone: "text-warning" },
   pending: { icon: PencilLine, label: "review.stopPending", tone: "text-unread" },
-  ai: { icon: Sparkles, label: "review.stopAi", tone: "text-violet" },
+  ai: { icon: ScanSearch, label: "review.stopAi", tone: "text-muted-foreground" },
 } as const;
 
 type Props = {

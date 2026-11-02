@@ -24,7 +24,7 @@ export const routeGitHubRest = async (context: BrowserContext) => {
     route.fulfill({ contentType: "text/html", body: "<title>Sign in</title>" }),
   );
   await context.route(/^https:\/\/github\.com\/notifications/u, (route) =>
-    route.fulfill({ contentType: "text/html", body: '<meta name="user-login" content="me-too"><ul></ul>' }),
+    route.fulfill({ contentType: "text/html", body: '<meta name="user-login" content="me--too"><ul></ul>' }),
   );
 };
 

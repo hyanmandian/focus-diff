@@ -439,7 +439,7 @@ export function Setup() {
                       >
                         {status.outdated
                           ? t("setup.outdatedRun", { command: status.update_command })
-                          : t("setup.readyVersion", { version: status.version ?? "" })}
+                          : t("setup.readyVersion", { version: status.version?.replace(/\s*\(.*\)$/u, "") ?? "" })}
                       </Choice>
                     );
                   })

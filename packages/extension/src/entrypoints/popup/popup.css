@@ -852,10 +852,6 @@ a.pull:focus-visible {
 .run-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--fd-add) 16%, transparent);
   color: var(--fd-add);
 }
 .run-title h2 {
@@ -882,14 +878,13 @@ a.pull:focus-visible {
 }
 .run-bar span {
   display: block;
-  width: var(--done);
   height: 100%;
-  border-radius: inherit;
+  clip-path: inset(0 calc(100% - var(--done)) 0 0 round 999px);
   background: var(--fd-add);
 }
 @media (prefers-reduced-motion: no-preference) {
   .run-bar span {
-    transition: width 400ms var(--ease);
+    transition: clip-path 400ms var(--ease);
   }
 }
 .run-summary,
@@ -1041,5 +1036,16 @@ a.pull:focus-visible {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pick,
+  .row-menu,
+  .restore {
+    transition:
+      opacity 120ms ease-out,
+      background-color 120ms ease-out,
+      color 120ms ease-out;
   }
 }

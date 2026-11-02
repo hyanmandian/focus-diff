@@ -28,7 +28,6 @@
 }
 .brand img {
   border-radius: 9px;
-  box-shadow: 0 6px 16px rgba(1, 4, 9, 0.5);
 }
 .sections ul {
   position: relative;
@@ -63,21 +62,7 @@
     transition:
       color 200ms ease-out,
       background-color 200ms ease-out,
-      opacity 200ms ease-out,
-      box-shadow 200ms ease-out;
-  }
-  .sections a[aria-current="true"]::before {
-    animation: section-dot 520ms var(--ease);
-  }
-}
-@keyframes section-dot {
-  from {
-    box-shadow: 0 0 0 8px rgba(63, 185, 80, 0);
-    transform: scale(0.6);
-  }
-  40% {
-    box-shadow: 0 0 0 6px rgba(63, 185, 80, 0.28);
-    transform: scale(1.25);
+      opacity 200ms ease-out;
   }
 }
 .sections a {
@@ -110,7 +95,6 @@
 .sections a[aria-current="true"]::before {
   background: var(--green);
   opacity: 1;
-  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.18);
 }
 .sidebar-link {
   padding-inline: 12px;
@@ -242,9 +226,7 @@ legend,
   color: var(--muted);
 }
 .help summary {
-  cursor: pointer;
-  width: fit-content;
-  padding: 4px 0;
+  min-height: var(--target);
   color: var(--focus);
   font-weight: 600;
 }
@@ -429,28 +411,9 @@ legend,
   border-top: 1px solid var(--line);
 }
 .import summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  width: auto;
   min-height: 44px;
-  cursor: pointer;
   font-weight: 600;
-  list-style: none;
-}
-.import summary::-webkit-details-marker {
-  display: none;
-}
-.import summary::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin-inline: 2px 4px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
-}
-.import[open] summary::before {
-  transform: rotate(45deg);
 }
 .import-body {
   display: grid;
@@ -999,8 +962,10 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.session-expand svg {
-  transition: transform 160ms var(--ease, ease-out);
+@media (prefers-reduced-motion: no-preference) {
+  .session-expand svg {
+    transition: transform 160ms var(--ease);
+  }
 }
 .session-expand[aria-expanded="true"] svg {
   transform: rotate(90deg);

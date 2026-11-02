@@ -10,6 +10,8 @@
     "allow-ai-ask",
     "allow-ai-cancel",
     "allow-ai-prepare",
+    "allow-ai-saved",
+    "allow-ai-saved-mark",
     "allow-ai-statuses",
     "allow-clear-arrival",
     "allow-confirm",

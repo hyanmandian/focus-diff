@@ -7,7 +7,7 @@ export const samplePull = (number: number, extra: Partial<PullRequest> = {}): Pu
   number,
   title: `Pull request ${number}`,
   url: `https://github.com/octo/web/pull/${number}`,
-  author: "ada",
+  author: "ada--dev",
   draft: false,
   comments: 0,
   createdAt: "2026-10-07T12:00:00Z",

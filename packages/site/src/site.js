@@ -7,6 +7,237 @@ const worth = (badge) => {
   const value = Number(number) * ({ k: 1e3, m: 1e6, b: 1e9 }[unit?.toLowerCase()] ?? 1);
   return value >= 100 ? badge.message : null;
 };
+const pointer =
+  '<svg viewBox="0 0 32 32" width="24" height="24"><g transform="translate(10 7)"><path d="m6.148 18.473 1.863-1.003 1.615-.839-2.568-4.816h4.332l-11.379-11.408v16.015l3.316-3.221z" fill="#fff"/><path d="m6.431 17 1.765-.941-2.775-5.202h3.604l-8.025-8.043v11.188l2.53-2.442z" fill="#000"/></g></svg>';
+const strip = `<span class="strip">${[..."0123456789"].map((digit) => `<span>${digit}</span>`).join("")}</span>`;
+const chain = (items, step) => items.reduce((done, item) => done.then(() => step(item)), Promise.resolve());
+const roll = (number, text) => {
+  const chars = [...text];
+  while (number.children.length < chars.length) {
+    const slot = document.createElement("span");
+    slot.className = "slot gone";
+    number.prepend(slot);
+  }
+  number.getBoundingClientRect();
+  const slots = [...number.children];
+  const offset = slots.length - chars.length;
+  slots.forEach((slot, index) => {
+    const char = chars[index - offset];
+    slot.style.transitionDelay = `${(slots.length - 1 - index) * 45}ms`;
+    slot.classList.toggle("gone", char === undefined);
+    if (char === undefined) return;
+    const digit = /\d/u.test(char);
+    if (digit && !slot.firstElementChild) slot.innerHTML = strip;
+    if (!digit) slot.textContent = char;
+    slot.style.setProperty("--n", digit ? char : "0");
+  });
+};
+const glide = (root) => {
+  for (const group of root.querySelectorAll("[data-glide]")) {
+    const mark = group.querySelector(".glide");
+    for (const item of group.querySelectorAll("[data-key]")) {
+      const on = item.dataset.key === root.dataset[group.dataset.glide];
+      item.toggleAttribute("data-on", on);
+      if (!on) continue;
+      mark.style.width = `${item.offsetWidth}px`;
+      mark.style.height = `${item.offsetHeight}px`;
+      mark.style.translate = `${item.offsetLeft}px ${item.offsetTop}px`;
+    }
+  }
+};
+const snap = (root, change) => {
+  root.classList.add("snap");
+  change();
+  root.getBoundingClientRect();
+  root.classList.remove("snap");
+};
+const timeline = () => {
+  const pending = [];
+  let now = 0;
+  let last = 0;
+  let frame = 0;
+  let running = false;
+  const tick = (stamp) => {
+    now += last ? Math.min(stamp - last, 50) : 0;
+    last = stamp;
+    for (const item of pending.filter((each) => each.due <= now)) {
+      pending.splice(pending.indexOf(item), 1);
+      item.done();
+    }
+    frame = running && pending.length > 0 ? requestAnimationFrame(tick) : 0;
+    if (!frame) last = 0;
+  };
+  const kick = () => {
+    if (running && !frame && pending.length > 0) frame = requestAnimationFrame(tick);
+  };
+  return {
+    wait: (ms) =>
+      new Promise((done) => {
+        pending.push({ due: now + ms, done });
+        kick();
+      }),
+    run: (value) => {
+      running = value;
+      kick();
+    },
+  };
+};
+const stage = (root) => {
+  const time = timeline();
+  const cursor = document.createElement("span");
+  cursor.className = "cursor";
+  cursor.setAttribute("aria-hidden", "true");
+  cursor.innerHTML = pointer;
+  root.append(cursor);
+  let spot = { x: 0, y: 0 };
+  const find = (name) => root.querySelector(`[data-target="${name}"]`);
+  const place = (point, ms) => {
+    cursor.style.transitionDuration = `${ms}ms, 300ms`;
+    cursor.style.translate = `${point.x}px ${point.y}px`;
+    spot = point;
+  };
+  const locate = (target, fx, fy) => {
+    const frame = root.getBoundingClientRect();
+    if (Array.isArray(target)) return { x: frame.width * target[0], y: frame.height * target[1] };
+    const box = find(target).getBoundingClientRect();
+    return { x: box.left - frame.left + box.width * fx, y: box.top - frame.top + box.height * fy };
+  };
+  return {
+    root,
+    find,
+    run: time.run,
+    wait: time.wait,
+    compact: () => root.clientWidth <= 520,
+    async move(target, fx = 0.9, fy = 0.78) {
+      const point = locate(target, fx, fy);
+      if (!cursor.dataset.shown) {
+        place(locate([0.62, 1.06]), 0);
+        cursor.getBoundingClientRect();
+        cursor.dataset.shown = "";
+      }
+      const ms = Math.round(Math.min(950, 340 + Math.hypot(point.x - spot.x, point.y - spot.y) * 1.3));
+      place(point, ms);
+      await time.wait(ms + 60);
+    },
+    async click() {
+      cursor.dataset.pressed = "";
+      await time.wait(110);
+      delete cursor.dataset.pressed;
+      await time.wait(150);
+    },
+    set(values) {
+      for (const [key, value] of Object.entries(values)) {
+        if (value === null) delete root.dataset[key];
+        else root.dataset[key] = value;
+      }
+      glide(root);
+    },
+    count(values) {
+      for (const [key, value] of Object.entries(values)) roll(root.querySelector(`[data-num="${key}"]`), value);
+    },
+    type(name) {
+      const field = find(name);
+      field.textContent = "";
+      return chain([...field.dataset.text], async (char) => {
+        field.textContent += char;
+        await time.wait(char === " " ? 70 : 34);
+      });
+    },
+    hide() {
+      delete cursor.dataset.shown;
+    },
+  };
+};
+const filters = {
+  all: { files: "465", add: "1,204", del: "1,846", time: "3:03" },
+  web: { files: "20", add: "122", del: "273", time: "0:24" },
+  api: { files: "123", add: "815", del: "1,090", time: "1:54" },
+};
+const scenes = {
+  bar: (act) =>
+    chain(
+      [
+        ["api", 1900],
+        ["all", 1500],
+        ["web", 1800],
+      ],
+      async ([key, hold]) => {
+        await act.wait(900);
+        await act.move(key);
+        await act.click();
+        act.set({ filter: key });
+        act.count(filters[key]);
+        await act.wait(hold);
+      },
+    ),
+  async queue(act) {
+    await act.wait(1400);
+    await act.move("row", 0.66, 0.5);
+    act.set({ hover: "" });
+    await act.wait(350);
+    await act.click();
+    act.set({ open: null, toast: null, hover: null });
+    await act.wait(500);
+    snap(act.root, () => {
+      act.set({ fresh: null });
+      act.count({ review: "3", group: "2" });
+    });
+    await act.move("tray", 0.55, 0.75);
+    await act.click();
+    act.set({ open: "" });
+    await act.wait(800);
+    act.set({ toast: "" });
+    await act.wait(350);
+    act.set({ fresh: "" });
+    act.count({ review: "4", group: "3" });
+    await act.move(act.compact() ? [0.9, 0.64] : [0.16, 0.6]);
+    await act.wait(2200);
+  },
+  async review(act) {
+    await act.wait(900);
+    await act.move("approve", 0.85, 0.75);
+    await act.click();
+    act.set({ approved: "" });
+    await act.wait(1300);
+    await act.move("next", 0.6, 0.75);
+    await act.click();
+    act.set({ swap: "" });
+    await act.wait(240);
+    const pr = act.root.dataset.pr === "a" ? "b" : "a";
+    snap(act.root, () => act.set({ pr, step: "fresh", approved: null }));
+    act.set({ swap: null });
+    await act.wait(900);
+    await act.move(`line-${pr}`, 0.55, 0.6);
+    act.set({ step: "hover" });
+    await act.wait(400);
+    await act.move(`plus-${pr}`, 0.6, 0.7);
+    await act.click();
+    act.set({ step: "compose" });
+    await act.wait(500);
+    await act.type(`field-${pr}`);
+    await act.wait(450);
+    await act.move(`send-${pr}`, 0.8, 0.75);
+    await act.click();
+    act.set({ step: "posted" });
+    await act.move(act.compact() ? [0.86, 0.94] : [0.9, 0.9]);
+    await act.wait(1800);
+  },
+  walk: (act) =>
+    chain(
+      [
+        ["3", 1700],
+        ["1", 1700],
+        ["2", 2000],
+      ],
+      async ([key, hold]) => {
+        await act.wait(800);
+        await act.move(`ch${key}`, 0.9, 0.8);
+        await act.click();
+        act.set({ ch: key });
+        await act.wait(hold);
+      },
+    ),
+};
 {
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const agent = navigator.userAgent;
@@ -173,5 +404,58 @@ const worth = (badge) => {
     const initial =
       list.dataset.initial === "os" ? { windows: 1, linux: 2 }[system] : { firefox: 1, safari: 2 }[browser];
     select(tabs[initial ?? 0]);
+  }
+
+  const demos = [...document.querySelectorAll("[data-demo]")];
+  for (const root of demos) {
+    glide(root);
+    new ResizeObserver(() => snap(root, () => glide(root))).observe(root);
+  }
+  const plays = new Map();
+  const looks =
+    !reduce && "IntersectionObserver" in window
+      ? new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              const play = plays.get(entry.target);
+              play.seen = entry.isIntersecting;
+              play.act.run(play.seen && !document.hidden);
+              if (play.seen && !play.started) play.start();
+            }
+          },
+          { threshold: 0.35 },
+        )
+      : null;
+  if (looks) {
+    for (const root of demos) {
+      const act = stage(root);
+      const scene = scenes[root.dataset.demo];
+      const loop = () => scene(act).then(() => (root.dataset.play === "loop" ? loop() : undefined));
+      const play = { act, seen: false, started: false, busy: false };
+      play.start = async (delay = Number(root.dataset.delay ?? 0)) => {
+        play.started = true;
+        play.busy = true;
+        await act.wait(delay);
+        await loop();
+        await act.wait(1200);
+        act.hide();
+        play.busy = false;
+      };
+      snap(root, () => {
+        for (const number of root.querySelectorAll("[data-num]")) {
+          const text = number.textContent;
+          number.textContent = "";
+          roll(number, text);
+        }
+      });
+      root.closest(".product, .tile")?.addEventListener("pointerenter", () => {
+        if (play.started && !play.busy) play.start(0);
+      });
+      plays.set(root, play);
+      looks.observe(root);
+    }
+    document.addEventListener("visibilitychange", () => {
+      for (const play of plays.values()) play.act.run(play.seen && !document.hidden);
+    });
   }
 }

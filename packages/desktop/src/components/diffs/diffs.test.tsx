@@ -153,7 +153,10 @@ vi.mock("@/components/thread/thread", () => ({
         Cancel comment
       </button>
       {ask ? (
-        <button type="button" onClick={() => void ask("Why?", [], "run-1")}>
+        <button
+          type="button"
+          onClick={() => void ask("Why?", [], "run-1", { pull: "PR_1", kind: "ask", key: "k", head: "", meta: "{}" })}
+        >
           Ask about it
         </button>
       ) : null}
@@ -596,7 +599,13 @@ describe("Diffs", () => {
       expect(screen.queryByRole("button", { name: "Ask about it" })).toBeNull();
       redraw({ onAsk });
       await user.click(screen.getByRole("button", { name: "Ask about it" }));
-      expect(onAsk).toHaveBeenCalledWith(CART.path, { start: 2, end: 2 }, "Why?", [], "run-1");
+      expect(onAsk).toHaveBeenCalledWith(CART.path, { start: 2, end: 2 }, "Why?", [], "run-1", {
+        pull: "PR_1",
+        kind: "ask",
+        key: "k",
+        head: "",
+        meta: "{}",
+      });
     });
   });
 

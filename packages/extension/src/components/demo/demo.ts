@@ -1,7 +1,7 @@
 import { toMatcher } from "@focus-diff/core/filters";
 
 import { i18n } from "#i18n";
-import { commentIcon } from "@/components/icons/icons";
+import { checkIcon, commentIcon } from "@/components/icons/icons";
 import { createPanel } from "@/components/panel/panel";
 import { createTooltip } from "@/components/tooltip/tooltip";
 import type { DemoFile, DemoPullRequest } from "@/utils/demo-sample/demo-sample";
@@ -85,6 +85,7 @@ export const createDemo = (
             apply();
           },
         },
+        checkIcon(),
         i18n.t("demoViewed"),
       );
       const talks = (file.conversations ?? []).map(({ line }) =>

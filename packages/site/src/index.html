@@ -89,6 +89,19 @@
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
+    <svg class="sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M20 7h-9M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" /></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></symbol>
+    </svg>
     <header class="top">
       <div class="wrap">
         <a class="brand" href="./" aria-current="page"><img src="icon-96.webp" alt="" width="26" height="26" />Focus Diff</a>
@@ -106,7 +119,6 @@
     <main id="main">
       <section class="hero" aria-labelledby="title">
         <div class="wrap">
-          <span class="pill"><b>Free</b> and open source · No account</span>
           <h1 id="title">Review pull requests without the noise.</h1>
           <p class="lede">
             Focus Diff narrows a GitHub pull request to the part you own, tells you what’s left, and gets you to the next one.
@@ -116,7 +128,7 @@
             <li><a class="btn primary" href="extension.html">Get the browser extension <svg class="arrow" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"/></svg></a></li>
             <li><a class="btn" href="desktop.html">Get the desktop app <svg class="arrow" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8.22 2.97a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06l2.97-2.97H3.75a.75.75 0 0 1 0-1.5h7.44L8.22 4.03a.75.75 0 0 1 0-1.06Z"/></svg></a></li>
           </ul>
-          <p class="fine" data-count="installs" hidden><span data-value></span> installs and counting</p>
+          <p class="fine">Free and open source. No account to make.<span data-count="installs" hidden> <span data-value></span> installs so far.</span></p>
         </div>
       </section>
 
@@ -125,7 +137,30 @@
           <h2 id="pick-title" class="visually-hidden">Two ways to review</h2>
           <div class="products">
             <a class="product" href="extension.html">
-              <div class="shot"><img src="card-extension.webp" alt="The Focus Diff bar on a GitHub pull request, filtered to its 20 Frontend files" width="1600" height="900" loading="lazy" decoding="async" /></div>
+              <div class="shot">
+                <div class="demo bar" data-demo="bar" data-play="once" data-filter="web" aria-hidden="true">
+                  <div class="win">
+                    <div class="win-bar"><span class="lights"><i></i><i></i><i></i></span><span class="url">github.com/acme/web/pull/1807/files</span></div>
+                    <div class="files">
+                      <div class="file" data-kind="api"><div><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>api/billing/invoice.go</code><span class="delta"><span class="add">+64</span><span class="del">−12</span></span></div><div class="bars"><i style="--w: 44%"></i><i class="minus" style="--w: 52%; --x: 1"></i><i class="plus" style="--w: 61%; --x: 1"></i><i class="plus" style="--w: 38%; --x: 2"></i><i style="--w: 20%"></i></div></div></div></div>
+                      <div class="file" data-kind="web"><div><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>web/src/cart/promo.ts</code><span class="delta"><span class="add">+8</span><span class="del">−3</span></span></div><div class="bars"><i style="--w: 48%"></i><i class="minus" style="--w: 40%; --x: 1"></i><i class="plus" style="--w: 64%; --x: 1"></i><i style="--w: 30%; --x: 1"></i><i style="--w: 12%"></i></div></div></div></div>
+                      <div class="file" data-kind="docs"><div><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>docs/promo-codes.md</code><span class="delta"><span class="add">+21</span><span class="del">−0</span></span></div><div class="bars"><i class="plus" style="--w: 58%"></i><i class="plus" style="--w: 70%"></i><i class="plus" style="--w: 46%"></i></div></div></div></div>
+                      <div class="file" data-kind="api"><div><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>api/billing/tax.go</code><span class="delta"><span class="add">+17</span><span class="del">−9</span></span></div><div class="bars"><i style="--w: 36%"></i><i class="minus" style="--w: 55%; --x: 1"></i><i class="plus" style="--w: 47%; --x: 1"></i><i style="--w: 26%"></i></div></div></div></div>
+                      <div class="file" data-kind="web"><div><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-down" /></svg><code>web/src/cart/summary.tsx</code><span class="delta"><span class="add">+31</span><span class="del">−14</span></span></div><div class="bars"><i style="--w: 40%"></i><i class="plus" style="--w: 57%; --x: 1"></i><i class="plus" style="--w: 44%; --x: 2"></i><i style="--w: 22%; --x: 1"></i></div></div></div></div>
+                    </div>
+                  </div>
+                  <div class="fd" data-glide="filter">
+                    <span class="glide"></span>
+                    <span class="chip" data-key="all" data-target="all">All <em>465</em></span>
+                    <span class="chip" data-key="web" data-target="web">Web <em>20</em></span>
+                    <span class="chip" data-key="api" data-target="api">API <em>123</em></span>
+                    <span class="sep"></span>
+                    <span class="stat files-stat"><svg class="i"><use href="#i-file" /></svg><span class="num" data-num="files">20</span></span>
+                    <span class="stat lines-stat"><span class="add">+<span class="num" data-num="add">122</span></span><span class="del">−<span class="num" data-num="del">273</span></span></span>
+                    <span class="stat"><svg class="i"><use href="#i-clock" /></svg><span class="num" data-num="time">0:24</span></span>
+                  </div>
+                </div>
+              </div>
               <div class="info">
                 <h3>The browser extension</h3>
                 <p>Stays on github.com. A bar on every pull request filters it by file path and counts the files, lines and time left.</p>
@@ -134,7 +169,21 @@
               </div>
             </a>
             <a class="product" href="desktop.html">
-              <div class="shot"><img src="card-desktop.webp" alt="The Focus Diff panel open from the menu bar, with the pull requests waiting on your review" width="1600" height="900" loading="lazy" decoding="async" /></div>
+              <div class="shot">
+                <div class="demo queue" data-demo="queue" data-play="once" data-open data-toast data-fresh data-delay="900" aria-hidden="true">
+                  <div class="menubar"><i></i><i></i><span class="tray" data-target="tray"><img src="icon-96.webp" alt="" width="16" height="16" /></span><i></i><span>Wed 9:41</span></div>
+                  <div class="panel">
+                    <div class="tabs"><span class="tab on">Review <em class="num" data-num="review">4</em></span><span class="tab">Updates <em>3</em></span><span class="tab">My PRs <em>2</em></span><span class="tab">Merged <em>1</em></span><svg class="i"><use href="#i-refresh" /></svg><svg class="i"><use href="#i-settings" /></svg></div>
+                    <div class="group"><b>acme/</b>web <span class="num" data-num="group">3</span></div>
+                    <div class="row fresh"><div><div class="row-in" data-target="row"><span class="dot"></span><span class="av" style="--hue: 212">S</span><span class="row-main"><b>Keep the promo code when the cart changes</b><span>#1807 · sam_rivera · ~11 min</span></span><span class="age">now</span></div></div></div>
+                    <div class="row"><div><div class="row-in"><span></span><span class="av" style="--hue: 32">J</span><span class="row-main"><b>Fix the flaky date picker test</b><span>#1821 · jo_park · ~6 min · <em class="late">waiting 2d</em></span></span><span class="age">1h</span></div></div></div>
+                    <div class="row"><div><div class="row-in"><span></span><span class="av blank"></span><span class="row-main"><i style="--w: 72%"></i><i style="--w: 44%"></i></span></div></div></div>
+                    <div class="group"><b>acme/</b>api 1</div>
+                    <div class="row"><div><div class="row-in"><span></span><span class="av blank"></span><span class="row-main"><i style="--w: 64%"></i><i style="--w: 38%"></i></span></div></div></div>
+                  </div>
+                  <div class="toast"><img src="icon-96.webp" alt="" width="30" height="30" /><span><small>Focus Diff</small><b>Review requested</b>sam_rivera asked you to review #1807</span><small>now</small></div>
+                </div>
+              </div>
               <div class="info">
                 <h3>The desktop app</h3>
                 <p>Replaces github.com for reviewing: your queue in the menu bar, and a fast review window for the diff, comments and approvals.</p>
@@ -149,31 +198,15 @@
       <section class="section" aria-labelledby="privacy-title">
         <div class="wrap">
           <div class="head">
-            <h2 id="privacy-title">Nothing to sign up for.</h2>
-            <p>Focus Diff has no account and no server. It works with the GitHub you already use, and talks to it directly.</p>
+            <h2 id="privacy-title">Private by default.</h2>
+            <p>Focus Diff has no account and no server. It talks to GitHub directly, with the sign-in you already have.</p>
           </div>
-        <div class="grid" style="--cols: 4">
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7M17 8l5 5M22 8l-5 5"/></svg>
-            <h3>No account</h3>
-            <p>No sign-up, and nothing to set up on your repositories.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
-            <h3>Nothing but GitHub</h3>
-            <p>There is no server of ours for your code to go to. The only exception is the AI you choose to use in the desktop app.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 22 12a11 11 0 0 1-2.4 3.4M6.2 6.2A11 11 0 0 0 2 12c1.7 4 5.5 7 10 7 1.7 0 3.3-.4 4.7-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
-            <h3>No tracking</h3>
-            <p>No analytics and no tracking cookies, on this site or in the apps.</p>
-          </div>
-          <div>
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>
-            <h3>Open source</h3>
-            <p>MIT licensed, so every line can be checked. <a href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md">Read the privacy policy</a>.</p>
-          </div>
-        </div>
+          <ul class="facts" style="--cols: 4">
+            <li><b>No account.</b> No sign-up, and nothing to set up on your repositories.</li>
+            <li><b>Nothing but GitHub.</b> There’s no server of ours for your code to go to. The one exception is the AI you choose to run in the desktop app.</li>
+            <li><b>No tracking.</b> No analytics and no tracking cookies, on this site or in the apps.</li>
+            <li><b>Open source.</b> MIT licensed, so every line can be checked. <a href="https://github.com/hyanmandian/focus-diff/blob/main/PRIVACY.md">Read the privacy policy</a>.</li>
+          </ul>
         </div>
       </section>
 

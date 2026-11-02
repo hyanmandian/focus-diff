@@ -24,6 +24,7 @@ mod about;
 mod menu;
 mod outbox;
 mod review;
+mod saved;
 mod sound;
 mod sync;
 mod tray;
@@ -345,11 +346,29 @@ struct Answer {
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-async fn ai_ask(app: AppHandle, window: tauri::WebviewWindow, provider: ai::Provider, model: Option<String>, effort: Option<String>, system: String, material: String, task: String, recap: Option<String>, project: Option<Project>, schema: Option<String>, session: bool, own_settings: bool, run: Option<String>) -> Result<Answer, String> {
+async fn ai_ask(app: AppHandle, window: tauri::WebviewWindow, provider: ai::Provider, model: Option<String>, effort: Option<String>, system: String, material: String, task: String, recap: Option<String>, project: Option<Project>, schema: Option<String>, session: bool, own_settings: bool, run: Option<String>, keep: Option<saved::Keep>) -> Result<Answer, String> {
     let label = window.label().to_string();
     tauri::async_runtime::spawn_blocking(move || {
         let run = run.filter(|r| r.len() <= 64 && r.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'));
         let cancel = run.as_deref().map(ai::start_run);
+        let kept = match (&run, keep) {
+            (Some(run), Some(keep)) => {
+                let begun = saved_folder(&app)
+                    .ok_or_else(|| "No data folder".to_string())
+                    .and_then(|dir| if saved::valid(&keep) { saved::begin(&dir, &keep, run).map(|()| dir) } else { Err("Too large to keep".into()) });
+                match begun {
+                    Ok(dir) => {
+                        let _ = app.emit("ai-saved", &keep.pull);
+                        Some((dir, keep.pull, run.clone()))
+                    }
+                    Err(e) => {
+                        ai::end_run(run);
+                        return Err(i18n::tr!("Couldn't save the AI's answer, so it didn't start: {e}", "Não foi possível guardar a resposta da IA, então ela não começou: {e}"));
+                    }
+                }
+            }
+            _ => None,
+        };
         let (folder, note) = match project {
             None => (None, None),
             Some(p) => match project_soon(&app, p) {
@@ -377,6 +396,19 @@ async fn ai_ask(app: AppHandle, window: tauri::WebviewWindow, provider: ai::Prov
                 cancel: cancel.as_deref(),
             })
         };
+        let halted = cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed));
+        if let Some((dir, pull, run)) = &kept {
+            let outcome = match &reply {
+                Ok(r) => saved::Outcome::Done { text: &r.text, project: folder.is_some(), note: note.as_deref(), usage: r.usage.as_ref() },
+                Err(_) if halted => saved::Outcome::Stopped,
+                Err(e) => saved::Outcome::Failed(e),
+            };
+            if saved::finish(dir, pull, run, &outcome).is_err() {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                let _ = saved::finish(dir, pull, run, &outcome);
+            }
+            let _ = app.emit("ai-saved", pull);
+        }
         if let Some(run) = &run {
             ai::end_run(run);
         }
@@ -418,6 +450,28 @@ async fn ai_prepare(app: AppHandle, project: Project) {
 #[tauri::command]
 fn ai_cancel(run: String) {
     ai::cancel(&run);
+}
+
+fn saved_folder(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_data_dir().ok().map(|dir| dir.join("ai"))
+}
+
+#[tauri::command]
+async fn ai_saved(app: AppHandle, pull: String) -> Result<Vec<saved::Record>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        saved_folder(&app).map_or_else(|| Ok(Vec::new()), |dir| saved::list(&dir, &pull, ai::is_running, &i18n::tr!("The app closed before it finished", "O app fechou antes de terminar")))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn ai_saved_mark(app: AppHandle, pull: String, id: String, archived: Option<bool>, dismiss: Option<String>) -> Result<(), String> {
+    let dir = saved_folder(&app).ok_or("No data folder")?;
+    let changed = pull.clone();
+    tauri::async_runtime::spawn_blocking(move || saved::mark(&dir, &pull, &id, archived, dismiss)).await.map_err(|e| e.to_string())??;
+    let _ = app.emit("ai-saved", changed);
+    Ok(())
 }
 
 #[tauri::command]
@@ -613,7 +667,7 @@ fn spare_ready(app: AppHandle, window: tauri::WebviewWindow) {
 static REVIEW_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn review_builder<'a>(app: &'a AppHandle, label: &str, url: String, title: &str) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
-    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into())).title(title).min_inner_size(720.0, 480.0);
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into())).title(title).min_inner_size(900.0, 480.0);
     #[cfg(target_os = "macos")]
     let builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     builder
@@ -1284,6 +1338,8 @@ pub fn run() {
             ai_ask,
             ai_prepare,
             ai_cancel,
+            ai_saved,
+            ai_saved_mark,
             run_action,
             open_url,
             open_settings,

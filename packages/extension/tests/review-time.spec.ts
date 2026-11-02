@@ -10,7 +10,7 @@ const turnOnReviewTime = (background: Worker, sessions: Record<string, unknown>[
 
 const pull = (number: number, hoursOld: number, extra: Record<string, unknown> = {}) => ({
   itemType: "pull_request",
-  author: { displayLogin: "ada" },
+  author: { displayLogin: "ada--dev" },
   commentCount: 0,
   isDraft: false,
   number,
@@ -171,12 +171,12 @@ test.describe("review time in the popup", () => {
     const panel = page.getByRole("region", { name: "Review time", exact: true });
     await expect(panel).toBeHidden();
     await page.getByRole("button", { name: "Review now" }).click();
-    await panel.getByRole("group", { name: "How long do you have?" }).getByRole("button", { name: "45 min" }).click();
+    await panel.getByRole("group", { name: "Time available" }).getByRole("button", { name: "45 min" }).click();
     await panel.getByRole("button", { name: "Start" }).click();
 
     const rows = panel.getByRole("link");
     await expect(rows).toHaveCount(2);
-    await expect(rows.first()).toHaveAccessibleName(/^Cache the book covers\s*web#12\s*ada\s*~33 min\s*2 files$/u);
+    await expect(rows.first()).toHaveAccessibleName(/^Cache the book covers\s*web#12\s*ada--dev\s*~33 min\s*2 files$/u);
     await expect(rows.last()).toHaveAccessibleName(/^Fix the reader/u);
     await expect(panel).toContainText("45 min left");
     await expect(panel).toContainText("0 of 2 reviewed · about 41 min planned. 1 more didn’t fit.");
@@ -202,9 +202,9 @@ test.describe("review time in the popup", () => {
     const page = await openExtensionPage("popup.html");
     const rows = page.getByRole("tabpanel", { name: /Review queue/u }).getByRole("link");
     await expect(rows.first()).toHaveAccessibleName(
-      /^Write the docs\s*#14\s*ada\s*About 1 h 15 min to review\s*Re-review/u,
+      /^Write the docs\s*#14\s*ada--dev\s*About 1 h 15 min to review\s*Re-review/u,
     );
-    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada\s*About 33 min to review/u);
+    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada--dev\s*About 33 min to review/u);
     await expect(rows.nth(2)).toContainText("~8 min");
     expect(await accessibilityViolations(page)).toEqual([]);
 
@@ -212,7 +212,7 @@ test.describe("review time in the popup", () => {
       const { reviewTime } = await chrome.storage.sync.get<{ reviewTime: ReviewTimeSettings }>("reviewTime");
       await chrome.storage.sync.set({ reviewTime: { ...reviewTime, queueEstimates: false } });
     });
-    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada\s*\d+h ago$/u);
+    await expect(rows.nth(1)).toHaveAccessibleName(/^Cache the book covers\s*#12\s*ada--dev\s*\d+h ago$/u);
   });
 
   test("offers one that runs over, saying so, with what was kept for it", async ({
@@ -342,7 +342,7 @@ test.describe("review time, when things go sideways", () => {
                 repo: "octo/web",
                 number: 13,
                 title: "Fix the reader",
-                author: "ada",
+                author: "ada--dev",
                 minutes: 8,
                 files: 1,
               },

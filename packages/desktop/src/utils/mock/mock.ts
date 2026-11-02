@@ -1,3 +1,4 @@
+import { askAi, markRun, savedRuns, stopRun } from "@/utils/mock-ai/mock-ai";
 import { conversationMock, setEmitter } from "@/utils/mock-conversation/mock-conversation";
 import {
   type Args,
@@ -764,33 +765,15 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
     case "ai_models":
       return ["fable", "opus", "sonnet", "haiku"];
     case "ai_ask":
-      await wait(400);
-      if (args.schema)
-        return {
-          project: true,
-          text: JSON.stringify({
-            summary:
-              "Keeps the promo code when the cart changes and re-checks it against the new total. One real gap: the error isn't cleared.",
-            findings: [
-              {
-                path: "src/checkout/cart.ts",
-                line: 15,
-                severity: "issue",
-                body: "`promoError` stays set after the code is removed by hand: `removePromo` in `src/checkout/promo.ts` only clears `promo`, so the old error keeps showing.",
-              },
-              {
-                path: "src/checkout/promo.ts",
-                line: 40,
-                severity: "suggestion",
-                body: "`validatePromo` is also called from `OrderSummary.tsx`, which doesn't pass the new total.",
-              },
-            ],
-          }),
-        };
-      return {
-        project: true,
-        text: "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.",
-      };
+      return askAi(args);
+    case "ai_saved":
+      return savedRuns(str(args, "pull"));
+    case "ai_saved_mark":
+      markRun(args);
+      return;
+    case "ai_cancel":
+      stopRun(str(args, "run"));
+      return;
     case "run_action":
       await wait(400);
       return "ok";

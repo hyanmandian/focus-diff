@@ -111,9 +111,9 @@ const commandGiven = fakeEvent<[string, Partial<Browser.tabs.Tab> | undefined]>(
 let hooks: Hooks;
 
 const snapshot = (extra: Partial<InboxSnapshot> = {}): InboxSnapshot => ({
-  me: "me",
+  me: "me--self",
   reviews: [samplePull(1), samplePull(2)],
-  mine: [samplePull(3, { author: "me" })],
+  mine: [samplePull(3, { author: "me--self" })],
   checkedAt: NOW,
   problem: null,
   ...extra,
@@ -126,7 +126,7 @@ const event = (number: number, extra: Partial<InboxEvent> = {}): InboxEvent => {
     url,
     number,
     kind: "comment-mine",
-    actor: "ada",
+    actor: "ada--dev",
     bot: false,
     draft: false,
     approvedByMe: false,
@@ -388,7 +388,7 @@ describe("a look", () => {
     mocks.checkInbox.mockResolvedValue(result({ events: [event(2, { kind: "review-requested" })] }));
     await look();
     expect((await inboxItem.getValue())?.reviews.map((pull) => Boolean(pull.again))).toEqual([false, true]);
-    expect(created()[0]?.[1].title).toBe("ada asked you to review again");
+    expect(created()[0]?.[1].title).toBe("ada--dev asked you to review again");
   });
 
   it("compares against nothing when the last look found the reader signed out", async () => {
@@ -452,7 +452,7 @@ describe("a look", () => {
     expect(scheduler.hold).toHaveBeenCalledWith([
       { ...event(1, { kind: "review-requested" }), until: "review", heldAt: NOW },
     ]);
-    expect(created().map(([, options]) => options.title)).toEqual(["ada approved your pull request"]);
+    expect(created().map(([, options]) => options.title)).toEqual(["ada--dev approved your pull request"]);
   });
 
   it("shows nothing in quiet hours, or when notifications are off", async () => {
@@ -492,9 +492,9 @@ describe("notifications", () => {
     ]);
     await show([event(5, { kind: "mention" }), event(6, { kind: "changes-requested" }), event(7)]);
     expect(created().map(([, options]) => options.title)).toEqual([
-      "ada mentioned you",
-      "ada requested changes on your pull request",
-      "ada commented on your pull request",
+      "ada--dev mentioned you",
+      "ada--dev requested changes on your pull request",
+      "ada--dev commented on your pull request",
     ]);
   });
 
@@ -506,9 +506,9 @@ describe("notifications", () => {
       event(4, { kind: "comment-reviewing", actor: "", excerpt: "Looks good" }),
     ]);
     expect(created().map(([, options]) => [options.title, options.message, options.contextMessage])).toEqual([
-      ["ada asked for your review", "Pull request 1", "octo/web#1"],
-      ["ada asked your team for a review", "Pull request 2", "octo/web#2"],
-      ["ada’s pull request is ready for your review", "“Ready now”", "octo/web#3 · Pull request 3"],
+      ["ada--dev asked for your review", "Pull request 1", "octo/web#1"],
+      ["ada--dev asked your team for a review", "Pull request 2", "octo/web#2"],
+      ["ada--dev’s pull request is ready for your review", "“Ready now”", "octo/web#3 · Pull request 3"],
       ["octo/web commented on a pull request you review", "“Looks good”", "octo/web#4 · Pull request 4"],
     ]);
     const links = await notificationLinksItem.getValue();
@@ -536,7 +536,7 @@ describe("notifications", () => {
     expect(created()).toHaveLength(1);
     expect(created()[0]?.[1].title).toContain("2 updates");
     expect(created()[0]?.[1].message).toBe(
-      "ada commented on your pull request: Pull request 1\nada commented on your pull request: “Nice”",
+      "ada--dev commented on your pull request: Pull request 1\nada--dev commented on your pull request: “Nice”",
     );
     await show([event(3)], enabled({ delivery }));
     expect(created()[0]?.[0]).toMatch(/^inbox:comment-mine:/u);
@@ -559,13 +559,13 @@ describe("notifications", () => {
       {
         type: "basic",
         iconUrl: "chrome-extension://test-extension-id/icon/128.png",
-        title: "ada commented on your pull request",
+        title: "ada--dev commented on your pull request",
         message: "“Nice”\nPull request 1",
       },
       {
         type: "basic",
         iconUrl: "chrome-extension://test-extension-id/icon/128.png",
-        title: "ada commented on your pull request",
+        title: "ada--dev commented on your pull request",
         message: "Pull request 2",
       },
     ]);

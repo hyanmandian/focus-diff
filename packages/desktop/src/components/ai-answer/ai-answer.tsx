@@ -4,19 +4,26 @@ const POINT = /^[-*•]\s+/u;
 
 function inline(text: string) {
   let at = 0;
-  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/gu).map((part) => {
-    const key = at;
-    at += part.length;
-    return part.startsWith("`") && part.endsWith("`") && part.length > 2 ? (
-      <code key={key} className="rounded bg-muted px-1 font-mono text-[0.92em]">
-        {part.slice(1, -1)}
-      </code>
-    ) : part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
-      <strong key={key}>{part.slice(2, -2)}</strong>
-    ) : (
-      <Fragment key={key}>{part}</Fragment>
-    );
-  });
+  return text
+    .split(/(`[^`]+`|\*\*[^*]+\*\*)/gu)
+    .filter(Boolean)
+    .map((part) => {
+      const key = at;
+      at += part.length;
+      return part.startsWith("`") && part.endsWith("`") && part.length > 2 ? (
+        <code key={key} className="rounded bg-muted px-1 font-mono text-[0.92em]">
+          {part.slice(1, -1)}
+        </code>
+      ) : part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
+        <strong key={key}>{part.slice(2, -2)}</strong>
+      ) : (
+        <Fragment key={key}>{part}</Fragment>
+      );
+    });
+}
+
+export function AiInline({ text }: { text: string }) {
+  return <>{inline(text)}</>;
 }
 
 type Line = { at: number; text: string };

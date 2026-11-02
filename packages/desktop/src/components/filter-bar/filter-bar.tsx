@@ -222,7 +222,7 @@ export function FilterBar({
       role="group"
       aria-label={t("review.reviewOnePart")}
       aria-keyshortcuts={filters.length > 0 ? "Alt+Shift+. Alt+Shift+," : undefined}
-      className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] [scrollbar-width:none] items-center gap-1 overflow-x-auto rounded-[12px] border border-border bg-popover p-1.5 shadow-(--shadow-menu)"
+      className="absolute inset-x-4 bottom-4 isolate z-20 mx-auto flex w-fit max-w-[calc(100%-2rem)] [scrollbar-width:none] items-center gap-1 overflow-x-auto rounded-[12px] bg-popover p-1.5 shadow-(--shadow-menu)"
     >
       <Tooltip>
         <TooltipTrigger

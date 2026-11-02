@@ -163,9 +163,43 @@ fn run(app: &AppHandle, command: &str) {
             eprintln!("[devctl] windows: {}", labels.join(", "));
             Ok(())
         }
+        #[cfg(target_os = "macos")]
+        (Some("snap"), Some(label), Some(path)) => match app.get_webview_window(label) {
+            Some(window) => {
+                let path = path.to_string();
+                window.with_webview(move |webview| snap(webview.inner(), path)).map_err(|e| e.to_string())
+            }
+            None => Err(format!("no window {label}")),
+        },
         _ => Err("unknown command".into()),
     };
     if let Err(e) = result {
         eprintln!("[devctl] error: {e}");
     }
+}
+
+#[cfg(target_os = "macos")]
+fn snap(view: *mut std::ffi::c_void, path: String) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSImage};
+    use objc2_foundation::{NSDictionary, NSError};
+
+    let done = block2::RcBlock::new(move |image: *mut NSImage, _: *mut NSError| {
+        // SAFETY: WebKit passes the snapshot, or null when it couldn't take one.
+        let Some(image) = (unsafe { image.as_ref() }) else {
+            eprintln!("[devctl] snap failed");
+            return;
+        };
+        let png = image.TIFFRepresentation().and_then(|tiff| NSBitmapImageRep::imageRepWithData(&tiff)).and_then(|rep| {
+            // SAFETY: an empty dictionary asks for PNG's defaults.
+            unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) }
+        });
+        match png.map(|data| std::fs::write(&path, data.to_vec())) {
+            Some(Ok(())) => eprintln!("[devctl] snap {path}"),
+            _ => eprintln!("[devctl] snap failed to write {path}"),
+        }
+    });
+    // SAFETY: view is the window's WKWebView, and a nil configuration snapshots what it shows.
+    let _: () = unsafe { msg_send![view.cast::<AnyObject>(), takeSnapshotWithConfiguration: std::ptr::null::<AnyObject>(), completionHandler: &*done] };
 }

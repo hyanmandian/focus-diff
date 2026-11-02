@@ -14,7 +14,7 @@ const file = (path: string, patch: string, patch2: Partial<ReviewFile> = {}): Re
 });
 
 describe("numbered", () => {
-  it("numbers the new version's lines and keeps what a hunk removes apart", () => {
+  it("numbers the new version's lines and keeps what a hunk removes in place, without a number", () => {
     const patch = [
       "@@ -10,4 +10,5 @@ fn total",
       " same",
@@ -26,16 +26,7 @@ describe("numbered", () => {
       "",
     ].join("\n");
     expect(numbered(patch)).toBe(
-      [
-        "@@ -10,4 +10,5 @@ fn total",
-        "__new hunk__",
-        "10  same",
-        "11 +new",
-        "12 +newer",
-        "13  same",
-        "__old hunk__",
-        "-gone",
-      ].join("\n"),
+      ["@@ 10 fn total", "10  same", "-gone", "11 +new", "12 +newer", "13  same"].join("\n"),
     );
   });
 
@@ -55,16 +46,21 @@ describe("numbered", () => {
       "+only added",
     ].join("\n");
     expect(numbered(patch)).toBe(
-      [
-        "@@ -1,4 +1,2 @@",
-        "(removes 2 lines before line 2)",
-        "@@ -20,2 +18,1 @@",
-        "(removes 1 line before line 18)",
-        "@@ -50,1 +48,2 @@",
-        "__new hunk__",
-        "48 +only added",
-      ].join("\n"),
+      ["@@ 2 (removes 2 lines here)", "@@ 18 (removes 1 line here)", "@@ 48", "48 +only added"].join("\n"),
     );
+  });
+
+  it("keeps only the lines near a change, starting a hunk again after a gap", () => {
+    const patch = ["@@ -1,9 +1,9 @@", " a", " b", "-c", "+C", " d", " e", " f", " g", "-h", "+H", " i"].join("\n");
+    expect(numbered(patch, 1)).toBe(
+      ["@@ 2", "2  b", "-c", "3 +C", "4  d", "@@ 7", "7  g", "-h", "8 +H", "9  i"].join("\n"),
+    );
+    expect(numbered(patch, 0)).toBe(["@@ 3", "-c", "3 +C", "@@ 8", "-h", "8 +H"].join("\n"));
+  });
+
+  it("shows a change of spacing alone as unchanged lines", () => {
+    const patch = ["@@ -1,3 +1,3 @@", "-if (a) {", "-  go()", "+if (a)  {", "+    go()", "-x", "+y"].join("\n");
+    expect(numbered(patch)).toBe(["@@ 1", "1  if (a)  {", "2      go()", "-x", "3 +y"].join("\n"));
   });
 
   it("ignores what comes before the first hunk", () => {
@@ -89,10 +85,10 @@ describe("diffForAi", () => {
     );
     expect(text).toBe(
       [
-        "## src/a.ts (renamed from src/old.ts)\n@@ -1 +1 @@\n__new hunk__\n1 +b\n__old hunk__\n-a",
-        "## src/b.ts\n@@ -1 +1 @@\n__new hunk__\n1 +b\n__old hunk__\n-a",
+        "## src/a.ts (renamed from src/old.ts)\n@@ 1\n-a\n1 +b",
+        "## src/b.ts\n@@ 1\n-a\n1 +b",
         "## src/gone.ts (removed, 3 lines)",
-        "## src/same.ts\n@@ -1 +1 @@\n__new hunk__\n1 +b\n__old hunk__\n-a",
+        "## src/same.ts\n@@ 1\n-a\n1 +b",
         "Not shown (lockfiles, generated, binary or too large):\n- logo.png (+0 -0)\n- package-lock.json (+900 -12)",
       ].join("\n\n"),
     );
@@ -119,6 +115,17 @@ describe("diffForAi", () => {
 
   it("is empty with no files", () => {
     expect(diffForAi([], 10)).toBe("");
+  });
+
+  it("names files by id when they have one", () => {
+    const ids = new Map([["src/b.ts", 2]]);
+    const text = diffForAi([file("src/b.ts", code), file("src/c.ts", code), file("yarn.lock", code)], 10_000, {
+      ids,
+      context: 0,
+    });
+    expect(text).toContain("## [2] src/b.ts\n@@ 1");
+    expect(text).toContain("## src/c.ts");
+    expect(text).toContain("- yarn.lock (+1 -1)");
   });
 
   it("tells noise from code", () => {

@@ -8,5 +8,18 @@ import { review } from "@/locales/en/review";
 import { settings } from "@/locales/en/settings";
 import { setup } from "@/locales/en/setup";
 import { shared } from "@/locales/en/shared";
+import { walkthrough } from "@/locales/en/walkthrough";
 
-export const en = { common, config, diff, events, manage, panel, review, settings, setup, shared } as const;
+export const en = {
+  common,
+  config,
+  diff,
+  events,
+  manage,
+  panel,
+  review,
+  settings,
+  setup,
+  shared,
+  walkthrough,
+} as const;

@@ -20,7 +20,7 @@ test("starts on GitHub, connected", async ({ page }) => {
 test("walks every step, and back", async ({ page }) => {
   await next(page);
   await expect(step(page, "Queues")).toHaveAttribute("aria-current", "step");
-  await expect(page.getByRole("heading", { name: "What should it watch?", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose what to watch", level: 1 })).toBeVisible();
 
   await next(page);
   await expect(step(page, "Filters")).toHaveAttribute("aria-current", "step");
@@ -29,7 +29,7 @@ test("walks every step, and back", async ({ page }) => {
 
   await next(page);
   await expect(step(page, "Notifications")).toHaveAttribute("aria-current", "step");
-  await expect(page.getByRole("heading", { name: "How should it tell you?", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose how you're notified", level: 1 })).toBeVisible();
 
   await next(page);
   await expect(step(page, "AI")).toHaveAttribute("aria-current", "step");

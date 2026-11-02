@@ -3,6 +3,7 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   srcDir: "src",
   modules: ["@wxt-dev/i18n/module"],
+  vite: () => ({ build: { cssTarget: ["chrome123", "firefox140", "safari17.5"] } }),
   manifestVersion: 3,
   manifest: ({ browser }) => ({
     name: "__MSG_extensionName__",

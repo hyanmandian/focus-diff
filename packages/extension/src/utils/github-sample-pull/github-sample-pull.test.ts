@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { sampleActivity, sampleNotify, samplePull } from "./github-sample-pull";
 
 describe("samplePull", () => {
-  it("makes octo/web's pull request by ada, numbered as asked", () => {
+  it("makes octo/web's pull request by ada--dev, numbered as asked", () => {
     expect(samplePull(7)).toMatchObject({
       repo: "octo/web",
       number: 7,
       title: "Pull request 7",
       url: "https://github.com/octo/web/pull/7",
-      author: "ada",
+      author: "ada--dev",
       draft: false,
       unread: false,
     });

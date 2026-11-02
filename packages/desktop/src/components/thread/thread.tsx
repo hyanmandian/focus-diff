@@ -1,12 +1,14 @@
 import {
   AlertCircle,
+  ArrowUp,
   Check,
   CloudUpload,
   CornerDownRight,
   Loader2,
+  MessageCircleQuestion,
   MessageSquare,
   Pencil,
-  Sparkles,
+  ScanSearch,
   Square,
   Trash2,
   Undo2,
@@ -26,7 +28,7 @@ import { MarkdownField } from "@/components/writer/writer";
 import { useAttempt } from "@/hooks/use-attempt/use-attempt";
 import { useConversationApi } from "@/hooks/use-conversation/use-conversation";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
-import { newRun, type Exchange, type Finding } from "@/utils/ai/ai";
+import { newRun, type Exchange, type Finding, type Keep } from "@/utils/ai/ai";
 import { askInto, BLANK, updateChat, usePullAsking, type Mode } from "@/utils/asking/asking";
 import type { AiAnswer as Answer } from "@/utils/bridge/bridge";
 import { bridge } from "@/utils/bridge/bridge";
@@ -369,7 +371,7 @@ export function DraftView({
       ) : (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-callout font-medium text-link">
+            <p className="flex flex-wrap items-baseline gap-x-1.5 text-callout font-medium text-link">
               {draft.replyTo ? t("review.pendingReply") : draft.file ? t("review.pendingOnFile") : t("review.pending")}
               {error ? null : sending ? (
                 <output className="flex items-center gap-1 font-normal text-muted-foreground">
@@ -449,7 +451,7 @@ export function NewComment({
   onAdd: (body: string) => void;
   onSendNow: (body: string) => Promise<void>;
   onCancel: () => void;
-  ask: ((question: string, earlier: Exchange[], run: string) => Promise<Answer>) | null;
+  ask: ((question: string, earlier: Exchange[], run: string, keep: Keep) => Promise<Answer>) | null;
   askName: string;
   chat: { pull: string; key: string };
 }) {
@@ -527,7 +529,7 @@ export function NewComment({
     const q = question.trim();
     if (!ask || !q || busy) return;
     const run = newRun();
-    await askInto(where.pull, where.key, q, run, (earlier) => ask(q, earlier, run));
+    await askInto(where.pull, where.key, q, run, (earlier, keep) => ask(q, earlier, run, keep));
     field.current?.focus();
   };
 
@@ -547,7 +549,7 @@ export function NewComment({
           {(
             [
               ["comment", t("review.commentTab"), MessageSquare],
-              ["ask", ask ? t("review.askTab", { name: askName }) : t("review.askAiTab"), Sparkles],
+              ["ask", ask ? t("review.askTab", { name: askName }) : t("review.askAiTab"), MessageCircleQuestion],
             ] as const
           ).map(([value, label, Icon]) => (
             <button
@@ -591,13 +593,7 @@ export function NewComment({
                   <span className="sr-only">{t("review.you")}</span>
                   {text}
                 </p>
-                <div className="flex gap-2.5">
-                  <span
-                    aria-hidden
-                    className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-violet/15 text-violet"
-                  >
-                    <Sparkles className="size-3" />
-                  </span>
+                <div className="flex">
                   {answer ? (
                     <div className="flex min-w-0 flex-1 animate-in flex-col gap-1.5 duration-300 fade-in-0 motion-reduce:animate-none">
                       <span className="sr-only">{askName}: </span>
@@ -710,7 +706,7 @@ export function NewComment({
               </Button>
             ) : (
               <Button onClick={submit} disabled={busy || !question.trim()}>
-                <Sparkles />
+                <ArrowUp />
                 {t("review.ask")}
               </Button>
             )
@@ -746,9 +742,9 @@ export function FindingView({
 }) {
   const t = useT();
   return (
-    <Box className="border-violet/40 bg-violet/5">
-      <p className="flex items-center gap-1.5 text-callout font-medium text-violet">
-        <Sparkles className="size-3.5" aria-hidden /> {by} · {t(`review.severity.${finding.severity}`)}
+    <Box className="bg-muted/40">
+      <p className="flex items-center gap-1.5 text-callout font-medium text-muted-foreground">
+        <ScanSearch className="size-3.5" aria-hidden /> {by} · {t(`review.severity.${finding.severity}`)}
       </p>
       <div className="mt-1.5">
         <AiAnswer text={finding.body} />

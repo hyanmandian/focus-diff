@@ -8,11 +8,13 @@ import type { FileTree } from "@/components/file-tree/file-tree";
 import type { FilterBar } from "@/components/filter-bar/filter-bar";
 import type { Overview } from "@/components/overview/overview";
 import { Review, type Target } from "@/components/review/review";
+import type { WalkthroughRail, WalkthroughStart } from "@/components/walkthrough/walkthrough";
+import type { AnalysisState } from "@/hooks/use-analysis/use-analysis";
 import type { NewChanges } from "@/hooks/use-new-changes/use-new-changes";
 import type { Visit } from "@/hooks/use-next-in-queue/use-next-in-queue";
 import type { Stack } from "@/hooks/use-stack/use-stack";
-import { aiProblem, ensureAi } from "@/utils/ai-ready/ai-ready";
-import { askAboutLines, review as aiReview, type AiReview, type Finding } from "@/utils/ai/ai";
+import { aiProblem, ensureAi, openAiSettings } from "@/utils/ai-ready/ai-ready";
+import { askAboutLines, type AiReview, type Finding } from "@/utils/ai/ai";
 import type { Range } from "@/utils/commits/commits";
 import { confetti } from "@/utils/confetti/confetti";
 import { defaultConfig, loadConfig, type Config, type DiffFilter } from "@/utils/config/config";
@@ -22,6 +24,7 @@ import { learnFiles } from "@/utils/estimate/estimate";
 import { emit, mockCommands } from "@/utils/fake-platform/fake-platform";
 import { patchHash } from "@/utils/hashes/hashes";
 import { keep, readKept, type Kept } from "@/utils/kept/kept";
+import { fakeAnalysis } from "@/utils/mock-analysis/mock-analysis";
 import { deferred } from "@/utils/mock-render/mock-render";
 import type { Args } from "@/utils/platform/platform";
 import {
@@ -37,11 +40,14 @@ import {
   type ViewedState,
 } from "@/utils/review/review";
 import type { StackPull } from "@/utils/stack/stack";
+import type { Section } from "@/utils/walkthrough/walkthrough";
 
 type OverviewProps = ComponentProps<typeof Overview>;
 type DiffsProps = Omit<ComponentProps<typeof Diffs>, "ref">;
 type TreeProps = ComponentProps<typeof FileTree>;
 type BarProps = ComponentProps<typeof FilterBar>;
+type StartProps = ComponentProps<typeof WalkthroughStart>;
+type RailProps = ComponentProps<typeof WalkthroughRail>;
 type Banner = { loading: boolean; error: string | null; below: boolean };
 type Options = { reloadAll: () => void };
 type PullStub = {
@@ -103,6 +109,10 @@ const h = vi.hoisted(() => {
   const state = {
     mac: true,
     overview: null as OverviewProps | null,
+    start: null as StartProps | null,
+    rail: null as RailProps | null,
+    analysis: null as AnalysisState | null,
+    asked: null as unknown[] | null,
     diffs: null as DiffsProps | null,
     tree: null as TreeProps | null,
     bar: null as BarProps | null,
@@ -135,6 +145,8 @@ const h = vi.hoisted(() => {
   };
   const see = {
     overview: (p: OverviewProps) => void (state.overview = p),
+    start: (p: StartProps) => void (state.start = p),
+    rail: (p: RailProps) => void (state.rail = p),
     diffs: (p: DiffsProps) => void (state.diffs = p),
     tree: (p: TreeProps) => void (state.tree = p),
     bar: (p: BarProps) => void (state.bar = p),
@@ -161,6 +173,22 @@ vi.mock("@/components/overview/overview", () => ({
   Overview: (props: OverviewProps) => {
     h.see.overview(props);
     return <p>Overview of #{props.details.number}</p>;
+  },
+}));
+vi.mock("@/components/walkthrough/walkthrough", () => ({
+  WalkthroughStart: (props: StartProps) => {
+    h.see.start(props);
+    return <p>Walkthrough by {props.provider}</p>;
+  },
+  WalkthroughRail: (props: RailProps) => {
+    h.see.rail(props);
+    return <p>Part {props.at + 1}</p>;
+  },
+}));
+vi.mock("@/hooks/use-analysis/use-analysis", () => ({
+  useAnalysis: (...args: unknown[]) => {
+    h.asked = args;
+    return h.analysis;
   },
 }));
 vi.mock("@/components/diffs/diffs", async () => {
@@ -291,11 +319,11 @@ vi.mock("@/hooks/use-active-time/use-active-time", () => ({
 vi.mock("@/utils/ai-ready/ai-ready", () => ({
   aiProblem: vi.fn<typeof aiProblem>(),
   ensureAi: vi.fn<typeof ensureAi>(),
+  openAiSettings: vi.fn<typeof openAiSettings>(),
   useAiProblem: () => h.aiProblem,
 }));
 vi.mock("@/utils/ai/ai", async (original) => ({
   ...(await original<Record<string, unknown>>()),
-  review: vi.fn<typeof aiReview>(),
   askAboutLines: vi.fn<typeof askAboutLines>(),
 }));
 vi.mock("@/utils/commits/commits", () => ({ useRangeFiles: () => h.ranged }));
@@ -438,6 +466,10 @@ function answer(answers: Record<string, () => unknown> = {}) {
 beforeEach(() => {
   h.mac = true;
   h.overview = null;
+  h.start = null;
+  h.rail = null;
+  h.asked = null;
+  h.analysis = fakeAnalysis();
   h.diffs = null;
   h.tree = null;
   h.bar = null;
@@ -1037,6 +1069,135 @@ describe("Review", () => {
     });
   });
 
+  describe("the walkthrough", () => {
+    const part = (title: string, kind: Section["kind"], ...paths: string[]): Section => ({
+      title,
+      kind,
+      weight: "normal",
+      before: "",
+      after: "",
+      summary: "",
+      diagram: "",
+      flow: [],
+      files: paths.map((path) => ({ path, note: "" })),
+      alike: [],
+      alikeNote: "",
+      deep: false,
+    });
+    const SECTIONS = [part("Cart", "change", "src/cart.ts"), part("", "rest", "src/promo.ts", "docs/promo.md")];
+    const walked = (over: Partial<AnalysisState> = {}) => {
+      h.analysis = fakeAnalysis({
+        analysis: {
+          walkthrough: { overview: "Cart work", diagram: "", sections: SECTIONS, project: false, at: 1 },
+          review: aiReviewOf([finding("src/cart.ts", 3)]),
+        },
+        current: true,
+        ...over,
+      });
+    };
+    const shown = () => diffs().files.map((f) => f.path);
+
+    it("can't be opened without an AI, and says how to get one", async () => {
+      await openReview();
+      expect(tab("Walkthrough").getAttribute("aria-disabled")).toBe("true");
+      await userEvent.click(tab("Walkthrough"));
+      expect(tab("Overview").getAttribute("aria-selected")).toBe("true");
+      await userEvent.hover(tab("Walkthrough"));
+      expect(await screen.findByText("Turn on a local AI in Settings to build a walkthrough")).toBeTruthy();
+    });
+
+    it("says how to get an AI when it was left open and the AI was turned off", async () => {
+      localStorage.setItem("tab:PR_7", JSON.stringify("walkthrough"));
+      await openReview();
+      expect(screen.getByRole("tabpanel", { name: /Walkthrough/u }).textContent).toBe(
+        "Turn on a local AI in Settings to build a walkthrough",
+      );
+    });
+
+    it("offers to build one, for the pull request, with the AI and the files", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      await openReview();
+      await userEvent.click(tab("Walkthrough"));
+      expect(screen.getByText("Walkthrough by Claude Code")).toBeTruthy();
+      expect(h.asked).toEqual([
+        "PR_7",
+        expect.objectContaining({ ai: expect.anything() as unknown }) as unknown,
+        details(),
+        FILES,
+      ]);
+      h.start!.onOpenSettings();
+      expect(openAiSettings).toHaveBeenCalledOnce();
+    });
+
+    it("walks part by part next to the diff, in the order it reads", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      walked();
+      localStorage.setItem("viewed:PR_7", JSON.stringify({ "src/cart.ts": patchHash(A) }));
+      await openReview();
+      await userEvent.click(tab("Walkthrough"));
+      expect(tab("Walkthrough").textContent).toBe("Walkthrough2");
+      expect(screen.getByRole("tabpanel", { name: /Walkthrough/u }).id).toBe("panel-diff");
+      expect(screen.getByText("Part 1")).toBeTruthy();
+      expect(shown()).toEqual(["src/cart.ts"]);
+      expect(h.rail!.findings).toHaveLength(1);
+      expect(h.bar!.filters).toEqual([]);
+      expect([h.rail!.isViewed("src/cart.ts"), h.rail!.isViewed("src/promo.ts"), h.rail!.isViewed("x")]).toEqual([
+        true,
+        false,
+        false,
+      ]);
+
+      act(() => {
+        h.rail!.onPick(1);
+      });
+      expect(shown()).toEqual(["src/promo.ts", "docs/promo.md"]);
+      expect(stored("chapter:PR_7")).toBe(1);
+      chord("Comma");
+      expect(h.rail!.at).toBe(0);
+      chord("Period");
+      chord("Period");
+      expect(h.rail!.at).toBe(1);
+
+      act(() => {
+        h.rail!.onOpen("src/cart.ts", 1);
+      });
+      expect(h.rail!.at).toBe(0);
+      expect(tab("Walkthrough").getAttribute("aria-selected")).toBe("true");
+      await waitFor(() => {
+        expect(h.handle.scrollToLine).toHaveBeenLastCalledWith("src/cart.ts", 1, "additions");
+      });
+      act(() => {
+        h.rail!.onOpen("img.png", null);
+      });
+      expect(tab("Diff").getAttribute("aria-selected")).toBe("true");
+      expect(screen.queryByText(/^Part/u)).toBeNull();
+    });
+
+    it("shows the walkthrough before the files are in", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      vi.mocked(loadFiles).mockReturnValue(deferred<ReviewFile[]>().promise);
+      walked({ current: false });
+      localStorage.setItem("tab:PR_7", JSON.stringify("walkthrough"));
+      render(<Review target={TARGET} />);
+      await screen.findByText("Part 1");
+      expect(h.rail!.files).toEqual([]);
+      expect(h.rail!.findings).toEqual([]);
+    });
+
+    it("stays on the last part when the walkthrough has fewer than it remembers", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      walked();
+      localStorage.setItem("chapter:PR_7", "5");
+      localStorage.setItem("tab:PR_7", JSON.stringify("walkthrough"));
+      await openReview();
+      expect(h.rail!.at).toBe(1);
+      press("j");
+      expect(tab("Walkthrough").getAttribute("aria-selected")).toBe("true");
+      await menu("file-next");
+      expect(tab("Walkthrough").getAttribute("aria-selected")).toBe("true");
+    });
+  });
+
   describe("the files", () => {
     it("filters the list by what's typed, Esc or the clear button emptying it", async () => {
       await openReview();
@@ -1296,176 +1457,141 @@ describe("Review", () => {
   });
 
   describe("the AI", () => {
-    it("reviews on request, then offers to again; its comments go to your review or away", async () => {
+    const reviewed = (findings: Finding[], over: Partial<AnalysisState> = {}) => {
+      h.analysis = fakeAnalysis({
+        analysis: {
+          walkthrough: { overview: "Fine", diagram: "", sections: [], project: false, at: 1 },
+          review: aiReviewOf(findings),
+        },
+        current: true,
+        record: {
+          id: "r1",
+          kind: "analysis",
+          key: "",
+          head: "head1",
+          at: 1,
+          status: "done",
+          project: false,
+          meta: "",
+          archived: false,
+          dismissed: [],
+        },
+        ...over,
+      });
+    };
+
+    it("reviews on request, the walkthrough along, and its comments go to your review or away", async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
-      const one = finding("src/cart.ts", 3);
-      const two = finding("src/promo.ts", 1);
-      vi.mocked(aiReview).mockResolvedValue(aiReviewOf([one, two]));
-      await openReview();
+      const view = await openReview();
       expect(diffs().findingsBy).toBe("Claude Code");
       await userEvent.click(button("AI Review"));
-      await waitFor(() => {
-        expect(h.overview!.review?.findings).toHaveLength(2);
-      });
+      expect(h.analysis!.build).toHaveBeenCalledWith();
+      const one = finding("src/cart.ts", 3);
+      const two = finding("src/promo.ts", 1);
+      reviewed([one, two]);
+      view.rerender(<Review target={TARGET} />);
+      expect(h.overview!.review?.findings).toEqual([one, two]);
+      expect(diffs().findings).toEqual([one, two]);
       expect(button("Review Again")).toBeTruthy();
       act(() => {
         diffs().onAcceptFinding({ ...one }, "additions");
       });
       expect(h.pending.add).toHaveBeenCalledWith({ path: "src/cart.ts", side: "additions", line: 3, body: one.body });
-      expect(diffs().findings).toEqual([two]);
       act(() => {
         diffs().onDismissFinding(two);
       });
-      expect(diffs().findings).toEqual([]);
+      expect(vi.mocked(h.analysis!.dismiss).mock.calls).toEqual([[{ ...one }], [two]]);
     });
 
-    it("can't be asked again while it reviews, nor before the files are in", async () => {
+    it("shows a review built for older commits nowhere but its walkthrough", async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
-      const files = deferred<ReviewFile[]>();
-      vi.mocked(loadFiles).mockReturnValue(files.promise);
-      render(<Review target={TARGET} />);
-      await screen.findByRole("button", { name: "AI Review" });
-      await menu("ai-review");
-      expect(ensureAi).not.toHaveBeenCalled();
-      await act(async () => {
-        files.resolve(FILES);
-        await Promise.resolve();
+      someComments();
+      reviewed([finding("src/cart.ts", 3)], { current: false, stale: true });
+      const view = await openReview();
+      expect(h.overview!.review).toBeNull();
+      reviewed([], { analysis: null });
+      view.rerender(<Review target={TARGET} />);
+      expect(h.overview!.review).toBeNull();
+    });
+
+    it("drops a comment from a review kept from before", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      someComments();
+      await openReview();
+      expect(diffs().findings).toHaveLength(2);
+      act(() => {
+        diffs().onDismissFinding({ ...finding("src/cart.ts", 3) });
       });
-      vi.mocked(aiReview).mockReturnValue(deferred<AiReview>().promise);
-      await userEvent.click(button("AI Review"));
-      await waitFor(() => {
-        expect(h.overview!.reviewing).toBe(true);
+      expect(diffs().findings).toEqual([finding("src/cart.ts", 7, false)]);
+      localStorage.removeItem("ai-review:PR_7");
+      act(() => {
+        diffs().onDismissFinding(finding("src/cart.ts", 7, false));
       });
+    });
+
+    it("says what's in the way of a review", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      h.aiProblem = { title: "Sign in to Claude Code", message: "" };
+      await openReview();
+      await userEvent.hover(button("AI Review"));
+      expect(await screen.findByText("Sign in to Claude Code")).toBeTruthy();
+    });
+
+    it("shows it's reviewing, stops when asked, and says why it failed", async () => {
+      vi.mocked(loadConfig).mockResolvedValue(withAi());
+      h.analysis = fakeAnalysis({ building: true });
+      const view = await openReview();
+      expect(h.overview!.reviewing).toBe(true);
       expect(screen.queryByRole("button", { name: "AI Review" })).toBeNull();
+      await userEvent.click(button("Stop"));
+      act(() => {
+        h.overview!.onStopReview();
+      });
+      expect(h.analysis.stop).toHaveBeenCalledTimes(2);
+      h.analysis = fakeAnalysis({ error: "No quota" });
+      view.rerender(<Review target={TARGET} />);
+      expect(h.overview!.reviewError).toBe("No quota");
       await menu("ai-review");
-      expect(aiReview).toHaveBeenCalledOnce();
+      expect(h.analysis.build).toHaveBeenCalledOnce();
     });
 
-    const stopsQuietly = async (running: ReturnType<typeof deferred<AiReview>>, stop: () => unknown) => {
-      await waitFor(() => {
-        expect(h.overview!.reviewing).toBe(true);
-      });
-      await stop();
-      await act(async () => {
-        running.reject(new Error("Stopped"));
-        await running.promise.catch(() => {});
-      });
-      await waitFor(() => {
-        expect(h.overview!.reviewing).toBe(false);
-      });
-    };
-
-    it("stops a review when asked, quietly, and doesn't start it again on its own", async () => {
+    it("reviews on its own once per head, when asked to and once it knows what ran before", async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi({ review: { auto: true, prompt: "" } }));
-      const running = deferred<AiReview>();
-      vi.mocked(aiReview).mockReturnValue(running.promise);
-      await openReview();
-      await stopsQuietly(running, () => userEvent.click(button("Stop")));
-      expect(h.overview!.reviewError).toBeNull();
-      expect(sent("ai_cancel")).toEqual([{ run: vi.mocked(aiReview).mock.calls[0]?.[3] }]);
-      expect(button("AI Review")).toBeTruthy();
-      expect(aiReview).toHaveBeenCalledOnce();
+      h.analysis = fakeAnalysis({ saved: null });
+      const view = await openReview();
+      expect(h.analysis.build).not.toHaveBeenCalled();
+      const ran = fakeAnalysis({ runs: [{ ...fakeAnalysis().record!, head: "head1" }] });
+      h.analysis = ran;
+      view.rerender(<Review target={TARGET} />);
+      expect(ran.build).not.toHaveBeenCalled();
+      h.analysis = fakeAnalysis();
+      view.rerender(<Review target={TARGET} />);
+      await waitFor(() => {
+        expect(h.analysis!.build).toHaveBeenCalledWith(false);
+      });
     });
 
-    const runAndLeave = async () => {
+    it("brings back answers kept on disk into the questions about lines", async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
-      const running = deferred<AiReview>();
-      vi.mocked(aiReview).mockReturnValue(running.promise);
-      const first = await openReview();
-      await userEvent.click(button("AI Review"));
-      await waitFor(() => {
-        expect(h.overview!.reviewing).toBe(true);
+      h.analysis = fakeAnalysis({
+        saved: [
+          {
+            id: "q1",
+            kind: "ask",
+            key: "src/cart.ts:1-1:additions",
+            head: "",
+            at: 1,
+            status: "done",
+            text: "Because.",
+            project: false,
+            meta: JSON.stringify({ question: "Why?", turn: 1 }),
+            archived: false,
+            dismissed: [],
+          },
+        ],
       });
-      first.unmount();
-      return running;
-    };
-
-    it("stops a review it came back to", async () => {
-      const running = await runAndLeave();
       await openReview();
-      await stopsQuietly(running, () => {
-        act(() => {
-          h.overview!.onStopReview();
-        });
-      });
-      expect(h.overview!.reviewError).toBeNull();
-    });
-
-    it("keeps a review still running after the pull request is left, and shows it on the way back", async () => {
-      const running = await runAndLeave();
-      (await openReview()).unmount();
-
-      await openReview();
-      await waitFor(() => {
-        expect(h.overview!.reviewing).toBe(true);
-      });
-      await act(async () => {
-        running.resolve(aiReviewOf([finding("src/cart.ts", 3)]));
-        await running.promise;
-      });
-      await waitFor(() => {
-        expect(h.overview!.review?.findings).toHaveLength(1);
-      });
-      expect(aiReview).toHaveBeenCalledOnce();
-    });
-
-    it("says why a review it came back to failed, and forgets one it left again", async () => {
-      vi.mocked(loadConfig).mockResolvedValue(withAi());
-      const failing = deferred<AiReview>();
-      vi.mocked(aiReview).mockReturnValue(failing.promise);
-      const first = await openReview();
-      await userEvent.click(button("AI Review"));
-      first.unmount();
-      const second = await openReview();
-      second.unmount();
-      await openReview();
-      await act(async () => {
-        failing.reject(new Error("No quota"));
-        await failing.promise.catch(() => {});
-      });
-      await waitFor(() => {
-        expect(h.overview!.reviewError).toBe("No quota");
-      });
-      expect(h.overview!.reviewing).toBe(false);
-    });
-
-    it("says what's missing rather than reviewing when the AI isn't ready", async () => {
-      vi.mocked(loadConfig).mockResolvedValue(withAi());
-      vi.mocked(ensureAi).mockResolvedValue(false);
-      h.aiProblem = { title: "Sign in to Claude", message: "" };
-      await openReview();
-      await userEvent.click(button("AI Review"));
-      expect(aiReview).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      ["its words", "timed out", "timed out"],
-      ["an error", new Error("No quota"), "No quota"],
-      ["anything else", 42, "42"],
-    ])("shows why the review failed: %s", async (_kind, why, said) => {
-      vi.mocked(loadConfig).mockResolvedValue(withAi());
-      await openReview();
-      vi.mocked(aiReview).mockRejectedValueOnce(why);
-      await menu("ai-review");
-      await waitFor(() => {
-        expect(h.overview!.reviewError).toBe(said);
-      });
-    });
-
-    it("reviews on its own once per head when asked to, and only when it can", async () => {
-      vi.mocked(loadConfig).mockResolvedValue(withAi({ review: { auto: true, prompt: "" } }));
-      vi.mocked(aiProblem).mockResolvedValueOnce({ title: "No", message: "" });
-      await openReview();
-      expect(aiReview).not.toHaveBeenCalled();
-    });
-
-    it("reviews on its own when it can", async () => {
-      vi.mocked(loadConfig).mockResolvedValue(withAi({ review: { auto: true, prompt: "" } }));
-      vi.mocked(aiReview).mockResolvedValue(aiReviewOf([]));
-      await openReview();
-      await waitFor(() => {
-        expect(aiReview).toHaveBeenCalledTimes(1);
-      });
+      expect(localStorage.getItem("asking:PR_7")).toContain("Because.");
     });
 
     it("fetches the project ahead for questions, quietly", async () => {
@@ -1477,12 +1603,15 @@ describe("Review", () => {
       });
     });
 
-    it("answers questions about lines, from the side they're on", async () => {
+    it("answers questions about lines, from the side they're on, kept on disk", async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
       vi.mocked(askAboutLines).mockResolvedValue({ text: "It adds", project: false });
       await openReview();
       const ask = diffs().onAsk!;
-      await expect(ask("src/cart.ts", { start: 5, end: 2, side: "deletions" }, "Why?", [], "r1")).resolves.toEqual({
+      const saveAs = { pull: "PR_7", kind: "ask", key: "k", head: "", meta: "{}" };
+      await expect(
+        ask("src/cart.ts", { start: 5, end: 2, side: "deletions" }, "Why?", [], "r1", saveAs),
+      ).resolves.toEqual({
         text: "It adds",
         project: false,
       });
@@ -1497,13 +1626,14 @@ describe("Review", () => {
         "Why?",
         [],
         "r1",
+        saveAs,
       );
-      await ask("src/cart.ts", { start: 1, end: 1, side: "deletions", endSide: "additions" }, "?", [], "r2");
+      await ask("src/cart.ts", { start: 1, end: 1, side: "deletions", endSide: "additions" }, "?", [], "r2", saveAs);
       expect(vi.mocked(askAboutLines).mock.lastCall![6]).toBe("additions");
-      await ask("src/cart.ts", { start: 1, end: 1 }, "?", [], "r3");
+      await ask("src/cart.ts", { start: 1, end: 1 }, "?", [], "r3", saveAs);
       expect(vi.mocked(askAboutLines).mock.lastCall![6]).toBe("additions");
       vi.mocked(ensureAi).mockResolvedValue(false);
-      await expect(ask("src/cart.ts", { start: 1, end: 1 }, "?", [], "r4")).rejects.toThrow(/Claude/u);
+      await expect(ask("src/cart.ts", { start: 1, end: 1 }, "?", [], "r4", saveAs)).rejects.toThrow(/Claude/u);
     });
 
     it("has no questions or findings' author without an AI set up", async () => {
@@ -1513,8 +1643,7 @@ describe("Review", () => {
       act(() => {
         diffs().onDismissFinding(finding("src/cart.ts", 1));
       });
-      await menu("ai-review");
-      expect(ensureAi).not.toHaveBeenCalled();
+      expect(diffs().findings).toEqual([]);
       expect(screen.queryByRole("button", { name: "AI Review" })).toBeNull();
     });
   });
@@ -1900,7 +2029,6 @@ describe("Review", () => {
 
     it("carries out its commands", async () => {
       vi.mocked(loadConfig).mockResolvedValue(withAi());
-      vi.mocked(aiReview).mockResolvedValue(aiReviewOf([]));
       const view = await openReview();
       await menu("find-files");
       await frames();
@@ -1927,9 +2055,7 @@ describe("Review", () => {
       await frames();
       await menu("previous-comment");
       await menu("ai-review");
-      await waitFor(() => {
-        expect(aiReview).toHaveBeenCalled();
-      });
+      expect(h.analysis!.build).toHaveBeenCalled();
       await menu("commits");
       await frames();
       expect(button("Changes").getAttribute("aria-expanded")).toBe("true");

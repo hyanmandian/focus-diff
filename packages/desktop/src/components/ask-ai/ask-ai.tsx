@@ -1,5 +1,5 @@
-import { ArrowUp, Loader2, Sparkles, Square } from "lucide-react";
-import { useId, useState, type SubmitEvent } from "react";
+import { ArrowUp, Loader2, Square } from "lucide-react";
+import { useId, useRef, useState, type SubmitEvent } from "react";
 
 import { AiAnswer } from "@/components/ai-answer/ai-answer";
 import { Button } from "@/components/button/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/input/input";
 import { useSeconds } from "@/hooks/use-seconds/use-seconds";
 import { ensureAi, openAiSettings, useAiProblem } from "@/utils/ai-ready/ai-ready";
 import { ask, newRun, PROVIDERS } from "@/utils/ai/ai";
-import { askInto, BLANK, updateChat, usePullAsking } from "@/utils/asking/asking";
+import { askInto, BLANK, clearTurns, updateChat, usePullAsking } from "@/utils/asking/asking";
 import { bridge } from "@/utils/bridge/bridge";
 import type { Config } from "@/utils/config/config";
 import type { Details } from "@/utils/details/details";
@@ -21,6 +21,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
   const { question, run: running, error } = chat;
   const last = chat.turns.at(-1);
   const headingId = useId();
+  const starting = useRef(false);
   const t = useT();
   const problem = useAiProblem(config);
   const waited = useSeconds(running?.at ?? null);
@@ -33,24 +34,26 @@ export function AskAi({ config, details }: { config: Config; details: Details })
 
   const askNow = async (title: string, prompt: string) => {
     setAsked(title);
-    updateChat(details.id, KEY, { turns: [] });
+    clearTurns(details.id, KEY);
     const id = newRun();
-    const answered = await askInto(details.id, KEY, title, id, () => ask(config, details, prompt, id));
+    const answered = await askInto(details.id, KEY, title, id, (_, keep) => ask(config, details, prompt, id, keep));
     if (!answered && title !== prompt)
       updateChat(details.id, KEY, (c) => (c.question === title ? { question: "" } : {}));
   };
-  const run = async (title: string, prompt: string) => {
-    if (await ensureAi(config)) await askNow(title, prompt);
-  };
-  const send = async (q: string) => {
-    if (!(await ensureAi(config))) return;
-    await askNow(q, q);
+  const start = async (title: string, prompt: string) => {
+    if (starting.current) return;
+    starting.current = true;
+    try {
+      if (await ensureAi(config)) await askNow(title, prompt);
+    } finally {
+      starting.current = false;
+    }
   };
   const submit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     const q = question.trim();
     if (!q || busy) return;
-    void send(q);
+    void start(q, q);
   };
 
   return (
@@ -60,7 +63,6 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       aria-busy={busy}
     >
       <div className="flex items-center gap-2">
-        <Sparkles className="size-3.5 text-violet" aria-hidden />
         <h3 id={headingId} className="text-headline font-bold">
           {t("shared.askTitle", { provider: PROVIDERS[provider].name })}
         </h3>
@@ -81,7 +83,7 @@ export function AskAi({ config, details }: { config: Config; details: Details })
       {config.ai.prompts.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {config.ai.prompts.map((p) => (
-            <Button key={p.id} variant="outline" size="xs" disabled={busy} onClick={() => void run(p.name, p.prompt)}>
+            <Button key={p.id} variant="outline" size="xs" disabled={busy} onClick={() => void start(p.name, p.prompt)}>
               {p.name}
             </Button>
           ))}

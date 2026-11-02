@@ -341,3 +341,41 @@ jobs:
           fi
           gh release upload desktop-latest release/latest.json release/Focus-Diff.dmg release/Focus-Diff-Setup.exe \
             release/Focus-Diff.AppImage release/Focus-Diff.deb release/Focus-Diff.rpm release/SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+
+  desktop-homebrew:
+    name: Point the Homebrew cask at the new version
+    needs: [release-please, desktop-assets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions: {}
+    env:
+      TAG: ${{ needs.release-please.outputs.desktop-tag }}
+      VERSION: ${{ needs.release-please.outputs.desktop-version }}
+      TAP: hyanmandian/homebrew-focus-diff
+      CASK: Casks/focus-diff.rb
+      GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - name: Write the new version and the Mac app's checksum into the cask
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN isn't set, so the Homebrew cask still points at the previous version."
+            exit 0
+          fi
+          sha=$(curl -fsSL "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/SHA256SUMS" | awk '$2 == "Focus-Diff.dmg" { print $1 }')
+          [[ "$sha" =~ ^[0-9a-f]{64}$ ]]
+          gh api "repos/$TAP/contents/$CASK" > current.json
+          jq -r .content current.json | base64 -d \
+            | sed -E "s/^  version \"[^\"]*\"$/  version \"$VERSION\"/; s/^  sha256 \"[^\"]*\"$/  sha256 \"$sha\"/" > cask.rb
+          grep -qx "  version \"$VERSION\"" cask.rb
+          grep -qx "  sha256 \"$sha\"" cask.rb
+          if cmp -s cask.rb <(jq -r .content current.json | base64 -d); then
+            echo "The cask already points at $VERSION."
+            exit 0
+          fi
+          gh api --method PUT "repos/$TAP/contents/$CASK" \
+            -f message="Update Focus Diff to $VERSION" \
+            -f content="$(base64 -w0 cask.rb)" \
+            -f sha="$(jq -r .sha current.json)" \
+            -f branch=main > /dev/null
+          echo "The cask points at $VERSION."

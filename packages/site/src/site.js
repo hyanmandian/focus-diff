@@ -304,6 +304,22 @@ const scenes = {
     if (!links.some((link) => link.dataset.for === want)) continue;
     for (const link of links) link.classList.toggle("primary", link.dataset.for === want);
   }
+  for (const only of document.querySelectorAll("[data-os]")) only.hidden = only.dataset.os !== system;
+  for (const button of document.querySelectorAll("[data-copy]")) {
+    const label = button.textContent;
+    button.addEventListener("click", () => {
+      const text = button.parentElement.querySelector("code").textContent;
+      navigator.clipboard.writeText(text).then(
+        () => {
+          button.textContent = "Copied";
+          setTimeout(() => {
+            button.textContent = label;
+          }, 1600);
+        },
+        () => {},
+      );
+    });
+  }
   for (const name of ["installs", "stars"]) {
     const slots = document.querySelectorAll(`[data-count="${name}"]`);
     if (slots.length === 0) continue;

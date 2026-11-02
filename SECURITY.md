@@ -32,6 +32,10 @@ The desktop app's files are attested the same way (`gh attestation verify Focus-
 
 The Mac app isn't signed with an Apple Developer ID or notarized yet, so macOS would block it. **`install.sh` removes the app's quarantine flag (`xattr -dr com.apple.quarantine`), which bypasses Gatekeeper's check of it.** That's why there is nothing to approve, and why the checks above are what stand in for Apple's. If you'd rather Gatekeeper check it, install the `.dmg` and approve it in System Settings instead.
 
+### The Homebrew cask
+
+The cask in [hyanmandian/homebrew-focus-diff](https://github.com/hyanmandian/homebrew-focus-diff) installs the same `Focus-Diff.dmg` from this repository's releases. Homebrew checks the download against the SHA-256 written in the cask, which the release workflow copies from the release's `SHA256SUMS`. Like `install.sh`, **the cask removes the app's quarantine flag after installing it**, for the same reason, so there is nothing to approve. Homebrew 6 and later run a cask from a tap like this one only once you trust it, which installing it by its full name (`hyanmandian/focus-diff/focus-diff`) does for that cask alone.
+
 ## How the project is kept safe
 
 - **No runtime dependencies in the extension:** it ships only its own code, and its `npm run check` fails if a runtime dependency is added. The desktop app's dependencies, and every development dependency, are pinned by the lockfiles (`package-lock.json` and `Cargo.lock`), which are scanned with OSV-Scanner, and updated weekly by Dependabot a week after each version is published.

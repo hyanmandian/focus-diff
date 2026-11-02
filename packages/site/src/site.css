@@ -361,6 +361,7 @@ p {
 .hero .wrap {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   justify-items: start;
 }
@@ -2416,6 +2417,7 @@ h3 {
 }
 [role="tabpanel"] {
   margin-top: 24px;
+  min-width: 0;
 }
 [role="tabpanel"][hidden] {
   display: none;
@@ -2647,6 +2649,61 @@ footer a:hover {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.brew {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 520px);
+}
+.brew p {
+  color: var(--muted);
+  font-size: 15px;
+}
+.brew a {
+  color: var(--fg);
+}
+.command {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+.command pre {
+  margin: 0;
+  padding-right: 76px;
+}
+.command code {
+  white-space: normal;
+}
+.command code span {
+  white-space: pre;
+}
+[role="tabpanel"] .command {
+  margin-top: 10px;
+}
+.copy {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  translate: 0 -50%;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--muted);
+  font: 500 13px var(--sans);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease;
+}
+.copy:hover {
+  border-color: var(--faint);
+  color: var(--fg);
+}
+.copy:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.brew[hidden],
 .fine[hidden],
 [data-count][hidden] {
   display: none;

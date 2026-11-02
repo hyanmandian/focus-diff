@@ -91,7 +91,7 @@ The bar, its numbers and its moves are the same on every site. What differs is w
 
 ## Releasing
 
-Pull requests are merged with all their commits, so every commit message follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), which a check enforces. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. A maintainer then uploads the zips to the Chrome Web Store and Firefox Add-ons by hand.
+Pull requests are squashed into one commit on `main`, titled with the pull request's title, so the title follows [Conventional Commits](https://www.conventionalcommits.org) (`feat: …`, `fix: …`), and so does every commit in it; checks enforce both. The extension and the desktop app are released apart, and each release takes the commits that change its folder. So a pull request titled `feat`, `fix`, `perf` or `revert` (or marked `!`) names in its scope exactly the apps it changes, which a check enforces too: `feat(desktop): …` can't change `packages/extension`, not even a test there, or merging it would release the extension as well. Split it, or name both: `feat(desktop,extension): …`. Any other type (`chore`, `test`, `docs`, `refactor`…) releases nothing. Every merge to `main` updates a release pull request with the next version and its changelog. Merging it tags the release as a draft. The Release workflow then checks and tests the tagged commit, zips the Chromium, Firefox and Safari builds and the sources, signs their build provenance, attaches it all and publishes the release. A maintainer then uploads the zips to the Chrome Web Store and Firefox Add-ons by hand.
 
 The desktop app has its own release pull request (tagged `desktop-v…`). Merging it builds one universal Mac app (`Focus-Diff.dmg`), the Windows installer (`Focus-Diff-Setup.exe`) and the Linux packages (`Focus-Diff.AppImage`, `.deb`, `.rpm`), attests and attaches them, publishes the release without making it the latest, and copies the installers and `latest.json` to the `desktop-latest` release, where the site's download links and the updater look. The updater's key goes in the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
@@ -104,7 +104,7 @@ The desktop app has its own release pull request (tagged `desktop-v…`). Mergin
 
 ## Pull requests
 
-- Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message: each `feat` and `fix` becomes a changelog entry.
+- Keep each pull request to one change, and each commit to one step of it, with a [Conventional Commit](https://www.conventionalcommits.org) message. The pull request's title becomes the commit on `main`, and a `feat` or `fix` title becomes the changelog entry of each app it names.
 - Add or update tests: unit tests for logic, end-to-end tests for anything on the page.
 - Put new text in both languages: the extension's in `src/locales/en.json` and `src/locales/pt_BR.json`, the desktop app's in `src/locales/en/` and `src/locales/pt-BR/`.
 - Prefer selectors a site is unlikely to change: roles, ARIA attributes, ids and `data-` attributes, not generated class names.

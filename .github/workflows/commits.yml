@@ -2,7 +2,7 @@ name: Commit messages
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          pattern='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9./_-]+\))?!?: .+'
+          pattern='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\([a-z0-9./_,-]+\))?!?: .+'
           failed=0
           while IFS= read -r subject; do
             if [[ "$subject" == Merge\ * ]]; then continue; fi
@@ -33,4 +33,48 @@ jobs:
               failed=1
             fi
           done < <(git log --format=%s "$BASE..$HEAD")
+          exit "$failed"
+
+  release-scope:
+    name: Release only the apps the pull request changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check that the title's scope names every app it would release
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|perf|refactor|docs|test|build|ci|chore|style|revert)(\(([a-z0-9./_,-]+)\))?(!)?: .+'
+          if ! [[ "$TITLE" =~ $pattern ]]; then
+            echo "::error::The title isn't a Conventional Commit, and it becomes the commit on main: $TITLE"
+            exit 1
+          fi
+          type=${BASH_REMATCH[1]} scope=${BASH_REMATCH[3]} breaking=${BASH_REMATCH[4]}
+          if ! [[ "$type" =~ ^(feat|fix|perf|revert)$ || -n "$breaking" ]]; then
+            echo "A $type title releases nothing."
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE...$HEAD")
+          failed=0
+          for app in extension desktop; do
+            touches=0
+            grep -q "^packages/$app/" <<< "$changed" && touches=1
+            named=0
+            [[ ",$scope," == *",$app,"* ]] && named=1
+            if (( touches && !named )); then
+              echo "::error::This changes packages/$app, so merging it would release the $app too. Move those changes to their own pull request, or name $app in the scope."
+              failed=1
+            elif (( named && !touches )); then
+              echo "::error::The scope names $app, but nothing in packages/$app changes, so no $app release would carry this."
+              failed=1
+            fi
+          done
           exit "$failed"

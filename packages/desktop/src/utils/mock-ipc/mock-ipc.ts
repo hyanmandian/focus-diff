@@ -47,9 +47,9 @@ const person = (login: string, name: string) => ({
 export const people = {
   me: person("you_reviewer", "You"),
   ana: person("bruno_mouse", "Bruno Mouse"),
-  bruno: person("kiko_keyboard", "Kiko Keyboard"),
-  carla: person("tina_trackpad", "Tina Trackpad"),
-  dev: person("devon_hart", "Devon Hart"),
+  bruno: person("kiko_mouse", "Kiko Mouse"),
+  carla: person("tina_mouse", "Tina Mouse"),
+  dev: person("nina_mouse", "Nina Mouse"),
 };
 
 const listeners = new Map<string, Set<(payload: unknown) => void>>();

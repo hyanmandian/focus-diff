@@ -181,7 +181,7 @@ function seed({ people, threads, details, files }: Seed) {
   const t1 = thread(first.path, first.line, [
     {
       ...comment(opener.author, "Should `promoError` be cleared when the code is removed by hand?", 9, {
-        reactionGroups: groups({ THUMBS_UP: ["bruno_mouse", "you_reviewer"], EYES: ["tina_trackpad"] }),
+        reactionGroups: groups({ THUMBS_UP: ["bruno_mouse", "you_reviewer"], EYES: ["tina_mouse"] }),
       }),
       id: opener.id,
     },
@@ -237,8 +237,8 @@ function seed({ people, threads, details, files }: Seed) {
       ...(n.__typename === "IssueComment"
         ? {
             reactionGroups: groups({
-              HEART: ["bruno_mouse", "kiko_keyboard", "you_reviewer"],
-              ROCKET: ["tina_trackpad"],
+              HEART: ["bruno_mouse", "kiko_mouse", "you_reviewer"],
+              ROCKET: ["tina_mouse"],
             }),
           }
         : {}),
@@ -260,7 +260,7 @@ function seed({ people, threads, details, files }: Seed) {
     pull: {
       body: "Changing the cart used to drop the promo code, so people had to type it again. Now the code stays and is checked against the new total.\n\n- Re-validates the code when items change\n- Shows why a code stopped applying\n\nCloses #1790.",
       bodyHTML: pr.bodyHTML,
-      reactionGroups: groups({ HOORAY: ["kiko_keyboard", "tina_trackpad"] }),
+      reactionGroups: groups({ HOORAY: ["kiko_mouse", "tina_mouse"] }),
     },
     files,
   };
@@ -364,7 +364,7 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
                 viewerCanUpdate: true,
                 viewerCanReact: true,
                 viewerCanApplySuggestion: true,
-                headRefName: "ana/keep-promo-code",
+                headRefName: "bruno/keep-promo-code",
                 headRefOid: "abc123",
                 headRepository: { nameWithOwner: "acme/web" },
                 reactionGroups: s.pull.reactionGroups,
@@ -382,9 +382,9 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
           nodes: [
             ...Object.values(s.people),
             {
-              login: "wendy_webcam",
-              name: "Wendy Webcam",
-              avatarUrl: "https://avatars.githubusercontent.com/wendy_webcam?s=40",
+              login: "mimi_mouse",
+              name: "Mimi Mouse",
+              avatarUrl: "https://avatars.githubusercontent.com/mimi_mouse?s=40",
             },
           ].filter((p) => p.login !== "you_reviewer"),
         },

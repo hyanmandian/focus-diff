@@ -51,7 +51,7 @@ const manage = () => ({
       viewerCanDeleteHeadRef: true,
       autoMergeRequest: autoMerge,
       headRef,
-      headRefName: "ana/keep-promo-code",
+      headRefName: "bruno/keep-promo-code",
       headRepository: { name: "web", owner: { login: "acme" } },
       baseRef: {
         refUpdateRule: {
@@ -339,7 +339,7 @@ const timeline = {
             actor: { login: "bruno_mouse" },
             beforeCommit: { abbreviatedOid: "9f8e7d6" },
             afterCommit: { abbreviatedOid: "2222222" },
-            ref: { name: "ana/keep-promo-code" },
+            ref: { name: "bruno/keep-promo-code" },
           },
           {
             __typename: "PullRequestCommit",
@@ -369,7 +369,7 @@ const timeline = {
             __typename: "CrossReferencedEvent",
             id: "cr1",
             createdAt: iso(11),
-            actor: { login: "tina_trackpad" },
+            actor: { login: "tina_mouse" },
             willCloseTarget: false,
             source: {
               __typename: "Issue",

@@ -7,8 +7,8 @@ import { Picker, type Choice } from "@/components/picker/picker";
 
 const choices: Choice[] = [
   { id: "ana", label: "Bruno Mouse", detail: "octocat", selected: false, leading: <span>A</span> },
-  { id: "bruno", label: "Kiko Keyboard", detail: "defunkt", selected: true },
-  { id: "tina", label: "Tina Trackpad", detail: null, selected: false },
+  { id: "bruno", label: "Kiko Mouse", detail: "defunkt", selected: true },
+  { id: "tina", label: "Tina Mouse", detail: null, selected: false },
 ];
 
 const trigger = <Button />;
@@ -40,7 +40,7 @@ describe("Picker", () => {
     picker();
     await open();
     expect(screen.getByRole("listbox", { name: "Reviewers" })).toBeTruthy();
-    expect(rows()).toEqual(["Kiko Keyboarddefunkt", "ABruno Mouseoctocat", "Tina Trackpad"]);
+    expect(rows()).toEqual(["Kiko Mousedefunkt", "ABruno Mouseoctocat", "Tina Mouse"]);
     expect(screen.getByRole("option", { name: /Kiko/u }).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(field());
   });
@@ -54,7 +54,7 @@ describe("Picker", () => {
     expect(onQuery).toHaveBeenLastCalledWith("OCTO");
     await userEvent.clear(field());
     await userEvent.type(field(), "tina");
-    expect(rows()).toEqual(["Tina Trackpad"]);
+    expect(rows()).toEqual(["Tina Mouse"]);
   });
 
   it("says when nothing matches, or that more is on its way", async () => {

@@ -58,7 +58,7 @@ const review = [
     author: people.ana,
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(25),
-    headRefName: "ana/keep-promo-code",
+    headRefName: "bruno/keep-promo-code",
     baseRefName: "main",
   }),
   pr({
@@ -85,8 +85,8 @@ const review = [
     reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "you_reviewer" } }] },
     createdAt: iso(20),
     updatedAt: iso(60),
-    headRefName: "ana/promo-reasons",
-    baseRefName: "ana/keep-promo-code",
+    headRefName: "bruno/promo-reasons",
+    baseRefName: "bruno/keep-promo-code",
   }),
 ];
 
@@ -152,7 +152,7 @@ const authored = [
       ],
     },
     reviewRequests: {
-      nodes: [{ requestedReviewer: { __typename: "User", login: "kiko_keyboard", avatarUrl: people.bruno.avatarUrl } }],
+      nodes: [{ requestedReviewer: { __typename: "User", login: "kiko_mouse", avatarUrl: people.bruno.avatarUrl } }],
     },
   }),
   pr({
@@ -190,9 +190,9 @@ const config = {
       name: "Hand off to Dana",
       confirm: true,
       steps: [
-        { kind: "request", reviewers: ["wendy_webcam"] },
+        { kind: "request", reviewers: ["mimi_mouse"] },
         { kind: "unrequestMe" },
-        { kind: "comment", body: "@wendy_webcam could you take this one? Thanks!" },
+        { kind: "comment", body: "@mimi_mouse could you take this one? Thanks!" },
       ],
     },
     {
@@ -245,7 +245,7 @@ const details = {
     viewerDidAuthor: false,
     viewerCanUpdate: true,
     baseRefName: "main",
-    headRefName: "ana/keep-promo-code",
+    headRefName: "bruno/keep-promo-code",
     headRefOid: "abc123",
     additions: 48,
     deletions: 12,
@@ -684,7 +684,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
         const sent = json(args, "body").variables;
         const head = isRecord(sent) ? str(sent, "head") : "";
         const above =
-          head === "ana/keep-promo-code"
+          head === "bruno/keep-promo-code"
             ? [
                 {
                   id: "PR_1812",
@@ -692,8 +692,8 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
                   title: "Show why a promo code stopped applying",
                   isDraft: false,
                   isCrossRepository: false,
-                  headRefName: "ana/promo-reasons",
-                  baseRefName: "ana/keep-promo-code",
+                  headRefName: "bruno/promo-reasons",
+                  baseRefName: "bruno/keep-promo-code",
                   reviewDecision: "REVIEW_REQUIRED",
                   author: { login: "bruno_mouse", name: "Bruno Mouse" },
                 },

@@ -146,7 +146,7 @@ describe("PullRow", () => {
         {},
         {
           mergedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
-          mergedBy: { login: "tina", name: "Tina Trackpad" },
+          mergedBy: { login: "tina", name: "Tina Mouse" },
         },
       ),
       queue: queue("merged"),

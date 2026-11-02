@@ -4,16 +4,6 @@ ignoreUntil = 2027-01-31
 reason = "deepmerge <= 4.3.1, no fixed version yet. It reaches us only through web-ext -> addons-linter, which merges its own bundled manifest schemas with it when `web-ext lint` checks the Firefox build; nothing of it ships in the extension or the desktop app."
 
 [[IgnoredVulns]]
-id = "GHSA-g3hv-75wg-m249"
-ignoreUntil = 2027-01-31
-reason = "minimatch 3.1.5, fixed only in 11, whose API eslint 9 and multimatch 6 don't use. It reaches us only as a dev dependency, through wxt -> eslint and web-ext -> multimatch, matching glob patterns from our own config files; the denial of service needs a pattern from an attacker, and nothing of it ships in the extension or the desktop app."
-
-[[IgnoredVulns]]
-id = "GHSA-qwgh-2vcv-g2f7"
-ignoreUntil = 2027-01-31
-reason = "block-buffer 0.10, fixed only in 0.12. It reaches the desktop app through digest 0.10 (sha2), which Tauri and its plugins pin; the bug needs a panic inside the block callback, and sha2's compression never panics."
-
-[[IgnoredVulns]]
 id = "RUSTSEC-2024-0429"
 ignoreUntil = 2027-01-31
 reason = "glib 0.18, fixed in 0.20. Tauri's Linux backend (gtk 0.18 through tao, wry and muda) pins it; the unsound VariantStrIter is never used by the desktop app."

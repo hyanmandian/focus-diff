@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/hyanmandian/focus-diff/compare/v1.3.2...v1.4.0) (2026-11-02)
+
+
+### Features
+
+* **extension:** calmer motion: menus fade out instead of vanishing, quieter confetti, and no glows ([0becafe](https://github.com/hyanmandian/focus-diff/commit/0becafe86b5013cec3a00946a17c029a5b1462bc))
+* **extension:** clearer wording across the bar, the popup, the options and the welcome page, in English and Portuguese ([0becafe](https://github.com/hyanmandian/focus-diff/commit/0becafe86b5013cec3a00946a17c029a5b1462bc))
+
+
+### Bug Fixes
+
+* **extension:** keep the bar drawn on GitHub pages whose theme colors don't load ([0becafe](https://github.com/hyanmandian/focus-diff/commit/0becafe86b5013cec3a00946a17c029a5b1462bc))
+
 ## [1.3.2](https://github.com/hyanmandian/focus-diff/compare/v1.3.1...v1.3.2) (2026-10-30)
 
 

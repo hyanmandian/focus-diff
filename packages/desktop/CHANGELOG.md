@@ -7,9 +7,7 @@
 
 * **desktop:** after new commits, send the AI only what changed since the last review ([ea86bd7](https://github.com/hyanmandian/focus-diff/commit/ea86bd7f2bec525e678d80d8206e20456381d783))
 * **desktop:** send the AI less: moved code, spacing-only files and questions without tests ([03b04fb](https://github.com/hyanmandian/focus-diff/commit/03b04fb206daa1c5d2556be4540d99be35ddd586))
-* **desktop:** walk through a pull request part by part, reviewed in the same AI run, and keep every AI answer ([686b08e](https://github.com/hyanmandian/focus-diff/commit/686b08e9245d6efe4f371592c9951c83336f3f80))
 * **desktop:** walk through a pull request part by part, reviewed in the same AI run, and keep every AI answer ([0becafe](https://github.com/hyanmandian/focus-diff/commit/0becafe86b5013cec3a00946a17c029a5b1462bc))
-* **site:** demos that match the real app, a new desktop video with the walkthrough, and a family of mice ([2dee248](https://github.com/hyanmandian/focus-diff/commit/2dee2480efccc3f68083172aa7441ca01cb9fa39))
 
 ## [1.4.0](https://github.com/hyanmandian/focus-diff/compare/desktop-v1.3.0...desktop-v1.4.0) (2026-10-30)
 

@@ -375,7 +375,7 @@ const details = (over: Partial<Details> = {}): Details => ({
   deletions: 1,
   changedFiles: 4,
   createdAt: "2026-10-01T09:00:00Z",
-  author: { login: "ana", name: "Ana Lima" },
+  author: { login: "ana", name: "Bruno Mouse" },
   reviewDecision: null,
   reviewers: [],
   checks: [],
@@ -593,7 +593,7 @@ describe("Review", () => {
       expect(screen.getByText("Overview of #7")).toBeTruthy();
       expect(tab("Overview").textContent).toBe("Overview1");
       expect(tab("Diff").textContent).toBe("Diff4");
-      expect(screen.getByText(/acme\/shop #7 · Ana ·/u).textContent).toContain("keep-promo");
+      expect(screen.getByText(/acme\/shop #7 · Bruno ·/u).textContent).toContain("keep-promo");
     });
 
     it("says why it couldn't load, and tries again", async () => {

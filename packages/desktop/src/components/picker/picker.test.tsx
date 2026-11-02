@@ -6,9 +6,9 @@ import { Button } from "@/components/button/button";
 import { Picker, type Choice } from "@/components/picker/picker";
 
 const choices: Choice[] = [
-  { id: "ana", label: "Ana Lima", detail: "octocat", selected: false, leading: <span>A</span> },
-  { id: "bruno", label: "Bruno Costa", detail: "defunkt", selected: true },
-  { id: "carla", label: "Carla Dias", detail: null, selected: false },
+  { id: "ana", label: "Bruno Mouse", detail: "octocat", selected: false, leading: <span>A</span> },
+  { id: "bruno", label: "Kiko Keyboard", detail: "defunkt", selected: true },
+  { id: "tina", label: "Tina Trackpad", detail: null, selected: false },
 ];
 
 const trigger = <Button />;
@@ -40,8 +40,8 @@ describe("Picker", () => {
     picker();
     await open();
     expect(screen.getByRole("listbox", { name: "Reviewers" })).toBeTruthy();
-    expect(rows()).toEqual(["Bruno Costadefunkt", "AAna Limaoctocat", "Carla Dias"]);
-    expect(screen.getByRole("option", { name: /Bruno/u }).getAttribute("aria-selected")).toBe("true");
+    expect(rows()).toEqual(["Kiko Keyboarddefunkt", "ABruno Mouseoctocat", "Tina Trackpad"]);
+    expect(screen.getByRole("option", { name: /Kiko/u }).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(field());
   });
 
@@ -50,11 +50,11 @@ describe("Picker", () => {
     picker({ onQuery });
     await open();
     await userEvent.type(field(), "OCTO ");
-    expect(rows()).toEqual(["AAna Limaoctocat"]);
+    expect(rows()).toEqual(["ABruno Mouseoctocat"]);
     expect(onQuery).toHaveBeenLastCalledWith("OCTO");
     await userEvent.clear(field());
-    await userEvent.type(field(), "carla");
-    expect(rows()).toEqual(["Carla Dias"]);
+    await userEvent.type(field(), "tina");
+    expect(rows()).toEqual(["Tina Trackpad"]);
   });
 
   it("says when nothing matches, or that more is on its way", async () => {
@@ -74,7 +74,7 @@ describe("Picker", () => {
     const { onPick } = picker();
     await open();
     await userEvent.keyboard("{ArrowUp}{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}");
-    expect(field().getAttribute("aria-activedescendant")).toBe(screen.getByRole("option", { name: /Carla/u }).id);
+    expect(field().getAttribute("aria-activedescendant")).toBe(screen.getByRole("option", { name: /Tina/u }).id);
     await userEvent.keyboard("{ArrowUp}{Enter}");
     expect(onPick).toHaveBeenCalledWith(choices[0]);
     await userEvent.keyboard("a");
@@ -92,10 +92,10 @@ describe("Picker", () => {
   it("follows the pointer and picks what's clicked", async () => {
     const { onPick } = picker();
     await open();
-    const carla = screen.getByRole("option", { name: /Carla/u });
-    await userEvent.hover(carla);
-    expect(field().getAttribute("aria-activedescendant")).toBe(carla.id);
-    await userEvent.click(carla);
+    const tina = screen.getByRole("option", { name: /Tina/u });
+    await userEvent.hover(tina);
+    expect(field().getAttribute("aria-activedescendant")).toBe(tina.id);
+    await userEvent.click(tina);
     expect(onPick).toHaveBeenCalledWith(choices[2]);
   });
 

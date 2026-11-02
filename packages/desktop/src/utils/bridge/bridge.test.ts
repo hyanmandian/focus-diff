@@ -21,7 +21,7 @@ const pr: ReviewPull = {
   number: 7,
   title: "Fix the cart",
   repository: { nameWithOwner: "acme/web" },
-  author: { login: "ana", name: "  Ana Lima " },
+  author: { login: "ana", name: "  Bruno Mouse " },
 };
 
 const code: DeviceCode = {
@@ -192,7 +192,7 @@ describe("bridge", () => {
         number: 7,
         teams: [],
         queue: null,
-        title: "#7 · Fix the cart · Ana",
+        title: "#7 · Fix the cart · Bruno",
       },
     ],
     [
@@ -206,7 +206,7 @@ describe("bridge", () => {
         number: 7,
         teams: ["core"],
         queue: "review",
-        title: "#7 · Fix the cart · Ana",
+        title: "#7 · Fix the cart · Bruno",
       },
     ],
     [
@@ -262,9 +262,9 @@ describe("bridge", () => {
 describe("github", () => {
   it("sends the call through Rust and reads the JSON back", async () => {
     const calls = rust(replying(200, '{"login":"ana"}'));
-    expect(await github("PATCH", "/user", { name: "Ana" })).toEqual({ login: "ana" });
+    expect(await github("PATCH", "/user", { name: "Bruno" })).toEqual({ login: "ana" });
     expect(calls).toEqual([
-      { cmd: "github", args: { method: "PATCH", path: "/user", body: '{"name":"Ana"}', accept: null } },
+      { cmd: "github", args: { method: "PATCH", path: "/user", body: '{"name":"Bruno"}', accept: null } },
     ]);
   });
 

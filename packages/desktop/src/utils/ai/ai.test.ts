@@ -151,7 +151,9 @@ describe("asking the AI", () => {
     expect(q.system).toContain("The reviewer's own guidelines, to follow:\nBe brief.");
     expect(q.project).toEqual({ repo: "acme/web", number: 7, head: "abc123" });
     expect(q.ownSettings).toBe(true);
-    expect(q.material).toContain("Not shown (lockfiles, generated, binary or too large):\n- logo.png (+0 -0)");
+    expect(q.material).toContain(
+      "Also changed, not in the diff (tests, fixtures, docs and the like; open them when needed):\n- logo.png (+0 -0)",
+    );
   });
 
   it("says where the lines asked about are, keeping what was asked before apart", async () => {

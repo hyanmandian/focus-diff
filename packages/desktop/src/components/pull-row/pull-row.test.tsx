@@ -146,12 +146,12 @@ describe("PullRow", () => {
         {},
         {
           mergedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
-          mergedBy: { login: "carla", name: "Carla Dias" },
+          mergedBy: { login: "tina", name: "Tina Trackpad" },
         },
       ),
       queue: queue("merged"),
     });
-    expect(screen.getByText("merged by Carla")).toBeTruthy();
+    expect(screen.getByText("merged by Tina")).toBeTruthy();
     expect(screen.getByText("5m")).toBeTruthy();
   });
 

@@ -46,9 +46,9 @@ const person = (login: string, name: string) => ({
 });
 export const people = {
   me: person("you_reviewer", "You"),
-  ana: person("ana_lima", "Ana Lima"),
-  bruno: person("bruno_costa", "Bruno Costa"),
-  carla: person("carla_dias", "Carla Dias"),
+  ana: person("bruno_mouse", "Bruno Mouse"),
+  bruno: person("kiko_keyboard", "Kiko Keyboard"),
+  carla: person("tina_trackpad", "Tina Trackpad"),
   dev: person("devon_hart", "Devon Hart"),
 };
 

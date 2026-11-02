@@ -49,21 +49,76 @@ function spacingAsSame(rows: Row[]): Row[] {
   return out;
 }
 
-export function numbered(patch: string, context = 3): string {
+const MOVE_RUN = 3;
+const MOVE_LINE = 8;
+
+export type Moves = { added: ReadonlySet<string>; removed: ReadonlySet<string> };
+
+const moveKey = (text: string) => {
+  const key = text.replaceAll(/\s+/gu, "");
+  return key.length >= MOVE_LINE ? key : null;
+};
+
+export function moves(patches: string[]): Moves {
+  const added = new Set<string>();
+  const removed = new Set<string>();
+  for (const patch of patches)
+    for (const hunk of hunks(patch))
+      for (const row of spacingAsSame(hunk.rows)) {
+        const key = row.sign === " " ? null : moveKey(row.text);
+        if (key) (row.sign === "+" ? added : removed).add(key);
+      }
+  return { added, removed };
+}
+
+type Item = { row: Row; moved: number; last: Row };
+
+function collapse(rows: Row[], found: Moves | undefined): Item[] {
+  const movable = rows.map((row) => {
+    const key = moveKey(row.text);
+    const other = row.sign === "+" ? found?.removed : found?.added;
+    return row.sign !== " " && key !== null && Boolean(other?.has(key));
+  });
+  const items: Item[] = [];
+  for (let i = 0; i < rows.length;) {
+    let end = i;
+    while (movable[end] && rows[end]!.sign === rows[i]!.sign) end++;
+    if (end - i >= MOVE_RUN) {
+      items.push({ row: rows[i]!, moved: end - i, last: rows[end - 1]! });
+      i = end;
+    } else {
+      items.push({ row: rows[i]!, moved: 0, last: rows[i]! });
+      i++;
+    }
+  }
+  return items;
+}
+
+const plural = (n: number) => `${n} line${n === 1 ? "" : "s"}`;
+
+export function numbered(patch: string, context = 3, found?: Moves): string {
   const out: string[] = [];
   for (const hunk of hunks(patch)) {
-    const rows = spacingAsSame(hunk.rows);
-    const removed = rows.filter((r) => r.sign === "-");
-    if (!rows.some((r) => r.sign === "+")) {
-      if (removed.length > 0)
-        out.push(`@@ ${removed[0]!.now} (removes ${removed.length} line${removed.length === 1 ? "" : "s"} here)`);
+    const items = collapse(spacingAsSame(hunk.rows), found);
+    const removed = items.filter((it) => it.row.sign === "-");
+    if (!items.some((it) => it.row.sign === "+")) {
+      if (removed.length > 0) {
+        const lines = removed.reduce((sum, it) => sum + Math.max(1, it.moved), 0);
+        const moved = removed.reduce((sum, it) => sum + it.moved, 0);
+        const said =
+          moved === lines
+            ? `moves ${plural(lines)} elsewhere in the diff`
+            : `removes ${plural(lines)} here${moved > 0 ? `, ${moved} of them moved elsewhere in the diff` : ""}`;
+        out.push(`@@ ${removed[0]!.row.now} (${said})`);
+      }
       continue;
     }
-    const changed = rows.map((r) => r.sign !== " ");
-    const near = (i: number) => changed.slice(Math.max(0, i - context), i + context + 1).includes(true);
+    const changed = items.map((it) => it.row.sign !== " " && it.moved === 0);
+    const near = (i: number) =>
+      items[i]!.moved > 0 || changed.slice(Math.max(0, i - context), i + context + 1).includes(true);
     let open = false;
     let first = true;
-    for (const [i, row] of rows.entries()) {
+    for (const [i, { row, moved, last }] of items.entries()) {
       if (!near(i)) {
         open = false;
         continue;
@@ -71,7 +126,13 @@ export function numbered(patch: string, context = 3): string {
       if (!open) out.push(`@@ ${row.now}${first && hunk.fn ? ` ${hunk.fn}` : ""}`);
       open = true;
       first = false;
-      out.push(row.sign === "-" ? `-${row.text}` : `${row.now} ${row.sign}${row.text}`);
+      if (moved > 0)
+        out.push(
+          row.sign === "-"
+            ? `-(${plural(moved)} moved elsewhere in the diff)`
+            : `${row.now}-${last.now} +(${plural(moved)} moved here unchanged)`,
+        );
+      else out.push(row.sign === "-" ? `-${row.text}` : `${row.now} ${row.sign}${row.text}`);
     }
   }
   return out.join("\n");
@@ -89,6 +150,7 @@ export function diffForAi(files: ReviewFile[], budget: number, shape: Shape = {}
   const counts = (f: ReviewFile) => `${name(f.path)} (+${f.additions} -${f.deletions})`;
   const sorted = files.toSorted((a, b) => (a.path > b.path ? 1 : -1));
   const hidden: string[] = [];
+  const found = moves(sorted.filter((f) => !isNoise(f.path)).map((f) => f.patch));
   const blocks: Array<{ file: ReviewFile; text: string }> = [];
   for (const f of sorted) {
     const title =
@@ -97,7 +159,10 @@ export function diffForAi(files: ReviewFile[], budget: number, shape: Shape = {}
         : `## ${name(f.path)}`;
     if (f.status === "removed") blocks.push({ file: f, text: `${title} (removed, ${f.deletions} lines)` });
     else if (isNoise(f.path) || !f.patch) hidden.push(counts(f));
-    else blocks.push({ file: f, text: `${title}\n${numbered(f.patch, shape.context)}` });
+    else {
+      const body = numbered(f.patch, shape.context, found);
+      blocks.push({ file: f, text: body ? `${title}\n${body}` : `${title} (only spacing changed)` });
+    }
   }
   const weight = new Map<string, number>();
   for (const { file } of blocks)

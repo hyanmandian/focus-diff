@@ -18,7 +18,7 @@ const person = (login: string, name: string | null = null) => ({
   name,
   avatarUrl: `https://a/${login}`,
 });
-const ana = person("ana", "Ana Lima");
+const ana = person("ana", "Bruno Mouse");
 const bo = person("bo");
 const cy = person("cy", "Cy Ray");
 
@@ -144,7 +144,7 @@ describe("Reviewers", () => {
       },
     });
     expect(items("Reviewers")).toEqual([
-      "ANAnaApproved",
+      "ANBrunoApproved",
       "BOboNot reviewed yet",
       "CoreNot reviewed yet",
       "GhostsNot reviewed yet",
@@ -162,14 +162,14 @@ describe("Reviewers", () => {
     const calls = github({ teams: [{ slug: "core", name: "Core", combinedSlug: "acme/core" }] });
     const { pull } = sidebar({ manage: { reviewers: [reviewer("zed")] }, details: { author: cy } });
     await open("Edit reviewers");
-    await option(/Ana Lima/u);
+    await option(/Bruno Mouse/u);
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
       "ZEZED",
       "Coreacme/core",
-      "ANAna Limaana",
+      "ANBruno Mouseana",
       "BObo",
     ]);
-    await userEvent.click(await option(/Ana Lima/u));
+    await userEvent.click(await option(/Bruno Mouse/u));
     await waitFor(() => {
       expect(calls).toEqual([
         `POST /repos/acme/shop/pulls/42/requested_reviewers {"reviewers":["ana"],"team_reviewers":[]}`,
@@ -192,7 +192,7 @@ describe("Reviewers", () => {
     const asked = [reviewer("ana"), reviewer("bo", { state: "COMMENTED" })];
     const { pull } = sidebar({ manage: { reviewers: asked } });
     await open("Edit reviewers");
-    await userEvent.click(await option(/Ana Lima/u));
+    await userEvent.click(await option(/Bruno Mouse/u));
     expect(patched(pull, fakeManage({ reviewers: asked })).reviewers).toEqual([asked[1]]);
     await userEvent.click(await option(/bo$/u));
     expect(patched(pull, fakeManage({ reviewers: asked })).reviewers).toEqual([
@@ -277,15 +277,15 @@ describe("Assignees", () => {
     const { pull } = sidebar({ manage: { assignees: [person("zed", "Zed"), cy, person("quiet")] } });
     expect(items("Assignees")).toEqual(["ZEZed", "CYCy", "QUquiet"]);
     await open("Edit assignees");
-    await option(/Ana Lima/u);
+    await option(/Bruno Mouse/u);
     expect(screen.getAllByRole("option").map((o) => o.textContent?.replace(/^[A-Z]{2}/u, ""))).toEqual([
       "quiet",
       "Zed",
       "Cy Raycy",
-      "Ana Limaana",
+      "Bruno Mouseana",
       "bo",
     ]);
-    await userEvent.click(await option(/Ana Lima/u));
+    await userEvent.click(await option(/Bruno Mouse/u));
     expect(patched(pull, fakeManage()).assignees).toEqual([ana]);
     await userEvent.click(await option(/Zed/u));
     expect(patched(pull, fakeManage({ assignees: [person("zed")] })).assignees).toEqual([]);

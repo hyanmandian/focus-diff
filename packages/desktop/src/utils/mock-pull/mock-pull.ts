@@ -8,7 +8,7 @@ import type { Details } from "@/utils/details/details";
 import type { Manage } from "@/utils/manage/manage";
 import type { MergeView } from "@/utils/merging/merging";
 
-const octocat = { __typename: "User", login: "octocat", name: "Ana Lima", avatarUrl: "https://a/octocat" };
+const octocat = { __typename: "User", login: "octocat", name: "Bruno Mouse", avatarUrl: "https://a/octocat" };
 
 export function fakeDetails(extra: Partial<Details> = {}): Details {
   return {
@@ -120,7 +120,7 @@ export function fakeCommit(extra: Partial<Commit> = {}): Commit {
     headline: "Keep the promo code",
     body: "",
     at: "2026-10-20T10:00:00Z",
-    author: { login: "octocat", name: "Ana Lima", avatarUrl: "https://a/octocat" },
+    author: { login: "octocat", name: "Bruno Mouse", avatarUrl: "https://a/octocat" },
     verified: null,
     ci: null,
     parent: "base000",

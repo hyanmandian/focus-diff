@@ -181,7 +181,7 @@ function seed({ people, threads, details, files }: Seed) {
   const t1 = thread(first.path, first.line, [
     {
       ...comment(opener.author, "Should `promoError` be cleared when the code is removed by hand?", 9, {
-        reactionGroups: groups({ THUMBS_UP: ["ana_lima", "you_reviewer"], EYES: ["carla_dias"] }),
+        reactionGroups: groups({ THUMBS_UP: ["bruno_mouse", "you_reviewer"], EYES: ["tina_trackpad"] }),
       }),
       id: opener.id,
     },
@@ -235,7 +235,12 @@ function seed({ people, threads, details, files }: Seed) {
         15,
       ),
       ...(n.__typename === "IssueComment"
-        ? { reactionGroups: groups({ HEART: ["ana_lima", "bruno_costa", "you_reviewer"], ROCKET: ["carla_dias"] }) }
+        ? {
+            reactionGroups: groups({
+              HEART: ["bruno_mouse", "kiko_keyboard", "you_reviewer"],
+              ROCKET: ["tina_trackpad"],
+            }),
+          }
         : {}),
     })),
     {
@@ -255,7 +260,7 @@ function seed({ people, threads, details, files }: Seed) {
     pull: {
       body: "Changing the cart used to drop the promo code, so people had to type it again. Now the code stays and is checked against the new total.\n\n- Re-validates the code when items change\n- Shows why a code stopped applying\n\nCloses #1790.",
       bodyHTML: pr.bodyHTML,
-      reactionGroups: groups({ HOORAY: ["bruno_costa", "carla_dias"] }),
+      reactionGroups: groups({ HOORAY: ["kiko_keyboard", "tina_trackpad"] }),
     },
     files,
   };
@@ -377,9 +382,9 @@ export function conversationMock(cmd: string, args: Args, seedWith: () => Seed):
           nodes: [
             ...Object.values(s.people),
             {
-              login: "dana_reyes",
-              name: "Dana Reyes",
-              avatarUrl: "https://avatars.githubusercontent.com/dana_reyes?s=40",
+              login: "wendy_webcam",
+              name: "Wendy Webcam",
+              avatarUrl: "https://avatars.githubusercontent.com/wendy_webcam?s=40",
             },
           ].filter((p) => p.login !== "you_reviewer"),
         },

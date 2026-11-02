@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { descriptionText, diffForAi, isNoise, numbered } from "@/utils/ai-diff/ai-diff";
+import { descriptionText, diffForAi, isNoise, moves, numbered } from "@/utils/ai-diff/ai-diff";
 import type { ReviewFile } from "@/utils/review/review";
 
 const file = (path: string, patch: string, patch2: Partial<ReviewFile> = {}): ReviewFile => ({
@@ -77,7 +77,7 @@ describe("diffForAi", () => {
         file("src/b.ts", code),
         file("package-lock.json", code, { additions: 900, deletions: 12 }),
         file("src/a.ts", code, { previousPath: "src/old.ts", status: "renamed" }),
-        file("src/gone.ts", "@@ -1,3 +0,0 @@\n-x\n-y\n-z", { status: "removed", deletions: 3 }),
+        file("src/gone.ts", "@@ -1,3 +1,0 @@\n-x\n-y\n-z", { status: "removed", deletions: 3 }),
         file("logo.png", "", { additions: 0, deletions: 0 }),
         file("src/same.ts", code, { previousPath: "src/same.ts" }),
       ],
@@ -126,6 +126,25 @@ describe("diffForAi", () => {
     expect(text).toContain("## [2] src/b.ts\n@@ 1");
     expect(text).toContain("## src/c.ts");
     expect(text).toContain("- yarn.lock (+1 -1)");
+  });
+
+  it("tells code moved between files from code written anew, and a change of spacing alone", () => {
+    const block = ["const total = sum(items);", "const tax = total * rate;", "return total + tax;"];
+    const from = `@@ -1,5 +1,2 @@\n keep()\n${block.map((l) => `-${l}`).join("\n")}\n-short\n+tall`;
+    const to = `@@ -0,0 +1,4 @@\n+export function price() {\n${block.map((l) => `+  ${l}`).join("\n")}`;
+    const spacing = "@@ -1,1 +1,1 @@\n-a  =  1\n+a = 1";
+    const text = diffForAi([file("a.ts", from), file("b.ts", to), file("c.ts", spacing)], 10_000, { context: 0 });
+    expect(text).toContain("## a.ts\n@@ 2\n-(3 lines moved elsewhere in the diff)\n-short\n2 +tall");
+    const partly = `@@ -1,4 +1,0 @@\n${block.map((l) => `-${l}`).join("\n")}\n-short`;
+    expect(numbered(partly, 3, moves([to]))).toBe("@@ 1 (removes 4 lines here, 3 of them moved elsewhere in the diff)");
+    expect(text).toContain("## b.ts\n@@ 1\n1 +export function price() {\n2-4 +(3 lines moved here unchanged)");
+    expect(text).toContain("## c.ts (only spacing changed)");
+    const gone = `@@ -1,3 +1,0 @@\n${block.map((l) => `-${l}`).join("\n")}`;
+    expect(numbered(gone, 3, moves([to]))).toBe("@@ 1 (moves 3 lines elsewhere in the diff)");
+    expect(numbered(gone, 3, moves([]))).toBe("@@ 1 (removes 3 lines here)");
+    expect(numbered(`@@ -1,2 +1,2 @@\n-${block[0]!}\n-${block[1]!}\n+x`, 3, moves([to]))).toBe(
+      `@@ 1\n-${block[0]!}\n-${block[1]!}\n1 +x`,
+    );
   });
 
   it("tells noise from code", () => {

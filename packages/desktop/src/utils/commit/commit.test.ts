@@ -5,7 +5,7 @@ import { commitSuggestions, defaultHeadline, StaleHead, type Applied } from "@/u
 import { fieldsOf, mockCommands } from "@/utils/fake-platform/fake-platform";
 import type { Author } from "@/utils/suggestion/suggestion";
 
-const ana = { login: "ana", name: "Ana Lima", databaseId: 11 };
+const ana = { login: "ana", name: "Bruno Mouse", databaseId: 11 };
 const item = (path: string, start: number, lines: string[], author: Author = ana): Applied => ({
   thread: "T1",
   comment: "C1",
@@ -80,7 +80,7 @@ describe("commitSuggestions", () => {
           expectedHeadOid: "h1",
           message: {
             headline: "Apply suggestions",
-            body: "Thanks\n\nCo-authored-by: Ana Lima <11+ana@users.noreply.github.com>",
+            body: "Thanks\n\nCo-authored-by: Bruno Mouse <11+ana@users.noreply.github.com>",
           },
           fileChanges: {
             additions: [

@@ -95,7 +95,7 @@ vi.mock("@/components/thread/thread", () => ({
 }));
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
-const ana = { login: "ana", name: "Ana Lima", avatarUrl: "https://avatars.githubusercontent.com/u/1" };
+const ana = { login: "ana", name: "Bruno Mouse", avatarUrl: "https://avatars.githubusercontent.com/u/1" };
 
 const details = fakeDetails({
   number: 1807,
@@ -258,7 +258,7 @@ describe("the heading", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
       "Keep the promo code when the cart changes #1807",
     );
-    expect(screen.getByText("Ana")).toBeTruthy();
+    expect(screen.getByText("Bruno")).toBeTruthy();
     expect(screen.getByTitle("main")).toBeTruthy();
     expect(screen.getByTitle("promo-keep")).toBeTruthy();
     expect(screen.getByLabelText("from")).toBeTruthy();

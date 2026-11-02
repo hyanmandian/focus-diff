@@ -152,7 +152,7 @@ const authored = [
       ],
     },
     reviewRequests: {
-      nodes: [{ requestedReviewer: { __typename: "User", login: "bruno_costa", avatarUrl: people.bruno.avatarUrl } }],
+      nodes: [{ requestedReviewer: { __typename: "User", login: "kiko_keyboard", avatarUrl: people.bruno.avatarUrl } }],
     },
   }),
   pr({
@@ -190,9 +190,9 @@ const config = {
       name: "Hand off to Dana",
       confirm: true,
       steps: [
-        { kind: "request", reviewers: ["dana_reyes"] },
+        { kind: "request", reviewers: ["wendy_webcam"] },
         { kind: "unrequestMe" },
-        { kind: "comment", body: "@dana_reyes could you take this one? Thanks!" },
+        { kind: "comment", body: "@wendy_webcam could you take this one? Thanks!" },
       ],
     },
     {
@@ -695,7 +695,7 @@ async function answer(cmd: string, args: Args, options?: InvokeOptions): Promise
                   headRefName: "ana/promo-reasons",
                   baseRefName: "ana/keep-promo-code",
                   reviewDecision: "REVIEW_REQUIRED",
-                  author: { login: "ana_lima", name: "Ana Lima" },
+                  author: { login: "bruno_mouse", name: "Bruno Mouse" },
                 },
               ]
             : [];

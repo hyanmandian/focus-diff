@@ -1159,9 +1159,10 @@ h3 {
   right: 24px;
   bottom: -40px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
-  width: 372px;
+  width: 392px;
   padding: 10px;
   border-radius: 14px;
   background: var(--app-under);
@@ -1175,6 +1176,14 @@ h3 {
     opacity 200ms ease,
     scale 240ms var(--ease),
     translate 240ms var(--ease);
+}
+.queue {
+  container-type: inline-size;
+}
+@container (max-width: 440px) {
+  .panel {
+    zoom: 0.82;
+  }
 }
 .queue[data-open] .panel {
   opacity: 1;
@@ -1365,8 +1374,8 @@ h3 {
 }
 .toast {
   position: absolute;
-  right: 14px;
-  bottom: 18px;
+  top: 38px;
+  right: 10px;
   z-index: 3;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;

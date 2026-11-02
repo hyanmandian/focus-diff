@@ -213,26 +213,24 @@ const scenes = {
       },
     ),
   async queue(act) {
-    await act.wait(1400);
-    await act.move("row", 0.66, 0.5);
-    act.set({ hover: "" });
-    await act.wait(350);
-    await act.click();
-    act.set({ open: null, toast: null, hover: null });
-    await act.wait(500);
     snap(act.root, () => {
-      act.set({ fresh: null });
+      act.set({ open: null, toast: null, fresh: null, hover: null });
       act.count({ review: "2", all: "2", web: "1", group: "1" });
     });
+    await act.wait(700);
+    act.set({ toast: "" });
+    await act.wait(2600);
+    act.set({ toast: null });
+    await act.wait(300);
     await act.move("tray", 0.55, 0.75);
     await act.click();
     act.set({ open: "" });
-    await act.wait(800);
-    act.set({ toast: "" });
     await act.wait(350);
     act.set({ fresh: "" });
     act.count({ review: "4", all: "4", web: "3", group: "3" });
-    await act.move(act.compact() ? [0.9, 0.64] : [0.16, 0.6]);
+    await act.wait(700);
+    await act.move("row", 0.66, 0.5);
+    act.set({ hover: "" });
     await act.wait(2200);
   },
   async review(act) {

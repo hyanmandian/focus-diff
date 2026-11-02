@@ -45,6 +45,7 @@ export const walkthrough: Dictionary["walkthrough"] = {
   history: "Rodadas anteriores",
   archive: "Arquivar Esta Rodada",
   unarchive: "Desarquivar Esta Rodada",
+  fromScratch: "Revisar do Zero",
   archived: "arquivada",
   failed: "falhou",
   stopped: "interrompida",

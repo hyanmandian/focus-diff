@@ -9,13 +9,19 @@ import {
   analyze,
   branches,
   deepen,
+  fingerprint,
   isPlan,
   material,
+  pathsOf,
   partMaterial,
   readAnalysis,
   readDiagram,
   readPart,
+  readUpdate,
   shared,
+  update,
+  type Analysis,
+  type Base,
   type Plan,
   type Section,
   type Step,
@@ -40,6 +46,15 @@ const SAID = { project: true, note: "Read it all", at: 5 };
 const read = (answer: unknown) => readAnalysis(JSON.stringify(answer), PLAN, [...FILES, TEST], SAID);
 const AI = { ...defaultConfig(), ai: { ...defaultConfig().ai, provider: "claude" as const } };
 
+const asked = () => {
+  const calls: Array<Record<string, unknown> | undefined> = [];
+  mockCommands((_cmd, args) => {
+    if (!(args instanceof Uint8Array)) calls.push(args);
+    return { text: "{}", project: true };
+  });
+  return calls;
+};
+
 describe("material", () => {
   const split = { kept: FILES.slice(0, 2), leftOut: [{ reason: "tests" as const, files: [TEST] }] };
 
@@ -49,7 +64,12 @@ describe("material", () => {
     expect(text).toContain("[1] a.ts (+3 -1)\n[2] b.ts (+3 -1)\n[3] a.test.ts (+3 -1, aside)");
     expect(text).toContain("## [1] a.ts\n@@ 1\n1 +line 1");
     expect(text).not.toContain("## [3]");
-    expect(plan).toEqual({ paths: ["a.ts", "b.ts", "a.test.ts"], kept: 2 });
+    expect(plan).toEqual({
+      paths: ["a.ts", "b.ts", "a.test.ts"],
+      kept: 2,
+      hashes: [fingerprint(TEN), fingerprint(TEN), fingerprint(TEN)],
+      project: false,
+    });
   });
 
   it("shows less around each change when the AI can open the project itself", () => {
@@ -334,15 +354,6 @@ describe("branches", () => {
 });
 
 describe("asking the AI", () => {
-  const asked = () => {
-    const calls: Array<Record<string, unknown> | undefined> = [];
-    mockCommands((_cmd, args) => {
-      if (!(args instanceof Uint8Array)) calls.push(args);
-      return { text: "{}", project: true };
-    });
-    return calls;
-  };
-
   it("reviews and builds the walkthrough in one call, kept on disk under the pull request", async () => {
     setLanguage("pt-BR");
     const calls = asked();
@@ -357,7 +368,7 @@ describe("asking the AI", () => {
         kind: "analysis",
         key: "",
         head: "abc",
-        meta: JSON.stringify({ paths: ["a.ts"], kept: 1 }),
+        meta: JSON.stringify({ paths: ["a.ts"], kept: 1, hashes: [fingerprint(TEN)], project: AI.ai.project }),
       },
     });
     expect(String(args!.task)).toContain("Review first. Review it like a careful senior engineer.");
@@ -374,5 +385,141 @@ describe("asking the AI", () => {
       keep: { kind: "part", key: "run-1#0", meta: JSON.stringify(PART_PLAN) },
     });
     expect(String(calls[0]!.task)).toContain("one part of this pull request");
+  });
+});
+
+describe("updating after new commits", () => {
+  const CHANGED = "@@ -0,0 +1,2 @@\n+changed\n+again";
+  const base = (over: Partial<Base> = {}): Base => {
+    const { plan } = material(
+      details,
+      { kept: FILES.slice(0, 4), leftOut: [{ reason: "tests", files: [TEST] }] },
+      false,
+    );
+    const analysis: Analysis = read({
+      overview: "Orders",
+      diagram: "flowchart LR\n  A --> B",
+      sections: [
+        { title: "API", summary: "The endpoint.", files: [{ id: 1 }, { id: 2 }] },
+        { title: "Store", summary: "x".repeat(300), files: [{ id: 3 }] },
+        { title: "Glue", kind: "pattern", summary: "Wiring.", files: [], alike: { note: "Same", ids: [4] } },
+      ],
+      findings: [
+        { id: 1, line: 1, severity: "issue", body: "Kept." },
+        { id: 3, line: 2, severity: "suggestion", body: "Fixed\nlater." },
+        { id: 2, line: 1, severity: "question", body: "On a changed file." },
+        { id: 4, line: 1, severity: "issue", body: "Dismissed." },
+      ],
+    });
+    return { id: "r1", plan, analysis, dismissed: new Set(["d.ts:1:Dismissed."]), ...over };
+  };
+  const now = { kept: [FILES[0]!, file("b.ts", CHANGED), FILES[2]!, FILES[3]!, file("g.ts", CHANGED)], leftOut: [] };
+
+  it("fingerprints a patch the same way each time", () => {
+    expect(fingerprint(TEN)).toBe(fingerprint(TEN));
+    expect(fingerprint(TEN)).not.toBe(fingerprint(CHANGED));
+  });
+
+  it("sends only what changed, with the last walkthrough and its open comments", () => {
+    const kept = [FILES[0]!, file("b.ts", CHANGED), FILES[2]!, file("g.ts", CHANGED)];
+    const since = update(details, { kept, leftOut: [] }, false, base())!;
+    expect(since.text).toContain("by id, new ones included:\n[2] b.ts (+3 -1)\n[4] g.ts (+3 -1)\n\n");
+    expect(since.text).toContain("No longer in the pull request: d.ts");
+    expect(since.text).toContain("S1. API: The endpoint.\n  [1] a.ts (+3 -1)\n  [2] b.ts (+3 -1)\nS2. Store: ");
+    expect(since.text).toContain(`S2. Store: ${"x".repeat(200)}…\nS3. Glue: Wiring.`);
+    expect(since.text).toContain("F1. a.ts:1 issue: Kept.\nF2. c.ts:2 suggestion: Fixed later.");
+    expect(since.text).not.toContain("Dismissed.");
+    expect(since.text).toContain("- b.ts:1 question: On a changed file.");
+    expect(since.text).toContain("## [2] b.ts");
+    expect(since.text).not.toContain("## [1] a.ts");
+    expect(since.plan).toMatchObject({ base: "r1", fresh: [2, 4], project: false, kept: 4 });
+  });
+
+  it("says when nothing changed, and leaves out what has nothing to say", () => {
+    const same = update(details, { kept: FILES.slice(0, 4), leftOut: [{ reason: "tests", files: [TEST] }] }, false, {
+      ...base(),
+      analysis: { ...base().analysis, review: { ...base().analysis.review, findings: [] } },
+    })!;
+    expect(same.text).toContain("Diff of the changed files, each cut to fit when it's long:\n(none)");
+    expect(same.text).toContain("new ones included:\n(none)");
+    expect(same.text).not.toContain("No longer in");
+    expect(same.text).not.toContain("Open comments");
+    expect(same.text).not.toContain("on the changed files");
+    expect(same.plan.fresh).toEqual([]);
+  });
+
+  it("starts over when the last run can't be compared, read the project differently, or most of it changed", () => {
+    expect(update(details, now, false, base({ plan: { paths: ["a.ts"], kept: 1 } }))).toBeNull();
+    expect(update(details, now, true, base())).toBeNull();
+    const most = { kept: FILES.slice(0, 4).map((f) => file(f.path, CHANGED)), leftOut: [] };
+    expect(update(details, most, false, base())).toBeNull();
+  });
+
+  it("keeps the sections it's told are the same, rewrites the others, and keeps the comments not resolved", () => {
+    const { plan } = update(details, now, false, base())!;
+    const files = [...now.kept];
+    const answer = {
+      resolved: [2],
+      sections: [
+        { same: 2 },
+        { title: "API again", summary: "Now with b.", files: [{ id: 2 }, { id: 1 }] },
+        { same: 1 },
+        { same: 9, title: "New", summary: "g.ts", files: [{ id: 5 }] },
+      ],
+      findings: [{ id: 2, line: 1, severity: "issue", body: "New one." }],
+    };
+    const result = readUpdate(JSON.stringify(answer), plan, files, SAID, base().analysis);
+    expect(result.walkthrough.sections.map((s) => [s.title, pathsOf(s)])).toEqual([
+      ["Store", ["c.ts"]],
+      ["API again", ["b.ts", "a.ts"]],
+      ["New", ["g.ts"]],
+      ["Glue", ["d.ts"]],
+    ]);
+    expect(result.walkthrough.overview).toBe("Orders");
+    expect(result.walkthrough.diagram).toContain("A --> B");
+    expect(result.review.findings.map((f) => f.body)).toEqual(["Kept.", "Dismissed.", "New one."]);
+    expect(result.review.findings.every((f) => f.inDiff)).toBe(true);
+  });
+
+  it("takes a new overview and picture, and sets aside a file nobody placed", () => {
+    const { plan } = update(details, now, false, base())!;
+    const answer = { overview: "Orders, now paged", diagram: "flowchart LR\n  A --> C", sections: [], findings: [] };
+    const result = readUpdate(JSON.stringify(answer), plan, [...now.kept], SAID, base().analysis);
+    expect(result.walkthrough.overview).toBe("Orders, now paged");
+    expect(result.walkthrough.diagram).toContain("A --> C");
+    expect(result.walkthrough.sections.map((s) => s.title || s.kind)).toEqual(["API", "Store", "Glue", "rest"]);
+    expect(result.walkthrough.sections.at(-1)!.files.map((f) => f.path)).toEqual(["g.ts"]);
+  });
+
+  it("asks for an update when the last run fits, and for a whole new one when it doesn't", async () => {
+    const calls = asked();
+    const keep = { pull: "PR_1", head: "def", run: "run-2" };
+    await analyze({ ...AI, ai: { ...AI.ai, project: false } }, details, now, keep, base());
+    await analyze({ ...AI, ai: { ...AI.ai, project: true } }, details, now, keep, base());
+    expect(String(calls[0]!.task)).toContain("got new commits since your last review");
+    expect(String(calls[0]!.schema)).toContain('"resolved"');
+    expect(String(calls[1]!.task)).toContain("Review first.");
+  });
+
+  it("reads less around each change when the AI reads the project, and skips what it can't place", () => {
+    const projected = base({ plan: { ...base().plan, project: true } });
+    expect(update(details, now, true, projected)!.text).toContain("## [2] b.ts\n@@ 1\n1 +changed");
+    const { plan } = update(details, now, false, base())!;
+    const loose = { ...plan, fresh: [99] };
+    const answer = { sections: ["x", { same: 0, title: "", files: [] }], findings: [] };
+    const result = readUpdate(JSON.stringify(answer), loose, [...now.kept], SAID, base().analysis);
+    expect(result.review.findings.map((f) => f.body)).toContain("On a changed file.");
+    const bare = { paths: plan.paths, kept: plan.kept };
+    expect(readUpdate(JSON.stringify(answer), bare, [...now.kept], SAID, base().analysis).review.findings).toHaveLength(
+      4,
+    );
+  });
+
+  it("reads a plan with what it was built on", () => {
+    expect(isPlan({ paths: [], kept: 0, hashes: ["a"], base: "r1", fresh: [1] })).toBe(true);
+    expect(isPlan({ paths: [], kept: 0, hashes: [1] })).toBe(false);
+    expect(isPlan({ paths: [], kept: 0, base: 1 })).toBe(false);
+    expect(isPlan({ paths: [], kept: 0, fresh: ["1"] })).toBe(false);
+    expect(isPlan({ paths: [], kept: 0, fresh: 1 })).toBe(false);
   });
 });

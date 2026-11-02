@@ -87,9 +87,15 @@ function part(material: string) {
   };
 }
 
+function update(material: string) {
+  const sections = [...material.matchAll(/^S(\d+)\. /gmu)].map((m) => ({ same: Number(m[1]) }));
+  return { findings: [], resolved: [], sections };
+}
+
 function reply(args: Args) {
   const task = str(args, "task");
   const material = str(args, "material");
+  if (task.includes("new commits since")) return JSON.stringify(update(material));
   if (task.includes("one part of this pull request")) return JSON.stringify(part(material));
   if (task.includes("walkthrough")) return JSON.stringify(analysis(material));
   return "Keeps the promo code when the cart changes: `updateCart` now re-checks the code against the new total and keeps it if it still applies, with a reason when it doesn't.\n\nWorth a closer look:\n- `src/checkout/cart.ts`: `promoError` isn't cleared when the code is removed by hand.\n- **No test** for a code that stops applying after an item is removed.";

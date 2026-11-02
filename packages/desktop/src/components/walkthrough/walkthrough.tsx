@@ -378,6 +378,9 @@ function Runs({ state }: { state: AnalysisState }) {
             >
               {shown.archived ? t("walkthrough.unarchive") : t("walkthrough.archive")}
             </DropdownMenuItem>
+            <DropdownMenuItem disabled={state.building} onClick={() => void state.build(true, true)}>
+              {t("walkthrough.fromScratch")}
+            </DropdownMenuItem>
           </>
         ) : null}
       </DropdownMenuContent>

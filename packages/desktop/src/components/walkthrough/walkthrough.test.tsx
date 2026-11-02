@@ -362,6 +362,9 @@ describe("WalkthroughRail", () => {
     expect(items[1]!.getAttribute("aria-disabled")).toBe("true");
     await userEvent.click(screen.getByRole("menuitem", { name: "Archive This Run" }));
     expect(s.archive).toHaveBeenCalledWith("r1", true);
+    await userEvent.click(button("Earlier runs"));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Review From Scratch" }));
+    expect(s.build).toHaveBeenCalledWith(true, true);
   });
 
   it("shows an archived run as such, and unarchives it", async () => {

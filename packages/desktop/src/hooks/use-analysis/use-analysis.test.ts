@@ -220,17 +220,68 @@ describe("useAnalysis", () => {
     h.saved = [];
     const { result } = hook();
     await act(() => result.current.build());
-    expect(analyze).toHaveBeenCalledWith(AI, DETAILS, result.current.split, {
-      pull: "PR_1",
-      head: "abc",
-      run: expect.any(String) as unknown,
-    });
+    expect(analyze).toHaveBeenCalledWith(
+      AI,
+      DETAILS,
+      result.current.split,
+      {
+        pull: "PR_1",
+        head: "abc",
+        run: expect.any(String) as unknown,
+      },
+      null,
+    );
     vi.mocked(analyze).mockRejectedValueOnce(new Error("Turn on AI in Settings first."));
     await act(() => result.current.build());
     expect(result.current.error).toBe("Turn on AI in Settings first.");
     await act(() => result.current.build(false));
     expect(aiProblem).toHaveBeenCalledWith(AI);
     expect(result.current.error).toBeNull();
+  });
+
+  it("reads an update on top of the run it was built on, with the comments dismissed on either", () => {
+    const update = (over: Partial<Saved> = {}) =>
+      record({
+        id: "r2",
+        at: 20,
+        head: "def",
+        text: JSON.stringify({
+          sections: [{ same: 1 }],
+          resolved: [],
+          findings: [{ id: 2, line: 2, severity: "issue", body: "New." }],
+        }),
+        meta: JSON.stringify({ ...PLAN, base: "r1", fresh: [2] }),
+        dismissed: [findingKey({ path: "src/promo.ts", line: 2, severity: "issue", body: "New.", inDiff: true })],
+        ...over,
+      });
+    h.saved = [
+      record({
+        dismissed: [findingKey({ path: "src/cart.ts", line: 2, severity: "issue", body: "Bug.", inDiff: true })],
+      }),
+      update(),
+    ];
+    const { result } = hook();
+    expect(result.current.record?.id).toBe("r2");
+    expect(result.current.analysis?.walkthrough.overview).toBe("Cart work");
+    expect(result.current.analysis?.walkthrough.sections[0]?.title).toBe("Cart");
+    expect(result.current.analysis?.review.findings).toEqual([]);
+    h.saved = [record({ status: "failed" }), update()];
+    expect(hook().result.current.record).toBeNull();
+    h.saved = [update({ meta: JSON.stringify({ ...PLAN, base: "r2" }) })];
+    expect(hook().result.current.record).toBeNull();
+  });
+
+  it("builds on the run shown when the head moved, and from scratch when asked or on the same head", async () => {
+    h.saved = [record({ head: "old" })];
+    const { result, rerender } = hook();
+    await act(() => result.current.build());
+    expect(vi.mocked(analyze).mock.lastCall?.[4]).toMatchObject({ id: "r1", plan: PLAN });
+    await act(() => result.current.build(true, true));
+    expect(vi.mocked(analyze).mock.lastCall?.[4]).toBeNull();
+    h.saved = [record()];
+    rerender({ ai: AI, details: DETAILS, files: FILES });
+    await act(() => result.current.build());
+    expect(vi.mocked(analyze).mock.lastCall?.[4]).toBeNull();
   });
 
   it("keeps quiet when a run it started ends stopped, since the run says so itself", async () => {

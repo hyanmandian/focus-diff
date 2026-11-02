@@ -227,7 +227,7 @@
               <span class="big words">Thousands of files, still smooth.</span>
             </div>
             <div class="tile wide">
-              <p><b>A walkthrough of the change.</b> Your own Claude Code, Codex, Cursor or OpenCode reads the pull request and splits it into chapters to read in order.</p>
+              <p><b>A walkthrough of the change.</b> Your own Claude Code, Codex, Cursor or OpenCode reviews the pull request and splits it into chapters to read in order, both in the same run.</p>
               <div class="demo walk" data-demo="walk" data-play="once" data-ch="2" role="img" aria-label="The AI walkthrough: the pull request split into numbered chapters, each opening its part of the diff with a short summary">
                 <div class="wt">
                   <div class="rail" data-glide="ch">
@@ -236,7 +236,7 @@
                     <div class="ch" data-key="1" data-target="ch1"><em>1</em><b>Keep the code on the cart</b><i style="--w: 46%"></i></div>
                     <div class="ch" data-key="2" data-target="ch2"><em>2</em><b>Check it when the cart changes</b><i style="--w: 58%"></i></div>
                     <div class="ch" data-key="3" data-target="ch3"><em>3</em><b>Tell the shopper why</b><i style="--w: 40%"></i></div>
-                    <div class="ch" data-key="4"><em>4</em><b>Tests</b><i style="--w: 52%"></i></div>
+                    <div class="ch" data-key="4"><em>4</em><b>Everything else</b><i style="--w: 52%"></i></div>
                   </div>
                   <div class="chap">
                     <div data-c="1"><p>The promo code now lives on the cart, so changing the cart no longer drops it.</p><div class="file-box"><div class="file-head"><svg class="i"><use href="#i-file" /></svg><code>web/src/cart/cart.ts</code></div><div class="code"><div class="cl"><span>8</span><span></span><span><span class="kw">type</span> Cart = {</span></div><div class="cl"><span>9</span><span></span><span>  items: Item[];</span></div><div class="cl plus"><span>10</span><span>+</span><span>  promo?: Promo;</span></div><div class="cl"><span>11</span><span></span><span>};</span></div></div><div class="bars"><i style="--w: 30%"></i><i style="--w: 46%; --x: 1"></i><i style="--w: 38%; --x: 1"></i><i style="--w: 52%; --x: 1"></i><i style="--w: 14%"></i></div></div></div>
@@ -251,6 +251,7 @@
             <li><b>Updates, yours and merged.</b> The queue also lists what changed since you reviewed, your own pull requests, and what merged before you got to it.</li>
             <li><b>Stacks in order.</b> Stacked pull requests show as one stack, and Next takes you to the following one when you’re done.</li>
             <li><b>Keys for the whole review.</b> <kbd>N</kbd> <kbd>P</kbd> through comments, <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd> to the next file, <kbd>⌘</kbd> <kbd>]</kbd> to the next pull request. <kbd>Ctrl</kbd> on Windows and Linux.</li>
+            <li><b>AI answers you don’t lose.</b> Every review, walkthrough and answer is kept as it arrives, so closing the window loses nothing. After new commits, only what changed goes back to the AI.</li>
             <li><b>Ask about any change.</b> Ask your AI about a line or a file, with the whole project as context, through the command line you already use.</li>
             <li><b>Your own buttons.</b> Queues, filters and actions you set up yourself: hand a review off, ping a channel, or run a command of your own.</li>
             <li><b>Updates itself.</b> When a new version is out, one click on Update installs it and restarts.</li>

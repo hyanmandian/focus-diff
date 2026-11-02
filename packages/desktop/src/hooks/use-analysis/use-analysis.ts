@@ -13,15 +13,20 @@ import type { ReviewFile } from "@/utils/review/review";
 import {
   analyze,
   deepen,
+  findingKey,
   isPlan,
   pathsOf,
   readAnalysis,
   readPart,
+  readUpdate,
   type Analysis,
+  type Base,
   type Plan,
 } from "@/utils/walkthrough/walkthrough";
 
-export const findingKey = (f: Finding) => `${f.path}:${String(f.line)}:${f.body.slice(0, 80)}`;
+export { findingKey };
+
+const CHAIN = 50;
 
 function planOf(record: Saved): Plan | null {
   try {
@@ -32,31 +37,52 @@ function planOf(record: Saved): Plan | null {
   }
 }
 
-function read(record: Saved, parts: Saved[], files: ReviewFile[]): Analysis | null {
-  const plan = planOf(record);
-  if (!plan || record.text === undefined) return null;
-  try {
-    const said = { project: record.project, note: record.note, at: record.at };
-    const analysis = readAnalysis(record.text, plan, files, said);
-    const sections = analysis.walkthrough.sections.map((section, i) => {
-      const part = parts.findLast((p) => p.key === `${record.id}#${String(i)}` && p.status === "done");
-      const partPlan = part && planOf(part);
-      if (!part?.text || !partPlan) return section;
+function reading(saved: Saved[], files: ReviewFile[]) {
+  const byId = new Map(saved.map((r) => [r.id, r]));
+  const parts = saved.filter((r) => r.kind === "part");
+  const known = new Map<string, Base | null>();
+  const read = (record: Saved, depth: number): Base | null => {
+    if (known.has(record.id)) return known.get(record.id)!;
+    const plan = planOf(record);
+    const from = plan?.base === undefined ? undefined : byId.get(plan.base);
+    const base = from?.status === "done" && depth < CHAIN ? read(from, depth + 1) : null;
+    let found: Base | null = null;
+    if (plan && record.text !== undefined && (plan.base === undefined || base)) {
       try {
-        return readPart(part.text, partPlan, section, files);
+        const said = { project: record.project, note: record.note, at: record.at };
+        const analysis = base
+          ? readUpdate(record.text, plan, files, said, base.analysis)
+          : readAnalysis(record.text, plan, files, said);
+        const sections = analysis.walkthrough.sections.map((section, i) => {
+          const part = parts.findLast((p) => p.key === `${record.id}#${String(i)}` && p.status === "done");
+          const partPlan = part && planOf(part);
+          if (!part?.text || !partPlan) return section;
+          try {
+            return readPart(part.text, partPlan, section, files);
+          } catch {
+            return section;
+          }
+        });
+        found = {
+          id: record.id,
+          plan,
+          analysis: { ...analysis, walkthrough: { ...analysis.walkthrough, sections } },
+          dismissed: new Set([...(base?.dismissed ?? []), ...record.dismissed]),
+        };
       } catch {
-        return section;
+        found = null;
       }
-    });
-    const dismissed = new Set(record.dismissed);
-    return {
-      walkthrough: { ...analysis.walkthrough, sections },
-      review: { ...analysis.review, findings: analysis.review.findings.filter((f) => !dismissed.has(findingKey(f))) },
-    };
-  } catch {
-    return null;
-  }
+    }
+    known.set(record.id, found);
+    return found;
+  };
+  return (record: Saved) => read(record, 0);
 }
+
+const shown = ({ analysis, dismissed }: Base): Analysis => ({
+  ...analysis,
+  review: { ...analysis.review, findings: analysis.review.findings.filter((f) => !dismissed.has(findingKey(f))) },
+});
 
 export function useAnalysis(pull: string, ai: Config | null, details: Details | null, files: ReviewFile[] | null) {
   const saved = useSaved(pull);
@@ -66,18 +92,17 @@ export function useAnalysis(pull: string, ai: Config | null, details: Details | 
   const runs = useMemo(() => (saved ?? []).filter((r) => r.kind === "analysis"), [saved]);
   const parts = useMemo(() => (saved ?? []).filter((r) => r.kind === "part"), [saved]);
   const running = runs.findLast((r) => r.status === "running") ?? null;
-  const readable = useMemo(
-    () =>
-      files
-        ? new Map(runs.filter((r) => r.status === "done").map((r) => [r.id, read(r, parts, files)] as const))
-        : new Map<string, Analysis | null>(),
-    [runs, parts, files],
-  );
+  const readable = useMemo(() => {
+    if (!files) return new Map<string, Base | null>();
+    const read = reading(saved ?? [], files);
+    return new Map(runs.filter((r) => r.status === "done").map((r) => [r.id, read(r)] as const));
+  }, [saved, runs, files]);
   const record =
     runs.find((r) => r.id === chosen && readable.get(r.id)) ??
     runs.findLast((r) => !r.archived && readable.get(r.id)) ??
     null;
-  const analysis = record ? readable.get(record.id)! : null;
+  const base = record ? readable.get(record.id)! : null;
+  const analysis = useMemo(() => base && shown(base), [base]);
   const last = runs.findLast((r) => !r.archived && r.status !== "running");
   const unreadable = last?.status === "done" && files && !readable.get(last.id);
   const failed =
@@ -95,7 +120,7 @@ export function useAnalysis(pull: string, ai: Config | null, details: Details | 
   const partKey = (index: number) => `${record?.id ?? ""}#${String(index)}`;
   const partRuns = (index: number) => parts.filter((p) => p.key === partKey(index));
 
-  const build = async (asked = true) => {
+  const build = async (asked = true, fresh = false) => {
     if (!ai || !details || !split || split.kept.length === 0 || running || building.current) return;
     const at = details.headRefOid;
     if (!asked) {
@@ -108,7 +133,8 @@ export function useAnalysis(pull: string, ai: Config | null, details: Details | 
       if (asked ? !(await ensureAi(ai)) : await aiProblem(ai)) return;
       setError(null);
       setChosen(null);
-      await analyze(ai, details, split, { pull, head: at, run });
+      const since = !fresh && base && record?.head !== at ? base : null;
+      await analyze(ai, details, split, { pull, head: at, run }, since);
     } catch (e) {
       const kept = await bridge.aiSaved(pull).catch(() => []);
       if (!kept.some((r) => r.id === run)) setError(errorText(e));

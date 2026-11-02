@@ -43,6 +43,7 @@ export const walkthrough = {
   history: "Earlier runs",
   archive: "Archive This Run",
   unarchive: "Unarchive This Run",
+  fromScratch: "Review From Scratch",
   archived: "archived",
   failed: "failed",
   stopped: "stopped",

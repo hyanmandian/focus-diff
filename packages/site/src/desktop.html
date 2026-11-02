@@ -96,7 +96,7 @@
           "name": "Why does my computer warn me the first time?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The app isn’t code-signed yet, so the system asks once. On a Mac, open it, then go to System Settings › Privacy &amp; Security and click Open Anyway (on macOS 14 and earlier, right-click the app and choose Open). On Windows, choose More info, then Run anyway."
+            "text": "The app isn’t code-signed yet, so the system asks once. On a Mac, open it, then go to System Settings › Privacy &amp; Security and click Open Anyway (on macOS 14 and earlier, right-click the app and choose Open). On Windows, choose More info, then Run anyway. Installed with Homebrew on a Mac (brew install --cask hyanmandian/focus-diff/focus-diff), it opens with nothing to approve."
           }
         },
         {
@@ -159,6 +159,10 @@
             <li><a class="btn" data-for="windows" href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff-Setup.exe"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>Download for Windows</a></li>
             <li><a class="btn" data-for="linux" href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.AppImage"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>Download for Linux</a></li>
           </ul>
+          <div class="brew" data-os="mac">
+            <p>Recommended on a Mac, with <a href="https://brew.sh">Homebrew</a>. Nothing to approve:</p>
+            <div class="command"><pre><code><span>brew install --cask</span> <wbr /><span>hyanmandian/</span><wbr /><span>focus-diff/</span><wbr /><span>focus-diff</span></code></pre><button type="button" class="copy" data-copy aria-label="Copy the command">Copy</button></div>
+          </div>
           <p class="fine">
             One app for Apple silicon and Intel Macs. On Linux, also as a <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.deb">.deb</a> or an <a href="https://github.com/hyanmandian/focus-diff/releases/download/desktop-latest/Focus-Diff.rpm">.rpm</a>.
             Not code-signed yet: <a href="#manual-title">how to open it the first time</a>.
@@ -273,7 +277,10 @@
           </div>
 
           <div role="tabpanel" id="panel-mac" aria-labelledby="tab-mac" tabindex="0">
-            <p>macOS 15 and later.</p>
+            <p>The easiest way is <a href="https://brew.sh">Homebrew</a>. It opens with nothing to approve, and Homebrew removes it cleanly later:</p>
+            <div class="command"><pre><code><span>brew install --cask</span> <wbr /><span>hyanmandian/</span><wbr /><span>focus-diff/</span><wbr /><span>focus-diff</span></code></pre><button type="button" class="copy" data-copy aria-label="Copy the command">Copy</button></div>
+            <p>The cask checks the download against the release’s checksum, then clears the app’s quarantine flag, like the script below. <a href="https://github.com/hyanmandian/homebrew-focus-diff">The cask</a></p>
+            <p>Or download <code>Focus-Diff.dmg</code>. On macOS 15 and later:</p>
             <ol>
               <li>Open <code>Focus-Diff.dmg</code>, click <strong>Agree</strong> and drag Focus Diff to Applications.</li>
               <li>Eject the disk image and open Focus Diff from Applications. When macOS says it couldn’t verify the app, click <strong>Done</strong>, not Move to Trash.</li>
@@ -323,7 +330,7 @@
             </details>
             <details>
               <summary>Why does my computer warn me the first time?</summary>
-              <p>The app isn’t code-signed yet, so the system asks once. On a Mac, open it, then go to <strong>System Settings › Privacy &amp; Security</strong> and click <strong>Open Anyway</strong> (on macOS 14 and earlier, right-click the app and choose <strong>Open</strong>). On Windows, choose <strong>More info</strong>, then <strong>Run anyway</strong>. <a href="#manual-title">Step by step</a>.</p>
+              <p>The app isn’t code-signed yet, so the system asks once. On a Mac, open it, then go to <strong>System Settings › Privacy &amp; Security</strong> and click <strong>Open Anyway</strong> (on macOS 14 and earlier, right-click the app and choose <strong>Open</strong>). On Windows, choose <strong>More info</strong>, then <strong>Run anyway</strong>. Installed with Homebrew on a Mac, it opens with nothing to approve. <a href="#manual-title">Step by step</a>.</p>
             </details>
             <details>
               <summary>How does it update?</summary>

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/hyanmandian/focus-diff/compare/v1.3.2...v1.4.0) (2026-11-02)
+
+
+### Features
+
+* **desktop:** walk through a pull request part by part, reviewed in the same AI run, and keep every AI answer ([686b08e](https://github.com/hyanmandian/focus-diff/commit/686b08e9245d6efe4f371592c9951c83336f3f80))
+* **desktop:** walk through a pull request part by part, reviewed in the same AI run, and keep every AI answer ([0becafe](https://github.com/hyanmandian/focus-diff/commit/0becafe86b5013cec3a00946a17c029a5b1462bc))
+
 ## [1.3.2](https://github.com/hyanmandian/focus-diff/compare/v1.3.1...v1.3.2) (2026-10-30)
 
 

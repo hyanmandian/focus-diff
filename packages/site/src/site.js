@@ -32,6 +32,37 @@ const roll = (number, text) => {
     slot.style.setProperty("--n", digit ? char : "0");
   });
 };
+const separator = /[,.:/\s]/u;
+const board = (element, text, flip) => {
+  const wide = [...element.dataset.wide];
+  const chars = [...text];
+  const cells = wide
+    .toReversed()
+    .map((cell) => {
+      if (separator.test(cell)) return separator.test(chars.at(-1) ?? "") ? chars.pop() : "";
+      while (separator.test(chars.at(-1) ?? "")) chars.pop();
+      return chars.pop() ?? "";
+    })
+    .toReversed();
+  if (element.children.length !== wide.length) {
+    element.replaceChildren(
+      ...wide.map((cell) => {
+        const slot = document.createElement("span");
+        slot.className = separator.test(cell) ? "cell sep" : "cell";
+        return slot;
+      }),
+    );
+  }
+  cells.forEach((char, index) => {
+    const cell = element.children[index];
+    if (cell.textContent === char) return;
+    cell.textContent = char;
+    cell.classList.remove("flip");
+    if (!flip || !char) return;
+    cell.getBoundingClientRect();
+    cell.classList.add("flip");
+  });
+};
 const glide = (root) => {
   for (const group of root.querySelectorAll("[data-glide]")) {
     const mark = group.querySelector(".glide");
@@ -135,6 +166,10 @@ const stage = (root) => {
     count(values) {
       for (const [key, value] of Object.entries(values)) roll(root.querySelector(`[data-num="${key}"]`), value);
     },
+    boards(values) {
+      for (const [key, value] of Object.entries(values))
+        board(root.querySelector(`[data-board="${key}"]`), value, true);
+    },
     type(name) {
       const field = find(name);
       field.textContent = "";
@@ -149,24 +184,31 @@ const stage = (root) => {
   };
 };
 const filters = {
-  all: { files: "465", add: "1,204", del: "1,846", time: "3:03" },
-  web: { files: "20", add: "122", del: "273", time: "0:24" },
-  api: { files: "123", add: "815", del: "1,090", time: "1:54" },
+  all: { files: "9", add: "+910", del: "−443", time: "0:28", conv: "3" },
+  frontend: { files: "2", add: "+150", del: "−25", time: "0:07", conv: "1" },
+  backend: { files: "2", add: "+118", del: "−23", time: "0:07", conv: "1" },
+};
+const parts = {
+  1: { part: "1", wfiles: "1", wadd: "+5", wdel: "−1" },
+  2: { part: "2", wfiles: "2", wadd: "+10", wdel: "−6" },
+  3: { part: "3", wfiles: "1", wadd: "+1", wdel: "−1" },
 };
 const scenes = {
   bar: (act) =>
     chain(
       [
-        ["api", 1900],
+        ["backend", 1900],
         ["all", 1500],
-        ["web", 1800],
+        ["frontend", 1800],
       ],
       async ([key, hold]) => {
         await act.wait(900);
         await act.move(key);
         await act.click();
         act.set({ filter: key });
-        act.count(filters[key]);
+        const { conv, ...stats } = filters[key];
+        act.boards(stats);
+        act.count({ conv });
         await act.wait(hold);
       },
     ),
@@ -180,7 +222,7 @@ const scenes = {
     await act.wait(500);
     snap(act.root, () => {
       act.set({ fresh: null });
-      act.count({ review: "3", group: "2" });
+      act.count({ review: "2", all: "2", web: "1", group: "1" });
     });
     await act.move("tray", 0.55, 0.75);
     await act.click();
@@ -189,54 +231,55 @@ const scenes = {
     act.set({ toast: "" });
     await act.wait(350);
     act.set({ fresh: "" });
-    act.count({ review: "4", group: "3" });
+    act.count({ review: "4", all: "4", web: "3", group: "3" });
     await act.move(act.compact() ? [0.9, 0.64] : [0.16, 0.6]);
     await act.wait(2200);
   },
   async review(act) {
+    snap(act.root, () => act.set({ step: null, sent: null, pending: null, finish: null, kind: "comment" }));
+    act.find("field").textContent = "";
     await act.wait(900);
-    await act.move("approve", 0.85, 0.75);
+    await act.move("line-a", 0.5, 0.55);
     await act.click();
-    act.set({ approved: "" });
-    await act.wait(1300);
-    await act.move("next", 0.6, 0.75);
-    await act.click();
-    act.set({ swap: "" });
-    await act.wait(240);
-    const pr = act.root.dataset.pr === "a" ? "b" : "a";
-    snap(act.root, () => act.set({ pr, step: "fresh", approved: null }));
-    act.set({ swap: null });
-    await act.wait(900);
-    await act.move(`line-${pr}`, 0.55, 0.6);
-    act.set({ step: "hover" });
-    await act.wait(400);
-    await act.move(`plus-${pr}`, 0.6, 0.7);
+    act.set({ step: "pick" });
+    await act.move("line-b", 0.5, 0.55);
     await act.click();
     act.set({ step: "compose" });
     await act.wait(500);
-    await act.type(`field-${pr}`);
+    await act.type("field");
     await act.wait(450);
-    await act.move(`send-${pr}`, 0.8, 0.75);
+    await act.move("comment", 0.7, 0.7);
     await act.click();
-    act.set({ step: "posted" });
+    act.set({ step: "posted", pending: "" });
+    await act.wait(1000);
+    await act.move("submit", 0.6, 0.7);
+    await act.click();
+    act.set({ finish: "" });
+    await act.wait(600);
+    await act.move("kind", 0.6, 0.7);
+    await act.click();
+    act.set({ kind: "approve" });
+    await act.wait(450);
+    await act.move("approve", 0.7, 0.7);
+    await act.click();
+    act.set({ finish: null, pending: null, sent: "" });
     await act.move(act.compact() ? [0.86, 0.94] : [0.9, 0.9]);
-    await act.wait(1800);
+    await act.wait(2200);
   },
-  walk: (act) =>
-    chain(
-      [
-        ["3", 1700],
-        ["1", 1700],
-        ["2", 2000],
-      ],
-      async ([key, hold]) => {
-        await act.wait(800);
-        await act.move(`ch${key}`, 0.9, 0.8);
-        await act.click();
-        act.set({ ch: key });
-        await act.wait(hold);
-      },
-    ),
+  async walk(act) {
+    snap(act.root, () => {
+      act.set({ ch: "1" });
+      act.count(parts[1]);
+    });
+    await chain(["2", "3"], async (key) => {
+      await act.wait(key === "2" ? 1300 : 2100);
+      await act.move("next", 0.6, 0.7);
+      await act.click();
+      act.set({ ch: key });
+      act.count(parts[key]);
+    });
+    await act.wait(2000);
+  },
 };
 {
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -407,6 +450,7 @@ const scenes = {
   }
 
   const demos = [...document.querySelectorAll("[data-demo]")];
+  for (const element of document.querySelectorAll("[data-board]")) board(element, element.textContent, false);
   for (const root of demos) {
     glide(root);
     new ResizeObserver(() => snap(root, () => glide(root))).observe(root);

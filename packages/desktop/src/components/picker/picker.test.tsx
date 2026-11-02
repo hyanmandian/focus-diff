@@ -6,7 +6,7 @@ import { Button } from "@/components/button/button";
 import { Picker, type Choice } from "@/components/picker/picker";
 
 const choices: Choice[] = [
-  { id: "ana", label: "Bruno Mouse", detail: "octocat", selected: false, leading: <span>A</span> },
+  { id: "ana", label: "Bruno Mouse", detail: "bruno_mouse", selected: false, leading: <span>A</span> },
   { id: "bruno", label: "Kiko Mouse", detail: "defunkt", selected: true },
   { id: "tina", label: "Tina Mouse", detail: null, selected: false },
 ];
@@ -40,7 +40,7 @@ describe("Picker", () => {
     picker();
     await open();
     expect(screen.getByRole("listbox", { name: "Reviewers" })).toBeTruthy();
-    expect(rows()).toEqual(["Kiko Mousedefunkt", "ABruno Mouseoctocat", "Tina Mouse"]);
+    expect(rows()).toEqual(["Kiko Mousedefunkt", "ABruno Mousebruno_mouse", "Tina Mouse"]);
     expect(screen.getByRole("option", { name: /Kiko/u }).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(field());
   });
@@ -49,9 +49,9 @@ describe("Picker", () => {
     const onQuery = vi.fn<(query: string) => void>();
     picker({ onQuery });
     await open();
-    await userEvent.type(field(), "OCTO ");
-    expect(rows()).toEqual(["ABruno Mouseoctocat"]);
-    expect(onQuery).toHaveBeenLastCalledWith("OCTO");
+    await userEvent.type(field(), "BRUNO_ ");
+    expect(rows()).toEqual(["ABruno Mousebruno_mouse"]);
+    expect(onQuery).toHaveBeenLastCalledWith("BRUNO_");
     await userEvent.clear(field());
     await userEvent.type(field(), "tina");
     expect(rows()).toEqual(["Tina Mouse"]);

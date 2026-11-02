@@ -103,7 +103,7 @@ describe("emoji", () => {
     const list = emojiList({
       tada: "https://github.githubassets.com/images/icons/emoji/unicode/1f389.png?v8",
       brazil: "https://github.githubassets.com/images/icons/emoji/unicode/1f1e7-1f1f7.png?v8",
-      octocat: "https://github.githubassets.com/images/icons/emoji/octocat.png?v8",
+      bruno_mouse: "https://github.githubassets.com/images/icons/emoji/bruno_mouse.png?v8",
       potato: "https://github.githubassets.com/images/icons/emoji/unicode/1f954.png?v8",
     });
     expect(list).toEqual([

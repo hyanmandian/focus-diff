@@ -21,7 +21,7 @@ afterEach(() => {
 const signedIn: AuthStatus = {
   signed_in: true,
   source: "keychain",
-  login: "octocat",
+  login: "bruno_mouse",
   device_flow: false,
   gh_available: true,
   gh_signed_in: true,
@@ -99,7 +99,7 @@ const enter = (target: Element, key = "Enter") => {
 };
 async function toFinish(user: ReturnType<typeof userEvent.setup>) {
   render(<Setup />);
-  await screen.findByText("@octocat");
+  await screen.findByText("@bruno_mouse");
   await toAi(user);
   await next(user);
   return screen.getByRole("button", { name: "Open Focus Diff" });
@@ -118,7 +118,7 @@ async function aiStep() {
   const { saved } = answer({ config, statuses: () => Promise.resolve([ready("claude"), ready("cursor")]) });
   const user = userEvent.setup();
   render(<Setup />);
-  await screen.findByText("@octocat");
+  await screen.findByText("@bruno_mouse");
   await toAi(user);
   expect(screen.getAllByText("Ready · 1.0.0")).toHaveLength(2);
   const finish = async () => {
@@ -133,7 +133,7 @@ describe("Setup", () => {
     answer();
     render(<Setup />);
     expect(screen.getByLabelText("Loading")).toBeTruthy();
-    expect(await screen.findByText("@octocat")).toBeTruthy();
+    expect(await screen.findByText("@bruno_mouse")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Your reviews, without opening GitHub" })).toBeTruthy();
     expect(screen.getByRole("listitem", { current: "step" }).textContent).toBe("GitHub");
   });
@@ -148,7 +148,7 @@ describe("Setup", () => {
 
     auth = signedIn;
     await user.click(useGh);
-    expect(await screen.findByText("@octocat")).toBeTruthy();
+    expect(await screen.findByText("@bruno_mouse")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue" }).hasAttribute("disabled")).toBe(false);
   });
 
@@ -195,7 +195,7 @@ describe("Setup", () => {
     });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await next(user);
 
     expect(screen.getByRole("heading", { name: "Choose what to watch" })).toBeTruthy();
@@ -304,7 +304,7 @@ describe("Setup", () => {
     answer({ statuses: () => Promise.resolve([{ ...ready("claude"), outdated: true }]) });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await toAi(user);
     expect(screen.getByText("Works, but out of date: run claude update")).toBeTruthy();
   });
@@ -326,7 +326,7 @@ describe("Setup", () => {
     const { sent } = answer({ statuses: () => found.promise });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await toAi(user);
 
     expect(screen.getByLabelText("Looking for coding agents")).toBeTruthy();
@@ -346,7 +346,7 @@ describe("Setup", () => {
     const user = userEvent.setup();
     fakeOs.mac = true;
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
 
     enter(screen.getByRole("heading", { level: 1 }), "Escape");
     enter(screen.getByRole("button", { name: "Continue" }));
@@ -394,7 +394,7 @@ describe("Setup", () => {
     answer({ config });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await next(user);
     expect(screen.queryByText("acme/web")).toBeNull();
   });
@@ -405,7 +405,7 @@ describe("Setup", () => {
     const { saved, sent } = answer({ config });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await toAi(user);
     await next(user);
     await user.click(screen.getByRole("button", { name: "Open Focus Diff" }));
@@ -421,7 +421,7 @@ describe("Setup", () => {
     answer({ config });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await next(user);
     expect(screen.getByText("acme/web")).toBeTruthy();
   });
@@ -432,7 +432,7 @@ describe("Setup", () => {
     answer({ config });
     const user = userEvent.setup();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     await next(user);
     expect(screen.getByRole("button", { name: "Continue" }).hasAttribute("disabled")).toBe(true);
   });
@@ -447,7 +447,7 @@ describe("Setup", () => {
       read.settle(JSON.stringify(defaultConfig()));
       await Promise.resolve();
     });
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     const before = container.innerHTML;
     rerender(<Setup />);
     expect(container.innerHTML).toBe(before);
@@ -456,7 +456,7 @@ describe("Setup", () => {
   it("follows the language picked", async () => {
     answer();
     render(<Setup />);
-    await screen.findByText("@octocat");
+    await screen.findByText("@bruno_mouse");
     act(() => {
       setLanguage("pt-BR");
     });

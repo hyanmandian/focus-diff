@@ -7,11 +7,11 @@ describe("Avatar", () => {
   it("shows the initials until a picture loads", () => {
     render(
       <Avatar>
-        <AvatarImage src="https://example.com/octocat.png" alt="octocat" />
-        <AvatarFallback>OC</AvatarFallback>
+        <AvatarImage src="https://example.com/bruno_mouse.png" alt="bruno_mouse" />
+        <AvatarFallback>BR</AvatarFallback>
       </Avatar>,
     );
-    expect(screen.getByText("OC")).toBeTruthy();
+    expect(screen.getByText("BR")).toBeTruthy();
     expect(screen.queryByRole("img")).toBeNull();
   });
 });
@@ -21,10 +21,10 @@ describe("Face", () => {
     render(
       <>
         <Face actor={null} />
-        <Face actor={{ login: "octocat" }} />
+        <Face actor={{ login: "bruno_mouse" }} />
       </>,
     );
     expect(screen.getByText("?")).toBeTruthy();
-    expect(screen.getByText("OC")).toBeTruthy();
+    expect(screen.getByText("BR")).toBeTruthy();
   });
 });

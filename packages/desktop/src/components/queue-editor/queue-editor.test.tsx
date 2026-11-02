@@ -155,8 +155,8 @@ describe("QueueEditor", () => {
     const { user, last } = setup(make("custom"));
     await user.click(screen.getByRole("switch", { name: /opened by bots/u }));
     expect(last().hideBots).toBe(false);
-    await user.type(screen.getByRole("textbox", { name: "Authors to leave out" }), "octocat{Enter}");
-    expect(last().excludeAuthors).toEqual(["octocat"]);
+    await user.type(screen.getByRole("textbox", { name: "Authors to leave out" }), "bruno_mouse{Enter}");
+    expect(last().excludeAuthors).toEqual(["bruno_mouse"]);
     await user.type(screen.getByRole("textbox", { name: "Approvers to leave out" }), "hubot{Enter}");
     expect(last().skipApprovedBy).toEqual(["hubot"]);
     await user.type(screen.getByRole("textbox", { name: "Labels to require" }), "urgent{Enter}");

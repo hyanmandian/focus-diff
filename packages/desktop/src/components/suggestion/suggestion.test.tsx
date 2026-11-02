@@ -15,7 +15,7 @@ const SUGGESTION = "Try this:\n```suggestion\nconst total = 2;\n```";
 const comment = (extra: Partial<ThreadComment> = {}): ThreadComment => ({
   id: "C_1",
   databaseId: 1,
-  author: { login: "octocat", name: "Bruno Mouse" },
+  author: { login: "bruno_mouse", name: "Bruno Mouse" },
   authorId: 583231,
   html: "",
   at: "2026-10-20T10:00:00Z",
@@ -42,7 +42,7 @@ const applied: Applied = {
   start: 12,
   end: 12,
   lines: ["const total = 2;"],
-  author: { login: "octocat", name: "Bruno Mouse", databaseId: 583231 },
+  author: { login: "bruno_mouse", name: "Bruno Mouse", databaseId: 583231 },
 };
 
 const withApi = (api: ConversationApi | null) =>

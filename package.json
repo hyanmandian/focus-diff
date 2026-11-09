@@ -30,6 +30,6 @@
   },
   "devDependencies": {
     "minimatch": "^11.0.4",
-    "multimatch": "^7.0.0"
+    "multimatch": "^8.0.0"
   }
 }

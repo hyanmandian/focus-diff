@@ -13,7 +13,7 @@
   "devDependencies": {
     "html-minifier-terser": "^7.2.0",
     "jscpd": "^5.4.2",
-    "knip": "^6.43.0",
+    "knip": "^6.44.1",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0"
   }

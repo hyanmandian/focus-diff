@@ -29,7 +29,7 @@
     "fsevents@2.3.3": true
   },
   "devDependencies": {
-    "minimatch": "^11.0.4",
-    "multimatch": "^7.0.0"
+    "minimatch": "^11.0.5",
+    "multimatch": "^8.0.0"
   }
 }

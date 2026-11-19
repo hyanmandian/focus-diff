@@ -583,7 +583,7 @@ export function MarkdownField({
                 if (point?.offsetNode === el) el.setSelectionRange(point.offset, point.offset);
                 attach([...e.dataTransfer.files]);
               }}
-              className="resize-y"
+              className="resize-y field-sizing-fixed"
             />
             {open ? (
               <ul

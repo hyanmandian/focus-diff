@@ -609,6 +609,15 @@ describe("NewComment", () => {
       expect(tab("Ask AI").getAttribute("aria-selected")).toBe("true");
     });
 
+    it("keeps a fixed height so the resize grip can expand the question box", async () => {
+      const user = userEvent.setup();
+      newComment({ ask: vi.fn<Ask>() });
+      await user.click(tab("Ask Claude"));
+      expect(question().className).toMatch(/\bresize-y\b/);
+      expect(question().className).toMatch(/\bfield-sizing-fixed\b/);
+      expect(question().className).not.toMatch(/\bfield-sizing-content\b/);
+    });
+
     it("asks with Enter, keeps the conversation going, and turns an answer into a comment", async () => {
       const user = userEvent.setup();
       const first = deferred<AiAnswer>();

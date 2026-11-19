@@ -125,7 +125,7 @@ function Share({ filters, onImport }: { filters: DiffFilter[]; onImport: (next: 
           spellCheck={false}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className="resize-y font-mono text-callout"
+          className="resize-y field-sizing-fixed font-mono text-callout"
         />
         <div className="flex items-center gap-3">
           <Button variant="outline" disabled={!text.trim()} onClick={doImport}>

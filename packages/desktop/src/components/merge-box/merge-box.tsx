@@ -248,7 +248,7 @@ export function MergeBox({ details, pull }: Props) {
                       edit(chosen, message, { body: e.target.value });
                     }}
                     aria-label={t("manage.commitBody")}
-                    className="resize-y font-mono text-callout"
+                    className="resize-y field-sizing-fixed font-mono text-callout"
                   />
                 </div>
               </CollapsibleContent>

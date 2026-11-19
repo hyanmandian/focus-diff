@@ -29,6 +29,7 @@ type Options = {
   themeType: string;
   enableGutterUtility: boolean;
   enableLineSelection: boolean;
+  onGutterUtilityClick?: (range: SelectedLineRange, latest?: { item?: { id: string } }) => void;
   onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => void;
   onLineEnter: (line: { lineNumber: number; annotationSide?: "additions" | "deletions" }, context?: object) => void;
   onLineLeave: () => void;
@@ -45,7 +46,7 @@ type ViewProps = {
   ref?: Ref<Handle>;
   items: Item[];
   options: Options;
-  renderGutterUtility: (getHovered: () => Hovered | undefined, item: Item) => ReactNode;
+  renderGutterUtility?: (getHovered: () => Hovered | undefined, item: Item) => ReactNode;
   renderHeaderMetadata: (item: Item) => ReactNode;
   renderAnnotation: (annotation: Annotation, diff: unknown, item: Item) => ReactNode;
   renderCodeViewFooter: () => ReactNode;
@@ -73,7 +74,7 @@ function FakeCodeView({ ref, ...view }: ViewProps) {
       {view.items.map((entry) => (
         <section key={entry.id} aria-label={entry.id} data-collapsed={String(entry.collapsed)} data-type={entry.type}>
           <div>{view.renderHeaderMetadata(entry)}</div>
-          {view.renderGutterUtility(() => lib.hovered, entry)}
+          {view.renderGutterUtility?.(() => lib.hovered, entry)}
           {entry.annotations?.map((a) => (
             <div key={`${a.metadata.kind}:${a.side}:${a.lineNumber}`} data-at={`${a.side}:${a.lineNumber}`}>
               {view.renderAnnotation(a, entry.fileDiff, entry)}
@@ -424,6 +425,8 @@ describe("Diffs", () => {
         enableGutterUtility: true,
         enableLineSelection: true,
       });
+      expect(typeof options().onGutterUtilityClick).toBe("function");
+      expect(lib.props!.renderGutterUtility).toBeUndefined();
       expect(
         screen
           .getByTestId("code-view")
@@ -437,6 +440,7 @@ describe("Diffs", () => {
         enableGutterUtility: false,
         enableLineSelection: false,
       });
+      expect(options().onGutterUtilityClick).toBeUndefined();
       expect(options().loadDiffFiles).toBeUndefined();
     });
 
@@ -552,18 +556,34 @@ describe("Diffs", () => {
       expect(screen.queryByText(/New comment/u)).toBeNull();
     });
 
-    it("comments on a line from the + beside it", async () => {
-      const user = setup();
+    it("comments on a line from the + beside it", () => {
       draw();
-      const plus = screen.getByRole("button", { name: "Comment on this line" });
-      await user.click(plus);
-      expect(screen.queryByText(/New comment/u)).toBeNull();
-      lib.hovered = { lineNumber: 1, side: "deletions" };
-      await user.click(plus);
+      act(() => {
+        options().onGutterUtilityClick?.(
+          { start: 1, end: 1, side: "deletions", endSide: "deletions" },
+          { item: { id: CART.path } },
+        );
+      });
       expect(screen.getByText("New comment on line 1 of src/cart.ts")).toBeTruthy();
       expect(file(CART.path).querySelector('[data-at="deletions:1"]')).toBeTruthy();
-      lib.hovered = { lineNumber: 4 };
-      await user.click(plus);
+      act(() => {
+        options().onGutterUtilityClick?.(
+          { start: 4, end: 4, side: "additions", endSide: "additions" },
+          { item: { id: CART.path } },
+        );
+      });
+      expect(file(CART.path).querySelector('[data-at="additions:4"]')).toBeTruthy();
+    });
+
+    it("comments on lines dragged from the + beside them", () => {
+      draw();
+      act(() => {
+        options().onGutterUtilityClick?.(
+          { start: 2, end: 4, side: "additions", endSide: "additions" },
+          { item: { id: CART.path } },
+        );
+      });
+      expect(screen.getByText("New comment on lines 2–4 of src/cart.ts")).toBeTruthy();
       expect(file(CART.path).querySelector('[data-at="additions:4"]')).toBeTruthy();
     });
 
@@ -739,7 +759,7 @@ describe("Diffs", () => {
       const user = setup();
       const { p } = draw({ files: [CART, OLD] });
       over(CART.path, 3);
-      rightClick(within(file(CART.path)).getByRole("button", { name: "Comment on this line" }));
+      rightClick();
       const menu = await screen.findByRole("menu");
       await user.click(within(menu).getByRole("menuitem", { name: "Comment…" }));
       expect(screen.getByText("New comment on line 3 of src/cart.ts")).toBeTruthy();

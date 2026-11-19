@@ -10,7 +10,7 @@ import {
   type SelectedLineRange,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { BookOpen, Code, MessageSquarePlus, MoreHorizontal, Plus } from "lucide-react";
+import { BookOpen, Code, MessageSquarePlus, MoreHorizontal } from "lucide-react";
 import { useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 
 import { Button } from "@/components/button/button";
@@ -147,7 +147,15 @@ const renderedItem = (file: ReviewFile, key: number, collapsed: boolean): CodeVi
 });
 const RENDERED_CSS = "pre[data-file] [data-line], pre[data-file] [data-column-number] { display: none; }";
 const GUTTER_CSS = `[data-gutter-utility-slot] { right: auto; left: calc(100% - 4px); justify-content: flex-start; align-items: center; z-index: 2; }
-[data-selected-line] [data-gutter-utility-slot] { display: none; }
+[data-utility-button] {
+  display: flex; align-items: center; justify-content: center;
+  width: 1.25rem; height: 1.25rem; padding: 0; border: 0; border-radius: 5px; cursor: default;
+  color: var(--primary-foreground); background: var(--primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+[data-utility-button]:hover { filter: brightness(1.1); }
+[data-utility-button]:active { filter: brightness(0.9); }
+[data-utility-button] [data-icon] { width: 0.875rem; height: 0.875rem; }
 [data-column-number][data-selected-line], [data-gutter-buffer][data-selected-line] { color: var(--diffs-selection-number-fg-override); }`;
 const FIND_CSS = `::highlight(find) { background-color: rgb(255 204 0 / 0.4); }
 ::highlight(find-current) { background-color: rgb(255 149 0 / 0.9); color: black; }`;
@@ -438,9 +446,19 @@ export function Diffs({ ref, ...props }: Props & { ref?: Ref<DiffsHandle> }) {
       unsafeCSS: `${RENDERED_CSS}\n${GUTTER_CSS}\n${FIND_CSS}`,
       onPostRender: (node: HTMLElement) => {
         labelExpandButtons(node, t);
+        for (const button of node.querySelectorAll<HTMLButtonElement>("[data-utility-button]")) {
+          if (!button.getAttribute("aria-label")) button.setAttribute("aria-label", t("review.commentOnLine"));
+        }
         if (found.current.query) paintFound(viewer.current?.getInstance(), found.current);
       },
       enableLineSelection: commentable,
+      ...(commentable
+        ? {
+            onGutterUtilityClick: (range: SelectedLineRange, latest?: { item?: { id: string } }) => {
+              if (latest?.item) setOpen(pull, { path: latest.item.id, range });
+            },
+          }
+        : {}),
       onLineSelectionEnd: (range: SelectedLineRange | null, latest?: { item?: { id: string } }) => {
         if (range && latest?.item) setOpen(pull, { path: latest.item.id, range });
       },
@@ -574,24 +592,6 @@ export function Diffs({ ref, ...props }: Props & { ref?: Ref<DiffsHandle> }) {
             className="selectable min-h-0 flex-1"
             style={{ height: "100%", overflow: "auto", paddingBottom: 72 }}
             options={options}
-            renderGutterUtility={(getHovered, item) => (
-              <button
-                type="button"
-                aria-label={t("review.commentOnLine")}
-                onClick={() => {
-                  const line = getHovered();
-                  if (!line) return;
-                  const side: Side = "side" in line && line.side === "deletions" ? "deletions" : "additions";
-                  setComposing({
-                    path: item.id,
-                    range: { start: line.lineNumber, end: line.lineNumber, side, endSide: side },
-                  });
-                }}
-                className="flex size-5 cursor-default items-center justify-center rounded-[5px] bg-primary text-primary-foreground shadow-[0_1px_2px_rgb(0_0_0/0.3)] hover:brightness-110 active:brightness-90"
-              >
-                <Plus className="size-3.5" strokeWidth={2.5} aria-hidden />
-              </button>
-            )}
             renderHeaderMetadata={(item) => {
               const file = filesByPath.get(item.id);
               if (!file) return null;

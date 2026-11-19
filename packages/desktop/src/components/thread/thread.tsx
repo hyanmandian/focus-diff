@@ -664,7 +664,7 @@ export function NewComment({
                   onCancel();
                 }
               }}
-              className="resize-y"
+              className="resize-y field-sizing-fixed"
             />
           </>
         ) : (

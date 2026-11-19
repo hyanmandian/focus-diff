@@ -130,6 +130,13 @@ describe("MarkdownField", () => {
     expect(document.activeElement).not.toBe(field());
   });
 
+  it("keeps a fixed height so the resize grip can expand the comment box", () => {
+    render(<Field />);
+    expect(field().className).toMatch(/\bresize-y\b/);
+    expect(field().className).toMatch(/\bfield-sizing-fixed\b/);
+    expect(field().className).not.toMatch(/\bfield-sizing-content\b/);
+  });
+
   it("only writes outside a review window: no preview, completions, attachments or saved replies", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn<(value: string) => void>();

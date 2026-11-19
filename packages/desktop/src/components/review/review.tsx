@@ -223,7 +223,7 @@ function SubmitReview({
             }}
             placeholder={t("review.leaveComment")}
             aria-label={t("review.reviewComment")}
-            className="resize-y"
+            className="resize-y field-sizing-fixed"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();

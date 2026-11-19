@@ -68,7 +68,7 @@ function CommitPopover({
           }}
           placeholder={t("review.commitBody")}
           aria-label={t("review.commitBody")}
-          className="resize-y"
+          className="resize-y field-sizing-fixed"
         />
         <p className="text-callout text-muted-foreground">{t("review.commitsTo", { branch: api.branch })}</p>
         {error ? (
